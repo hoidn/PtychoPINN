@@ -1,0 +1,3 @@
+[submodule "PtychoNN"]
+	path = PtychoNN
+	url = https://github.com/mcherukara/PtychoNN
