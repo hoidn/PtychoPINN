@@ -26,7 +26,7 @@ def mk_lines_img():
     res = np.zeros((N, N, 3))
     #res[:, :, :] = dilated[..., None]
     res[:, :, :] = image[..., None]
-    return f.gf(res, 1) + 2 * f.gf(res, 5) + 10 * f.gf(res, 10)
+    return f.gf(res, 1) + 2 * f.gf(res, 5) + 5 * f.gf(res, 10)
 
 
 ds_lines = {'train':  tf.data.Dataset.from_tensor_slices([tf.convert_to_tensor(mk_lines_img()) for _ in range(500)])}
