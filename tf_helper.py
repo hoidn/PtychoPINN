@@ -69,16 +69,18 @@ def pad_and_diffract(input, h, w, pad = True):
     padded = input
     #sequential.add(tfk.Input(shape = (N, N, 1)))
     #sequential.add(Lambda(lambda inp: tprobe * inp))
-
+    assert input.shape[-1] == 1
     input = (Lambda(lambda resized: (fft2d(
-        tf.squeeze(tf.cast(resized, tf.complex64))
+        #tf.squeeze # this destroys shape information so need to use slicing instead
+        (tf.cast(resized, tf.complex64))[..., 0] 
         ))))(input)
     input = (Lambda(lambda X: tf.math.real(tf.math.conj(X) * X) / (h * w)))(input)
     input = (Lambda(lambda psd: 
                           tf.expand_dims(
                               tf.math.sqrt(
             fftshift(psd, (-2, -1))
-                                   ), 3)))(input)
+                                   ), 3),
+        name = 'pred_amplitude'))(input)
     return padded, input
 
 

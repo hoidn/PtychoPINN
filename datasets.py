@@ -19,14 +19,14 @@ from xrdc import fourier as f
 
 def mk_lines_img():
     image = np.zeros((N, N))
-    for _ in range(6):
+    for _ in range(10):
         rr, cc = draw.line(mk_rand(), mk_rand(), mk_rand(), mk_rand())
         image[rr, cc] = 1
     #dilated = morphology.dilation(image, morphology.disk(radius=1))
     res = np.zeros((N, N, 3))
     #res[:, :, :] = dilated[..., None]
     res[:, :, :] = image[..., None]
-    return f.gf(res, 1) + 2 * f.gf(res, 5)
+    return f.gf(res, 1) + 2 * f.gf(res, 5) + 10 * f.gf(res, 10)
 
 
 ds_lines = {'train':  tf.data.Dataset.from_tensor_slices([tf.convert_to_tensor(mk_lines_img()) for _ in range(500)])}
