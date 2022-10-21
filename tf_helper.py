@@ -57,15 +57,16 @@ def combine_complex(amp, phi):
         1j * tf.cast(phi, tf.complex64))
     return output
 
+def pad_obj(input, h, w):
+    return tfkl.ZeroPadding2D((h // 4, w // 4), name = 'padded_obj')(input)
+
 #@tf.function
 def pad_and_diffract(input, h, w, pad = True):
     """
     zero-pad the real-space object and then calculate the far field diffraction amplitude
     """
-    padder = tfkl.ZeroPadding2D((h // 4, w // 4), name = 'padded_obj')
-
     if pad:
-        input = padder(input)
+        input = pad_obj(input, h, w)
     padded = input
     #sequential.add(tfk.Input(shape = (N, N, 1)))
     #sequential.add(Lambda(lambda inp: tprobe * inp))
