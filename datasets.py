@@ -17,7 +17,7 @@ N = 64
 
 from xrdc import fourier as f
 
-def mk_lines_img():
+def mk_lines_img(N = 64):
     image = np.zeros((N, N))
     for _ in range(10):
         rr, cc = draw.line(mk_rand(), mk_rand(), mk_rand(), mk_rand())
