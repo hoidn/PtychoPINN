@@ -84,6 +84,27 @@ def pad_and_diffract(input, h, w, pad = True):
         name = 'pred_amplitude'))(input)
     return padded, input
 
+def pd2(input, h, w, pad = True):
+    """
+    zero-pad the real-space object and then calculate the far field diffraction amplitude
+    """
+    if pad:
+        input = pad_obj(input, h, w)
+    padded = input
+    #sequential.add(tfk.Input(shape = (N, N, 1)))
+    #sequential.add(Lambda(lambda inp: tprobe * inp))
+    input = (Lambda(lambda resized: (fft2d(
+        #tf.squeeze # this destroys shape information so need to use slicing instead
+        (tf.cast(resized, tf.complex64)) 
+        ))))(input)
+    input = (Lambda(lambda X: tf.math.real(tf.math.conj(X) * X) / (h * w)))(input)
+    input = (Lambda(lambda psd: 
+                              tf.math.sqrt(
+            fftshift(psd, (-2, -1))
+                                   ),
+        name = 'pred_amplitude'))(input)
+    return padded, input
+
 
 #prior = tfd.Independent(tfd.Normal(loc=tf.zeros(encoded_size), scale=1),
 #                        reinterpreted_batch_ndims=1)
