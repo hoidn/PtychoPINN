@@ -1,12 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def display_imgs(x, y=None, log = False, cbar = False, **kwargs):
+def display_imgs(x, y=None, log = False, cbar = False, figsize=(10, 2), **kwargs):
   if not isinstance(x, (np.ndarray, np.generic)):
     x = np.array(x)
   #plt.ioff()
   n = x.shape[0]
-  fig, axs = plt.subplots(1, n, figsize=(n, 2))
+  fig, axs = plt.subplots(1, n, figsize = figsize)
   if y is not None:
     fig.suptitle(np.argmax(y, axis=1))
   for i in range(n):
