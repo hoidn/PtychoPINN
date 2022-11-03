@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from scipy.fft import fft, fftfreq, ifft, fft2, ifft2
+from scipy.fft import fft, fftfreq, ifft, fft2, ifft2, ifftshift
 from scipy.signal import blackman
 import matplotlib.pyplot as plt
 from scipy.fftpack import fft, fftshift
@@ -138,7 +138,7 @@ def do_rl(sig, window_width = 4, peak_width = 2, window_type = 'gaussian',
     
 def conv_window(sig, mode = 'same'):
     tmp = np.real(np.sqrt(fft(window) * np.conjugate(fft(window))))
-    return np.convolve(sig, tmp / tmp.max(), mode =mode)#if_mag(clip_low(ywf, .01) * window)
+    return np.convolve(sig, tmp / tmp.max(), mode =mode)#if_mag
 
 def filter_bg(patterns, i, smooth = 1.5, window_type = 'gaussian', blackman = True,
              deconvolve = False, invert = False, **kwargs):
@@ -160,45 +160,4 @@ def filter_bg(patterns, i, smooth = 1.5, window_type = 'gaussian', blackman = Tr
     if deconvolve:
         sig = do_rl(sig, cutoff, 2.2)
     sig = gf(sig, smooth)
-    return sig[1000: -1000]#, mask[1000: -1000]
-
-def spec_fft_2(pattern, pad = 1000, roll = 0, do_conv_window = False, do_window = True, log = False):
-    if log:
-        y = np.pad(np.log(pattern + 1), pad, mode = 'edge')
-    else:
-        y = np.pad(pattern, pad, mode = 'edge')
-    y = np.roll(y, roll)
-    # Number of sample points
-    N = y.shape[0]
-    w = blackman(N)
-    #w = 1
-    #yf = fft(y * w)
-    if do_window:
-        ywf = fft(y*w)
-    else:
-        ywf = fft(y)
-    if do_conv_window:
-        ywf = conv_window(ywf)
-    return w, ywf
-
-def filter_bg_2(pattern, smooth = 1.5, window_type = 'gaussian', blackman = True,
-             deconvolve = False, invert = False, **kwargs):
-    cutoff = 4
-    window, ywf = spec_fft_2(pattern, 1000)
-    if window_type == 'gaussian': #todo inversion
-        sig = if_mag(patterns, highpass_g(cutoff, ywf) * ywf, **kwargs)
-    elif window_type == 'step': # hard step
-        clipped, mask = clip_low(ywf, .001, invert = invert)
-        if blackman:
-            if invert:
-                window = 1 - window
-            mask *= window
-            sig = if_mag(clipped * window, **kwargs)
-        else:
-            sig = if_mag(clipped, **kwargs)
-    else:
-        raise ValueError
-    if deconvolve:
-        sig = do_rl(sig, cutoff, 2.2)
-    sig = gf(sig, smooth)
-    return sig[1000: -1000]#, mask[1000: -1000]
+    return sig[1000: -1000]

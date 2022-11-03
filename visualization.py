@@ -20,4 +20,3 @@ def display_imgs(x, y=None, log = False, cbar = False, figsize=(10, 2), **kwargs
   plt.show()
   plt.close()
   plt.ion()
-
