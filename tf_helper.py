@@ -34,11 +34,6 @@ def get_mask(input, support_threshold):
                     tf.zeros_like(input))
     return mask
 
-@tf.function
-def add_support(input):
-    mask = get_mask(input)
-    return input * tf.cast(mask, tf.float32)
-
 def resize(x):
     rmod = do_resize()
     rmod.compile(loss = 'mse')
@@ -81,27 +76,6 @@ def pad_and_diffract(input, h, w, pad = True):
                               tf.math.sqrt(
             fftshift(psd, (-2, -1))
                                    ), 3),
-        name = 'pred_amplitude'))(input)
-    return padded, input
-
-def pd2(input, h, w, pad = True):
-    """
-    zero-pad the real-space object and then calculate the far field diffraction amplitude
-    """
-    if pad:
-        input = pad_obj(input, h, w)
-    padded = input
-    #sequential.add(tfk.Input(shape = (N, N, 1)))
-    #sequential.add(Lambda(lambda inp: tprobe * inp))
-    input = (Lambda(lambda resized: (fft2d(
-        #tf.squeeze # this destroys shape information so need to use slicing instead
-        (tf.cast(resized, tf.complex64)) 
-        ))))(input)
-    input = (Lambda(lambda X: tf.math.real(tf.math.conj(X) * X) / (h * w)))(input)
-    input = (Lambda(lambda psd: 
-                              tf.math.sqrt(
-            fftshift(psd, (-2, -1))
-                                   ),
         name = 'pred_amplitude'))(input)
     return padded, input
 

@@ -3,7 +3,7 @@ from tensorflow.signal import fft2d, fftshift
 
 import tensorflow as tf
 from xrdc import fourier
-def mk_rand():
+def mk_rand(N):
     return int(N * np.random.uniform())
 
 import numpy as np
@@ -17,19 +17,24 @@ N = 64
 
 from xrdc import fourier as f
 
-def mk_lines_img(N = 64):
+def mk_lines_img(N = 64, nlines = 10):
     image = np.zeros((N, N))
-    for _ in range(10):
-        rr, cc = draw.line(mk_rand(), mk_rand(), mk_rand(), mk_rand())
+    for _ in range(nlines):
+        rr, cc = draw.line(mk_rand(N), mk_rand(N), mk_rand(N), mk_rand(N))
         image[rr, cc] = 1
     #dilated = morphology.dilation(image, morphology.disk(radius=1))
     res = np.zeros((N, N, 3))
     #res[:, :, :] = dilated[..., None]
     res[:, :, :] = image[..., None]
-    return f.gf(res, 1) + 2 * f.gf(res, 5) + 5 * f.gf(res, 10)
+    return f.gf(res, 1) + 5 * f.gf(res, 10)
+    #return f.gf(res, 1) + f.gf(res, 10)
+    #return f.gf(res, 1) + 2 * f.gf(res, 5) + 5 * f.gf(res, 10)
 
 
-ds_lines = {'train':  tf.data.Dataset.from_tensor_slices([tf.convert_to_tensor(mk_lines_img()) for _ in range(500)])}
+def mk_noise(N = 64, nlines = 10):
+    return np.random.uniform(size = N * N).reshape((N, N, 1))
+
+#ds_lines = {'train':  tf.data.Dataset.from_tensor_slices([tf.convert_to_tensor(mk_lines_img()) for _ in range(500)])}
 
 def do_forward(sequential = None):
     """
@@ -106,32 +111,32 @@ def _preprocess(sample):
     image = rmod(image)#rmod.predict(image)
     return image, image, orig
 
-ds = mk_ds_slices('train', ds_lines)
+#ds = mk_ds_slices('train', ds_lines)
 
-DATASET_SIZE = len(ds)
-train_size = int(0.8 * DATASET_SIZE)
-# val_size = int(0.4 * DATASET_SIZE)
-test_size = int(0.2 * DATASET_SIZE)
-
-full_dataset = ds#tf.data.TFRecordDataset(FLAGS.input_file)
-# full_dataset = full_dataset.shuffle(int(10e3))
-train_dataset = full_dataset.take(train_size)
-test_dataset = full_dataset.skip(train_size)
-# val_dataset = test_dataset.skip(test_size)
-test_dataset = test_dataset.take(test_size)
-
-#train_dataset = (train_dataset
-#                 .batch(128)
-#                 .map(_preprocess)
-#                 .cache()
-#                 .prefetch(tf.data.AUTOTUNE)
-#                 .shuffle(int(10e3))
-#                )
+#DATASET_SIZE = len(ds)
+#train_size = int(0.8 * DATASET_SIZE)
+## val_size = int(0.4 * DATASET_SIZE)
+#test_size = int(0.2 * DATASET_SIZE)
 #
+#full_dataset = ds#tf.data.TFRecordDataset(FLAGS.input_file)
+## full_dataset = full_dataset.shuffle(int(10e3))
+#train_dataset = full_dataset.take(train_size)
+#test_dataset = full_dataset.skip(train_size)
+## val_dataset = test_dataset.skip(test_size)
+#test_dataset = test_dataset.take(test_size)
 #
-#eval_dataset = (test_dataset
-#                .batch(128)
-#                .map(_preprocess)
-#                .cache()
-#                .prefetch(tf.data.AUTOTUNE))
-#
+##train_dataset = (train_dataset
+##                 .batch(128)
+##                 .map(_preprocess)
+##                 .cache()
+##                 .prefetch(tf.data.AUTOTUNE)
+##                 .shuffle(int(10e3))
+##                )
+##
+##
+##eval_dataset = (test_dataset
+##                .batch(128)
+##                .map(_preprocess)
+##                .cache()
+##                .prefetch(tf.data.AUTOTUNE))
+##
