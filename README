@@ -1,0 +1,37 @@
+TODOs
+
+* make the model robust to arbitrary scaling/incorrect normalization of the diffracted intensity
+* other ideas: fft based loss, gradient loss, vq-vae https://www.tensorflow.org/tutorials/generative/style_transfer#define_content_and_style_representations
+* probe-based vs reconstruction-based support?
+
+* Use perceptual loss for reconstruction. Need to set the weights. Read Perceptual Losses for Real-Time Style Transfer
+and Super-Resolution
+* Reflection invariance: do augmentation to reflect this. (done / n/a)
+* consistency check on magnitude constraint (done)
+* Fully Convolutional Networks for Semantic Segmentation, explore and discuss. Make a slide explaining the idea.
+* Try MC Dropout https://arxiv.org/pdf/1511.02680.pdf
+* Put poisson likelihood into data (done)
+* read deep ensembles https://arxiv.org/pdf/1612.01474.pdf
+* overlap condition -> resolution? 
+* what does trainable option do?
+* paper that ashwin mentioned
+
+
+* sub-pixel shifting
+* lit review
+* hard constraint on diffraction norm using projection, consider tf.keras.constraints.MinMaxNorm
+* stochastic probe
+* probe symmetry consequences
+* add an object normalization layer that uses the L2 norm
+* how do super resolution models handle high resolutions?
+* shift invariance
+* grid permutation
+* fourier ring correlation
+
+high priority (descending):
+
+* extension to full, high-resolution objects and comparison to ptychoNN (done but needs refactor)
+* implement an "inside out autoencoder"
+* metric comparison for both training and eval (inc. with 50 percent cutoff frequency of mtf)
+* probe fitting
+* study robustness impact of Poisson likelihood
