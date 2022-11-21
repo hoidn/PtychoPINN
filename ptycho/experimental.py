@@ -65,24 +65,6 @@ def preprocess_experimental(which):
     #pdb.set_trace()
     return physics.preprocess_objects(Y_I, Y_phi)
 
-@tf.function
-def extract_patches(x, N):
-    return tf.compat.v1.extract_image_patches(
-        x,
-        [1, N, N, 1],
-        [1, offset_experimental,offset_experimental, 1],
-        [1, 1, 1, 1],
-        padding="VALID"
-    )
-
-@tf.function
-def extract_patches_inverse(x, y, N):
-    _x = tf.zeros_like(x)
-    _y = extract_patches(_x, N)
-    grad = tf.gradients(_y, _x)[0]
-    # Divide by grad, to "average" together the overlapping patches
-    # otherwise they would simply sum up
-    return tf.gradients(_y, _x, grad_ys=y)[0] / grad
 
 X_train = data_diffr_red[:nlines,:].reshape(-1,h,w)[:,:,:,np.newaxis]
 X_test = data_diffr_red[tst_strt:,tst_strt:].reshape(-1,h,w)[:,:,:,np.newaxis]
@@ -104,10 +86,10 @@ tmp1, tmp2 = Y_I_train, Y_I_test
 
 img = np.zeros((544, 544), dtype = 'float32')[None, ..., None]
 offset_experimental = 3
-inverted_patches_I = extract_patches_inverse(img, amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
-                                               N)
-inverted_patches_phi = extract_patches_inverse(img, ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
-                                                 N)
+inverted_patches_I = hh.extract_patches_inverse(img, amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
+                                               N, offset_experimental)
+inverted_patches_phi = hh.extract_patches_inverse(img, ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
+                                                 N, offset_experimental)
 
 # X_train = np.array(hh.pad_and_diffract(Y_I_train, h, w, pad=False)[1])
 # X_test = np.array(hh.pad_and_diffract(Y_I_test, h, w, pad=False)[1])
