@@ -8,8 +8,7 @@ def get_bigN():
     return N + (gridsize - 1) * offset
 
 def params():
-    from copy import deepcopy
-    d = deepcopy(cfg)
+    d = {k:v for k, v in cfg.items()}
     d['bigN'] = get_bigN()
     return d
-    
+

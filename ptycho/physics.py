@@ -18,7 +18,7 @@ def scale_nphotons(padded_obj):
     """
     Calculate the object amplitude normalization factor that gives the desired
     *expected* number of observed photons, averaged over an entire dataset.
-    
+
     Returns a single scalar.
     """
     mean_photons = tf.math.reduce_mean(count_photons(padded_obj))
@@ -54,31 +54,34 @@ def diffract_obj(sample):
     observed_amp = observe_amplitude(amplitude)
     return observed_amp
 
-def illuminate_and_diffract(Y_I_train, Y_phi_train, probe, intensity_scale = None):    
-    Y_I_train = Y_I_train *  probe[None, ..., None]
-    batch_size = params()['batch_size'] 
-    
-    if intensity_scale is None:
-        intensity_scale = scale_nphotons(Y_I_train).numpy()
+def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
+    Y_I = Y_I *  probe[None, ..., None]
+    batch_size = params()['batch_size']
 
-    obj_train = intensity_scale * hh.combine_complex(Y_I_train, Y_phi_train)
-    Y_I_train = tf.math.abs(obj_train)
+    if intensity_scale is None:
+        intensity_scale = scale_nphotons(Y_I).numpy()
+
+    obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
+    tmp = Y_I
+    Y_I = tf.math.abs(obj)# TODO
+    #assert (Y_I == intensity_scale * tmp).numpy().all()
 
     # Simulate diffraction
-    X_train = (tf.data.Dataset.from_tensor_slices(obj_train)
+    X = (tf.data.Dataset.from_tensor_slices(obj)
                .batch(batch_size)
                .prefetch(tf.data.AUTOTUNE)
                .map(diffract_obj)
                .cache())
-    X_train = np.vstack(list(iter(X_train)))
-    X_train, Y_I_train, Y_phi_train =\
-        X_train / intensity_scale, Y_I_train / intensity_scale, Y_phi_train
-    
+    X = np.vstack(list(iter(X)))
+    X, Y_I, Y_phi =\
+        X / intensity_scale, Y_I / intensity_scale, Y_phi
+
     # TODO consolidate
-    X_train, Y_I_train, Y_phi_train =\
-        hh.togrid(X_train, Y_I_train, Y_phi_train)
-    
-    X_train, Y_I_train, Y_phi_train =\
-        hh.grid_to_channel(X_train, Y_I_train, Y_phi_train)
-    
-    return X_train, Y_I_train, Y_phi_train, intensity_scale
+    X, Y_I, Y_phi =\
+        hh.togrid(X, Y_I, Y_phi)
+
+    X, Y_I, Y_phi =\
+        hh.grid_to_channel(X, Y_I, Y_phi)
+
+    return X, Y_I, Y_phi, intensity_scale
+
