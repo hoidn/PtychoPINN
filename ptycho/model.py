@@ -48,22 +48,35 @@ for file in files:
 
 input_img = Input(shape=(h, w, gridsize**2), name = 'input')
 
-x = hh.Conv_Pool_block(input_img,32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
-x = hh.Conv_Pool_block(x,64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+#x = hh.Conv_Pool_block(input_img,32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+#x = hh.Conv_Pool_block(x,64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+#x = hh.Conv_Pool_block(x,128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+
+x = hh.Conv_Pool_block(input_img,64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 x = hh.Conv_Pool_block(x,128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+x = hh.Conv_Pool_block(x,256,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 
 encoded=x
 
+##Decoding arm for amplitude
+#x1=hh.Conv_Up_block(encoded,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+#x1=hh.Conv_Up_block(x1,64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+
 #Decoding arm for amplitude
-x1=hh.Conv_Up_block(encoded,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-x1=hh.Conv_Up_block(x1,64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+x1=hh.Conv_Up_block(encoded,256,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+x1=hh.Conv_Up_block(x1,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 
 decoded1 = Conv2D(gridsize**2, (3, 3), padding='same')(x1)
 decoded1 = Lambda(lambda x: sigmoid(x), name='amp')(decoded1)
 
+##Decoding arm for phase
+#x2=hh.Conv_Up_block(encoded,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+#x2=hh.Conv_Up_block(x2,64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+##x2=Conv_Up_block(x2,32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+
 #Decoding arm for phase
-x2=hh.Conv_Up_block(encoded,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-x2=hh.Conv_Up_block(x2,64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+x2=hh.Conv_Up_block(encoded,256,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+x2=hh.Conv_Up_block(x2,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 #x2=Conv_Up_block(x2,32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 
 
@@ -77,13 +90,11 @@ padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
 padded_obj_2 = Lambda(lambda x:
     hh.reassemble_patches(x), name = 'padded_obj_2',
     )(padded_obj)
-#padded_obj_2 = tfkl.ZeroPadding2D((offset // 2 , offset // 2), name = 'padded_obj_2')(padded_obj)
 
 trimmed_obj = Lambda(lambda x: x[:, (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
         (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
         :], name = 'trimmed_obj')(padded_obj_2)
 
-# TODO average?
 # Extract overlapping regions of the object
 padded_objs_with_offsets = Lambda(lambda x: hh.flatten_overlaps(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
 # Apply the probe
