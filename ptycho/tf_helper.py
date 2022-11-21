@@ -72,10 +72,10 @@ def pad_and_diffract(input, h, w, pad = True):
     assert input.shape[-1] == 1
     input = (Lambda(lambda resized: (fft2d(
         #tf.squeeze # this destroys shape information so need to use slicing instead
-        (tf.cast(resized, tf.complex64))[..., 0] 
+        (tf.cast(resized, tf.complex64))[..., 0]
         ))))(input)
     input = (Lambda(lambda X: tf.math.real(tf.math.conj(X) * X) / (h * w)))(input)
-    input = (Lambda(lambda psd: 
+    input = (Lambda(lambda psd:
                           tf.expand_dims(
                               tf.math.sqrt(
             fftshift(psd, (-2, -1))
@@ -113,12 +113,13 @@ def togrid(*imgs):
 def _grid_to_channel(grid):
     """
     Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, gridsize * gridsize)
-    """  
+    """
     gridsize = params()['gridsize']
     img = tf.transpose(grid, [0, 3, 4, 1, 2, 5], conjugate=False)
     _, ww, hh = img.shape[:3]
     img = tf.reshape(img, (-1, ww, hh, gridsize**2))
     return img
+
 
 def grid_to_channel(*grids):
     return [_grid_to_channel(g) for g in grids]
@@ -132,14 +133,74 @@ def _flat_to_channel(img):
     return img
 
 def _channel_to_flat(img):
+    """
+    Reshape (b, N, N, gridsize * gridsize) to (-1, N, N, 1)
+    """
     _, h, w, c = img.shape
     assert h == w == params()['N']
     img = tf.transpose(img, [0, 3, 1, 2], conjugate=False)
     img = tf.reshape(img, (-1, h, w, 1))
     return img
 
+@tf.function
+def _channel_to_patches(channel):
+    """
+    reshape (-1, N, N, gridsize * gridsize) to (-1, gridsize, gridsize, N**2)
+    """
+    gridsize = params()['gridsize']
+    N = params()['N']
+    img = tf.transpose(channel, [0, 3, 1, 2], conjugate=False)
+    img = tf.reshape(img, (-1, gridsize, gridsize, N**2))
+    return img
+
 def channel_to_flat(*imgs):
     return [_channel_to_flat(g) for g in imgs]
+
+@tf.function
+def extract_patches(x, N, offset):
+    return tf.compat.v1.extract_image_patches(
+        x,
+        [1, N, N, 1],
+        [1, offset,offset, 1],
+        [1, 1, 1, 1],
+        padding="VALID"
+    )
+
+@tf.function
+def extract_patches_inverse(inputs):
+    N = params()['N']
+    gridsize = params()['gridsize']
+    offset = params()['offset']
+    target_size = N + (gridsize - 1) * offset
+    y, N, offset, average = inputs
+    b = tf.shape(y)[0]
+
+    _x = tf.zeros((b, target_size, target_size, 1), dtype = y.dtype)
+    _y = extract_patches(_x, N, offset)
+    if average:
+        # Divide by grad, to "average" together the overlapping patches
+        # otherwise they would simply sum up
+        grad = tf.gradients(_y, _x)[0]
+        return tf.gradients(_y, _x, grad_ys=y)[0] / grad
+    else:
+        return tf.gradients(_y, _x, grad_ys=y)[0]
+
+@tf.function
+def reassemble_patches(channels):
+    """
+    Given image patches (shaped such that the channel dimension indexes
+    patches within a single solution region), reassemble into an image
+    for the entire solution region. Overlaps between patches are
+    averaged.
+    """
+    patches = _channel_to_patches(channels)
+    real = tf.math.real(patches)
+    imag = tf.math.imag(patches)
+    N = params()['N']
+    offset = params()['offset']
+    assembled_real = extract_patches_inverse((real, N, offset, True))
+    assembled_imag = extract_patches_inverse((imag, N, offset, True))
+    return tf.dtypes.complex(assembled_real, assembled_imag)
 
 def flatten_overlaps(img, fmt = 'flat'):
     bigN = get_bigN()
@@ -207,7 +268,7 @@ def perceptual_loss(target, pred):
     """
     target = pp(target)
     pred = pp(pred)
-    
+
     activatedModelVal = feat_model(pred)
     actualModelVal = feat_model(target)
     return meanSquaredLoss(gram_matrix(actualModelVal),gram_matrix(activatedModelVal))
@@ -222,7 +283,7 @@ def symmetrized_loss(target, pred, loss_fn):
     abs3 = abs2[:, ::-1, ::-1, :]
     target_sym = (symmetrize_3d(target))
     a, b, c = loss_fn(abs1, abs2), loss_fn(abs1, abs3), loss_fn(target_sym, pred)
-    return tf.minimum(a, 
+    return tf.minimum(a,
                       tf.minimum(b, c))
 
 def amplitude_difference(target, pred):
