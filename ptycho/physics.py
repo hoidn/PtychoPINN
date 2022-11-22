@@ -55,15 +55,15 @@ def diffract_obj(sample):
     return observed_amp
 
 def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
-    Y_I = Y_I *  probe[None, ..., None]
     batch_size = params()['batch_size']
+    Y_I = Y_I *  probe[None, ..., None]
 
     if intensity_scale is None:
         intensity_scale = scale_nphotons(Y_I).numpy()
 
     obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
-    tmp = Y_I
     Y_I = tf.math.abs(obj)# TODO
+    #tmp = Y_I
     #assert (Y_I == intensity_scale * tmp).numpy().all()
 
     # Simulate diffraction

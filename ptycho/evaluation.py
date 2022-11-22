@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 
 def symmetrize(arr):
     return (arr + arr[::-1, ::-1]) / 2
@@ -21,7 +22,7 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
     plt.title('True amp.\n(illuminated)')
     #cropshow((Y_I_test[i]), cmap = 'jet', vmin = vmin, vmax = vmax)
     cropshow((Y_I_test[i, :, :, channel]), cmap = 'jet')
-    
+
     plt.subplot(aa, bb, 2)
     plt.title('Reconstructed amp.\n(illuminated)')
     cropshow((np.absolute(b))[i] * probe[..., None], cmap = 'jet')
@@ -38,25 +39,28 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
 
     plt.subplot(aa, bb, 5)
     plt.title('Reconstructed amp. (full)')
+    #plt.imshow((np.absolute(b))[i], cmap = 'jet')
     cropshow((np.absolute(b))[i], cmap = 'jet')
 
     plt.subplot(aa, bb, 6)
     plt.title('Reconstructed phase')
     cropshow((np.angle(b) * (probe > .01)[..., None])[i], cmap = 'jet')
-    
+    plt.colorbar()
+    print('phase min:', np.min((np.angle(b) * (probe > .01)[..., None])),
+        'phase max:', np.max((np.angle(b) * (probe > .01)[..., None])))
+
     plt.subplot(aa, bb, 7)
     plt.title('True diffraction')
     plt.imshow(np.log(X_test)[i, :, :, channel], cmap = 'jet')
-    
+
     plt.subplot(aa, bb, 8)
     plt.title('Recon diffraction')
     plt.imshow(np.log(a)[i, :, :, channel], cmap = 'jet')
-    
-def plt_metrics(history, loss_type = 'MAE'):
+
+def plt_metrics(history, loss_type = 'MAE', metric2 = 'padded_obj_loss'):
     hist=history
     epochs=np.asarray(history.epoch)+1
 
-    import matplotlib
     plt.style.use('seaborn-white')
     matplotlib.rc('font',family='Times New Roman')
     matplotlib.rcParams['font.size'] = 12
@@ -70,8 +74,8 @@ def plt_metrics(history, loss_type = 'MAE'):
     axarr[0].legend(loc='center right', bbox_to_anchor=(1.5, 0.5))
 
     axarr[1].set(ylabel='Loss')
-    axarr[1].plot(epochs,hist.history['padded_obj_loss'], 'C0o', label='Object {} Training'.format(loss_type))
-    axarr[1].plot(epochs,hist.history['val_padded_obj_loss'], 'C0-', label='Object {} Validation'.format(loss_type))
+    axarr[1].plot(epochs,hist.history[metric2], 'C0o', label='Object {} Training'.format(loss_type))
+    axarr[1].plot(epochs,hist.history['val_' + metric2], 'C0-', label='Object {} Validation'.format(loss_type))
     axarr[1].legend(loc='center right', bbox_to_anchor=(1.5, 0.5))
     plt.xlabel('Epochs')
     plt.tight_layout()

@@ -1,6 +1,3 @@
-from . import tf_helper as hh
-from .params import params
-
 from tensorflow.keras import Input
 from tensorflow.keras import Model
 from tensorflow.keras.activations import sigmoid, tanh
@@ -14,12 +11,17 @@ import os
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+from . import tf_helper as hh
+from .params import params
+
 tfk = hh.tf.keras
 tfkl = hh.tf.keras.layers
 tfpl = tfp.layers
 tfd = tfp.distributions
 
 wt_path = 'wts4.1'
+# sets the number of convolutional filters
+n_filters_scale = 2
 
 N = params()['N']
 w = params()['w']
@@ -52,9 +54,9 @@ input_img = Input(shape=(h, w, gridsize**2), name = 'input')
 #x = hh.Conv_Pool_block(x,64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 #x = hh.Conv_Pool_block(x,128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 
-x = hh.Conv_Pool_block(input_img,64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
-x = hh.Conv_Pool_block(x,128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
-x = hh.Conv_Pool_block(x,256,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+x = hh.Conv_Pool_block(input_img,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+x = hh.Conv_Pool_block(x,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+x = hh.Conv_Pool_block(x,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 
 encoded=x
 
@@ -63,8 +65,9 @@ encoded=x
 #x1=hh.Conv_Up_block(x1,64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 
 #Decoding arm for amplitude
-x1=hh.Conv_Up_block(encoded,256,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-x1=hh.Conv_Up_block(x1,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+x1=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+x1=hh.Conv_Up_block(x1,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+#x1=hh.Conv_Up_block(x1,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 
 decoded1 = Conv2D(gridsize**2, (3, 3), padding='same')(x1)
 decoded1 = Lambda(lambda x: sigmoid(x), name='amp')(decoded1)
@@ -75,9 +78,9 @@ decoded1 = Lambda(lambda x: sigmoid(x), name='amp')(decoded1)
 ##x2=Conv_Up_block(x2,32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 
 #Decoding arm for phase
-x2=hh.Conv_Up_block(encoded,256,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-x2=hh.Conv_Up_block(x2,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-#x2=Conv_Up_block(x2,32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+x2=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+x2=hh.Conv_Up_block(x2,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+#x2=hh.Conv_Up_block(x2,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 
 
 decoded2 = Conv2D(gridsize**2, (3, 3), padding='same')(x2)
@@ -86,6 +89,9 @@ decoded2 = Lambda(lambda x: math.pi * tanh(x), name='phi')(decoded2)
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
                      name='obj')([decoded1, decoded2])
 
+
+
+#padded_obj = Lambda(lambda x: x, name = 'padded_obj')(obj)
 padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
 padded_obj_2 = Lambda(lambda x:
     hh.reassemble_patches(x), name = 'padded_obj_2',
@@ -103,7 +109,9 @@ padded_objs_with_offsets = Lambda(lambda x: tf.cast(tprobe, tf.complex64) * x,
 
 # TODO refactor
 # Diffracted amplitude
-padded_objs_with_offsets, pred_diff = hh.pad_and_diffract(padded_objs_with_offsets, h, w, pad=False)
+padded_objs_with_offsets, pred_diff = Lambda(lambda x:
+    hh.pad_and_diffract(x, h, w, pad=False),
+    name = 'pred_amplitude')(padded_objs_with_offsets)
 
 # Reshape
 pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels')(pred_diff)
