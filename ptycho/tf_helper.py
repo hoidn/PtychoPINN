@@ -1,9 +1,7 @@
 import os
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-
 from tensorflow.signal import fft
 import tensorflow as tf
-
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
@@ -12,17 +10,13 @@ import tensorflow.compat.v2 as tf
 tf.enable_v2_behavior()
 import tensorflow_datasets as tfds
 import tensorflow_probability as tfp
-from xrdc.source_separation import *
 from skimage.transform import resize as sresize
 from tensorflow.signal import fft2d, fftshift
-
 #Keras modules
 from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
 from tensorflow.keras import Sequential
 from tensorflow.keras import Input
-import numpy as np
 from tensorflow.keras.layers import Lambda
-from xrdc import fourier
 from .params import params, cfg, get_bigN
 
 tfk = tf.keras
@@ -50,6 +44,7 @@ def do_resize(N):
         transform
     ])
 
+@tf.function
 def combine_complex(amp, phi):
     output = tf.cast(amp, tf.complex64) * tf.exp(
         1j * tf.cast(phi, tf.complex64))
@@ -58,7 +53,32 @@ def combine_complex(amp, phi):
 def pad_obj(input, h, w):
     return tfkl.ZeroPadding2D((h // 4, w // 4), name = 'padded_obj')(input)
 
+## TODO nested lambdas?
 #@tf.function
+#def pad_and_diffract(input, h, w, pad = True):
+#    """
+#    zero-pad the real-space object and then calculate the far field
+#    diffraction amplitude
+#    """
+#    if pad:
+#        input = pad_obj(input, h, w)
+#    padded = input
+#    assert input.shape[-1] == 1
+#    input = (Lambda(lambda resized: (fft2d(
+#        #tf.squeeze # this destroys shape information so need to use slicing instead
+#        (tf.cast(resized, tf.complex64))[..., 0]
+#        ))))(input)
+#    input = (Lambda(lambda X: tf.math.real(tf.math.conj(X) * X) / (h * w)))(input)
+#    input = (Lambda(lambda psd:
+#                          tf.expand_dims(
+#                              tf.math.sqrt(
+#            fftshift(psd, (-2, -1))
+#                                   ), 3),
+#        name = 'pred_amplitude'))(input)
+#    return padded, input
+
+# TODO nested lambdas?
+@tf.function
 def pad_and_diffract(input, h, w, pad = True):
     """
     zero-pad the real-space object and then calculate the far field
@@ -67,22 +87,20 @@ def pad_and_diffract(input, h, w, pad = True):
     if pad:
         input = pad_obj(input, h, w)
     padded = input
-    #sequential.add(tfk.Input(shape = (N, N, 1)))
-    #sequential.add(Lambda(lambda inp: tprobe * inp))
     assert input.shape[-1] == 1
-    input = (Lambda(lambda resized: (fft2d(
+    input = (((fft2d(
         #tf.squeeze # this destroys shape information so need to use slicing instead
-        (tf.cast(resized, tf.complex64))[..., 0]
-        ))))(input)
-    input = (Lambda(lambda X: tf.math.real(tf.math.conj(X) * X) / (h * w)))(input)
-    input = (Lambda(lambda psd:
-                          tf.expand_dims(
+        (tf.cast((input), tf.complex64))[..., 0]
+        ))))
+    input = (( tf.math.real(tf.math.conj((input)) * input) / (h * w)))
+    input = (( tf.expand_dims(
                               tf.math.sqrt(
-            fftshift(psd, (-2, -1))
-                                   ), 3),
-        name = 'pred_amplitude'))(input)
+            fftshift(input, (-2, -1))
+                                   ), 3)
+        ))
     return padded, input
 
+@tf.function
 def _fromgrid(img):
     """
     Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
@@ -120,10 +138,10 @@ def _grid_to_channel(grid):
     img = tf.reshape(img, (-1, ww, hh, gridsize**2))
     return img
 
-
 def grid_to_channel(*grids):
     return [_grid_to_channel(g) for g in grids]
 
+@tf.function
 def _flat_to_channel(img):
     gridsize = params()['gridsize']
     h = params()['h']
@@ -186,22 +204,59 @@ def extract_patches_inverse(inputs):
         return tf.gradients(_y, _x, grad_ys=y)[0]
 
 @tf.function
-def reassemble_patches(channels):
+def reassemble_patches_real(channels, average = True):
     """
     Given image patches (shaped such that the channel dimension indexes
     patches within a single solution region), reassemble into an image
     for the entire solution region. Overlaps between patches are
     averaged.
     """
-    patches = _channel_to_patches(channels)
-    real = tf.math.real(patches)
-    imag = tf.math.imag(patches)
+    real = _channel_to_patches(channels)
     N = params()['N']
     offset = params()['offset']
-    assembled_real = extract_patches_inverse((real, N, offset, True))
-    assembled_imag = extract_patches_inverse((imag, N, offset, True))
+    return extract_patches_inverse((real, N, offset, average))
+
+gridsize = params()['gridsize']
+N = params()['N']
+ones = tf.ones((1, N // 2, N // 2, gridsize**2))
+ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
+assembled_ones = reassemble_patches_real(ones, False)
+norm = assembled_ones + .001
+
+@tf.function
+def reassemble_patches(channels, average = False):
+    """
+    Given image patches (shaped such that the channel dimension indexes
+    patches within a single solution region), reassemble into an image
+    for the entire solution region. Overlaps between patches are
+    averaged.
+    """
+    # TODO dividing out by norm increased the training time quite
+    # substantially
+    real = tf.math.real(channels)
+    imag = tf.math.imag(channels)
+    assembled_real = reassemble_patches_real(real, average = average) / norm
+    assembled_imag = reassemble_patches_real(imag, average = average) / norm
     return tf.dtypes.complex(assembled_real, assembled_imag)
 
+#@tf.function
+#def reassemble_patches(channels, average = True):
+#    """
+#    Given image patches (shaped such that the channel dimension indexes
+#    patches within a single solution region), reassemble into an image
+#    for the entire solution region. Overlaps between patches are
+#    averaged.
+#    """
+#    patches = _channel_to_patches(channels)
+#    real = tf.math.real(patches)
+#    imag = tf.math.imag(patches)
+#    N = params()['N']
+#    offset = params()['offset']
+#    assembled_real = extract_patches_inverse((real, N, offset, average))
+#    assembled_imag = extract_patches_inverse((imag, N, offset, average))
+#    return tf.dtypes.complex(assembled_real, assembled_imag)
+
+@tf.function
 def flatten_overlaps(img, fmt = 'flat'):
     bigN = get_bigN()
     bigoffset = cfg['bigoffset']
@@ -213,7 +268,6 @@ def flatten_overlaps(img, fmt = 'flat'):
         tf.compat.v1.extract_image_patches(img, [1, bigN, bigN, 1], [1, bigoffset // 2, bigoffset // 2, 1],
                                               [1, 1, 1, 1], padding = 'VALID'),
         (-1, bigN, bigN, 1))
-
     # Then, extract individual solution regions within each patch
     grid = tf.reshape(
         tf.compat.v1.extract_image_patches(grid, [1, N, N, 1], [1, offset, offset, 1],
@@ -228,7 +282,6 @@ def flatten_overlaps(img, fmt = 'flat'):
     else:
         raise ValueError
 
-
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -241,8 +294,6 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
     x0 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)(x0)
     x0 = UpSampling2D((p1, p2), data_format=data_format)(x0)
     return x0
-
-
 
 def gram_matrix(input_tensor):
     result = tf.linalg.einsum('bijc,bijd->bcd', input_tensor, input_tensor)
