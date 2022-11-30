@@ -14,6 +14,10 @@ import tensorflow_probability as tfp
 from . import tf_helper as hh
 from .params import params
 
+import tensorflow_addons as tfa
+gaussian_filter2d = tfa.image.gaussian_filter2d
+
+
 tfk = hh.tf.keras
 tfkl = hh.tf.keras.layers
 tfpl = tfp.layers
@@ -29,17 +33,57 @@ h = params()['h']
 gridsize = params()['gridsize']
 offset = params()['offset']
 tprobe = params()['probe']
-batch_size = params()['batch_size']
 # TODO don't rely on this
 intensity_scale = params()['intensity_scale']
 
-# vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N // 2,N // 2,3))
-vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N, N, 3))
-vgg.trainable = False
+#probe_initial_guess = tf.Variable(
+#            initial_value=tf.cast(tprobe, tf.complex64),
+#            trainable=True,
+#        )
+#probe_mask = params()['probe_mask']
 
-outputs = [vgg.get_layer('block2_conv2').output]
-feat_model = Model(vgg.input, outputs)
-# feat_model.trainable = False
+probe_mask = params()['probe_mask']
+
+initial_probe_guess = tprobe
+#initial_probe_guess = tfkl.AveragePooling2D()(initial_probe_guess[None, ...])[0, ...]
+#initial_probe_guess = tfkl.AveragePooling2D()(initial_probe_guess)[0, ...]
+initial_probe_guess = tf.Variable(
+            initial_value=tf.cast(initial_probe_guess, tf.complex64),
+            trainable=True,
+        )
+#probe_mask = tfkl.AveragePooling2D()(probe_mask)
+#probe_mask = tfkl.AveragePooling2D()(probe_mask)
+
+def upsample_twice(image):
+    return image
+    image = tfkl.UpSampling2D()(image[None, ...])[0, ...]
+    #image = tfkl.UpSampling2D()(image)[0, ...]
+    return image
+
+def upsample_twice_complex(image):
+    real = tf.math.real(image)
+    imag = tf.math.imag(image)
+    real = upsample_twice(real)
+    imag = upsample_twice(imag)
+    imag = tf.zeros_like(imag)
+    return tf.dtypes.complex(real, imag)
+
+class ProbeIllumination(tf.keras.layers.Layer):
+    def __init__(self):
+        super(ProbeIllumination, self).__init__()
+        self.w = initial_probe_guess
+    def call(self, inputs):
+        x, = inputs
+        return self.w * x * probe_mask
+        #return upsample_twice_complex(self.w) * x * probe_mask
+
+## vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N // 2,N // 2,3))
+#vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N, N, 3))
+#vgg.trainable = False
+#
+#outputs = [vgg.get_layer('block2_conv2').output]
+#feat_model = Model(vgg.input, outputs)
+## feat_model.trainable = False
 
 tf.keras.backend.clear_session()
 np.random.seed(2)
@@ -68,7 +112,6 @@ encoded=x
 x1=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 x1=hh.Conv_Up_block(x1,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 #x1=hh.Conv_Up_block(x1,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-
 decoded1 = Conv2D(gridsize**2, (3, 3), padding='same')(x1)
 decoded1 = Lambda(lambda x: sigmoid(x), name='amp')(decoded1)
 
@@ -81,15 +124,18 @@ decoded1 = Lambda(lambda x: sigmoid(x), name='amp')(decoded1)
 x2=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 x2=hh.Conv_Up_block(x2,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 #x2=hh.Conv_Up_block(x2,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-
-
 decoded2 = Conv2D(gridsize**2, (3, 3), padding='same')(x2)
 decoded2 = Lambda(lambda x: math.pi * tanh(x), name='phi')(decoded2)
 
+##Decoding arm for probe
+#x3=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+#x3=hh.Conv_Up_block(x3,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+##x3=hh.Conv_Up_block(x3,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+#decoded3 = Conv2D(gridsize**2, (3, 3), padding='same')(x3)
+#decoded3 = Lambda(lambda x: math.pi * tanh(x), name='phi')(decoded3)
+
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
                      name='obj')([decoded1, decoded2])
-
-
 
 #padded_obj = Lambda(lambda x: x, name = 'padded_obj')(obj)
 padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
@@ -102,10 +148,19 @@ trimmed_obj = Lambda(lambda x: x[:, (offset * (gridsize - 1)) // 2: -(offset * (
         :], name = 'trimmed_obj')(padded_obj_2)
 
 # Extract overlapping regions of the object
-padded_objs_with_offsets = Lambda(lambda x: hh.flatten_overlaps(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
+padded_objs_with_offsets = Lambda(lambda x: hh.extract_nested_patches(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
 # Apply the probe
-padded_objs_with_offsets = Lambda(lambda x: tf.cast(tprobe, tf.complex64) * x,
-                                  name = 'padded_objs_with_offsets_illuminated')(padded_objs_with_offsets)
+padded_objs_with_offsets = ProbeIllumination()([padded_objs_with_offsets])
+#padded_objs_with_offsets = Lambda(lambda x: tf.cast(Probe(), tf.complex64) * x,
+#                                  name = 'padded_objs_with_offsets_illuminated')(padded_objs_with_offsets)
+
+
+#https://stackoverflow.com/questions/63166479/valueerror-validation-split-is-only-supported-for-tensors-or-numpy-arrays-fo
+## TODO change input from amplitude to intensity
+#lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
+#nphotons = lambda_norm(input_img)
+##pred_amp_sq_sum = lambda_norm(pred_diff)
+#intensity_scale = Lambda(lambda x: tf.math.reduce_sum((x)**2, axis = [1, 2]))(pred_diff)
 
 # TODO refactor
 # Diffracted amplitude
@@ -143,6 +198,9 @@ encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj],
 diffraction_to_obj = tf.keras.Model(inputs=[input_img],
                            outputs=[obj])
 
+
+#autoencoder.layers[-5].trainable_weights.extend([tprobe])
+
 autoencoder.compile(optimizer='adam',
      loss=['mean_absolute_error', 'mean_absolute_error', negloglik, hh.total_variation_loss],
      loss_weights = [0., 0., 1., 0.])
@@ -160,6 +218,7 @@ def train(epochs, X_train, Y_I_train):
                                                 save_weights_only=False, mode='auto', period=1)
 
 
+    batch_size = params()['batch_size']
     history=autoencoder.fit([X_train], [Y_I_train, X_train, (intensity_scale * X_train)**2,
                                        X_train], shuffle=True, batch_size=batch_size, verbose=1,
                                epochs=epochs, validation_split = 0.05, callbacks=[reduce_lr, earlystop, checkpoints])
