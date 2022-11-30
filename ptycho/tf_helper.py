@@ -257,7 +257,7 @@ def reassemble_patches(channels, average = False):
 #    return tf.dtypes.complex(assembled_real, assembled_imag)
 
 @tf.function
-def flatten_overlaps(img, fmt = 'flat'):
+def extract_nested_patches(img, fmt = 'flat'):
     bigN = get_bigN()
     bigoffset = cfg['bigoffset']
     N = cfg['N']

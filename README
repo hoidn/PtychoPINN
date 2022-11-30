@@ -30,8 +30,6 @@ and Super-Resolution
 
 high priority (descending):
 
-* extension to full, high-resolution objects and comparison to ptychoNN (done but needs refactor)
-* implement an "inside out autoencoder"
 * metric comparison for both training and eval (inc. with 50 percent cutoff frequency of mtf)
 * probe fitting
 * study robustness impact of Poisson likelihood

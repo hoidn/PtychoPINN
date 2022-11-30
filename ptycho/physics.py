@@ -35,7 +35,7 @@ def preprocess_objects(Y_I, Y_phi = None):
         Y_phi = np.zeros_like(Y_I)
 
     Y_I, Y_phi = \
-        [hh.flatten_overlaps(imgs, fmt= 'channel') for imgs in [Y_I, Y_phi]]
+        [hh.extract_nested_patches(imgs, fmt= 'channel') for imgs in [Y_I, Y_phi]]
 
     norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
     Y_I /= norm_Y_I
