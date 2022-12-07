@@ -307,6 +307,7 @@ def high_pass_x_y(image):
     return x_var, y_var
 
 def total_variation_loss(target, pred):
+    pred = Lambda(lambda x: tf.math.abs(x))(pred)
     pred = tf.keras.layers.AveragePooling2D(padding = 'valid')(pred)
     x_deltas, y_deltas = high_pass_x_y(pred)
     return tf.reduce_mean(x_deltas**2) + tf.reduce_mean(y_deltas**2)
