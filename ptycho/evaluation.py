@@ -12,6 +12,7 @@ def cropshow(arr, *args, **kwargs):
     arr = arr[16:-16, 16:-16]
     plt.imshow(arr, *args, **kwargs)
 
+from scipy.ndimage import gaussian_filter as gf
 def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
     plt.rcParams["figure.figsize"] = (10, 10)
     vmin = 0
@@ -25,6 +26,8 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
 
     plt.subplot(aa, bb, 2)
     plt.title('Reconstructed amp.\n(illuminated)')
+#    cropshow(
+#        gf((np.absolute(b))[i] * probe[..., None], .7), cmap = 'jet')
     cropshow((np.absolute(b))[i] * probe[..., None], cmap = 'jet')
 #     cropshow((np.absolute(b))[i] * probe[..., None], vmin = np.min(Y_I_test[i]),
 #              vmax = np.max(Y_I_test[i]), cmap = 'jet')

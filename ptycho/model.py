@@ -17,6 +17,7 @@ from .params import params
 import tensorflow_addons as tfa
 gaussian_filter2d = tfa.image.gaussian_filter2d
 
+gft = Lambda(lambda x: gaussian_filter2d(x))
 
 tfk = hh.tf.keras
 tfkl = hh.tf.keras.layers
@@ -33,8 +34,7 @@ h = params()['h']
 gridsize = params()['gridsize']
 offset = params()['offset']
 tprobe = params()['probe']
-# TODO don't rely on this
-intensity_scale = params()['intensity_scale']
+#intensity_scale = params()['intensity_scale']
 
 #probe_initial_guess = tf.Variable(
 #            initial_value=tf.cast(tprobe, tf.complex64),
@@ -51,6 +51,7 @@ initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=True,
         )
+
 #probe_mask = tfkl.AveragePooling2D()(probe_mask)
 #probe_mask = tfkl.AveragePooling2D()(probe_mask)
 
@@ -68,6 +69,12 @@ def upsample_twice_complex(image):
     imag = tf.zeros_like(imag)
     return tf.dtypes.complex(real, imag)
 
+initial_log_scale = tf.Variable(
+            initial_value=tf.constant(7.5),
+            # TODO learning rate is too slow, so the initial guess has to be
+            # set quite close to the correct value
+            trainable=True,
+        )
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self):
         super(ProbeIllumination, self).__init__()
@@ -76,6 +83,24 @@ class ProbeIllumination(tf.keras.layers.Layer):
         x, = inputs
         return self.w * x * probe_mask
         #return upsample_twice_complex(self.w) * x * probe_mask
+
+class IntensityScaler(tf.keras.layers.Layer):
+    def __init__(self):
+        super(IntensityScaler, self).__init__()
+        self.w = initial_log_scale
+    def call(self, inputs):
+        x, = inputs
+        #return x / self.w
+        return x / tf.math.exp(self.w)
+
+class IntensityScaler_inv(tf.keras.layers.Layer):
+    def __init__(self):
+        super(IntensityScaler_inv, self).__init__()
+        self.w = initial_log_scale
+    def call(self, inputs):
+        x, = inputs
+        #return x * self.w
+        return tf.math.exp(self.w) * x
 
 ## vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N // 2,N // 2,3))
 #vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N, N, 3))
@@ -92,13 +117,26 @@ files=glob.glob('%s/*' %wt_path)
 for file in files:
     os.remove(file)
 
+lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
 input_img = Input(shape=(h, w, gridsize**2), name = 'input')
+
+#input_L2 = Lambda(lambda x: tf.math.reduce_mean(
+#        lambda_norm(x)))(input_img)
+#normalization = Lambda(lambda x: 150. / x)(input_L2)
+
+scaler = IntensityScaler()
+inv_scaler = IntensityScaler_inv()
+normed_input = scaler([input_img])
+#normed_input = Lambda(lambda x: x / IntensityScaler()([]))(input_img)
+#normed_input = Lambda(lambda x: x / params()['intensity_scale'])(input_img)
+#normed_input = Lambda(lambda x: 150. * x[0] / x[1])([input_img, input_L2])
+#normed_input = Lambda(lambda x: normalization * x)(input_img)
 
 #x = hh.Conv_Pool_block(input_img,32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 #x = hh.Conv_Pool_block(x,64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 #x = hh.Conv_Pool_block(x,128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 
-x = hh.Conv_Pool_block(input_img,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
+x = hh.Conv_Pool_block(normed_input,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 x = hh.Conv_Pool_block(x,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 x = hh.Conv_Pool_block(x,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 
@@ -147,20 +185,18 @@ trimmed_obj = Lambda(lambda x: x[:, (offset * (gridsize - 1)) // 2: -(offset * (
         (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
         :], name = 'trimmed_obj')(padded_obj_2)
 
+# TODO trimmed obj should really be masked by the union of all the illumination
+# spots
+crop_center = Lambda(lambda x: x[:, N // 2: -N // 2, N // 2: -N // 2, :])
+trimmed_obj_small = crop_center(ProbeIllumination()([trimmed_obj]))
+#trimmed_obj_small = crop_center(trimmed_obj)
+
 # Extract overlapping regions of the object
 padded_objs_with_offsets = Lambda(lambda x: hh.extract_nested_patches(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
 # Apply the probe
 padded_objs_with_offsets = ProbeIllumination()([padded_objs_with_offsets])
 #padded_objs_with_offsets = Lambda(lambda x: tf.cast(Probe(), tf.complex64) * x,
 #                                  name = 'padded_objs_with_offsets_illuminated')(padded_objs_with_offsets)
-
-
-#https://stackoverflow.com/questions/63166479/valueerror-validation-split-is-only-supported-for-tensors-or-numpy-arrays-fo
-## TODO change input from amplitude to intensity
-#lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
-#nphotons = lambda_norm(input_img)
-##pred_amp_sq_sum = lambda_norm(pred_diff)
-#intensity_scale = Lambda(lambda x: tf.math.reduce_sum((x)**2, axis = [1, 2]))(pred_diff)
 
 # TODO refactor
 # Diffracted amplitude
@@ -171,11 +207,62 @@ padded_objs_with_offsets, pred_diff = Lambda(lambda x:
 # Reshape
 pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels')(pred_diff)
 
+#lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
+
+#channel_mean = Lambda(lambda x: tf.math.reduce_mean(x, axis = [1]) / 4)
+#nphotons = (
+#    lambda_norm(
+#        tfkl.AveragePooling2D()((input_img))
+#    ))
+#pred_amp_sq_sum = (
+#    lambda_norm(
+#        tfkl.AveragePooling2D()((pred_diff))
+#    ))
+
+#channel_mean = Lambda(lambda x: tf.math.reduce_mean(x, axis = [1]) / 4)
+#nphotons = channel_mean(
+#    lambda_norm(
+#        tfkl.AveragePooling2D()((input_img))
+#    ))
+#pred_amp_sq_sum = channel_mean(
+#    lambda_norm(
+#        tfkl.AveragePooling2D()((pred_diff))
+#    ))
+
+channel_mean = Lambda(lambda x: tf.math.reduce_mean(x, axis = [1]))
+nphotons = channel_mean(
+    lambda_norm(
+        (input_img)
+    ))
+pred_amp_sq_sum = channel_mean(
+    lambda_norm(
+        (pred_diff)
+    ))
+
+
+#intensity_scale = Lambda(lambda x: 1. / x,
+#    name = 'intensity_scale')(normalization)#[:, None, None, :]
+
+#intensity_scale = IntensityScaler()([])
+#intensity_scale = params()['intensity_scale']
+#intensity_scale = Lambda(lambda x: tf.math.sqrt(x[0] / x[1]),
+#    name = 'intensity_scale')([nphotons, pred_amp_sq_sum])[:, None, None, :]#[:, None, None, None]
+
+# amplitude scaled to the correct photon count
+pred_diff_scaled = inv_scaler([pred_diff])
+#pred_diff_scaled = Lambda(lambda x: x[0] * x[1], name = 'scaled')([pred_diff, intensity_scale])
+
 pred_intensity = tfpl.DistributionLambda(lambda t:
                                        (tfd.Independent(
                                            tfd.Poisson(
-                                               ((t * intensity_scale)**2))
-                                       )))(pred_diff)
+                                               (t**2))
+                                       )))(pred_diff_scaled)
+
+#pred_intensity = tfpl.DistributionLambda(lambda t:
+#                                       (tfd.Independent(
+#                                           tfd.Poisson(
+#                                               ((t * intensity_scale)**2))
+#                                       )))(pred_diff)
 
 #def mul_gaussian_noise(image):
 #    # image must be scaled in [0, 1]
@@ -189,7 +276,7 @@ negloglik = lambda x, rv_x: -rv_x.log_prob((x))
 # The first output exposes the real space object reconstruction and
 # though it does not contribute to the training loss, it's used to
 # calculate reconstruction errors for evaluation
-autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity, pred_diff])
+autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity, trimmed_obj])
 #autoencoder = Model([input_img], [padded_obj, pred_diff, pred_intensity, pred_diff])
 
 encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj],
@@ -198,12 +285,15 @@ encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj],
 diffraction_to_obj = tf.keras.Model(inputs=[input_img],
                            outputs=[obj])
 
+aux = tf.keras.Model(inputs=[input_img],
+                           outputs=[nphotons, pred_amp_sq_sum,
+                                crop_center(pred_diff), pred_diff_scaled])
 
 #autoencoder.layers[-5].trainable_weights.extend([tprobe])
 
 autoencoder.compile(optimizer='adam',
      loss=['mean_absolute_error', 'mean_absolute_error', negloglik, hh.total_variation_loss],
-     loss_weights = [0., 0., 1., 0.])
+     loss_weights = [0., 0., 1., 0.0])
 
 print (autoencoder.summary())
 #plot_model(autoencoder, to_file='paper_data/str_model.png')
@@ -219,7 +309,13 @@ def train(epochs, X_train, Y_I_train):
 
 
     batch_size = params()['batch_size']
-    history=autoencoder.fit([X_train], [Y_I_train, X_train, (intensity_scale * X_train)**2,
-                                       X_train], shuffle=True, batch_size=batch_size, verbose=1,
-                               epochs=epochs, validation_split = 0.05, callbacks=[reduce_lr, earlystop, checkpoints])
+    history=autoencoder.fit([X_train * params()['intensity_scale']],
+        [Y_I_train,
+            X_train * params()['intensity_scale'],
+            (params()['intensity_scale'] * X_train)**2,
+           Y_I_train[:, :, :, :1]],
+        shuffle=True, batch_size=batch_size, verbose=1,
+        epochs=epochs, validation_split = 0.05,
+        callbacks=[reduce_lr, earlystop])
+        #callbacks=[reduce_lr, earlystop, checkpoints])
     return history
