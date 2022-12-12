@@ -11,12 +11,12 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from . import tf_helper as hh
-from .params import params
+from . import params as p
+params = p.params
+#from .params import params
 
 import tensorflow_addons as tfa
 gaussian_filter2d = tfa.image.gaussian_filter2d
-
-#gft = Lambda(lambda x: gaussian_filter2d(x))
 
 tfk = hh.tf.keras
 tfkl = hh.tf.keras.layers
@@ -43,14 +43,6 @@ initial_probe_guess = tf.Variable(
             trainable=True,
         )
 
-log_scale = tf.Variable(
-            #initial_value=tf.constant(7.5),
-            initial_value=tf.constant(7.84),
-            # TODO learning rate is too slow, so the initial guess has to be
-            # set quite close to the correct value
-            #trainable=True,
-            trainable = params()['intensity_scale.trainable'],
-        )
 
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self):
@@ -59,6 +51,15 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def call(self, inputs):
         x, = inputs
         return self.w * x * probe_mask
+
+log_scale = tf.Variable(
+            #initial_value=tf.constant(7.5),
+            initial_value=tf.constant(7.84),
+            # TODO learning rate is too slow, so the initial guess has to be
+            # set quite close to the correct value
+            #trainable=True,
+            trainable = params()['intensity_scale.trainable'],
+        )
 
 class IntensityScaler(tf.keras.layers.Layer):
     def __init__(self):
@@ -69,6 +70,7 @@ class IntensityScaler(tf.keras.layers.Layer):
         return x / tf.math.exp(self.w)
 
 # TODO get inverse from the same class
+# invertible transforms with bijectors in tfp? don't start, read up maybe
 class IntensityScaler_inv(tf.keras.layers.Layer):
     def __init__(self):
         super(IntensityScaler_inv, self).__init__()
@@ -76,7 +78,6 @@ class IntensityScaler_inv(tf.keras.layers.Layer):
     def call(self, inputs):
         x, = inputs
         return tf.math.exp(self.w) * x
-
 
 tf.keras.backend.clear_session()
 np.random.seed(2)
@@ -151,7 +152,7 @@ trimmed_obj = Lambda(lambda x: x[:, (offset * (gridsize - 1)) // 2: -(offset * (
 # TODO trimmed obj should really be masked by the union of all the illumination
 # spots, instead of just takiing the central region
 crop_center = Lambda(lambda x: x[:, N // 2: -N // 2, N // 2: -N // 2, :])
-trimmed_obj_small = crop_center(ProbeIllumination()([trimmed_obj]))
+#trimmed_obj_small = crop_center(ProbeIllumination()([trimmed_obj]))
 #trimmed_obj_small = Lambda(
 #    lambda x: crop_center(x[0] * tf.cast(x[1], tf.complex64) * x[2]))(
 #        [trimmed_obj, probe_amp_flat, probe_mask])
@@ -160,6 +161,7 @@ trimmed_obj_small = crop_center(ProbeIllumination()([trimmed_obj]))
 padded_objs_with_offsets = Lambda(lambda x: hh.extract_nested_patches(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
 #padded_objs_with_offsets = Lambda(lambda x: x[0] * tf.cast(x[1], tf.complex64) * x[2])(
 #    [padded_objs_with_offsets, probe_amp_flat, probe_mask])
+
 # Apply the probe
 padded_objs_with_offsets = ProbeIllumination()([padded_objs_with_offsets])
 
@@ -182,7 +184,6 @@ pred_intensity = tfpl.DistributionLambda(lambda t:
                                                (t**2))
                                        )))(pred_diff_scaled)
 
-
 negloglik = lambda x, rv_x: -rv_x.log_prob((x))
 
 # The first output exposes the real space object reconstruction and
@@ -201,8 +202,6 @@ diffraction_to_obj = tf.keras.Model(inputs=[input_img],
 #aux = tf.keras.Model(inputs=[input_img],
 #                           outputs=[probe_amp_flat,
 #                                crop_center(pred_diff), pred_diff_scaled])
-
-#autoencoder.layers[-5].trainable_weights.extend([tprobe])
 
 autoencoder.compile(optimizer='adam',
      loss=['mean_absolute_error', 'mean_absolute_error', negloglik, hh.total_variation_loss],
