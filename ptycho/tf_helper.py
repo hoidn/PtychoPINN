@@ -315,40 +315,56 @@ def total_variation_loss(target, pred):
 pp = tfk.Sequential([
     Lambda(lambda x: tf.image.grayscale_to_rgb(x)),
 ])
+from tensorflow.keras import Model
+from tensorflow.keras.applications.vgg16 import VGG16
 def perceptual_loss(target, pred):
     """
     """
     target = pp(target)
     pred = pp(pred)
 
+    # vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N // 2,N // 2,3))
+    vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N, N, 3))
+    vgg.trainable = False
+
+    outputs = [vgg.get_layer('block2_conv2').output]
+    feat_model = Model(vgg.input, outputs)
+# feat_model.trainable = False
     activatedModelVal = feat_model(pred)
     actualModelVal = feat_model(target)
     return meanSquaredLoss(gram_matrix(actualModelVal),gram_matrix(activatedModelVal))
 
-def symmetrized_loss(target, pred, loss_fn):
-    """
-    Calculate loss function on an image, taking into account that the
-    prediction may be coordinate-inverted relative to the target
-    """
-    abs1 = (target)
-    abs2 = (pred)
-    abs3 = abs2[:, ::-1, ::-1, :]
-    target_sym = (symmetrize_3d(target))
-    a, b, c = loss_fn(abs1, abs2), loss_fn(abs1, abs3), loss_fn(target_sym, pred)
-    return tf.minimum(a,
-                      tf.minimum(b, c))
-
-def amplitude_difference(target, pred):
-    """
-    Calculate object MAE, taking into account that the prediction may be
-    inverted
-    """
-    abs1 = tf.math.abs(target)
-    abs2 = tf.math.abs(pred)
-    return symmetrized_loss(target, pred, tf.keras.losses.MeanAbsoluteError())
-
-def symmetrized_perceptual_loss(target, pred):
-    return symmetrized_loss(target, pred, perceptual_loss)
-
 def meanSquaredLoss(y_true,y_pred):
     return tf.reduce_mean(tf.keras.losses.MSE(y_true,y_pred))
+
+#def mul_gaussian_noise(image):
+#    # image must be scaled in [0, 1]
+#    with tf.name_scope('Add_gaussian_noise'):
+#        noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=1, dtype=tf.float32)
+#        noise_img = image * noise
+#    return noise_img
+#
+#def symmetrized_loss(target, pred, loss_fn):
+#    """
+#    Calculate loss function on an image, taking into account that the
+#    prediction may be coordinate-inverted relative to the target
+#    """
+#    abs1 = (target)
+#    abs2 = (pred)
+#    abs3 = abs2[:, ::-1, ::-1, :]
+#    target_sym = (symmetrize_3d(target))
+#    a, b, c = loss_fn(abs1, abs2), loss_fn(abs1, abs3), loss_fn(target_sym, pred)
+#    return tf.minimum(a,
+#                      tf.minimum(b, c))
+#
+#def amplitude_difference(target, pred):
+#    """
+#    Calculate object MAE, taking into account that the prediction may be
+#    inverted
+#    """
+#    abs1 = tf.math.abs(target)
+#    abs2 = tf.math.abs(pred)
+#    return symmetrized_loss(target, pred, tf.keras.losses.MeanAbsoluteError())
+#
+#def symmetrized_perceptual_loss(target, pred):
+#    return symmetrized_loss(target, pred, perceptual_loss)
