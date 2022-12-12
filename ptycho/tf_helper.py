@@ -17,7 +17,34 @@ from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
 from tensorflow.keras import Sequential
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Lambda
+
+from tensorflow.keras import Model
+from tensorflow.keras.applications.vgg16 import VGG16
+
 from .params import params, cfg, get_bigN
+
+# TODO import order
+#import os
+#os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+#import tensorflow as tf
+#physical_devices = tf.config.list_physical_devices('GPU')
+#tf.config.experimental.set_memory_growth(physical_devices[0], True)
+#
+#from .params import params, cfg, get_bigN
+#from skimage.transform import resize as sresize
+#from tensorflow.keras import Input
+#from tensorflow.keras import Sequential
+#from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
+#from tensorflow.keras.layers import Lambda
+#from tensorflow.signal import fft
+#from tensorflow.signal import fft2d, fftshift
+#import numpy as np
+#import tensorflow_datasets as tfds
+#import tensorflow_probability as tfp
+#
+#import tensorflow.compat.v2 as tf
+#tf.enable_v2_behavior()
+
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -25,7 +52,6 @@ tfpl = tfp.layers
 tfd = tfp.distributions
 
 support_threshold = .0
-@tf.function
 def get_mask(input, support_threshold):
     mask = tf.where(input > support_threshold, tf.ones_like(input),
                     tf.zeros_like(input))
@@ -44,7 +70,6 @@ def do_resize(N):
         transform
     ])
 
-@tf.function
 def combine_complex(amp, phi):
     output = tf.cast(amp, tf.complex64) * tf.exp(
         1j * tf.cast(phi, tf.complex64))
@@ -52,30 +77,6 @@ def combine_complex(amp, phi):
 
 def pad_obj(input, h, w):
     return tfkl.ZeroPadding2D((h // 4, w // 4), name = 'padded_obj')(input)
-
-## TODO nested lambdas?
-#@tf.function
-#def pad_and_diffract(input, h, w, pad = True):
-#    """
-#    zero-pad the real-space object and then calculate the far field
-#    diffraction amplitude
-#    """
-#    if pad:
-#        input = pad_obj(input, h, w)
-#    padded = input
-#    assert input.shape[-1] == 1
-#    input = (Lambda(lambda resized: (fft2d(
-#        #tf.squeeze # this destroys shape information so need to use slicing instead
-#        (tf.cast(resized, tf.complex64))[..., 0]
-#        ))))(input)
-#    input = (Lambda(lambda X: tf.math.real(tf.math.conj(X) * X) / (h * w)))(input)
-#    input = (Lambda(lambda psd:
-#                          tf.expand_dims(
-#                              tf.math.sqrt(
-#            fftshift(psd, (-2, -1))
-#                                   ), 3),
-#        name = 'pred_amplitude'))(input)
-#    return padded, input
 
 # TODO nested lambdas?
 @tf.function
@@ -100,7 +101,6 @@ def pad_and_diffract(input, h, w, pad = True):
         ))
     return padded, input
 
-@tf.function
 def _fromgrid(img):
     """
     Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
@@ -141,7 +141,6 @@ def _grid_to_channel(grid):
 def grid_to_channel(*grids):
     return [_grid_to_channel(g) for g in grids]
 
-@tf.function
 def _flat_to_channel(img):
     gridsize = params()['gridsize']
     h = params()['h']
@@ -160,7 +159,6 @@ def _channel_to_flat(img):
     img = tf.reshape(img, (-1, h, w, 1))
     return img
 
-@tf.function
 def _channel_to_patches(channel):
     """
     reshape (-1, N, N, gridsize * gridsize) to (-1, gridsize, gridsize, N**2)
@@ -174,15 +172,15 @@ def _channel_to_patches(channel):
 def channel_to_flat(*imgs):
     return [_channel_to_flat(g) for g in imgs]
 
-@tf.function
 def extract_patches(x, N, offset):
-    return tf.compat.v1.extract_image_patches(
+    return tf.image.extract_patches(
         x,
         [1, N, N, 1],
         [1, offset,offset, 1],
         [1, 1, 1, 1],
         padding="VALID"
     )
+
 
 @tf.function
 def extract_patches_inverse(inputs):
@@ -203,7 +201,6 @@ def extract_patches_inverse(inputs):
     else:
         return tf.gradients(_y, _x, grad_ys=y)[0]
 
-@tf.function
 def reassemble_patches_real(channels, average = True):
     """
     Given image patches (shaped such that the channel dimension indexes
@@ -223,7 +220,6 @@ ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
 assembled_ones = reassemble_patches_real(ones, False)
 norm = assembled_ones + .001
 
-@tf.function
 def reassemble_patches(channels, average = False):
     """
     Given image patches (shaped such that the channel dimension indexes
@@ -239,24 +235,6 @@ def reassemble_patches(channels, average = False):
     assembled_imag = reassemble_patches_real(imag, average = average) / norm
     return tf.dtypes.complex(assembled_real, assembled_imag)
 
-#@tf.function
-#def reassemble_patches(channels, average = True):
-#    """
-#    Given image patches (shaped such that the channel dimension indexes
-#    patches within a single solution region), reassemble into an image
-#    for the entire solution region. Overlaps between patches are
-#    averaged.
-#    """
-#    patches = _channel_to_patches(channels)
-#    real = tf.math.real(patches)
-#    imag = tf.math.imag(patches)
-#    N = params()['N']
-#    offset = params()['offset']
-#    assembled_real = extract_patches_inverse((real, N, offset, average))
-#    assembled_imag = extract_patches_inverse((imag, N, offset, average))
-#    return tf.dtypes.complex(assembled_real, assembled_imag)
-
-@tf.function
 def extract_nested_patches(img, fmt = 'flat'):
     bigN = get_bigN()
     bigoffset = cfg['bigoffset']
@@ -265,12 +243,12 @@ def extract_nested_patches(img, fmt = 'flat'):
     gridsize = params()['gridsize']
     # First, extract 'big' patches, each of which is a grid of overlapping solution regions
     grid = tf.reshape(
-        tf.compat.v1.extract_image_patches(img, [1, bigN, bigN, 1], [1, bigoffset // 2, bigoffset // 2, 1],
+        tf.image.extract_patches(img, [1, bigN, bigN, 1], [1, bigoffset // 2, bigoffset // 2, 1],
                                               [1, 1, 1, 1], padding = 'VALID'),
         (-1, bigN, bigN, 1))
     # Then, extract individual solution regions within each patch
     grid = tf.reshape(
-        tf.compat.v1.extract_image_patches(grid, [1, N, N, 1], [1, offset, offset, 1],
+        tf.image.extract_patches(grid, [1, N, N, 1], [1, offset, offset, 1],
                                               [1, 1, 1, 1], padding = 'VALID'),
         (-1, gridsize, gridsize, N, N, 1))
     if fmt == 'flat':
@@ -315,8 +293,6 @@ def total_variation_loss(target, pred):
 pp = tfk.Sequential([
     Lambda(lambda x: tf.image.grayscale_to_rgb(x)),
 ])
-from tensorflow.keras import Model
-from tensorflow.keras.applications.vgg16 import VGG16
 def perceptual_loss(target, pred):
     """
     """
