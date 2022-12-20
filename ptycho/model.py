@@ -40,17 +40,25 @@ probe_mask = params()['probe_mask']
 initial_probe_guess = tprobe
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
-            trainable=True,
+            trainable=params()['probe.trainable'],
         )
 
-
+# TODO hyperparameters:
+# -probe smoothing scale
+# -number of filters
+# -initial learning rate
 class ProbeIllumination(tf.keras.layers.Layer):
-    def __init__(self):
-        super(ProbeIllumination, self).__init__()
+    def __init__(self, name = None):
+        super(ProbeIllumination, self).__init__(name = name)
         self.w = initial_probe_guess
     def call(self, inputs):
         x, = inputs
-        return self.w * x * probe_mask
+        # TODO total variation loss
+        #return probe_mask * x * hh.anti_alias_complex(self.w)
+        return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
+        #return gaussian_filter2d(self.w, sigma = 0.8) * x * probe_mask, (self.w * probe_mask)[None, ...]
+
+        #return hh.anti_alias_complex(self.w) * x * probe_mask, (self.w * probe_mask)[None, ...]
 
 log_scale = tf.Variable(
             #initial_value=tf.constant(7.5),
@@ -163,7 +171,7 @@ padded_objs_with_offsets = Lambda(lambda x: hh.extract_nested_patches(x, fmt = '
 #    [padded_objs_with_offsets, probe_amp_flat, probe_mask])
 
 # Apply the probe
-padded_objs_with_offsets = ProbeIllumination()([padded_objs_with_offsets])
+padded_objs_with_offsets, probe = ProbeIllumination(name = 'probe_illumination')([padded_objs_with_offsets])
 
 # TODO refactor
 # Diffracted amplitude
@@ -189,7 +197,9 @@ negloglik = lambda x, rv_x: -rv_x.log_prob((x))
 # The first output exposes the real space object reconstruction and
 # though it does not contribute to the training loss, it's used to
 # calculate reconstruction errors for evaluation
-autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity, trimmed_obj])
+autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity,
+        probe])
+#autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity, trimmed_obj])
 #autoencoder = Model([input_img], [padded_obj, pred_diff, pred_intensity, pred_diff])
 
 # TODO update for variable probe
@@ -205,7 +215,7 @@ diffraction_to_obj = tf.keras.Model(inputs=[input_img],
 
 autoencoder.compile(optimizer='adam',
      loss=['mean_absolute_error', 'mean_absolute_error', negloglik, hh.total_variation_loss],
-     loss_weights = [0., 0., 1., 0.0])
+     loss_weights = [0., 0., 1., 0.])
 
 print (autoencoder.summary())
 #plot_model(autoencoder, to_file='paper_data/str_model.png')

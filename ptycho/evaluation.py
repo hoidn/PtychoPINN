@@ -36,9 +36,9 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
     plt.title('True phase')
     cropshow(((Y_phi_test * (probe > .01)[..., None]))[i, :, :, channel], cmap = 'jet')
 
-#     plt.subplot(aa, bb, 4)
-#     plt.title('True amp. (full)')
-#     cropshow((_Y_I_test_full[i, :, :, channel]), cmap = 'jet')
+    plt.subplot(aa, bb, 4)
+    plt.title('True amp.\n(full)')
+    cropshow((Y_I_test[i, :, :, channel] / (probe + 1e-9)), cmap = 'jet')
 
     plt.subplot(aa, bb, 5)
     plt.title('Reconstructed amp. (full)')
