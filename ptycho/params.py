@@ -1,5 +1,5 @@
 cfg = {'N': 64, 'offset': 4, 'gridsize': 2, 'bigoffset': 4, 'batch_size': 16,
-    'h': 64, 'w': 64, 'intensity_scale.trainable': True}
+    'h': 64, 'w': 64, 'intensity_scale.trainable': True, 'probe.trainable': True}
 
 def get_bigN():
     N = cfg['N']
