@@ -241,7 +241,12 @@ def extract_nested_patches(img, fmt = 'flat'):
     N = cfg['N']
     offset = params()['offset']
     gridsize = params()['gridsize']
-    # First, extract 'big' patches, each of which is a grid of overlapping solution regions
+    # First, extract 'big' patches, each of which is a grid of overlapping
+    # solution regions.
+    # Reason for the stride of the outer patches to be half of the
+    # outer grid cell size is so that the outer patches have sufficient
+    # overlap (i.e., we know that cell fringes will not be properly
+    # reconstructed so it's necessary to have an overlap)
     grid = tf.reshape(
         tf.image.extract_patches(img, [1, bigN, bigN, 1], [1, bigoffset // 2, bigoffset // 2, 1],
                                               [1, 1, 1, 1], padding = 'VALID'),
