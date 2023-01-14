@@ -225,9 +225,10 @@ def train(epochs, X_train, Y_I_train):
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
 
-    checkpoints= tf.keras.callbacks.ModelCheckpoint('%s/weights.{epoch:02d}.h5' %wt_path,
-                                                monitor='val_loss', verbose=1, save_best_only=True,
-                                                save_weights_only=False, mode='auto', period=1)
+    checkpoints= tf.keras.callbacks.ModelCheckpoint(
+                            '%s/weights.{epoch:02d}.h5' %wt_path,
+                            monitor='val_loss', verbose=1, save_best_only=True,
+                            save_weights_only=False, mode='auto', period=1)
 
     batch_size = params()['batch_size']
     history=autoencoder.fit([X_train * params()['intensity_scale']],
