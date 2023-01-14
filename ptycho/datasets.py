@@ -48,12 +48,11 @@ def simulate_objects(n, size):
 #     Y_I = np.array([datasets.mk_lines_img(2 * size, nlines = 200)
 #                           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
     Y_I = np.array([mk_lines_img(2 * size, nlines = 400)
-                          for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
-
+          for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
     return physics.preprocess_objects(Y_I)
 
 def mk_simdata(n, size, probe, intensity_scale = None):
-    
+
     Y_I, Y_phi, _Y_I_full, norm_Y_I = simulate_objects(n, size)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
