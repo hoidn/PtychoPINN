@@ -25,8 +25,8 @@ tfd = tfp.distributions
 
 wt_path = 'wts4.1'
 # sets the number of convolutional filters
-n_filters_scale = 2
 
+n_filters_scale =  params()['n_filters_scale']
 N = params()['N']
 w = params()['w']
 h = params()['h']
@@ -147,15 +147,19 @@ obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
                      name='obj')([decoded1, decoded2])
 
 #padded_obj = Lambda(lambda x: x, name = 'padded_obj')(obj)
+
+# Pad reconstructions to size N x N
 padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
+# Reassemble multiple channels into single bigN x bigN object reconstruction
 padded_obj_2 = Lambda(lambda x:
     hh.reassemble_patches(x), name = 'padded_obj_2',
     )(padded_obj)
 
-# Trim to N // 2 X N // 2 central region of object reconstruction
-trimmed_obj = Lambda(lambda x: x[:, (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
-        (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
-        :], name = 'trimmed_obj')(padded_obj_2)
+# Trim to N X N central region of object reconstruction
+#trimmed_obj = Lambda(lambda x: x[:, (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
+#        (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
+#        :], name = 'trimmed_obj')(padded_obj_2)
+trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 
 # TODO trimmed obj should really be masked by the union of all the illumination
 # spots, instead of just takiing the central region
@@ -201,6 +205,9 @@ autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity,
         probe])
 #autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity, trimmed_obj])
 #autoencoder = Model([input_img], [padded_obj, pred_diff, pred_intensity, pred_diff])
+
+#autoencoder = Model([input_img], [padded_obj, pred_diff, pred_intensity,
+#        probe])
 
 # TODO update for variable probe
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj],
