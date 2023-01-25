@@ -265,6 +265,14 @@ def extract_nested_patches(img, fmt = 'flat'):
     else:
         raise ValueError
 
+def trim_reconstruction(x):
+    """Trim from bigN x bigN to N x N
+    """
+    gridsize = params()['gridsize']
+    offset = params()['offset']
+    return x[:, (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
+            (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2, :]
+
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -317,6 +325,21 @@ def perceptual_loss(target, pred):
 
 def meanSquaredLoss(y_true,y_pred):
     return tf.reduce_mean(tf.keras.losses.MSE(y_true,y_pred))
+
+# TODO this doesn't work if the intensity scale is set to trainable
+def masked_MAE_loss(target, pred):
+    """
+    bigN
+    """
+    mae = tf.keras.metrics.mean_absolute_error
+    mask = params()['probe_mask']
+#    print((mask * pred).shape)
+#    print((tf.math.abs(mask) * target).shape)
+    pred = trim_reconstruction(
+            reassemble_patches(mask * pred))
+    target = trim_reconstruction(
+            reassemble_patches(tf.math.abs(mask) * target))
+    return mae(target, pred)
 
 #def mul_gaussian_noise(image):
 #    # image must be scaled in [0, 1]
