@@ -12,10 +12,11 @@ from datetime import datetime
 from ptycho import params as p
 import os
 
+prefix = params.params()['output_prefix']
 now = datetime.now() # current date and time
 date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
 date_time = date_time.replace('/', '-').replace(':', '.').replace(', ', '-')
-out_prefix = 'outputs/{}/'.format(date_time)
+out_prefix = '{}/{}/'.format(prefix, date_time)
 
 os.makedirs(out_prefix, exist_ok=True)
 
@@ -41,9 +42,12 @@ offset = params.cfg['offset']
 h = w = N = params.cfg['N'] = 64
 gridsize = params.cfg['gridsize'] = 2
 
-nepochs = params.cfg['nepochs'] = 60
+nepochs = params.cfg['nepochs']
 batch_size = params.cfg['batch_size'] = 16
-train_probe = False
+#train_probe = False
+
+# TODO need to enforce that configs are set before this
+from . import probe
 
 def normed_ff_np(arr):
     return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(h * w))
@@ -51,15 +55,6 @@ def normed_ff_np(arr):
 
 matplotlib.rcParams['font.size'] = 12
 
-# TODO parameterize
-#filt = f.lowpass_g(.55, np.ones(N), sym = True)
-filt = f.lowpass_g(.7, np.ones(N), sym = True)
-#filt = f.lowpass_g(.9, np.ones(N), sym = True)
-
-probe = f.gf(((np.einsum('i,j->ij', filt, filt)) > .5).astype(float), 1) + 1e-9
-probe_small = probe[16:-16, 16:-16]
-tprobe = (tf.convert_to_tensor(probe, tf.float32)[..., None])
-tprobe_small = (tf.convert_to_tensor(probe_small, tf.float32)[..., None])
 
 bigoffset = (gridsize - 1) * offset + N // 2
 big_gridsize = 10
@@ -70,11 +65,13 @@ bigoffset = params.cfg['bigoffset'] = ((gridsize - 1) * offset + N // 2) // 2
 
 # simulate data
 np.random.seed(1)
-X_train, Y_I_train, Y_phi_train, intensity_scale, YY_I_train_full, _  = datasets.mk_simdata(9, size, probe)
+X_train, Y_I_train, Y_phi_train, intensity_scale, YY_I_train_full, _  =\
+    datasets.mk_simdata(9, size, probe.probe)
 params.cfg['intensity_scale'] = intensity_scale
 
 np.random.seed(2)
-X_test, Y_I_test, Y_phi_test, _, YY_I_test_full, norm_Y_I_test = datasets.mk_simdata(3, size, probe, intensity_scale)
+X_test, Y_I_test, Y_phi_test, _, YY_I_test_full, norm_Y_I_test =\
+    datasets.mk_simdata(3, size, probe.probe, intensity_scale)
 
 # TODO shuffle should be after flatten
 X_train, Y_I_train, Y_phi_train = shuffle(X_train.numpy(), Y_I_train.numpy(), Y_phi_train.numpy(), random_state=0)
@@ -97,33 +94,14 @@ print('nphoton',np.log10(np.sum((X_train[:, :, :] * intensity_scale)**2, axis = 
 #plt.imshow(np.log(X_train[0, :, :, 0]), cmap = 'jet')
 #plt.colorbar()
 
-tmp = X_train.mean(axis = (0, 3))
-probe_fif = np.absolute(f.fftshift(f.ifft2(f.ifftshift(tmp))))[N // 2, :]
 
-# variance increments of a slice down the middle
-d_second_moment = (probe_fif / probe_fif.sum()) * ((np.arange(N) - N // 2)**2)
-probe_sigma_guess = np.sqrt(d_second_moment.sum())
-
-
-centered_indices = np.arange(N) - N // 2 + .5
-x, y = np.meshgrid(centered_indices, centered_indices)
-d = np.sqrt(x*x+y*y)
-mu = 0.
-probe_mask = (d < N // 4)
-probe_guess = np.exp(-( (d-mu)**2 / ( 2.0 * probe_sigma_guess**2 ) ) )
-probe_guess *= probe_mask
-probe_guess *= (np.sum(tprobe) / np.sum(probe_guess))
-
-t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)[..., None]
-
-if train_probe:
-    params.cfg['probe'] = t_probe_guess
-    params.cfg['probe.trainable'] = True
+if params.params()['probe.trainable']:
+    params.cfg['probe'] = probe.mk_probe_guess(X_train)
 else:
-    params.cfg['probe'] = tprobe
-    params.cfg['probe.trainable'] = False
+    params.cfg['probe'] = probe.tprobe
 
-params.cfg['probe_mask'] = tf.convert_to_tensor(probe_mask, tf.complex64)[..., None]
+
+params.cfg['probe_mask'] = tf.convert_to_tensor(probe.probe_mask, tf.complex64)[..., None]
 
 from ptycho import params
 from ptycho import model
