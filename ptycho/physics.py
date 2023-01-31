@@ -29,7 +29,6 @@ def preprocess_objects(Y_I, Y_phi = None):
     """
     Reshapes and returns (normalized) amplitude and phase for the given real or complex objects
     """
-
     _Y_I_full = Y_I
     if Y_phi is None:
         Y_phi = np.zeros_like(Y_I)
