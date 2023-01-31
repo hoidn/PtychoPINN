@@ -1,12 +1,9 @@
 from skimage.transform import resize
-from sklearn.model_selection import train_test_split
 from tqdm.notebook import tqdm as tqdm
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy as np
 import scipy.signal
 import sys
-import tensorflow as tf
 
 from . import physics
 from . import tf_helper as hh
@@ -78,21 +75,24 @@ ntest = X_test.shape[0]*X_test.shape[1]
 
 print(X_train.shape, X_test.shape)
 
-# # resize to fill the grid better
-# X_train = np.array([blowup(arr) for arr in X_train]) * probe[None, ..., None]
-# X_test = np.array([blowup(arr) for arr in X_test]) * probe[None, ..., None]
 
 tmp1, tmp2 = Y_I_train, Y_I_test
 
 img = np.zeros((544, 544), dtype = 'float32')[None, ..., None]
 offset_experimental = 3
-inverted_patches_I = hh.extract_patches_inverse(img, amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
-                                               N, offset_experimental)
-inverted_patches_phi = hh.extract_patches_inverse(img, ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
-                                                 N, offset_experimental)
+#inverted_patches_I = hh.extract_patches_inverse(img, amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
+#                                               N, offset_experimental)
+#inverted_patches_phi = hh.extract_patches_inverse(img, ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
+#                                                 N, offset_experimental)
 
-# X_train = np.array(hh.pad_and_diffract(Y_I_train, h, w, pad=False)[1])
-# X_test = np.array(hh.pad_and_diffract(Y_I_test, h, w, pad=False)[1])
+inverted_patches_I = hh.extract_patches_inverse(
+       (amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
+       N, True), gridsize = amp.shape[0],
+       offset = offset_experimental)
+inverted_patches_phi = hh.extract_patches_inverse(
+       (ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
+       N, True), gridsize = ph.shape[0],
+       offset = offset_experimental)
 
 ## Recover shift between scan points
 

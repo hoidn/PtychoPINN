@@ -35,7 +35,8 @@ offset = params()['offset']
 tprobe = params()['probe']
 #intensity_scale = params()['intensity_scale']
 
-probe_mask = params()['probe_mask']
+from . import probe
+probe_mask = probe.probe_mask#params()['probe_mask']
 
 initial_probe_guess = tprobe
 initial_probe_guess = tf.Variable(

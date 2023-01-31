@@ -19,6 +19,7 @@ x, y = np.meshgrid(centered_indices, centered_indices)
 d = np.sqrt(x*x+y*y)
 mu = 0.
 probe_mask = (d < N // 4)
+probe_mask = tf.convert_to_tensor(probe_mask, tf.complex64)[..., None]
 
 def mk_probe_guess(X_train):
     tmp = X_train.mean(axis = (0, 3))
