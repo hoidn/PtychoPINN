@@ -7,6 +7,7 @@ import tensorflow as tf
 
 from . import fourier as f
 from . import physics
+from . import tf_helper as hh
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -30,30 +31,41 @@ def mk_lines_img(N = 64, nlines = 10):
     return f.gf(res, 1) + 2 * f.gf(res, 5) + 5 * f.gf(res, 10)
     #return f.gf(res, 1) + f.gf(res, 10)
 
-
 def mk_noise(N = 64, nlines = 10):
     return np.random.uniform(size = N * N).reshape((N, N, 1))
 
 def mk_expdata(which, probe, intensity_scale = None):
     from . import experimental
     Y_I, Y_phi, _Y_I_full, norm_Y_I = experimental.preprocess_experimental(which)
+    size = _Y_I_full.shape[1]
+    print('shape', _Y_I_full.shape)
+    coords = hh.extract_coords(size, 1)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
-    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I
+    # TODO put this in a struct or something
+    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, coords
 
 def simulate_objects(n, size):
     """
     Returns (normalized) amplitude and phase for n generated objects
+
+    coords: tuple of two tuples. First gives center coords for each
+    small image patch. Second gives offset coords for each solution
+    region.
     """
 #     Y_I = np.array([datasets.mk_lines_img(2 * size, nlines = 200)
 #                           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
+    # x and y coordinates of the patches
+    coords = hh.extract_coords(size, n)
+
     Y_I = np.array([mk_lines_img(2 * size, nlines = 400)
           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
-    return physics.preprocess_objects(Y_I)
+
+    Y_I, Y_phi, _Y_I_full, norm_Y_I = physics.preprocess_objects(Y_I)
+    return Y_I, Y_phi, _Y_I_full, norm_Y_I, coords
 
 def mk_simdata(n, size, probe, intensity_scale = None):
-
-    Y_I, Y_phi, _Y_I_full, norm_Y_I = simulate_objects(n, size)
+    Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = simulate_objects(n, size)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
-    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I
+    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, coords

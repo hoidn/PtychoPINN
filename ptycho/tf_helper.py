@@ -8,43 +8,19 @@ tf.config.experimental.set_memory_growth(physical_devices[0], True)
 import numpy as np
 import tensorflow.compat.v2 as tf
 tf.enable_v2_behavior()
+
+from skimage.transform import resize as sresize
+from tensorflow.keras import Input
+from tensorflow.keras import Model
+from tensorflow.keras import Sequential
+from tensorflow.keras.applications.vgg16 import VGG16
+from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
+from tensorflow.keras.layers import Lambda
+from tensorflow.signal import fft2d, fftshift
 import tensorflow_datasets as tfds
 import tensorflow_probability as tfp
-from skimage.transform import resize as sresize
-from tensorflow.signal import fft2d, fftshift
-#Keras modules
-from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
-from tensorflow.keras import Sequential
-from tensorflow.keras import Input
-from tensorflow.keras.layers import Lambda
-
-from tensorflow.keras import Model
-from tensorflow.keras.applications.vgg16 import VGG16
 
 from .params import params, cfg, get_bigN
-
-# TODO import order
-#import os
-#os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-#import tensorflow as tf
-#physical_devices = tf.config.list_physical_devices('GPU')
-#tf.config.experimental.set_memory_growth(physical_devices[0], True)
-#
-#from .params import params, cfg, get_bigN
-#from skimage.transform import resize as sresize
-#from tensorflow.keras import Input
-#from tensorflow.keras import Sequential
-#from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
-#from tensorflow.keras.layers import Lambda
-#from tensorflow.signal import fft
-#from tensorflow.signal import fft2d, fftshift
-#import numpy as np
-#import tensorflow_datasets as tfds
-#import tensorflow_probability as tfp
-#
-#import tensorflow.compat.v2 as tf
-#tf.enable_v2_behavior()
-
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -96,8 +72,7 @@ def pad_and_diffract(input, h, w, pad = True):
     input = (( tf.math.real(tf.math.conj((input)) * input) / (h * w)))
     input = (( tf.expand_dims(
                               tf.math.sqrt(
-            fftshift(input, (-2, -1))
-                                   ), 3)
+            fftshift(input, (-2, -1))), 3)
         ))
     return padded, input
 
@@ -181,14 +156,71 @@ def extract_patches(x, N, offset):
         padding="VALID"
     )
 
+def extract_outer(img, fmt = 'grid'):
+    """
+        Extract big patches (overlapping bigN x bigN regions over an
+        entire input img)
+    """
+    bigN = get_bigN()
+    bigoffset = cfg['bigoffset']
+    assert img.shape[-1] == 1
+    # Reason for the stride of the outer patches to be half of the grid
+    # spacing is so that the patches have sufficient overlap (i.e., we
+    # know that the boundary of a solution region will not be properly
+    # reconstructed, so it's necessary to have overlaps)
+    grid = tf.reshape(
+        extract_patches(img, bigN, bigoffset // 2),
+        (-1, bigN, bigN, 1))
+    if fmt == 'flat':
+        return _fromgrid(grid)
+    elif fmt == 'grid':
+        return grid
+    elif fmt == 'channel':
+        return _grid_to_channel(grid)
+    else:
+        raise ValueError
+
+def extract_nested_patches(img, fmt = 'flat'):
+    """
+    Extract small patches (overlapping N x N regions on a gridsize x gridsize
+        grid) within big patches (overlapping bigN x bigN regions over the
+        entire input img)
+
+    fmt == 'channel': patches within a solution region go in the channel dimension
+    fmt == 'flat': patches within a solution go in the batch dimension; size of output
+        channel dimension is 1
+    fmt == 'grid': ...
+    """
+    N = cfg['N']
+    offset = params()['offset']
+    gridsize = params()['gridsize']
+    assert img.shape[-1] == 1
+    # First, extract 'big' patches, each of which is a grid of
+    # overlapping solution regions.
+    grid = extract_outer(img, fmt = 'grid')
+    # Then, extract individual solution regions within each patch
+    grid = tf.reshape(
+        extract_patches(grid, N, offset),
+        (-1, gridsize, gridsize, N, N, 1))
+    if fmt == 'flat':
+        return _fromgrid(grid)
+    elif fmt == 'grid':
+        return grid
+    elif fmt == 'channel':
+        return _grid_to_channel(grid)
+    else:
+        raise ValueError
 
 @tf.function
-def extract_patches_inverse(inputs):
+def extract_patches_inverse(inputs, gridsize = None, offset = None):
     N = params()['N']
-    gridsize = params()['gridsize']
-    offset = params()['offset']
+    if gridsize is None:
+        gridsize = params()['gridsize']
+    if offset is None:
+        offset = params()['offset']
+    # TODO don't pass inputs this way
+    y, N, average = inputs
     target_size = N + (gridsize - 1) * offset
-    y, N, offset, average = inputs
     b = tf.shape(y)[0]
 
     _x = tf.zeros((b, target_size, target_size, 1), dtype = y.dtype)
@@ -201,6 +233,32 @@ def extract_patches_inverse(inputs):
     else:
         return tf.gradients(_y, _x, grad_ys=y)[0]
 
+def extract_coords(size, repeats = 1):
+    """
+    Returns tuple of two tuples. First gives center coords for each
+    small image patch. Second gives offset coords for each solution
+    region.
+    """
+    x = tf.range(size, dtype = tf.float32)
+    y = tf.range(size, dtype = tf.float32)
+    xx, yy = tf.meshgrid(x, y)
+    xx = xx[None, ..., None]
+    yy = yy[None, ..., None]
+    def _extract_coords(zz, fn):
+        ix = fn(zz)
+        ix = tf.reduce_mean(ix, axis = (1, 2))
+        return tf.repeat(ix, repeats, axis = 0)[:, None, None, :]
+    def outer(img):
+        return extract_outer(img, fmt = 'grid')
+    def inner(img):
+        return extract_nested_patches(img, fmt = 'channel')
+    ix = _extract_coords(xx, inner)
+    iy = _extract_coords(yy, inner)
+    ix_offsets = _extract_coords(xx, outer)
+    iy_offsets = _extract_coords(yy, outer)
+    coords = ((ix, iy), (ix_offsets, iy_offsets))
+    return coords
+
 def reassemble_patches_real(channels, average = True):
     """
     Given image patches (shaped such that the channel dimension indexes
@@ -210,8 +268,7 @@ def reassemble_patches_real(channels, average = True):
     """
     real = _channel_to_patches(channels)
     N = params()['N']
-    offset = params()['offset']
-    return extract_patches_inverse((real, N, offset, average))
+    return extract_patches_inverse((real, N, average))
 
 gridsize = params()['gridsize']
 N = params()['N']
@@ -228,42 +285,12 @@ def reassemble_patches(channels, average = False):
     averaged.
     """
     # TODO dividing out by norm increased the training time quite
-    # substantially
+    # substantially TODO is that true?
     real = tf.math.real(channels)
     imag = tf.math.imag(channels)
     assembled_real = reassemble_patches_real(real, average = average) / norm
     assembled_imag = reassemble_patches_real(imag, average = average) / norm
     return tf.dtypes.complex(assembled_real, assembled_imag)
-
-def extract_nested_patches(img, fmt = 'flat'):
-    bigN = get_bigN()
-    bigoffset = cfg['bigoffset']
-    N = cfg['N']
-    offset = params()['offset']
-    gridsize = params()['gridsize']
-    # First, extract 'big' patches, each of which is a grid of overlapping
-    # solution regions.
-    # Reason for the stride of the outer patches to be half of the
-    # outer grid cell size is so that the outer patches have sufficient
-    # overlap (i.e., we know that cell fringes will not be properly
-    # reconstructed so it's necessary to have an overlap)
-    grid = tf.reshape(
-        tf.image.extract_patches(img, [1, bigN, bigN, 1], [1, bigoffset // 2, bigoffset // 2, 1],
-                                              [1, 1, 1, 1], padding = 'VALID'),
-        (-1, bigN, bigN, 1))
-    # Then, extract individual solution regions within each patch
-    grid = tf.reshape(
-        tf.image.extract_patches(grid, [1, N, N, 1], [1, offset, offset, 1],
-                                              [1, 1, 1, 1], padding = 'VALID'),
-        (-1, gridsize, gridsize, N, N, 1))
-    if fmt == 'flat':
-        return _fromgrid(grid)
-    elif fmt == 'grid':
-        return grid
-    elif fmt == 'channel':
-        return _grid_to_channel(grid)
-    else:
-        raise ValueError
 
 def trim_reconstruction(x):
     """Trim from bigN x bigN to N x N
@@ -285,6 +312,10 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
     x0 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)(x0)
     x0 = UpSampling2D((p1, p2), data_format=data_format)(x0)
     return x0
+
+########
+## Loss functions
+########
 
 def gram_matrix(input_tensor):
     result = tf.linalg.einsum('bijc,bijd->bcd', input_tensor, input_tensor)
@@ -333,21 +364,12 @@ def masked_MAE_loss(target, pred):
     """
     mae = tf.keras.metrics.mean_absolute_error
     mask = params()['probe_mask']
-#    print((mask * pred).shape)
-#    print((tf.math.abs(mask) * target).shape)
     pred = trim_reconstruction(
             reassemble_patches(mask * pred))
     target = trim_reconstruction(
             reassemble_patches(tf.math.abs(mask) * target))
     return mae(target, pred)
 
-#def mul_gaussian_noise(image):
-#    # image must be scaled in [0, 1]
-#    with tf.name_scope('Add_gaussian_noise'):
-#        noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=1, dtype=tf.float32)
-#        noise_img = image * noise
-#    return noise_img
-#
 #def symmetrized_loss(target, pred, loss_fn):
 #    """
 #    Calculate loss function on an image, taking into account that the
@@ -360,15 +382,3 @@ def masked_MAE_loss(target, pred):
 #    a, b, c = loss_fn(abs1, abs2), loss_fn(abs1, abs3), loss_fn(target_sym, pred)
 #    return tf.minimum(a,
 #                      tf.minimum(b, c))
-#
-#def amplitude_difference(target, pred):
-#    """
-#    Calculate object MAE, taking into account that the prediction may be
-#    inverted
-#    """
-#    abs1 = tf.math.abs(target)
-#    abs2 = tf.math.abs(pred)
-#    return symmetrized_loss(target, pred, tf.keras.losses.MeanAbsoluteError())
-#
-#def symmetrized_perceptual_loss(target, pred):
-#    return symmetrized_loss(target, pred, perceptual_loss)

@@ -55,7 +55,6 @@ def normed_ff_np(arr):
 
 matplotlib.rcParams['font.size'] = 12
 
-
 bigoffset = (gridsize - 1) * offset + N // 2
 big_gridsize = 10
 bigN = params.params()['bigN']
@@ -65,12 +64,12 @@ bigoffset = params.cfg['bigoffset'] = ((gridsize - 1) * offset + N // 2) // 2
 
 # simulate data
 np.random.seed(1)
-X_train, Y_I_train, Y_phi_train, intensity_scale, YY_I_train_full, _  =\
+X_train, Y_I_train, Y_phi_train, intensity_scale, YY_I_train_full, _, coords_train  =\
     datasets.mk_simdata(9, size, probe.probe)
 params.cfg['intensity_scale'] = intensity_scale
 
 np.random.seed(2)
-X_test, Y_I_test, Y_phi_test, _, YY_I_test_full, norm_Y_I_test =\
+X_test, Y_I_test, Y_phi_test, _, YY_I_test_full, norm_Y_I_test, coords_test =\
     datasets.mk_simdata(3, size, probe.probe, intensity_scale)
 
 # TODO shuffle should be after flatten
@@ -103,11 +102,7 @@ else:
 
 params.cfg['probe_mask'] = tf.convert_to_tensor(probe.probe_mask, tf.complex64)[..., None]
 
-from ptycho import params
 from ptycho import model
-#reload(hh)
-#reload(model.hh)
-#reload(model)
 
 #Create a TensorBoard callback
 logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -119,6 +114,7 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
 #plt.imshow(np.absolute(model.autoencoder.variables[-1]), cmap = 'jet')
 #plt.colorbar()
 history = model.train(nepochs, X_train, Y_I_train)#tboard_callback
+# TODO handle intensity scaling more gracefully
 b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale']])
 
 from ptycho import baselines as bl
@@ -149,20 +145,19 @@ def stitch(b, norm_Y_I_test = 1,
     stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
     return stitched
 
-#plt.rcParams["figure.figsize"] = (10, 10)
-## ground truth
-#bordersize = N // 2 - bigoffset // 4
-#clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
-#plt.imshow(_Y_I_test_full[0, clipleft: -clipright, clipleft: -clipright], interpolation = 'none',
-#          cmap = 'jet')
-#vmin = np.min(_Y_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
-#vmax = np.max(_Y_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
+def show_groundtruth():
+    plt.rcParams["figure.figsize"] = (10, 10)
+    # ground truth
+    plt.imshow(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright], interpolation = 'none',
+              cmap = 'jet')
+#    vmin = np.min(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
+#    vmax = np.max(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
 
 # reconstructed
 stitched = stitch(b, norm_Y_I_test,
                   #nsegments=37,
                   norm = False)
-#plt.imshow(stitched[0], interpolation = 'none', cmap = 'jet')
+
 plt.imsave(out_prefix + 'recon.png', stitched[0][:, :, 0], cmap = 'jet')
 plt.imsave(out_prefix + 'orig.png', YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright, 0],
           cmap = 'jet')
