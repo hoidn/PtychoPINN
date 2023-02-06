@@ -1,3 +1,6 @@
+#from ptycho import datasets
+#from ptycho import fourier as f
+#from ptycho import params
 from . import datasets
 from . import fourier as f
 from . import params
@@ -47,7 +50,8 @@ batch_size = params.cfg['batch_size'] = 16
 #train_probe = False
 
 # TODO need to enforce that configs are set before this
-from . import probe
+from ptycho import probe
+#from . import probe
 
 def normed_ff_np(arr):
     return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(h * w))
@@ -102,7 +106,8 @@ else:
 
 params.cfg['probe_mask'] = tf.convert_to_tensor(probe.probe_mask, tf.complex64)[..., None]
 
-from ptycho import model
+from . import model
+#from ptycho import model
 
 #Create a TensorBoard callback
 logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -113,9 +118,11 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
 
 #plt.imshow(np.absolute(model.autoencoder.variables[-1]), cmap = 'jet')
 #plt.colorbar()
-history = model.train(nepochs, X_train, Y_I_train)#tboard_callback
+history = model.train(nepochs, X_train, coords_train, Y_I_train)#tboard_callback
+
 # TODO handle intensity scaling more gracefully
-b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale']])
+b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
+                                                coords_test])
 
 from ptycho import baselines as bl
 from ptycho.params import params
@@ -175,7 +182,7 @@ with open(out_prefix + '/params.dill', 'wb') as f:
 #        'Y_phi_test': Y_phi_test,
 #        'X_test': X_test}, f)
 
-model.autoencoder.save('{}.h5'.format(out_prefix + 'wts'))
+model.autoencoder.save('{}.h5'.format(out_prefix + 'wts'), save_format="tf")
 
 #with open('/trainHistoryDict', "rb") as file_pi:
 #    history = pickle.load(file_pi)

@@ -2,6 +2,7 @@
 # with minor changes to make comparison to PtychoPINN easier
 from .tf_helper import *
 import tensorflow as tf
+import numpy as np
 
 from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense
 from tensorflow.keras import Sequential
@@ -27,7 +28,6 @@ n_filters_scale = 2
 from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
 from tensorflow.keras import Sequential
 from tensorflow.keras import Input
-import numpy as np
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
