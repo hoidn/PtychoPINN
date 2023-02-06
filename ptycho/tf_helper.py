@@ -1,6 +1,5 @@
 import os
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-from tensorflow.signal import fft
 import tensorflow as tf
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -8,10 +7,7 @@ tf.config.experimental.set_memory_growth(physical_devices[0], True)
 import tensorflow.compat.v2 as tf
 tf.enable_v2_behavior()
 
-from skimage.transform import resize as sresize
-from tensorflow.keras import Input
 from tensorflow.keras import Model
-from tensorflow.keras import Sequential
 from tensorflow.keras.applications.vgg16 import VGG16
 from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
 from tensorflow.keras.layers import Lambda
@@ -30,19 +26,6 @@ def get_mask(input, support_threshold):
     mask = tf.where(input > support_threshold, tf.ones_like(input),
                     tf.zeros_like(input))
     return mask
-
-def resize(x):
-    rmod = do_resize()
-    rmod.compile(loss = 'mse')
-    return rmod.predict(x)
-
-def do_resize(N):
-    N = params()['N']
-    transform = tfkl.AveragePooling2D(2)
-    return tfk.Sequential([
-        tfk.Input(shape = (N, N, 1)),
-        transform
-    ])
 
 def combine_complex(amp, phi):
     output = tf.cast(amp, tf.complex64) * tf.exp(
@@ -73,8 +56,6 @@ def pad_and_diffract(input, h, w, pad = True):
             fftshift(input, (-2, -1))), 3)
         ))
     return padded, input
-
-# TODO move these tensor manipulation functions into another file?
 
 def _fromgrid(img):
     """
@@ -115,17 +96,6 @@ def _grid_to_channel(grid):
 
 def grid_to_channel(*grids):
     return [_grid_to_channel(g) for g in grids]
-
-#def _flat_to_channel(img, N = None, h = None, w = None, gridsize = None):
-#    if gridsize is None:
-#        gridsize = params()['gridsize']
-#    if h is None and w is None:
-#        if N is None:
-#            N = params()['N']
-#        h = w = N
-#    img = tf.reshape(img, (-1, gridsize**2, h, w))
-#    img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
-#    return img
 
 def _flat_to_channel(img, N = None):
     gridsize = params()['gridsize']
@@ -244,13 +214,6 @@ def extract_patches_inverse(inputs, gridsize = None, offset = None):
     else:
         return tf.gradients(_y, _x, grad_ys=y)[0]
 
-
-#def get_patch_offsets(coords):
-#    offsets_x = coords[1][0] - coords[0][0]
-#    offsets_y = coords[1][1] - coords[0][1]
-#    return tf.stack([_channel_to_flat(offsets_x),
-#        _channel_to_flat(offsets_y)], axis = 1)[:, :, 0, 0, 0]
-
 def reassemble_patches_real(channels, average = True):
     """
     Given image patches (shaped such that the channel dimension indexes
@@ -276,24 +239,26 @@ def trim_reconstruction(x):
             (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2, :]
 
 def extract_patches_position(imgs, offsets_xy):
-    bigN = get_bigN()
     gridsize = params()['gridsize']
     offsets_flat = flatten_offsets(offsets_xy)
     stacked = tf.repeat(imgs, gridsize**2, axis = 3)
     flat_padded = _channel_to_flat(stacked)
-#    channels_translated = trim_reconstruction(
-#        translate(flat_padded, offsets_xy, interpolation='bilinear'))
     channels_translated = trim_reconstruction(
         Translation()([flat_padded, offsets_flat]))
     return channels_translated
 
+# TODO use this everywhere where applicable
 def complexify_function(fn):
+    """
+    Turn a function of a real tensorflow floating point data type into its
+    complex version.
+
+    It's assumed that the first argument is complex and must be
+    converted before calling fn on its real and imaginary components.
+    All other arguments are left unchanged.
+    """
     def newf(*args, **kwargs):
         channels = args[0]
-#        if len(args) > 1:
-#            new_args = (channels,) + args[1:]
-#        else:
-#            new_args = (channels,)
         if channels.dtype == tf.complex64:
             real = tf.math.real(channels)
             imag = tf.math.imag(channels)
@@ -326,8 +291,6 @@ def _reassemble_patches_position_real(imgs, offsets_xy):
     offsets_flat = flatten_offsets(offsets_xy)
     imgs_flat = _channel_to_flat(imgs)
     imgs_flat_bigN = pad_bigN(imgs_flat)
-#    imgs_flat_bigN_translated = translate(imgs_flat_bigN, -offsets_xy,
-#        interpolation = 'bilinear')
     imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat])
     imgs_merged = tf.reduce_sum(
             _flat_to_channel(imgs_flat_bigN_translated, N = bigN),
@@ -348,7 +311,6 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real, a
     for the entire solution region. Overlaps between patches are
     averaged.
     """
-    # TODO sum not average, why?
     # TODO dividing out by norm increased the training time quite
     # substantially TODO is that true?
     real = tf.math.real(channels)
@@ -356,7 +318,6 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real, a
     assembled_real = fn_reassemble_real(real, average = average) / norm
     assembled_imag = fn_reassemble_real(imag, average = average) / norm
     return tf.dtypes.complex(assembled_real, assembled_imag)
-
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -374,7 +335,7 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
 ########
 ## Loss functions
 ########
-
+# TODO move these to another file
 def gram_matrix(input_tensor):
     result = tf.linalg.einsum('bijc,bijd->bcd', input_tensor, input_tensor)
     input_shape = tf.shape(input_tensor)
