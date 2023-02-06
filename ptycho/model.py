@@ -7,7 +7,8 @@ import glob
 import math
 import numpy as np
 import os
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
 from . import tf_helper as hh
@@ -45,9 +46,8 @@ initial_probe_guess = tf.Variable(
         )
 
 # TODO hyperparameters:
-# -probe smoothing scale
+# -probe smoothing scale(?)
 # -number of filters
-# -initial learning rate
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
@@ -58,11 +58,11 @@ class ProbeIllumination(tf.keras.layers.Layer):
         #return probe_mask * x * hh.anti_alias_complex(self.w)
         return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
         #return gaussian_filter2d(self.w, sigma = 0.8) * x * probe_mask, (self.w * probe_mask)[None, ...]
-
         #return hh.anti_alias_complex(self.w) * x * probe_mask, (self.w * probe_mask)[None, ...]
 
 log_scale = tf.Variable(
             #initial_value=tf.constant(7.5),
+            # TODO set to the right value TODO
             initial_value=tf.constant(7.84),
             # TODO learning rate is too slow, so the initial guess has to be
             # set quite close to the correct value
@@ -97,6 +97,7 @@ for file in files:
 
 lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
 input_img = Input(shape=(h, w, gridsize**2), name = 'input')
+input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
 
 scaler = IntensityScaler()
 inv_scaler = IntensityScaler_inv()
@@ -144,36 +145,42 @@ decoded2 = Lambda(lambda x: math.pi * tanh(x), name='phi')(decoded2)
 #probe_amp_channels = tfkl.ZeroPadding2D((N // 4, N // 4), name='probe_amp')(probe_amp)
 #probe_amp_flat = hh._channel_to_flat(probe_amp_channels)
 
+# 2048, 128, 2 * gridsize**2. Batch normalization before ReLU?
+#tf.keras.layers.Flatten(input_shape=(),name='Flatten'),
+#tf.keras.layers.Dense(4096,activation='relu',name='fc1'),
+#tf.keras.layers.Dense(4096,activation='relu',name='fc2'),
+
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
                      name='obj')([decoded1, decoded2])
-
-#padded_obj = Lambda(lambda x: x, name = 'padded_obj')(obj)
 
 # Pad reconstructions to size N x N
 padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
 # Reassemble multiple channels into single bigN x bigN object reconstruction
-padded_obj_2 = Lambda(lambda x:
-    hh.reassemble_patches(x), name = 'padded_obj_2',
-    )(padded_obj)
+
+def mk_reassemble_position_real(input_positions):
+    def reassemble_patches_position_real(imgs, **kwargs):
+        return hh._reassemble_patches_position_real(imgs, input_positions)
+    return reassemble_patches_position_real
+
+#aux = tf.keras.Model(inputs=[input_img, input_positions],
+#                           outputs=[padded_obj])
+
+padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0],
+        fn_reassemble_real=mk_reassemble_position_real(x[1])),
+            name = 'padded_obj_2')([padded_obj, input_positions])
 
 # Trim to N X N central region of object reconstruction
-#trimmed_obj = Lambda(lambda x: x[:, (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
-#        (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
-#        :], name = 'trimmed_obj')(padded_obj_2)
 trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 
 # TODO trimmed obj should really be masked by the union of all the illumination
 # spots, instead of just takiing the central region
 crop_center = Lambda(lambda x: x[:, N // 2: -N // 2, N // 2: -N // 2, :])
-#trimmed_obj_small = crop_center(ProbeIllumination()([trimmed_obj]))
-#trimmed_obj_small = Lambda(
-#    lambda x: crop_center(x[0] * tf.cast(x[1], tf.complex64) * x[2]))(
-#        [trimmed_obj, probe_amp_flat, probe_mask])
 
 # Extract overlapping regions of the object
-padded_objs_with_offsets = Lambda(lambda x: hh.extract_nested_patches(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
-#padded_objs_with_offsets = Lambda(lambda x: x[0] * tf.cast(x[1], tf.complex64) * x[2])(
-#    [padded_objs_with_offsets, probe_amp_flat, probe_mask])
+padded_objs_with_offsets = Lambda(
+        lambda x: hh.extract_patches_position(x[0], x[1]),
+    name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
+#padded_objs_with_offsets = Lambda(lambda x: hh.extract_nested_patches(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
 
 # Apply the probe
 padded_objs_with_offsets, probe = ProbeIllumination(name = 'probe_illumination')([padded_objs_with_offsets])
@@ -189,7 +196,6 @@ pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels'
 
 # amplitude scaled to the correct photon count
 pred_diff_scaled = inv_scaler([pred_diff])
-#pred_diff_scaled = Lambda(lambda x: x[0] * x[1], name = 'scaled')([pred_diff, intensity_scale])
 
 pred_intensity = tfpl.DistributionLambda(lambda t:
                                        (tfd.Independent(
@@ -202,13 +208,8 @@ negloglik = lambda x, rv_x: -rv_x.log_prob((x))
 # The first output exposes the real space object reconstruction and
 # though it does not contribute to the training loss, it's used to
 # calculate reconstruction errors for evaluation
-autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity,
+autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_diff, pred_intensity,
         probe])
-#autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity, trimmed_obj])
-#autoencoder = Model([input_img], [padded_obj, pred_diff, pred_intensity, pred_diff])
-
-#autoencoder = Model([input_img], [padded_obj, pred_diff, pred_intensity,
-#        probe])
 
 # TODO update for variable probe
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj],
@@ -217,10 +218,6 @@ autoencoder = Model([input_img], [trimmed_obj, pred_diff, pred_intensity,
 diffraction_to_obj = tf.keras.Model(inputs=[input_img],
                            outputs=[obj])
 
-#aux = tf.keras.Model(inputs=[input_img],
-#                           outputs=[probe_amp_flat,
-#                                crop_center(pred_diff), pred_diff_scaled])
-
 autoencoder.compile(optimizer='adam',
      loss=['mean_absolute_error', 'mean_absolute_error', negloglik, hh.total_variation_loss],
      loss_weights = [0., 0., 1., 0.])
@@ -228,7 +225,7 @@ autoencoder.compile(optimizer='adam',
 print (autoencoder.summary())
 #plot_model(autoencoder, to_file='paper_data/str_model.png')
 
-def train(epochs, X_train, Y_I_train):
+def train(epochs, X_train, coords_train, Y_I_train):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
@@ -239,7 +236,9 @@ def train(epochs, X_train, Y_I_train):
                             save_weights_only=False, mode='auto', period=1)
 
     batch_size = params()['batch_size']
-    history=autoencoder.fit([X_train * params()['intensity_scale']],
+    history=autoencoder.fit(
+        [X_train * params()['intensity_scale'],
+            coords_train],
         [Y_I_train,
             X_train * params()['intensity_scale'],
             (params()['intensity_scale'] * X_train)**2,
