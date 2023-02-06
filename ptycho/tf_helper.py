@@ -5,7 +5,6 @@ import tensorflow as tf
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-import numpy as np
 import tensorflow.compat.v2 as tf
 tf.enable_v2_behavior()
 
@@ -17,7 +16,6 @@ from tensorflow.keras.applications.vgg16 import VGG16
 from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
 from tensorflow.keras.layers import Lambda
 from tensorflow.signal import fft2d, fftshift
-import tensorflow_datasets as tfds
 import tensorflow_probability as tfp
 
 from .params import params, cfg, get_bigN
@@ -76,6 +74,8 @@ def pad_and_diffract(input, h, w, pad = True):
         ))
     return padded, input
 
+# TODO move these tensor manipulation functions into another file?
+
 def _fromgrid(img):
     """
     Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
@@ -116,11 +116,22 @@ def _grid_to_channel(grid):
 def grid_to_channel(*grids):
     return [_grid_to_channel(g) for g in grids]
 
-def _flat_to_channel(img):
+#def _flat_to_channel(img, N = None, h = None, w = None, gridsize = None):
+#    if gridsize is None:
+#        gridsize = params()['gridsize']
+#    if h is None and w is None:
+#        if N is None:
+#            N = params()['N']
+#        h = w = N
+#    img = tf.reshape(img, (-1, gridsize**2, h, w))
+#    img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
+#    return img
+
+def _flat_to_channel(img, N = None):
     gridsize = params()['gridsize']
-    h = params()['h']
-    w = params()['w']
-    img = tf.reshape(img, (-1, gridsize**2, h, w))
+    if N is None:
+        N = params()['N']
+    img = tf.reshape(img, (-1, gridsize**2, N, N))
     img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
     return img
 
@@ -129,7 +140,7 @@ def _channel_to_flat(img):
     Reshape (b, N, N, gridsize * gridsize) to (-1, N, N, 1)
     """
     _, h, w, c = img.shape
-    assert h == w == params()['N']
+    #assert h == w == params()['N']
     img = tf.transpose(img, [0, 3, 1, 2], conjugate=False)
     img = tf.reshape(img, (-1, h, w, 1))
     return img
@@ -233,31 +244,12 @@ def extract_patches_inverse(inputs, gridsize = None, offset = None):
     else:
         return tf.gradients(_y, _x, grad_ys=y)[0]
 
-def extract_coords(size, repeats = 1):
-    """
-    Returns tuple of two tuples. First gives center coords for each
-    small image patch. Second gives offset coords for each solution
-    region.
-    """
-    x = tf.range(size, dtype = tf.float32)
-    y = tf.range(size, dtype = tf.float32)
-    xx, yy = tf.meshgrid(x, y)
-    xx = xx[None, ..., None]
-    yy = yy[None, ..., None]
-    def _extract_coords(zz, fn):
-        ix = fn(zz)
-        ix = tf.reduce_mean(ix, axis = (1, 2))
-        return tf.repeat(ix, repeats, axis = 0)[:, None, None, :]
-    def outer(img):
-        return extract_outer(img, fmt = 'grid')
-    def inner(img):
-        return extract_nested_patches(img, fmt = 'channel')
-    ix = _extract_coords(xx, inner)
-    iy = _extract_coords(yy, inner)
-    ix_offsets = _extract_coords(xx, outer)
-    iy_offsets = _extract_coords(yy, outer)
-    coords = ((ix, iy), (ix_offsets, iy_offsets))
-    return coords
+
+#def get_patch_offsets(coords):
+#    offsets_x = coords[1][0] - coords[0][0]
+#    offsets_y = coords[1][1] - coords[0][1]
+#    return tf.stack([_channel_to_flat(offsets_x),
+#        _channel_to_flat(offsets_y)], axis = 1)[:, :, 0, 0, 0]
 
 def reassemble_patches_real(channels, average = True):
     """
@@ -270,27 +262,10 @@ def reassemble_patches_real(channels, average = True):
     N = params()['N']
     return extract_patches_inverse((real, N, average))
 
-gridsize = params()['gridsize']
-N = params()['N']
-ones = tf.ones((1, N // 2, N // 2, gridsize**2))
-ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
-assembled_ones = reassemble_patches_real(ones, False)
-norm = assembled_ones + .001
 
-def reassemble_patches(channels, average = False):
-    """
-    Given image patches (shaped such that the channel dimension indexes
-    patches within a single solution region), reassemble into an image
-    for the entire solution region. Overlaps between patches are
-    averaged.
-    """
-    # TODO dividing out by norm increased the training time quite
-    # substantially TODO is that true?
-    real = tf.math.real(channels)
-    imag = tf.math.imag(channels)
-    assembled_real = reassemble_patches_real(real, average = average) / norm
-    assembled_imag = reassemble_patches_real(imag, average = average) / norm
-    return tf.dtypes.complex(assembled_real, assembled_imag)
+def pad_bigN(imgs):
+    bigN = get_bigN()
+    return tfkl.ZeroPadding2D(((bigN - N) // 2, (bigN - N) // 2))(imgs)
 
 def trim_reconstruction(x):
     """Trim from bigN x bigN to N x N
@@ -299,6 +274,89 @@ def trim_reconstruction(x):
     offset = params()['offset']
     return x[:, (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
             (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2, :]
+
+def extract_patches_position(imgs, offsets_xy):
+    bigN = get_bigN()
+    gridsize = params()['gridsize']
+    offsets_flat = flatten_offsets(offsets_xy)
+    stacked = tf.repeat(imgs, gridsize**2, axis = 3)
+    flat_padded = _channel_to_flat(stacked)
+#    channels_translated = trim_reconstruction(
+#        translate(flat_padded, offsets_xy, interpolation='bilinear'))
+    channels_translated = trim_reconstruction(
+        Translation()([flat_padded, offsets_flat]))
+    return channels_translated
+
+def complexify_function(fn):
+    def newf(*args, **kwargs):
+        channels = args[0]
+#        if len(args) > 1:
+#            new_args = (channels,) + args[1:]
+#        else:
+#            new_args = (channels,)
+        if channels.dtype == tf.complex64:
+            real = tf.math.real(channels)
+            imag = tf.math.imag(channels)
+            assembled_real = fn(real, *args[1:], **kwargs)
+            assembled_imag = fn(imag, *args[1:], **kwargs)
+            return tf.dtypes.complex(assembled_real, assembled_imag)
+        else:
+            return fn(*args, **kwargs)
+    return newf
+
+from tensorflow_addons.image import translate
+translate = complexify_function(translate)
+class Translation(tf.keras.layers.Layer):
+    def __init__(self):
+        super(Translation, self).__init__()
+    def call(self, inputs):
+        imgs, offsets = inputs
+        return translate(imgs, offsets, interpolation = 'bilinear')
+
+def flatten_offsets(channels):
+    return _channel_to_flat(channels)[:, 0, :, 0]
+
+def _reassemble_patches_position_real(imgs, offsets_xy):
+    """
+    Pass this function as an argument to reassemble_patches by wrapping it, e.g.:
+        def reassemble_patches_position_real(imgs, **kwargs):
+            return _reassemble_patches_position_real(imgs, coords)
+    """
+    bigN = get_bigN()
+    offsets_flat = flatten_offsets(offsets_xy)
+    imgs_flat = _channel_to_flat(imgs)
+    imgs_flat_bigN = pad_bigN(imgs_flat)
+#    imgs_flat_bigN_translated = translate(imgs_flat_bigN, -offsets_xy,
+#        interpolation = 'bilinear')
+    imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat])
+    imgs_merged = tf.reduce_sum(
+            _flat_to_channel(imgs_flat_bigN_translated, N = bigN),
+                axis = 3)[..., None]
+    return imgs_merged
+
+gridsize = params()['gridsize']
+N = params()['N']
+ones = tf.ones((1, N // 2, N // 2, gridsize**2))
+ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
+assembled_ones = reassemble_patches_real(ones, False)
+norm = assembled_ones + .001
+
+def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real, average = False):
+    """
+    Given image patches (shaped such that the channel dimension indexes
+    patches within a single solution region), reassemble into an image
+    for the entire solution region. Overlaps between patches are
+    averaged.
+    """
+    # TODO sum not average, why?
+    # TODO dividing out by norm increased the training time quite
+    # substantially TODO is that true?
+    real = tf.math.real(channels)
+    imag = tf.math.imag(channels)
+    assembled_real = fn_reassemble_real(real, average = average) / norm
+    assembled_imag = fn_reassemble_real(imag, average = average) / norm
+    return tf.dtypes.complex(assembled_real, assembled_imag)
+
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)

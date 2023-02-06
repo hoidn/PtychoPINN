@@ -39,11 +39,44 @@ def mk_expdata(which, probe, intensity_scale = None):
     Y_I, Y_phi, _Y_I_full, norm_Y_I = experimental.preprocess_experimental(which)
     size = _Y_I_full.shape[1]
     print('shape', _Y_I_full.shape)
-    coords = hh.extract_coords(size, 1)
+    coords = extract_coords(size, 1)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     # TODO put this in a struct or something
     return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, coords
+
+def extract_coords(size, repeats = 1):
+    """
+    Return offset coords in channel format. x and y offsets are stacked in the
+    third dimension.
+    """
+    # TODO enforce consistency on value of size (and repeats)
+    x = tf.range(size, dtype = tf.float32)
+    y = tf.range(size, dtype = tf.float32)
+    xx, yy = tf.meshgrid(x, y)
+    xx = xx[None, ..., None]
+    yy = yy[None, ..., None]
+    def _extract_coords(zz, fn):
+        ix = fn(zz)
+        ix = tf.reduce_mean(ix, axis = (1, 2))
+        return tf.repeat(ix, repeats, axis = 0)[:, None, None, :]
+    def outer(img):
+        return hh.extract_outer(img, fmt = 'grid')
+    def inner(img):
+        return hh.extract_nested_patches(img, fmt = 'channel')
+    def get_patch_offsets(coords):
+        offsets_x = coords[1][0] - coords[0][0]
+        offsets_y = coords[1][1] - coords[0][1]
+        return tf.stack([offsets_x, offsets_y], axis = 2)[:, :, :, 0, :]
+#        return tf.stack([hh._channel_to_flat(offsets_x),
+#            hh._channel_to_flat(offsets_y)], axis = 1)[:, :, 0, 0, 0]
+    ix = _extract_coords(xx, inner)
+    iy = _extract_coords(yy, inner)
+    ix_offsets = _extract_coords(xx, outer)
+    iy_offsets = _extract_coords(yy, outer)
+    coords = ((ix, iy), (ix_offsets, iy_offsets))
+    #return coords
+    return get_patch_offsets(coords)
 
 def simulate_objects(n, size):
     """
@@ -56,7 +89,8 @@ def simulate_objects(n, size):
 #     Y_I = np.array([datasets.mk_lines_img(2 * size, nlines = 200)
 #                           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
     # x and y coordinates of the patches
-    coords = hh.extract_coords(size, n)
+    # TODO enforce consistent value of size
+    coords = extract_coords(size, n)
 
     Y_I = np.array([mk_lines_img(2 * size, nlines = 400)
           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
