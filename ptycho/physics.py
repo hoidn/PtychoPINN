@@ -25,7 +25,8 @@ def scale_nphotons(padded_obj):
     norm = tf.math.sqrt(nphotons / mean_photons)
     return norm
 
-def preprocess_objects(Y_I, Y_phi = None):
+def preprocess_objects(Y_I, Y_phi = None,
+        offsets_xy = None):
     """
     Reshapes and returns (normalized) amplitude and phase for the given real or complex objects
     """
@@ -33,8 +34,16 @@ def preprocess_objects(Y_I, Y_phi = None):
     if Y_phi is None:
         Y_phi = np.zeros_like(Y_I)
 
-    Y_I, Y_phi = \
-        [hh.extract_nested_patches(imgs, fmt= 'channel') for imgs in [Y_I, Y_phi]]
+    if offsets_xy is None:
+        print('Sampling on regular grid')
+        Y_I, Y_phi = \
+            [hh.extract_nested_patches(imgs, fmt= 'channel')
+                for imgs in [Y_I, Y_phi]]
+    else:
+        print('Using provided scan point offsets')
+        Y_I, Y_phi = \
+            [hh.extract_nested_patches_position(imgs, offsets_xy, fmt= 'channel')
+                for imgs in [Y_I, Y_phi]]
 
     norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
     Y_I /= norm_Y_I
