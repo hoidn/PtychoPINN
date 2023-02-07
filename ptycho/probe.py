@@ -20,8 +20,8 @@ d = np.sqrt(x*x+y*y)
 mu = 0.
 
 # TODO is this a good choice for the probe mask?
-probe_mask = (d < N // 4)
-probe_mask = tf.convert_to_tensor(probe_mask, tf.complex64)[..., None]
+probe_mask_real = (d < N // 4)[..., None]
+probe_mask = tf.convert_to_tensor(probe_mask_real, tf.complex64)
 
 def mk_probe_guess(X_train):
     tmp = X_train.mean(axis = (0, 3))
@@ -30,9 +30,10 @@ def mk_probe_guess(X_train):
     # variance increments of a slice down the middle
     d_second_moment = (probe_fif / probe_fif.sum()) * ((np.arange(N) - N // 2)**2)
     probe_sigma_guess = np.sqrt(d_second_moment.sum())
-    probe_guess = np.exp(-( (d-mu)**2 / ( 2.0 * probe_sigma_guess**2 ) ) )
-    probe_guess *= probe_mask
+    probe_guess = np.exp(-( (d-mu)**2 / ( 2.0 * probe_sigma_guess**2 )))[..., None]\
+        + 1e-9
+    probe_guess *= probe_mask_real
     probe_guess *= (np.sum(tprobe) / np.sum(probe_guess))
 
-    t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)[..., None]
+    t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)
     return t_probe_guess
