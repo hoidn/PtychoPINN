@@ -39,11 +39,11 @@ def mk_expdata(which, probe, intensity_scale = None):
     Y_I, Y_phi, _Y_I_full, norm_Y_I = experimental.preprocess_experimental(which)
     size = _Y_I_full.shape[1]
     print('shape', _Y_I_full.shape)
-    coords = extract_coords(size, 1)
+    coords = true_coords = extract_coords(size, 1)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     # TODO put this in a struct or something
-    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, coords
+    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, (coords, true_coords)
 
 def extract_coords(size, repeats = 1):
     """
@@ -75,7 +75,12 @@ def extract_coords(size, repeats = 1):
     coords = ((ix, iy), (ix_offsets, iy_offsets))
     return get_patch_offsets(coords)
 
-def simulate_objects(n, size):
+def add_position_jitter(coords, jitter_scale):
+    shape = coords.shape
+    jitter = jitter_scale * tf.random.normal(shape)
+    return jitter + coords
+
+def simulate_objects(n, size, jitter_scale = None):
     """
     Returns (normalized) amplitude and phase for n generated objects
 
@@ -87,17 +92,20 @@ def simulate_objects(n, size):
 #                           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
     # x and y coordinates of the patches
     # TODO enforce consistent value of size
-    coords = extract_coords(size, n)
+    coords = true_coords = extract_coords(size, n)
+    if jitter_scale is not None:
+        print('simulating gaussian position jitter, scale', jitter_scale)
+        true_coords = add_position_jitter(coords, jitter_scale)
 
     Y_I = np.array([mk_lines_img(2 * size, nlines = 400)
           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
 
     Y_I, Y_phi, _Y_I_full, norm_Y_I = physics.preprocess_objects(Y_I,
-        offsets_xy = coords)
-    return Y_I, Y_phi, _Y_I_full, norm_Y_I, coords
+        offsets_xy = true_coords)
+    return Y_I, Y_phi, _Y_I_full, norm_Y_I, (coords, true_coords)
 
-def mk_simdata(n, size, probe, intensity_scale = None):
-    Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = simulate_objects(n, size)
+def mk_simdata(n, size, probe, intensity_scale = None, **kwargs):
+    Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = simulate_objects(n, size, **kwargs)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, coords
