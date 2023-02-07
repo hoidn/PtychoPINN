@@ -7,6 +7,8 @@ import argparse
 from ptycho import params
 from ptycho import params as p
 
+save_model = True
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                         prog = 'PtychoPINN',
@@ -21,7 +23,6 @@ else:
     offset = params.cfg['offset']
 
 prefix = params.params()['output_prefix']
-prefix = 'outputs3'
 now = datetime.now() # current date and time
 date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
 date_time = date_time.replace('/', '-').replace(':', '.').replace(', ', '-')
@@ -30,8 +31,8 @@ print('offset', offset)
 out_prefix = '{}/{}_{}/'.format(prefix, date_time, offset)
 os.makedirs(out_prefix, exist_ok=True)
 
-from ptycho.initialize_run import *
-#from ptycho.initialize_run_pjitter import *
+#from ptycho.initialize_run import *
+from ptycho.initialize_run_pjitter import *
 
 #i = 1
 #plt.imshow(np.log(normed_ff_np
@@ -54,7 +55,7 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
 
 #plt.imshow(np.absolute(model.autoencoder.variables[-1]), cmap = 'jet')
 #plt.colorbar()
-history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)#tboard_callback
+history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)
 
 # TODO handle intensity scaling more gracefully
 b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
@@ -98,7 +99,6 @@ def show_groundtruth():
 
 # reconstructed
 stitched = stitch(b, norm_Y_I_test,
-                  #nsegments=37,
                   norm = False)
 
 plt.imsave(out_prefix + 'recon.png', stitched[0][:, :, 0], cmap = 'jet')
@@ -111,14 +111,15 @@ with open(out_prefix + '/history.dill', 'wb') as file_pi:
 with open(out_prefix + '/params.dill', 'wb') as f:
     dill.dump(p.cfg, f)
 
+if save_model:
+    model.autoencoder.save('{}.h5'.format(out_prefix + 'wts'), save_format="tf")
+
 #with open(out_prefix + '/test_data.dill', 'wb') as f:
 #    dill.dump(
 #        {'YY_I_test_full': YY_I_test_full,
 #        'Y_I_test': Y_I_test,
 #        'Y_phi_test': Y_phi_test,
 #        'X_test': X_test}, f)
-
-model.autoencoder.save('{}.h5'.format(out_prefix + 'wts'), save_format="tf")
 
 #with open('/trainHistoryDict', "rb") as file_pi:
 #    history = pickle.load(file_pi)
