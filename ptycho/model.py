@@ -157,16 +157,12 @@ obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
 padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
 # Reassemble multiple channels into single bigN x bigN object reconstruction
 
-def mk_reassemble_position_real(input_positions):
-    def reassemble_patches_position_real(imgs, **kwargs):
-        return hh._reassemble_patches_position_real(imgs, input_positions)
-    return reassemble_patches_position_real
 
 #aux = tf.keras.Model(inputs=[input_img, input_positions],
 #                           outputs=[padded_obj])
 
 padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0],
-        fn_reassemble_real=mk_reassemble_position_real(x[1])),
+        fn_reassemble_real=hh.mk_reassemble_position_real(x[1])),
             name = 'padded_obj_2')([padded_obj, input_positions])
 
 # Trim to N X N central region of object reconstruction

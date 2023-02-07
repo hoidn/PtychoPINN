@@ -68,14 +68,11 @@ def extract_coords(size, repeats = 1):
         offsets_x = coords[1][0] - coords[0][0]
         offsets_y = coords[1][1] - coords[0][1]
         return tf.stack([offsets_x, offsets_y], axis = 2)[:, :, :, 0, :]
-#        return tf.stack([hh._channel_to_flat(offsets_x),
-#            hh._channel_to_flat(offsets_y)], axis = 1)[:, :, 0, 0, 0]
     ix = _extract_coords(xx, inner)
     iy = _extract_coords(yy, inner)
     ix_offsets = _extract_coords(xx, outer)
     iy_offsets = _extract_coords(yy, outer)
     coords = ((ix, iy), (ix_offsets, iy_offsets))
-    #return coords
     return get_patch_offsets(coords)
 
 def simulate_objects(n, size):
@@ -95,7 +92,8 @@ def simulate_objects(n, size):
     Y_I = np.array([mk_lines_img(2 * size, nlines = 400)
           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
 
-    Y_I, Y_phi, _Y_I_full, norm_Y_I = physics.preprocess_objects(Y_I)
+    Y_I, Y_phi, _Y_I_full, norm_Y_I = physics.preprocess_objects(Y_I,
+        offsets_xy = coords)
     return Y_I, Y_phi, _Y_I_full, norm_Y_I, coords
 
 def mk_simdata(n, size, probe, intensity_scale = None):

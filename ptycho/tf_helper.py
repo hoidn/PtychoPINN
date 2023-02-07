@@ -105,6 +105,7 @@ def _flat_to_channel(img, N = None):
     img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
     return img
 
+# TODO rename
 def _channel_to_flat(img):
     """
     Reshape (b, N, N, gridsize * gridsize) to (-1, N, N, 1)
@@ -161,7 +162,14 @@ def extract_outer(img, fmt = 'grid'):
     else:
         raise ValueError
 
-def extract_nested_patches(img, fmt = 'flat'):
+def extract_inner_grid(grid):
+    N = cfg['N']
+    offset = params()['offset']
+    return extract_patches(grid, N, offset)
+
+
+def extract_nested_patches(img, fmt = 'flat',
+        extract_inner_fn = extract_inner_grid):
     """
     Extract small patches (overlapping N x N regions on a gridsize x gridsize
         grid) within big patches (overlapping bigN x bigN regions over the
@@ -191,6 +199,25 @@ def extract_nested_patches(img, fmt = 'flat'):
         return _grid_to_channel(grid)
     else:
         raise ValueError
+
+def mk_extract_inner_position(offsets_xy):
+    def inner(grid):
+        return extract_patches_position(grid, offsets_xy),
+    return inner
+
+def extract_nested_patches_position(img, offsets_xy, fmt = 'flat'):
+    """
+    Extract small patches (overlapping N x N regions on a gridsize x gridsize
+        grid) within big patches (overlapping bigN x bigN regions over the
+        entire input img)
+
+    fmt == 'channel': patches within a solution region go in the channel dimension
+    fmt == 'flat': patches within a solution go in the batch dimension; size of output
+        channel dimension is 1
+    fmt == 'grid': ...
+    """
+    return extract_nested_patches(img, fmt = 'flat',
+        extract_inner_fn = mk_extract_inner_position(offsets_xy))
 
 @tf.function
 def extract_patches_inverse(inputs, gridsize = None, offset = None):
@@ -239,6 +266,9 @@ def trim_reconstruction(x):
             (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2, :]
 
 def extract_patches_position(imgs, offsets_xy):
+    """
+    Expects imgs and offsets_xy in channel format.
+    """
     gridsize = params()['gridsize']
     offsets_flat = flatten_offsets(offsets_xy)
     stacked = tf.repeat(imgs, gridsize**2, axis = 3)
@@ -246,6 +276,37 @@ def extract_patches_position(imgs, offsets_xy):
     channels_translated = trim_reconstruction(
         Translation()([flat_padded, offsets_flat]))
     return channels_translated
+
+def extract_nested_patches_position(img, offsets_xy, fmt = 'flat'):
+    """
+    Extract small patches (overlapping N x N regions on a gridsize x gridsize
+        grid) within big patches (overlapping bigN x bigN regions over the
+        entire input img)
+
+    fmt == 'channel': patches within a solution region go in the channel dimension
+    fmt == 'flat': patches within a solution go in the batch dimension; size of output
+        channel dimension is 1
+    fmt == 'grid': ...
+    """
+    N = cfg['N']
+    offset = params()['offset']
+    gridsize = params()['gridsize']
+    assert img.shape[-1] == 1
+    # First, extract 'big' patches, each of which is a grid of
+    # overlapping solution regions.
+    grid = extract_outer(img, fmt = 'grid')
+    # Then, extract individual solution regions within each patch
+    grid = tf.reshape(
+        extract_patches_position(grid, offsets_xy),
+        (-1, gridsize, gridsize, N, N, 1))
+    if fmt == 'flat':
+        return _fromgrid(grid)
+    elif fmt == 'grid':
+        return grid
+    elif fmt == 'channel':
+        return _grid_to_channel(grid)
+    else:
+        raise ValueError
 
 # TODO use this everywhere where applicable
 def complexify_function(fn):
@@ -304,7 +365,8 @@ ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
 assembled_ones = reassemble_patches_real(ones, False)
 norm = assembled_ones + .001
 
-def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real, average = False):
+def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
+        average = False):
     """
     Given image patches (shaped such that the channel dimension indexes
     patches within a single solution region), reassemble into an image
@@ -318,6 +380,17 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real, a
     assembled_real = fn_reassemble_real(real, average = average) / norm
     assembled_imag = fn_reassemble_real(imag, average = average) / norm
     return tf.dtypes.complex(assembled_real, assembled_imag)
+
+def mk_reassemble_position_real(input_positions):
+    def reassemble_patches_position_real(imgs, **kwargs):
+        return _reassemble_patches_position_real(imgs, input_positions)
+    return reassemble_patches_position_real
+def reassemble_patches_position(channels, offsets_xy,
+        average = False):
+    fn_reassemble_real = mk_reassemble_position_real(offsets_xy)
+    return reassemble_patches(channels,
+        fn_reassemble_real = fn_reassemble_real,
+        average = False)
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
