@@ -29,7 +29,9 @@ date_time = date_time.replace('/', '-').replace(':', '.').replace(', ', '-')
 print('offset', offset)
 out_prefix = '{}/{}_{}/'.format(prefix, date_time, offset)
 os.makedirs(out_prefix, exist_ok=True)
+
 from ptycho.initialize_run import *
+#from ptycho.initialize_run_pjitter import *
 
 #i = 1
 #plt.imshow(np.log(normed_ff_np
@@ -52,11 +54,11 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
 
 #plt.imshow(np.absolute(model.autoencoder.variables[-1]), cmap = 'jet')
 #plt.colorbar()
-history = model.train(nepochs, X_train, coords_train, Y_I_train)#tboard_callback
+history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)#tboard_callback
 
 # TODO handle intensity scaling more gracefully
 b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
-                                                coords_test])
+                                                coords_test_nominal])
 
 from ptycho import baselines as bl
 from ptycho.params import params
