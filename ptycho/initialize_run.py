@@ -1,22 +1,11 @@
 from sklearn.utils import shuffle
 import numpy as np
-import os
-from datetime import datetime
 from ptycho import params
 from ptycho import datasets
 from ptycho import fourier as f
 import tensorflow as tf
 
-prefix = params.params()['output_prefix']
-prefix = 'outputs3'
-now = datetime.now() # current date and time
-date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
-date_time = date_time.replace('/', '-').replace(':', '.').replace(', ', '-')
-
 offset = params.cfg['offset']
-print('offset', offset)
-out_prefix = '{}/{}_{}/'.format(prefix, offset, date_time)
-os.makedirs(out_prefix, exist_ok=True)
 
 h = w = N = params.cfg['N'] = 64
 gridsize = params.cfg['gridsize'] = 2
