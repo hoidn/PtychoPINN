@@ -1,3 +1,5 @@
+import os
+from datetime import datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import dill
@@ -17,6 +19,16 @@ if __name__ == '__main__':
     offset = params.cfg['offset'] = args.offset
 else:
     offset = params.cfg['offset']
+
+prefix = params.params()['output_prefix']
+prefix = 'outputs3'
+now = datetime.now() # current date and time
+date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
+date_time = date_time.replace('/', '-').replace(':', '.').replace(', ', '-')
+
+print('offset', offset)
+out_prefix = '{}/{}_{}/'.format(prefix, date_time, offset)
+os.makedirs(out_prefix, exist_ok=True)
 from ptycho.initialize_run import *
 
 #i = 1

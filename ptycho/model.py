@@ -244,3 +244,4 @@ def train(epochs, X_train, coords_train, Y_I_train):
         callbacks=[reduce_lr, earlystop])
         #callbacks=[reduce_lr, earlystop, checkpoints])
     return history
+
