@@ -158,8 +158,8 @@ padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
 # Reassemble multiple channels into single bigN x bigN object reconstruction
 
 
-#aux = tf.keras.Model(inputs=[input_img, input_positions],
-#                           outputs=[padded_obj])
+aux = tf.keras.Model(inputs=[input_img, input_positions],
+                           outputs=[padded_obj])
 
 padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0],
         fn_reassemble_real=hh.mk_reassemble_position_real(x[1])),
@@ -244,4 +244,3 @@ def train(epochs, X_train, coords_train, Y_I_train):
         callbacks=[reduce_lr, earlystop])
         #callbacks=[reduce_lr, earlystop, checkpoints])
     return history
-
