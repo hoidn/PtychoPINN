@@ -7,7 +7,7 @@ import argparse
 from ptycho import params
 from ptycho import params as p
 
-save_model = True
+save_model = False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -55,15 +55,20 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
 
 #plt.imshow(np.absolute(model.autoencoder.variables[-1]), cmap = 'jet')
 #plt.colorbar()
-history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)
 
-# TODO handle intensity scaling more gracefully
+history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)
+#history = model.train(nepochs, X_train, coords_train_true, Y_I_train)
+
+ #TODO handle intensity scaling more gracefully
 b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
                                                 coords_test_nominal])
+#b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
+#                                                coords_test_true])
 
 from ptycho import baselines as bl
 from ptycho.params import params
 
+# TODO dict reference -> function call
 bigoffset = params()['bigoffset']
 bordersize = (N - bigoffset / 2) / 2
 # Amount to trim from NxN reconstruction patches

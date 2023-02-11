@@ -25,6 +25,7 @@ def scale_nphotons(padded_obj):
     norm = tf.math.sqrt(nphotons / mean_photons)
     return norm
 
+import pdb
 def preprocess_objects(Y_I, Y_phi = None,
         offsets_xy = None):
     """
@@ -34,6 +35,9 @@ def preprocess_objects(Y_I, Y_phi = None,
     if Y_phi is None:
         Y_phi = np.zeros_like(Y_I)
 
+#    foo, bar = \
+#        [hh.extract_nested_patches(imgs, fmt= 'channel')
+#            for imgs in [Y_I, Y_phi]]
     if offsets_xy is None:
         print('Sampling on regular grid')
         Y_I, Y_phi = \
@@ -44,7 +48,7 @@ def preprocess_objects(Y_I, Y_phi = None,
         Y_I, Y_phi = \
             [hh.extract_nested_patches_position(imgs, offsets_xy, fmt= 'channel')
                 for imgs in [Y_I, Y_phi]]
-
+    assert Y_I.shape[-1] == params()['gridsize']**2
     norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
     Y_I /= norm_Y_I
 
@@ -92,4 +96,3 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
         hh.grid_to_channel(X, Y_I, Y_phi)
 
     return X, Y_I, Y_phi, intensity_scale
-

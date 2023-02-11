@@ -30,6 +30,4 @@ and Super-Resolution
 
 high priority (descending):
 
-* metric comparison for both training and eval (inc. with 50 percent cutoff frequency of mtf)
-* probe fitting
-* study robustness impact of Poisson likelihood
+* study robustness impact of Poisson likelihood vs. MAE
