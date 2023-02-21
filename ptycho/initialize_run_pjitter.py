@@ -32,7 +32,7 @@ bigoffset = params.cfg['bigoffset'] = ((gridsize - 1) * offset + N // 2) // 2
 #size = bigoffset * (big_gridsize - 1) + params.get_padded_size()
 #bigoffset = params.cfg['bigoffset'] = bigoffset // 2
 
-jitter_scale = 0.
+jitter_scale = params.params()['sim_jitter_scale']
 # simulate data
 np.random.seed(1)
 (X_train, Y_I_train, Y_phi_train,

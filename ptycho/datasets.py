@@ -47,8 +47,8 @@ def mk_expdata(which, probe, intensity_scale = None):
 
 def extract_coords(size, repeats = 1):
     """
-    Return offset coords in channel format. x and y offsets are stacked in the
-    third dimension.
+    Return nominal offset coords in channel format. x and y offsets are
+    stacked in the third dimension.
     """
     # TODO enforce consistency on value of size (and repeats)
     x = tf.range(size, dtype = tf.float32)
@@ -78,6 +78,9 @@ def extract_coords(size, repeats = 1):
 def add_position_jitter(coords, jitter_scale):
     shape = coords.shape
     jitter = jitter_scale * tf.random.normal(shape)
+    # TODO int jitter is just for debugging. need float eventually
+    jitter = tf.cast(jitter, tf.int32)
+    jitter = tf.cast(jitter, tf.float32)
     return jitter + coords
 
 def simulate_objects(n, size, jitter_scale = None):
