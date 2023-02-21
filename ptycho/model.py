@@ -120,8 +120,8 @@ encoded=x
 #Decoding arm for amplitude
 x1=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 x1=hh.Conv_Up_block(x1,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-#x1=hh.Conv_Up_block(x1,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-decoded1 = Conv2D(gridsize**2, (3, 3), padding='same')(x1)
+#decoded1 = Conv2D(gridsize**2, (3, 3), padding='same')(x1)
+decoded1 = Conv2D(1, (3, 3), padding='same')(x1)
 decoded1 = Lambda(lambda x: sigmoid(x), name='amp')(decoded1)
 
 ##Decoding arm for phase
@@ -132,8 +132,8 @@ decoded1 = Lambda(lambda x: sigmoid(x), name='amp')(decoded1)
 #Decoding arm for phase
 x2=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 x2=hh.Conv_Up_block(x2,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-#x2=hh.Conv_Up_block(x2,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-decoded2 = Conv2D(gridsize**2, (3, 3), padding='same')(x2)
+#decoded2 = Conv2D(gridsize**2, (3, 3), padding='same')(x2)
+decoded2 = Conv2D(1, (3, 3), padding='same')(x2)
 decoded2 = Lambda(lambda x: math.pi * tanh(x), name='phi')(decoded2)
 
 ###Decoding arm for probe
@@ -157,13 +157,14 @@ obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
 padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
 # Reassemble multiple channels into single bigN x bigN object reconstruction
 
-
-aux = tf.keras.Model(inputs=[input_img, input_positions],
-                           outputs=[padded_obj])
-
-padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0],
-        fn_reassemble_real=hh.mk_reassemble_position_real(x[1])),
-            name = 'padded_obj_2')([padded_obj, input_positions])
+# TODO apply probe mask before reassembling? probably not useful, since
+# constraining the solution region to 32 x 32 already has a similar effect
+padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x),
+            name = 'padded_obj_2')(padded_obj)
+## TODO apply probe mask before reassembling?
+#padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0],
+#        fn_reassemble_real=hh.mk_reassemble_position_real(x[1])),
+#            name = 'padded_obj_2')([padded_obj, input_positions])
 
 # Trim to N X N central region of object reconstruction
 trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
@@ -179,7 +180,12 @@ padded_objs_with_offsets = Lambda(
 #padded_objs_with_offsets = Lambda(lambda x: hh.extract_nested_patches(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
 
 # Apply the probe
-padded_objs_with_offsets, probe = ProbeIllumination(name = 'probe_illumination')([padded_objs_with_offsets])
+padded_objs_with_offsets, probe =\
+    ProbeIllumination(name = 'probe_illumination')([padded_objs_with_offsets])
+flat_illuminated = padded_objs_with_offsets
+
+aux = tf.keras.Model(inputs=[input_img, input_positions],
+                           outputs=[padded_obj, flat_illuminated])
 
 # TODO refactor
 # Diffracted amplitude
@@ -210,6 +216,8 @@ autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_diff, pred_
 # TODO update for variable probe
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj],
 #                           outputs=[pred_diff])
+encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
+                           outputs=[pred_diff, flat_illuminated])
 
 diffraction_to_obj = tf.keras.Model(inputs=[input_img],
                            outputs=[obj])

@@ -73,6 +73,8 @@ def fromgrid(*imgs):
 def _togrid(img):
     """
     Reshape (-1, N, N, 1) to (-1, gridsize, gridsize, N, N)
+
+    i.e. from flat format to grid format
     """
     gridsize = params()['gridsize']
     N = params()['N']
@@ -98,6 +100,7 @@ def grid_to_channel(*grids):
     return [_grid_to_channel(g) for g in grids]
 
 def _flat_to_channel(img, N = None):
+    # TODO N should be picked up automatically
     gridsize = params()['gridsize']
     if N is None:
         N = params()['N']
@@ -170,8 +173,7 @@ def extract_inner_grid(grid):
     offset = params()['offset']
     return extract_patches(grid, N, offset)
 
-
-import pdb
+# TODO turn extract_inner_fn into a positional argument
 def extract_nested_patches(img, fmt = 'flat',
         extract_inner_fn = extract_inner_grid):
     """
@@ -193,17 +195,17 @@ def extract_nested_patches(img, fmt = 'flat',
     assert img.shape[-1] == 1
     # First, extract 'big' patches, each of which is a grid of
     # overlapping solution regions.
-    grid = extract_outer(img, fmt = 'grid')
+    outer_grid = extract_outer(img, fmt = 'grid')
     # Then, extract individual solution regions within each patch
     grid = tf.reshape(
-        extract_patches(grid, N, offset),
+        extract_inner_fn(outer_grid),
         (-1, gridsize, gridsize, N, N, 1))
     if fmt == 'flat':
         return _fromgrid(grid)
     elif fmt == 'grid':
         return grid
     elif fmt == 'channel':
-        return _grid_to_channel(grid)
+        return _grid_to_channel(grid)#, outer_grid # TODO second output is for debugging
     else:
         raise ValueError
 
@@ -265,10 +267,20 @@ def pad_patches(imgs, padded_size):
     return tfkl.ZeroPadding2D(((padded_size - N) // 2, (padded_size - N) // 2))(imgs)
 
 def trim_reconstruction(x):
-    """Trim from bigN x bigN to N x N
+    """
+    Trim from shape (_, M, M, _) to (_, N, N, _), where M >= N
+
+    When dealing with an input with a static shape, assume M = get_padded_size()
     """
     N = cfg['N']
-    clipsize = (get_padded_size() - N) // 2
+    shape = x.shape
+    #shape = tf.shape(x)
+    if shape[1] is not None:
+        assert int(shape[1]) == int(shape[2])
+    try:
+        clipsize = (int(shape[1]) - N) // 2
+    except TypeError:
+        clipsize = (get_padded_size() - N) // 2
     return x[:, clipsize: -clipsize,
             clipsize: -clipsize, :]
 
@@ -282,11 +294,20 @@ def trim_reconstruction(x):
 
 def extract_patches_position(imgs, offsets_xy):
     """
-    Expects imgs and offsets_xy in channel format.
+    Expects offsets_xy in channel format.
+
+    imgs must be in flat format with a single image per solution region, i.e.
+    (batch size, M, M, 1) where M = N + some padding size.
     """
     #pdb.set_trace()
     #print(imgs.shape, offsets_xy.shape
+    if  imgs.get_shape()[0] is not None:
+        assert int(imgs.get_shape()[0]) == int(offsets_xy.get_shape()[0])
+    assert int(imgs.get_shape()[3]) == 1
+    assert int(offsets_xy.get_shape()[2]) == 2
+    assert int(imgs.get_shape()[3]) == 1
     gridsize = params()['gridsize']
+    assert int(offsets_xy.get_shape()[3]) == gridsize**2
     offsets_flat = flatten_offsets(offsets_xy)
     stacked = tf.repeat(imgs, gridsize**2, axis = 3)
     flat_padded = _channel_to_flat(stacked)
@@ -354,12 +375,18 @@ class Translation(tf.keras.layers.Layer):
         super(Translation, self).__init__()
     def call(self, inputs):
         imgs, offsets = inputs
+        #return translate(imgs, offsets, interpolation = 'nearest')
         return translate(imgs, offsets, interpolation = 'bilinear')
 
 def flatten_offsets(channels):
     return _channel_to_flat(channels)[:, 0, :, 0]
 
-def _reassemble_patches_position_real(imgs, offsets_xy):
+def pad_reconstruction(channels):
+    padded_size = get_padded_size()
+    imgs_flat = _channel_to_flat(channels)
+    return pad_patches(imgs_flat, padded_size)
+
+def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, **kwargs):
     """
     Pass this function as an argument to reassemble_patches by wrapping it, e.g.:
         def reassemble_patches_position_real(imgs, **kwargs):
@@ -370,10 +397,14 @@ def _reassemble_patches_position_real(imgs, offsets_xy):
     imgs_flat = _channel_to_flat(imgs)
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
     imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat])
-    imgs_merged = tf.reduce_sum(
-            _flat_to_channel(imgs_flat_bigN_translated, N = padded_size),
-                axis = 3)[..., None]
-    return imgs_merged
+    if agg:
+        imgs_merged = tf.reduce_sum(
+                _flat_to_channel(imgs_flat_bigN_translated, N = padded_size),
+                    axis = 3)[..., None]
+        return imgs_merged
+    else:
+        print('no aggregation in patch reassembly')
+        return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
 
 gridsize = params()['gridsize']
 N = params()['N']
@@ -394,6 +425,25 @@ def mk_norm(channels, fn_reassemble_real):
     norm = assembled_ones + .001
     return norm
 
+#def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
+#        average = False):
+#    """
+#    Given image patches (shaped such that the channel dimension indexes
+#    patches within a single solution region), reassemble into an image
+#    for the entire solution region. Overlaps between patches are
+#    averaged.
+#    """
+#    # TODO dividing out by norm increased the training time quite
+#    # substantially TODO is that true?
+#    real = tf.math.real(channels)
+#    imag = tf.math.imag(channels)
+##    assembled_real = fn_reassemble_real(real, average = average) / norm
+##    assembled_imag = fn_reassemble_real(imag, average = average) / norm
+#    assembled_real = fn_reassemble_real(real, average = average) / mk_norm(real,
+#        fn_reassemble_real)
+#    assembled_imag = fn_reassemble_real(imag, average = average) / mk_norm(imag,
+#        fn_reassemble_real)
+#    return tf.dtypes.complex(assembled_real, assembled_imag)
 
 def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
         average = False):
@@ -403,6 +453,9 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
     for the entire solution region. Overlaps between patches are
     averaged.
     """
+    # TODO assert
+#    fn_reassemble_real_complex = complexify_function(fn_reassemble_real)
+#    return fn_reassemble_real_complex(
     # TODO dividing out by norm increased the training time quite
     # substantially TODO is that true?
     real = tf.math.real(channels)
@@ -415,13 +468,16 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
         fn_reassemble_real)
     return tf.dtypes.complex(assembled_real, assembled_imag)
 
-def mk_reassemble_position_real(input_positions):
+# TODO compare agg true false
+def mk_reassemble_position_real(input_positions, **outer_kwargs):
     def reassemble_patches_position_real(imgs, **kwargs):
-        return _reassemble_patches_position_real(imgs, input_positions)
+        return _reassemble_patches_position_real(imgs, input_positions,
+            **outer_kwargs)
     return reassemble_patches_position_real
+
 def reassemble_patches_position(channels, offsets_xy,
-        average = False):
-    fn_reassemble_real = mk_reassemble_position_real(offsets_xy)
+        average = False, **kwargs):
+    fn_reassemble_real = mk_reassemble_position_real(offsets_xy, **kwargs)
     return reassemble_patches(channels,
         fn_reassemble_real = fn_reassemble_real,
         average = False)
