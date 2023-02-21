@@ -53,17 +53,19 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
                                                  histogram_freq = 1,
                                                  profile_batch = '500,520')
 
-#plt.imshow(np.absolute(model.autoencoder.variables[-1]), cmap = 'jet')
-#plt.colorbar()
-
-history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)
-#history = model.train(nepochs, X_train, coords_train_true, Y_I_train)
 
  #TODO handle intensity scaling more gracefully
-b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
-                                                coords_test_nominal])
-#b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
-#                                                coords_test_true])
+
+if params.params()['positions.provided']:
+    print('using provided scan positions for training')
+    history = model.train(nepochs, X_train, coords_train_true, Y_I_train)
+    b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
+                                                    coords_test_true])
+else:
+    print('using nominal scan positions for training')
+    history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)
+    b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
+                                                    coords_test_nominal])
 
 from ptycho import baselines as bl
 from ptycho.params import params
@@ -128,3 +130,6 @@ if save_model:
 
 #with open('/trainHistoryDict', "rb") as file_pi:
 #    history = pickle.load(file_pi)
+
+#plt.imshow(np.absolute(model.autoencoder.variables[-1]), cmap = 'jet')
+#plt.colorbar()

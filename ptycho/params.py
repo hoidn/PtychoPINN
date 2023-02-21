@@ -1,11 +1,14 @@
-cfg = {'N': 64, 'offset': 4, 'gridsize': 2, 'bigoffset': 4, 'batch_size': 16,
-    'nepochs': 60, 'h': 64, 'w': 64, 'intensity_scale.trainable': False,
-    'probe.trainable': False, 'n_filters_scale': 2, 'output_prefix': 'outputs',
-    'big_gridsize': 10, 'max_position_jitter': 0}
+cfg = {
+    'N': 64, 'offset': 4, 'gridsize': 2, 'bigoffset': 4, 'batch_size': 16,
+    'nepochs': 60, 'h': 64, 'w': 64, 'n_filters_scale': 2, 'output_prefix': 'outputs',
+    'big_gridsize': 10, 'max_position_jitter': 0, 'sim_jitter_scale': 0.,
+    'probe.trainable': False, 'intensity_scale.trainable': False,
+    'positions.provided': False
+    }
 #'h': 64, 'w': 64, 'intensity_scale.trainable': True, 'probe.trainable': True,
 
+# TODO h, w
 # TODO bigoffset should be a derived quantity, at least for simulation
-
 def get_bigN():
     N = cfg['N']
     gridsize = cfg['gridsize']
@@ -27,3 +30,11 @@ def params():
     d = {k:v for k, v in cfg.items()}
     d['bigN'] = get_bigN()
     return d
+
+def validate():
+    # TODO
+    return True
+
+def set(key, value):
+    cfg[key] = value
+    assert validate()
