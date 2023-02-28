@@ -154,6 +154,7 @@ obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
                      name='obj')([decoded1, decoded2])
 
 # Pad reconstructions to size N x N
+# No illumination yet
 padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
 # Reassemble multiple channels into single bigN x bigN object reconstruction
 
@@ -199,13 +200,15 @@ pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels'
 # amplitude scaled to the correct photon count
 pred_diff_scaled = inv_scaler([pred_diff])
 
-pred_intensity = tfpl.DistributionLambda(lambda t:
+dist_poisson_intensity = tfpl.DistributionLambda(lambda amplitude:
                                        (tfd.Independent(
                                            tfd.Poisson(
-                                               (t**2))
-                                       )))(pred_diff_scaled)
+                                               (amplitude**2))
+                                       )))
+pred_intensity = dist_poisson_intensity(pred_diff_scaled)
 
 negloglik = lambda x, rv_x: -rv_x.log_prob((x))
+#fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
 
 # The first output exposes the real space object reconstruction and
 # though it does not contribute to the training loss, it's used to
