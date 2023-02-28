@@ -1,6 +1,7 @@
 # based on https://github.com/mcherukara/PtychoNN/tree/master/TF2
 # with minor changes to make comparison to PtychoPINN easier
 from .tf_helper import *
+from . import params
 import tensorflow as tf
 import numpy as np
 
@@ -22,7 +23,7 @@ nepochs=60
 wt_path = 'wts4' #Where to store network weights
 batch_size = 32
 
-n_filters_scale = 2
+n_filters_scale = params.params()['n_filters_scale']
 
 #Keras modules
 from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
@@ -87,7 +88,7 @@ def train(X_train, Y_I_train, Y_phi_train):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
 
-    history=autoencoder.fit(X_train, [Y_I_train, Y_phi_train], shuffle=True,
+    history=autoencoder.fit(X_train * params.params()['intensity_scale'], [Y_I_train, Y_phi_train], shuffle=True,
         batch_size=batch_size, verbose=1, epochs=nepochs,
         validation_split = 0.05, callbacks=[reduce_lr, earlystop])
     return autoencoder
