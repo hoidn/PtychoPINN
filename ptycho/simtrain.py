@@ -130,6 +130,5 @@ if save_model:
 
 #with open('/trainHistoryDict', "rb") as file_pi:
 #    history = pickle.load(file_pi)
-
 #plt.imshow(np.absolute(model.autoencoder.variables[-1]), cmap = 'jet')
 #plt.colorbar()
