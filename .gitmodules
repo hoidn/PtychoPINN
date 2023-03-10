@@ -1,3 +1,6 @@
 [submodule "PtychoNN"]
 	path = PtychoNN
 	url = https://github.com/mcherukara/PtychoNN
+[submodule "PlotNeuralNet"]
+	path = PlotNeuralNet
+	url = https://github.com/HarisIqbal88/PlotNeuralNet.git
