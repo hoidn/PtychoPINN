@@ -79,8 +79,6 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
 
     obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
     Y_I = tf.math.abs(obj)# TODO
-    #tmp = Y_I
-    #assert (Y_I == intensity_scale * tmp).numpy().all()
 
     # Simulate diffraction
     X = (tf.data.Dataset.from_tensor_slices(obj)

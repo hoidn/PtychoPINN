@@ -1,5 +1,6 @@
 TODOs
 
+* subpixel convolution (Depth-to-space)
 * make the model robust to arbitrary scaling/incorrect normalization of the diffracted intensity
 * other ideas: fft based loss, gradient loss, vq-vae https://www.tensorflow.org/tutorials/generative/style_transfer#define_content_and_style_representations
 * probe-based vs reconstruction-based support?

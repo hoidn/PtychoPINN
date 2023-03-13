@@ -8,6 +8,7 @@ from ptycho import params
 from ptycho import params as p
 
 save_model = False
+save_data = False
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -121,12 +122,13 @@ with open(out_prefix + '/params.dill', 'wb') as f:
 if save_model:
     model.autoencoder.save('{}.h5'.format(out_prefix + 'wts'), save_format="tf")
 
-#with open(out_prefix + '/test_data.dill', 'wb') as f:
-#    dill.dump(
-#        {'YY_I_test_full': YY_I_test_full,
-#        'Y_I_test': Y_I_test,
-#        'Y_phi_test': Y_phi_test,
-#        'X_test': X_test}, f)
+if save_data:
+    with open(out_prefix + '/test_data.dill', 'wb') as f:
+        dill.dump(
+            {'YY_I_test_full': YY_I_test_full,
+            'Y_I_test': Y_I_test,
+            'Y_phi_test': Y_phi_test,
+            'X_test': X_test}, f)
 
 #with open('/trainHistoryDict', "rb") as file_pi:
 #    history = pickle.load(file_pi)
