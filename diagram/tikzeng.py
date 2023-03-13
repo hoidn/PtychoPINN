@@ -6,6 +6,7 @@ def to_head( projectpath ):
     return r"""
 \documentclass[border=8pt, multi, tikz]{standalone}
 \usepackage{import}
+\usepackage{transparent}
 \subimport{"""+ pathlayers + r"""}{init}
 \usetikzlibrary{positioning}
 \usetikzlibrary{3d} %for including external image
@@ -94,25 +95,6 @@ def to_ConvConvRelu( name, s_filer=256, n_filer=(64,64), offset="(0,0,0)", to="(
     };
 """
 
-## Conv,Conv,relu
-## Bottleneck
-#def to_ConvConvRelu( name, s_filer=256, n_filer=(64,64), offset="(0,0,0)", to="(0,0,0)", width=(2,2), height=40, depth=40, caption=" " ):
-#    return r"""
-#\pic[shift={ """+ offset +""" }] at """+ to +"""
-#    {RightBandedBox={
-#        name="""+ name +""",
-#        caption="""+ caption +""",
-#        xlabel={{ """+ str(n_filer[0]) +""", """+ str(n_filer[1]) +""" }},
-#        zlabel="""+ str(s_filer) +""",
-#        fill=\ConvColor,
-#        bandfill=\ConvReluColor,
-#        height="""+ str(height) +""",
-#        width={ """+ str(width[0]) +""" , """+ str(width[1]) +""" },
-#        depth="""+ str(depth) +"""
-#        }
-#    };
-#"""
-
 
 # Pool
 def to_Pool(name, offset="(0,0,0)", to="(0,0,0)", width=1, height=32, depth=32, opacity=0.5, caption=" "):
@@ -192,7 +174,7 @@ def to_Sigmoid( name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", w
         xlabel={{ """+ str(n_filer) + """, }},
         zlabel="""+ str(s_filer) +r""",
         fill={rgb:white,1;black,3},
-        bandfill={rgb:yellow,2},
+        bandfill={rgb:violet,2},
         opacity="""+ str(opacity) +""",
         height="""+ str(height) +""",
         width="""+ str(width) +""",
@@ -220,7 +202,7 @@ def to_Tanh( name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", widt
 """
 
 def to_Patch( name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", width=6, height=40, depth=40,
-        opacity=0.2, caption=" " ):
+        opacity=0.1, caption=" " ):
     return r"""
 \pic[shift={ """+ offset +""" }] at """+ to +"""
     {RightBandedBox={
@@ -228,8 +210,10 @@ def to_Patch( name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", wid
         caption="""+ caption + """,
         xlabel={{ """+ str(n_filer) + """, }},
         zlabel="""+ str(s_filer) +r""",
-        fill={rgb:blue,1;red,2},
+        fill={rgb:white,1;black,3},
+        bandfill={rgb:black,2},
         opacity="""+ str(opacity) +""",
+        bandopacity="""+ str(opacity) +""",
         height="""+ str(height) +""",
         width="""+ str(width) +""",
         depth="""+ str(depth) +"""
@@ -279,24 +263,6 @@ def to_Illumination( name, filepath, s_filer=256, n_filer=64,
 """,
     to_input(filepath, to = to, width = im_size, height = im_size)]
 
-#def to_Illumination( name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", width=6, height=40, depth=40, opacity=0.2, caption=" " ):
-#    return r"""
-#\pic[shift={ """+ offset +""" }] at """+ to +"""
-#    {RightBandedBox={
-#        name="""+ name + """,
-#        caption="""+ caption + """,
-#        xlabel={{ """+ str(n_filer) + """, }},
-#        zlabel="""+ str(s_filer) +r""",
-#        fill={rgb:white,1;blue,3},
-#        bandfill={rgb:black,1;blue,3},
-#        opacity="""+ str(opacity) +""",
-#        height="""+ str(height) +""",
-#        width="""+ str(width) +""",
-#        depth="""+ str(depth) +"""
-#        }
-#    };
-#"""
-
 def to_Diffraction( name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", width=6, height=40, depth=40,
         opacity=0.4, caption=" " ):
     return r"""
@@ -306,8 +272,8 @@ def to_Diffraction( name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)
         caption="""+ caption + """,
         xlabel={{ """+ str(n_filer) + """, }},
         zlabel="""+ str(s_filer) +r""",
-        fill={rgb:white,1;green,3;blue,3},
-        bandfill={rgb:black,1;green,3;blue,3},
+        fill={rgb:violet,1;red,3},
+        bandfill={rgb:white,1;red,3},
         opacity="""+ str(opacity) +""",
         height="""+ str(height) +""",
         width="""+ str(width) +""",
@@ -405,6 +371,4 @@ def to_generate( arch, pathname="file.tex" ):
         for c in arch:
             print(c)
             f.write( c )
-
-
 

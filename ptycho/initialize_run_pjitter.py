@@ -61,8 +61,4 @@ assert np.isclose(normed_ff_np(Y_I_train[0, :, :, 0]),
 print('nphoton',np.log10(np.sum((X_train[:, :, :] * intensity_scale)**2, axis = (1, 2))).mean())
 
 if params.params()['probe.trainable']:
-    params.cfg['probe'] = probe.mk_probe_guess(X_train)
-else:
-    params.cfg['probe'] = probe.tprobe
-
-params.cfg['probe_mask'] = tf.convert_to_tensor(probe.probe_mask, tf.complex64)[..., None]
+    probe.set_probe_guess(X_train)
