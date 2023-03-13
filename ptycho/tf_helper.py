@@ -315,36 +315,13 @@ def extract_patches_position(imgs, offsets_xy):
         Translation()([flat_padded, offsets_flat]))
     return channels_translated
 
-#def extract_nested_patches_position(img, offsets_xy, fmt = 'flat'):
-#    """
-#    Extract small patches (overlapping N x N regions on a gridsize x gridsize
-#        grid) within big patches (overlapping bigN x bigN regions over the
-#        entire input img)
-#
-#    fmt == 'channel': patches within a solution region go in the channel dimension
-#    fmt == 'flat': patches within a solution go in the batch dimension; size of output
-#        channel dimension is 1
-#    fmt == 'grid': ...
-#    """
-#    N = cfg['N']
-#    offset = params()['offset']
-#    gridsize = params()['gridsize']
-#    assert img.shape[-1] == 1
-#    # First, extract 'big' patches, each of which is a grid of
-#    # overlapping solution regions.
-#    grid = extract_outer(img, fmt = 'grid')
-#    # Then, extract individual solution regions within each patch
-#    grid = tf.reshape(
-#        extract_patches_position(grid, offsets_xy),
-#        (-1, gridsize, gridsize, N, N, 1))
-#    if fmt == 'flat':
-#        return _fromgrid(grid)
-#    elif fmt == 'grid':
-#        return grid
-#    elif fmt == 'channel':
-#        return _grid_to_channel(grid)
-#    else:
-#        raise ValueError
+def center_channels(channels, offsets_xy):
+    """
+    Undo image patch offsets
+    """
+    ct = Translation()([_channel_to_flat(channels), flatten_offsets(-offsets_xy)])
+    channels_centered = _flat_to_channel(ct)
+    return channels_centered
 
 # TODO use this everywhere where applicable
 def complexify_function(fn):
@@ -536,8 +513,13 @@ def perceptual_loss(target, pred):
     actualModelVal = feat_model(target)
     return meanSquaredLoss(gram_matrix(actualModelVal),gram_matrix(activatedModelVal))
 
-def meanSquaredLoss(y_true,y_pred):
+def meanSquaredLoss(y_true,y_pred, center_target = True):
     return tf.reduce_mean(tf.keras.losses.MSE(y_true,y_pred))
+
+#def I_channel_MAE(y_true,y_pred, center_target = True):
+#    if center_target:
+#        y_true = center_channels(y_true
+#    return tf.reduce_mean(tf.keras.losses.MeanAbsoluteError(y_true,y_pred))
 
 # TODO this doesn't work if the intensity scale is set to trainable
 def masked_MAE_loss(target, pred):

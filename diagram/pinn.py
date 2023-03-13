@@ -45,36 +45,38 @@ xext = 31
 xpatch = 31.2
 patch_width = .5
 diff_width = .5
-diff_spacing = 9
+diff_spacing = 7
 xdiff = 37
 xdiff2 = 44
 
 diff2_spacing = .2
-diff2_dx = .2
+diff2_dx = 2
 diff2_dy = .5
 diff2_dz = 0.5
-diff2_width = .5
+diff2_width = 3
 amp_suffix = '_1'
 phase_suffix = '_2'
 
-input1 = 'squidward2.jpeg'
-input2 = 'squidward2.jpeg'
-input3 = 'squidward2.jpeg'
-input4 = 'squidward2.jpeg'
+img_path_fmt = '../../notebooks/images/{}'
 
-output1 = 'squidward2.jpeg'
-output2 = 'squidward2.jpeg'
-output3 = 'squidward2.jpeg'
-output4 = 'squidward2.jpeg'
+input1 = img_path_fmt.format('in1.jpeg')
+input2 = img_path_fmt.format('in2.jpeg')
+input3 = img_path_fmt.format('in3.jpeg')
+input4 = img_path_fmt.format('in4.jpeg')
 
-patch1_path = 'squidward2.jpeg'
-patch2_path = 'squidward2.jpeg'
-patch3_path = 'squidward2.jpeg'
-patch4_path = 'squidward2.jpeg'
+output1 = img_path_fmt.format('out1.jpeg')
+output2 = img_path_fmt.format('out2.jpeg')
+output3 = img_path_fmt.format('out3.jpeg')
+output4 = img_path_fmt.format('out4.jpeg')
 
-phase_path = 'squidward2.jpeg'
-amp_path = 'squidward2.jpeg'
-full_obj_path = 'squidward2.jpeg'
+patch1_path = img_path_fmt.format('patch1.jpeg')
+patch2_path = img_path_fmt.format('patch2.jpeg')
+patch3_path = img_path_fmt.format('patch3.jpeg')
+patch4_path = img_path_fmt.format('patch4.jpeg')
+
+phase_path = img_path_fmt.format('phase.jpeg')
+amp_path = img_path_fmt.format('amp.jpeg')
+full_obj_path = img_path_fmt.format('full_obj.jpeg')
 
 im_size = 6.5
 inp_x = -7
@@ -138,14 +140,16 @@ def mk_decoder(name_suffix = '0', pos_sign = 1):
     to_connection( "unpool1" + name_suffix, "up21" + name_suffix),
 
     #to_Pad("pad1" + name_suffix, '', '', offset=ppos("(23,0,0)"), to=ppos("(0,{},0)".format(pos_sign * zoff)), height=64* scale, depth=64* scale, width=2 * scale),
-    to_Conv("up31" + name_suffix, '', 1, offset=ppos("(23,0,0)"),
-        to=ppos("(0,{},0)".format(pos_sign * zoff)), height=32* scale,
-        depth=32* scale, width=2 * scale),
-    #last_decoder(pos_sign, name_suffix),
+#    to_Conv("up31" + name_suffix, '', 1, offset=ppos("(23,0,0)"),
+#        to=ppos("(0,{},0)".format(pos_sign * zoff)), height=32* scale,
+#        depth=32* scale, width=2 * scale),
+    last_decoder(pos_sign, name_suffix),
     last_decoder_img(pos_sign, name_suffix),
-    to_connection( "unpool2" + name_suffix, "up31" + name_suffix)
+    to_connection( "unpool2" + name_suffix, last + name_suffix)
+    #to_connection( "unpool2" + name_suffix, "up31" + name_suffix)
     ]
-last = "up31"
+#last = "up31"
+last = "last"
 
 forward_map =\
 [
@@ -186,22 +190,27 @@ forward_map =\
         to=ppos("({},{},0)".format(xdiff, diff_spacing * -1.5)), height=32* scale, depth=32* scale,
         width=diff_width * scale, im_size = im_size / 2) +\
     [to_connection( "patch4", "probe4")] +\
-    [to_Diffraction("diff1", '', 4, offset=ppos("({},0,0)".format(xdiff2)),
-        to=ppos("({},{},{})".format(diff2_dx * 1.5, diff2_dy * 1.5, diff2_dz * 1.5)), height=64* scale, depth=64* scale, width=diff2_width* scale,
-        caption = ''),
-    to_Diffraction("diff2", '', 4, offset=ppos("({},0,0)".format(xdiff2 + diff2_spacing)),
-        to=ppos("({},{},{})".format(diff2_dx * .5, diff2_dy * .5, diff2_dz * .5)), height=64* scale, depth=64* scale, width=diff2_width* scale,
-        caption = ''),
+    [
+#        to_Diffraction("diff1", '', 4, offset=ppos("({},0,0)".format(xdiff2)),
+#        to=ppos("({},{},{})".format(diff2_dx * 1.5, diff2_dy * 1.5, diff2_dz * 1.5)), height=64* scale, depth=64* scale, width=diff2_width* scale,
+#        caption = ''),
+#    to_Diffraction("diff2", '', 4, offset=ppos("({},0,0)".format(xdiff2 + diff2_spacing)),
+#        to=ppos("({},{},{})".format(diff2_dx * .5, diff2_dy * .5, diff2_dz * .5)), height=64* scale, depth=64* scale, width=diff2_width* scale,
+#        caption = ''),
     to_Diffraction("diff3", '', 4, offset=ppos("({},0,0)".format(xdiff2 + diff2_spacing * 2)),
         to=ppos("({},{},{})".format(diff2_dx * -.5, diff2_dy * -.5, diff2_dz * -.5)), height=64* scale, depth=64* scale, width=diff2_width* scale,
         caption = ''),
-    to_Diffraction("diff4", '', 4, offset=ppos("({},0,0)".format(xdiff2 + diff2_spacing * 3)),
-        to=ppos("({},{},{})".format(diff2_dx * -1.5, diff2_dy * -1.5, diff2_dz * -1.5)), height=64* scale, depth=64* scale, width=diff2_width* scale,
-        caption = ''),
-    to_connection("probe2", "diff1"),#top
+#    to_Diffraction("diff4", '', 4, offset=ppos("({},0,0)".format(xdiff2 + diff2_spacing * 3)),
+#        to=ppos("({},{},{})".format(diff2_dx * -1.5, diff2_dy * -1.5, diff2_dz * -1.5)), height=64* scale, depth=64* scale, width=diff2_width* scale,
+#        caption = ''),
+    to_connection("probe2", "diff3"),#top
     to_connection("probe1", "diff3"),
-    to_connection("probe3", "diff2"),
-    to_connection("probe4", "diff4"),# bottom
+    to_connection("probe3", "diff3"),
+    to_connection("probe4", "diff3"),# bottom
+#    to_connection("probe2", "diff1"),#top
+#    to_connection("probe1", "diff3"),
+#    to_connection("probe3", "diff2"),
+#    to_connection("probe4", "diff4"),# bottom
 
     to_input(output1, to=ppos("({},{},{})".format(outp_x, diff2_dy * 1.5, diff2_dz * 1.5)), width = im_size, height = im_size),
     to_input(output2, to=ppos("({},{},{})".format(outp_x, diff2_dy * .5, diff2_dz * .5)), width = im_size, height = im_size),

@@ -14,7 +14,6 @@ import tensorflow_probability as tfp
 from . import tf_helper as hh
 from . import params as p
 params = p.params
-#from .params import params
 
 import tensorflow_addons as tfa
 gaussian_filter2d = tfa.image.gaussian_filter2d
@@ -27,24 +26,22 @@ tfd = tfp.distributions
 wt_path = 'wts4.1'
 # sets the number of convolutional filters
 
-n_filters_scale =  params()['n_filters_scale']
-N = params()['N']
-w = params()['w']
-h = params()['h']
-gridsize = params()['gridsize']
-offset = params()['offset']
-tprobe = params()['probe']
-#intensity_scale = params()['intensity_scale']
+n_filters_scale =  p.get('n_filters_scale')
+N = p.get('N')
+w = p.get('w')
+h = p.get('h')
+gridsize = p.get('gridsize')
+offset = p.get('offset')
 
 from . import probe
+tprobe = params()['probe']
 probe_mask = probe.probe_mask#params()['probe_mask']
-
 initial_probe_guess = tprobe
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],
         )
-
+# TODO batch normalization?
 # TODO hyperparameters:
 # -probe smoothing scale(?)
 # -number of filters
@@ -62,11 +59,8 @@ class ProbeIllumination(tf.keras.layers.Layer):
 
 log_scale = tf.Variable(
             #initial_value=tf.constant(7.5),
-            # TODO set to the right value TODO
+            # TODO initialize to a reasonable value TODO
             initial_value=tf.constant(7.84),
-            # TODO learning rate is too slow, so the initial guess has to be
-            # set quite close to the correct value
-            #trainable=True,
             trainable = params()['intensity_scale.trainable'],
         )
 
@@ -78,8 +72,8 @@ class IntensityScaler(tf.keras.layers.Layer):
         x, = inputs
         return x / tf.math.exp(self.w)
 
-# TODO get inverse from the same class
-# invertible transforms with bijectors in tfp? don't start, read up maybe
+# TODO use a bijector instead of separately defining the transform and its
+# inverse
 class IntensityScaler_inv(tf.keras.layers.Layer):
     def __init__(self):
         super(IntensityScaler_inv, self).__init__()
@@ -158,21 +152,19 @@ obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
 padded_obj = tfkl.ZeroPadding2D(((h // 4), (w // 4)), name = 'padded_obj')(obj)
 # Reassemble multiple channels into single bigN x bigN object reconstruction
 
-# TODO apply probe mask before reassembling? probably not useful, since
-# constraining the solution region to 32 x 32 already has a similar effect
+# TODO apply probe mask before reassembling? probably not that useful,
+# since constraining the solution region to 32 x 32 already has a
+# similar effect, but worth trying
 padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x),
             name = 'padded_obj_2')(padded_obj)
-## TODO apply probe mask before reassembling?
 #padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0],
 #        fn_reassemble_real=hh.mk_reassemble_position_real(x[1])),
 #            name = 'padded_obj_2')([padded_obj, input_positions])
 
-# Trim to N X N central region of object reconstruction
-trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
-
+# Trim to N X N central region of object reconstruction. Shape: (bs, N, N, 1)
 # TODO trimmed obj should really be masked by the union of all the illumination
 # spots, instead of just takiing the central region
-crop_center = Lambda(lambda x: x[:, N // 2: -N // 2, N // 2: -N // 2, :])
+trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 
 # Extract overlapping regions of the object
 padded_objs_with_offsets = Lambda(
@@ -203,22 +195,17 @@ pred_diff_scaled = inv_scaler([pred_diff])
 dist_poisson_intensity = tfpl.DistributionLambda(lambda amplitude:
                                        (tfd.Independent(
                                            tfd.Poisson(
-                                               (amplitude**2))
-                                       )))
+                                               (amplitude**2)))))
 pred_intensity = dist_poisson_intensity(pred_diff_scaled)
 
 negloglik = lambda x, rv_x: -rv_x.log_prob((x))
-#fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
+# Poisson distribution over expected diffraction intensity (i.e. photons per
+# pixel)
+fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
 
-# The first output exposes the real space object reconstruction and
-# though it does not contribute to the training loss, it's used to
-# calculate reconstruction errors for evaluation
 autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_diff, pred_intensity,
         probe])
 
-# TODO update for variable probe
-#encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj],
-#                           outputs=[pred_diff])
 encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
                            outputs=[pred_diff, flat_illuminated])
 
@@ -226,11 +213,10 @@ diffraction_to_obj = tf.keras.Model(inputs=[input_img],
                            outputs=[obj])
 
 autoencoder.compile(optimizer='adam',
-     loss=['mean_absolute_error', 'mean_absolute_error', negloglik, hh.total_variation_loss],
+     loss=['mean_absolute_error', 'mean_absolute_error', negloglik, 'mean_absolute_error'],
      loss_weights = [0., 0., 1., 0.])
 
 print (autoencoder.summary())
-#plot_model(autoencoder, to_file='paper_data/str_model.png')
 
 def train(epochs, X_train, coords_train, Y_I_train):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
@@ -244,12 +230,13 @@ def train(epochs, X_train, coords_train, Y_I_train):
 
     batch_size = params()['batch_size']
     history=autoencoder.fit(
-        [X_train * params()['intensity_scale'],
+        [X_train * p.get('intensity_scale'),
             coords_train],
-        [Y_I_train,
-            X_train * params()['intensity_scale'],
-            (params()['intensity_scale'] * X_train)**2,
+        [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
+            X_train * p.get('intensity_scale'),
+            (p.get('intensity_scale') * X_train)**2,
            Y_I_train[:, :, :, :1]],
+           #hh.center_channels(Y_I_train, coords_train)[:, :, :, :1]],
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])

@@ -79,36 +79,56 @@ def add_position_jitter(coords, jitter_scale):
     shape = coords.shape
     jitter = jitter_scale * tf.random.normal(shape)
     # TODO int jitter is just for debugging. need float eventually
-    jitter = tf.cast(jitter, tf.int32)
-    jitter = tf.cast(jitter, tf.float32)
+#    jitter = tf.cast(jitter, tf.int32)
+#    jitter = tf.cast(jitter, tf.float32)
     return jitter + coords
 
-def simulate_objects(n, size, jitter_scale = None):
+# TODO kwargs -> positional
+def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None):
     """
-    Returns (normalized) amplitude and phase for n generated objects
+    Inputs:
+    4d tensors of full (arbitrary-sized) object phase and amplitude.
+
+    Returns (normalized) amplitude and phase and scan point offsets.
 
     coords: tuple of two tuples. First gives center coords for each
     small image patch. Second gives offset coords for each solution
     region.
     """
-#     Y_I = np.array([datasets.mk_lines_img(2 * size, nlines = 200)
-#                           for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
     # x and y coordinates of the patches
     # TODO enforce consistent value of size
+    size = YY_I.shape[1]
+    n = YY_I.shape[0]
     coords = true_coords = extract_coords(size, n)
     if jitter_scale is not None:
         print('simulating gaussian position jitter, scale', jitter_scale)
         true_coords = add_position_jitter(coords, jitter_scale)
 
-    Y_I = np.array([mk_lines_img(2 * size, nlines = 400)
-          for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
-
-    Y_I, Y_phi, _Y_I_full, norm_Y_I = physics.preprocess_objects(Y_I,
-        offsets_xy = true_coords)
+    Y_I, Y_phi, _Y_I_full, norm_Y_I = physics.preprocess_objects(YY_I,
+        offsets_xy = true_coords, Y_phi = YY_phi)
     return Y_I, Y_phi, _Y_I_full, norm_Y_I, (coords, true_coords)
 
-def mk_simdata(n, size, probe, intensity_scale = None, **kwargs):
-    Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = simulate_objects(n, size, **kwargs)
+def mk_simdata(n, size, probe, intensity_scale = None,
+        YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
+    if YY_I is None:
+        YY_I = np.array([mk_lines_img(2 * size, nlines = 400)
+              for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
+    # TODO two cases: n and size given, or Y_I and phi given
+    Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
+        YY_phi = YY_phi, **kwargs)
+    if dict_fmt:
+        d = dict()
+        d['I_pre_probe'] = Y_I
+        d['phi_pre_probe'] = Y_phi
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
+    if dict_fmt:
+        d['X'] = X
+        d['Y_I'] = Y_I
+        d['Y_phi'] = Y_phi
+        d['intensity_scale'] = intensity_scale
+        d['_Y_I_full'] = _Y_I_full
+        d['norm_Y_I'] = norm_Y_I
+        d['coords'] = coords
+        return d
     return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, coords

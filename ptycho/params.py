@@ -1,11 +1,14 @@
+"""
+Stores global variables for data generation and model configuration
+"""
 cfg = {
     'N': 64, 'offset': 4, 'gridsize': 2, 'bigoffset': 4, 'batch_size': 16,
     'nepochs': 60, 'h': 64, 'w': 64, 'n_filters_scale': 2, 'output_prefix': 'outputs',
     'big_gridsize': 10, 'max_position_jitter': 0, 'sim_jitter_scale': 0.,
+    'default_probe_scale': 0.7,
     'probe.trainable': False, 'intensity_scale.trainable': False,
     'positions.provided': False
     }
-#'h': 64, 'w': 64, 'intensity_scale.trainable': True, 'probe.trainable': True,
 
 # TODO h, w
 # TODO bigoffset should be a derived quantity, at least for simulation
@@ -38,3 +41,9 @@ def validate():
 def set(key, value):
     cfg[key] = value
     assert validate()
+
+def get(key):
+    if key == 'bigN':
+        cfg['bigN'] = get_bigN()
+        return cfg['bigN']
+    return cfg[key]
