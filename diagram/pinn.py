@@ -26,20 +26,6 @@ def ppos_encoder(num_tuple_s):
 ## vim macro
 """/\dcw{}jk?codek$a"jkpa", jk/\a\d"""
 
-code =\
-"""
-to_Conv("conv1", 512, 64, offset="(0,0,0)", to="(0,0,0)", height=64, depth=64, width=2 ),
-to_Pool("pool1", offset="(0,0,0)", to="(conv1-east)"),
-to_Conv("conv2", 128, 64, offset="(1,0,0)", to="(pool1-east)", height=32, depth=32, width=2 ),
-to_connection( "pool1", "conv2"),
-to_Pool("pool2", offset="(0,0,0)", to="(conv2-east)", height=28, depth=28, width=1),
-to_SoftMax("soft1", 10 ,"(3,0,0)", "(pool1-east)", caption="SOFT"  ),
-to_connection("pool2", "soft1"),
-to_Sum("sum1", offset="(1.5,0,0)", to="(soft1-east)", radius=2.5, opacity=0.6),
-to_connection("soft1", "sum1"),
-"""
-
-# defined your arch
 zoff = -10 #* scale
 xext = 31
 xpatch = 31.2
@@ -56,6 +42,14 @@ diff2_dz = 0.5
 diff2_width = 3
 amp_suffix = '_1'
 phase_suffix = '_2'
+
+legend_offset_y = -15
+legend_boxsize = 8
+legend_width = 0
+legend_spacing_x = 6
+legend_spacing_y = -6
+legend_patch_width = .1
+offset2 = offset * (legend_boxsize / 32)
 
 img_path_fmt = '../../notebooks/images/{}'
 
@@ -139,7 +133,6 @@ def mk_decoder(name_suffix = '0', pos_sign = 1):
     to_UnPool("unpool2" + name_suffix, offset=ppos("(0,0,0)"), to="(up22" + name_suffix + "-east)", height=32* scale, depth=32* scale),
     to_connection( "unpool1" + name_suffix, "up21" + name_suffix),
 
-    #to_Pad("pad1" + name_suffix, '', '', offset=ppos("(23,0,0)"), to=ppos("(0,{},0)".format(pos_sign * zoff)), height=64* scale, depth=64* scale, width=2 * scale),
 #    to_Conv("up31" + name_suffix, '', 1, offset=ppos("(23,0,0)"),
 #        to=ppos("(0,{},0)".format(pos_sign * zoff)), height=32* scale,
 #        depth=32* scale, width=2 * scale),
@@ -216,6 +209,65 @@ forward_map =\
     to_input(output2, to=ppos("({},{},{})".format(outp_x, diff2_dy * .5, diff2_dz * .5)), width = im_size, height = im_size),
     to_input(output3, to=ppos("({},{},{})".format(outp_x, diff2_dy * -.5, diff2_dz * -.5)), width = im_size, height = im_size),
     to_input(output4, to=ppos("({},{},{})".format(outp_x, diff2_dy * -1.5, diff2_dz * -1.5)), width = im_size, height = im_size),
+
+    to_ConvRelu("conv_relu_legend", offset=ppos_encoder("(0,{},0)".format(legend_offset_y)),
+        to=ppos_encoder("(0,0,0)"), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_width * scale,
+        caption = r"""Conv2D($\cdot$)$\linebreak$~ReLU($\cdot$)""",
+        #caption = r"""Conv2D($\cdot$)$\linebreak\rightarrow$~ReLU($\cdot$)""",
+        s_filer = '', n_filer = ''),
+
+    to_Pool("pool_legend", offset=ppos_encoder("({},{},0)".format(legend_spacing_x, legend_offset_y)),
+        to=ppos_encoder("(0,0,0)"), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_width * scale,
+        caption = r"""AvgPool2D($\cdot$)"""),
+
+    to_UnPool("unpool_legend", offset=ppos_encoder("({},{},0)".format(legend_spacing_x * 2,
+        legend_offset_y)),
+        to=ppos_encoder("(0,0,0)"), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_width * scale,
+        caption = r"""Upsample($\cdot$)"""),
+
+    to_Tanh("tanh_legend", offset=ppos_encoder("({},{},0)".format(legend_spacing_x * 0,
+            legend_offset_y + legend_spacing_y)),
+        to=ppos_encoder("(0,0,0)"), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_width * scale,
+        caption = r"""Conv2D($\cdot$)$\linebreak$~$i \bm{\pi \tanh(\cdot)}$""",
+        #caption = r"""Conv2D($\cdot$)$\linebreak\rightarrow$~$i \pi \tanh(\cdot$)""",
+        s_filer = '', n_filer = ''),
+
+    to_Sigmoid("sigmoid_legend", offset=ppos_encoder("({},{},0)".format(legend_spacing_x * 1,
+            legend_offset_y + legend_spacing_y)),
+        to=ppos_encoder("(0,0,0)"), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_width * scale,
+        caption = r"""Conv2D($\cdot$)$\linebreak$~Sigmoid$(\cdot)$""",
+        s_filer = '', n_filer = ''),
+
+    to_Patch("patch1_legend", '', '', offset=ppos("({},{},0)".format(legend_spacing_x * 2,
+            legend_offset_y + legend_spacing_y)),
+        to=ppos("(0,{},{})".format(offset2, offset2)), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_patch_width * scale),
+    to_Patch("patch4_legend", '', '', offset=ppos("({},{},0)".format(legend_spacing_x * 2,
+            legend_offset_y + legend_spacing_y)),
+        to=ppos("(0,{},{})".format(offset2, -offset2)), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_patch_width * scale),
+    to_Patch("patch2_legend", '', '', offset=ppos("({},{},0)".format(legend_spacing_x * 2,
+            legend_offset_y + legend_spacing_y)),
+        to=ppos("(0,{},{})".format(-offset2, offset2)), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_patch_width * scale),
+    to_Patch("patch3_legend", '', '', offset=ppos("({},{},0)".format(legend_spacing_x * 2,
+            legend_offset_y + legend_spacing_y)),
+        to=ppos("(0,{},{})".format(-offset2, -offset2)), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_patch_width * scale,
+        caption = r"""Illuminate$(\cdot)$""",),
+
+    to_Diffraction("diff_legend", offset=ppos_encoder("({},{},0)".format(legend_spacing_x * 3,
+            legend_offset_y + legend_spacing_y)),
+        to=ppos_encoder("(0,0,0)"), height=legend_boxsize * scale, depth=legend_boxsize * scale,
+        width=legend_width * scale,
+        caption = r"""Diffract$(\cdot)$""",
+        s_filer = '', n_filer = ''),
+
 ]
 
 arch = [to_head( '..' ),
