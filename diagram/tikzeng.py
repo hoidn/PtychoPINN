@@ -6,6 +6,7 @@ def to_head( projectpath ):
     return r"""
 \documentclass[border=8pt, multi, tikz]{standalone}
 \usepackage{import}
+\usepackage{bm}
 \usepackage{transparent}
 \subimport{"""+ pathlayers + r"""}{init}
 \usetikzlibrary{positioning}
@@ -74,7 +75,6 @@ def to_ConvRelu( name, s_filer=256, n_filer=64, offset="(0,0,0)", to="(0,0,0)", 
         }
     };
 """
-
 
 # Conv,Conv,relu
 # Bottleneck
@@ -325,7 +325,7 @@ def to_Sum( name, offset="(0,0,0)", to="(0,0,0)", radius=2.5, opacity=0.6):
         fill=\SumColor,
         opacity="""+ str(opacity) +""",
         radius="""+ str(radius) +""",
-        logo=$+$
+        logo=""" + r'$\times$' + """
         }
     };
 """
