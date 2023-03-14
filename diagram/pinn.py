@@ -53,24 +53,24 @@ offset2 = offset * (legend_boxsize / 32)
 
 img_path_fmt = '../../notebooks/images/{}'
 
-input1 = img_path_fmt.format('in1.jpeg')
-input2 = img_path_fmt.format('in2.jpeg')
-input3 = img_path_fmt.format('in3.jpeg')
-input4 = img_path_fmt.format('in4.jpeg')
+input1 = img_path_fmt.format('in1.png')
+input2 = img_path_fmt.format('in2.png')
+input3 = img_path_fmt.format('in3.png')
+input4 = img_path_fmt.format('in4.png')
 
-output1 = img_path_fmt.format('out1.jpeg')
-output2 = img_path_fmt.format('out2.jpeg')
-output3 = img_path_fmt.format('out3.jpeg')
-output4 = img_path_fmt.format('out4.jpeg')
+output1 = img_path_fmt.format('out1.png')
+output2 = img_path_fmt.format('out2.png')
+output3 = img_path_fmt.format('out3.png')
+output4 = img_path_fmt.format('out4.png')
 
-patch1_path = img_path_fmt.format('patch1.jpeg')
-patch2_path = img_path_fmt.format('patch2.jpeg')
-patch3_path = img_path_fmt.format('patch3.jpeg')
-patch4_path = img_path_fmt.format('patch4.jpeg')
+patch1_path = img_path_fmt.format('patch1.png')
+patch2_path = img_path_fmt.format('patch2.png')
+patch3_path = img_path_fmt.format('patch3.png')
+patch4_path = img_path_fmt.format('patch4.png')
 
-phase_path = img_path_fmt.format('phase.jpeg')
-amp_path = img_path_fmt.format('amp.jpeg')
-full_obj_path = img_path_fmt.format('full_obj.jpeg')
+phase_path = img_path_fmt.format('phase.png')
+amp_path = img_path_fmt.format('amp.png')
+full_obj_path = img_path_fmt.format('full_obj.png')
 
 im_size = 6.5
 inp_x = -7
