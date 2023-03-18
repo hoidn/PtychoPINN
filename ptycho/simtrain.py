@@ -54,14 +54,14 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
                                                  histogram_freq = 1,
                                                  profile_batch = '500,520')
 
-
  #TODO handle intensity scaling more gracefully
-
+# TODO descriptive names (b, a, ....  O.o)
 if params.params()['positions.provided']:
     print('using provided scan positions for training')
     history = model.train(nepochs, X_train, coords_train_true, Y_I_train)
     b, a, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
                                                     coords_test_true])
+
 else:
     print('using nominal scan positions for training')
     history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)
