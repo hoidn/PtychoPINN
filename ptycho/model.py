@@ -190,20 +190,20 @@ padded_objs_with_offsets, pred_diff = Lambda(lambda x:
 pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels')(pred_diff)
 
 # amplitude scaled to the correct photon count
-pred_diff_scaled = inv_scaler([pred_diff])
+pred_amp_scaled = inv_scaler([pred_diff])
 
 dist_poisson_intensity = tfpl.DistributionLambda(lambda amplitude:
                                        (tfd.Independent(
                                            tfd.Poisson(
                                                (amplitude**2)))))
-pred_intensity = dist_poisson_intensity(pred_diff_scaled)
+pred_intensity_sampled = dist_poisson_intensity(pred_amp_scaled)
 
-negloglik = lambda x, rv_x: -rv_x.log_prob((x))
 # Poisson distribution over expected diffraction intensity (i.e. photons per
 # pixel)
+negloglik = lambda x, rv_x: -rv_x.log_prob((x))
 fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
 
-autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_diff, pred_intensity,
+autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled,
         probe])
 
 encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
@@ -212,9 +212,11 @@ encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
 diffraction_to_obj = tf.keras.Model(inputs=[input_img],
                            outputs=[obj])
 
+mae_weight = p.get('mae_weight') # should normally be 0
+nll_weight = p.get('nll_weight') # should normally be 1
 autoencoder.compile(optimizer='adam',
      loss=['mean_absolute_error', 'mean_absolute_error', negloglik, 'mean_absolute_error'],
-     loss_weights = [0., 0., 1., 0.])
+     loss_weights = [0., mae_weight, nll_weight, 0.])
 
 print (autoencoder.summary())
 
@@ -233,7 +235,7 @@ def train(epochs, X_train, coords_train, Y_I_train):
         [X_train * p.get('intensity_scale'),
             coords_train],
         [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
-            X_train * p.get('intensity_scale'),
+            (p.get('intensity_scale') * X_train),
             (p.get('intensity_scale') * X_train)**2,
            Y_I_train[:, :, :, :1]],
            #hh.center_channels(Y_I_train, coords_train)[:, :, :, :1]],
