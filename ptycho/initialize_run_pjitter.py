@@ -7,8 +7,8 @@ import tensorflow as tf
 
 offset = params.cfg['offset']
 
-h = w = N = params.cfg['N'] = 64
-gridsize = params.cfg['gridsize'] = 2
+h = w = N = params.cfg['N']
+gridsize = params.cfg['gridsize']
 
 nepochs = params.cfg['nepochs']
 batch_size = params.cfg['batch_size'] = 16

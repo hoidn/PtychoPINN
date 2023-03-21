@@ -7,7 +7,7 @@ cfg = {
     'big_gridsize': 10, 'max_position_jitter': 0, 'sim_jitter_scale': 0.,
     'default_probe_scale': 0.7, 'mae_weight': 0., 'nll_weight': 1.,
     'probe.trainable': False, 'intensity_scale.trainable': False,
-    'positions.provided': False
+    'positions.provided': False, 'object.big': False
     }
 
 # TODO h, w

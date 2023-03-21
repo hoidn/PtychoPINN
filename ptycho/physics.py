@@ -35,7 +35,7 @@ def preprocess_objects(Y_I, Y_phi = None,
     if Y_phi is None:
         Y_phi = np.zeros_like(Y_I)
 
-    if offsets_xy is None:
+    if offsets_xy is None or tf.math.reduce_all(offsets_xy == 0):
         print('Sampling on regular grid')
         Y_I, Y_phi = \
             [hh.extract_nested_patches(imgs, fmt= 'channel')
