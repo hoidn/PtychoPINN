@@ -1,6 +1,7 @@
 """
 Stores global variables for data generation and model configuration
 """
+# TODO naming convention for different types of parameters
 cfg = {
     'N': 64, 'offset': 4, 'gridsize': 2, 'bigoffset': 4, 'batch_size': 16,
     'nepochs': 60, 'h': 64, 'w': 64, 'n_filters_scale': 2, 'output_prefix': 'outputs',

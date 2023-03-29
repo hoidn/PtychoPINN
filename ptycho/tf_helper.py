@@ -261,7 +261,6 @@ def reassemble_patches_real(channels, average = True):
     N = params()['N']
     return extract_patches_inverse((real, N, average))
 
-
 def pad_patches(imgs, padded_size):
     padded_size = get_padded_size()
     return tfkl.ZeroPadding2D(((padded_size - N) // 2, (padded_size - N) // 2))(imgs)
@@ -283,14 +282,6 @@ def trim_reconstruction(x):
         clipsize = (get_padded_size() - N) // 2
     return x[:, clipsize: -clipsize,
             clipsize: -clipsize, :]
-
-#def trim_reconstruction(x):
-#    """Trim from bigN x bigN to N x N
-#    """
-#    gridsize = params()['gridsize']
-#    offset = params()['offset']
-#    return x[:, (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2,
-#            (offset * (gridsize - 1)) // 2: -(offset * (gridsize - 1)) // 2, :]
 
 def extract_patches_position(imgs, offsets_xy):
     """
@@ -385,10 +376,6 @@ def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, **kwargs):
 
 gridsize = params()['gridsize']
 N = params()['N']
-#ones = tf.ones((1, N // 2, N // 2, gridsize**2))
-#ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
-#assembled_ones = reassemble_patches_real(ones, False)
-#norm = assembled_ones + .001
 
 def mk_norm(channels, fn_reassemble_real):
     # TODO global / local
@@ -402,26 +389,6 @@ def mk_norm(channels, fn_reassemble_real):
     norm = assembled_ones + .001
     return norm
 
-#def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
-#        average = False):
-#    """
-#    Given image patches (shaped such that the channel dimension indexes
-#    patches within a single solution region), reassemble into an image
-#    for the entire solution region. Overlaps between patches are
-#    averaged.
-#    """
-#    # TODO dividing out by norm increased the training time quite
-#    # substantially TODO is that true?
-#    real = tf.math.real(channels)
-#    imag = tf.math.imag(channels)
-##    assembled_real = fn_reassemble_real(real, average = average) / norm
-##    assembled_imag = fn_reassemble_real(imag, average = average) / norm
-#    assembled_real = fn_reassemble_real(real, average = average) / mk_norm(real,
-#        fn_reassemble_real)
-#    assembled_imag = fn_reassemble_real(imag, average = average) / mk_norm(imag,
-#        fn_reassemble_real)
-#    return tf.dtypes.complex(assembled_real, assembled_imag)
-
 def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
         average = False):
     """
@@ -431,14 +398,10 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
     averaged.
     """
     # TODO assert
+    # TODO:
 #    fn_reassemble_real_complex = complexify_function(fn_reassemble_real)
-#    return fn_reassemble_real_complex(
-    # TODO dividing out by norm increased the training time quite
-    # substantially TODO is that true?
     real = tf.math.real(channels)
     imag = tf.math.imag(channels)
-#    assembled_real = fn_reassemble_real(real, average = average) / norm
-#    assembled_imag = fn_reassemble_real(imag, average = average) / norm
     assembled_real = fn_reassemble_real(real, average = average) / mk_norm(real,
         fn_reassemble_real)
     assembled_imag = fn_reassemble_real(imag, average = average) / mk_norm(imag,
@@ -516,11 +479,6 @@ def perceptual_loss(target, pred):
 def meanSquaredLoss(y_true,y_pred, center_target = True):
     return tf.reduce_mean(tf.keras.losses.MSE(y_true,y_pred))
 
-#def I_channel_MAE(y_true,y_pred, center_target = True):
-#    if center_target:
-#        y_true = center_channels(y_true
-#    return tf.reduce_mean(tf.keras.losses.MeanAbsoluteError(y_true,y_pred))
-
 # TODO this doesn't work if the intensity scale is set to trainable
 def masked_MAE_loss(target, pred):
     """
@@ -533,16 +491,3 @@ def masked_MAE_loss(target, pred):
     target = trim_reconstruction(
             reassemble_patches(tf.math.abs(mask) * target))
     return mae(target, pred)
-
-#def symmetrized_loss(target, pred, loss_fn):
-#    """
-#    Calculate loss function on an image, taking into account that the
-#    prediction may be coordinate-inverted relative to the target
-#    """
-#    abs1 = (target)
-#    abs2 = (pred)
-#    abs3 = abs2[:, ::-1, ::-1, :]
-#    target_sym = (symmetrize_3d(target))
-#    a, b, c = loss_fn(abs1, abs2), loss_fn(abs1, abs3), loss_fn(target_sym, pred)
-#    return tf.minimum(a,
-#                      tf.minimum(b, c))
