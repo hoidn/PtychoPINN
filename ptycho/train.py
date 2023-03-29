@@ -13,10 +13,9 @@ save_data = False
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                         prog = 'PtychoPINN',
-                        description = 'Generate simulated diffraction and train the model',
-                        #epilog = 'Text at the bottom of help'
+                        description = 'Generate / load data and train the model',
                         )
-    parser.add_argument('offset', type = int)           # positional argument
+    parser.add_argument('offset', type = int)
     args = parser.parse_args()
     # offset between neighboring scan points, in pixels
     offset = params.cfg['offset'] = args.offset
@@ -32,8 +31,7 @@ print('offset', offset)
 out_prefix = '{}/{}_{}/'.format(prefix, date_time, offset)
 os.makedirs(out_prefix, exist_ok=True)
 
-#from ptycho.initialize_run import *
-from ptycho.initialize_run_pjitter import *
+from ptycho.initialize_data import *
 
 #i = 1
 #plt.imshow(np.log(normed_ff_np
@@ -73,29 +71,6 @@ from ptycho.params import params
 
 # TODO dict reference -> function call
 bigoffset = params()['bigoffset']
-bordersize = (N - bigoffset / 2) / 2
-# Amount to trim from NxN reconstruction patches
-borderleft = int(np.ceil(bordersize))
-borderright = int(np.floor(bordersize))
-
-# Amount to trim from the ground truth object
-clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
-clipleft = int(np.ceil(clipsize))
-clipright = int(np.floor(clipsize))
-# TODO cleanup
-def stitch(b, norm_Y_I_test = 1,
-           nsegments = (size - bigN) // (bigoffset // 2) + 1,
-           norm = True):
-    if norm:
-        img_recon = np.reshape((norm_Y_I_test * np.absolute(b)), (-1, nsegments,
-                                                              nsegments, 64, 64, 1))
-    else:
-        img_recon = np.reshape((norm_Y_I_test * np.absolute(b)), (-1, nsegments,
-                                                              nsegments, 64, 64, 1))
-    img_recon = img_recon[:, :, :, borderleft: -borderright, borderleft: -borderright, :]
-    tmp = img_recon.transpose(0, 1, 3, 2, 4, 5)
-    stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
-    return stitched
 
 def show_groundtruth():
     plt.rcParams["figure.figsize"] = (10, 10)
@@ -104,6 +79,21 @@ def show_groundtruth():
               cmap = 'jet')
 #    vmin = np.min(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
 #    vmax = np.max(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
+
+mae = lambda target, pred: np.mean(np.absolute(target - pred))
+
+# Edges need to be trimmed to align with the reconstruction
+YY_ground_truth = YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright]
+
+def trim(arr2d):
+    assert not (offset % 2)
+    return arr2d[offset // 2:-offset // 2, offset // 2:-offset // 2]
+
+def reassemble():
+    bordersize = N // 2 - bigoffset // 4
+    clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
+    stitched = stitch(b, norm_Y_I_test, norm = False)
+    return stitched
 
 # reconstructed
 stitched = stitch(b, norm_Y_I_test,
