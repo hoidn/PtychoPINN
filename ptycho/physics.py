@@ -1,9 +1,10 @@
-nphotons = 1e9
-
-from .params import params
+from . import params as p
 from . import tf_helper as hh
 import tensorflow as tf
 import numpy as np
+import pdb
+
+nphotons = p.get('sim_nphotons')
 
 def observe_amplitude(amplitude):
     """
@@ -25,7 +26,6 @@ def scale_nphotons(padded_obj):
     norm = tf.math.sqrt(nphotons / mean_photons)
     return norm
 
-import pdb
 def preprocess_objects(Y_I, Y_phi = None,
         offsets_xy = None):
     """
@@ -52,7 +52,7 @@ def preprocess_objects(Y_I, Y_phi = None,
 #    Y_I = list(Y_I)
 #    Y_phi = list(Y_phi)
 
-    assert Y_I.shape[-1] == params()['gridsize']**2
+    assert Y_I.shape[-1] == p.get('gridsize')**2
     norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
     Y_I /= norm_Y_I
 
@@ -62,8 +62,8 @@ def preprocess_objects(Y_I, Y_phi = None,
 
 def diffract_obj(sample):
     # run ff diffraction
-    h = params()['h']
-    w = params()['w']
+    h = p.get('h')
+    w = p.get('w')
     amplitude = hh.pad_and_diffract(sample, h, w, pad=False)[1]
 #     return amplitude
     # sample from Poisson observation likelihood
@@ -71,7 +71,7 @@ def diffract_obj(sample):
     return observed_amp
 
 def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
-    batch_size = params()['batch_size']
+    batch_size = p.get('batch_size')
     Y_I = Y_I *  probe[None, ..., None]
 
     if intensity_scale is None:

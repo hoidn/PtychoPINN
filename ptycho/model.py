@@ -52,15 +52,20 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def call(self, inputs):
         x, = inputs
         # TODO total variation loss
-        #return probe_mask * x * hh.anti_alias_complex(self.w)
         return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
+        #return probe_mask * x * hh.anti_alias_complex(self.w)
         #return gaussian_filter2d(self.w, sigma = 0.8) * x * probe_mask, (self.w * probe_mask)[None, ...]
         #return hh.anti_alias_complex(self.w) * x * probe_mask, (self.w * probe_mask)[None, ...]
 
+nphotons = p.get('sim_nphotons')
+# TODO parameterize this
+# TODO scaling could be done on a shot-by-shot basis, but IIRC I tried this
+# and there were issues
+# TODO for robustness, it might be worth trying to logarithmically scale the
+# photon counts
+log_scale_guess = np.log(np.sqrt(nphotons) / 12.4)
 log_scale = tf.Variable(
-            #initial_value=tf.constant(7.5),
-            # TODO initialize to a reasonable value TODO
-            initial_value=tf.constant(7.84),
+            initial_value=tf.constant(float(log_scale_guess)),
             trainable = params()['intensity_scale.trainable'],
         )
 

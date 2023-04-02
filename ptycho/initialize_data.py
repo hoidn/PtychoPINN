@@ -34,14 +34,11 @@ size = bigoffset * (big_gridsize - 1) + bigN
 # Smaller stride so that solution regions overlap enough
 bigoffset = params.cfg['bigoffset'] = bigoffset // 2
 
+# TODO move this to a more sensible place
 bordersize = (N - bigoffset / 2) / 2
 # Amount to trim from NxN reconstruction patches
 borderleft = int(np.ceil(bordersize))
 borderright = int(np.floor(bordersize))
-# Amount to trim from the ground truth object
-clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
-clipleft = int(np.ceil(clipsize))
-clipright = int(np.floor(clipsize))
 # TODO normalization not needed?
 def stitch(b, norm_Y_I_test = 1,
            nsegments = (size - bigN) // (bigoffset // 2) + 1,
