@@ -9,7 +9,7 @@ from functools import reduce
 setup(name = 'ptychoPINN',
     packages = find_packages('.'),
     package_dir = {'ptychoPINN': 'ptycho'},
-    scripts = ['ptycho/simtrain.py'],
+    scripts = ['ptycho/train.py'],
     #package_data = {'trader': ['data/*']},
     install_requires = [],
     zip_safe = False)

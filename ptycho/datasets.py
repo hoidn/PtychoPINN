@@ -8,6 +8,7 @@ import tensorflow as tf
 from . import fourier as f
 from . import physics
 from . import tf_helper as hh
+from . import params as p
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -108,11 +109,22 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None):
         offsets_xy = true_coords, Y_phi = YY_phi)
     return Y_I, Y_phi, _Y_I_full, norm_Y_I, (coords, true_coords)
 
+def sim_object_image(size):
+    if p.get('sim_object_type') == 'lines':
+        return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
+    elif p.get('sim_object_type') == 'grf':
+        from . import grf
+        return grf.mk_grf(size)
+    else:
+        raise ValueError
+
 def mk_simdata(n, size, probe, intensity_scale = None,
         YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
     if YY_I is None:
-        YY_I = np.array([mk_lines_img(2 * size, nlines = 400)
-              for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
+#        YY_I = np.array([mk_lines_img(2 * size, nlines = 400)
+#              for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
+        YY_I = np.array([sim_object_image(size)
+              for _ in range(n)])[:, :, :]
     # TODO two cases: n and size given, or Y_I and phi given
     Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
         YY_phi = YY_phi, **kwargs)
