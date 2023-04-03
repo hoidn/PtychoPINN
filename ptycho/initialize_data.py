@@ -105,7 +105,7 @@ def trim(arr2d):
     assert not (offset % 2)
     return arr2d[offset // 2:-offset // 2, offset // 2:-offset // 2]
 
-def reassemble():
+def reassemble(b):
     bordersize = N // 2 - bigoffset // 4
     clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
     stitched = stitch(b, norm_Y_I_test, norm = False)
