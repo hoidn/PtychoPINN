@@ -65,7 +65,7 @@ def mk_grf(N):
     # Threshold for the sea level
     threshold = 0.4
     # Sigma for the gaussian smoothing
-    sigma = 1
+    sigma = 0#1
     # Initial random seed
     llavor = 0
     # Spectral index for the power spectrum

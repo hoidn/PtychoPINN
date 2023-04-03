@@ -48,7 +48,7 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
 #                                            monitor='val_loss', verbose=1, save_best_only=True,
 #                                            save_weights_only=False, mode='auto', period=1)
 
-def train(X_train, Y_I_train, Y_phi_train):
+def build_model(X_train, Y_I_train, Y_phi_train):
     tf.keras.backend.clear_session()
     c = X_train.shape[-1]
     input_img = Input(shape=(h, w, c))
@@ -76,10 +76,14 @@ def train(X_train, Y_I_train, Y_phi_train):
     decoded2 = Conv2D(c, (3, 3), padding='same')(x2)
     #Put together
     autoencoder = Model(input_img, [decoded1, decoded2])
-
     #parallel_model = ModelMGPU(autoencoder, gpus=num_GPU)
     #parallel_model.compile(optimizer='adam', loss='mean_absolute_error')
     autoencoder.compile(optimizer='adam', loss='mean_absolute_error')
+    return autoencoder
+
+def train(X_train, Y_I_train, Y_phi_train, autoencoder = None):
+    if autoencoder is None:
+        autoencoder = build_model(X_train, Y_I_train, Y_phi_train)
 
     print (autoencoder.summary())
     #plot_model(autoencoder, to_file='paper_data/str_model.png')
@@ -88,7 +92,9 @@ def train(X_train, Y_I_train, Y_phi_train):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
 
-    history=autoencoder.fit(X_train * params.params()['intensity_scale'], [Y_I_train, Y_phi_train], shuffle=True,
+    #history=autoencoder.fit(X_train,
+    history=autoencoder.fit(X_train * params.params()['intensity_scale'],
+        [Y_I_train, Y_phi_train], shuffle=True,
         batch_size=batch_size, verbose=1, epochs=nepochs,
         validation_split = 0.05, callbacks=[reduce_lr, earlystop])
     return autoencoder
