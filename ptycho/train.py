@@ -80,31 +80,8 @@ def show_groundtruth():
 #    vmin = np.min(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
 #    vmax = np.max(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
 
-def mae(target, pred):
-    """
-    mae for an entire (stitched-together) reconstruction.
-    """
-    scale = np.mean(target) / np.mean(pred)
-    print('mean scale adjustment:', scale)
-    return np.mean(np.absolute(target - scale * pred))
-#mae = lambda target, pred: np.mean(np.absolute(target - pred))
 
-# Amount to trim from the ground truth object
-clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
-clipleft = int(np.ceil(clipsize))
-clipright = int(np.floor(clipsize))
-# Edges need to be trimmed to align with the reconstruction
-YY_ground_truth = YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright]
 
-def trim(arr2d):
-    assert not (offset % 2)
-    return arr2d[offset // 2:-offset // 2, offset // 2:-offset // 2]
-
-def reassemble():
-    bordersize = N // 2 - bigoffset // 4
-    clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
-    stitched = stitch(b, norm_Y_I_test, norm = False)
-    return stitched
 
 # reconstructed
 stitched = stitch(b, norm_Y_I_test,
