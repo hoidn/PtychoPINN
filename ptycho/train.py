@@ -84,8 +84,7 @@ def show_groundtruth():
 
 
 # reconstructed
-stitched = stitch(b, norm_Y_I_test,
-                  norm = False)
+stitched = stitch(b, norm_Y_I_test, norm = False, nsegments = params()['nsegments'])
 
 plt.imsave(out_prefix + 'recon.png', stitched[0][:, :, 0], cmap = 'jet')
 plt.imsave(out_prefix + 'orig.png', YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright, 0],
