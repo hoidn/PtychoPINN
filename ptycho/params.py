@@ -7,8 +7,8 @@ cfg = {
     'nepochs': 60, 'h': 64, 'w': 64, 'n_filters_scale': 2, 'output_prefix': 'outputs',
     'big_gridsize': 10, 'max_position_jitter': 0, 'sim_jitter_scale': 0.,
     'default_probe_scale': 0.7, 'mae_weight': 0., 'nll_weight': 1.,
-    'sim_nphotons': 1e9,
-    'sim_object_type': 'lines', 'probe.trainable': False,
+    'sim_nphotons': 1e9, 'nsegments': 37,# TODO parameterize
+    'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
     'object.big': False
     }
@@ -38,6 +38,7 @@ def params():
     return d
 
 def validate():
+    assert cfg['data_source'] in ['lines', 'grf', 'experimental']
     # TODO
     return True
 

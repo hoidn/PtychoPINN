@@ -45,6 +45,7 @@ def preprocess_objects(Y_I, Y_phi = None,
         Y_I, Y_phi = \
             [hh.extract_nested_patches_position(imgs, offsets_xy, fmt= 'channel')
                 for imgs in [Y_I, Y_phi]]
+
 #    # TODO debug only
 #    Y_I, Y_I_outer = zip(*Y_I)
 #    Y_phi, Y_phi_outer = zip(*Y_phi)
@@ -53,22 +54,27 @@ def preprocess_objects(Y_I, Y_phi = None,
 #    Y_phi = list(Y_phi)
 
     assert Y_I.shape[-1] == p.get('gridsize')**2
+    #norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
     norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
+    norm_Y_I = tf.math.reduce_mean(norm_Y_I)
     Y_I /= norm_Y_I
 
     Y_I, Y_phi =\
         hh.channel_to_flat(Y_I, Y_phi)
-    return Y_I, Y_phi, _Y_I_full, norm_Y_I
+    return Y_I, Y_phi, _Y_I_full / norm_Y_I, norm_Y_I
 
-def diffract_obj(sample):
+def diffract_obj(sample, draw_poisson = True):
     # run ff diffraction
     h = p.get('h')
     w = p.get('w')
     amplitude = hh.pad_and_diffract(sample, h, w, pad=False)[1]
 #     return amplitude
     # sample from Poisson observation likelihood
-    observed_amp = observe_amplitude(amplitude)
-    return observed_amp
+    if draw_poisson:
+        observed_amp = observe_amplitude(amplitude)
+        return observed_amp
+    else:
+        return amplitude
 
 def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     batch_size = p.get('batch_size')

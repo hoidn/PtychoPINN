@@ -46,7 +46,7 @@ def mk_expdata(which, probe, intensity_scale = None):
     # TODO put this in a struct or something
     return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, (coords, true_coords)
 
-def extract_coords(size, repeats = 1):
+def extract_coords(size, repeats = 1, coord_type = 'offsets'):
     """
     Return nominal offset coords in channel format. x and y offsets are
     stacked in the third dimension.
@@ -69,12 +69,21 @@ def extract_coords(size, repeats = 1):
         offsets_x = coords[1][0] - coords[0][0]
         offsets_y = coords[1][1] - coords[0][1]
         return tf.stack([offsets_x, offsets_y], axis = 2)[:, :, :, 0, :]
+#    def get_patch_global(coords):
+#        glob_x = coords[1][0] + coords[0][0]
+#        glob_y = coords[1][1] + coords[0][1]
+#        return tf.stack([glob_x, glob_y], axis = 2)[:, :, :, 0, :]
     ix = _extract_coords(xx, inner)
     iy = _extract_coords(yy, inner)
     ix_offsets = _extract_coords(xx, outer)
     iy_offsets = _extract_coords(yy, outer)
     coords = ((ix, iy), (ix_offsets, iy_offsets))
-    return get_patch_offsets(coords)
+    if coord_type == 'offsets':
+        return get_patch_offsets(coords)
+    elif coord_type == 'global':
+        return (ix, iy)
+    else:
+        raise ValueError
 
 def add_position_jitter(coords, jitter_scale):
     shape = coords.shape
@@ -110,9 +119,9 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None):
     return Y_I, Y_phi, _Y_I_full, norm_Y_I, (coords, true_coords)
 
 def sim_object_image(size):
-    if p.get('sim_object_type') == 'lines':
+    if p.get('data_source') == 'lines':
         return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
-    elif p.get('sim_object_type') == 'grf':
+    elif p.get('data_source') == 'grf':
         from . import grf
         return grf.mk_grf(size)
     else:
