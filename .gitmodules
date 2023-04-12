@@ -4,3 +4,6 @@
 [submodule "PlotNeuralNet"]
 	path = PlotNeuralNet
 	url = https://github.com/HarisIqbal88/PlotNeuralNet.git
+[submodule "notebooks/ePIE_recon_simulation"]
+	path = notebooks/ePIE_recon_simulation
+	url = https://github.com/susannahammarberg/ePIE_recon_simulation.git

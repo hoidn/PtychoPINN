@@ -42,6 +42,7 @@ def pad_and_diffract(input, h, w, pad = True):
     zero-pad the real-space object and then calculate the far field
     diffraction amplitude
     """
+    print('input shape', input.shape)
     if pad:
         input = pad_obj(input, h, w)
     padded = input
@@ -56,6 +57,28 @@ def pad_and_diffract(input, h, w, pad = True):
             fftshift(input, (-2, -1))), 3)
         ))
     return padded, input
+
+## TODO cleanup
+#def diffract(input, pad = False):
+#    """
+#    zero-pad the real-space object and then calculate the far field
+#    diffraction amplitude
+#    """
+#    N = h = w = params()['N']
+#    if pad:
+#        input = pad_obj(input, h, w)
+#    padded = input
+#    assert input.shape[-1] == 1
+#    input = (((fft2d(
+#        #tf.squeeze # this destroys shape information so need to use slicing instead
+#        (tf.cast((input), tf.complex64))[..., 0]
+#        ))))
+#    input = (( tf.math.real(tf.math.conj((input)) * input) / (h * w)))
+#    input = (( tf.expand_dims(
+#                              tf.math.sqrt(
+#            fftshift(input, (-2, -1))), 3)
+#        ))
+#    return padded, input
 
 def _fromgrid(img):
     """
