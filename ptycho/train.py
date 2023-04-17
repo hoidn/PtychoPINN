@@ -31,7 +31,7 @@ print('offset', offset)
 out_prefix = '{}/{}_{}/'.format(prefix, date_time, offset)
 os.makedirs(out_prefix, exist_ok=True)
 
-from ptycho.initialize_data import *
+from ptycho.generate_data import *
 
 #i = 1
 #plt.imshow(np.log(normed_ff_np
