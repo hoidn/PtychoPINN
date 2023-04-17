@@ -10,6 +10,8 @@ from tensorflow.keras import Sequential
 from tensorflow.keras import Input
 from tensorflow.keras import Model
 
+from ptycho import generate_data as data
+
 
 tf.keras.backend.clear_session()
 np.random.seed(123)
@@ -98,3 +100,9 @@ def train(X_train, Y_I_train, Y_phi_train, autoencoder = None):
         batch_size=batch_size, verbose=1, epochs=nepochs,
         validation_split = 0.05, callbacks=[reduce_lr, earlystop])
     return autoencoder
+
+def recon_patches(patches):
+    """
+    chop channel dimension size to 1, then patch together a single image
+    """
+    return data.reassemble(patches[:, :, :, :1])[0]

@@ -1,5 +1,6 @@
 import os
 os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+import numpy as np
 import tensorflow as tf
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -58,28 +59,6 @@ def pad_and_diffract(input, h, w, pad = True):
         ))
     return padded, input
 
-## TODO cleanup
-#def diffract(input, pad = False):
-#    """
-#    zero-pad the real-space object and then calculate the far field
-#    diffraction amplitude
-#    """
-#    N = h = w = params()['N']
-#    if pad:
-#        input = pad_obj(input, h, w)
-#    padded = input
-#    assert input.shape[-1] == 1
-#    input = (((fft2d(
-#        #tf.squeeze # this destroys shape information so need to use slicing instead
-#        (tf.cast((input), tf.complex64))[..., 0]
-#        ))))
-#    input = (( tf.math.real(tf.math.conj((input)) * input) / (h * w)))
-#    input = (( tf.expand_dims(
-#                              tf.math.sqrt(
-#            fftshift(input, (-2, -1))), 3)
-#        ))
-#    return padded, input
-
 def _fromgrid(img):
     """
     Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
@@ -93,14 +72,16 @@ def fromgrid(*imgs):
     """
     return [_fromgrid(img) for img in imgs]
 
-def _togrid(img):
+def _togrid(img, gridsize = None, N = None):
     """
-    Reshape (-1, N, N, 1) to (-1, gridsize, gridsize, N, N)
+    Reshape (-1, N, N, 1) to (-1, gridsize, gridsize, N, N, 1)
 
     i.e. from flat format to grid format
     """
-    gridsize = params()['gridsize']
-    N = params()['N']
+    if gridsize is None:
+        gridsize = params()['gridsize']
+    if N is None:
+        N = params()['N']
     return tf.reshape(img, (-1, gridsize, gridsize, N, N, 1))
 
 def togrid(*imgs):
@@ -251,15 +232,33 @@ def extract_nested_patches_position(img, offsets_xy, fmt = 'flat'):
     return extract_nested_patches(img, fmt = fmt,
         extract_inner_fn = mk_extract_inner_position(offsets_xy))
 
+#@tf.function
+#def extract_patches_inverse(inputs, gridsize = None, offset = None):
+#    if gridsize is None:
+#        gridsize = params()['gridsize']
+#    if offset is None:
+#        offset = params()['offset']
+#    # TODO don't pass inputs this way
+#    y, N, average = inputs
+#    target_size = N + (gridsize - 1) * offset
+#    b = tf.shape(y)[0]
+#
+#    _x = tf.zeros((b, target_size, target_size, 1), dtype = y.dtype)
+#    _y = extract_patches(_x, N, offset)
+#    if average:
+#        # Divide by grad, to "average" together the overlapping patches
+#        # otherwise they would simply sum up
+#        grad = tf.gradients(_y, _x)[0]
+#        return tf.gradients(_y, _x, grad_ys=y)[0] / grad
+#    else:
+#        return tf.gradients(_y, _x, grad_ys=y)[0]
 @tf.function
-def extract_patches_inverse(inputs, gridsize = None, offset = None):
-    N = params()['N']
+def extract_patches_inverse(y, N, average, gridsize = None, offset = None):
     if gridsize is None:
         gridsize = params()['gridsize']
     if offset is None:
         offset = params()['offset']
-    # TODO don't pass inputs this way
-    y, N, average = inputs
+    #y, N, average = inputs
     target_size = N + (gridsize - 1) * offset
     b = tf.shape(y)[0]
 
@@ -273,7 +272,7 @@ def extract_patches_inverse(inputs, gridsize = None, offset = None):
     else:
         return tf.gradients(_y, _x, grad_ys=y)[0]
 
-def reassemble_patches_real(channels, average = True):
+def reassemble_patches_real(channels, average = True, **kwargs):
     """
     Given image patches (shaped such that the channel dimension indexes
     patches within a single solution region), reassemble into an image
@@ -282,19 +281,20 @@ def reassemble_patches_real(channels, average = True):
     """
     real = _channel_to_patches(channels)
     N = params()['N']
-    return extract_patches_inverse((real, N, average))
+    return extract_patches_inverse(real, N, average, **kwargs)
 
 def pad_patches(imgs, padded_size):
     padded_size = get_padded_size()
     return tfkl.ZeroPadding2D(((padded_size - N) // 2, (padded_size - N) // 2))(imgs)
 
-def trim_reconstruction(x):
+def trim_reconstruction(x, N = None):
     """
     Trim from shape (_, M, M, _) to (_, N, N, _), where M >= N
 
     When dealing with an input with a static shape, assume M = get_padded_size()
     """
-    N = cfg['N']
+    if N is None:
+        N = cfg['N']
     shape = x.shape
     #shape = tf.shape(x)
     if shape[1] is not None:
@@ -413,21 +413,20 @@ def mk_norm(channels, fn_reassemble_real):
     return norm
 
 def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
-        average = False):
+        average = False, **kwargs):
     """
     Given image patches (shaped such that the channel dimension indexes
     patches within a single solution region), reassemble into an image
     for the entire solution region. Overlaps between patches are
     averaged.
     """
-    # TODO assert
     # TODO:
 #    fn_reassemble_real_complex = complexify_function(fn_reassemble_real)
     real = tf.math.real(channels)
     imag = tf.math.imag(channels)
-    assembled_real = fn_reassemble_real(real, average = average) / mk_norm(real,
+    assembled_real = fn_reassemble_real(real, average = average, **kwargs) / mk_norm(real,
         fn_reassemble_real)
-    assembled_imag = fn_reassemble_real(imag, average = average) / mk_norm(imag,
+    assembled_imag = fn_reassemble_real(imag, average = average, **kwargs) / mk_norm(imag,
         fn_reassemble_real)
     return tf.dtypes.complex(assembled_real, assembled_imag)
 
@@ -444,6 +443,28 @@ def reassemble_patches_position(channels, offsets_xy,
     return reassemble_patches(channels,
         fn_reassemble_real = fn_reassemble_real,
         average = False)
+
+def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
+        offset = 4):
+    """
+    Stitch reconstruction patches from (first) model output into full
+    reconstructed images, averaging the overlaps
+    """
+    assert len(output_tensor.shape) == 4
+    #assert output_tensor.shape[-1] == 1
+    bsize = int(output_tensor.shape[0] / n_imgs)
+    output_tensor = output_tensor[:bsize, ...]
+    if M is None:
+        # assume only one image
+        M = int(np.sqrt(bsize))
+    if cropN is None:
+        cropN = params.params()['cropN']
+    patches = _togrid(trim_reconstruction(output_tensor, cropN), gridsize = M,
+        N = cropN)
+    patches = tf.reshape(patches, (-1, M, M, cropN**2))
+    obj_recon = complexify_function(extract_patches_inverse)(patches, cropN,
+        True, gridsize = M, offset = offset)
+    return obj_recon
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)

@@ -25,7 +25,6 @@ batch_size = params.cfg['batch_size']
 # TODO need to enforce that configs are set before initializing the probe
 from ptycho import probe
 
-
 def normed_ff_np(arr):
     return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(h * w))
 
@@ -67,26 +66,10 @@ elif params.params()['data_source'] == 'experimental':
     bigN = N + (gridsize - 1) * offset
     X_test, Y_I_test, Y_phi_test, _, YY_I_test_full, norm_Y_I_test, (coords_test_nominal, coords_test_true) = datasets.mk_expdata('test', probe.probe, intensity_scale)
     size = Y_I_test.shape[1]
-
-#    # TODO shuffle should be after flatten
-#    X_train, Y_I_train, Y_phi_train = shuffle(X_train.numpy(), Y_I_train.numpy(), Y_phi_train.numpy(), random_state=0)
-#
-#    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_I_train_full, _, (coords_train_nominal, coords_train_true) = datasets.mk_expdata('train', probe.probe)
-#    params.cfg['intensity_scale'] = intensity_scale
-#    params.cfg['bigoffset'] = ((gridsize - 1) * offset + N // 2)# // 2
-#    bigN = N + (gridsize - 1) * offset
-#    X_test, Y_I_test, Y_phi_test, _, YY_I_test_full, norm_Y_I_test, (coords_test_nominal, coords_test_true) = datasets.mk_expdata('test', probe.probe, intensity_scale)
-#    # TODO shuffle should be after flatten
-    X_train, Y_I_train, Y_phi_train = shuffle(X_train.numpy(), Y_I_train.numpy(), Y_phi_train.numpy(), random_state=0)
+    #X_train, Y_I_train, Y_phi_train = shuffle(X_train.numpy(), Y_I_train.numpy(), Y_phi_train.numpy(), random_state=0)
 else:
     raise ValueError
 
-    #(Y_I_test).shape, Y_I_train.shape
-
-## TODO shuffle should be after flatten
-#X_train, Y_I_train, Y_phi_train =\
-#    shuffle(X_train.numpy(), Y_I_train.numpy(), Y_phi_train.numpy(),
-#        random_state=0)
 # TODO shuffle should be after flatten. unecessary copies
 X_train, Y_I_train, Y_phi_train =\
     shuffle(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train),
