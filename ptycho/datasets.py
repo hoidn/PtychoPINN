@@ -118,6 +118,11 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None):
         offsets_xy = true_coords, Y_phi = YY_phi)
     return Y_I, Y_phi, _Y_I_full, norm_Y_I, (coords, true_coords)
 
+import math
+def dummy_phi(Y_I):
+    return tf.constant(math.pi) * tf.math.tanh( (Y_I[:, :, :, ...]
+        - tf.math.reduce_mean(Y_I)))
+
 def sim_object_image(size):
     if p.get('data_source') == 'lines':
         return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
@@ -126,7 +131,6 @@ def sim_object_image(size):
         return grf.mk_grf(size)
     else:
         raise ValueError
-
 def mk_simdata(n, size, probe, intensity_scale = None,
         YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
     if YY_I is None:
@@ -141,6 +145,8 @@ def mk_simdata(n, size, probe, intensity_scale = None,
         d = dict()
         d['I_pre_probe'] = Y_I
         d['phi_pre_probe'] = Y_phi
+    if p.get('set_phi'):
+        Y_phi = dummy_phi(Y_I)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     if dict_fmt:

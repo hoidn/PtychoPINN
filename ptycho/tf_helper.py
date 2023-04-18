@@ -66,12 +66,6 @@ def _fromgrid(img):
     N = params()['N']
     return tf.reshape(img, (-1, N, N, 1))
 
-def fromgrid(*imgs):
-    """
-    Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
-    """
-    return [_fromgrid(img) for img in imgs]
-
 def _togrid(img, gridsize = None, N = None):
     """
     Reshape (-1, N, N, 1) to (-1, gridsize, gridsize, N, N, 1)

@@ -35,6 +35,7 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
     plt.subplot(aa, bb, 3)
     plt.title('True phase')
     cropshow(((Y_phi_test * (probe > .01)[..., None]))[i, :, :, channel], cmap = 'jet')
+    plt.colorbar()
 
     plt.subplot(aa, bb, 4)
     plt.title('True amp.\n(full)')
