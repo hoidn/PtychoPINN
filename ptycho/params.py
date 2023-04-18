@@ -10,7 +10,7 @@ cfg = {
     'sim_nphotons': 1e9, 'nsegments': 37,# TODO parameterize
     'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
-    'object.big': False
+    'object.big': False, 'set_phi': False
     }
 
 # TODO h, w
