@@ -50,8 +50,7 @@ def normalize_field(field):
 # 2. Normalize the field between 0 and 1
 # 3. Smooth the field with a gaussian filter
 # 4. Retain only the mainland above a certain threshold
-def generate_map(llavor,indexlaw,sigma,threshold, boxsize):
-    np.random.seed(seed=llavor)
+def generate_map(indexlaw,sigma,threshold, boxsize):
     # Number of bins per dimension in the high resolution  box
     highboxsize = 2*boxsize
     field = pbox.powerbox.PowerBox(boxsize, lambda k: powerspec(k,indexlaw), dim=2, boxlength=100.).delta_x()
@@ -66,10 +65,8 @@ def mk_grf(N):
     threshold = 0.4
     # Sigma for the gaussian smoothing
     sigma = 1
-    # Initial random seed
-    llavor = 0
     # Spectral index for the power spectrum
     indexlaw = -.4
     res = np.zeros((N, N, 1))
-    res[:, :, :] = generate_map(llavor, indexlaw, sigma, threshold, boxsize)[..., None]
+    res[:, :, :] = generate_map(indexlaw, sigma, threshold, boxsize)[..., None]
     return res

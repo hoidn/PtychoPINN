@@ -7,7 +7,7 @@ import argparse
 from ptycho import params
 from ptycho import params as p
 
-save_model = False
+save_model = True
 save_data = False
 
 if __name__ == '__main__':

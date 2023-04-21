@@ -12,7 +12,6 @@ from tensorflow.keras import Model
 
 from ptycho import generate_data as data
 
-
 tf.keras.backend.clear_session()
 np.random.seed(123)
 
@@ -28,9 +27,7 @@ batch_size = 32
 n_filters_scale = params.params()['n_filters_scale']
 
 #Keras modules
-from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
-from tensorflow.keras import Sequential
-from tensorflow.keras import Input
+from tensorflow.keras.layers import UpSampling2D
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -68,7 +65,6 @@ def build_model(X_train, Y_I_train, Y_phi_train):
     x1=Conv_Up_block(x1,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
 
     decoded1 = Conv2D(c, (3, 3), padding='same')(x1)
-
 
     #Decoding arm 2
     x2=Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
