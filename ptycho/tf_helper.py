@@ -15,7 +15,7 @@ from tensorflow.keras.layers import Lambda
 from tensorflow.signal import fft2d, fftshift
 import tensorflow_probability as tfp
 
-from .params import params, cfg, get_bigN, get_padded_size
+from .params import params, cfg, get, get_padded_size
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -144,8 +144,7 @@ def extract_outer(img, fmt = 'grid'):
         Extract big patches (overlapping bigN x bigN regions over an
         entire input img)
     """
-    #padded_size = get_padded_size()
-    bigN = get_bigN()
+    bigN = get('bigN')
     bigoffset = cfg['bigoffset']
     assert img.shape[-1] == 1
     # Reason for the stride of the outer patches to be half of the grid
@@ -226,33 +225,12 @@ def extract_nested_patches_position(img, offsets_xy, fmt = 'flat'):
     return extract_nested_patches(img, fmt = fmt,
         extract_inner_fn = mk_extract_inner_position(offsets_xy))
 
-#@tf.function
-#def extract_patches_inverse(inputs, gridsize = None, offset = None):
-#    if gridsize is None:
-#        gridsize = params()['gridsize']
-#    if offset is None:
-#        offset = params()['offset']
-#    # TODO don't pass inputs this way
-#    y, N, average = inputs
-#    target_size = N + (gridsize - 1) * offset
-#    b = tf.shape(y)[0]
-#
-#    _x = tf.zeros((b, target_size, target_size, 1), dtype = y.dtype)
-#    _y = extract_patches(_x, N, offset)
-#    if average:
-#        # Divide by grad, to "average" together the overlapping patches
-#        # otherwise they would simply sum up
-#        grad = tf.gradients(_y, _x)[0]
-#        return tf.gradients(_y, _x, grad_ys=y)[0] / grad
-#    else:
-#        return tf.gradients(_y, _x, grad_ys=y)[0]
 @tf.function
 def extract_patches_inverse(y, N, average, gridsize = None, offset = None):
     if gridsize is None:
         gridsize = params()['gridsize']
     if offset is None:
         offset = params()['offset']
-    #y, N, average = inputs
     target_size = N + (gridsize - 1) * offset
     b = tf.shape(y)[0]
 

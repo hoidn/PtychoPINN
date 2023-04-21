@@ -120,8 +120,9 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None):
 
 import math
 def dummy_phi(Y_I):
-    return tf.constant(math.pi) * tf.math.tanh( (Y_I[:, :, :, ...]
-        - tf.math.reduce_mean(Y_I)))
+    return tf.cast(tf.constant(math.pi), tf.float32) *\
+        tf.cast(tf.math.tanh( (Y_I - tf.math.reduce_max(Y_I) / 2) /
+            (3 * tf.math.reduce_mean(Y_I))), tf.float32)
 
 def sim_object_image(size):
     if p.get('data_source') == 'lines':
@@ -138,6 +139,8 @@ def mk_simdata(n, size, probe, intensity_scale = None,
 #              for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
         YY_I = np.array([sim_object_image(size)
               for _ in range(n)])[:, :, :]
+    if p.get('set_phi'):
+        YY_phi = dummy_phi(YY_I)
     # TODO two cases: n and size given, or Y_I and phi given
     Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
         YY_phi = YY_phi, **kwargs)
@@ -145,8 +148,8 @@ def mk_simdata(n, size, probe, intensity_scale = None,
         d = dict()
         d['I_pre_probe'] = Y_I
         d['phi_pre_probe'] = Y_phi
-    if p.get('set_phi'):
-        Y_phi = dummy_phi(Y_I)
+#    if p.get('set_phi'):
+#        Y_phi = dummy_phi(Y_I)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     if dict_fmt:
@@ -158,4 +161,4 @@ def mk_simdata(n, size, probe, intensity_scale = None,
         d['norm_Y_I'] = norm_Y_I
         d['coords'] = coords
         return d
-    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, coords
+    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, YY_phi, norm_Y_I, coords

@@ -44,14 +44,14 @@ if params.params()['data_source'] in ['lines', 'grf']:
     # simulate data
     np.random.seed(1)
     (X_train, Y_I_train, Y_phi_train,
-        intensity_scale, YY_I_train_full, _,
+        intensity_scale, YY_I_train_full, YY_phi_train_full, _,
         (coords_train_nominal, coords_train_true)) =\
         datasets.mk_simdata(9, size, probe.probe, jitter_scale = jitter_scale)
     params.cfg['intensity_scale'] = intensity_scale
 
     np.random.seed(2)
     (X_test, Y_I_test, Y_phi_test,
-        _, YY_I_test_full, norm_Y_I_test,
+        _, YY_I_test_full, YY_phi_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
         datasets.mk_simdata(3, size, probe.probe, intensity_scale,
         jitter_scale = jitter_scale)
@@ -90,11 +90,14 @@ print('nphoton',np.log10(np.sum((X_train[:, :, :] * intensity_scale)**2,
 if params.params()['probe.trainable']:
     probe.set_probe_guess(X_train)
 
-def mae(target, pred):
+def mae(target, pred, normalize = True):
     """
     mae for an entire (stitched-together) reconstruction.
     """
-    scale = np.mean(target) / np.mean(pred)
+    if normalize:
+        scale = np.mean(target) / np.mean(pred)
+    else:
+        scale = 1
     print('mean scale adjustment:', scale)
     return np.mean(np.absolute(target - scale * pred))
 #mae = lambda target, pred: np.mean(np.absolute(target - pred))
@@ -107,21 +110,29 @@ def trim(arr2d):
 def stitch(b, norm_Y_I_test = 1,
            #nsegments = (size - bigN) // (bigoffset // 2) + 1,
            nsegments = params.params()['nsegments'],
-           norm = True):
+           norm = True, part = 'amp'):
+    if part == 'amp':
+        getpart = np.absolute
+    elif part == 'phase':
+        getpart = np.angle
+    elif part == 'complex':
+        getpart = lambda x: x
+    else:
+        raise ValueError
     if norm:
-        img_recon = np.reshape((norm_Y_I_test * np.absolute(b)), (-1, nsegments,
+        img_recon = np.reshape((norm_Y_I_test * getpart(b)), (-1, nsegments,
                                                               nsegments, 64, 64, 1))
     else:
-        img_recon = np.reshape((norm_Y_I_test * np.absolute(b)), (-1, nsegments,
+        img_recon = np.reshape((getpart(b)), (-1, nsegments,
                                                               nsegments, 64, 64, 1))
     img_recon = img_recon[:, :, :, borderleft: -borderright, borderleft: -borderright, :]
     tmp = img_recon.transpose(0, 1, 3, 2, 4, 5)
     stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
     return stitched
 
-def reassemble(b):
+def reassemble(b, part = 'amp'):
     clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
-    stitched = stitch(b, norm_Y_I_test, norm = False, nsegments = params.cfg['nsegments'])
+    stitched = stitch(b, norm_Y_I_test, norm = False, nsegments = params.cfg['nsegments'], part = part)
     return stitched
 
 # Amount to trim from NxN reconstruction patches
@@ -133,3 +144,5 @@ clipleft = int(np.ceil(clipsize))
 clipright = int(np.floor(clipsize))
 # Edges need to be trimmed to align with the reconstruction
 YY_ground_truth = YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright]
+if YY_phi_test_full is not None:
+    YY_phi_ground_truth = YY_phi_test_full[0, clipleft: -clipright, clipleft: -clipright]
