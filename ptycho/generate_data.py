@@ -44,14 +44,14 @@ if params.params()['data_source'] in ['lines', 'grf']:
     # simulate data
     np.random.seed(1)
     (X_train, Y_I_train, Y_phi_train,
-        intensity_scale, YY_I_train_full, YY_phi_train_full, _,
+        intensity_scale, YY_train_full, _,
         (coords_train_nominal, coords_train_true)) =\
         datasets.mk_simdata(9, size, probe.probe, jitter_scale = jitter_scale)
     params.cfg['intensity_scale'] = intensity_scale
 
     np.random.seed(2)
     (X_test, Y_I_test, Y_phi_test,
-        _, YY_I_test_full, YY_phi_test_full, norm_Y_I_test,
+        _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
         datasets.mk_simdata(3, size, probe.probe, intensity_scale,
         jitter_scale = jitter_scale)
@@ -102,10 +102,6 @@ def mae(target, pred, normalize = True):
     return np.mean(np.absolute(target - scale * pred))
 #mae = lambda target, pred: np.mean(np.absolute(target - pred))
 
-def trim(arr2d):
-    assert not (offset % 2)
-    return arr2d[offset // 2:-offset // 2, offset // 2:-offset // 2]
-
 # TODO normalization not needed?
 def stitch(b, norm_Y_I_test = 1,
            #nsegments = (size - bigN) // (bigoffset // 2) + 1,
@@ -143,6 +139,4 @@ clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
 clipleft = int(np.ceil(clipsize))
 clipright = int(np.floor(clipsize))
 # Edges need to be trimmed to align with the reconstruction
-YY_ground_truth = YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright]
-if YY_phi_test_full is not None:
-    YY_phi_ground_truth = YY_phi_test_full[0, clipleft: -clipright, clipleft: -clipright]
+YY_ground_truth = YY_test_full[0, clipleft: -clipright, clipleft: -clipright]

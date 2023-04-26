@@ -152,6 +152,10 @@ def mk_simdata(n, size, probe, intensity_scale = None,
 #        Y_phi = dummy_phi(Y_I)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
+    if YY_phi is None:
+        YY_full = hh.combine_complex(_Y_I_full, tf.zeros_like(_Y_I_full))
+    else:
+        YY_full = hh.combine_complex(_Y_I_full, YY_phi)
     if dict_fmt:
         d['X'] = X
         d['Y_I'] = Y_I
@@ -161,4 +165,5 @@ def mk_simdata(n, size, probe, intensity_scale = None,
         d['norm_Y_I'] = norm_Y_I
         d['coords'] = coords
         return d
-    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, YY_phi, norm_Y_I, coords
+    return X, Y_I, Y_phi, intensity_scale, YY_full,\
+        norm_Y_I, coords

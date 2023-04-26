@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+import tensorflow as tf
+from ptycho import params
 
 def symmetrize(arr):
     return (arr + arr[::-1, ::-1]) / 2
@@ -85,3 +87,110 @@ def plt_metrics(history, loss_type = 'MAE', metric2 = 'padded_obj_loss'):
     plt.tight_layout()
     #plt.semilogy()
     axarr[1].grid()
+
+import scipy.fftpack as fftpack
+fp = fftpack
+
+def trim(arr2d):
+    offset = params.get('offset')
+    assert not (offset % 2)
+    return arr2d[offset // 2:-offset // 2, offset // 2:-offset // 2]
+
+def mae(target, pred, normalize = True):
+    """
+    mae for an entire (stitched-together) reconstruction.
+    """
+    if normalize:
+        scale = np.mean(target) / np.mean(pred)
+    else:
+        scale = 1
+    print('mean scale adjustment:', scale)
+    return np.mean(np.absolute(target - scale * pred))
+
+def mse(target, pred, normalize = True):
+    """
+    mae for an entire (stitched-together) reconstruction.
+    """
+    if normalize:
+        scale = np.mean(target) / np.mean(pred)
+    else:
+        scale = 1
+    print('mean scale adjustment:', scale)
+    return np.mean((target - scale * pred)**2)
+
+import cv2
+def psnr(target, pred):
+    target = np.array(target)
+    pred = np.array(pred)
+    offset = min(np.min(target), np.min(pred))
+    target = target - offset
+    pred = pred - offset
+    return cv2.PSNR(target, pred)
+
+def fft2d(aphi):
+    F1 = fftpack.fft2((aphi).astype(float))
+    F2 = fftpack.fftshift(F1)
+    return F2
+
+def highpass2d(aphi, n = 2):
+    if n == 1:
+        print('subtracting mean', np.mean(aphi))
+        return aphi - np.mean(aphi)
+    F2 = fft2d(aphi)
+    (w, h) = aphi.shape
+    half_w, half_h = int(w/2), int(h/2)
+
+    # high pass filter
+
+    F2[half_w-n:half_w+n+1,half_h-n:half_h+n+1] = 0
+
+    im1 = fp.ifft2(fftpack.ifftshift(F2)).real
+    return im1
+
+def lowpass2d(aphi, n = 2):
+    if n == 1:
+        print('subtracting mean', np.mean(aphi))
+        return aphi - np.mean(aphi)
+    F2 = fft2d(aphi)
+    (w, h) = aphi.shape
+    half_w, half_h = int(w/2), int(h/2)
+
+    # high pass filter
+    mask = np.zeros_like(F2)
+    mask[half_w-n:half_w+n+1,half_h-n:half_h+n+1] = 1.
+    F2 = F2 * mask
+
+    im1 = fp.ifft2(fftpack.ifftshift(F2)).real
+    return im1
+
+def eval_pinn(stitched_obj, ground_truth_obj, lowpass_n = 1):
+    assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
+    YY_ground_truth = np.absolute(ground_truth_obj)
+    YY_phi_ground_truth = np.angle(ground_truth_obj)
+
+    phi_pred = trim(
+        highpass2d(
+            np.squeeze(np.angle(stitched_obj)[0]), n = lowpass_n
+        )
+    )
+    phi_target = trim(
+        highpass2d(
+            np.squeeze(YY_phi_ground_truth), n = lowpass_n
+        )
+    )
+    amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
+    amp_pred = trim(np.absolute(stitched_obj)[0])
+
+
+    mae_amp = mae(amp_target, amp_pred) # PINN
+    mse_amp = mse(amp_target, amp_pred) # PINN
+    psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0])
+
+    mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
+    mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
+    psnr_phi = psnr(phi_target, phi_pred)
+
+    #return None, (mae_amp, mae_phi), (mse_amp, mse_phi)
+    return None, {'mae': (mae_amp, mae_phi),
+        'mse': (mse_amp, mse_phi),
+        'psnr': (psnr_amp, psnr_phi)}
