@@ -75,20 +75,16 @@ bigoffset = params()['bigoffset']
 def show_groundtruth():
     plt.rcParams["figure.figsize"] = (10, 10)
     # ground truth
-    plt.imshow(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright], interpolation = 'none',
-              cmap = 'jet')
-#    vmin = np.min(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
-#    vmax = np.max(YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright])
-
-
-
+    plt.imshow(np.absolute(YY_test_full[0, clipleft: -clipright, clipleft: -clipright]),
+        interpolation = 'none', cmap = 'jet')
 
 # reconstructed
 stitched = stitch(b, norm_Y_I_test, norm = False, nsegments = params()['nsegments'])
 
 plt.imsave(out_prefix + 'recon.png', stitched[0][:, :, 0], cmap = 'jet')
-plt.imsave(out_prefix + 'orig.png', YY_I_test_full[0, clipleft: -clipright, clipleft: -clipright, 0],
-          cmap = 'jet')
+plt.imsave(out_prefix + 'orig.png',
+    np.absolute(YY_test_full[0, clipleft: -clipright, clipleft: -clipright, 0]),
+    cmap = 'jet')
 
 with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
@@ -102,7 +98,7 @@ if save_model:
 if save_data:
     with open(out_prefix + '/test_data.dill', 'wb') as f:
         dill.dump(
-            {'YY_I_test_full': YY_I_test_full,
+            {'YY_test_full': YY_test_full,
             'Y_I_test': Y_I_test,
             'Y_phi_test': Y_phi_test,
             'X_test': X_test}, f)
