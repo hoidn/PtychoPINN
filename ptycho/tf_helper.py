@@ -139,20 +139,29 @@ def extract_patches(x, N, offset):
         padding="VALID"
     )
 
-def extract_outer(img, fmt = 'grid'):
+def extract_outer(img, fmt = 'grid',
+        bigN = None, bigoffset = None, test = False):#,
+        #test = False):
     """
         Extract big patches (overlapping bigN x bigN regions over an
         entire input img)
     """
-    bigN = get('bigN')
-    bigoffset = cfg['bigoffset']
+    print('is test:', test)
+    if bigN is None:
+        bigN = get('bigN')
+    if bigoffset is None:
+        bigoffset = cfg['bigoffset'] // 2
+#        if test:
+#            bigoffset = cfg['bigoffset'] // 2
+#        else:
+#            bigoffset = cfg['bigoffset']
     assert img.shape[-1] == 1
     # Reason for the stride of the outer patches to be half of the grid
     # spacing is so that the patches have sufficient overlap (i.e., we
     # know that the boundary of a solution region will not be properly
     # reconstructed, so it's necessary to have overlaps)
     grid = tf.reshape(
-        extract_patches(img, bigN, bigoffset // 2),
+        extract_patches(img, bigN, bigoffset),
         #extract_patches(img, padded_size, bigoffset // 2),
         (-1, bigN, bigN, 1))
         #(-1, padded_size, padded_size, 1))
@@ -172,7 +181,8 @@ def extract_inner_grid(grid):
 
 # TODO turn extract_inner_fn into a positional argument
 def extract_nested_patches(img, fmt = 'flat',
-        extract_inner_fn = extract_inner_grid):
+        extract_inner_fn = extract_inner_grid,
+        **kwargs):
     """
     Extract small patches (overlapping N x N regions on a gridsize x gridsize
         grid) within big patches (overlapping bigN x bigN regions over the
@@ -192,7 +202,7 @@ def extract_nested_patches(img, fmt = 'flat',
     assert img.shape[-1] == 1
     # First, extract 'big' patches, each of which is a grid of
     # overlapping solution regions.
-    outer_grid = extract_outer(img, fmt = 'grid')
+    outer_grid = extract_outer(img, fmt = 'grid', **kwargs)
     # Then, extract individual solution regions within each patch
     grid = tf.reshape(
         extract_inner_fn(outer_grid),
@@ -211,7 +221,8 @@ def mk_extract_inner_position(offsets_xy):
         return extract_patches_position(grid, offsets_xy),
     return inner
 
-def extract_nested_patches_position(img, offsets_xy, fmt = 'flat'):
+def extract_nested_patches_position(img, offsets_xy, fmt = 'flat',
+        **kwargs):
     """
     Extract small patches (overlapping N x N regions on a gridsize x gridsize
         grid) within big patches (overlapping bigN x bigN regions over the
@@ -223,7 +234,8 @@ def extract_nested_patches_position(img, offsets_xy, fmt = 'flat'):
     fmt == 'grid': ...
     """
     return extract_nested_patches(img, fmt = fmt,
-        extract_inner_fn = mk_extract_inner_position(offsets_xy))
+        extract_inner_fn = mk_extract_inner_position(offsets_xy),
+        **kwargs)
 
 @tf.function
 def extract_patches_inverse(y, N, average, gridsize = None, offset = None):
@@ -278,7 +290,7 @@ def trim_reconstruction(x, N = None):
     return x[:, clipsize: -clipsize,
             clipsize: -clipsize, :]
 
-def extract_patches_position(imgs, offsets_xy):
+def extract_patches_position(imgs, offsets_xy, jitter = 0.):
     """
     Expects offsets_xy in channel format.
 
@@ -298,14 +310,14 @@ def extract_patches_position(imgs, offsets_xy):
     stacked = tf.repeat(imgs, gridsize**2, axis = 3)
     flat_padded = _channel_to_flat(stacked)
     channels_translated = trim_reconstruction(
-        Translation()([flat_padded, offsets_flat]))
+        Translation()([flat_padded, offsets_flat, jitter]))
     return channels_translated
 
 def center_channels(channels, offsets_xy):
     """
     Undo image patch offsets
     """
-    ct = Translation()([_channel_to_flat(channels), flatten_offsets(-offsets_xy)])
+    ct = Translation()([_channel_to_flat(channels), flatten_offsets(-offsets_xy), 0.])
     channels_centered = _flat_to_channel(ct)
     return channels_centered
 
@@ -337,9 +349,10 @@ class Translation(tf.keras.layers.Layer):
     def __init__(self):
         super(Translation, self).__init__()
     def call(self, inputs):
-        imgs, offsets = inputs
+        imgs, offsets, jitter = inputs
+        jitter = tf.random.normal(tf.shape(offsets), stddev = jitter)
         #return translate(imgs, offsets, interpolation = 'nearest')
-        return translate(imgs, offsets, interpolation = 'bilinear')
+        return translate(imgs, offsets + jitter, interpolation = 'bilinear')
 
 def flatten_offsets(channels):
     return _channel_to_flat(channels)[:, 0, :, 0]
@@ -359,7 +372,7 @@ def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, **kwargs):
     offsets_flat = flatten_offsets(offsets_xy)
     imgs_flat = _channel_to_flat(imgs)
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
-    imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat])
+    imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat, 0.])
     if agg:
         imgs_merged = tf.reduce_sum(
                 _flat_to_channel(imgs_flat_bigN_translated, N = padded_size),

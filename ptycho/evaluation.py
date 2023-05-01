@@ -163,6 +163,14 @@ def lowpass2d(aphi, n = 2):
     im1 = fp.ifft2(fftpack.ifftshift(F2)).real
     return im1
 
+def frc50(target, pred):
+    if np.max(target) == np.min(target) == 0:
+        return np.nan
+    from FRC import fourier_ring_corr as frc
+    shellcorr = frc.FSC(np.array(target), np.array(pred))
+    return shellcorr, np.where(shellcorr < .5)[0][0]
+
+
 def eval_pinn(stitched_obj, ground_truth_obj, lowpass_n = 1):
     assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
     YY_ground_truth = np.absolute(ground_truth_obj)
@@ -185,12 +193,16 @@ def eval_pinn(stitched_obj, ground_truth_obj, lowpass_n = 1):
     mae_amp = mae(amp_target, amp_pred) # PINN
     mse_amp = mse(amp_target, amp_pred) # PINN
     psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0])
+    frc_amp, frc50_amp = frc50(amp_target[:, :, 0], amp_pred[:, :, 0])
 
     mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
     mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
     psnr_phi = psnr(phi_target, phi_pred)
+    frc_phi, frc50_phi = frc50(phi_target, phi_pred)
 
     #return None, (mae_amp, mae_phi), (mse_amp, mse_phi)
     return None, {'mae': (mae_amp, mae_phi),
         'mse': (mse_amp, mse_phi),
-        'psnr': (psnr_amp, psnr_phi)}
+        'psnr': (psnr_amp, psnr_phi),
+        'frc50': (frc50_amp, frc50_phi),
+        'frc': (frc_amp, frc_phi)}

@@ -7,3 +7,6 @@
 [submodule "notebooks/ePIE_recon_simulation"]
 	path = notebooks/ePIE_recon_simulation
 	url = https://github.com/susannahammarberg/ePIE_recon_simulation.git
+[submodule "ptycho/FRC"]
+	path = ptycho/FRC
+	url = git@github.com:hoidn/FRC.git
