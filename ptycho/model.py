@@ -178,9 +178,8 @@ trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 
 # Extract overlapping regions of the object
 padded_objs_with_offsets = Lambda(
-        lambda x: hh.extract_patches_position(x[0], x[1]),
+        lambda x: hh.extract_patches_position(x[0], x[1], 0.),
     name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
-#padded_objs_with_offsets = Lambda(lambda x: hh.extract_nested_patches(x, fmt = 'flat'), name = 'padded_objs_with_offsets')(padded_obj_2)
 
 # Apply the probe
 padded_objs_with_offsets, probe =\

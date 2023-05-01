@@ -28,12 +28,14 @@ from ptycho import probe
 def normed_ff_np(arr):
     return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(h * w))
 
-if params.params()['data_source'] in ['lines', 'grf']:
+# TODO
+if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diagonals']:
     # TODO move to params
     bigoffset = (gridsize - 1) * offset + N // 2
     big_gridsize = params.params()['big_gridsize'] = 10
     bigN = params.params()['bigN']
     size = bigoffset * (big_gridsize - 1) + bigN
+    params.cfg['size'] = size
 
     # Smaller stride so that solution regions overlap enough
     bigoffset = params.cfg['bigoffset'] = bigoffset // 2
@@ -46,14 +48,15 @@ if params.params()['data_source'] in ['lines', 'grf']:
     (X_train, Y_I_train, Y_phi_train,
         intensity_scale, YY_train_full, _,
         (coords_train_nominal, coords_train_true)) =\
-        datasets.mk_simdata(9, size, probe.probe, jitter_scale = jitter_scale)
+        datasets.mk_simdata(params.get('nimgs_train'), size, probe.probe, jitter_scale = jitter_scale)
     params.cfg['intensity_scale'] = intensity_scale
 
+    #bigoffset = params.cfg['bigoffset'] = bigoffset * 2
     np.random.seed(2)
     (X_test, Y_I_test, Y_phi_test,
         _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
-        datasets.mk_simdata(3, size, probe.probe, intensity_scale,
+        datasets.mk_simdata(params.get('nimgs_test'), size, probe.probe, intensity_scale,
         jitter_scale = jitter_scale)
 
 elif params.params()['data_source'] == 'experimental':
