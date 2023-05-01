@@ -8,6 +8,7 @@ cfg = {
     'big_gridsize': 10, 'max_position_jitter': 0, 'sim_jitter_scale': 0.,
     'default_probe_scale': 0.7, 'mae_weight': 0., 'nll_weight': 1.,
     'sim_nphotons': 1e9, 'nsegments': 37,# TODO parameterize
+    'nimgs_train': 9, 'nimgs_test': 3,
     'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
     'object.big': False, 'set_phi': False
@@ -38,7 +39,8 @@ def params():
     return d
 
 def validate():
-    assert cfg['data_source'] in ['lines', 'grf', 'experimental']
+    assert cfg['data_source'] in ['lines', 'grf', 'experimental', 'points',
+        'testimg', 'diagonals']
     # TODO
     return True
 

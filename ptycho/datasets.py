@@ -46,7 +46,7 @@ def mk_expdata(which, probe, intensity_scale = None):
     # TODO put this in a struct or something
     return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, (coords, true_coords)
 
-def extract_coords(size, repeats = 1, coord_type = 'offsets'):
+def extract_coords(size, repeats = 1, coord_type = 'offsets', **kwargs):
     """
     Return nominal offset coords in channel format. x and y offsets are
     stacked in the third dimension.
@@ -69,10 +69,6 @@ def extract_coords(size, repeats = 1, coord_type = 'offsets'):
         offsets_x = coords[1][0] - coords[0][0]
         offsets_y = coords[1][1] - coords[0][1]
         return tf.stack([offsets_x, offsets_y], axis = 2)[:, :, :, 0, :]
-#    def get_patch_global(coords):
-#        glob_x = coords[1][0] + coords[0][0]
-#        glob_y = coords[1][1] + coords[0][1]
-#        return tf.stack([glob_x, glob_y], axis = 2)[:, :, :, 0, :]
     ix = _extract_coords(xx, inner)
     iy = _extract_coords(yy, inner)
     ix_offsets = _extract_coords(xx, outer)
@@ -94,7 +90,8 @@ def add_position_jitter(coords, jitter_scale):
     return jitter + coords
 
 # TODO kwargs -> positional
-def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None):
+def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,
+        **kwargs):
     """
     Inputs:
     4d tensors of full (arbitrary-sized) object phase and amplitude.
@@ -109,13 +106,13 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None):
     # TODO enforce consistent value of size
     size = YY_I.shape[1]
     n = YY_I.shape[0]
-    coords = true_coords = extract_coords(size, n)
+    coords = true_coords = extract_coords(size, n, **kwargs)
     if jitter_scale is not None:
         print('simulating gaussian position jitter, scale', jitter_scale)
         true_coords = add_position_jitter(coords, jitter_scale)
 
     Y_I, Y_phi, _Y_I_full, norm_Y_I = physics.preprocess_objects(YY_I,
-        offsets_xy = true_coords, Y_phi = YY_phi)
+        offsets_xy = true_coords, Y_phi = YY_phi, **kwargs)
     return Y_I, Y_phi, _Y_I_full, norm_Y_I, (coords, true_coords)
 
 import math
@@ -130,13 +127,21 @@ def sim_object_image(size):
     elif p.get('data_source') == 'grf':
         from . import grf
         return grf.mk_grf(size)
+    elif p.get('data_source') == 'points':
+        from . import points
+        return points.mk_points(size)
+    elif p.get('data_source') == 'testimg':
+        from . import testimg
+        return testimg.get_img(size)
+    elif p.get('data_source') == 'diagonals':
+        from . import diagonals
+        return diagonals.mk_diags(size)
     else:
         raise ValueError
+
 def mk_simdata(n, size, probe, intensity_scale = None,
         YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
     if YY_I is None:
-#        YY_I = np.array([mk_lines_img(2 * size, nlines = 400)
-#              for _ in range(n)])[:, size // 2: -size // 2, size // 2: -size // 2, :1]
         YY_I = np.array([sim_object_image(size)
               for _ in range(n)])[:, :, :]
     if p.get('set_phi'):
