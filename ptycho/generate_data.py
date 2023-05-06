@@ -129,9 +129,10 @@ def stitch(b, norm_Y_I_test = 1,
     stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
     return stitched
 
+# TODO refactor
 def reassemble(b, part = 'amp'):
-    clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
-    stitched = stitch(b, norm_Y_I_test, norm = False, nsegments = params.cfg['nsegments'], part = part)
+    stitched = stitch(b, norm_Y_I_test, norm = False,
+        nsegments = params.cfg['nsegments'], part = part)
     return stitched
 
 # Amount to trim from NxN reconstruction patches

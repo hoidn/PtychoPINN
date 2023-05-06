@@ -149,6 +149,10 @@ def extract_outer(img, fmt = 'grid',
     print('is test:', test)
     if bigN is None:
         bigN = get('bigN')
+    # Reason for the stride of the outer patches to be half of the grid
+    # spacing is so that the patches have sufficient overlap (i.e., we
+    # know that the boundary of a solution region will not be properly
+    # reconstructed, so it's necessary to have overlaps)
     if bigoffset is None:
         bigoffset = cfg['bigoffset'] // 2
 #        if test:
@@ -156,10 +160,6 @@ def extract_outer(img, fmt = 'grid',
 #        else:
 #            bigoffset = cfg['bigoffset']
     assert img.shape[-1] == 1
-    # Reason for the stride of the outer patches to be half of the grid
-    # spacing is so that the patches have sufficient overlap (i.e., we
-    # know that the boundary of a solution region will not be properly
-    # reconstructed, so it's necessary to have overlaps)
     grid = tf.reshape(
         extract_patches(img, bigN, bigoffset),
         #extract_patches(img, padded_size, bigoffset // 2),
@@ -415,7 +415,6 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
         fn_reassemble_real)
     return tf.dtypes.complex(assembled_real, assembled_imag)
 
-# TODO compare agg true false
 def mk_reassemble_position_real(input_positions, **outer_kwargs):
     def reassemble_patches_position_real(imgs, **kwargs):
         return _reassemble_patches_position_real(imgs, input_positions,
@@ -429,6 +428,7 @@ def reassemble_patches_position(channels, offsets_xy,
         fn_reassemble_real = fn_reassemble_real,
         average = False)
 
+# TODO belongs in evaluation.py?
 def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
         offset = 4):
     """
