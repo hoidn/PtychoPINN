@@ -1,3 +1,13 @@
+# TODO s
+# - batch normalization?
+# - complex convolution
+# - Use tensor views so that overlapping solution regions don't have to be
+#     copied. This might require an 'inside out'
+#     organization of the data. See suggestions here:
+#     https://chat.openai.com/c/e6d5e400-daf9-44b7-8ef9-d49f21a634a3
+# -difference maps?
+# -skip connections https://arxiv.org/pdf/1606.08921.pdf
+
 from tensorflow.keras import Input
 from tensorflow.keras import Model
 from tensorflow.keras.activations import sigmoid, tanh
@@ -41,10 +51,9 @@ initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],
         )
-# TODO batch normalization?
+
 # TODO hyperparameters:
 # -probe smoothing scale(?)
-# -number of filters
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
@@ -58,7 +67,6 @@ class ProbeIllumination(tf.keras.layers.Layer):
         #return hh.anti_alias_complex(self.w) * x * probe_mask, (self.w * probe_mask)[None, ...]
 
 nphotons = p.get('sim_nphotons')
-# TODO parameterize this
 # TODO scaling could be done on a shot-by-shot basis, but IIRC I tried this
 # and there were issues
 # TODO for robustness, it might be worth trying to logarithmically scale the
@@ -247,7 +255,6 @@ def train(epochs, X_train, coords_train, Y_I_train):
             (p.get('intensity_scale') * X_train),
             (p.get('intensity_scale') * X_train)**2,
            Y_I_train[:, :, :, :1]],
-           #hh.center_channels(Y_I_train, coords_train)[:, :, :, :1]],
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])

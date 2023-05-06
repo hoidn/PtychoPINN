@@ -147,14 +147,14 @@ def mk_simdata(n, size, probe, intensity_scale = None,
     if p.get('set_phi'):
         YY_phi = dummy_phi(YY_I)
     # TODO two cases: n and size given, or Y_I and phi given
+    # TODO there should be an option for subsampling, in case we don't want to
+    # train on a dense view of each image
     Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
         YY_phi = YY_phi, **kwargs)
     if dict_fmt:
         d = dict()
         d['I_pre_probe'] = Y_I
         d['phi_pre_probe'] = Y_phi
-#    if p.get('set_phi'):
-#        Y_phi = dummy_phi(Y_I)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     if YY_phi is None:

@@ -2,7 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 import tensorflow as tf
+
 from ptycho import params
+from ptycho import generate_data as data
+from ptycho import misc
+
+def recon_patches(patches):
+    """
+    chop channel dimension size to 1, then patch together a single image
+    """
+    return data.reassemble(patches[:, :, :, :1])[0]
 
 def symmetrize(arr):
     return (arr + arr[::-1, ::-1]) / 2
@@ -118,8 +127,8 @@ def mse(target, pred, normalize = True):
     print('mean scale adjustment:', scale)
     return np.mean((target - scale * pred)**2)
 
-import cv2
 def psnr(target, pred):
+    import cv2
     target = np.array(target)
     pred = np.array(pred)
     offset = min(np.min(target), np.min(pred))
@@ -164,14 +173,17 @@ def lowpass2d(aphi, n = 2):
     return im1
 
 def frc50(target, pred):
+    if np.isnan(pred).all():
+        raise ValueError
     if np.max(target) == np.min(target) == 0:
-        return np.nan
+        return None, np.nan
     from FRC import fourier_ring_corr as frc
     shellcorr = frc.FSC(np.array(target), np.array(pred))
     return shellcorr, np.where(shellcorr < .5)[0][0]
 
 
-def eval_pinn(stitched_obj, ground_truth_obj, lowpass_n = 1):
+def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
+        label = ''):
     assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
     YY_ground_truth = np.absolute(ground_truth_obj)
     YY_phi_ground_truth = np.angle(ground_truth_obj)
@@ -189,7 +201,7 @@ def eval_pinn(stitched_obj, ground_truth_obj, lowpass_n = 1):
     amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
     amp_pred = trim(np.absolute(stitched_obj)[0])
 
-
+    # TODO complex FRC?
     mae_amp = mae(amp_target, amp_pred) # PINN
     mse_amp = mse(amp_target, amp_pred) # PINN
     psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0])
@@ -200,9 +212,26 @@ def eval_pinn(stitched_obj, ground_truth_obj, lowpass_n = 1):
     psnr_phi = psnr(phi_target, phi_pred)
     frc_phi, frc50_phi = frc50(phi_target, phi_pred)
 
-    #return None, (mae_amp, mae_phi), (mse_amp, mse_phi)
-    return None, {'mae': (mae_amp, mae_phi),
+    return {'mae': (mae_amp, mae_phi),
         'mse': (mse_amp, mse_phi),
         'psnr': (psnr_amp, psnr_phi),
         'frc50': (frc50_amp, frc50_phi),
         'frc': (frc_amp, frc_phi)}
+
+import pandas as pd
+import os
+import dill
+def save_metrics(stitched_obj, YY_ground_truth,  label = ''):
+    """
+    evaluate reconstruction and save the result to disk.
+    """
+    out_prefix = misc.get_path_prefix()
+    os.makedirs(out_prefix, exist_ok=True)
+    metrics = eval_reconstruction(stitched_obj, YY_ground_truth, label = label)
+    metrics['label'] = label
+    d = {**params.cfg, **metrics}
+    with open(out_prefix + '/params.dill', 'wb') as f:
+        dill.dump(d, f)
+    df = pd.DataFrame({k: d[k] for k in ['mae', 'mse', 'psnr', 'frc50']})
+    df.to_csv(out_prefix + '/metrics.csv')
+    return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50']}
