@@ -23,7 +23,6 @@ def draw_lines(shape, num):
         off = min(x, y)
         x = x - off
         y = y - off
-        off = max(x, y)
         ix = np.arange(x, n - y)
         iy = np.arange(y, m - x)
         arr[ix, iy] = 1

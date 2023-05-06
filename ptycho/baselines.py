@@ -11,6 +11,7 @@ from tensorflow.keras import Input
 from tensorflow.keras import Model
 
 from ptycho import generate_data as data
+from .evaluation import recon_patches
 
 tf.keras.backend.clear_session()
 np.random.seed(123)
@@ -20,7 +21,7 @@ np.random.seed(123)
 #     os.remove(file)
 
 h,w=64,64
-nepochs=60
+nepochs=params.get('nepochs')
 wt_path = 'wts4' #Where to store network weights
 batch_size = 32
 
@@ -97,8 +98,3 @@ def train(X_train, Y_I_train, Y_phi_train, autoencoder = None):
         validation_split = 0.05, callbacks=[reduce_lr, earlystop])
     return autoencoder
 
-def recon_patches(patches):
-    """
-    chop channel dimension size to 1, then patch together a single image
-    """
-    return data.reassemble(patches[:, :, :, :1])[0]

@@ -11,7 +11,7 @@ cfg = {
     'nimgs_train': 9, 'nimgs_test': 3,
     'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
-    'object.big': False, 'set_phi': False
+    'object.big': False, 'set_phi': False, 'model_type': 'pinn'
     }
 
 # TODO h, w
