@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--gridsize', type=int, default=2, help='Grid size')
     parser.add_argument('--n_filters_scale', type=int, default=2, help='Number of filters scale')
-    parser.add_argument('--object_big', type=bool, default=True, help='Whether object is big or not')
+    parser.add_argument('--object_big', type=bool, default=True, help='If true, reconstruct the entire solution region for each set of patterns, instead of just the central N x N region.')
     parser.add_argument('--intensity_scale_trainable', type=bool, default=True, help='Whether intensity scale is trainable or not')
     parser.add_argument('--nll_weight', type=float, default=1., help='NLL loss weight')
     parser.add_argument('--mae_weight', type=float, default=0., help='MAE loss weight')
@@ -80,9 +80,9 @@ if model_type == 'pinn':
 elif model_type == 'supervised':
     from ptycho.train_supervised import history, stitched_obj
 
-def show_groundtruth():
-    plt.imshow(np.absolute(YY_test_full[0, clipleft: -clipright, clipleft: -clipright]),
-               interpolation='none', cmap='jet')
+#def show_groundtruth():
+#    plt.imshow(np.absolute(YY_test_full[0, clipleft: -clipright, clipleft: -clipright]),
+#               interpolation='none', cmap='jet')
 
 plt.imsave(out_prefix + 'amp_recon.png', np.absolute(stitched_obj[0][:, :, 0]), cmap='jet')
 plt.imsave(out_prefix + 'phi_recon.png', np.angle(stitched_obj[0][:, :, 0]), cmap='jet')

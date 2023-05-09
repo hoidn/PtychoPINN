@@ -52,15 +52,15 @@ def preprocess_experimental(which):
     Returns (normalized) amplitude and phase for n generated objects
     """
     if which == 'train':
-        Y_I = inverted_patches_I[:, :272, :272, :]
-        Y_phi = inverted_patches_phi[:, :272, :272, :]
+        YY_I = inverted_patches_I[:, :272, :272, :]
+        YY_phi = inverted_patches_phi[:, :272, :272, :]
     elif which == 'test':
-        Y_I = inverted_patches_I[:, -248:, -248:, :]
-        Y_phi = inverted_patches_phi[:, -248:, -248:, :]
+        YY_I = inverted_patches_I[:, -248:, -248:, :]
+        YY_phi = inverted_patches_phi[:, -248:, -248:, :]
     else:
         raise ValueError
     #pdb.set_trace()
-    return physics.preprocess_objects(Y_I, Y_phi)
+    return (YY_I, YY_phi), physics.preprocess_objects(YY_I, YY_phi)
 
 
 X_train = data_diffr_red[:nlines,:].reshape(-1,h,w)[:,:,:,np.newaxis]
@@ -86,12 +86,12 @@ offset_experimental = 3
 #                                                 N, offset_experimental)
 
 inverted_patches_I = hh.extract_patches_inverse(
-       (amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
-       N, True), gridsize = amp.shape[0],
+       amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
+       N, True, gridsize = amp.shape[0],
        offset = offset_experimental)
 inverted_patches_phi = hh.extract_patches_inverse(
-       (ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
-       N, True), gridsize = ph.shape[0],
+       ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
+       N, True, gridsize = ph.shape[0],
        offset = offset_experimental)
 
 ## Recover shift between scan points
