@@ -146,7 +146,6 @@ def extract_outer(img, fmt = 'grid',
         Extract big patches (overlapping bigN x bigN regions over an
         entire input img)
     """
-    print('is test:', test)
     if bigN is None:
         bigN = get('bigN')
     # Reason for the stride of the outer patches to be half of the grid

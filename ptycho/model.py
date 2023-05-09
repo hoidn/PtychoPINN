@@ -183,6 +183,10 @@ else:
 # TODO trimmed obj should really be masked by the union of all the illumination
 # spots, instead of just takiing the central region
 trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
+#obj_entire_region = Lambda(lambda x: hh.trim_reconstruction(x, N + offset * (gridsize - 1)),
+#    name = 'obj_entire_region')(padded_obj_2)
+## TODO use tf.slice to avoid memory copies
+#trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(obj_entire_region)
 
 # Extract overlapping regions of the object
 padded_objs_with_offsets = Lambda(

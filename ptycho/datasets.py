@@ -35,16 +35,23 @@ def mk_lines_img(N = 64, nlines = 10):
 def mk_noise(N = 64, nlines = 10):
     return np.random.uniform(size = N * N).reshape((N, N, 1))
 
+from ptycho.misc import memoize_disk_and_memory
+@memoize_disk_and_memory
 def mk_expdata(which, probe, intensity_scale = None):
     from . import experimental
-    Y_I, Y_phi, _Y_I_full, norm_Y_I = experimental.preprocess_experimental(which)
-    size = _Y_I_full.shape[1]
-    print('shape', _Y_I_full.shape)
+    # TODO refactor
+    (YY_I, YY_phi), (Y_I, Y_phi, _, norm_Y_I) = experimental.preprocess_experimental(which)
+    size = YY_I.shape[1]
+    print('shape', YY_I.shape)
     coords = true_coords = extract_coords(size, 1)
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     # TODO put this in a struct or something
-    return X, Y_I, Y_phi, intensity_scale, _Y_I_full, norm_Y_I, (coords, true_coords)
+    if YY_phi is None:
+        YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
+    else:
+        YY_full = hh.combine_complex(YY_I, YY_phi)
+    return X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, (coords, true_coords)
 
 def extract_coords(size, repeats = 1, coord_type = 'offsets', **kwargs):
     """
@@ -139,6 +146,7 @@ def sim_object_image(size):
     else:
         raise ValueError
 
+@memoize_disk_and_memory
 def mk_simdata(n, size, probe, intensity_scale = None,
         YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
     if YY_I is None:
@@ -149,7 +157,8 @@ def mk_simdata(n, size, probe, intensity_scale = None,
     # TODO two cases: n and size given, or Y_I and phi given
     # TODO there should be an option for subsampling, in case we don't want to
     # train on a dense view of each image
-    Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
+    #Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
+    Y_I, Y_phi, _, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
         YY_phi = YY_phi, **kwargs)
     if dict_fmt:
         d = dict()
@@ -158,15 +167,14 @@ def mk_simdata(n, size, probe, intensity_scale = None,
     X, Y_I, Y_phi, intensity_scale =\
         physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     if YY_phi is None:
-        YY_full = hh.combine_complex(_Y_I_full, tf.zeros_like(_Y_I_full))
+        YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
     else:
-        YY_full = hh.combine_complex(_Y_I_full, YY_phi)
+        YY_full = hh.combine_complex(YY_I, YY_phi)
     if dict_fmt:
         d['X'] = X
         d['Y_I'] = Y_I
         d['Y_phi'] = Y_phi
         d['intensity_scale'] = intensity_scale
-        d['_Y_I_full'] = _Y_I_full
         d['norm_Y_I'] = norm_Y_I
         d['coords'] = coords
         return d
