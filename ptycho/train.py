@@ -94,6 +94,14 @@ plt.imsave(out_prefix + 'phi_orig.png',
            np.angle(YY_ground_truth[:, :, 0]),
            cmap='jet')
 
+with open(out_prefix + '/recon.dill', 'wb') as f:
+    dill.dump(
+        {'stitched_obj_amp': np.absolute(stitched_obj[0][:, :, 0]),
+         'stitched_obj_phase': np.angle(stitched_obj[0][:, :, 0]),
+         'YY_ground_truth_amp': np.absolute(YY_ground_truth[:, :, 0]),
+         'YY_ground_truth_phi': np.angle(YY_ground_truth[:, :, 0])},
+        f)
+
 with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
 
