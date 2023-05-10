@@ -35,6 +35,8 @@ def mk_lines_img(N = 64, nlines = 10):
 def mk_noise(N = 64, nlines = 10):
     return np.random.uniform(size = N * N).reshape((N, N, 1))
 
+# TODO why doesn't changing the probe scale parameter always change the
+# memoization key?
 from ptycho.misc import memoize_disk_and_memory
 @memoize_disk_and_memory
 def mk_expdata(which, probe, intensity_scale = None):

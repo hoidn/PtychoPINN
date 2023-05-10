@@ -127,13 +127,22 @@ def mse(target, pred, normalize = True):
     print('mean scale adjustment:', scale)
     return np.mean((target - scale * pred)**2)
 
-def psnr(target, pred):
+def psnr(target, pred, normalize = True, shift = False):
+    """
+    for phase inputs, assume that global shift has already been taken care off
+    """
     import cv2
     target = np.array(target)
     pred = np.array(pred)
-    offset = min(np.min(target), np.min(pred))
-    target = target - offset
-    pred = pred - offset
+    if normalize:
+        scale = np.mean(target) / np.mean(pred)
+    else:
+        scale = 1
+    if shift:
+        offset = min(np.min(target), np.min(pred))
+        target = target - offset
+        pred = pred - offset
+    pred = scale * pred
     return cv2.PSNR(target, pred)
 
 def fft2d(aphi):
@@ -204,12 +213,13 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     # TODO complex FRC?
     mae_amp = mae(amp_target, amp_pred) # PINN
     mse_amp = mse(amp_target, amp_pred) # PINN
-    psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0])
+    psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0], normalize = True,
+        shift = False)
     frc_amp, frc50_amp = frc50(amp_target[:, :, 0], amp_pred[:, :, 0])
 
     mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
     mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
-    psnr_phi = psnr(phi_target, phi_pred)
+    psnr_phi = psnr(phi_target, phi_pred, normalize = False, shift = True)
     frc_phi, frc50_phi = frc50(phi_target, phi_pred)
 
     return {'mae': (mae_amp, mae_phi),
