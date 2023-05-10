@@ -4,14 +4,10 @@ from . import fourier as f
 from . import params
 
 N = params.cfg['N']
+# most common value in testing is .7. Sometimes also .55 or .9
 default_probe_scale = params.cfg['default_probe_scale']
-# TODO parameterize
-#filt = f.lowpass_g(.55, np.ones(N), sym = True)
-#filt = f.lowpass_g(.7, np.ones(N), sym = True)
 
 filt = f.lowpass_g(default_probe_scale, np.ones(N), sym = True)
-
-#filt = f.lowpass_g(.9, np.ones(N), sym = True)
 
 probe = f.gf(((np.einsum('i,j->ij', filt, filt)) > .5).astype(float), 1) + 1e-9
 probe_small = probe[16:-16, 16:-16]
