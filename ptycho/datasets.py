@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 
 from . import fourier as f
-from . import physics
+#from . import physics
 from . import tf_helper as hh
 from . import params as p
 
@@ -16,6 +16,70 @@ tfkl = tf.keras.layers
 # TODO
 N = 64
 
+nphotons = p.get('sim_nphotons')
+
+def observe_amplitude(amplitude):
+    """
+    Sample photons from wave amplitudes by drwaing from the corresponding Poisson distributions
+    """
+    return tf.sqrt((hh.tfd.Independent(hh.tfd.Poisson(amplitude**2))).sample())# + 0.5
+
+def count_photons(obj):
+    return tf.math.reduce_sum(obj**2, (1, 2, 3))
+
+def scale_nphotons(padded_obj):
+    """
+    Calculate the object amplitude normalization factor that gives the desired
+    *expected* number of observed photons, averaged over an entire dataset.
+
+    Returns a single scalar.
+    """
+    mean_photons = tf.math.reduce_mean(count_photons(padded_obj))
+    norm = tf.math.sqrt(nphotons / mean_photons)
+    return norm
+
+
+def diffract_obj(sample, draw_poisson = True):
+    # run ff diffraction
+    h = p.get('h')
+    w = p.get('w')
+    amplitude = hh.pad_and_diffract(sample, h, w, pad=False)[1]
+#     return amplitude
+    # sample from Poisson observation likelihood
+    if draw_poisson:
+        observed_amp = observe_amplitude(amplitude)
+        return observed_amp
+    else:
+        return amplitude
+
+def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
+    batch_size = p.get('batch_size')
+    Y_I = Y_I *  probe[None, ..., None]
+
+    if intensity_scale is None:
+        intensity_scale = scale_nphotons(Y_I).numpy()
+
+    obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
+    Y_I = tf.math.abs(obj)# TODO
+
+    # Simulate diffraction
+    X = (tf.data.Dataset.from_tensor_slices(obj)
+               .batch(batch_size)
+               .prefetch(tf.data.AUTOTUNE)
+               .map(diffract_obj)
+               .cache())
+    X = np.vstack(list(iter(X)))
+    X, Y_I, Y_phi =\
+        X / intensity_scale, Y_I / intensity_scale, Y_phi
+
+    # TODO consolidate
+    X, Y_I, Y_phi =\
+        hh.togrid(X, Y_I, Y_phi)
+
+    X, Y_I, Y_phi =\
+        hh.grid_to_channel(X, Y_I, Y_phi)
+
+    return X, Y_I, Y_phi, intensity_scale
 def mk_rand(N):
     return int(N * np.random.uniform())
 
@@ -39,15 +103,17 @@ def mk_noise(N = 64, nlines = 10):
 # memoization key?
 from ptycho.misc import memoize_disk_and_memory
 @memoize_disk_and_memory
-def mk_expdata(which, probe, intensity_scale = None):
+def mk_expdata(which, probe, outer_offset, intensity_scale = None):
     from . import experimental
-    # TODO refactor
-    (YY_I, YY_phi), (Y_I, Y_phi, _, norm_Y_I) = experimental.preprocess_experimental(which)
+    # TODO refactor. maybe consolidate scan_and_normalize and
+    # hh.preprocess_objects
+    (YY_I, YY_phi), (Y_I, Y_phi, _, norm_Y_I) =\
+        experimental.preprocess_experimental(which, outer_offset)
     size = YY_I.shape[1]
     print('shape', YY_I.shape)
     coords = true_coords = extract_coords(size, 1)
     X, Y_I, Y_phi, intensity_scale =\
-        physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
+        illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     # TODO put this in a struct or something
     if YY_phi is None:
         YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
@@ -55,7 +121,8 @@ def mk_expdata(which, probe, intensity_scale = None):
         YY_full = hh.combine_complex(YY_I, YY_phi)
     return X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, (coords, true_coords)
 
-def extract_coords(size, repeats = 1, coord_type = 'offsets', **kwargs):
+def extract_coords(size, repeats = 1, coord_type = 'offsets',
+        outer_offset = None, **kwargs):
     """
     Return nominal offset coords in channel format. x and y offsets are
     stacked in the third dimension.
@@ -71,9 +138,10 @@ def extract_coords(size, repeats = 1, coord_type = 'offsets', **kwargs):
         ix = tf.reduce_mean(ix, axis = (1, 2))
         return tf.repeat(ix, repeats, axis = 0)[:, None, None, :]
     def outer(img):
-        return hh.extract_outer(img, fmt = 'grid')
+        return hh.extract_outer(img, fmt = 'grid', outer_offset = outer_offset)
     def inner(img):
-        return hh.extract_nested_patches(img, fmt = 'channel')
+        return hh.extract_nested_patches(img, fmt = 'channel',
+            outer_offset = outer_offset)
     def get_patch_offsets(coords):
         offsets_x = coords[1][0] - coords[0][0]
         offsets_y = coords[1][1] - coords[0][1]
@@ -98,6 +166,8 @@ def add_position_jitter(coords, jitter_scale):
 #    jitter = tf.cast(jitter, tf.float32)
     return jitter + coords
 
+# TODO set separate bigoffset for train and test
+
 # TODO kwargs -> positional
 def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,
         **kwargs):
@@ -111,6 +181,7 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,
     small image patch. Second gives offset coords for each solution
     region.
     """
+    # TODO take outer grid offset as positional argument
     # x and y coordinates of the patches
     # TODO enforce consistent value of size
     size = YY_I.shape[1]
@@ -120,7 +191,7 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,
         print('simulating gaussian position jitter, scale', jitter_scale)
         true_coords = add_position_jitter(coords, jitter_scale)
 
-    Y_I, Y_phi, _Y_I_full, norm_Y_I = physics.preprocess_objects(YY_I,
+    Y_I, Y_phi, _Y_I_full, norm_Y_I = hh.preprocess_objects(YY_I,
         offsets_xy = true_coords, Y_phi = YY_phi, **kwargs)
     return Y_I, Y_phi, _Y_I_full, norm_Y_I, (coords, true_coords)
 
@@ -149,11 +220,11 @@ def sim_object_image(size):
         raise ValueError
 
 @memoize_disk_and_memory
-def mk_simdata(n, size, probe, intensity_scale = None,
+def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
         YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
     if YY_I is None:
         YY_I = np.array([sim_object_image(size)
-              for _ in range(n)])[:, :, :]
+              for _ in range(n)])
     if p.get('set_phi'):
         YY_phi = dummy_phi(YY_I)
     # TODO two cases: n and size given, or Y_I and phi given
@@ -161,13 +232,13 @@ def mk_simdata(n, size, probe, intensity_scale = None,
     # train on a dense view of each image
     #Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
     Y_I, Y_phi, _, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
-        YY_phi = YY_phi, **kwargs)
+        YY_phi = YY_phi, outer_offset = outer_offset, **kwargs)
     if dict_fmt:
         d = dict()
         d['I_pre_probe'] = Y_I
         d['phi_pre_probe'] = Y_phi
     X, Y_I, Y_phi, intensity_scale =\
-        physics.illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
+        illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
     if YY_phi is None:
         YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
     else:

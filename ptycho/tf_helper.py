@@ -140,27 +140,24 @@ def extract_patches(x, N, offset):
     )
 
 def extract_outer(img, fmt = 'grid',
-        bigN = None, bigoffset = None, test = False):#,
+        bigN = None, outer_offset = None):#,
         #test = False):
     """
         Extract big patches (overlapping bigN x bigN regions over an
         entire input img)
     """
+    # TODO factor of 2, outer_offset should be positional
     if bigN is None:
         bigN = get('bigN')
     # Reason for the stride of the outer patches to be half of the grid
     # spacing is so that the patches have sufficient overlap (i.e., we
     # know that the boundary of a solution region will not be properly
     # reconstructed, so it's necessary to have overlaps)
-    if bigoffset is None:
-        bigoffset = cfg['bigoffset'] // 2
-#        if test:
-#            bigoffset = cfg['bigoffset'] // 2
-#        else:
-#            bigoffset = cfg['bigoffset']
+#    if bigoffset is None:
+#        bigoffset = cfg['bigoffset'] // 2
     assert img.shape[-1] == 1
     grid = tf.reshape(
-        extract_patches(img, bigN, bigoffset),
+        extract_patches(img, bigN, outer_offset // 2),
         #extract_patches(img, padded_size, bigoffset // 2),
         (-1, bigN, bigN, 1))
         #(-1, padded_size, padded_size, 1))
@@ -427,6 +424,44 @@ def reassemble_patches_position(channels, offsets_xy,
         fn_reassemble_real = fn_reassemble_real,
         average = False)
 
+def preprocess_objects(Y_I, Y_phi = None,
+        offsets_xy = None, **kwargs):
+    """
+    Extracts normalized object patches from full real-space images, using the
+    nested grid format.
+    """
+    # TODO take outer grid offset as positional argument
+    _Y_I_full = Y_I
+    if Y_phi is None:
+        Y_phi = np.zeros_like(Y_I)
+
+    if offsets_xy is None or tf.math.reduce_all(offsets_xy == 0):
+        print('Sampling on regular grid')
+        Y_I, Y_phi = \
+            [extract_nested_patches(imgs, fmt= 'channel', **kwargs)
+                for imgs in [Y_I, Y_phi]]
+    else:
+        print('Using provided scan point offsets')
+        Y_I, Y_phi = \
+            [extract_nested_patches_position(imgs, offsets_xy, fmt= 'channel',
+                    **kwargs)
+                for imgs in [Y_I, Y_phi]]
+
+#    # TODO debug only
+#    Y_I, Y_I_outer = zip(*Y_I)
+#    Y_phi, Y_phi_outer = zip(*Y_phi)
+#    Y_I = list(Y_I)
+#    Y_phi = list(Y_phi)
+
+    assert Y_I.shape[-1] == get('gridsize')**2
+    #norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
+    norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
+    norm_Y_I = tf.math.reduce_mean(norm_Y_I)
+    Y_I /= norm_Y_I
+
+    Y_I, Y_phi =\
+        channel_to_flat(Y_I, Y_phi)
+    return Y_I, Y_phi, _Y_I_full / norm_Y_I, norm_Y_I
 # TODO belongs in evaluation.py?
 def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
         offset = 4):
@@ -519,3 +554,4 @@ def masked_MAE_loss(target, pred):
     target = trim_reconstruction(
             reassemble_patches(tf.math.abs(mask) * target))
     return mae(target, pred)
+
