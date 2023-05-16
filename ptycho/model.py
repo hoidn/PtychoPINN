@@ -201,7 +201,6 @@ flat_illuminated = padded_objs_with_offsets
 aux = tf.keras.Model(inputs=[input_img, input_positions],
                            outputs=[padded_obj, flat_illuminated])
 
-# TODO refactor
 # Diffracted amplitude
 padded_objs_with_offsets, pred_diff = Lambda(lambda x:
     hh.pad_and_diffract(x, h, w, pad=False),
@@ -213,6 +212,7 @@ pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels'
 # amplitude scaled to the correct photon count
 pred_amp_scaled = inv_scaler([pred_diff])
 
+# TODO Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
 dist_poisson_intensity = tfpl.DistributionLambda(lambda amplitude:
                                        (tfd.Independent(
                                            tfd.Poisson(
