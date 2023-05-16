@@ -5,7 +5,7 @@ import numpy as np
 import scipy.signal
 import sys
 
-from . import physics
+#from . import physics
 from . import tf_helper as hh
 
 path = '.'
@@ -47,7 +47,7 @@ def augment_inversion(Y_I_train, Y_phi_train):
 #     phi = np.mod(phi + phi_off)
     return stack(Y_I_train, Y_I_train[:, ::-1, ::-1, :]), stack(Y_phi_train, -Y_phi_train)
 
-def preprocess_experimental(which):
+def preprocess_experimental(which, outer_offset):
     """
     Returns (normalized) amplitude and phase for n generated objects
     """
@@ -60,7 +60,8 @@ def preprocess_experimental(which):
     else:
         raise ValueError
     #pdb.set_trace()
-    return (YY_I, YY_phi), physics.preprocess_objects(YY_I, YY_phi)
+    return (YY_I, YY_phi), hh.preprocess_objects(YY_I, YY_phi,
+        outer_offset = outer_offset)
 
 
 X_train = data_diffr_red[:nlines,:].reshape(-1,h,w)[:,:,:,np.newaxis]

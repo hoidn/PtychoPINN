@@ -31,15 +31,16 @@ def normed_ff_np(arr):
 # TODO
 if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diagonals']:
     # TODO move to params
-    bigoffset = (gridsize - 1) * offset + N // 2
+    outer_offset_train = (gridsize - 1) * offset + N // 2
     # TODO get rid of this parameter
     big_gridsize = params.params()['big_gridsize'] = 10
     bigN = params.params()['bigN']
-    size = bigoffset * (big_gridsize - 1) + bigN
+    size = outer_offset_train * (big_gridsize - 1) + bigN
     params.cfg['size'] = size
 
     # Smaller stride so that solution regions overlap enough
-    bigoffset = params.cfg['bigoffset'] = bigoffset // 2
+    outer_offset_train = params.cfg['outer_offset_train'] = outer_offset_train // 2
+    outer_offset_test = params.cfg['outer_offset_test']  = outer_offset_train
 
 #    # TODO move this to a more sensible place
 #    bordersize = (N - bigoffset / 2) / 2
@@ -49,7 +50,8 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
     (X_train, Y_I_train, Y_phi_train,
         intensity_scale, YY_train_full, _,
         (coords_train_nominal, coords_train_true)) =\
-        datasets.mk_simdata(params.get('nimgs_train'), size, probe.probe, jitter_scale = jitter_scale)
+        datasets.mk_simdata(params.get('nimgs_train'), size, probe.probe,
+            params.get('outer_offset_train'), jitter_scale = jitter_scale)
     params.cfg['intensity_scale'] = intensity_scale
 
     #bigoffset = params.cfg['bigoffset'] = bigoffset * 2
@@ -57,7 +59,8 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
     (X_test, Y_I_test, Y_phi_test,
         _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
-        datasets.mk_simdata(params.get('nimgs_test'), size, probe.probe, intensity_scale,
+        datasets.mk_simdata(params.get('nimgs_test'), size, probe.probe,
+        params.get('outer_offset_test'), intensity_scale,
         jitter_scale = jitter_scale)
 
 # TODO distinguish between bigoffset for train and test. Should have two
@@ -65,23 +68,27 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
 elif params.params()['data_source'] == 'experimental':
     params.set('nimgs_train', 1)
     params.set('nimgs_test', 1)
-    params.cfg['bigoffset'] = 4
-    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, (coords_train_nominal, coords_train_true) = datasets.mk_expdata('train', probe.probe)
+    params.cfg['outer_offset_train'] = 4
+    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _,\
+        (coords_train_nominal, coords_train_true) = datasets.mk_expdata(
+            'train', probe.probe, params.get('outer_offset_train'))
     params.cfg['intensity_scale'] = intensity_scale
 
-    #bigoffset = params.cfg['bigoffset'] = ((gridsize - 1) * offset + N // 2) // 2
-    bigoffset = params.cfg['bigoffset'] = 20
-    #bordersize = N // 2 - bigoffset // 4
+    #outer_offset_train = params.cfg['outer_offset_train'] = ((gridsize - 1) * offset + N // 2) // 2
+    outer_offset_test = params.cfg['outer_offset_test'] = 20
+    #bordersize = N // 2 - outer_offset_test // 4
     # TODO refactor, enforce this value of bigN
     bigN = N + (gridsize - 1) * offset
-    X_test, Y_I_test, Y_phi_test, _, YY_test_full, norm_Y_I_test, (coords_test_nominal, coords_test_true) = datasets.mk_expdata('test', probe.probe, intensity_scale)
+    X_test, Y_I_test, Y_phi_test, _, YY_test_full, norm_Y_I_test,\
+        (coords_test_nominal, coords_test_true) = datasets.mk_expdata(
+            'test', probe.probe, intensity_scale, params.get('outer_offset_test'))
     size = Y_I_test.shape[1]
 else:
     raise ValueError
 
 # TODO check that the rounding behavior is okay.
 ## It might be safer to assert bigoffset % 4 == 0
-bordersize = (N - bigoffset / 2) / 2
+bordersize = (N - outer_offset_test / 2) / 2
 
 # TODO shuffle should be after flatten. unecessary copies
 X_train, Y_I_train, Y_phi_train =\
@@ -153,11 +160,11 @@ clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
 clipleft = int(np.ceil(clipsize))
 clipright = int(np.floor(clipsize))
 
-# TODO bigN, bigoffset factor of 2
+# TODO bigN, outer_offset_test factor of 2
 # Ground truth needs to be trimmed to line up with the reconstruction
 # Remove the portion of the test image that wasn't converted into
 # patches of evaluation data
-extra_size = (YY_test_full.shape[1] - (N + (gridsize - 1) * offset)) % (bigoffset // 2)
+extra_size = (YY_test_full.shape[1] - (N + (gridsize - 1) * offset)) % (outer_offset_test // 2)
 if extra_size > 0:
     YY_ground_truth = YY_test_full[0, :-extra_size, :-extra_size]
 else:
