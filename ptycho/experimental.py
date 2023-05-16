@@ -37,6 +37,8 @@ nlines = 100 #How many lines of data to use for training?
 nltest = 60 #How many lines for the test set?
 tst_strt = amp.shape[0]-nltest #Where to index from
 print(tst_strt)
+train_size = 272
+test_size = 248
 
 def stack(a1, a2):
     return np.array((a1, a2)).reshape((-1, N, N, 1))
@@ -47,21 +49,48 @@ def augment_inversion(Y_I_train, Y_phi_train):
 #     phi = np.mod(phi + phi_off)
     return stack(Y_I_train, Y_I_train[:, ::-1, ::-1, :]), stack(Y_phi_train, -Y_phi_train)
 
-def preprocess_experimental(which, outer_offset):
+from ptycho.misc import memoize_disk_and_memory
+#@memoize_disk_and_memory
+#def preprocess_experimental(which, outer_offset):
+#    """
+#    Returns (normalized) amplitude and phase for n generated objects
+#    """
+#    if which == 'train':
+#        YY_I = inverted_patches_I[:, :train_size, :train_size, :]
+#        YY_phi = inverted_patches_phi[:, :train_size, :train_size, :]
+#    elif which == 'test':
+#        YY_I = inverted_patches_I[:, -test_size:, -test_size:, :]
+#        YY_phi = inverted_patches_phi[:, -test_size:, -test_size:, :]
+#    else:
+#        raise ValueError
+#    #pdb.set_trace()
+#    return (YY_I, YY_phi), hh.preprocess_objects(YY_I, YY_phi,
+#        outer_offset = outer_offset)
+
+from ptycho.misc import memoize_disk_and_memory
+@memoize_disk_and_memory
+def get_full_experimental(which):
     """
     Returns (normalized) amplitude and phase for n generated objects
     """
+    inverted_patches_I = hh.extract_patches_inverse(
+           amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
+           N, True, gridsize = amp.shape[0],
+           offset = offset_experimental)
+    inverted_patches_phi = hh.extract_patches_inverse(
+           ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
+           N, True, gridsize = ph.shape[0],
+           offset = offset_experimental)
     if which == 'train':
-        YY_I = inverted_patches_I[:, :272, :272, :]
-        YY_phi = inverted_patches_phi[:, :272, :272, :]
+        YY_I = inverted_patches_I[:, :train_size, :train_size, :]
+        YY_phi = inverted_patches_phi[:, :train_size, :train_size, :]
     elif which == 'test':
-        YY_I = inverted_patches_I[:, -248:, -248:, :]
-        YY_phi = inverted_patches_phi[:, -248:, -248:, :]
+        YY_I = inverted_patches_I[:, -test_size:, -test_size:, :]
+        YY_phi = inverted_patches_phi[:, -test_size:, -test_size:, :]
     else:
         raise ValueError
     #pdb.set_trace()
-    return (YY_I, YY_phi), hh.preprocess_objects(YY_I, YY_phi,
-        outer_offset = outer_offset)
+    return YY_I, YY_phi
 
 
 X_train = data_diffr_red[:nlines,:].reshape(-1,h,w)[:,:,:,np.newaxis]
@@ -86,14 +115,14 @@ offset_experimental = 3
 #inverted_patches_phi = hh.extract_patches_inverse(img, ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
 #                                                 N, offset_experimental)
 
-inverted_patches_I = hh.extract_patches_inverse(
-       amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
-       N, True, gridsize = amp.shape[0],
-       offset = offset_experimental)
-inverted_patches_phi = hh.extract_patches_inverse(
-       ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
-       N, True, gridsize = ph.shape[0],
-       offset = offset_experimental)
+#inverted_patches_I = hh.extract_patches_inverse(
+#       amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
+#       N, True, gridsize = amp.shape[0],
+#       offset = offset_experimental)
+#inverted_patches_phi = hh.extract_patches_inverse(
+#       ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
+#       N, True, gridsize = ph.shape[0],
+#       offset = offset_experimental)
 
 ## Recover shift between scan points
 

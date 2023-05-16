@@ -102,24 +102,25 @@ def mk_noise(N = 64, nlines = 10):
 # TODO why doesn't changing the probe scale parameter always change the
 # memoization key?
 from ptycho.misc import memoize_disk_and_memory
-@memoize_disk_and_memory
-def mk_expdata(which, probe, outer_offset, intensity_scale = None):
-    from . import experimental
-    # TODO refactor. maybe consolidate scan_and_normalize and
-    # hh.preprocess_objects
-    (YY_I, YY_phi), (Y_I, Y_phi, _, norm_Y_I) =\
-        experimental.preprocess_experimental(which, outer_offset)
-    size = YY_I.shape[1]
-    print('shape', YY_I.shape)
-    coords = true_coords = extract_coords(size, 1)
-    X, Y_I, Y_phi, intensity_scale =\
-        illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
-    # TODO put this in a struct or something
-    if YY_phi is None:
-        YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
-    else:
-        YY_full = hh.combine_complex(YY_I, YY_phi)
-    return X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, (coords, true_coords)
+# TODO cleanup - for example, this function is deprecated
+#@memoize_disk_and_memory
+#def mk_expdata(which, probe, outer_offset, intensity_scale = None):
+#    from . import experimental
+#    # TODO refactor. maybe consolidate scan_and_normalize and
+#    # hh.preprocess_objects
+#    (YY_I, YY_phi), (Y_I, Y_phi, _, norm_Y_I) =\
+#        experimental.preprocess_experimental(which, outer_offset)
+#    size = YY_I.shape[1]
+#    print('shape', YY_I.shape)
+#    coords = true_coords = extract_coords(size, 1, outer_offset = outer_offset)
+#    X, Y_I, Y_phi, intensity_scale =\
+#        illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
+#    # TODO put this in a struct or something
+#    if YY_phi is None:
+#        YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
+#    else:
+#        YY_full = hh.combine_complex(YY_I, YY_phi)
+#    return X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, (coords, true_coords)
 
 def extract_coords(size, repeats = 1, coord_type = 'offsets',
         outer_offset = None, **kwargs):
@@ -225,7 +226,7 @@ def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
     if YY_I is None:
         YY_I = np.array([sim_object_image(size)
               for _ in range(n)])
-    if p.get('set_phi'):
+    if p.get('set_phi') and YY_phi is None:
         YY_phi = dummy_phi(YY_I)
     # TODO two cases: n and size given, or Y_I and phi given
     # TODO there should be an option for subsampling, in case we don't want to

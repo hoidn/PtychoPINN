@@ -29,18 +29,28 @@ def normed_ff_np(arr):
     return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(h * w))
 
 # TODO
+import pdb
+#pdb.set_trace()
 if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diagonals']:
-    # TODO move to params
-    outer_offset_train = (gridsize - 1) * offset + N // 2
-    # TODO get rid of this parameter
     big_gridsize = params.params()['big_gridsize'] = 10
     bigN = params.params()['bigN']
-    size = outer_offset_train * (big_gridsize - 1) + bigN
-    params.cfg['size'] = size
 
     # Smaller stride so that solution regions overlap enough
-    outer_offset_train = params.cfg['outer_offset_train'] = outer_offset_train // 2
-    outer_offset_test = params.cfg['outer_offset_test']  = outer_offset_train
+    if params.cfg['outer_offset_train'] is None:
+        # TODO move to params
+        outer_offset_train = (gridsize - 1) * offset + N // 2
+        # TODO get rid of this parameter
+        outer_offset_train = params.cfg['outer_offset_train'] = outer_offset_train // 2
+    else:
+        outer_offset_train = params.cfg['outer_offset_train']
+    if params.cfg['outer_offset_test'] is None:
+        outer_offset_test = params.cfg['outer_offset_test']  = outer_offset_train
+    else:
+        outer_offset_test = params.cfg['outer_offset_test']
+
+    # TODO
+    size = 2 * outer_offset_train * (big_gridsize - 1) + bigN
+    params.cfg['size'] = size
 
 #    # TODO move this to a more sensible place
 #    bordersize = (N - bigoffset / 2) / 2
@@ -66,23 +76,59 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
 # TODO distinguish between bigoffset for train and test. Should have two
 # variables instead of one
 elif params.params()['data_source'] == 'experimental':
+    from ptycho import experimental
     params.set('nimgs_train', 1)
     params.set('nimgs_test', 1)
-    params.cfg['outer_offset_train'] = 4
-    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _,\
-        (coords_train_nominal, coords_train_true) = datasets.mk_expdata(
-            'train', probe.probe, params.get('outer_offset_train'))
+    if params.cfg['outer_offset_train'] is None:
+        params.cfg['outer_offset_train'] = 4
+
+    if params.cfg['outer_offset_test'] is None:
+        outer_offset_test = params.cfg['outer_offset_test'] = 20
+    else:
+        outer_offset_test = params.cfg['outer_offset_test']
+    bigN = N + (gridsize - 1) * offset
+
+    YY_I, YY_phi = experimental.get_full_experimental('train')
+    (X_train, Y_I_train, Y_phi_train,
+        intensity_scale, YY_train_full, _,
+        (coords_train_nominal, coords_train_true)) =\
+        datasets.mk_simdata(params.get('nimgs_train'), experimental.train_size,
+            probe.probe, params.get('outer_offset_train'), jitter_scale = jitter_scale,
+            YY_I = YY_I, YY_phi = YY_phi)
+
     params.cfg['intensity_scale'] = intensity_scale
 
-    #outer_offset_train = params.cfg['outer_offset_train'] = ((gridsize - 1) * offset + N // 2) // 2
-    outer_offset_test = params.cfg['outer_offset_test'] = 20
-    #bordersize = N // 2 - outer_offset_test // 4
-    # TODO refactor, enforce this value of bigN
-    bigN = N + (gridsize - 1) * offset
-    X_test, Y_I_test, Y_phi_test, _, YY_test_full, norm_Y_I_test,\
-        (coords_test_nominal, coords_test_true) = datasets.mk_expdata(
-            'test', probe.probe, intensity_scale, params.get('outer_offset_test'))
-    size = Y_I_test.shape[1]
+    YY_I, YY_phi = experimental.get_full_experimental('test')
+    (X_test, Y_I_test, Y_phi_test,
+        _, YY_test_full, norm_Y_I_test,
+        (coords_test_nominal, coords_test_true)) =\
+        datasets.mk_simdata(params.get('nimgs_test'), experimental.test_size,
+        probe.probe, params.get('outer_offset_test'), intensity_scale,
+        jitter_scale = jitter_scale,
+        YY_I = YY_I, YY_phi = YY_phi)
+    size = int(YY_test_full.shape[1])
+
+#    params.set('nimgs_train', 1)
+#    params.set('nimgs_test', 1)
+#    if params.cfg['outer_offset_train'] is None:
+#        params.cfg['outer_offset_train'] = 4
+#    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _,\
+#        (coords_train_nominal, coords_train_true) = datasets.mk_expdata(
+#            'train', probe.probe, params.get('outer_offset_train'))
+#    params.cfg['intensity_scale'] = intensity_scale
+#
+#    #outer_offset_train = params.cfg['outer_offset_train'] = ((gridsize - 1) * offset + N // 2) // 2
+#    if params.cfg['outer_offset_test'] is None:
+#        outer_offset_test = params.cfg['outer_offset_test'] = 20
+#    else:
+#        outer_offset_test = params.cfg['outer_offset_test']
+#    #bordersize = N // 2 - outer_offset_test // 4
+#    # TODO refactor, enforce this value of bigN
+#    bigN = N + (gridsize - 1) * offset
+#    X_test, Y_I_test, Y_phi_test, _, YY_test_full, norm_Y_I_test,\
+#        (coords_test_nominal, coords_test_true) = datasets.mk_expdata(
+#            'test', probe.probe, intensity_scale, params.get('outer_offset_test'))
+#    size = Y_I_test.shape[1]
 else:
     raise ValueError
 
