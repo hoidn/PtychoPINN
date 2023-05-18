@@ -28,6 +28,10 @@ params = p.params
 import tensorflow_addons as tfa
 gaussian_filter2d = tfa.image.gaussian_filter2d
 
+from tensorflow.keras import mixed_precision
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_global_policy(policy)
+
 tfk = hh.tf.keras
 tfkl = hh.tf.keras.layers
 tfpl = tfp.layers
@@ -66,34 +70,66 @@ class ProbeIllumination(tf.keras.layers.Layer):
         #return gaussian_filter2d(self.w, sigma = 0.8) * x * probe_mask, (self.w * probe_mask)[None, ...]
         #return hh.anti_alias_complex(self.w) * x * probe_mask, (self.w * probe_mask)[None, ...]
 
+#nphotons = p.get('sim_nphotons')
+## TODO scaling could be done on a shot-by-shot basis, but IIRC I tried this
+## and there were issues
+## TODO for robustness, it might be worth trying to logarithmically scale the
+## photon counts
+#log_scale_guess = np.log(np.sqrt(nphotons) / 12.4)
+#log_scale = tf.Variable(
+#            initial_value=tf.constant(float(log_scale_guess)),
+#            trainable = params()['intensity_scale.trainable'],
+#        )
+#
+#
+#class IntensityScaler(tf.keras.layers.Layer):
+#    def __init__(self, **kwargs):
+#        super(IntensityScaler, self).__init__(**kwargs)
+#        self.w = self.add_weight(name="w", initializer="ones", dtype=tf.float32)
+#
+#    def call(self, x):
+#        x = tf.cast(x, tf.float32)  # Cast x to float32 before division
+#        output = x / tf.math.exp(self.w)
+#        return tf.cast(output, tf.float16)  # Cast output back to float16
+#
+#class IntensityScaler_inv(tf.keras.layers.Layer):
+#    def __init__(self, **kwargs):
+#        super(IntensityScaler_inv, self).__init__(**kwargs)
+#        self.w = self.add_weight(name="w", initializer="ones", dtype=tf.float32)
+#
+#    def call(self, x):
+#        x = tf.cast(x, tf.float32)  # Cast x to float32 before multiplication
+#        output = x * tf.math.exp(tf.cast(self.w, tf.float16))
+#        return tf.cast(output, tf.float16)  # Cast output back to float16
+
 nphotons = p.get('sim_nphotons')
-# TODO scaling could be done on a shot-by-shot basis, but IIRC I tried this
-# and there were issues
-# TODO for robustness, it might be worth trying to logarithmically scale the
-# photon counts
 log_scale_guess = np.log(np.sqrt(nphotons) / 12.4)
 log_scale = tf.Variable(
-            initial_value=tf.constant(float(log_scale_guess)),
-            trainable = params()['intensity_scale.trainable'],
-        )
+    initial_value=tf.constant(float(log_scale_guess)),
+    trainable=params()['intensity_scale.trainable'],
+    dtype=policy.variable_dtype
+)
 
 class IntensityScaler(tf.keras.layers.Layer):
     def __init__(self):
         super(IntensityScaler, self).__init__()
         self.w = log_scale
+
     def call(self, inputs):
         x, = inputs
-        return x / tf.math.exp(self.w)
+        return tf.cast(tf.cast(x, tf.float32) / tf.math.exp(self.w),
+                tf.float16)
 
-# TODO use a bijector instead of separately defining the transform and its
-# inverse
 class IntensityScaler_inv(tf.keras.layers.Layer):
     def __init__(self):
         super(IntensityScaler_inv, self).__init__()
         self.w = log_scale
+
     def call(self, inputs):
         x, = inputs
-        return tf.math.exp(self.w) * x
+        return tf.math.exp(self.w) * tf.cast(x, tf.float32)
+
+
 
 tf.keras.backend.clear_session()
 np.random.seed(2)
@@ -235,9 +271,15 @@ diffraction_to_obj = tf.keras.Model(inputs=[input_img],
 
 mae_weight = p.get('mae_weight') # should normally be 0
 nll_weight = p.get('nll_weight') # should normally be 1
-autoencoder.compile(optimizer='adam',
-     loss=['mean_absolute_error', 'mean_absolute_error', negloglik, 'mean_absolute_error'],
-     loss_weights = [0., mae_weight, nll_weight, 0.])
+opt = tf.keras.optimizers.Adam()
+opt = mixed_precision.LossScaleOptimizer(opt)
+autoencoder.compile(optimizer=opt,
+                    loss=['mean_absolute_error', 'mean_absolute_error', negloglik, 'mean_absolute_error'],
+                    loss_weights = [0., mae_weight, nll_weight, 0.])
+
+#autoencoder.compile(optimizer='adam',
+#     loss=['mean_absolute_error', 'mean_absolute_error', negloglik, 'mean_absolute_error'],
+#     loss_weights = [0., mae_weight, nll_weight, 0.])
 
 print (autoencoder.summary())
 
