@@ -214,6 +214,9 @@ def sim_object_image(size):
     elif p.get('data_source') == 'testimg':
         from . import testimg
         return testimg.get_img(size)
+    elif p.get('data_source') == 'testimg_reverse':
+        from . import testimg
+        return testimg.get_img(size, reverse = True)
     elif p.get('data_source') == 'diagonals':
         from . import diagonals
         return diagonals.mk_diags(size)

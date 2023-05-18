@@ -19,11 +19,13 @@ imgs = hh.extract_patches(image, N, N)
 imgs = tf.reshape(imgs, (-1,) + (N, N))
 it = iter(imgs)
 
-def get_block():
+def get_block(reverse = False):
+    if reverse:
+        return np.array(reversed(next(it)))
     return np.array(next(it))
 
-def get_img(N = None, sigma = .5):
-    img = get_block()
+def get_img(N = None, sigma = .5, reverse = True):
+    img = get_block(reverse = reverse)
     # anti aliasing
     img = gf(img, sigma)
 #    img = img + gf(img, 10 * sigma) * 5

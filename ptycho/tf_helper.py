@@ -346,9 +346,14 @@ class Translation(tf.keras.layers.Layer):
         super(Translation, self).__init__()
     def call(self, inputs):
         imgs, offsets, jitter = inputs
+
+        jitter = tf.cast(jitter, tf.float32)
+        offsets = tf.cast(offsets, tf.float32)
+
         jitter = tf.random.normal(tf.shape(offsets), stddev = jitter)
         #return translate(imgs, offsets, interpolation = 'nearest')
         return translate(imgs, offsets + jitter, interpolation = 'bilinear')
+
 
 def flatten_offsets(channels):
     return _channel_to_flat(channels)[:, 0, :, 0]
