@@ -96,5 +96,5 @@ def train(X_train, Y_I_train, Y_phi_train, autoencoder = None):
         [Y_I_train, Y_phi_train], shuffle=True,
         batch_size=batch_size, verbose=1, epochs=nepochs,
         validation_split = 0.05, callbacks=[reduce_lr, earlystop])
-    return autoencoder
+    return autoencoder, history
 

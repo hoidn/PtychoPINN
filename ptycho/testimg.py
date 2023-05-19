@@ -12,7 +12,7 @@ import tensorflow as tf
 path = './'
 image= imread(os.path.join(path,'williamson.jpeg')).astype(float)
 image /= image.mean()
-image = image[None, :, :, :1]
+image = image[None, 100:, :, :1]
 
 N = params.get('size')
 imgs = hh.extract_patches(image, N, N)
@@ -21,10 +21,10 @@ it = iter(imgs)
 
 def get_block(reverse = False):
     if reverse:
-        return np.array(reversed(next(it)))
+        return np.array(next(reversed(it)))
     return np.array(next(it))
 
-def get_img(N = None, sigma = .5, reverse = True):
+def get_img(N = None, sigma = .5, reverse = False):
     img = get_block(reverse = reverse)
     # anti aliasing
     img = gf(img, sigma)

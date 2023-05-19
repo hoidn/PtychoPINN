@@ -49,8 +49,9 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
 #    big_gridsize = params.params()['big_gridsize'] = int(10 * 18 / outer_offset_train)
 #    # TODO
 #    size = 2 * outer_offset_train * (big_gridsize - 1) + bigN
-    size = 392
-    params.cfg['size'] = size
+    size = params.cfg['size']
+    #params.cfg['size'] = size
+    #size = 392
 
 #    # TODO move this to a more sensible place
 #    bordersize = (N - bigoffset / 2) / 2
@@ -113,10 +114,40 @@ else:
     raise ValueError
 
 
+from sklearn.utils import shuffle
+import numpy as np
+
+def shuffle_data(X, Y_I, Y_phi, random_state=0):
+    """
+    Function to shuffle data.
+    X, Y_I, Y_phi are numpy arrays to be shuffled along the first axis.
+    """
+    indices = np.arange(len(Y_I))
+    indices_shuffled = shuffle(indices, random_state=random_state)
+
+    X_shuffled = X[indices_shuffled]
+    Y_I_shuffled = Y_I[indices_shuffled]
+    Y_phi_shuffled = Y_phi[indices_shuffled]
+
+    return X_shuffled, Y_I_shuffled, Y_phi_shuffled, indices_shuffled
+
+def unshuffle_data(Y_I):
+    """
+    Function to unshuffle data.
+    Y_I is the shuffled numpy array.
+    indices_shuffled is the numpy array of shuffled indices.
+    """
+    unshuffle_indices = np.argsort(indices_shuffled)
+    Y_I_unshuffled = Y_I[unshuffle_indices]
+
+    return Y_I_unshuffled
+
 # TODO shuffle should be after flatten. unecessary copies
-X_train, Y_I_train, Y_phi_train =\
-    shuffle(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train),
-        random_state=0)
+#X_train, Y_I_train, Y_phi_train =\
+#    shuffle(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train),
+#        random_state=0)
+X_train, Y_I_train, Y_phi_train, indices_shuffled =\
+    shuffle_data(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train))
 
 (Y_I_test).shape, Y_I_train.shape
 
@@ -132,18 +163,6 @@ print('nphoton',np.log10(np.sum((X_train[:, :, :] * intensity_scale)**2,
 
 if params.params()['probe.trainable']:
     probe.set_probe_guess(X_train)
-
-def mae(target, pred, normalize = True):
-    """
-    mae for an entire (stitched-together) reconstruction.
-    """
-    if normalize:
-        scale = np.mean(target) / np.mean(pred)
-    else:
-        scale = 1
-    print('mean scale adjustment:', scale)
-    return np.mean(np.absolute(target - scale * pred))
-#mae = lambda target, pred: np.mean(np.absolute(target - pred))
 
 # TODO normalization not needed?
 def stitch(b, norm_Y_I_test = 1, norm = True, part = 'amp', outer_offset = None,
@@ -182,6 +201,7 @@ def get_clip_sizes(outer_offset):
     """
     How much to clip so that the ground truth images and reconstructions match.
     """
+    # TODO remove the factor of 2 assumption
     # TODO check that the rounding behavior is okay.
     ## It might be safer to assert bigoffset % 4 == 0
     bordersize = (N - outer_offset / 2) / 2
@@ -196,7 +216,7 @@ def get_clip_sizes(outer_offset):
     clipright = int(np.floor(clipsize))
     return borderleft, borderright, clipleft, clipright
 
-def get_clipped_object(YY_full, outer_offset, i = 0):
+def get_clipped_object(YY_full, outer_offset):
     # TODO bigN, outer_offset_test factor of 2
     # Ground truth needs to be trimmed to line up with the reconstruction
     # Remove the portion of the test image that wasn't converted into
@@ -205,15 +225,17 @@ def get_clipped_object(YY_full, outer_offset, i = 0):
 
     extra_size = (YY_full.shape[1] - (N + (gridsize - 1) * offset)) % (outer_offset // 2)
     if extra_size > 0:
-        YY_ground_truth = YY_full[i, :-extra_size, :-extra_size]
+        YY_ground_truth = YY_full[:, :-extra_size, :-extra_size]
     else:
         print('discarding length {} from test image'.format(extra_size))
-        YY_ground_truth = YY_full[i, ...]
-    YY_ground_truth = YY_ground_truth[clipleft: -clipright, clipleft: -clipright]
+        YY_ground_truth = YY_full
+    YY_ground_truth = YY_ground_truth[:, clipleft: -clipright, clipleft: -clipright]
     return YY_ground_truth
 
 
-YY_ground_truth = get_clipped_object(YY_test_full, outer_offset_test, 0)
+# TODO rename / refactor
+YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
+YY_ground_truth = YY_ground_truth_all[0, ...]
 
 # TODO test this refactored version of the module:
 #

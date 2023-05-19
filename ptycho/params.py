@@ -14,7 +14,7 @@ cfg = {
     'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
     'object.big': False, 'set_phi': False, 'model_type': 'pinn',
-    'label': ''
+    'label': '', 'size': 392
     }
 
 # TODO h, w

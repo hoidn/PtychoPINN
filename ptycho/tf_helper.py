@@ -153,11 +153,13 @@ def extract_outer(img, fmt = 'grid',
     # spacing is so that the patches have sufficient overlap (i.e., we
     # know that the boundary of a solution region will not be properly
     # reconstructed, so it's necessary to have overlaps)
+    # TODO enforce sufficiently dense outer grid sampling
 #    if bigoffset is None:
 #        bigoffset = cfg['bigoffset'] // 2
     assert img.shape[-1] == 1
     grid = tf.reshape(
         extract_patches(img, bigN, outer_offset // 2),
+        #extract_patches(img, bigN, outer_offset // 2),
         #extract_patches(img, padded_size, bigoffset // 2),
         (-1, bigN, bigN, 1))
         #(-1, padded_size, padded_size, 1))
@@ -463,6 +465,7 @@ def preprocess_objects(Y_I, Y_phi = None,
         channel_to_flat(Y_I, Y_phi)
     return Y_I, Y_phi, _Y_I_full / norm_Y_I, norm_Y_I
 # TODO belongs in evaluation.py?
+
 def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
         offset = 4):
     """
