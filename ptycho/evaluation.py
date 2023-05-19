@@ -4,13 +4,13 @@ import matplotlib
 import tensorflow as tf
 
 from ptycho import params
-from ptycho import generate_data as data
 from ptycho import misc
 
 def recon_patches(patches):
     """
     chop channel dimension size to 1, then patch together a single image
     """
+    from ptycho import generate_data as data
     return data.reassemble(patches[:, :, :, :1])[0]
 
 def symmetrize(arr):

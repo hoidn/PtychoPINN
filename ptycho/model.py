@@ -7,7 +7,9 @@
 #     https://chat.openai.com/c/e6d5e400-daf9-44b7-8ef9-d49f21a634a3
 # -difference maps?
 # -skip connections https://arxiv.org/pdf/1606.08921.pdf
+# -double -> float32
 
+from datetime import datetime
 from tensorflow.keras import Input
 from tensorflow.keras import Model
 from tensorflow.keras.activations import sigmoid, tanh
@@ -241,6 +243,13 @@ autoencoder.compile(optimizer='adam',
 
 print (autoencoder.summary())
 
+# Create a TensorBoard callback
+logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+
+tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
+                                                 histogram_freq=1,
+                                                 profile_batch='500,520')
+
 def train(epochs, X_train, coords_train, Y_I_train):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
@@ -262,5 +271,6 @@ def train(epochs, X_train, coords_train, Y_I_train):
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])
+        #callbacks=[reduce_lr, earlystop, tboard_callback])
         #callbacks=[reduce_lr, earlystop, checkpoints])
     return history
