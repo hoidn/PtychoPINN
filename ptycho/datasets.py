@@ -88,13 +88,9 @@ def mk_lines_img(N = 64, nlines = 10):
     for _ in range(nlines):
         rr, cc = draw.line(mk_rand(N), mk_rand(N), mk_rand(N), mk_rand(N))
         image[rr, cc] = 1
-    #dilated = morphology.dilation(image, morphology.disk(radius=1))
     res = np.zeros((N, N, 3))
-    #res[:, :, :] = dilated[..., None]
     res[:, :, :] = image[..., None]
-    #return f.gf(res, 1) + 5 * f.gf(res, 10)
     return f.gf(res, 1) + 2 * f.gf(res, 5) + 5 * f.gf(res, 10)
-    #return f.gf(res, 1) + f.gf(res, 10)
 
 def mk_noise(N = 64, nlines = 10):
     return np.random.uniform(size = N * N).reshape((N, N, 1))
@@ -102,25 +98,7 @@ def mk_noise(N = 64, nlines = 10):
 # TODO why doesn't changing the probe scale parameter always change the
 # memoization key?
 from ptycho.misc import memoize_disk_and_memory
-# TODO cleanup - for example, this function is deprecated
-#@memoize_disk_and_memory
-#def mk_expdata(which, probe, outer_offset, intensity_scale = None):
-#    from . import experimental
-#    # TODO refactor. maybe consolidate scan_and_normalize and
-#    # hh.preprocess_objects
-#    (YY_I, YY_phi), (Y_I, Y_phi, _, norm_Y_I) =\
-#        experimental.preprocess_experimental(which, outer_offset)
-#    size = YY_I.shape[1]
-#    print('shape', YY_I.shape)
-#    coords = true_coords = extract_coords(size, 1, outer_offset = outer_offset)
-#    X, Y_I, Y_phi, intensity_scale =\
-#        illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
-#    # TODO put this in a struct or something
-#    if YY_phi is None:
-#        YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
-#    else:
-#        YY_full = hh.combine_complex(YY_I, YY_phi)
-#    return X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, (coords, true_coords)
+# TODO cleanup
 
 def extract_coords(size, repeats = 1, coord_type = 'offsets',
         outer_offset = None, **kwargs):
@@ -166,8 +144,6 @@ def add_position_jitter(coords, jitter_scale):
 #    jitter = tf.cast(jitter, tf.int32)
 #    jitter = tf.cast(jitter, tf.float32)
     return jitter + coords
-
-# TODO set separate bigoffset for train and test
 
 # TODO kwargs -> positional
 def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,

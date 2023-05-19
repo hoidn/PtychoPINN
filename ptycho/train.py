@@ -68,17 +68,11 @@ from ptycho.generate_data import *
 from ptycho import model
 from ptycho.evaluation import save_metrics
 
-# Create a TensorBoard callback
-logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
-
-tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
-                                                 histogram_freq=1,
-                                                 profile_batch='500,520')
 
 if model_type == 'pinn':
-    from ptycho.train_pinn import history, reconstructed_obj, stitched_obj
+    from ptycho.train_pinn import history, reconstructed_obj, pred_amp, stitched_obj
 elif model_type == 'supervised':
-    from ptycho.train_supervised import history, stitched_obj
+    from ptycho.train_supervised import history, reconstructed_obj, stitched_obj
 
 #def show_groundtruth():
 #    plt.imshow(np.absolute(YY_test_full[0, clipleft: -clipright, clipleft: -clipright]),
