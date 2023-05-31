@@ -24,7 +24,9 @@ if __name__ == '__main__':
     parser.add_argument('--label', type=str, default='', help='Name of this run')
     parser.add_argument('--positions_provided', type=bool, default=False, help='Whether positions are provided or not')
     parser.add_argument('--data_source', type=str, default='lines', help='Data source')
-    parser.add_argument('--set_phi', type=bool, default=True, help='Whether to set phi or not')
+
+    parser.add_argument('--set_phi', action='store_true', default=False, help='Set non-zero phase')
+
     parser.add_argument('--nepochs', type=int, default=60, help='Number of epochs')
 
     parser.add_argument('--offset', type=int, default=4, help='Offset')
@@ -37,6 +39,12 @@ if __name__ == '__main__':
     parser.add_argument('--intensity_scale_trainable', type=bool, default=True, help='Whether intensity scale is trainable or not')
     parser.add_argument('--nll_weight', type=float, default=1., help='NLL loss weight')
     parser.add_argument('--mae_weight', type=float, default=0., help='MAE loss weight')
+
+    parser.add_argument('--nimgs_train', type=int, default=params.cfg['nimgs_train'], help='Number of training images')
+    parser.add_argument('--nimgs_test', type=int, default=params.cfg['nimgs_test'], help='Number of testing images')
+
+    parser.add_argument('--outer_offset_train', type=int, default=None, help='Outer offset for training')
+    parser.add_argument('--outer_offset_test', type=int, default=None, help='Outer offset for testing')
 
     args = parser.parse_args()
 
@@ -56,6 +64,11 @@ if __name__ == '__main__':
     params.cfg['intensity_scale.trainable'] = args.intensity_scale_trainable
     params.cfg['nll_weight'] = args.nll_weight
     params.cfg['mae_weight'] = args.mae_weight
+    params.cfg['nimgs_train'] = args.nimgs_train
+    params.cfg['nimgs_test'] = args.nimgs_test
+
+    params.cfg['outer_offset_train'] = args.outer_offset_train
+    params.cfg['outer_offset_test'] = args.outer_offset_test
 else:
     model_type = params.cfg['model_type']
     label = params.cfg['label']
@@ -67,7 +80,6 @@ os.makedirs(out_prefix, exist_ok=True)
 from ptycho.generate_data import *
 from ptycho import model
 from ptycho.evaluation import save_metrics
-
 
 if model_type == 'pinn':
     from ptycho.train_pinn import history, reconstructed_obj, pred_amp, stitched_obj
