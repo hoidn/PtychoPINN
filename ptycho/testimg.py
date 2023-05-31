@@ -9,6 +9,21 @@ from ptycho import tf_helper as hh
 from ptycho import params
 import tensorflow as tf
 
+def first_and_last(it):
+    it = iter(it)  # Ensure it's an iterator
+    try:
+        first = next(it)  # Get the first item
+    except StopIteration:
+        return  # If the iterator is empty, return an empty iterator
+    last = None
+    for last in it:  # Traverse the rest of the iterator to find the last item
+        pass
+    if last is None:
+        yield first
+    else:
+        yield first
+        yield last
+
 path = './'
 image= imread(os.path.join(path,'williamson.jpeg')).astype(float)
 image /= image.mean()
@@ -18,6 +33,7 @@ N = params.get('size')
 imgs = hh.extract_patches(image, N, N)
 imgs = tf.reshape(imgs, (-1,) + (N, N))
 it = iter(imgs)
+#it = first_and_last(it)
 
 def get_block(reverse = False):
     if reverse:

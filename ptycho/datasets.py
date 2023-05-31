@@ -199,12 +199,14 @@ def sim_object_image(size):
     else:
         raise ValueError
 
+#import pdb
 @memoize_disk_and_memory
 def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
         YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
     if YY_I is None:
         YY_I = np.array([sim_object_image(size)
               for _ in range(n)])
+    #pdb.set_trace()
     if p.get('set_phi') and YY_phi is None:
         YY_phi = dummy_phi(YY_I)
     # TODO two cases: n and size given, or Y_I and phi given

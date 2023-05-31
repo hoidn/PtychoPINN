@@ -24,53 +24,70 @@ def cropshow(arr, *args, **kwargs):
     plt.imshow(arr, *args, **kwargs)
 
 from scipy.ndimage import gaussian_filter as gf
+
 def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
     plt.rcParams["figure.figsize"] = (10, 10)
     vmin = 0
     vmax = np.absolute(b)[i].max()
 
+    heatmaps = {}  # initialize the dictionary to store the heatmaps
+
     aa, bb = 3, 3
     plt.subplot(aa, bb, 1)
     plt.title('True amp.\n(illuminated)')
-    #cropshow((Y_I_test[i]), cmap = 'jet', vmin = vmin, vmax = vmax)
-    cropshow((Y_I_test[i, :, :, channel]), cmap = 'jet')
+    true_amp_illuminated = (Y_I_test[i, :, :, channel])
+    cropshow(true_amp_illuminated, cmap = 'jet')
+    heatmaps['true_amp_illuminated'] = true_amp_illuminated  # add to the dictionary
 
     plt.subplot(aa, bb, 2)
     plt.title('Reconstructed amp.\n(illuminated)')
-#    cropshow(
-#        gf((np.absolute(b))[i] * probe[..., None], .7), cmap = 'jet')
-    cropshow((np.absolute(b))[i] * probe[..., None], cmap = 'jet')
-#     cropshow((np.absolute(b))[i] * probe[..., None], vmin = np.min(Y_I_test[i]),
-#              vmax = np.max(Y_I_test[i]), cmap = 'jet')
+    rec_amp_illuminated = (np.absolute(b))[i] * probe[..., None]
+    cropshow(rec_amp_illuminated, cmap = 'jet')
+    heatmaps['rec_amp_illuminated'] = rec_amp_illuminated  # add to the dictionary
 
     plt.subplot(aa, bb, 3)
     plt.title('True phase')
-    cropshow(((Y_phi_test * (probe > .01)[..., None]))[i, :, :, channel], cmap = 'jet')
+    true_phase = ((Y_phi_test * (probe > .01)[..., None]))[i, :, :, channel]
+    cropshow(true_phase, cmap = 'jet')
     plt.colorbar()
+    heatmaps['true_phase'] = true_phase  # add to the dictionary
 
     plt.subplot(aa, bb, 4)
     plt.title('True amp.\n(full)')
-    cropshow((Y_I_test[i, :, :, channel] / (probe + 1e-9)), cmap = 'jet')
+    true_amp_full = (Y_I_test[i, :, :, channel] / (probe + 1e-9))
+    cropshow(true_amp_full, cmap = 'jet')
+    heatmaps['true_amp_full'] = true_amp_full  # add to the dictionary
 
     plt.subplot(aa, bb, 5)
     plt.title('Reconstructed amp. (full)')
-    #plt.imshow((np.absolute(b))[i], cmap = 'jet')
-    cropshow((np.absolute(b))[i], cmap = 'jet')
+    rec_amp_full = (np.absolute(b))[i]
+    cropshow(rec_amp_full, cmap = 'jet')
+    heatmaps['rec_amp_full'] = rec_amp_full  # add to the dictionary
 
     plt.subplot(aa, bb, 6)
     plt.title('Reconstructed phase')
-    cropshow((np.angle(b) * (probe > .01)[..., None])[i], cmap = 'jet')
+    rec_phase = (np.angle(b) * (probe > .01)[..., None])[i]
+    rec_phase[np.isclose(rec_phase,  0)] = np.nan
+    cropshow(rec_phase, cmap = 'jet')
     plt.colorbar()
+    heatmaps['rec_phase'] = rec_phase  # add to the dictionary
     print('phase min:', np.min((np.angle(b) * (probe > .01)[..., None])),
         'phase max:', np.max((np.angle(b) * (probe > .01)[..., None])))
 
     plt.subplot(aa, bb, 7)
     plt.title('True diffraction')
-    plt.imshow(np.log(X_test)[i, :, :, channel], cmap = 'jet')
+    true_diffraction = np.log(X_test)[i, :, :, channel]
+    plt.imshow(true_diffraction, cmap = 'jet')
+    heatmaps['true_diffraction'] = true_diffraction  # add to the dictionary
 
     plt.subplot(aa, bb, 8)
     plt.title('Recon diffraction')
-    plt.imshow(np.log(a)[i, :, :, channel], cmap = 'jet')
+    rec_diffraction = np.log(a)[i, :, :, channel]
+    plt.imshow(rec_diffraction, cmap = 'jet')
+    heatmaps['rec_diffraction'] = rec_diffraction  # add to the dictionary
+
+    return heatmaps
+
 
 def plt_metrics(history, loss_type = 'MAE', metric2 = 'padded_obj_loss'):
     hist=history
@@ -181,25 +198,62 @@ def lowpass2d(aphi, n = 2):
     im1 = fp.ifft2(fftpack.ifftshift(F2)).real
     return im1
 
-def frc50(target, pred):
+def frc50(target, pred, sigma = 2):
     if np.isnan(pred).all():
         raise ValueError
     if np.max(target) == np.min(target) == 0:
         return None, np.nan
     from FRC import fourier_ring_corr as frc
     shellcorr = frc.FSC(np.array(target), np.array(pred))
+    shellcorr = gf(shellcorr, sigma)
     return shellcorr, np.where(shellcorr < .5)[0][0]
 
 
+#def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
+#        label = ''):
+#    assert np.ndim(stitched_obj) == np.ndim(ground_truth_obj), \
+#        'stitched_obj and ground_truth_obj must have the same number of dimensions'
+#    assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
+#
+#    YY_ground_truth = np.absolute(ground_truth_obj)
+#    YY_phi_ground_truth = np.angle(ground_truth_obj)
+#
+#    if np.ndim(stitched_obj) == 3:
+#        phi_pred = trim(
+#            highpass2d(
+#                np.squeeze(np.angle(stitched_obj)[0]), n = lowpass_n
+#            )
+#        )
+#        amp_pred = trim(np.absolute(stitched_obj)[0])
+#    else:  # If it's 2D
+#        phi_pred = trim(
+#            highpass2d(
+#                np.squeeze(np.angle(stitched_obj)), n = lowpass_n
+#            )
+#        )
+#        amp_pred = trim(np.absolute(stitched_obj))
+#
+#    phi_target = trim(
+#        highpass2d(
+#            np.squeeze(YY_phi_ground_truth), n = lowpass_n
+#        )
+#    )
+#    amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
+
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         label = ''):
+    # TODO consistent shapes
     assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
+    assert np.ndim(ground_truth_obj) == 3
+    assert int(np.ndim(stitched_obj)) in [3, 4]
+    if np.ndim(stitched_obj) == 4:
+        stitched_obj = stitched_obj[0]
     YY_ground_truth = np.absolute(ground_truth_obj)
     YY_phi_ground_truth = np.angle(ground_truth_obj)
 
     phi_pred = trim(
         highpass2d(
-            np.squeeze(np.angle(stitched_obj)[0]), n = lowpass_n
+            np.squeeze(np.angle(stitched_obj)), n = lowpass_n
         )
     )
     phi_target = trim(
@@ -208,7 +262,7 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         )
     )
     amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
-    amp_pred = trim(np.absolute(stitched_obj)[0])
+    amp_pred = trim(np.absolute(stitched_obj))
 
     # TODO complex FRC?
     mae_amp = mae(amp_target, amp_pred) # PINN
@@ -228,6 +282,45 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         'frc50': (frc50_amp, frc50_phi),
         'frc': (frc_amp, frc_phi)}
 
+
+
+#def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
+#        label = ''):
+#    assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
+#    YY_ground_truth = np.absolute(ground_truth_obj)
+#    YY_phi_ground_truth = np.angle(ground_truth_obj)
+#
+#    phi_pred = trim(
+#        highpass2d(
+#            np.squeeze(np.angle(stitched_obj)[0]), n = lowpass_n
+#        )
+#    )
+#    phi_target = trim(
+#        highpass2d(
+#            np.squeeze(YY_phi_ground_truth), n = lowpass_n
+#        )
+#    )
+#    amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
+#    amp_pred = trim(np.absolute(stitched_obj)[0])
+#
+#    # TODO complex FRC?
+#    mae_amp = mae(amp_target, amp_pred) # PINN
+#    mse_amp = mse(amp_target, amp_pred) # PINN
+#    psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0], normalize = True,
+#        shift = False)
+#    frc_amp, frc50_amp = frc50(amp_target[:, :, 0], amp_pred[:, :, 0])
+#
+#    mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
+#    mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
+#    psnr_phi = psnr(phi_target, phi_pred, normalize = False, shift = True)
+#    frc_phi, frc50_phi = frc50(phi_target, phi_pred)
+#
+#    return {'mae': (mae_amp, mae_phi),
+#        'mse': (mse_amp, mse_phi),
+#        'psnr': (psnr_amp, psnr_phi),
+#        'frc50': (frc50_amp, frc50_phi),
+#        'frc': (frc_amp, frc_phi)}
+#
 import pandas as pd
 import os
 import dill
