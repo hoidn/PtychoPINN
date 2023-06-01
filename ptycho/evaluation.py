@@ -198,7 +198,7 @@ def lowpass2d(aphi, n = 2):
     im1 = fp.ifft2(fftpack.ifftshift(F2)).real
     return im1
 
-def frc50(target, pred, sigma = 2):
+def frc50(target, pred, sigma = 1):
     if np.isnan(pred).all():
         raise ValueError
     if np.max(target) == np.min(target) == 0:
