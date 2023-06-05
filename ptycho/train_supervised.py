@@ -38,17 +38,6 @@ if p.cfg['gridsize'] == 2:
     reconstructed_obj = get_recon_patches_grid(X_test)
     stitched_obj = reassemble(reconstructed_obj, part = 'complex')
 
-#    baseline_overlap_pred_I, baseline_overlap_pred_phi = model.predict(
-#        [X_test[:, :, :, :4]  * bl.params.params()['intensity_scale']])
-#    # TODO normalization?
-#    baseline_overlap_stitched = stitch(baseline_overlap_pred_I[:, :, :, :1], norm_Y_I_test)
-#    #YY_baseline_overlap = baseline_overlap_stitched
-#    YY_baseline_overlap = xyshift(baseline_overlap_stitched, -offset // 2, -offset // 2)
-#    #YY_phi_baseline_overlap = stitch(baseline_overlap_pred_phi[:, :, :, :1], 1)
-#    YY_phi_baseline_overlap = xyshift(stitch(baseline_overlap_pred_phi[:, :, :, :1], 1),
-#        -offset // 2, -offset // 2)
-#    stitched_obj = hh.combine_complex(YY_baseline_overlap, YY_phi_baseline_overlap)
-
 elif p.cfg['gridsize'] == 1:
     model, history = bl.train((X_train[:, :, :, :1]), Y_I_train[:, :, :, :1], Y_phi_train[:, :, :, :1])
 
@@ -57,16 +46,6 @@ elif p.cfg['gridsize'] == 1:
     stitched_obj = reassemble(reconstructed_obj, part = 'complex')
 
     reconstructed_obj_train = get_recon_patches_single_channel(X_train)
-    #stitched_obj_train = reassemble(reconstructed_obj_train, part = 'complex')
-
-#    baseline_pred_I, baseline_pred_phi = model.predict([X_test[:, :, :, 0] * bl.params.params()['intensity_scale']])
-#    reconstructed_obj = hh.combine_complex(baseline_pred_I, baseline_pred_phi)
-
-#    baseline_stitched = stitch(baseline_pred_I, norm_Y_I_test)
-#
-#    YY_baseline = baseline_stitched
-#    YY_phi_baseline = stitch(baseline_pred_phi[:, :, :, :1], 1)
-#    stitched_obj = hh.combine_complex(YY_baseline, YY_phi_baseline)
 
 else:
     raise ValueError
