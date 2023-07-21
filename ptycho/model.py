@@ -12,8 +12,8 @@
 from datetime import datetime
 from tensorflow.keras import Input
 from tensorflow.keras import Model
-from tensorflow.keras.activations import sigmoid, tanh
-from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense
+from tensorflow.keras.activations import relu, sigmoid, tanh
+from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense
 from tensorflow.keras.layers import Lambda
 import glob
 import math
@@ -112,55 +112,88 @@ scaler = IntensityScaler()
 inv_scaler = IntensityScaler_inv()
 normed_input = scaler([input_img])
 
-#x = hh.Conv_Pool_block(input_img,32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
-#x = hh.Conv_Pool_block(x,64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
-#x = hh.Conv_Pool_block(x,128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 
-x = hh.Conv_Pool_block(normed_input,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
-x = hh.Conv_Pool_block(x,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
-x = hh.Conv_Pool_block(x,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')
 
-encoded=x
+class Conv_Pool_block(tf.keras.layers.Layer):
+    def __init__(self, nfilters, w1=3, w2=3, p1=2, p2=2, padding='same', data_format='channels_last'):
+        super(Conv_Pool_block, self).__init__()
+        self.conv1 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
+        self.conv2 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
+        self.pool = MaxPool2D((p1, p2), padding=padding, data_format=data_format)
 
-##Decoding arm for amplitude
-#x1=hh.Conv_Up_block(encoded,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-#x1=hh.Conv_Up_block(x1,64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+    def call(self, inputs):
+        x = self.conv1(inputs)
+        x = self.conv2(x)
+        return self.pool(x)
 
-#Decoding arm for amplitude
-x1=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-x1=hh.Conv_Up_block(x1,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-#decoded1 = Conv2D(gridsize**2, (3, 3), padding='same')(x1)
-decoded1 = Conv2D(1, (3, 3), padding='same')(x1)
-decoded1 = Lambda(lambda x: sigmoid(x), name='amp')(decoded1)
+class Conv_Up_block(tf.keras.layers.Layer):
+    def __init__(self, nfilters, w1=3, w2=3, p1=2, p2=2, padding='same', data_format='channels_last', activation='relu'):
+        super(Conv_Up_block, self).__init__()
+        self.conv1 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
+        self.conv2 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)
+        self.up = UpSampling2D((p1, p2), data_format=data_format)
 
-##Decoding arm for phase
-#x2=hh.Conv_Up_block(encoded,128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-#x2=hh.Conv_Up_block(x2,64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-##x2=Conv_Up_block(x2,32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+    def call(self, inputs):
+        x = self.conv1(inputs)
+        x = self.conv2(x)
+        return self.up(x)
 
-#Decoding arm for phase
-x2=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-x2=hh.Conv_Up_block(x2,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
+class Encoder(tf.keras.layers.Layer):
+    def __init__(self, n_filters_scale):
+        super(Encoder, self).__init__()
+        self.block1 = Conv_Pool_block(n_filters_scale * 32)
+        self.block2 = Conv_Pool_block(n_filters_scale * 64)
+        self.block3 = Conv_Pool_block(n_filters_scale * 128)
 
-if p.get('object.big'):
-    decoded2 = Conv2D(gridsize**2, (3, 3), padding='same')(x2)
-else:
-    decoded2 = Conv2D(1, (3, 3), padding='same')(x2)
-decoded2 = Lambda(lambda x: math.pi * tanh(x), name='phi')(decoded2)
+    def call(self, inputs):
+        x = self.block1(inputs)
+        x = self.block2(x)
+        return self.block3(x)
 
-###Decoding arm for probe
-#x3=hh.Conv_Up_block(encoded,n_filters_scale * 128,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-#x3=hh.Conv_Up_block(x3,n_filters_scale * 64,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-##x3=hh.Conv_Up_block(x3,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last')
-#decoded3 = Conv2D(gridsize**2, (3, 3), padding='same')(x3)
-#probe_amp = Lambda(lambda x: sigmoid(x))(decoded3)
-#probe_amp_channels = tfkl.ZeroPadding2D((N // 4, N // 4), name='probe_amp')(probe_amp)
-#probe_amp_flat = hh._channel_to_flat(probe_amp_channels)
+class DecoderAmp(tf.keras.layers.Layer):
+    def __init__(self, n_filters_scale):
+        super(DecoderAmp, self).__init__()
+        self.block1 = Conv_Up_block(n_filters_scale * 128)
+        self.block2 = Conv_Up_block(n_filters_scale * 64)
+        self.conv = Conv2D(1, (3, 3), padding='same')
+        self.final_act = Lambda(lambda x: sigmoid(x), name='amp')
 
-# 2048, 128, 2 * gridsize**2. Batch normalization before ReLU?
-#tf.keras.layers.Flatten(input_shape=(),name='Flatten'),
-#tf.keras.layers.Dense(4096,activation='relu',name='fc1'),
-#tf.keras.layers.Dense(4096,activation='relu',name='fc2'),
+    def call(self, inputs):
+        x = self.block1(inputs)
+        x = self.block2(x)
+        x = self.conv(x)
+        return self.final_act(x)
+
+class DecoderPhase(tf.keras.layers.Layer):
+    def __init__(self, n_filters_scale, gridsize, big):
+        super(DecoderPhase, self).__init__()
+        self.block1 = Conv_Up_block(n_filters_scale * 128)
+        self.block2 = Conv_Up_block(n_filters_scale * 64)
+        self.conv = Conv2D(gridsize**2 if big else 1, (3, 3), padding='same')
+        self.final_act = Lambda(lambda x: math.pi * tanh(x), name='phi')
+
+    def call(self, inputs):
+        x = self.block1(inputs)
+        x = self.block2(x)
+        x = self.conv(x)
+        return self.final_act(x)
+
+class AutoEncoder(Model):
+    def __init__(self, n_filters_scale, gridsize, big):
+        super(AutoEncoder, self).__init__()
+        self.encoder = Encoder(n_filters_scale)
+        self.decoder_amp = DecoderAmp(n_filters_scale)
+        self.decoder_phase = DecoderPhase(n_filters_scale, gridsize, big)
+
+    def call(self, inputs):
+        encoded = self.encoder(inputs)
+        decoded_amp = self.decoder_amp(encoded)
+        decoded_phase = self.decoder_phase(encoded)
+        return decoded_amp, decoded_phase
+
+
+autoencoder = AutoEncoder(n_filters_scale, gridsize, p.get('object.big'))
+decoded1, decoded2 = autoencoder(normed_input)
 
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]),
                      name='obj')([decoded1, decoded2])
@@ -187,7 +220,6 @@ else:
 trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 #obj_entire_region = Lambda(lambda x: hh.trim_reconstruction(x, N + offset * (gridsize - 1)),
 #    name = 'obj_entire_region')(padded_obj_2)
-## TODO use tf.slice to avoid memory copies
 #trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(obj_entire_region)
 
 # Extract overlapping regions of the object

@@ -488,18 +488,18 @@ def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
         True, gridsize = M, offset = offset)
     return obj_recon
 
-def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
-    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
-    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
-    x0 = MaxPool2D((p1, p2), padding=padding, data_format=data_format)(x0)
-    return x0
-
-def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last',
-        activation = 'relu'):
-    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
-    x0 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)(x0)
-    x0 = UpSampling2D((p1, p2), data_format=data_format)(x0)
-    return x0
+#def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
+#    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
+#    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
+#    x0 = MaxPool2D((p1, p2), padding=padding, data_format=data_format)(x0)
+#    return x0
+#
+#def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last',
+#        activation = 'relu'):
+#    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
+#    x0 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)(x0)
+#    x0 = UpSampling2D((p1, p2), data_format=data_format)(x0)
+#    return x0
 
 ########
 ## Loss functions
