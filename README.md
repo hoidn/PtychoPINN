@@ -6,9 +6,9 @@ This repository contains the codebase for the methods presented in the paper "[P
 The repository hosts the TensorFlow 2 implementation of PtychoPINN, an unsupervised physics-informed neural network reconstruction method designed to facilitate real-time imaging by bypassing the resolution limitations of optics. PtychoPINN leverages deep learning for faster reconstruction and augments its performance by integrating the diffraction forward map with real-space constraints from overlapping measurements.
 
 ## Key Features
-- **Unsupervised learning**: There is no need for extensive labeled training data, making the model more practical in real-world settings.
-- **Enhanced performance**: PtychoPINN outperforms existing deep learning models in terms of reconstruction quality, evidenced by a 10 dB PSNR increase and a 3- to 6-fold gain in linear resolution.
-- **Scalability and Speed**: PtychoPINN offers a 1000 times speedup in reconstruction, enabling its application in high-throughput environments such as X-ray free electron lasers (XFELs) and diffraction-limited light sources.
+- **Unsupervised / self-supervised learning**: There is no need for extensive labeled training data, making the model more practical to train.
+- **Enhanced performance**: PtychoPINN outperforms existing deep learning models for ptychographic reconstruction in terms of image quality, evidenced by a 10 dB PSNR increase and a 3- to 6-fold gain in linear resolution.
+- **Scalability and Speed**: PtychoPINN is three orders of magnitude faster than iterative scanning CDI reconstruction.
 
 
 TODOs
