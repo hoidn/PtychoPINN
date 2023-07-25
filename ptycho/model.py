@@ -1,4 +1,3 @@
-
 # TODO s
 # - batch normalization?
 # - complex convolution
@@ -15,7 +14,6 @@ from tensorflow.keras import Input
 from tensorflow.keras import Model
 from tensorflow.keras.activations import relu, sigmoid, tanh
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense
-from tensorflow.keras.layers import Lambda
 from tensorflow.keras import layers
 import glob
 import math
@@ -302,8 +300,6 @@ class Maps(Layer):
 
 autoencoder0 = AutoEncoder(n_filters_scale, gridsize, p.get('object.big'))
 
-#mapped = apply_maps(normed_input, autoencoder0, h, w, input_positions)
-#pred_amp_scaled, trimmed_obj, padded_obj, pred_diff, obj, flat_illuminated, probe = mapped#(normed_input)
 mapped = Maps(autoencoder0, h, w)
 pred_amp_scaled, trimmed_obj, padded_obj, pred_diff, obj, probe,\
             flat_illuminated, padded_obj = mapped([input_img, input_positions])
