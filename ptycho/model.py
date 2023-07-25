@@ -219,7 +219,7 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.layers import Layer
 
 class Maps(Layer):
-    def __init__(self, autoencoder, h, w, probe_mask, initial_probe_guess, **kwargs):
+    def __init__(self, autoencoder, h, w, **kwargs):
         # Initialize the Maps layer with necessary parameters
         super(Maps, self).__init__(**kwargs)
         self.autoencoder = autoencoder
@@ -227,24 +227,31 @@ class Maps(Layer):
         self.p = p
         self.h = h
         self.w = w
-        self.logscale = log_scale
-        self.initial_probe_guess = initial_probe_guess
-        self.probe_mask = probe_mask
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "autoencoder": self.autoencoder,
+            "gridsize": self.gridsize,
+            "p": self.p,
+            "h": self.h,
+            "w": self.w,
+        })
+        return config
 
     def scale(self, inputs):
         x, = inputs
-        res = x / tf.math.exp(self.logscale)
+        res = x / tf.math.exp(log_scale)
         return res
 
     def inv_scale(self, inputs):
         x, = inputs
-        return tf.math.exp(self.logscale) * x
+        return tf.math.exp(log_scale) * x
 
     def probe_illumination(self, inputs):
         x, = inputs
         # TODO total variation loss
-        res = self.initial_probe_guess * x * self.probe_mask, (self.initial_probe_guess * self.probe_mask)[None, ...]
+        res = initial_probe_guess * x * probe_mask, (initial_probe_guess * probe_mask)[None, ...]
         return res
 
     def call(self, inputs):
@@ -297,7 +304,7 @@ autoencoder0 = AutoEncoder(n_filters_scale, gridsize, p.get('object.big'))
 
 #mapped = apply_maps(normed_input, autoencoder0, h, w, input_positions)
 #pred_amp_scaled, trimmed_obj, padded_obj, pred_diff, obj, flat_illuminated, probe = mapped#(normed_input)
-mapped = Maps(autoencoder0, h, w, probe_mask, initial_probe_guess)
+mapped = Maps(autoencoder0, h, w)
 pred_amp_scaled, trimmed_obj, padded_obj, pred_diff, obj, probe,\
             flat_illuminated, padded_obj = mapped([input_img, input_positions])
 
