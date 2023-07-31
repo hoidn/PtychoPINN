@@ -40,8 +40,6 @@ wt_path = 'wts4.1'
 
 n_filters_scale =  p.get('n_filters_scale')
 N = p.get('N')
-w = p.get('w')
-h = p.get('h')
 gridsize = p.get('gridsize')
 offset = p.get('offset')
 
@@ -105,7 +103,7 @@ for file in files:
     os.remove(file)
 
 lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
-input_img = Input(shape=(h, w, gridsize**2), name = 'input')
+input_img = Input(shape=(N, N, gridsize**2), name = 'input')
 input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
 
 #logscaler = LogScaler()
@@ -217,14 +215,13 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.layers import Layer
 
 class Maps(Layer):
-    def __init__(self, autoencoder, h, w, **kwargs):
+    def __init__(self, autoencoder, N, **kwargs):
         # Initialize the Maps layer with necessary parameters
         super(Maps, self).__init__(**kwargs)
         self.autoencoder = autoencoder
         self.gridsize = gridsize
         self.p = p
-        self.h = h
-        self.w = w
+        self.N = N
 
     def get_config(self):
         config = super().get_config()
@@ -232,8 +229,7 @@ class Maps(Layer):
             "autoencoder": self.autoencoder,
             "gridsize": self.gridsize,
             "p": self.p,
-            "h": self.h,
-            "w": self.w,
+            "N": self.N,
         })
         return config
 
@@ -264,7 +260,7 @@ class Maps(Layer):
         obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
 
         # Pad the output object
-        padded_obj = tfkl.ZeroPadding2D(((self.h // 4), (self.w // 4)), name = 'padded_obj')(obj)
+        padded_obj = tfkl.ZeroPadding2D(((self.N // 4), (self.N // 4)), name = 'padded_obj')(obj)
 
         # Check the 'object.big' parameter to perform conditional logic
         if self.p.get('object.big'):
@@ -285,7 +281,7 @@ class Maps(Layer):
         flat_illuminated = padded_objs_with_offsets
 
         # Apply pad and diffract operation
-        padded_objs_with_offsets, pred_diff = Lambda(lambda x: hh.pad_and_diffract(x, self.h, self.w, pad=False), name = 'pred_amplitude')(padded_objs_with_offsets)
+        padded_objs_with_offsets, pred_diff = Lambda(lambda x: hh.pad_and_diffract(x, self.N, self.N, pad=False), name = 'pred_amplitude')(padded_objs_with_offsets)
 
 
         # Reshape
@@ -300,7 +296,7 @@ class Maps(Layer):
 
 autoencoder0 = AutoEncoder(n_filters_scale, gridsize, p.get('object.big'))
 
-mapped = Maps(autoencoder0, h, w)
+mapped = Maps(autoencoder0, N)
 pred_amp_scaled, trimmed_obj, padded_obj, pred_diff, obj, probe,\
             flat_illuminated, padded_obj = mapped([input_img, input_positions])
 
