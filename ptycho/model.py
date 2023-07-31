@@ -134,50 +134,75 @@ class Conv_Up_block(tf.keras.layers.Layer):
         x = self.conv2(x)
         return self.up(x)
 
+class Conv_Space_block(tf.keras.layers.Layer):
+    def __init__(self, nfilters, w1=3, w2=3, p1=2, p2=2, padding='same', data_format='channels_last', activation='relu'):
+        super(Conv_Space_block, self).__init__()
+        self.conv1 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
+        self.conv2 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)
+        self.up = Lambda(lambda x: tf.nn.depth_to_space(x, 2))
+
+    def call(self, inputs):
+        x = self.conv1(inputs)
+        x = self.conv2(x)
+        return self.up(x)
+
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, n_filters_scale):
         super(Encoder, self).__init__()
-        #self.block0 = Conv_Pool_block(n_filters_scale * 16)
+        self.block0 = Conv_Pool_block(n_filters_scale * 16)
         self.block1 = Conv_Pool_block(n_filters_scale * 32)
         self.block2 = Conv_Pool_block(n_filters_scale * 64)
         self.block3 = Conv_Pool_block(n_filters_scale * 128)
 
     def call(self, inputs):
+        skip = []
         x = inputs
-        #x = self.block0(x)
+        x = self.block0(x)
         x = self.block1(x)
+        skip.append(x)
         x = self.block2(x)
-        return self.block3(x)
+        skip.append(x)
+        return self.block3(x), skip
+
 
 class DecoderAmp(tf.keras.layers.Layer):
     def __init__(self, n_filters_scale):
         super(DecoderAmp, self).__init__()
         self.block1 = Conv_Up_block(n_filters_scale * 128)
         self.block2 = Conv_Up_block(n_filters_scale * 64)
-        #self.block3 = Conv_Up_block(n_filters_scale * 32)
+        self.block3 = Conv_Up_block(n_filters_scale * 32)
+        #self.block3 = Lambda(lambda x: tf.nn.depth_to_space(x, 2))
         self.conv = Conv2D(1, (3, 3), padding='same')
         self.final_act = Lambda(lambda x: sigmoid(x), name='amp')
 
     def call(self, inputs):
-        x = self.block1(inputs)
+        x, skip = inputs
+        x = self.block1(x)
+        x = tf.concat([x, skip[-1]], -1)
         x = self.block2(x)
-        #x = self.block3(x)
+        x = tf.concat([x, skip[-2]], -1)
+        x = self.block3(x)
         x = self.conv(x)
         return self.final_act(x)
+
 
 class DecoderPhase(tf.keras.layers.Layer):
     def __init__(self, n_filters_scale, gridsize, big):
         super(DecoderPhase, self).__init__()
         self.block1 = Conv_Up_block(n_filters_scale * 128)
         self.block2 = Conv_Up_block(n_filters_scale * 64)
-        #self.block3 = Conv_Up_block(n_filters_scale * 32)
+        self.block3 = Conv_Up_block(n_filters_scale * 32)
+        #self.block3 = Lambda(lambda x: tf.nn.depth_to_space(x, 2))
         self.conv = Conv2D(gridsize**2 if big else 1, (3, 3), padding='same')
         self.final_act = Lambda(lambda x: math.pi * tanh(x), name='phi')
 
     def call(self, inputs):
-        x = self.block1(inputs)
+        x, skip = inputs
+        x = self.block1(x)
+        x = tf.concat([x, skip[-1]], -1)
         x = self.block2(x)
-        #x = self.block3(x)
+        x = tf.concat([x, skip[-2]], -1)
+        x = self.block3(x)
         x = self.conv(x)
         return self.final_act(x)
 
@@ -189,9 +214,9 @@ class AutoEncoder(Model):
         self.decoder_phase = DecoderPhase(n_filters_scale, gridsize, big)
 
     def call(self, inputs):
-        encoded = self.encoder(inputs)
-        decoded_amp = self.decoder_amp(encoded)
-        decoded_phase = self.decoder_phase(encoded)
+        encoded, skip = self.encoder(inputs)
+        decoded_amp = self.decoder_amp([encoded, skip])
+        decoded_phase = self.decoder_phase([encoded, skip])
         return decoded_amp, decoded_phase
 
 
