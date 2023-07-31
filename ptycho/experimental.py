@@ -13,8 +13,7 @@ path = '.'
 sys.path.append(path)
 sys.path.append('PtychoNN/TF2/')
 
-h = w = N = 64
-assert h == w
+N = 64
 ### Read experimental diffraction data and reconstructed images
 
 data_diffr = np.load(path+'/PtychoNN/data/20191008_39_diff.npz')['arr_0']
@@ -93,8 +92,8 @@ def get_full_experimental(which):
     return YY_I, YY_phi
 
 
-X_train = data_diffr_red[:nlines,:].reshape(-1,h,w)[:,:,:,np.newaxis]
-X_test = data_diffr_red[tst_strt:,tst_strt:].reshape(-1,h,w)[:,:,:,np.newaxis]
+X_train = data_diffr_red[:nlines,:].reshape(-1,N,N)[:,:,:,np.newaxis]
+X_test = data_diffr_red[tst_strt:,tst_strt:].reshape(-1,N,N)[:,:,:,np.newaxis]
 Y_I_train = amp[:nlines,:]#.reshape(-1,h,w)[:,:,:,np.newaxis]
 Y_I_test = amp[tst_strt:,tst_strt:]#.reshape(-1,h,w)[:,:,:,np.newaxis]
 Y_phi_train = ph[:nlines,:]#.reshape(-1,h,w)[:,:,:,np.newaxis]

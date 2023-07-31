@@ -6,7 +6,7 @@ cfg = {
     'N': 64, 'offset': 4, 'gridsize': 2,
     #'outer_offset_train': 4, 'outer_offset_test': 4,
     'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16,
-    'nepochs': 60, 'h': 64, 'w': 64, 'n_filters_scale': 2, 'output_prefix': 'outputs',
+    'nepochs': 60, 'n_filters_scale': 2, 'output_prefix': 'outputs',
     'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.,
     'default_probe_scale': 0.7, 'mae_weight': 0., 'nll_weight': 1.,
     'sim_nphotons': 1e9, 'nsegments': 37,# TODO parameterize
