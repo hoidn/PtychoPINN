@@ -19,7 +19,6 @@ import glob
 import math
 import numpy as np
 import os
-#import tensorflow as tf
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
@@ -138,12 +137,15 @@ class Conv_Up_block(tf.keras.layers.Layer):
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, n_filters_scale):
         super(Encoder, self).__init__()
+        #self.block0 = Conv_Pool_block(n_filters_scale * 16)
         self.block1 = Conv_Pool_block(n_filters_scale * 32)
         self.block2 = Conv_Pool_block(n_filters_scale * 64)
         self.block3 = Conv_Pool_block(n_filters_scale * 128)
 
     def call(self, inputs):
-        x = self.block1(inputs)
+        x = inputs
+        #x = self.block0(x)
+        x = self.block1(x)
         x = self.block2(x)
         return self.block3(x)
 
@@ -152,12 +154,14 @@ class DecoderAmp(tf.keras.layers.Layer):
         super(DecoderAmp, self).__init__()
         self.block1 = Conv_Up_block(n_filters_scale * 128)
         self.block2 = Conv_Up_block(n_filters_scale * 64)
+        #self.block3 = Conv_Up_block(n_filters_scale * 32)
         self.conv = Conv2D(1, (3, 3), padding='same')
         self.final_act = Lambda(lambda x: sigmoid(x), name='amp')
 
     def call(self, inputs):
         x = self.block1(inputs)
         x = self.block2(x)
+        #x = self.block3(x)
         x = self.conv(x)
         return self.final_act(x)
 
@@ -166,12 +170,14 @@ class DecoderPhase(tf.keras.layers.Layer):
         super(DecoderPhase, self).__init__()
         self.block1 = Conv_Up_block(n_filters_scale * 128)
         self.block2 = Conv_Up_block(n_filters_scale * 64)
+        #self.block3 = Conv_Up_block(n_filters_scale * 32)
         self.conv = Conv2D(gridsize**2 if big else 1, (3, 3), padding='same')
         self.final_act = Lambda(lambda x: math.pi * tanh(x), name='phi')
 
     def call(self, inputs):
         x = self.block1(inputs)
         x = self.block2(x)
+        #x = self.block3(x)
         x = self.conv(x)
         return self.final_act(x)
 

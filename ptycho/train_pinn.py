@@ -3,7 +3,7 @@ from ptycho import params, model
 
 # data parameters
 offset = params.cfg['offset']
-h = w = N = params.cfg['N']
+N = params.cfg['N']
 gridsize = params.cfg['gridsize']
 jitter_scale = params.params()['sim_jitter_scale']
 

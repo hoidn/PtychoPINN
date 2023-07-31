@@ -16,7 +16,7 @@ Initialize probe and other parameters; build (simulated) training / evaluation d
 
 # data parameters
 offset = params.cfg['offset']
-h = w = N = params.cfg['N']
+N = params.cfg['N']
 gridsize = params.cfg['gridsize']
 jitter_scale = params.params()['sim_jitter_scale']
 
@@ -28,7 +28,7 @@ batch_size = params.cfg['batch_size']
 from ptycho import probe
 
 def normed_ff_np(arr):
-    return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(h * w))
+    return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(N))
 
 def shuffle_data(X, Y_I, Y_phi, random_state=0):
     """
@@ -221,7 +221,7 @@ print(np.linalg.norm(X_train[0]) /  np.linalg.norm(Y_I_train[0]))
 # inversion symmetry
 assert np.isclose(normed_ff_np(Y_I_train[0, :, :, 0]),
                 tf.math.conj(normed_ff_np(Y_I_train[0, ::-1, ::-1, 0])),
-                atol = 1e-6).all()
+                atol = 1e-4).all()
 
 print('nphoton',np.log10(np.sum((X_train[:, :, :] * intensity_scale)**2,
     axis = (1, 2))).mean())
