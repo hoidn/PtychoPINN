@@ -44,27 +44,16 @@ def stack(a1, a2):
 
 def augment_inversion(Y_I_train, Y_phi_train):
     phi = stack(Y_phi_train, -Y_phi_train)
-#     phi_off = np.random.uniform(size = phi.size).reshape(phi.shape)
-#     phi = np.mod(phi + phi_off)
     return stack(Y_I_train, Y_I_train[:, ::-1, ::-1, :]), stack(Y_phi_train, -Y_phi_train)
 
-from ptycho.misc import memoize_disk_and_memory
-#@memoize_disk_and_memory
-#def preprocess_experimental(which, outer_offset):
-#    """
-#    Returns (normalized) amplitude and phase for n generated objects
-#    """
-#    if which == 'train':
-#        YY_I = inverted_patches_I[:, :train_size, :train_size, :]
-#        YY_phi = inverted_patches_phi[:, :train_size, :train_size, :]
-#    elif which == 'test':
-#        YY_I = inverted_patches_I[:, -test_size:, -test_size:, :]
-#        YY_phi = inverted_patches_phi[:, -test_size:, -test_size:, :]
-#    else:
-#        raise ValueError
-#    #pdb.set_trace()
-#    return (YY_I, YY_phi), hh.preprocess_objects(YY_I, YY_phi,
-#        outer_offset = outer_offset)
+def reconstruct_object(data4d, scan_grid_offset):
+    """
+    Given a 4d object patches, reconstruct the whole object
+    """
+    hh.extract_patches_inverse(
+       data4d.reshape((data4d.shape[0], data4d.shape[1], -1))[None, ...],
+       N, True, gridsize = data4d.shape[0],
+       offset = scan_grid_offset)
 
 from ptycho.misc import memoize_disk_and_memory
 @memoize_disk_and_memory
@@ -72,14 +61,8 @@ def get_full_experimental(which):
     """
     Returns (normalized) amplitude and phase for n generated objects
     """
-    inverted_patches_I = hh.extract_patches_inverse(
-           amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
-           N, True, gridsize = amp.shape[0],
-           offset = offset_experimental)
-    inverted_patches_phi = hh.extract_patches_inverse(
-           ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
-           N, True, gridsize = ph.shape[0],
-           offset = offset_experimental)
+    inverted_patches_I = reconstruct_object(amp, offset_experimental)
+    inverted_patches_phi = reconstruct_object(ph, offset_experimental)
     if which == 'train':
         YY_I = inverted_patches_I[:, :train_size, :train_size, :]
         YY_phi = inverted_patches_phi[:, :train_size, :train_size, :]
@@ -109,22 +92,8 @@ tmp1, tmp2 = Y_I_train, Y_I_test
 
 img = np.zeros((544, 544), dtype = 'float32')[None, ..., None]
 offset_experimental = 3
-#inverted_patches_I = hh.extract_patches_inverse(img, amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
-#                                               N, offset_experimental)
-#inverted_patches_phi = hh.extract_patches_inverse(img, ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
-#                                                 N, offset_experimental)
-
-#inverted_patches_I = hh.extract_patches_inverse(
-#       amp.reshape((amp.shape[0], amp.shape[1], -1))[None, ...],
-#       N, True, gridsize = amp.shape[0],
-#       offset = offset_experimental)
-#inverted_patches_phi = hh.extract_patches_inverse(
-#       ph.reshape((ph.shape[0], ph.shape[1], -1))[None, ...],
-#       N, True, gridsize = ph.shape[0],
-#       offset = offset_experimental)
 
 ## Recover shift between scan points
-
 def cross_image(im1, im2):
     # get rid of the color channels by performing a grayscale transform
     # the type cast into 'float' is to avoid overflows
