@@ -49,6 +49,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
+#https://chat.openai.com/c/8273412b-f3fb-405c-a7a4-c0466bb43b04
 def memoize_disk_and_memory(func):
     from ptycho.params import cfg
     memory_cache = {}
@@ -198,59 +199,6 @@ def memoize_disk_and_memory(func):
 #                    'data_source', 'gridsize', 'big_gridsize']
 #        hash_input = ''.join(str(cfg[k]) for k in cfg_keys if k in cfg)
 #        hash_hex = hashlib.sha1(hash_input.encode('utf-8')).hexdigest()
-#
-#        if hash_hex in memory_cache:
-#            print("Loading result from memory cache.")
-#            return memory_cache[hash_hex]
-#        else:
-#            disk_cache_file = os.path.join(disk_cache_dir, f'{hash_hex}.npz')
-#
-#            if os.path.exists(disk_cache_file):
-#                print("Loading result from disk cache.")
-#                loaded_data = np.load(disk_cache_file, allow_pickle=True)
-#                result = tuple(loaded_data[key] for key in loaded_data.keys())
-#                if len(result) == 1:
-#                    result = result[0]
-#            else:
-#                print("No cached result found. Calculating and caching the result.")
-#                result = func(*args, **kwargs)
-#
-#                if isinstance(result, (np.ndarray, tf.Tensor)):
-#                    np.savez(disk_cache_file, result=result.numpy() if isinstance(result, tf.Tensor) else result)
-#                elif isinstance(result, tuple):
-#                    np.savez(disk_cache_file, **{f'arr_{i}': arr.numpy() if isinstance(arr, tf.Tensor) else arr for i, arr in enumerate(result)})
-#                else:
-#                    raise ValueError("Invalid function output. Expected numpy array, TensorFlow tensor, or tuple containing numpy arrays and/or TensorFlow tensors.")
-#
-#                memory_cache[hash_hex] = result
-#
-#        return result
-#
-#    return wrapper
-#
-#import functools
-#import hashlib
-#import json
-#import os
-#import numpy as np
-#import tensorflow as tf
-#
-#def memoize_disk_and_memory(func):
-#    from ptycho.params import cfg
-#    memory_cache = {}
-#    disk_cache_dir = 'memoized_data'
-#
-#    if not os.path.exists(disk_cache_dir):
-#        os.makedirs(disk_cache_dir)
-#
-#    # TODO probe
-#    @functools.wraps(func)
-#    def wrapper(*args, **kwargs):
-#        cfg_keys = ['offset', 'N', 'bigoffset', 'sim_nphotons', 'nimgs_train', 'nimgs_test',
-#                    'data_source', 'gridsize', 'big_gridsize']
-#        hash_input = {k: cfg[k] for k in cfg_keys if k in cfg}
-#        hash_input_str = json.dumps(hash_input, sort_keys=True).encode('utf-8')
-#        hash_hex = hashlib.sha1(hash_input_str).hexdigest()
 #
 #        if hash_hex in memory_cache:
 #            print("Loading result from memory cache.")

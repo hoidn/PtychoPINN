@@ -5,7 +5,6 @@ import numpy as np
 import scipy.signal
 import sys
 
-#from . import physics
 from . import tf_helper as hh
 
 path = '.'
