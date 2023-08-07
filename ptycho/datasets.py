@@ -6,7 +6,6 @@ import numpy as np
 import tensorflow as tf
 
 from . import fourier as f
-#from . import physics
 from . import tf_helper as hh
 from . import params as p
 
