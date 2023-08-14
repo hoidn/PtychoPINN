@@ -24,7 +24,7 @@ def observe_amplitude(amplitude):
     return tf.sqrt((hh.tfd.Independent(hh.tfd.Poisson(amplitude**2))).sample())# + 0.5
 
 def count_photons(obj):
-    return tf.math.reduce_sum(obj**2, (1, 2, 3))
+    return tf.math.reduce_sum(obj**2, (1, 2))
 
 def scale_nphotons(padded_obj):
     """
@@ -37,12 +37,10 @@ def scale_nphotons(padded_obj):
     norm = tf.math.sqrt(nphotons / mean_photons)
     return norm
 
-
 def diffract_obj(sample, draw_poisson = True):
     # run ff diffraction
-    h = p.get('h')
-    w = p.get('w')
-    amplitude = hh.pad_and_diffract(sample, h, w, pad=False)[1]
+    N = p.get('N')
+    amplitude = hh.pad_and_diffract(sample, N, N, pad=False)[1]
 #     return amplitude
     # sample from Poisson observation likelihood
     if draw_poisson:
