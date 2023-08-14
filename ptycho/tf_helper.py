@@ -36,8 +36,6 @@ def combine_complex(amp, phi):
 def pad_obj(input, h, w):
     return tfkl.ZeroPadding2D((h // 4, w // 4), name = 'padded_obj')(input)
 
-# TODO nested lambdas?
-#@tf.function
 def pad_and_diffract(input, h, w, pad = True):
     """
     zero-pad the real-space object and then calculate the far field
