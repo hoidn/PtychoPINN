@@ -82,31 +82,40 @@ from ptycho import model
 from ptycho.evaluation import save_metrics
 
 if model_type == 'pinn':
-    from ptycho.train_pinn import history, reconstructed_obj, pred_amp, stitched_obj
+    from ptycho.train_pinn import history, reconstructed_obj, pred_amp
 elif model_type == 'supervised':
-    from ptycho.train_supervised import history, reconstructed_obj, stitched_obj
+    from ptycho.train_supervised import history, reconstructed_obj
 
 #def show_groundtruth():
 #    plt.imshow(np.absolute(YY_test_full[0, clipleft: -clipright, clipleft: -clipright]),
 #               interpolation='none', cmap='jet')
 
-plt.imsave(out_prefix + 'amp_recon.png', np.absolute(stitched_obj[0][:, :, 0]), cmap='jet')
-plt.imsave(out_prefix + 'phi_recon.png', np.angle(stitched_obj[0][:, :, 0]), cmap='jet')
 
-plt.imsave(out_prefix + 'amp_orig.png',
-           np.absolute(YY_ground_truth[:, :, 0]),
-           cmap='jet')
-plt.imsave(out_prefix + 'phi_orig.png',
-           np.angle(YY_ground_truth[:, :, 0]),
-           cmap='jet')
+try:
+    if model_type == 'pinn':
+        from ptycho.train_pinn import stitched_obj
+    elif model_type == 'supervised':
+        from ptycho.train_supervised import stitched_obj
+    plt.imsave(out_prefix + 'amp_orig.png',
+               np.absolute(YY_ground_truth[:, :, 0]),
+               cmap='jet')
+    plt.imsave(out_prefix + 'phi_orig.png',
+               np.angle(YY_ground_truth[:, :, 0]),
+               cmap='jet')
+    plt.imsave(out_prefix + 'amp_recon.png', np.absolute(stitched_obj[0][:, :, 0]), cmap='jet')
+    plt.imsave(out_prefix + 'phi_recon.png', np.angle(stitched_obj[0][:, :, 0]), cmap='jet')
 
-with open(out_prefix + '/recon.dill', 'wb') as f:
-    dill.dump(
-        {'stitched_obj_amp': np.absolute(stitched_obj[0][:, :, 0]),
-         'stitched_obj_phase': np.angle(stitched_obj[0][:, :, 0]),
-         'YY_ground_truth_amp': np.absolute(YY_ground_truth[:, :, 0]),
-         'YY_ground_truth_phi': np.angle(YY_ground_truth[:, :, 0])},
-        f)
+    with open(out_prefix + '/recon.dill', 'wb') as f:
+        dill.dump(
+            {'stitched_obj_amp': np.absolute(stitched_obj[0][:, :, 0]),
+             'stitched_obj_phase': np.angle(stitched_obj[0][:, :, 0]),
+             'YY_ground_truth_amp': np.absolute(YY_ground_truth[:, :, 0]),
+             'YY_ground_truth_phi': np.angle(YY_ground_truth[:, :, 0])},
+            f)
+
+    d = save_metrics(stitched_obj, YY_ground_truth, label = label)
+except ImportError as e:
+    print('object stitching failed. No images will be saved.')
 
 with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
@@ -122,4 +131,3 @@ if save_data:
              'Y_phi_test': Y_phi_test,
              'X_test': X_test}, f)
 
-d = save_metrics(stitched_obj, YY_ground_truth, label = label)

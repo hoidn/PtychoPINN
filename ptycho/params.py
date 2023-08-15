@@ -4,7 +4,6 @@ Stores global variables for data generation and model configuration
 # TODO naming convention for different types of parameters
 cfg = {
     'N': 64, 'offset': 4, 'gridsize': 2,
-    #'outer_offset_train': 4, 'outer_offset_test': 4,
     'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16,
     'nepochs': 60, 'n_filters_scale': 2, 'output_prefix': 'outputs',
     'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.,
@@ -43,7 +42,7 @@ def params():
 
 def validate():
     assert cfg['data_source'] in ['lines', 'grf', 'experimental', 'points',
-        'testimg', 'diagonals']
+        'testimg', 'diagonals', 'xpp']
     #assert cfg['bigoffset'] % 4 == 0
     # TODO
     return True

@@ -46,17 +46,36 @@ from . import probe
 tprobe = params()['probe']
 probe_mask = probe.probe_mask#params()['probe_mask']
 initial_probe_guess = tprobe
+print('PROBE TRAINABLE', params()['probe.trainable'])
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],
         )
+
+# TODO hyperparameters:
+# -probe smoothing scale(?)
+class ProbeIllumination(tf.keras.layers.Layer):
+    def __init__(self, name = None):
+        super(ProbeIllumination, self).__init__(name = name)
+        self.w = initial_probe_guess
+    def call(self, inputs):
+        x, = inputs
+        # TODO total variation loss
+        return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
+        #return probe_mask * x * hh.anti_alias_complex(self.w)
+        #return gaussian_filter2d(self.w, sigma = 0.8) * x * probe_mask, (self.w * probe_mask)[None, ...]
+        #return hh.anti_alias_complex(self.w) * x * probe_mask, (self.w * probe_mask)[None, ...]
+
+probe_illumination = ProbeIllumination()
 
 nphotons = p.get('sim_nphotons')
 # TODO scaling could be done on a shot-by-shot basis, but IIRC I tried this
 # and there were issues
 # TODO for robustness, it might be worth trying to logarithmically scale the
 # photon counts
-log_scale_guess = np.log(np.sqrt(nphotons) / 12.4)
+
+#log_scale_guess = np.log(np.sqrt(nphotons) / 12.4)
+log_scale_guess = np.log(p.get('intensity_scale'))
 log_scale = tf.Variable(
             initial_value=tf.constant(float(log_scale_guess)),
             trainable = params()['intensity_scale.trainable'],
@@ -79,6 +98,15 @@ class IntensityScaler_inv(tf.keras.layers.Layer):
     def call(self, inputs):
         x, = inputs
         return tf.math.exp(self.w) * x
+
+def scale(inputs):
+    x, = inputs
+    res = x / tf.math.exp(log_scale)
+    return res
+
+def inv_scale(inputs):
+    x, = inputs
+    return tf.math.exp(log_scale) * x
 
 #class LogScaler(tf.keras.layers.Layer):
 #    def __init__(self):
@@ -218,93 +246,46 @@ class PositionEncoder(Model):
 
 from tensorflow.keras.layers import Layer
 
-from tensorflow.keras.layers import Layer
+nn_map = AutoEncoder(n_filters_scale, gridsize, p.get('object.big'))
 
-class Maps(Layer):
-    def __init__(self, autoencoder, N, **kwargs):
-        # Initialize the Maps layer with necessary parameters
-        super(Maps, self).__init__(**kwargs)
-        self.autoencoder = autoencoder
-        self.gridsize = gridsize
-        self.p = p
-        self.N = N
+normed_input = scale([input_img])
 
-    def get_config(self):
-        config = super().get_config()
-        config.update({
-            "autoencoder": self.autoencoder,
-            "gridsize": self.gridsize,
-            "p": self.p,
-            "N": self.N,
-        })
-        return config
+# Get the decoded outputs from the AutoEncoder
+decoded1, decoded2 = nn_map(normed_input)
 
-    def scale(self, inputs):
-        x, = inputs
-        res = x / tf.math.exp(log_scale)
-        return res
+# Combine the two decoded outputs
+obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
 
-    def inv_scale(self, inputs):
-        x, = inputs
-        return tf.math.exp(log_scale) * x
+# Pad the output object
+padded_obj = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = 'padded_obj')(obj)
 
-    def probe_illumination(self, inputs):
-        x, = inputs
-        # TODO total variation loss
-        res = initial_probe_guess * x * probe_mask, (initial_probe_guess * probe_mask)[None, ...]
-        return res
+# Check the 'object.big' parameter to perform conditional logic
+if p.get('object.big'):
+    # If 'object.big' is true, reassemble the patches
+    padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name = 'padded_obj_2')([padded_obj, input_positions])
+else:
+    # If 'object.big' is not true, pad the reconstruction
+    padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x), name = 'padded_obj_2')(padded_obj)
 
-    def call(self, inputs):
-        normed_input = self.scale(inputs[:1])
-        input_positions = inputs[1]
-        # The call function will run every time the layer is called
+# Trim the object reconstruction
+trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 
-        # Get the decoded outputs from the AutoEncoder
-        decoded1, decoded2 = self.autoencoder(normed_input)
+# Extract overlapping regions of the object
+padded_objs_with_offsets = Lambda(lambda x: hh.extract_patches_position(x[0], x[1], 0.), name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
 
-        # Combine the two decoded outputs
-        obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
+# Apply the probe illumination
+padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
+flat_illuminated = padded_objs_with_offsets
 
-        # Pad the output object
-        padded_obj = tfkl.ZeroPadding2D(((self.N // 4), (self.N // 4)), name = 'padded_obj')(obj)
+# Apply pad and diffract operation
+padded_objs_with_offsets, pred_diff = Lambda(lambda x: hh.pad_and_diffract(x, N, N, pad=False), name = 'pred_amplitude')(padded_objs_with_offsets)
 
-        # Check the 'object.big' parameter to perform conditional logic
-        if self.p.get('object.big'):
-            # If 'object.big' is true, reassemble the patches
-            padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name = 'padded_obj_2')([padded_obj, input_positions])
-        else:
-            # If 'object.big' is not true, pad the reconstruction
-            padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x), name = 'padded_obj_2')(padded_obj)
+# Reshape
+pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels')(pred_diff)
 
-        # Trim the object reconstruction
-        trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
+# Scale the amplitude
+pred_amp_scaled = inv_scale([pred_diff])
 
-        # Extract overlapping regions of the object
-        padded_objs_with_offsets = Lambda(lambda x: hh.extract_patches_position(x[0], x[1], 0.), name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
-
-        # Apply the probe illumination
-        padded_objs_with_offsets, probe = self.probe_illumination([padded_objs_with_offsets])
-        flat_illuminated = padded_objs_with_offsets
-
-        # Apply pad and diffract operation
-        padded_objs_with_offsets, pred_diff = Lambda(lambda x: hh.pad_and_diffract(x, self.N, self.N, pad=False), name = 'pred_amplitude')(padded_objs_with_offsets)
-
-
-        # Reshape
-        pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels')(pred_diff)
-
-        # Scale the amplitude
-        pred_amp_scaled = self.inv_scale([pred_diff])
-
-        # Return the final result
-        return pred_amp_scaled, trimmed_obj, padded_obj, pred_diff, obj, probe,\
-            flat_illuminated, padded_obj
-
-autoencoder0 = AutoEncoder(n_filters_scale, gridsize, p.get('object.big'))
-
-mapped = Maps(autoencoder0, N)
-pred_amp_scaled, trimmed_obj, padded_obj, pred_diff, obj, probe,\
-            flat_illuminated, padded_obj = mapped([input_img, input_positions])
 
 # TODO Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
 dist_poisson_intensity = tfpl.DistributionLambda(lambda amplitude:
@@ -334,7 +315,6 @@ autoencoder.compile(optimizer='adam',
      loss_weights = [0., mae_weight, nll_weight, 0.])
 
 print (autoencoder.summary())
-print (autoencoder0.summary())
 
 # Create a TensorBoard callback
 logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
