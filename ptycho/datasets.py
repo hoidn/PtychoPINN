@@ -41,7 +41,6 @@ def diffract_obj(sample, draw_poisson = True):
     # run ff diffraction
     N = p.get('N')
     amplitude = hh.pad_and_diffract(sample, N, N, pad=False)[1]
-#     return amplitude
     # sample from Poisson observation likelihood
     if draw_poisson:
         observed_amp = observe_amplitude(amplitude)
