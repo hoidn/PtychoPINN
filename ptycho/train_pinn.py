@@ -25,4 +25,7 @@ else:
     reconstructed_obj, pred_amp, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
                                                                      coords_test_nominal])
 
-stitched_obj = reassemble(reconstructed_obj, part='complex')
+try:
+    stitched_obj = reassemble(reconstructed_obj, part='complex')
+except ValueError as e:
+    print('object stitching failed:', e)

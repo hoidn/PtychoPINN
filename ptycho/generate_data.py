@@ -139,15 +139,7 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
     else:
         outer_offset_test = params.cfg['outer_offset_test']
 
-#    big_gridsize = params.params()['big_gridsize'] = int(10 * 18 / outer_offset_train)
-#    # TODO
-#    size = 2 * outer_offset_train * (big_gridsize - 1) + bigN
     size = params.cfg['size']
-    #params.cfg['size'] = size
-    #size = 392
-
-#    # TODO move this to a more sensible place
-#    bordersize = (N - bigoffset / 2) / 2
 
     # simulate data
     np.random.seed(1)
@@ -203,6 +195,34 @@ elif params.params()['data_source'] == 'experimental':
         YY_I = YY_I, YY_phi = YY_phi)
     size = int(YY_test_full.shape[1])
 
+elif params.params()['data_source'] == 'xpp':
+    from ptycho import xpp
+    params.set('nimgs_train', 1)
+    params.set('nimgs_test', 1)
+#    if params.cfg['outer_offset_train'] is None:
+#        params.cfg['outer_offset_train'] = 4
+#
+#    if params.cfg['outer_offset_test'] is None:
+#        outer_offset_test = params.cfg['outer_offset_test'] = 20
+#    else:
+#        outer_offset_test = params.cfg['outer_offset_test']
+    outer_offset_test = params.cfg['outer_offset_test']
+    #bigN = N + (gridsize - 1) * offset
+
+    # TODO set the probe
+    (X_train, Y_I_train, Y_phi_train,
+        intensity_scale, YY_train_full, _,
+        (coords_train_nominal, coords_train_true)) =\
+        xpp.load('train')
+
+    params.cfg['intensity_scale'] = intensity_scale
+
+    (X_test, Y_I_test, Y_phi_test,
+        _, YY_test_full, norm_Y_I_test,
+        (coords_test_nominal, coords_test_true)) =\
+        xpp.load('test')
+    #size = int(YY_test_full.shape[1])
+
 else:
     raise ValueError
 
@@ -232,5 +252,6 @@ if params.params()['probe.trainable']:
 
 
 # TODO rename / refactor
-YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
-YY_ground_truth = YY_ground_truth_all[0, ...]
+if params.get('outer_offset_train') is not None:
+    YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
+    YY_ground_truth = YY_ground_truth_all[0, ...]

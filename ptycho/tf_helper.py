@@ -39,7 +39,9 @@ def pad_obj(input, h, w):
 def pad_and_diffract(input, h, w, pad = True):
     """
     zero-pad the real-space object and then calculate the far field
-    diffraction amplitude
+    diffraction amplitude.
+
+    Uses sysmmetric FT - L2 norm is conserved
     """
     print('input shape', input.shape)
     if pad:
