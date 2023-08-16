@@ -269,6 +269,9 @@ def pad_patches(imgs, padded_size):
     padded_size = get_padded_size()
     return tfkl.ZeroPadding2D(((padded_size - N) // 2, (padded_size - N) // 2))(imgs)
 
+def pad(imgs, size):
+    return tfkl.ZeroPadding2D((size, size))(imgs)
+
 def trim_reconstruction(x, N = None):
     """
     Trim from shape (_, M, M, _) to (_, N, N, _), where M >= N
@@ -288,6 +291,7 @@ def trim_reconstruction(x, N = None):
     return x[:, clipsize: -clipsize,
             clipsize: -clipsize, :]
 
+# TODO assert translation isn't too big
 def extract_patches_position(imgs, offsets_xy, jitter = 0.):
     """
     Expects offsets_xy in channel format.
@@ -419,12 +423,12 @@ def mk_reassemble_position_real(input_positions, **outer_kwargs):
             **outer_kwargs)
     return reassemble_patches_position_real
 
-def reassemble_patches_position(channels, offsets_xy,
-        average = False, **kwargs):
-    fn_reassemble_real = mk_reassemble_position_real(offsets_xy, **kwargs)
-    return reassemble_patches(channels,
-        fn_reassemble_real = fn_reassemble_real,
-        average = False)
+#def reassemble_patches_position(channels, offsets_xy,
+#        average = False, **kwargs):
+#    fn_reassemble_real = mk_reassemble_position_real(offsets_xy, **kwargs)
+#    return reassemble_patches(channels,
+#        fn_reassemble_real = fn_reassemble_real,
+#        average = False)
 
 def preprocess_objects(Y_I, Y_phi = None,
         offsets_xy = None, **kwargs):
@@ -487,6 +491,7 @@ def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
     obj_recon = complexify_function(extract_patches_inverse)(patches, cropN,
         True, gridsize = M, offset = offset)
     return obj_recon
+
 
 #def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
 #    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)

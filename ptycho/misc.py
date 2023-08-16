@@ -61,7 +61,7 @@ def memoize_disk_and_memory(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         cfg_keys = ['offset', 'N', 'outer_offset_train', 'outer_offset_test',
-                     'sim_nphotons', 'nimgs_train', 'nimgs_test', 'set_phi',
+                     'nphotons', 'nimgs_train', 'nimgs_test', 'set_phi',
                     'data_source', 'gridsize', 'big_gridsize', 'default_probe_scale']
         hash_input = {k: cfg[k] for k in cfg_keys if k in cfg}
         hash_input.update({f'arg_{i}': json.dumps(arg, default=str) for i, arg in enumerate(args)})

@@ -8,11 +8,11 @@ cfg = {
     'nepochs': 60, 'n_filters_scale': 2, 'output_prefix': 'outputs',
     'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.,
     'default_probe_scale': 0.7, 'mae_weight': 0., 'nll_weight': 1.,
-    'sim_nphotons': 1e9, 'nsegments': 37,# TODO parameterize
+    'nphotons': 1e9, 'nsegments': 37,# TODO parameterize
     'nimgs_train': 9, 'nimgs_test': 3,
     'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
-    'object.big': False, 'set_phi': False, 'model_type': 'pinn',
+    'object.big': False, 'set_phi': False, 'probe.mask': True, 'model_type': 'pinn',
     'label': '', 'size': 392
     }
 
