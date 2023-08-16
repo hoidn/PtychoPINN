@@ -78,12 +78,14 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
     plt.title('True diffraction')
     true_diffraction = np.log(X_test)[i, :, :, channel]
     plt.imshow(true_diffraction, cmap = 'jet')
+    plt.colorbar()
     heatmaps['true_diffraction'] = true_diffraction  # add to the dictionary
 
     plt.subplot(aa, bb, 8)
     plt.title('Recon diffraction')
     rec_diffraction = np.log(a)[i, :, :, channel]
     plt.imshow(rec_diffraction, cmap = 'jet')
+    plt.colorbar()
     heatmaps['rec_diffraction'] = rec_diffraction  # add to the dictionary
 
     return heatmaps

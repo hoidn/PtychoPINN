@@ -15,7 +15,7 @@ tfkl = tf.keras.layers
 # TODO
 N = 64
 
-nphotons = p.get('sim_nphotons')
+nphotons = p.get('nphotons')
 
 def observe_amplitude(amplitude):
     """
