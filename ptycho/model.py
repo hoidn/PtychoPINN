@@ -23,8 +23,8 @@ import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
 from . import tf_helper as hh
-from . import params as p
-params = p.params
+from . import params as cfg
+params = cfg.params
 
 import tensorflow_addons as tfa
 gaussian_filter2d = tfa.image.gaussian_filter2d
@@ -37,22 +37,22 @@ tfd = tfp.distributions
 wt_path = 'wts4.1'
 # sets the number of convolutional filters
 
-n_filters_scale =  p.get('n_filters_scale')
-N = p.get('N')
-gridsize = p.get('gridsize')
-offset = p.get('offset')
+n_filters_scale =  cfg.get('n_filters_scale')
+N = cfg.get('N')
+gridsize = cfg.get('gridsize')
+offset = cfg.get('offset')
 
 from . import probe
 tprobe = params()['probe']
 probe_mask = probe.probe_mask#params()['probe_mask']
 initial_probe_guess = tprobe
-print('PROBE TRAINABLE', params()['probe.trainable'])
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],
         )
 
 # TODO hyperparameters:
+# TODO total variation loss
 # -probe smoothing scale(?)
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
@@ -60,22 +60,21 @@ class ProbeIllumination(tf.keras.layers.Layer):
         self.w = initial_probe_guess
     def call(self, inputs):
         x, = inputs
-        # TODO total variation loss
-        return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
+        if cfg.get('probe.mask'):
+            return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
+        else:
+            return self.w * x, (self.w)[None, ...]
         #return probe_mask * x * hh.anti_alias_complex(self.w)
         #return gaussian_filter2d(self.w, sigma = 0.8) * x * probe_mask, (self.w * probe_mask)[None, ...]
         #return hh.anti_alias_complex(self.w) * x * probe_mask, (self.w * probe_mask)[None, ...]
 
 probe_illumination = ProbeIllumination()
 
-nphotons = p.get('sim_nphotons')
+nphotons = cfg.get('nphotons')
+
 # TODO scaling could be done on a shot-by-shot basis, but IIRC I tried this
 # and there were issues
-# TODO for robustness, it might be worth trying to logarithmically scale the
-# photon counts
-
-#log_scale_guess = np.log(np.sqrt(nphotons) / 12.4)
-log_scale_guess = np.log(p.get('intensity_scale'))
+log_scale_guess = np.log(cfg.get('intensity_scale'))
 log_scale = tf.Variable(
             initial_value=tf.constant(float(log_scale_guess)),
             trainable = params()['intensity_scale.trainable'],
@@ -246,7 +245,7 @@ class PositionEncoder(Model):
 
 from tensorflow.keras.layers import Layer
 
-nn_map = AutoEncoder(n_filters_scale, gridsize, p.get('object.big'))
+nn_map = AutoEncoder(n_filters_scale, gridsize, cfg.get('object.big'))
 
 normed_input = scale([input_img])
 
@@ -260,7 +259,7 @@ obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, de
 padded_obj = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = 'padded_obj')(obj)
 
 # Check the 'object.big' parameter to perform conditional logic
-if p.get('object.big'):
+if cfg.get('object.big'):
     # If 'object.big' is true, reassemble the patches
     padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name = 'padded_obj_2')([padded_obj, input_positions])
 else:
@@ -308,9 +307,11 @@ autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled,
 #diffraction_to_obj = tf.keras.Model(inputs=[input_img],
 #                           outputs=[obj])
 
-mae_weight = p.get('mae_weight') # should normally be 0
-nll_weight = p.get('nll_weight') # should normally be 1
-autoencoder.compile(optimizer='adam',
+mae_weight = cfg.get('mae_weight') # should normally be 0
+nll_weight = cfg.get('nll_weight') # should normally be 1
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+
+autoencoder.compile(optimizer= optimizer,
      loss=['mean_absolute_error', 'mean_absolute_error', negloglik, 'mean_absolute_error'],
      loss_weights = [0., mae_weight, nll_weight, 0.])
 
@@ -335,11 +336,11 @@ def train(epochs, X_train, coords_train, Y_I_train):
 
     batch_size = params()['batch_size']
     history=autoencoder.fit(
-        [X_train * p.get('intensity_scale'),
+        [X_train * cfg.get('intensity_scale'),
             coords_train],
         [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
-            (p.get('intensity_scale') * X_train),
-            (p.get('intensity_scale') * X_train)**2,
+            (cfg.get('intensity_scale') * X_train),
+            (cfg.get('intensity_scale') * X_train)**2,
            Y_I_train[:, :, :, :1]],
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,

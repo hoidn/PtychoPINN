@@ -23,19 +23,24 @@ mu = 0.
 probe_mask_real = (d < N // 4)[..., None]
 probe_mask = tf.convert_to_tensor(probe_mask_real, tf.complex64)
 
-def set_probe_guess(X_train):
-    tmp = X_train.mean(axis = (0, 3))
-    probe_fif = np.absolute(f.fftshift(f.ifft2(f.ifftshift(tmp))))[N // 2, :]
+# TODO enforce probe data type
+def set_probe_guess(X_train, probe_guess = None):
+    if probe_guess is None:
+        tmp = X_train.mean(axis = (0, 3))
+        probe_fif = np.absolute(f.fftshift(f.ifft2(f.ifftshift(tmp))))[N // 2, :]
 
-    # variance increments of a slice down the middle
-    d_second_moment = (probe_fif / probe_fif.sum()) * ((np.arange(N) - N // 2)**2)
-    probe_sigma_guess = np.sqrt(d_second_moment.sum())
-    probe_guess = np.exp(-( (d-mu)**2 / ( 2.0 * probe_sigma_guess**2 )))[..., None]\
-        + 1e-9
-    probe_guess *= probe_mask_real
-    probe_guess *= (np.sum(tprobe) / np.sum(probe_guess))
+        # variance increments of a slice down the middle
+        d_second_moment = (probe_fif / probe_fif.sum()) * ((np.arange(N) - N // 2)**2)
+        probe_sigma_guess = np.sqrt(d_second_moment.sum())
+        probe_guess = np.exp(-( (d-mu)**2 / ( 2.0 * probe_sigma_guess**2 )))[..., None]\
+            + 1e-9
+        probe_guess *= probe_mask_real
+        probe_guess *= (np.sum(tprobe) / np.sum(probe_guess))
+        t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)
+    else:
+        probe_guess = probe_guess[..., None]
+        t_probe_guess = tf.convert_to_tensor(probe_guess, tf.complex64)
 
-    t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)
     params.set('probe', t_probe_guess)
     return t_probe_guess
 

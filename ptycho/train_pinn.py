@@ -27,5 +27,5 @@ else:
 
 try:
     stitched_obj = reassemble(reconstructed_obj, part='complex')
-except ValueError as e:
+except (ValueError, TypeError) as e:
     print('object stitching failed:', e)

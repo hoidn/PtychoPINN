@@ -1,7 +1,5 @@
 from sklearn.utils import shuffle
 import numpy as np
-from sklearn.utils import shuffle
-import numpy as np
 from importlib import reload
 import matplotlib.pyplot as plt
 

@@ -71,11 +71,3 @@ def mk_grf(N):
     res[:, :, :] = generate_map(indexlaw, sigma, threshold, boxsize)[..., None]
     return res
 
-from scipy.ndimage import gaussian_filter as gf
-
-#def mk_grf(N, sigma = .75):
-#    noise = np.random.normal(size = N**2).reshape((N, N))
-#    noise = gf(noise, sigma) / 2 + 1
-#    noise[noise < 0] = 0
-#    noise = noise[:, :, None]
-#    return noise
