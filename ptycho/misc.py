@@ -41,17 +41,16 @@ def colormap2arr(arr,cmap):
     values=values[::-1]
     return values
 
-
 import functools
 import hashlib
 import json
 import os
-import numpy as np
 import tensorflow as tf
 
 #https://chat.openai.com/c/8273412b-f3fb-405c-a7a4-c0466bb43b04
 def memoize_disk_and_memory(func):
     from ptycho.params import cfg
+    from ptycho import probe
     memory_cache = {}
     disk_cache_dir = 'memoized_data'
 
