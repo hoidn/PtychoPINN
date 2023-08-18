@@ -247,8 +247,6 @@ print('nphoton',np.log10(np.sum((X_train[:, :, :] * intensity_scale)**2,
 if params.params()['probe.trainable']:
     probe.set_probe_guess(X_train)
 
-
-
 # TODO rename / refactor
 if params.get('outer_offset_train') is not None:
     YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
