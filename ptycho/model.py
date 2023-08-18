@@ -141,24 +141,32 @@ class Conv_Pool_block(tf.keras.layers.Layer):
     def __init__(self, nfilters, w1=3, w2=3, p1=2, p2=2, padding='same', data_format='channels_last'):
         super(Conv_Pool_block, self).__init__()
         self.conv1 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
+        #self.bn1 = tfkl.BatchNormalization()
         self.conv2 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
+        #self.bn2 = tfkl.BatchNormalization()
         self.pool = MaxPool2D((p1, p2), padding=padding, data_format=data_format)
 
     def call(self, inputs):
         x = self.conv1(inputs)
+        #x = self.bn1(x)
         x = self.conv2(x)
+        #x = self.bn2(x)
         return self.pool(x)
 
 class Conv_Up_block(tf.keras.layers.Layer):
     def __init__(self, nfilters, w1=3, w2=3, p1=2, p2=2, padding='same', data_format='channels_last', activation='relu'):
         super(Conv_Up_block, self).__init__()
         self.conv1 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
+        #self.bn1 = tfkl.BatchNormalization()
         self.conv2 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)
+        #self.bn2 = tfkl.BatchNormalization()
         self.up = UpSampling2D((p1, p2), data_format=data_format)
 
     def call(self, inputs):
         x = self.conv1(inputs)
+        #x = self.bn1(x)
         x = self.conv2(x)
+        #x = self.bn2(x)
         return self.up(x)
 
 class Encoder(tf.keras.layers.Layer):
@@ -256,6 +264,7 @@ decoded1, decoded2 = nn_map(normed_input)
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
 
 # Pad the output object
+#padded_obj = obj
 padded_obj = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = 'padded_obj')(obj)
 
 # Check the 'object.big' parameter to perform conditional logic

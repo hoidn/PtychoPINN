@@ -109,7 +109,7 @@ def _flat_to_channel(img, N = None):
 # TODO rename
 def _channel_to_flat(img):
     """
-    Reshape (b, N, N, gridsize * gridsize) to (-1, N, N, 1)
+    Reshape (b, N, N, c) to (b * c, N, N, 1)
     """
     _, h, w, c = img.shape
     #assert h == w == params()['N']
