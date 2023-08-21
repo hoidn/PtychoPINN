@@ -144,7 +144,7 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
     (X_train, Y_I_train, Y_phi_train,
         intensity_scale, YY_train_full, _,
         (coords_train_nominal, coords_train_true)) =\
-        datasets.mk_simdata(params.get('nimgs_train'), size, probe.probe,
+        datasets.mk_simdata(params.get('nimgs_train'), size, probe.get_probe(fmt = 'np'),
             params.get('outer_offset_train'), jitter_scale = jitter_scale)
     params.cfg['intensity_scale'] = intensity_scale
 
@@ -153,7 +153,7 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
     (X_test, Y_I_test, Y_phi_test,
         _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
-        datasets.mk_simdata(params.get('nimgs_test'), size, probe.probe,
+        datasets.mk_simdata(params.get('nimgs_test'), size, probe.get_probe(fmt = 'np'),
         params.get('outer_offset_test'), intensity_scale,
         jitter_scale = jitter_scale)
 
@@ -178,7 +178,7 @@ elif params.params()['data_source'] == 'experimental':
         intensity_scale, YY_train_full, _,
         (coords_train_nominal, coords_train_true)) =\
         datasets.mk_simdata(params.get('nimgs_train'), experimental.train_size,
-            probe.probe, params.get('outer_offset_train'), jitter_scale = jitter_scale,
+            probe.get_probe(fmt = 'np'), params.get('outer_offset_train'), jitter_scale = jitter_scale,
             YY_I = YY_I, YY_phi = YY_phi)
 
     params.cfg['intensity_scale'] = intensity_scale
@@ -188,7 +188,7 @@ elif params.params()['data_source'] == 'experimental':
         _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
         datasets.mk_simdata(params.get('nimgs_test'), experimental.test_size,
-        probe.probe, params.get('outer_offset_test'), intensity_scale,
+        probe.get_probe(fmt = 'np'), params.get('outer_offset_test'), intensity_scale,
         jitter_scale = jitter_scale,
         YY_I = YY_I, YY_phi = YY_phi)
     size = int(YY_test_full.shape[1])
