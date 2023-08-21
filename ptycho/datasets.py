@@ -76,6 +76,7 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
         hh.grid_to_channel(X, Y_I, Y_phi)
 
     return X, Y_I, Y_phi, intensity_scale
+
 def mk_rand(N):
     return int(N * np.random.uniform())
 

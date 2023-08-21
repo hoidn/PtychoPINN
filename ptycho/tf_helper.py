@@ -345,6 +345,7 @@ def complexify_function(fn):
             return fn(*args, **kwargs)
     return newf
 
+
 from tensorflow_addons.image import translate
 translate = complexify_function(translate)
 class Translation(tf.keras.layers.Layer):
@@ -521,11 +522,6 @@ def high_pass_x_y(image):
     y_var = image[:,1:,:,:] - image[:,:-1,:,:]
     return x_var, y_var
 
-def total_variation_loss(target, pred):
-    pred = Lambda(lambda x: tf.math.abs(x))(pred)
-    #pred = tf.keras.layers.AveragePooling2D(padding = 'valid')(pred)
-    x_deltas, y_deltas = high_pass_x_y(pred)
-    return tf.reduce_mean(x_deltas**2) + tf.reduce_mean(y_deltas**2)
 
 pp = tfk.Sequential([
     Lambda(lambda x: tf.image.grayscale_to_rgb(x)),
@@ -563,3 +559,33 @@ def masked_MAE_loss(target, pred):
             reassemble_patches(tf.math.abs(mask) * target))
     return mae(target, pred)
 
+def fn_complex_to_real(fn):
+    """
+    apply fn to complex and imaginary parts of the argument, then return the
+    summed result
+    """
+    def newf(*args, **kwargs):
+        channels = args[0]
+        real = tf.math.real(channels)
+        imag = tf.math.imag(channels)
+        out_real = fn(real, *args[1:], **kwargs)
+        out_imag = fn(imag, *args[1:], **kwargs)
+        return out_real + out_imag
+    return newf
+
+@fn_complex_to_real
+def total_variation_complex(obj):
+    """ obj: a real or complex tensor of rank 3 """
+    # Calculate the differences along the vertical and horizontal directions
+    x_deltas, y_deltas = high_pass_x_y(obj)
+    return tf.reduce_sum(x_deltas**2) + tf.reduce_sum(y_deltas**2)
+
+def total_variation(obj, amp_only = False):
+    if amp_only:
+        obj = Lambda(lambda x: tf.math.abs(x))(obj)
+    return total_variation_complex(obj)
+
+#def total_variation(pred):
+#    pred = Lambda(lambda x: tf.math.abs(x))(pred)
+#    x_deltas, y_deltas = high_pass_x_y(pred)
+#    return tf.reduce_sum(x_deltas**2) + tf.reduce_sum(y_deltas**2)
