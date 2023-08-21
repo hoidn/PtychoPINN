@@ -14,6 +14,7 @@ from tensorflow.keras import Input
 from tensorflow.keras import Model
 from tensorflow.keras.activations import relu, sigmoid, tanh
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense
+from tensorflow.keras.layers import Layer
 from tensorflow.keras import layers
 import glob
 import math
@@ -44,7 +45,9 @@ offset = cfg.get('offset')
 
 from . import probe
 tprobe = params()['probe']
-probe_mask = probe.probe_mask#params()['probe_mask']
+# TODO
+#probe_mask = probe.probe_mask
+probe_mask = cfg.get('probe_mask')[:, :, :, 0]
 initial_probe_guess = tprobe
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
@@ -64,9 +67,21 @@ class ProbeIllumination(tf.keras.layers.Layer):
             return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
         else:
             return self.w * x, (self.w)[None, ...]
-        #return probe_mask * x * hh.anti_alias_complex(self.w)
-        #return gaussian_filter2d(self.w, sigma = 0.8) * x * probe_mask, (self.w * probe_mask)[None, ...]
-        #return hh.anti_alias_complex(self.w) * x * probe_mask, (self.w * probe_mask)[None, ...]
+
+# Stochastic probe
+#class ProbeIllumination(tf.keras.layers.Layer):
+#    def __init__(self, name = None):
+#        super(ProbeIllumination, self).__init__(name = name)
+#        self.w = initial_probe_guess
+#        self.dist = tfd.Independent(tfd.Normal(loc = tf.math.real(self.w),
+#            scale = 0.1))
+#    def call(self, inputs):
+#        x, = inputs
+#        sample = tf.cast(self.dist.sample(), tf.complex64)
+#        if cfg.get('probe.mask'):
+#            return sample  * x * probe_mask, (sample * probe_mask)[None, ...]
+#        else:
+#            return sample * x, (sample)[None, ...]
 
 probe_illumination = ProbeIllumination()
 
@@ -136,7 +151,6 @@ input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
 #inv_logscaler = LogScaler_inv()
 #normed_input = logscaler([input_img])
 
-
 class Conv_Pool_block(tf.keras.layers.Layer):
     def __init__(self, nfilters, w1=3, w2=3, p1=2, p2=2, padding='same', data_format='channels_last'):
         super(Conv_Pool_block, self).__init__()
@@ -191,6 +205,7 @@ class DecoderAmp(tf.keras.layers.Layer):
         self.block2 = Conv_Up_block(n_filters_scale * 64)
         #self.block3 = Conv_Up_block(n_filters_scale * 32)
         self.conv = Conv2D(1, (3, 3), padding='same')
+        #self.final_act = Lambda(lambda x: relu(x), name='amp')
         self.final_act = Lambda(lambda x: sigmoid(x), name='amp')
 
     def call(self, inputs):
@@ -229,7 +244,6 @@ class AutoEncoder(Model):
         decoded_phase = self.decoder_phase(encoded)
         return decoded_amp, decoded_phase
 
-
 class PositionEncoder(Model):
     # TODO scale tanh
     def __init__(self, encoder):
@@ -250,8 +264,6 @@ class PositionEncoder(Model):
             [self.encoder(x), self.encoder(xhat), self.encoder(y)])
         encoded_pos = self.position(encoded)
         return encoded_pos
-
-from tensorflow.keras.layers import Layer
 
 nn_map = AutoEncoder(n_filters_scale, gridsize, cfg.get('object.big'))
 
@@ -318,11 +330,15 @@ autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled,
 
 mae_weight = cfg.get('mae_weight') # should normally be 0
 nll_weight = cfg.get('nll_weight') # should normally be 1
+# Total variation regularization on real space amplitude
+# 5e3
+tv_weight = 1e2
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
 autoencoder.compile(optimizer= optimizer,
-     loss=['mean_absolute_error', 'mean_absolute_error', negloglik, 'mean_absolute_error'],
-     loss_weights = [0., mae_weight, nll_weight, 0.])
+     loss=[lambda target, pred: hh.total_variation(pred),
+        'mean_absolute_error', negloglik, 'mean_absolute_error'],
+     loss_weights = [tv_weight, mae_weight, nll_weight, 0.])
 
 print (autoencoder.summary())
 
