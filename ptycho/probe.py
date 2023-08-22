@@ -72,8 +72,9 @@ def set_probe_guess(X_train, probe_guess = None):
 
 def set_probe(probe):
     # TODO optimize this scaling
-    tamped_probe = tf.math.abs(get_probe_mask()[:, :, :, 0]) * probe
-    norm = 10 * tf.reduce_mean(tf.math.abs(tamped_probe))
+    mask = tf.cast(get_probe_mask(), probe.dtype)
+    tamped_probe = mask * probe
+    norm = float(10. * tf.reduce_mean(tf.math.abs(tamped_probe)))
     params.set('probe', probe / norm)
 
 #params.set('probe', get_default_probe())
