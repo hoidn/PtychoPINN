@@ -331,8 +331,7 @@ autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled,
 mae_weight = cfg.get('mae_weight') # should normally be 0
 nll_weight = cfg.get('nll_weight') # should normally be 1
 # Total variation regularization on real space amplitude
-# 5e3
-tv_weight = 1e2
+tv_weight = cfg.get('tv_weight')#1e2
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
 autoencoder.compile(optimizer= optimizer,
