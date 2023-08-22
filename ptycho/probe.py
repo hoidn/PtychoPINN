@@ -66,10 +66,16 @@ def set_probe_guess(X_train, probe_guess = None):
         probe_guess = probe_guess[..., None]
         t_probe_guess = tf.convert_to_tensor(probe_guess, tf.complex64)
 
-    params.set('probe', t_probe_guess)
+    #params.set('probe', t_probe_guess)
+    set_probe(t_probe_guess)
     return t_probe_guess
 
-# TODO normalization!!!!
+def set_probe(probe):
+    # TODO optimize this scaling
+    tamped_probe = tf.math.abs(get_probe_mask()[:, :, :, 0]) * probe
+    norm = 10 * tf.reduce_mean(tf.math.abs(tamped_probe))
+    params.set('probe', probe / norm)
 
-params.set('probe', get_default_probe())
+#params.set('probe', get_default_probe())
+set_probe(get_default_probe())
 params.set('probe_mask', get_probe_mask())

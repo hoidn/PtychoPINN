@@ -493,7 +493,6 @@ def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
         True, gridsize = M, offset = offset)
     return obj_recon
 
-
 #def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
 #    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
 #    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -521,7 +520,6 @@ def high_pass_x_y(image):
     x_var = image[:,:,1:,:] - image[:,:,:-1,:]
     y_var = image[:,1:,:,:] - image[:,:-1,:,:]
     return x_var, y_var
-
 
 pp = tfk.Sequential([
     Lambda(lambda x: tf.image.grayscale_to_rgb(x)),
@@ -580,12 +578,8 @@ def total_variation_complex(obj):
     x_deltas, y_deltas = high_pass_x_y(obj)
     return tf.reduce_sum(x_deltas**2) + tf.reduce_sum(y_deltas**2)
 
+# TODO TV on phase and amplitude separately
 def total_variation(obj, amp_only = False):
     if amp_only:
         obj = Lambda(lambda x: tf.math.abs(x))(obj)
     return total_variation_complex(obj)
-
-#def total_variation(pred):
-#    pred = Lambda(lambda x: tf.math.abs(x))(pred)
-#    x_deltas, y_deltas = high_pass_x_y(pred)
-#    return tf.reduce_sum(x_deltas**2) + tf.reduce_sum(y_deltas**2)
