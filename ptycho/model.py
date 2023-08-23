@@ -12,7 +12,7 @@
 from datetime import datetime
 from tensorflow.keras import Input
 from tensorflow.keras import Model
-from tensorflow.keras.activations import relu, sigmoid, tanh
+from tensorflow.keras.activations import relu, sigmoid, tanh, swish
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense
 from tensorflow.keras.layers import Layer
 from tensorflow.keras import layers
@@ -210,6 +210,9 @@ class DecoderBase(tf.keras.layers.Layer):
         return x
 
 class DecoderLast(tf.keras.layers.Layer):
+    """
+    Final block for the phase / amplitude decoders
+    """
     def __init__(self, n_filters_scale, conv1, conv2, act = sigmoid, name = ''):
         super(DecoderLast, self).__init__()
         N = cfg.get('N')
@@ -220,16 +223,21 @@ class DecoderLast(tf.keras.layers.Layer):
             self.conv2 = conv2
         self.final_act = Lambda(lambda x: act(x), name=name)
         self.pad = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = name + '_padded')
+        self.centermask = Lambda(lambda x: x * hh.mk_centermask(x, N, gridsize**2,
+            kind = 'border'), name = 'centermask')
 
     def call(self, inputs):
-        x1 = self.conv1(inputs[..., :-4])
+        c_outer = 4 # channels to use for the outer reconstruction
+        x1 = self.conv1(inputs[..., :-c_outer])
         x1 = self.final_act(x1)
         x1 = self.pad(x1)
         if not cfg.get('probe.big'):
             return x1
-        x2 = self.block3(inputs[..., -4:])
+        x2 = self.block3(inputs[..., -c_outer:])
         x2 = self.conv2(x2)
-        x2 = self.final_act(x2) - .5
+        # TODO this handling of the basline might not be the best for phase
+        x2 = swish(x2)
+        x2 = self.centermask(x2)
         return x1 + x2
 
 class DecoderAmp(tf.keras.layers.Layer):
@@ -305,11 +313,10 @@ decoded1, decoded2 = nn_map(normed_input)
 # Combine the two decoded outputs
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
 
+# TODO rename
 # Pad the output object
 padded_obj = obj
-#padded_obj = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = 'padded_obj')(obj)
 
-# Check the 'object.big' parameter to perform conditional logic
 if cfg.get('object.big'):
     # If 'object.big' is true, reassemble the patches
     padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name = 'padded_obj_2')([padded_obj, input_positions])
@@ -317,7 +324,7 @@ else:
     # If 'object.big' is not true, pad the reconstruction
     padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x), name = 'padded_obj_2')(padded_obj)
 
-# Trim the object reconstruction
+# Trim the object reconstruction to N x N
 trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 
 # Extract overlapping regions of the object
