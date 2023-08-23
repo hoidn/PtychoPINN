@@ -49,15 +49,13 @@ def diffract_obj(sample, draw_poisson = True):
         return amplitude
 
 def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
-    # TODO handle complex probes
-    batch_size = p.get('batch_size')
-    Y_I = Y_I *  probe[None, ..., None]
-
     if intensity_scale is None:
-        intensity_scale = scale_nphotons(Y_I).numpy()
-
+        intensity_scale = scale_nphotons(Y_I * probe[None, ..., None]).numpy()
+    batch_size = p.get('batch_size')
     obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
-    Y_I = tf.math.abs(obj)# TODO
+    obj = obj * tf.cast(probe[None, ..., None], obj.dtype)
+    # TODO rename for clarity, Y_I below is *illuminated* amplitude
+    Y_I = tf.math.abs(obj)
 
     # Simulate diffraction
     X = (tf.data.Dataset.from_tensor_slices(obj)
@@ -93,7 +91,6 @@ def mk_lines_img(N = 64, nlines = 10):
 def mk_noise(N = 64, nlines = 10):
     return np.random.uniform(size = N * N).reshape((N, N, 1))
 
-# TODO memoize based on probe hash
 from ptycho.misc import memoize_disk_and_memory
 # TODO cleanup
 
@@ -196,7 +193,6 @@ def sim_object_image(size):
     else:
         raise ValueError
 
-#import pdb
 @memoize_disk_and_memory
 def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
         YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
