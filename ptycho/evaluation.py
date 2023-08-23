@@ -19,13 +19,14 @@ def symmetrize(arr):
 def symmetrize_3d(arr):
     return (arr + arr[:, ::-1, ::-1]) / 2
 
-def cropshow(arr, *args, **kwargs):
-    arr = arr[16:-16, 16:-16]
+def cropshow(arr, *args, crop = True, **kwargs):
+    if crop:
+        arr = arr[16:-16, 16:-16]
     plt.imshow(arr, *args, **kwargs)
 
 from scipy.ndimage import gaussian_filter as gf
 
-def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
+def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0, **kwargs):
     plt.rcParams["figure.figsize"] = (10, 10)
     vmin = 0
     vmax = np.absolute(b)[i].max()
@@ -36,39 +37,39 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
     plt.subplot(aa, bb, 1)
     plt.title('True amp.\n(illuminated)')
     true_amp_illuminated = (Y_I_test[i, :, :, channel])
-    cropshow(true_amp_illuminated, cmap = 'jet')
+    cropshow(true_amp_illuminated, cmap = 'jet', **kwargs)
     heatmaps['true_amp_illuminated'] = true_amp_illuminated  # add to the dictionary
 
     plt.subplot(aa, bb, 2)
     plt.title('Reconstructed amp.\n(illuminated)')
     rec_amp_illuminated = (np.absolute(b))[i] * probe[..., None]
-    cropshow(rec_amp_illuminated, cmap = 'jet')
+    cropshow(rec_amp_illuminated, cmap = 'jet', **kwargs)
     heatmaps['rec_amp_illuminated'] = rec_amp_illuminated  # add to the dictionary
 
     plt.subplot(aa, bb, 3)
     plt.title('True phase')
     true_phase = ((Y_phi_test * (probe > .01)[..., None]))[i, :, :, channel]
-    cropshow(true_phase, cmap = 'jet')
+    cropshow(true_phase, cmap = 'jet', **kwargs)
     plt.colorbar()
     heatmaps['true_phase'] = true_phase  # add to the dictionary
 
     plt.subplot(aa, bb, 4)
     plt.title('True amp.\n(full)')
     true_amp_full = (Y_I_test[i, :, :, channel] / (probe + 1e-9))
-    cropshow(true_amp_full, cmap = 'jet')
+    cropshow(true_amp_full, cmap = 'jet', **kwargs)
     heatmaps['true_amp_full'] = true_amp_full  # add to the dictionary
 
     plt.subplot(aa, bb, 5)
     plt.title('Reconstructed amp. (full)')
     rec_amp_full = (np.absolute(b))[i]
-    cropshow(rec_amp_full, cmap = 'jet')
+    cropshow(rec_amp_full, cmap = 'jet', **kwargs)
     heatmaps['rec_amp_full'] = rec_amp_full  # add to the dictionary
 
     plt.subplot(aa, bb, 6)
     plt.title('Reconstructed phase')
     rec_phase = (np.angle(b) * (probe > .01)[..., None])[i]
     rec_phase[np.isclose(rec_phase,  0)] = np.nan
-    cropshow(rec_phase, cmap = 'jet')
+    cropshow(rec_phase, cmap = 'jet', **kwargs)
     plt.colorbar()
     heatmaps['rec_phase'] = rec_phase  # add to the dictionary
     print('phase min:', np.min((np.angle(b) * (probe > .01)[..., None])),
