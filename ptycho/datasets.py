@@ -49,6 +49,7 @@ def diffract_obj(sample, draw_poisson = True):
         return amplitude
 
 def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
+    # TODO handle complex probes
     batch_size = p.get('batch_size')
     Y_I = Y_I *  probe[None, ..., None]
 
@@ -92,8 +93,7 @@ def mk_lines_img(N = 64, nlines = 10):
 def mk_noise(N = 64, nlines = 10):
     return np.random.uniform(size = N * N).reshape((N, N, 1))
 
-# TODO why doesn't changing the probe scale parameter always change the
-# memoization key?
+# TODO memoize based on probe hash
 from ptycho.misc import memoize_disk_and_memory
 # TODO cleanup
 
@@ -203,7 +203,6 @@ def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
     if YY_I is None:
         YY_I = np.array([sim_object_image(size)
               for _ in range(n)])
-    #pdb.set_trace()
     if p.get('set_phi') and YY_phi is None:
         YY_phi = dummy_phi(YY_I)
     # TODO two cases: n and size given, or Y_I and phi given
