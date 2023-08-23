@@ -31,7 +31,7 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0):
     vmax = np.absolute(b)[i].max()
 
     heatmaps = {}  # initialize the dictionary to store the heatmaps
-
+    probe = np.absolute(probe)
     aa, bb = 3, 3
     plt.subplot(aa, bb, 1)
     plt.title('True amp.\n(illuminated)')
