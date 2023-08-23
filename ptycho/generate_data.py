@@ -12,6 +12,8 @@ import tensorflow as tf
 Initialize probe and other parameters; build (simulated) training / evaluation data
 """
 
+# TODO dataset should go to a PtychoData object
+
 # data parameters
 offset = params.cfg['offset']
 N = params.cfg['N']
@@ -223,7 +225,6 @@ elif params.params()['data_source'] == 'xpp':
 
 else:
     raise ValueError
-
 
 # TODO shuffle should be after flatten. unecessary copies
 #X_train, Y_I_train, Y_phi_train =\

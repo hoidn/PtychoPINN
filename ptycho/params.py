@@ -11,8 +11,8 @@ cfg = {
     'nphotons': 1e9, 'nimgs_train': 9, 'nimgs_test': 3,
     'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
-    'object.big': False, 'set_phi': False, 'probe.mask': True, 'model_type': 'pinn',
-    'label': '', 'size': 392
+    'object.big': False, 'probe.big': True, 'set_phi': False,
+    'probe.mask': True, 'model_type': 'pinn', 'label': '', 'size': 392
     }
 
 # TODO h, w

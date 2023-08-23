@@ -388,14 +388,22 @@ def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, **kwargs):
 gridsize = params()['gridsize']
 N = params()['N']
 
+def mk_centermask(inputs, N, c, kind = 'center'):
+    b = tf.shape(inputs)[0]
+    ones = tf.ones((b, N // 2, N // 2, c))
+    ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
+    if kind == 'center':
+        return ones
+    elif kind == 'border':
+        return 1 - ones
+    else:
+        raise ValueError
+
 def mk_norm(channels, fn_reassemble_real):
     # TODO global / local
     N = params()['N']
     gridsize = params()['gridsize']
-    b = tf.shape(channels)[0]
-    #b = channels.shape[0]
-    ones = tf.ones((b, N // 2, N // 2, gridsize**2))
-    ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
+    ones = mk_centermask(channels, N, gridsize**2)
     assembled_ones = fn_reassemble_real(ones, average = False)
     norm = assembled_ones + .001
     return norm

@@ -198,38 +198,68 @@ class Encoder(tf.keras.layers.Layer):
         x = self.block2(x)
         return self.block3(x)
 
+class DecoderBase(tf.keras.layers.Layer):
+    def __init__(self, n_filters_scale):
+        super(DecoderBase, self).__init__()
+        self.block1 = Conv_Up_block(n_filters_scale * 128)
+        self.block2 = Conv_Up_block(n_filters_scale * 64)
+
+    def call(self, inputs):
+        x = self.block1(inputs)
+        x = self.block2(x)
+        return x
+
+class DecoderLast(tf.keras.layers.Layer):
+    def __init__(self, n_filters_scale, conv1, conv2, act = sigmoid, name = ''):
+        super(DecoderLast, self).__init__()
+        N = cfg.get('N')
+        gridsize = cfg.get('gridsize')
+        self.conv1 = conv1
+        if cfg.get('probe.big'):
+            self.block3 = Conv_Up_block(n_filters_scale * 32)
+            self.conv2 = conv2
+        self.final_act = Lambda(lambda x: act(x), name=name)
+        self.pad = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = name + '_padded')
+
+    def call(self, inputs):
+        x1 = self.conv1(inputs[..., :-4])
+        x1 = self.final_act(x1)
+        x1 = self.pad(x1)
+        if not cfg.get('probe.big'):
+            return x1
+        x2 = self.block3(inputs[..., -4:])
+        x2 = self.conv2(x2)
+        x2 = self.final_act(x2) - .5
+        return x1 + x2
+
 class DecoderAmp(tf.keras.layers.Layer):
     def __init__(self, n_filters_scale):
         super(DecoderAmp, self).__init__()
-        self.block1 = Conv_Up_block(n_filters_scale * 128)
-        self.block2 = Conv_Up_block(n_filters_scale * 64)
-        #self.block3 = Conv_Up_block(n_filters_scale * 32)
-        self.conv = Conv2D(1, (3, 3), padding='same')
-        #self.final_act = Lambda(lambda x: relu(x), name='amp')
-        self.final_act = Lambda(lambda x: sigmoid(x), name='amp')
+        conv1 = Conv2D(1, (3, 3), padding='same')
+        conv2 = Conv2D(1, (3, 3), padding='same')
+        self.blocks12 = DecoderBase(n_filters_scale)
+        self.block3_act = DecoderLast(n_filters_scale, conv1, conv2,
+            act = Lambda(lambda x: sigmoid(x), name='amp'))
+#        #self.final_act = Lambda(lambda x: relu(x), name='amp')
 
     def call(self, inputs):
-        x = self.block1(inputs)
-        x = self.block2(x)
-        #x = self.block3(x)
-        x = self.conv(x)
-        return self.final_act(x)
+        x = self.blocks12(inputs)
+        return self.block3_act(x)
 
 class DecoderPhase(tf.keras.layers.Layer):
-    def __init__(self, n_filters_scale, gridsize, big):
+    def __init__(self, n_filters_scale, gridsize, big: bool):
         super(DecoderPhase, self).__init__()
-        self.block1 = Conv_Up_block(n_filters_scale * 128)
-        self.block2 = Conv_Up_block(n_filters_scale * 64)
-        #self.block3 = Conv_Up_block(n_filters_scale * 32)
-        self.conv = Conv2D(gridsize**2 if big else 1, (3, 3), padding='same')
-        self.final_act = Lambda(lambda x: math.pi * tanh(x), name='phi')
+        # TODO refactor
+        conv1 = Conv2D(gridsize**2 if big else 1, (3, 3), padding='same')
+        conv2 = Conv2D(gridsize**2 if big else 1, (3, 3), padding='same')
+        act = Lambda(lambda x: math.pi * tanh(x), name='phi')
+
+        self.blocks12 = DecoderBase(n_filters_scale)
+        self.block3_act = DecoderLast(n_filters_scale, conv1, conv2, act = act)
 
     def call(self, inputs):
-        x = self.block1(inputs)
-        x = self.block2(x)
-        #x = self.block3(x)
-        x = self.conv(x)
-        return self.final_act(x)
+        x = self.blocks12(inputs)
+        return self.block3_act(x)
 
 class AutoEncoder(Model):
     def __init__(self, n_filters_scale, gridsize, big):
@@ -276,8 +306,8 @@ decoded1, decoded2 = nn_map(normed_input)
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
 
 # Pad the output object
-#padded_obj = obj
-padded_obj = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = 'padded_obj')(obj)
+padded_obj = obj
+#padded_obj = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = 'padded_obj')(obj)
 
 # Check the 'object.big' parameter to perform conditional logic
 if cfg.get('object.big'):
