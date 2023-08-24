@@ -159,10 +159,7 @@ def extract_outer(img, fmt = 'grid',
     assert img.shape[-1] == 1
     grid = tf.reshape(
         extract_patches(img, bigN, outer_offset // 2),
-        #extract_patches(img, bigN, outer_offset // 2),
-        #extract_patches(img, padded_size, bigoffset // 2),
         (-1, bigN, bigN, 1))
-        #(-1, padded_size, padded_size, 1))
     if fmt == 'flat':
         return _fromgrid(grid)
     elif fmt == 'grid':
@@ -265,8 +262,9 @@ def reassemble_patches_real(channels, average = True, **kwargs):
     N = params()['N']
     return extract_patches_inverse(real, N, average, **kwargs)
 
-def pad_patches(imgs, padded_size):
-    padded_size = get_padded_size()
+def pad_patches(imgs, padded_size = None):
+    if padded_size is None:
+        padded_size = get_padded_size()
     return tfkl.ZeroPadding2D(((padded_size - N) // 2, (padded_size - N) // 2))(imgs)
 
 def pad(imgs, size):
@@ -298,9 +296,11 @@ def extract_patches_position(imgs, offsets_xy, jitter = 0.):
 
     imgs must be in flat format with a single image per solution region, i.e.
     (batch size, M, M, 1) where M = N + some padding size.
+
+    Returns shifted images in channel format, cropped symmetrically
+
+    no negative sign
     """
-    #pdb.set_trace()
-    #print(imgs.shape, offsets_xy.shape
     if  imgs.get_shape()[0] is not None:
         assert int(imgs.get_shape()[0]) == int(offsets_xy.get_shape()[0])
     assert int(imgs.get_shape()[3]) == 1
@@ -345,7 +345,6 @@ def complexify_function(fn):
             return fn(*args, **kwargs)
     return newf
 
-
 from tensorflow_addons.image import translate
 translate = complexify_function(translate)
 class Translation(tf.keras.layers.Layer):
@@ -365,15 +364,18 @@ def pad_reconstruction(channels):
     imgs_flat = _channel_to_flat(channels)
     return pad_patches(imgs_flat, padded_size)
 
-def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, **kwargs):
+def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, padded_size = None,
+        **kwargs):
     """
     Pass this function as an argument to reassemble_patches by wrapping it, e.g.:
         def reassemble_patches_position_real(imgs, **kwargs):
             return _reassemble_patches_position_real(imgs, coords)
     """
-    padded_size = get_padded_size()
+    if padded_size is None:
+        padded_size = get_padded_size()
     offsets_flat = flatten_offsets(offsets_xy)
     imgs_flat = _channel_to_flat(imgs)
+    #imgs_flat_bigN = imgs_flat
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
     imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat, 0.])
     if agg:
@@ -425,6 +427,23 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
     assembled_imag = fn_reassemble_real(imag, average = average, **kwargs) / mk_norm(imag,
         fn_reassemble_real)
     return tf.dtypes.complex(assembled_real, assembled_imag)
+
+def reassemble_whole_object(patches, offsets, size = 226, norm = False):
+    """
+    patches: tensor of shape (B, N, N, gridsize**2) containing reconstruction patches
+
+    reassembles the NxN patches into a single size x size x 1 mage, given the
+        provided offsets
+
+    This function inverts the offsets, so it's not necessary to multiply by -1
+    """
+    img = tf.reduce_sum(
+        reassemble_patches(patches, fn_reassemble_real=mk_reassemble_position_real(
+        offsets, padded_size = size)),
+        axis = 0)
+    if norm:
+        return img / reassemble_whole_object(tf.ones_like(patches), offsets, size = size, norm = False)
+    return img
 
 def mk_reassemble_position_real(input_positions, **outer_kwargs):
     def reassemble_patches_position_real(imgs, **kwargs):

@@ -8,6 +8,7 @@
 # -difference maps?
 # -skip connections https://arxiv.org/pdf/1606.08921.pdf
 # -double -> float32
+# Two lossess: a CDI loss and a ptychography loss
 
 from datetime import datetime
 from tensorflow.keras import Input
@@ -236,6 +237,8 @@ class DecoderLast(tf.keras.layers.Layer):
         x2 = self.block3(inputs[..., -c_outer:])
         x2 = self.conv2(x2)
         # TODO this handling of the basline might not be the best for phase
+        # based on cursory tests, swish seems to be more numerically stable
+        # than relu
         x2 = swish(x2)
         x2 = self.centermask(x2)
         return x1 + x2
@@ -248,7 +251,8 @@ class DecoderAmp(tf.keras.layers.Layer):
         self.blocks12 = DecoderBase(n_filters_scale)
         self.block3_act = DecoderLast(n_filters_scale, conv1, conv2,
             act = Lambda(lambda x: sigmoid(x), name='amp'))
-#        #self.final_act = Lambda(lambda x: relu(x), name='amp')
+            #act = Lambda(lambda x: swish(x), name='amp'))
+            #act = Lambda(lambda x: relu(x), name='amp'))
 
     def call(self, inputs):
         x = self.blocks12(inputs)
@@ -328,7 +332,9 @@ else:
 trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 
 # Extract overlapping regions of the object
-padded_objs_with_offsets = Lambda(lambda x: hh.extract_patches_position(x[0], x[1], 0.), name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
+padded_objs_with_offsets = Lambda(lambda x:
+    hh.extract_patches_position(x[0], x[1], 0.),
+    name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
 
 # Apply the probe illumination
 padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
