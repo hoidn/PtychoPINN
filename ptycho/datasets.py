@@ -99,8 +99,14 @@ def extract_coords(size, repeats = 1, coord_type = 'offsets',
     """
     Return nominal offset coords in channel format. x and y offsets are
     stacked in the third dimension.
+
+    offset coordinates are r - r', where
+        r' is the patch center of mass
+        r is the center of mass of that patch's solution region / grid,
+            which contains gridsize**2 patches
     """
     # TODO enforce consistency on value of size (and repeats)
+    # TODO relative coords should have opposite sign
     x = tf.range(size, dtype = tf.float32)
     y = tf.range(size, dtype = tf.float32)
     xx, yy = tf.meshgrid(x, y)
