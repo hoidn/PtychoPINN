@@ -368,8 +368,8 @@ autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled,
 # TODO These two sub-models broke after encapsulating the contents of Maps
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
 #                           outputs=[pred_diff, flat_illuminated])
-#diffraction_to_obj = tf.keras.Model(inputs=[input_img],
-#                           outputs=[obj])
+diffraction_to_obj = tf.keras.Model(inputs=[input_img],
+                           outputs=[obj])
 
 mae_weight = cfg.get('mae_weight') # should normally be 0
 nll_weight = cfg.get('nll_weight') # should normally be 1
