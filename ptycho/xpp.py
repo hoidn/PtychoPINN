@@ -11,9 +11,9 @@ gridh, gridw = 32, 32
 
 np.random.seed(7)
 
-#obj = np.load('../datasets/Run1084_recon3_postPC_shrunk_2.npz')
-obj = np.load('../datasets/Run1084_recon3_postPC_shrunk.npz')
 #obj = np.load('../datasets/Run1084_recon3_postPC_shrunk_lowpass.npz')
+#obj = np.load('../datasets/Run1084_recon3_postPC_shrunk.npz')
+obj = np.load('../datasets/Run1084_recon3_postPC_shrunk_3.npz')
 
 print('raw diffraction shape', obj['diffraction'].shape)
 
@@ -41,9 +41,11 @@ X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(X_full**2, axis = [1, 2]))
 X_full = X_full_norm * X_full
 print('neighbor-sampled diffraction shape', X_full.shape)
 
+# TODO refactor actual / nominal positions
 key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
-#coords_true = dset['coords_relative']
+#key_coords_offsets = 'coords_offsets'
+#key_coords_relative = 'coords_relative'
 coords_true = dset[key_coords_relative]
 coords_nominal = dset[key_coords_relative]
 

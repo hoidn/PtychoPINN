@@ -81,15 +81,21 @@ from ptycho.generate_data import *
 from ptycho import model
 from ptycho.evaluation import save_metrics
 
+#if model_type == 'pinn':
+#    from ptycho.train_pinn import history, reconstructed_obj, pred_amp
+#elif model_type == 'supervised':
+#    from ptycho.train_supervised import history, reconstructed_obj
 if model_type == 'pinn':
-    from ptycho.train_pinn import history, reconstructed_obj, pred_amp
+    from ptycho import train_pinn
+    history = train_pinn.history
+    reconstructed_obj = train_pinn.reconstructed_obj
+    pred_amp = train_pinn.pred_amp
 elif model_type == 'supervised':
-    from ptycho.train_supervised import history, reconstructed_obj
-
-#def show_groundtruth():
-#    plt.imshow(np.absolute(YY_test_full[0, clipleft: -clipright, clipleft: -clipright]),
-#               interpolation='none', cmap='jet')
-
+    from ptycho import train_supervised
+    history = train_supervised.history
+    reconstructed_obj = train_supervised.reconstructed_obj
+else:
+    raise ValueError
 
 try:
     if model_type == 'pinn':

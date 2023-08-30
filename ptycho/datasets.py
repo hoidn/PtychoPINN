@@ -178,6 +178,7 @@ def dummy_phi(Y_I):
         tf.cast(tf.math.tanh( (Y_I - tf.math.reduce_max(Y_I) / 2) /
             (3 * tf.math.reduce_mean(Y_I))), tf.float32)
 
+# TODO refactor
 def sim_object_image(size):
     if p.get('data_source') == 'lines':
         return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
@@ -196,6 +197,9 @@ def sim_object_image(size):
     elif p.get('data_source') == 'diagonals':
         from . import diagonals
         return diagonals.mk_diags(size)
+    elif p.get('data_source') == 'V':
+        from . import vendetta
+        return vendetta.mk_vs(size)
     else:
         raise ValueError
 

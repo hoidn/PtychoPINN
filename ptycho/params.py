@@ -2,20 +2,25 @@
 Stores global variables for data generation and model configuration
 """
 # TODO naming convention for different types of parameters
+# TODO what default value and initialization for the probe scale?
 cfg = {
     'N': 64, 'offset': 4, 'gridsize': 2,
     'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16,
     'nepochs': 60, 'n_filters_scale': 2, 'output_prefix': 'outputs',
     'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.,
     'default_probe_scale': 0.7, 'mae_weight': 0., 'nll_weight': 1., 'tv_weight': 0.,
-    'nphotons': 1e9, 'nimgs_train': 9, 'nimgs_test': 3,
+    'realspace_mae_weight': 0., 'realspace_weight': 0., 'nphotons': 1e9,
+    'nimgs_train': 9, 'nimgs_test': 3,
     'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
-    'object.big': True, 'probe.big': True, 'probe_scale': 10., 'set_phi': False,
-    'probe.mask': True, 'model_type': 'pinn', 'label': '', 'size': 392
+    'object.big': True, 'probe.big': False, 'probe_scale': 10., 'set_phi': False,
+    'probe.mask': True, 'model_type': 'pinn', 'label': '', 'size': 392,
+    'amp_activation': 'sigmoid'
     }
 
-# TODO h, w
+# TODO parameter description
+# probe.big: if True, increase the real space solution from 32x32 to 64x64
+
 # TODO bigoffset should be a derived quantity, at least for simulation
 def get_bigN():
     N = cfg['N']
@@ -39,9 +44,10 @@ def params():
     d['bigN'] = get_bigN()
     return d
 
+# TODO refactor
 def validate():
     assert cfg['data_source'] in ['lines', 'grf', 'experimental', 'points',
-        'testimg', 'diagonals', 'xpp']
+        'testimg', 'diagonals', 'xpp', 'V']
     #assert cfg['bigoffset'] % 4 == 0
     # TODO
     return True
