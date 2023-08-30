@@ -123,7 +123,8 @@ def reassemble(b, part = 'amp', **kwargs):
     stitched = stitch(b, norm_Y_I_test, norm = False, part = part, **kwargs)
     return stitched
 
-if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diagonals']:
+# TODO refactor
+if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diagonals', 'V']:
     bigN = params.params()['bigN']
 
     # Smaller stride so that solution regions overlap enough

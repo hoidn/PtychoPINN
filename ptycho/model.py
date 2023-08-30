@@ -243,6 +243,14 @@ class DecoderLast(tf.keras.layers.Layer):
         x2 = self.centermask(x2)
         return x1 + x2
 
+def get_amp_activation():
+    if cfg.get('amp_activation') == 'sigmoid':
+        return lambda x: sigmoid(x)
+    elif cfg.get('amp_activation') == 'swish':
+        return lambda x: swish(x)
+    else:
+        return ValueError
+
 class DecoderAmp(tf.keras.layers.Layer):
     def __init__(self, n_filters_scale):
         super(DecoderAmp, self).__init__()
@@ -250,7 +258,8 @@ class DecoderAmp(tf.keras.layers.Layer):
         conv2 = Conv2D(1, (3, 3), padding='same')
         self.blocks12 = DecoderBase(n_filters_scale)
         self.block3_act = DecoderLast(n_filters_scale, conv1, conv2,
-            act = Lambda(lambda x: sigmoid(x), name='amp'))
+            act = Lambda(get_amp_activation(), name='amp'))
+            #act = Lambda(lambda x: sigmoid(x), name='amp'))
             #act = Lambda(lambda x: swish(x), name='amp'))
             #act = Lambda(lambda x: relu(x), name='amp'))
 
@@ -365,7 +374,7 @@ fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_in
 autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled,
         probe])
 
-# TODO These two sub-models broke after encapsulating the contents of Maps
+# TODO this broke after encapsulating the contents of Maps
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
 #                           outputs=[pred_diff, flat_illuminated])
 diffraction_to_obj = tf.keras.Model(inputs=[input_img],
@@ -374,13 +383,14 @@ diffraction_to_obj = tf.keras.Model(inputs=[input_img],
 mae_weight = cfg.get('mae_weight') # should normally be 0
 nll_weight = cfg.get('nll_weight') # should normally be 1
 # Total variation regularization on real space amplitude
-tv_weight = cfg.get('tv_weight')#1e2
+realspace_weight = cfg.get('realspace_weight')#1e2
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
 autoencoder.compile(optimizer= optimizer,
-     loss=[lambda target, pred: hh.total_variation(pred),
+     #loss=[lambda target, pred: hh.total_variation(pred),
+     loss=[hh.realspace_loss,
         'mean_absolute_error', negloglik, 'mean_absolute_error'],
-     loss_weights = [tv_weight, mae_weight, nll_weight, 0.])
+     loss_weights = [realspace_weight, mae_weight, nll_weight, 0.])
 
 print (autoencoder.summary())
 
