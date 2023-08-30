@@ -345,6 +345,28 @@ def complexify_function(fn):
             return fn(*args, **kwargs)
     return newf
 
+def complexify_amp_phase(fn):
+    """
+    Turn a function of a real tensorflow floating point data type into its
+    complex version based on amplitude and phase.
+    """
+    # TODO merge / refactor this with the other complexify function
+    def newf(*args, **kwargs):
+        channels = args[0]
+        if channels.dtype == tf.complex64:
+            amplitude = tf.math.abs(channels)
+            phase = tf.math.angle(channels)
+            assembled_amplitude = fn(amplitude, *args[1:], **kwargs)
+            assembled_phase = fn(phase, *args[1:], **kwargs)
+            # Reconstruct the complex tensor using amplitude and phase
+            reconstructed = combine_complex(assembled_amplitude, assembled_phase)
+            #reconstructed = tf.multiply(assembled_amplitude, tf.exp(1j * assembled_phase))
+            return reconstructed
+        else:
+            return fn(*args, **kwargs)
+    return newf
+
+
 from tensorflow_addons.image import translate
 translate = complexify_function(translate)
 class Translation(tf.keras.layers.Layer):
@@ -392,7 +414,7 @@ N = params()['N']
 
 def mk_centermask(inputs, N, c, kind = 'center'):
     b = tf.shape(inputs)[0]
-    ones = tf.ones((b, N // 2, N // 2, c))
+    ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
     ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
     if kind == 'center':
         return ones
@@ -610,3 +632,62 @@ def total_variation(obj, amp_only = False):
     if amp_only:
         obj = Lambda(lambda x: tf.math.abs(x))(obj)
     return total_variation_complex(obj)
+
+def agg_complex_to_real(complextensor):
+    real = tf.math.real(complextensor)
+    imag = tf.math.imag(complextensor)
+    return real + imag
+
+@complexify_amp_phase
+def complex_mae(target, pred):
+    mae = tf.keras.metrics.mean_absolute_error
+    return mae(target, pred)
+
+def realspace_loss(target, pred, **kwargs):
+    if not get('probe.big'):
+        pred = pred * mk_centermask(pred, N, 1, kind = 'center')
+#        # TODO this is redundant since the probe illumination function already
+#        # applies this mask. we only need this for the mae term.
+#        #target = target * mk_centermask(target, N, 1, kind = 'center')
+
+    if get('tv_weight') > 0:
+        tv_loss = total_variation(pred) * get('tv_weight')
+    else:
+        tv_loss = 0.
+
+    if get('realspace_mae_weight') > 0:
+        mae_loss = complex_mae(target, pred) * get('realspace_mae_weight')
+        mae_loss = agg_complex_to_real(mae_loss)
+    else:
+        mae_loss = 0.#complex0
+    return tv_loss + mae_loss
+     #TODO make sure real space ground truth is the right thing, currently it's
+     #just the amplitude
+
+#def realspace_loss(target, pred, **kwargs):
+#     #TODO make sure real space ground truth is the right thing, currently it's
+#     #just the amplitude
+#    # TODO until the above is fixed, this loss function will just use the
+#    # amplitude
+#    target = tf.math.abs(target)
+#    pred = tf.math.abs(pred)
+#
+#    if not get('probe.big'):
+#        pred = pred * mk_centermask(pred, N, 1, kind = 'center')
+##        # TODO this is redundant since the probe illumination function already
+##        # applies this mask. we only need this for the mae term.
+##        #target = target * mk_centermask(target, N, 1, kind = 'center')
+#
+#    if get('tv_weight') > 0:
+#        tv_loss = total_variation(pred) * get('tv_weight')
+#    else:
+#        tv_loss = 0.
+#
+#    if get('realspace_mae_weight') > 0:
+#        norm = (tf.math.reduce_mean(tf.math.abs(pred)) /
+#            tf.math.reduce_mean(tf.math.abs(target)))
+#        mae_loss = complex_mae(norm * target, pred) * get('realspace_mae_weight')
+#        mae_loss = agg_complex_to_real(mae_loss)
+#    else:
+#        mae_loss = 0.#complex0
+#    return tv_loss + mae_loss
