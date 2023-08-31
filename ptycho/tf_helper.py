@@ -323,49 +323,90 @@ def center_channels(channels, offsets_xy):
     channels_centered = _flat_to_channel(ct)
     return channels_centered
 
-# TODO use this everywhere where applicable
-def complexify_function(fn):
-    """
-    Turn a function of a real tensorflow floating point data type into its
-    complex version.
+## TODO use this everywhere where applicable
+#def complexify_function(fn):
+#    """
+#    Turn a function of a real tensorflow floating point data type into its
+#    complex version.
+#
+#    It's assumed that the first argument is complex and must be
+#    converted before calling fn on its real and imaginary components.
+#    All other arguments are left unchanged.
+#    """
+#    def newf(*args, **kwargs):
+#        channels = args[0]
+#        if channels.dtype == tf.complex64:
+#            real = tf.math.real(channels)
+#            imag = tf.math.imag(channels)
+#            assembled_real = fn(real, *args[1:], **kwargs)
+#            assembled_imag = fn(imag, *args[1:], **kwargs)
+#            return tf.dtypes.complex(assembled_real, assembled_imag)
+#        else:
+#            return fn(*args, **kwargs)
+#    return newf
+#
+#def complexify_amp_phase(fn):
+#    """
+#    Turn a function of a real tensorflow floating point data type into its
+#    complex version based on amplitude and phase.
+#    """
+#    # TODO merge / refactor this with the other complexify function
+#    def newf(*args, **kwargs):
+#        channels = args[0]
+#        if channels.dtype == tf.complex64:
+#            amplitude = tf.math.abs(channels)
+#            phase = tf.math.angle(channels)
+#            assembled_amplitude = fn(amplitude, *args[1:], **kwargs)
+#            assembled_phase = fn(phase, *args[1:], **kwargs)
+#            # Reconstruct the complex tensor using amplitude and phase
+#            reconstructed = combine_complex(assembled_amplitude, assembled_phase)
+#            #reconstructed = tf.multiply(assembled_amplitude, tf.exp(1j * assembled_phase))
+#            return reconstructed
+#        else:
+#            return fn(*args, **kwargs)
+#    return newf
 
-    It's assumed that the first argument is complex and must be
-    converted before calling fn on its real and imaginary components.
-    All other arguments are left unchanged.
-    """
-    def newf(*args, **kwargs):
-        channels = args[0]
-        if channels.dtype == tf.complex64:
-            real = tf.math.real(channels)
-            imag = tf.math.imag(channels)
-            assembled_real = fn(real, *args[1:], **kwargs)
-            assembled_imag = fn(imag, *args[1:], **kwargs)
-            return tf.dtypes.complex(assembled_real, assembled_imag)
-        else:
-            return fn(*args, **kwargs)
-    return newf
+#####
+# Complex tensor manipulations
+#####
+# TODO move somewhere else?
+def is_complex_tensor(tensor):
+    """Check if the tensor is of complex dtype."""
+    return tensor.dtype == tf.complex64
 
-def complexify_amp_phase(fn):
+def complexify_helper(separate, combine):
     """
-    Turn a function of a real tensorflow floating point data type into its
-    complex version based on amplitude and phase.
+    Create a "complexify" function based on the provided separation and combination methods.
     """
-    # TODO merge / refactor this with the other complexify function
-    def newf(*args, **kwargs):
-        channels = args[0]
-        if channels.dtype == tf.complex64:
-            amplitude = tf.math.abs(channels)
-            phase = tf.math.angle(channels)
-            assembled_amplitude = fn(amplitude, *args[1:], **kwargs)
-            assembled_phase = fn(phase, *args[1:], **kwargs)
-            # Reconstruct the complex tensor using amplitude and phase
-            reconstructed = combine_complex(assembled_amplitude, assembled_phase)
-            #reconstructed = tf.multiply(assembled_amplitude, tf.exp(1j * assembled_phase))
-            return reconstructed
-        else:
-            return fn(*args, **kwargs)
-    return newf
+    def complexify(fn):
+        def newf(*args, **kwargs):
+            channels = args[0]
+            if is_complex_tensor(channels):
+                part1, part2 = separate(channels)
+                assembled_part1 = fn(part1, *args[1:], **kwargs)
+                assembled_part2 = fn(part2, *args[1:], **kwargs)
+                return combine(assembled_part1, assembled_part2)
+            else:
+                return fn(*args, **kwargs)
+        return newf
+    return complexify
 
+# Define the separate and combine methods for the two complexify functions
+def separate_real_imag(channels):
+    return tf.math.real(channels), tf.math.imag(channels)
+
+def combine_real_imag(real, imag):
+    return tf.dtypes.complex(real, imag)
+
+def separate_amp_phase(channels):
+    return tf.math.abs(channels), tf.math.angle(channels)
+
+# Create the complexify functions using the helper
+complexify_function = complexify_helper(separate_real_imag, combine_real_imag)
+complexify_amp_phase = complexify_helper(separate_amp_phase, combine_complex)
+
+#####
+#####
 
 from tensorflow_addons.image import translate
 translate = complexify_function(translate)

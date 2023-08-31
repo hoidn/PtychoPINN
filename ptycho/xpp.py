@@ -7,6 +7,7 @@ from . import datasets
 
 train_frac = .5
 N = 64
+# Dimensions of the scan point grid, assuming it's square
 gridh, gridw = 32, 32
 
 np.random.seed(7)
