@@ -323,52 +323,10 @@ def center_channels(channels, offsets_xy):
     channels_centered = _flat_to_channel(ct)
     return channels_centered
 
-## TODO use this everywhere where applicable
-#def complexify_function(fn):
-#    """
-#    Turn a function of a real tensorflow floating point data type into its
-#    complex version.
-#
-#    It's assumed that the first argument is complex and must be
-#    converted before calling fn on its real and imaginary components.
-#    All other arguments are left unchanged.
-#    """
-#    def newf(*args, **kwargs):
-#        channels = args[0]
-#        if channels.dtype == tf.complex64:
-#            real = tf.math.real(channels)
-#            imag = tf.math.imag(channels)
-#            assembled_real = fn(real, *args[1:], **kwargs)
-#            assembled_imag = fn(imag, *args[1:], **kwargs)
-#            return tf.dtypes.complex(assembled_real, assembled_imag)
-#        else:
-#            return fn(*args, **kwargs)
-#    return newf
-#
-#def complexify_amp_phase(fn):
-#    """
-#    Turn a function of a real tensorflow floating point data type into its
-#    complex version based on amplitude and phase.
-#    """
-#    # TODO merge / refactor this with the other complexify function
-#    def newf(*args, **kwargs):
-#        channels = args[0]
-#        if channels.dtype == tf.complex64:
-#            amplitude = tf.math.abs(channels)
-#            phase = tf.math.angle(channels)
-#            assembled_amplitude = fn(amplitude, *args[1:], **kwargs)
-#            assembled_phase = fn(phase, *args[1:], **kwargs)
-#            # Reconstruct the complex tensor using amplitude and phase
-#            reconstructed = combine_complex(assembled_amplitude, assembled_phase)
-#            #reconstructed = tf.multiply(assembled_amplitude, tf.exp(1j * assembled_phase))
-#            return reconstructed
-#        else:
-#            return fn(*args, **kwargs)
-#    return newf
-
 #####
 # Complex tensor manipulations
 #####
+## TODO use these everywhere where applicable
 # TODO move somewhere else?
 def is_complex_tensor(tensor):
     """Check if the tensor is of complex dtype."""
@@ -405,8 +363,7 @@ def separate_amp_phase(channels):
 complexify_function = complexify_helper(separate_real_imag, combine_real_imag)
 complexify_amp_phase = complexify_helper(separate_amp_phase, combine_complex)
 
-#####
-#####
+#############################
 
 from tensorflow_addons.image import translate
 translate = complexify_function(translate)
@@ -514,13 +471,6 @@ def mk_reassemble_position_real(input_positions, **outer_kwargs):
             **outer_kwargs)
     return reassemble_patches_position_real
 
-#def reassemble_patches_position(channels, offsets_xy,
-#        average = False, **kwargs):
-#    fn_reassemble_real = mk_reassemble_position_real(offsets_xy, **kwargs)
-#    return reassemble_patches(channels,
-#        fn_reassemble_real = fn_reassemble_real,
-#        average = False)
-
 def preprocess_objects(Y_I, Y_phi = None,
         offsets_xy = None, **kwargs):
     """
@@ -543,12 +493,6 @@ def preprocess_objects(Y_I, Y_phi = None,
             [extract_nested_patches_position(imgs, offsets_xy, fmt= 'channel',
                     **kwargs)
                 for imgs in [Y_I, Y_phi]]
-
-#    # TODO debug only
-#    Y_I, Y_I_outer = zip(*Y_I)
-#    Y_phi, Y_phi_outer = zip(*Y_phi)
-#    Y_I = list(Y_I)
-#    Y_phi = list(Y_phi)
 
     assert Y_I.shape[-1] == get('gridsize')**2
     #norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]

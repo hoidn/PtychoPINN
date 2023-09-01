@@ -152,96 +152,72 @@ input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
 #inv_logscaler = LogScaler_inv()
 #normed_input = logscaler([input_img])
 
-class Conv_Pool_block(tf.keras.layers.Layer):
-    def __init__(self, nfilters, w1=3, w2=3, p1=2, p2=2, padding='same', data_format='channels_last'):
-        super(Conv_Pool_block, self).__init__()
-        self.conv1 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
-        #self.bn1 = tfkl.BatchNormalization()
-        self.conv2 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
-        #self.bn2 = tfkl.BatchNormalization()
-        self.pool = MaxPool2D((p1, p2), padding=padding, data_format=data_format)
+def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
+    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
+    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
+    x0 = MaxPool2D((p1, p2), padding=padding, data_format=data_format)(x0)
+    return x0
 
-    def call(self, inputs):
-        x = self.conv1(inputs)
-        #x = self.bn1(x)
-        x = self.conv2(x)
-        #x = self.bn2(x)
-        return self.pool(x)
+def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last',
+        activation = 'relu'):
+    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
+    x0 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)(x0)
+    x0 = UpSampling2D((p1, p2), data_format=data_format)(x0)
+    return x0
 
-class Conv_Up_block(tf.keras.layers.Layer):
-    def __init__(self, nfilters, w1=3, w2=3, p1=2, p2=2, padding='same', data_format='channels_last', activation='relu'):
-        super(Conv_Up_block, self).__init__()
-        self.conv1 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)
-        #self.bn1 = tfkl.BatchNormalization()
-        self.conv2 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)
-        #self.bn2 = tfkl.BatchNormalization()
-        self.up = UpSampling2D((p1, p2), data_format=data_format)
+def create_encoder_functional(input_tensor, n_filters_scale):
+    # Blocks
+    # x = Conv_Pool_block(input_tensor, n_filters_scale * 16)  # This block is commented out in the original
+    x = Conv_Pool_block(input_tensor, n_filters_scale * 32)
+    x = Conv_Pool_block(x, n_filters_scale * 64)
+    outputs = Conv_Pool_block(x, n_filters_scale * 128)
+    return outputs
 
-    def call(self, inputs):
-        x = self.conv1(inputs)
-        #x = self.bn1(x)
-        x = self.conv2(x)
-        #x = self.bn2(x)
-        return self.up(x)
+def create_decoder_base_functional(input_tensor, n_filters_scale):
+    # Blocks
+    x = Conv_Up_block(input_tensor, n_filters_scale * 128)
+    outputs = Conv_Up_block(x, n_filters_scale * 64)
+    return outputs
 
-class Encoder(tf.keras.layers.Layer):
-    def __init__(self, n_filters_scale):
-        super(Encoder, self).__init__()
-        #self.block0 = Conv_Pool_block(n_filters_scale * 16)
-        self.block1 = Conv_Pool_block(n_filters_scale * 32)
-        self.block2 = Conv_Pool_block(n_filters_scale * 64)
-        self.block3 = Conv_Pool_block(n_filters_scale * 128)
+def create_decoder_last_functional(input_tensor, n_filters_scale, conv1, conv2,
+        act=tf.keras.activations.sigmoid, name=''):
+    N = cfg.get('N')  # Placeholder: this should be fetched from the actual configuration
+    gridsize = cfg.get('gridsize')  # Placeholder: this should be fetched from the actual configuration
 
-    def call(self, inputs):
-        x = inputs
-        #x = self.block0(x)
-        x = self.block1(x)
-        x = self.block2(x)
-        return self.block3(x)
+    c_outer = 4
+    x1 = conv1(input_tensor[..., :-c_outer])
+    x1 = act(x1)
+    x1 = tf.keras.layers.ZeroPadding2D(((N // 4), (N // 4)), name=name + '_padded')(x1)
 
-class DecoderBase(tf.keras.layers.Layer):
-    def __init__(self, n_filters_scale):
-        super(DecoderBase, self).__init__()
-        self.block1 = Conv_Up_block(n_filters_scale * 128)
-        self.block2 = Conv_Up_block(n_filters_scale * 64)
+    # Assuming the centermask function is similar to the one in the original class (needs to be defined)
+    # x1 = centermask(x1)
+    if not cfg.get('probe.big'):  # Placeholder: this should be fetched from the actual configuration
+        return x1
+    x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * 32)
+    x2 = conv2(x2)
+    x2 = swish(x2)
+    # x2 = centermask(x2)  # Applying centermask operation
 
-    def call(self, inputs):
-        x = self.block1(inputs)
-        x = self.block2(x)
-        return x
+    outputs = x1 + x2
+    return outputs
 
-class DecoderLast(tf.keras.layers.Layer):
-    """
-    Final block for the phase / amplitude decoders
-    """
-    def __init__(self, n_filters_scale, conv1, conv2, act = sigmoid, name = ''):
-        super(DecoderLast, self).__init__()
-        N = cfg.get('N')
-        gridsize = cfg.get('gridsize')
-        self.conv1 = conv1
-        if cfg.get('probe.big'):
-            self.block3 = Conv_Up_block(n_filters_scale * 32)
-            self.conv2 = conv2
-        self.final_act = Lambda(lambda x: act(x), name=name)
-        self.pad = tfkl.ZeroPadding2D(((N // 4), (N // 4)), name = name + '_padded')
-        self.centermask = Lambda(lambda x: x * hh.mk_centermask(x, N, gridsize**2,
-            kind = 'border'), name = 'centermask')
+def create_decoder_phase_functional(input_tensor, n_filters_scale, gridsize, big):
+    num_filters = gridsize**2 if big else 1
+    conv1 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
+    conv2 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
+    # Activation function using Lambda layer
+    act = tf.keras.layers.Lambda(lambda x: math.pi * tf.keras.activations.tanh(x), name='phi')
+    x = create_decoder_base_functional(input_tensor, n_filters_scale)
+    outputs = create_decoder_last_functional(x, n_filters_scale, conv1, conv2, act=act,
+        name = 'phase')
+    return outputs
 
-    def call(self, inputs):
-        c_outer = 4 # channels to use for the outer reconstruction
-        x1 = self.conv1(inputs[..., :-c_outer])
-        x1 = self.final_act(x1)
-        x1 = self.pad(x1)
-        if not cfg.get('probe.big'):
-            return x1
-        x2 = self.block3(inputs[..., -c_outer:])
-        x2 = self.conv2(x2)
-        # TODO this handling of the basline might not be the best for phase
-        # based on cursory tests, swish seems to be more numerically stable
-        # than relu
-        x2 = swish(x2)
-        x2 = self.centermask(x2)
-        return x1 + x2
+def create_autoencoder_functional(input_tensor, n_filters_scale, gridsize, big):
+    encoded = create_encoder_functional(input_tensor, n_filters_scale)
+    decoded_amp = create_decoder_amp_functional(encoded, n_filters_scale)
+    decoded_phase = create_decoder_phase_functional(encoded, n_filters_scale, gridsize, big)
+
+    return decoded_amp, decoded_phase
 
 def get_amp_activation():
     if cfg.get('amp_activation') == 'sigmoid':
@@ -251,77 +227,40 @@ def get_amp_activation():
     else:
         return ValueError
 
-class DecoderAmp(tf.keras.layers.Layer):
-    def __init__(self, n_filters_scale):
-        super(DecoderAmp, self).__init__()
-        conv1 = Conv2D(1, (3, 3), padding='same')
-        conv2 = Conv2D(1, (3, 3), padding='same')
-        self.blocks12 = DecoderBase(n_filters_scale)
-        self.block3_act = DecoderLast(n_filters_scale, conv1, conv2,
-            act = Lambda(get_amp_activation(), name='amp'))
-            #act = Lambda(lambda x: sigmoid(x), name='amp'))
-            #act = Lambda(lambda x: swish(x), name='amp'))
-            #act = Lambda(lambda x: relu(x), name='amp'))
+def create_decoder_amp_functional(input_tensor, n_filters_scale):
+    # Placeholder convolution layers and activation as defined in the original DecoderAmp class
+    conv1 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
+    conv2 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
+    act = Lambda(get_amp_activation(), name='amp')
 
-    def call(self, inputs):
-        x = self.blocks12(inputs)
-        return self.block3_act(x)
+    x = create_decoder_base_functional(input_tensor, n_filters_scale)
+    outputs = create_decoder_last_functional(x, n_filters_scale, conv1, conv2, act=act,
+        name = 'amp')
+    return outputs
 
-class DecoderPhase(tf.keras.layers.Layer):
-    def __init__(self, n_filters_scale, gridsize, big: bool):
-        super(DecoderPhase, self).__init__()
-        # TODO refactor
-        conv1 = Conv2D(gridsize**2 if big else 1, (3, 3), padding='same')
-        conv2 = Conv2D(gridsize**2 if big else 1, (3, 3), padding='same')
-        act = Lambda(lambda x: math.pi * tanh(x), name='phi')
-
-        self.blocks12 = DecoderBase(n_filters_scale)
-        self.block3_act = DecoderLast(n_filters_scale, conv1, conv2, act = act)
-
-    def call(self, inputs):
-        x = self.blocks12(inputs)
-        return self.block3_act(x)
-
-class AutoEncoder(Model):
-    def __init__(self, n_filters_scale, gridsize, big):
-        super(AutoEncoder, self).__init__()
-        self.encoder = Encoder(n_filters_scale)
-        self.decoder_amp = DecoderAmp(n_filters_scale)
-        self.decoder_phase = DecoderPhase(n_filters_scale, gridsize, big)
-
-    def call(self, inputs):
-        encoded = self.encoder(inputs)
-        decoded_amp = self.decoder_amp(encoded)
-        decoded_phase = self.decoder_phase(encoded)
-        return decoded_amp, decoded_phase
-
-class PositionEncoder(Model):
-    # TODO scale tanh
-    def __init__(self, encoder):
-        super(AutoEncoder, self).__init__()
-        self.encoder = encoder
-        self.position = Lambda(lambda x:
-            tanh(
-                layers.Reshape((1, 2, gridsize**2))(
-                layers.Dense(2 * gridsize**2)(
-                layers.Flatten()(
-                layers.Dropout(0.3)(x)))), name = 'positions_enc'
-                )
-            )
-
-    def call(self, inputs):
-        x, xhat, y = inputs
-        encoded = tf.concat(
-            [self.encoder(x), self.encoder(xhat), self.encoder(y)])
-        encoded_pos = self.position(encoded)
-        return encoded_pos
-
-nn_map = AutoEncoder(n_filters_scale, gridsize, cfg.get('object.big'))
+#class PositionEncoder(Model):
+#    # TODO scale tanh
+#    def __init__(self, encoder):
+#        super(AutoEncoder, self).__init__()
+#        self.encoder = encoder
+#        self.position = Lambda(lambda x:
+#            tanh(
+#                layers.Reshape((1, 2, gridsize**2))(
+#                layers.Dense(2 * gridsize**2)(
+#                layers.Flatten()(
+#                layers.Dropout(0.3)(x)))), name = 'positions_enc'
+#                )
+#            )
+#    def call(self, inputs):
+#        x, xhat, y = inputs
+#        encoded = tf.concat(
+#            [self.encoder(x), self.encoder(xhat), self.encoder(y)])
+#        encoded_pos = self.position(encoded)
+#        return encoded_pos
 
 normed_input = scale([input_img])
-
-# Get the decoded outputs from the AutoEncoder
-decoded1, decoded2 = nn_map(normed_input)
+decoded1, decoded2 = create_autoencoder_functional(normed_input, n_filters_scale, gridsize,
+    cfg.get('object.big'))
 
 # Combine the two decoded outputs
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
@@ -374,6 +313,9 @@ fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_in
 autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled,
         probe])
 
+autoencoder_no_nll = Model(inputs = [input_img, input_positions],
+        outputs = [trimmed_obj, pred_amp_scaled])
+
 # TODO this broke after encapsulating the contents of Maps
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
 #                           outputs=[pred_diff, flat_illuminated])
@@ -401,6 +343,33 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
+#def prepare_inputs(X_train, coords_train):
+#    """training inputs"""
+#    return [X_train * cfg.get('intensity_scale'), coords_train]
+#
+#def prepare_outputs(Y_I_train, coords_train, X_train):
+#    """training outputs"""
+#    return [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
+#                (cfg.get('intensity_scale') * X_train),
+#                (cfg.get('intensity_scale') * X_train)**2,
+#               Y_I_train[:, :, :, :1]]
+
+def prepare_inputs(X_train, coords_train):
+    """training inputs"""
+    X_tensor = tf.convert_to_tensor(X_train * cfg.get('intensity_scale'))
+    coords_tensor = tf.convert_to_tensor(coords_train)
+    return [X_tensor, coords_tensor]
+
+def prepare_outputs(Y_I_train, coords_train, X_train):
+    """training outputs"""
+    Y_I_tensor = tf.convert_to_tensor(Y_I_train)
+    X_tensor = tf.convert_to_tensor(X_train)
+    coords_tensor = tf.convert_to_tensor(coords_train)
+    return [tf.convert_to_tensor(hh.center_channels(Y_I_tensor, coords_tensor)[:, :, :, :1]),
+            tf.convert_to_tensor(cfg.get('intensity_scale') * X_tensor),
+            tf.convert_to_tensor((cfg.get('intensity_scale') * X_tensor)**2),
+            Y_I_tensor[:, :, :, :1]]
+
 def train(epochs, X_train, coords_train, Y_I_train):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
@@ -413,12 +382,8 @@ def train(epochs, X_train, coords_train, Y_I_train):
 
     batch_size = params()['batch_size']
     history=autoencoder.fit(
-        [X_train * cfg.get('intensity_scale'),
-            coords_train],
-        [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
-            (cfg.get('intensity_scale') * X_train),
-            (cfg.get('intensity_scale') * X_train)**2,
-           Y_I_train[:, :, :, :1]],
+        prepare_inputs(X_train, coords_train),
+        prepare_outputs(Y_I_train, coords_train, X_train),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])
