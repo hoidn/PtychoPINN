@@ -1,10 +1,5 @@
-#from tf_init import *
-#import os
-#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
-import tensorflow as tf
-tf.config.optimizer.set_jit(False)
 from ptycho.tf_helper import complexify_function, complexify_amp_phase, combine_complex
+import tensorflow as tf
 import numpy as np
 
 
@@ -39,7 +34,6 @@ def test_complexify_amp_phase():
     expected_phase = tf.math.angle(complex_tensor) * 2 % (2 * tf.constant(np.pi))
     # Construct the expected tensor
     expected_tensor = combine_complex(expected_amplitude, expected_phase)
-    #expected_tensor = tf.multiply(expected_amplitude, tf.exp(1j * expected_phase))
     # Compare the reconstructed tensor to the expected tensor
     error = tf.math.abs(complexified_amp_phase_fn(complex_tensor) - expected_tensor)
     assert tf.math.reduce_max(error) < 1e-6, "Failed on complex tensor"
