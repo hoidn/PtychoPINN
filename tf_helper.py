@@ -13,11 +13,8 @@ import tensorflow.compat.v2 as tf
 tf.enable_v2_behavior()
 import tensorflow_datasets as tfds
 import tensorflow_probability as tfp
-from xrdc.source_separation import *
 from skimage.transform import resize as sresize
 from tensorflow.signal import fft2d, fftshift
-
-from xrdc import fourier
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -74,7 +71,7 @@ def pad_and_diffract(input, h, w, pad = True):
         tf.squeeze(tf.cast(resized, tf.complex64))
         ))))(input)
     input = (Lambda(lambda X: tf.math.real(tf.math.conj(X) * X) / (h * w)))(input)
-    input = (Lambda(lambda psd: 
+    input = (Lambda(lambda psd:
                           tf.expand_dims(
                               tf.math.sqrt(
             fftshift(psd, (-2, -1))
