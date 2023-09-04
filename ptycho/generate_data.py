@@ -253,3 +253,8 @@ if params.params()['probe.trainable']:
 if params.get('outer_offset_train') is not None:
     YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
     YY_ground_truth = YY_ground_truth_all[0, ...]
+
+# TODO refactor
+from . import tf_helper as hh
+Y_obj_train = hh.combine_complex(Y_I_train, Y_phi_train)
+Y_obj_test = hh.combine_complex(Y_I_test, Y_phi_test)

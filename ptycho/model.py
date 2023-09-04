@@ -1,14 +1,11 @@
 # TODO s
-# - batch normalization?
 # - complex convolution
-# - Use tensor views so that overlapping solution regions don't have to be
-#     copied. This might require an 'inside out'
-#     organization of the data. See suggestions here:
+# - Use tensor views:
 #     https://chat.openai.com/c/e6d5e400-daf9-44b7-8ef9-d49f21a634a3
 # -difference maps?
-# -skip connections https://arxiv.org/pdf/1606.08921.pdf
 # -double -> float32
 # Two lossess: a CDI loss and a ptychography loss
+# Apply real space loss to both amplitude and phase of the object
 
 from datetime import datetime
 from tensorflow.keras import Input
@@ -314,7 +311,7 @@ autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled,
         probe])
 
 autoencoder_no_nll = Model(inputs = [input_img, input_positions],
-        outputs = [trimmed_obj, pred_amp_scaled])
+        outputs = [pred_amp_scaled])
 
 # TODO this broke after encapsulating the contents of Maps
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
@@ -343,34 +340,35 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
-#def prepare_inputs(X_train, coords_train):
-#    """training inputs"""
-#    return [X_train * cfg.get('intensity_scale'), coords_train]
-#
-#def prepare_outputs(Y_I_train, coords_train, X_train):
-#    """training outputs"""
-#    return [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
-#                (cfg.get('intensity_scale') * X_train),
-#                (cfg.get('intensity_scale') * X_train)**2,
-#               Y_I_train[:, :, :, :1]]
-
 def prepare_inputs(X_train, coords_train):
     """training inputs"""
-    X_tensor = tf.convert_to_tensor(X_train * cfg.get('intensity_scale'))
-    coords_tensor = tf.convert_to_tensor(coords_train)
-    return [X_tensor, coords_tensor]
+    return [X_train * cfg.get('intensity_scale'), coords_train]
 
 def prepare_outputs(Y_I_train, coords_train, X_train):
     """training outputs"""
-    Y_I_tensor = tf.convert_to_tensor(Y_I_train)
-    X_tensor = tf.convert_to_tensor(X_train)
-    coords_tensor = tf.convert_to_tensor(coords_train)
-    return [tf.convert_to_tensor(hh.center_channels(Y_I_tensor, coords_tensor)[:, :, :, :1]),
-            tf.convert_to_tensor(cfg.get('intensity_scale') * X_tensor),
-            tf.convert_to_tensor((cfg.get('intensity_scale') * X_tensor)**2),
-            Y_I_tensor[:, :, :, :1]]
+    return [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
+                (cfg.get('intensity_scale') * X_train),
+                (cfg.get('intensity_scale') * X_train)**2,
+               Y_I_train[:, :, :, :1]]
 
-def train(epochs, X_train, coords_train, Y_I_train):
+#def prepare_inputs(X_train, coords_train):
+#    """training inputs"""
+#    X_tensor = tf.convert_to_tensor(X_train * cfg.get('intensity_scale'))
+#    coords_tensor = tf.convert_to_tensor(coords_train)
+#    return [X_tensor, coords_tensor]
+#
+#def prepare_outputs(Y_I_train, coords_train, X_train):
+#    """training outputs"""
+#    Y_I_tensor = tf.convert_to_tensor(Y_I_train)
+#    X_tensor = tf.convert_to_tensor(X_train)
+#    coords_tensor = tf.convert_to_tensor(coords_train)
+#    return [tf.convert_to_tensor(hh.center_channels(Y_I_tensor, coords_tensor)[:, :, :, :1]),
+#            tf.convert_to_tensor(cfg.get('intensity_scale') * X_tensor),
+#            tf.convert_to_tensor((cfg.get('intensity_scale') * X_tensor)**2),
+#            Y_I_tensor[:, :, :, :1]]
+
+#def train(epochs, X_train, coords_train, Y_I_train):
+def train(epochs, X_train, coords_train, Y_obj_train):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
@@ -383,7 +381,8 @@ def train(epochs, X_train, coords_train, Y_I_train):
     batch_size = params()['batch_size']
     history=autoencoder.fit(
         prepare_inputs(X_train, coords_train),
-        prepare_outputs(Y_I_train, coords_train, X_train),
+        #prepare_outputs(Y_I_train, coords_train, X_train),
+        prepare_outputs(Y_obj_train, coords_train, X_train),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])
