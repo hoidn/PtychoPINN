@@ -49,6 +49,12 @@ def diffract_obj(sample, draw_poisson = True):
         return amplitude
 
 def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
+    """
+    Illuminate object with real or complex probe, then apply diffraction map.
+
+    Returned Y_I and Y_phi are amplitude and phase *after* illumination with the
+    probe.
+    """
     if intensity_scale is None:
         intensity_scale = scale_nphotons(Y_I * probe[None, ..., None]).numpy()
     batch_size = p.get('batch_size')
