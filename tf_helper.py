@@ -21,8 +21,6 @@ tfkl = tf.keras.layers
 tfpl = tfp.layers
 tfd = tfp.distributions
 
-# from skimage.transform import resize
-
 support_threshold = .0
 @tf.function
 def get_mask(input, support_threshold):
@@ -54,7 +52,6 @@ def combine_complex(amp, phi):
         1j * tf.cast(phi, tf.complex64))
     return output
 
-#@tf.function
 def pad_and_diffract(input, h, w, pad = True):
     """
     zero-pad the real-space object and then calculate the far field diffraction amplitude
@@ -78,29 +75,3 @@ def pad_and_diffract(input, h, w, pad = True):
                                    ), 3)))(input)
     return padded, input
 
-
-#prior = tfd.Independent(tfd.Normal(loc=tf.zeros(encoded_size), scale=1),
-#                        reinterpreted_batch_ndims=1)
-#
-#
-#encoder = tfk.Sequential([
-#    tfkl.InputLayer(input_shape=input_shape),
-#    tfkl.Lambda(lambda x: tf.cast(x, tf.float32) - 0.5),
-#    tf.keras.layers.BatchNormalization(),
-#    tfkl.Conv2D(base_depth, 5, strides=1,
-#                padding='same', activation=tf.nn.leaky_relu),
-#    tfkl.Conv2D(base_depth, 5, strides=2,
-#                padding='same', activation=tf.nn.leaky_relu),
-#    tfkl.Conv2D(2 * base_depth, 5, strides=1,
-#                padding='same', activation=tf.nn.leaky_relu),
-#    tfkl.Conv2D(2 * base_depth, 5, strides=2,
-#                padding='same', activation=tf.nn.leaky_relu),
-#    tfkl.Conv2D(4 * encoded_size, 7, strides=1,
-#                padding='valid', activation=tf.nn.leaky_relu),
-#    tfkl.Flatten(),
-#    tfkl.Dense(tfpl.MultivariateNormalTriL.params_size(encoded_size),
-#               activation=None),
-#    tfpl.MultivariateNormalTriL(
-#        encoded_size,
-#        activity_regularizer=tfpl.KLDivergenceRegularizer(prior)),
-#])

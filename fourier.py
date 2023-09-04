@@ -14,6 +14,10 @@ from scipy.ndimage import gaussian_filter as gf
 
 from xrdc import featurization as feat
 
+# Fourier transform / signal processing utilities. Most of this is
+# deprecated. We just us lowpass_g() to create a gaussian profile for
+# the probe
+
 def plot_df(*args):
     df = pd.DataFrame([p for p, _ in args]).T
     df.columns = [l for _, l in args ]
@@ -50,7 +54,7 @@ def clip_low(x, frac_zero, invert = False):
     if invert:
         mask = 1 - mask
     x2 = x2 * mask
-        
+
 #     x2[:( nz) // 2 ] = 0
 #     x2[(-nz) // 2:] = 0
     return x2, mask
@@ -124,10 +128,10 @@ def do_rl(sig, window_width = 4, peak_width = 2, window_type = 'gaussian',
         H = clip_low_window(sig, .001) * bwindow
     else:
         raise ValueError
-    
+
     g = signal.gaussian(len(y), std = peak_width)
     gfft = fft(g)
-    
+
     psf = mag(ifft(gfft * H))[:, None].T
     psf_1d = psf[:, 1275:1324]
     deconvolved_RL = restoration.richardson_lucy((sig[:, None].T) / (10 * sig.max()), psf_1d, iterations=120)
@@ -135,7 +139,7 @@ def do_rl(sig, window_width = 4, peak_width = 2, window_type = 'gaussian',
         return deconvolved_RL[0]
     else:
         return deconvolved_RL[0] / deconvolved_RL[0].mean()
-    
+
 def conv_window(sig, mode = 'same'):
     tmp = np.real(np.sqrt(fft(window) * np.conjugate(fft(window))))
     return np.convolve(sig, tmp / tmp.max(), mode =mode)#if_mag(clip_low(ywf, .01) * window)
