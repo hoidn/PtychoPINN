@@ -39,11 +39,13 @@ def crop12(arr, size):
 
 # TODO move to tf_helper, except the parts that are specific to xpp
 # should be in xpp.py
+from .tf_helper import complexify_function
+@complexify_function
 def get_image_patches(gt_image, global_offsets, local_offsets):
     from . import tf_helper as hh
     gridsize = params()['gridsize']
     N = params()['N']
-    B = global_offsets.shape[0] #* gridsize**2
+    B = global_offsets.shape[0]
 
     gt_repeat = tf.repeat(
         tf.repeat(gt_image[None, ...], B, axis = 0)[..., None],
@@ -59,7 +61,8 @@ def get_image_patches(gt_image, global_offsets, local_offsets):
 
     offsets_f = hh._channel_to_flat(offsets_c)
 
-    gt_translated = hh.translate(tf.squeeze(gt_repeat_f)[..., None], tf.squeeze(offsets_f))[:, :N, :N, :]
+    gt_translated = hh.translate(tf.squeeze(gt_repeat_f)[..., None],
+        -tf.squeeze(offsets_f))[:, :N, :N, :]
     gt_translated = hh._flat_to_channel(gt_translated)
     return gt_translated
 
