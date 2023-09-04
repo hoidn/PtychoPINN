@@ -141,89 +141,19 @@ def memoize_disk_and_memory(func):
 #np.testing.assert_raises(AssertionError, np.testing.assert_array_equal, result1_first, result1_diff_arg)
 #
 
-#### 3.5 version
-#
-#import numpy as np
-#import tensorflow as tf
-#import hashlib
-#import pickle
-#import os
-#
-#def memoize(cfg_key_list):
-#    def decorator(func):
-#        cache_dir = './cache'
-#        os.makedirs(cache_dir, exist_ok=True)
-#
-#        def hash_cfg(cfg):
-#            cfg_subset = {k: cfg[k] for k in cfg_key_list}
-#            cfg_str = str(cfg_subset)
-#            return hashlib.sha256(cfg_str.encode()).hexdigest()
-#
-#        def memoized_func(cfg):
-#            cfg_hash = hash_cfg(cfg)
-#            cache_path = os.path.join(cache_dir, cfg_hash)
-#
-#            if os.path.exists(cache_path):
-#                with open(cache_path, 'rb') as f:
-#                    output = pickle.load(f)
-#            else:
-#                output = func(cfg)
-#                with open(cache_path, 'wb') as f:
-#                    pickle.dump(output, f)
-#
-#            return output
-#
-#        return memoized_func
-#
-#    return decorator
-#########
-## version that uses str instead of json.dumps
-#######
-#import functools
-#import hashlib
-#import os
-#import numpy as np
-#import tensorflow as tf
-#
-#def memoize_disk_and_memory(func):
-#    memory_cache = {}
-#    disk_cache_dir = 'memoized_data'
-#
-#    if not os.path.exists(disk_cache_dir):
-#        os.makedirs(disk_cache_dir)
-#
-#    @functools.wraps(func)
-#    def wrapper(*args, **kwargs):
-#        cfg_keys = ['offset', 'N', 'bigoffset', 'sim_nphotons', 'nimgs_train', 'nimgs_test',
-#                    'data_source', 'gridsize', 'big_gridsize']
-#        hash_input = ''.join(str(cfg[k]) for k in cfg_keys if k in cfg)
-#        hash_hex = hashlib.sha1(hash_input.encode('utf-8')).hexdigest()
-#
-#        if hash_hex in memory_cache:
-#            print("Loading result from memory cache.")
-#            return memory_cache[hash_hex]
-#        else:
-#            disk_cache_file = os.path.join(disk_cache_dir, f'{hash_hex}.npz')
-#
-#            if os.path.exists(disk_cache_file):
-#                print("Loading result from disk cache.")
-#                loaded_data = np.load(disk_cache_file, allow_pickle=True)
-#                result = tuple(loaded_data[key] for key in loaded_data.keys())
-#                if len(result) == 1:
-#                    result = result[0]
-#            else:
-#                print("No cached result found. Calculating and caching the result.")
-#                result = func(*args, **kwargs)
-#
-#                if isinstance(result, (np.ndarray, tf.Tensor)):
-#                    np.savez(disk_cache_file, result=result.numpy() if isinstance(result, tf.Tensor) else result)
-#                elif isinstance(result, tuple):
-#                    np.savez(disk_cache_file, **{f'arr_{i}': arr.numpy() if isinstance(arr, tf.Tensor) else arr for i, arr in enumerate(result)})
-#                else:
-#                    raise ValueError("Invalid function output. Expected numpy array, TensorFlow tensor, or tuple containing numpy arrays and/or TensorFlow tensors.")
-#
-#                memory_cache[hash_hex] = result
-#
-#        return result
-#
-#    return wrapper
+import scipy.signal
+def cross_image(im1, im2):
+    """
+    Find offsets through 2d autocorrelation
+    """
+    # get rid of the color channels by performing a grayscale transform
+    # the type cast into 'float' is to avoid overflows
+    im1_gray = im1#np.sum(im1.astype('float'), axis=2)
+    im2_gray = im2#np.sum(im2.astype('float'), axis=2)
+
+    # get rid of the averages, otherwise the results are not good
+    im1_gray -= np.mean(im1_gray)
+    im2_gray -= np.mean(im2_gray)
+
+    # calculate the correlation image; note the flipping of onw of the images
+    return scipy.signal.fftconvolve(im1_gray, im2_gray[::-1,::-1], mode='same')

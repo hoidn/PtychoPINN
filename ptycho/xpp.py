@@ -18,6 +18,7 @@ obj = np.load('../datasets/Run1084_recon3_postPC_shrunk_3.npz')
 
 print('raw diffraction shape', obj['diffraction'].shape)
 
+# TODO cast to complex64?
 gt_image = obj['objectGuess']
 
 # Load data and reorder the axes
@@ -80,8 +81,8 @@ def get_gt_patch(offset):
     return crop(
         hh.translate(gt_image, offset),
         N // 2)
-    #crop12(gt_translated, N // 2)
 
+from . import params as cfg
 def load(which, **kwargs):
     global_offsets = split_tensor(dset[key_coords_offsets], which)
     X, coords_nominal, coords_true = get_splits(which, **kwargs)
@@ -92,19 +93,32 @@ def load(which, **kwargs):
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
 
-    # TODO save memory
-    Y_I = loader.get_image_patches(np.absolute(gt_image),
-        global_offsets, coords_true)
-    if which == 'test':
-        Y_I = loader.get_image_patches(np.absolute(gt_image),
-            global_offsets, coords_true)
-    else:
-        Y_I = tf.convert_to_tensor(np.zeros_like(X))
+    # TODO save memory in get_image_patches
+    # TODO Real space ground truth is for the benefit of supervised learning
+    # reconstruction. we have to be careful, since multiplying by the probe
+    # (even just amplitude) gives away more ground truth information than what
+    # PtychoNN uses in the context of its original paper. For now, therefore,
+    # we just multiply by the probe mask. Need to make sure that this treatment
+    # is consistent between datasets, though.
+    Y_obj = loader.get_image_patches(gt_image,
+        global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+#    Y_obj = loader.get_image_patches(gt_image,
+#        global_offsets, coords_true) * cfg.get('probe')
+#    probeamp = tf.cast(tf.math.abs(cfg.get('probe')), tf.complex64)
+#    Y_obj = loader.get_image_patches(gt_image,
+#        global_offsets, coords_true) * probeamp
+    Y_I = tf.math.abs(Y_obj)
+    Y_phi = tf.math.angle(Y_obj)
+    #Y_phi = tf.convert_to_tensor(np.zeros_like(X))
+#    if which == 'test':
+#        Y_I = loader.get_image_patches(np.absolute(gt_image),
+#            global_offsets, coords_true)
+#    else:
+#        Y_I = tf.convert_to_tensor(np.zeros_like(X))
 
 #    Y_phi = loader.get_image_patches(np.angle(gt_image),
 #        global_offsets, coords_true)
     #Y_I = tf.convert_to_tensor(np.ones_like(X))
-    Y_phi = tf.convert_to_tensor(np.zeros_like(X))
     YY_full = None
 
     return (X, Y_I, Y_phi,

@@ -20,6 +20,8 @@ def get_recon_patches_single_channel(X):
     """
     baseline_pred_I, baseline_pred_phi = model.predict([X[:, :, :, 0] * bl.params.params()['intensity_scale']])
     return hh.combine_complex(baseline_pred_I, baseline_pred_phi)
+#    baseline_pred_I, baseline_pred_phi = model.predict([X[:, :, :, 0]])
+#    return hh.combine_complex(baseline_pred_I, baseline_pred_phi)
 
 def get_recon_patches_grid(X):
     """
@@ -36,17 +38,21 @@ if p.cfg['gridsize'] == 2:
                               Y_I_train[:, :, :, :4], Y_phi_train[:, :, :, :4])
 
     reconstructed_obj = get_recon_patches_grid(X_test)
-    stitched_obj = reassemble(reconstructed_obj, part = 'complex')
+    #stitched_obj = reassemble(reconstructed_obj, part = 'complex')
 
 elif p.cfg['gridsize'] == 1:
     model, history = bl.train((X_train[:, :, :, :1]), Y_I_train[:, :, :, :1], Y_phi_train[:, :, :, :1])
 
     # TODO match above
     reconstructed_obj = get_recon_patches_single_channel(X_test)
-    stitched_obj = reassemble(reconstructed_obj, part = 'complex')
+    #stitched_obj = reassemble(reconstructed_obj, part = 'complex')
 
     reconstructed_obj_train = get_recon_patches_single_channel(X_train)
 
 else:
     raise ValueError
 
+try:
+    stitched_obj = reassemble(reconstructed_obj, part='complex')
+except (ValueError, TypeError) as e:
+    print('object stitching failed:', e)
