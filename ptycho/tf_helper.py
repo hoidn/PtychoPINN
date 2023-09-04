@@ -328,9 +328,10 @@ def center_channels(channels, offsets_xy):
 #####
 ## TODO use these everywhere where applicable
 # TODO move somewhere else?
+# TODO use just complex64 to save memory
 def is_complex_tensor(tensor):
     """Check if the tensor is of complex dtype."""
-    return tensor.dtype == tf.complex64
+    return tensor.dtype in [tf.complex64, tf.complex128]
 
 def complexify_helper(separate, combine):
     """
@@ -362,6 +363,8 @@ def separate_amp_phase(channels):
 # Create the complexify functions using the helper
 complexify_function = complexify_helper(separate_real_imag, combine_real_imag)
 complexify_amp_phase = complexify_helper(separate_amp_phase, combine_complex)
+# apply fn to amplitude and phase and sum the result
+complexify_sum_amp_phase = complexify_helper(separate_amp_phase, lambda a, b: a + b)
 
 #############################
 
@@ -527,18 +530,6 @@ def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
         True, gridsize = M, offset = offset)
     return obj_recon
 
-#def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
-#    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
-#    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
-#    x0 = MaxPool2D((p1, p2), padding=padding, data_format=data_format)(x0)
-#    return x0
-#
-#def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='channels_last',
-#        activation = 'relu'):
-#    x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
-#    x0 = Conv2D(nfilters, (w1, w2), activation=activation, padding=padding, data_format=data_format)(x0)
-#    x0 = UpSampling2D((p1, p2), data_format=data_format)(x0)
-#    return x0
 
 ########
 ## Loss functions
@@ -623,7 +614,8 @@ def agg_complex_to_real(complextensor):
     imag = tf.math.imag(complextensor)
     return real + imag
 
-@complexify_amp_phase
+# TODO weighting the phase and amp differently might make sense
+@complexify_sum_amp_phase
 def complex_mae(target, pred):
     mae = tf.keras.metrics.mean_absolute_error
     return mae(target, pred)
@@ -642,37 +634,7 @@ def realspace_loss(target, pred, **kwargs):
 
     if get('realspace_mae_weight') > 0:
         mae_loss = complex_mae(target, pred) * get('realspace_mae_weight')
-        mae_loss = agg_complex_to_real(mae_loss)
     else:
-        mae_loss = 0.#complex0
+        mae_loss = 0.
     return tv_loss + mae_loss
-     #TODO make sure real space ground truth is the right thing, currently it's
-     #just the amplitude
 
-#def realspace_loss(target, pred, **kwargs):
-#     #TODO make sure real space ground truth is the right thing, currently it's
-#     #just the amplitude
-#    # TODO until the above is fixed, this loss function will just use the
-#    # amplitude
-#    target = tf.math.abs(target)
-#    pred = tf.math.abs(pred)
-#
-#    if not get('probe.big'):
-#        pred = pred * mk_centermask(pred, N, 1, kind = 'center')
-##        # TODO this is redundant since the probe illumination function already
-##        # applies this mask. we only need this for the mae term.
-##        #target = target * mk_centermask(target, N, 1, kind = 'center')
-#
-#    if get('tv_weight') > 0:
-#        tv_loss = total_variation(pred) * get('tv_weight')
-#    else:
-#        tv_loss = 0.
-#
-#    if get('realspace_mae_weight') > 0:
-#        norm = (tf.math.reduce_mean(tf.math.abs(pred)) /
-#            tf.math.reduce_mean(tf.math.abs(target)))
-#        mae_loss = complex_mae(norm * target, pred) * get('realspace_mae_weight')
-#        mae_loss = agg_complex_to_real(mae_loss)
-#    else:
-#        mae_loss = 0.#complex0
-#    return tv_loss + mae_loss

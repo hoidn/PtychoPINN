@@ -48,6 +48,8 @@ def params():
 def validate():
     assert cfg['data_source'] in ['lines', 'grf', 'experimental', 'points',
         'testimg', 'diagonals', 'xpp', 'V']
+    if cfg['realspace_mae_weight'] > 0.:
+        assert cfg['realspace_weight'] > 0
     #assert cfg['bigoffset'] % 4 == 0
     # TODO
     return True
