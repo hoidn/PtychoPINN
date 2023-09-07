@@ -365,6 +365,7 @@ complexify_function = complexify_helper(separate_real_imag, combine_real_imag)
 complexify_amp_phase = complexify_helper(separate_amp_phase, combine_complex)
 # apply fn to amplitude and phase and sum the result
 complexify_sum_amp_phase = complexify_helper(separate_amp_phase, lambda a, b: a + b)
+complexify_sum_real_imag = complexify_helper(separate_real_imag, lambda a, b: a + b)
 
 #############################
 
@@ -582,23 +583,25 @@ def masked_MAE_loss(target, pred):
             reassemble_patches(tf.math.abs(mask) * target))
     return mae(target, pred)
 
-def fn_complex_to_real(fn):
-    """
-    apply fn to complex and imaginary parts of the argument, then return the
-    summed result
-    """
-    def newf(*args, **kwargs):
-        channels = args[0]
-        real = tf.math.real(channels)
-        imag = tf.math.imag(channels)
-        out_real = fn(real, *args[1:], **kwargs)
-        out_imag = fn(imag, *args[1:], **kwargs)
-        return out_real + out_imag
-    return newf
+#def fn_complex_to_real(fn):
+#    """
+#    apply fn to complex and imaginary parts of the argument, then return the
+#    summed result
+#    """
+#    def newf(*args, **kwargs):
+#        channels = args[0]
+#        real = tf.math.real(channels)
+#        imag = tf.math.imag(channels)
+#        out_real = fn(real, *args[1:], **kwargs)
+#        out_imag = fn(imag, *args[1:], **kwargs)
+#        return out_real + out_imag
+#    return newf
 
-@fn_complex_to_real
+@complexify_sum_real_imag
 def total_variation_complex(obj):
-    """ obj: a real or complex tensor of rank 3 """
+    """ calculate summed total variation of the real and imaginary components
+        of a tensor
+    """
     # Calculate the differences along the vertical and horizontal directions
     x_deltas, y_deltas = high_pass_x_y(obj)
     return tf.reduce_sum(x_deltas**2) + tf.reduce_sum(y_deltas**2)
@@ -609,15 +612,15 @@ def total_variation(obj, amp_only = False):
         obj = Lambda(lambda x: tf.math.abs(x))(obj)
     return total_variation_complex(obj)
 
-def agg_complex_to_real(complextensor):
-    real = tf.math.real(complextensor)
-    imag = tf.math.imag(complextensor)
-    return real + imag
-
 # TODO weighting the phase and amp differently might make sense
 @complexify_sum_amp_phase
 def complex_mae(target, pred):
     mae = tf.keras.metrics.mean_absolute_error
+    return mae(target, pred)
+
+def masked_mae(target, pred, **kwargs):
+    mae = tf.keras.metrics.mean_absolute_error
+    pred = pred * mk_centermask(pred, N, 1, kind = 'center')
     return mae(target, pred)
 
 def realspace_loss(target, pred, **kwargs):
