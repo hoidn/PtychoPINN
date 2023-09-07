@@ -262,17 +262,14 @@ decoded1, decoded2 = create_autoencoder_functional(normed_input, n_filters_scale
 # Combine the two decoded outputs
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
 
-# TODO rename
-# Pad the output object
-padded_obj = obj
-
 if cfg.get('object.big'):
     # If 'object.big' is true, reassemble the patches
-    padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name = 'padded_obj_2')([padded_obj, input_positions])
+    padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name = 'padded_obj_2')([obj, input_positions])
 else:
     # If 'object.big' is not true, pad the reconstruction
-    padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x), name = 'padded_obj_2')(padded_obj)
+    padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x), name = 'padded_obj_2')(obj)
 
+# TODO rename?
 # Trim the object reconstruction to N x N
 trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
 
@@ -307,14 +304,12 @@ pred_intensity_sampled = dist_poisson_intensity(pred_amp_scaled)
 negloglik = lambda x, rv_x: -rv_x.log_prob((x))
 fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
 
-autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled,
-        probe])
+autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
 
 autoencoder_no_nll = Model(inputs = [input_img, input_positions],
         outputs = [pred_amp_scaled])
 
-# TODO this broke after encapsulating the contents of Maps
-#encode_obj_to_diffraction = tf.keras.Model(inputs=[padded_obj, input_positions],
+#encode_obj_to_diffraction = tf.keras.Model(inputs=[obj, input_positions],
 #                           outputs=[pred_diff, flat_illuminated])
 diffraction_to_obj = tf.keras.Model(inputs=[input_img],
                            outputs=[obj])
@@ -348,26 +343,8 @@ def prepare_outputs(Y_I_train, coords_train, X_train):
     """training outputs"""
     return [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
                 (cfg.get('intensity_scale') * X_train),
-                (cfg.get('intensity_scale') * X_train)**2,
-               Y_I_train[:, :, :, :1]]
+                (cfg.get('intensity_scale') * X_train)**2]
 
-#def prepare_inputs(X_train, coords_train):
-#    """training inputs"""
-#    X_tensor = tf.convert_to_tensor(X_train * cfg.get('intensity_scale'))
-#    coords_tensor = tf.convert_to_tensor(coords_train)
-#    return [X_tensor, coords_tensor]
-#
-#def prepare_outputs(Y_I_train, coords_train, X_train):
-#    """training outputs"""
-#    Y_I_tensor = tf.convert_to_tensor(Y_I_train)
-#    X_tensor = tf.convert_to_tensor(X_train)
-#    coords_tensor = tf.convert_to_tensor(coords_train)
-#    return [tf.convert_to_tensor(hh.center_channels(Y_I_tensor, coords_tensor)[:, :, :, :1]),
-#            tf.convert_to_tensor(cfg.get('intensity_scale') * X_tensor),
-#            tf.convert_to_tensor((cfg.get('intensity_scale') * X_tensor)**2),
-#            Y_I_tensor[:, :, :, :1]]
-
-#def train(epochs, X_train, coords_train, Y_I_train):
 def train(epochs, X_train, coords_train, Y_obj_train):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
@@ -381,7 +358,6 @@ def train(epochs, X_train, coords_train, Y_obj_train):
     batch_size = params()['batch_size']
     history=autoencoder.fit(
         prepare_inputs(X_train, coords_train),
-        #prepare_outputs(Y_I_train, coords_train, X_train),
         prepare_outputs(Y_obj_train, coords_train, X_train),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
