@@ -97,28 +97,13 @@ def load(which, **kwargs):
     # TODO Real space ground truth is for the benefit of supervised learning
     # reconstruction. we have to be careful, since multiplying by the probe
     # (even just amplitude) gives away more ground truth information than what
-    # PtychoNN uses in the context of its original paper. For now, therefore,
-    # we just multiply by the probe mask. Need to make sure that this treatment
-    # is consistent between datasets, though.
+    # PtychoNN uses in the context of its original paper. therefore,
+    # we just multiply by the probe mask. Check that the simulated datasets
+    # have the same treatment and, if not, change it.
     Y_obj = loader.get_image_patches(gt_image,
         global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
-#    Y_obj = loader.get_image_patches(gt_image,
-#        global_offsets, coords_true) * cfg.get('probe')
-#    probeamp = tf.cast(tf.math.abs(cfg.get('probe')), tf.complex64)
-#    Y_obj = loader.get_image_patches(gt_image,
-#        global_offsets, coords_true) * probeamp
     Y_I = tf.math.abs(Y_obj)
     Y_phi = tf.math.angle(Y_obj)
-    #Y_phi = tf.convert_to_tensor(np.zeros_like(X))
-#    if which == 'test':
-#        Y_I = loader.get_image_patches(np.absolute(gt_image),
-#            global_offsets, coords_true)
-#    else:
-#        Y_I = tf.convert_to_tensor(np.zeros_like(X))
-
-#    Y_phi = loader.get_image_patches(np.angle(gt_image),
-#        global_offsets, coords_true)
-    #Y_I = tf.convert_to_tensor(np.ones_like(X))
     YY_full = None
 
     return (X, Y_I, Y_phi,

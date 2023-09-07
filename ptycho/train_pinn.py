@@ -17,14 +17,14 @@ if params.params()['positions.provided']:
     print('using provided scan positions for training')
     #history = model.train(nepochs, X_train, coords_train_true, Y_I_train)
     history = model.train(nepochs, X_train, coords_train_true, Y_obj_train)
-    reconstructed_obj, pred_amp, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
+    reconstructed_obj, pred_amp, reconstructed_obj_cdi = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
                                                                      coords_test_true])
 
 else:
     print('using nominal scan positions for training')
     #history = model.train(nepochs, X_train, coords_train_nominal, Y_I_train)
     history = model.train(nepochs, X_train, coords_train_nominal, Y_obj_train)
-    reconstructed_obj, pred_amp, reg, L2_error = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
+    reconstructed_obj, pred_amp, reconstructed_obj_cdi = model.autoencoder.predict([X_test * model.params()['intensity_scale'],
                                                                      coords_test_nominal])
 
 try:

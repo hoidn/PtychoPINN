@@ -75,8 +75,9 @@ def build_model(X_train, Y_I_train, Y_phi_train):
     decoded2 = Conv2D(c, (3, 3), padding='same')(x2)
     #Put together
     autoencoder = Model(input_img, [decoded1, decoded2])
-    #parallel_model = ModelMGPU(autoencoder, gpus=num_GPU)
-    #parallel_model.compile(optimizer='adam', loss='mean_absolute_error')
+    # Masked MAE creates a more apples-to-apples comparison with the main
+    # model, but it doesn't seem to affect the image quality
+    #autoencoder.compile(optimizer='adam', loss=masked_mae)
     autoencoder.compile(optimizer='adam', loss='mean_absolute_error')
     return autoencoder
 
@@ -97,4 +98,3 @@ def train(X_train, Y_I_train, Y_phi_train, autoencoder = None):
         batch_size=batch_size, verbose=1, epochs=nepochs,
         validation_split = 0.05, callbacks=[reduce_lr, earlystop])
     return autoencoder, history
-
