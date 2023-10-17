@@ -106,6 +106,14 @@ def _flat_to_channel(img, N = None):
     img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
     return img
 
+# TODO test, consolidate
+def _flat_to_channel_2(img):
+    gridsize = params()['gridsize']
+    _, N, M, _ = img.shape
+    img = tf.reshape(img, (-1, gridsize**2, N, M))
+    img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
+    return img
+
 # TODO rename
 def _channel_to_flat(img):
     """
