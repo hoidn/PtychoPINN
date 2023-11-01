@@ -210,19 +210,39 @@ elif params.params()['data_source'] == 'xpp':
     outer_offset_test = params.cfg['outer_offset_test']
     #bigN = N + (gridsize - 1) * offset
 
-    # TODO set the probe
-    (X_train, Y_I_train, Y_phi_train,
-        intensity_scale, YY_train_full, _,
-        (coords_train_nominal, coords_train_true)) =\
-        xpp.load('train')
+#    # TODO set the probe
+#    (X_train, Y_I_train, Y_phi_train,
+#        intensity_scale, YY_train_full, _,
+#        (coords_train_nominal, coords_train_true)) =\
+#        xpp.load('train')
+#
+#    params.cfg['intensity_scale'] = intensity_scale
+#
+#    (X_test, Y_I_test, Y_phi_test,
+#        _, YY_test_full, norm_Y_I_test,
+#        (coords_test_nominal, coords_test_true)) =\
+#        xpp.load('test')
+#    #size = int(YY_test_full.shape[1])
+# Loading training data
+
+    train_data = xpp.load('train')
+    X_train = train_data['X']
+    Y_I_train = train_data['Y_I']
+    Y_phi_train = train_data['Y_phi']
+    intensity_scale = train_data['norm_Y_I']
+    YY_train_full = train_data['YY_full']
+    coords_train_nominal, coords_train_true = train_data['coords']
 
     params.cfg['intensity_scale'] = intensity_scale
 
-    (X_test, Y_I_test, Y_phi_test,
-        _, YY_test_full, norm_Y_I_test,
-        (coords_test_nominal, coords_test_true)) =\
-        xpp.load('test')
-    #size = int(YY_test_full.shape[1])
+    # Loading test data
+    test_data = xpp.load('test')
+    X_test = test_data['X']
+    Y_I_test = test_data['Y_I']
+    Y_phi_test = test_data['Y_phi']
+    YY_test_full = test_data['YY_full']
+    norm_Y_I_test = test_data['norm_Y_I']
+    coords_test_nominal, coords_test_true = test_data['coords']
 
 else:
     raise ValueError
