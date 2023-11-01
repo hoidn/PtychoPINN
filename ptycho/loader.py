@@ -116,8 +116,8 @@ def get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
         'coords_start_offsets': coords_start_offsets,
         'coords_start_relative': coords_start_relative,
         'coords_nn': coords_nn,
-        'coords_start_nn': coords_start_nn}
-
+        'coords_start_nn': coords_start_nn,
+        'nn_indices': nn_indices}
 
 def shift_and_sum(obj_tensor, global_offsets, M = 10):
     canvas_pad = 100
