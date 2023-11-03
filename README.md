@@ -26,7 +26,7 @@ To reproduce the paper results, see the usage in scripts/.
 |--------|------|
 | 🟡 | Reconstruction with non-grid scan patterns |
 | 🟡 | Position correction in CDI mode |
-| 🟡 | Example scripts for usage with experimental data |
+| 🟡 | Workflow for experimental data |
 | 🟡 | Probe fitting |
 | 🔴 | Stochastic probe model |
 | 🔴 | 128 x 128 resolution |
