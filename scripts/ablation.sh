@@ -1,43 +1,69 @@
 #!/bin/bash
-# Script for PINN ablation study
+
+# Default values
+DEFAULT_DSOURCE="lines"
+DEFAULT_PREFIX="tmp"
+DEFAULT_NEPOCHS=60
+DEFAULT_OUTER_OFFSET_TRAIN=8
+DEFAULT_OUTER_OFFSET_TEST=20
 
 # Help message function
 usage() {
-  echo "Usage: $0 [-h] data_source prefix nepochs outer_offset_train outer_offset_test"
-  echo
-  echo "  -h, --help                  Display this help and exit."
-  echo "  data_source                 Data source parameter to be passed to the train.py script. Selects a simulated object type."
-  echo "  prefix                      Output prefix for the training session."
-  echo "  nepochs                     Number of epochs for the training."
-  echo "  outer_offset_train          Scan grid offset value for training."
-  echo "  outer_offset_test           Scan grid offset value for evaluation."
-  echo
-  echo "Example:"
-  echo "  $0 grf grf2 100 8 20"
+    echo "Usage: $0 [-h] [-d <data_source>] [-p <prefix>] [-n <nepochs>] [-o <outer_offset_train>] [-t <outer_offset_test>]"
+    echo "  -h                      Display this help message."
+    echo "  -d <data_source>        Data source for training. Default: $DEFAULT_DSOURCE"
+    echo "  -p <prefix>             Output prefix for the files. Default: $DEFAULT_PREFIX"
+    echo "  -n <nepochs>            Number of epochs for training. Default: $DEFAULT_NEPOCHS"
+    echo "  -o <outer_offset_train> Outer offset for training. Default: $DEFAULT_OUTER_OFFSET_TRAIN"
+    echo "  -t <outer_offset_test>  Outer offset for testing. Default: $DEFAULT_OUTER_OFFSET_TEST"
+    exit 1
 }
 
-# Check for '-h' or '--help' and invoke usage function
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  usage
-  exit 0
-fi
+# Parse command line options
+while getopts ":hd:p:n:o:t:" opt; do
+  case ${opt} in
+    h )
+      usage
+      ;;
+    d )
+      dsource=$OPTARG
+      ;;
+    p )
+      prefix=$OPTARG
+      ;;
+    n )
+      nepochs=$OPTARG
+      ;;
+    o )
+      outer_offset_train=$OPTARG
+      ;;
+    t )
+      outer_offset_test=$OPTARG
+      ;;
+    \? )
+      echo "Invalid option: -$OPTARG" 1>&2
+      usage
+      ;;
+    : )
+      echo "Invalid option: -$OPTARG requires an argument" 1>&2
+      usage
+      ;;
+  esac
+done
 
-# Check for the correct number of arguments
-if [[ "$#" -ne 5 ]]; then
-  echo "Error: Incorrect number of arguments."
-  usage
-  exit 1
-fi
+# Assign default values if variables are empty
+dsource=${dsource:-$DEFAULT_DSOURCE}
+prefix=${prefix:-$DEFAULT_PREFIX}
+nepochs=${nepochs:-$DEFAULT_NEPOCHS}
+outer_offset_train=${outer_offset_train:-$DEFAULT_OUTER_OFFSET_TRAIN}
+outer_offset_test=${outer_offset_test:-$DEFAULT_OUTER_OFFSET_TEST}
 
-# Assign arguments to variables
-dsource=$1
-prefix=$2
-nepochs=$3
-outer_offset_train=$4 # 8
-outer_offset_test=$5 # 20
+# Invocation: Example of how you'd call one of the training commands
+invoke_training() {
+train.py --data_source "$dsource" --nepochs "$nepochs" --offset 4 --output_prefix "$prefix" "$@"
+}
 
-# Invocation 1
-train.py  --data_source $dsource --nepochs $nepochs --offset 4  --output_prefix $prefix --model_type pinn --gridsize 2 --n_filters_scale 2 --object_big True --intensity_scale_trainable True --label "PINN,NLL,overlaps" --nimgs_train 2 --nimgs_test 1 --outer_offset_train $outer_offset_train --outer_offset_test $outer_offset_test --set_phi 
+invoke_training --model_type pinn --gridsize 2 --n_filters_scale 2 --object_big True --intensity_scale_trainable True --label "PINN,NLL,overlaps" --nimgs_train 2 --nimgs_test 1 --outer_offset_train "$outer_offset_train" --outer_offset_test "$outer_offset_test" --set_phi
 
 ## Invocation 2
 #train.py  --data_source $dsource --nepochs $nepochs --offset 4  --output_prefix $prefix --model_type pinn --nll_weight 0.0 --mae_weight 1.0 --intensity_scale_trainable True --object_big True --n_filters_scale 2 --label "PINN,overlaps" --nimgs_train 2 --nimgs_test 1 --outer_offset_train $outer_offset_train --outer_offset_test $outer_offset_test --set_phi 
