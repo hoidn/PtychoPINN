@@ -16,25 +16,28 @@ The repository hosts the TensorFlow 2 implementation of PtychoPINN, an unsupervi
 To reproduce the paper results, see the usage in scripts/.
 
 ### Checklist
+| Status | Task |
+|--------|------|
+| 🟡 | Reconstruction with non-grid scan patterns |
+| 🟡 | Position correction in CDI mode |
+| 🟡 | Example scripts for usage with experimental data |
+| 🟡 | Probe fitting |
+| 🔴 | Stochastic probe model |
+| 🔴 | 128 x 128 resolution |
 
-- ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) `In Progress`: Reconstruction with non-grid scan patterns
-- ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) `In Progress`: Position correction in CDI mode
-- ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) `In Progress`: Example scripts for usage with experimental data
-- ![#ffff00](https://via.placeholder.com/15/ffff00/000000?text=+) `Undone`: Probe fitting
+
  
 
+<!-- 
 * subpixel convolution (Depth-to-space)
 * make the model robust to arbitrary scaling/incorrect normalization of the diffracted intensity
 * other ideas: fft based loss, gradient loss, vq-vae https://www.tensorflow.org/tutorials/generative/style_transfer#define_content_and_style_representations
 * probe-based vs reconstruction-based support?
 
-* consistency check on magnitude constraint (done)
 * Fully Convolutional Networks for Semantic Segmentation, explore and discuss. Make a slide explaining the idea.
 * Try MC Dropout https://arxiv.org/pdf/1511.02680.pdf
-* Put poisson likelihood into data (done)
 * read deep ensembles https://arxiv.org/pdf/1612.01474.pdf
 
-* sub-pixel shifting
 * hard constraint on diffraction norm using projection, consider tf.keras.constraints.MinMaxNorm
 * stochastic probe
 * probe symmetry consequences
@@ -45,3 +48,5 @@ To reproduce the paper results, see the usage in scripts/.
 * fourier ring correlation
 
 * characterize robustness impact of Poisson likelihood vs. MAE
+ -->
+
