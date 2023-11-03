@@ -69,7 +69,7 @@ optional arguments:
                         Outer offset for testing
 ```
 
-To reproduce some of the paper results, see the usage in scripts/.
+For examples of runs with reasonable parameters, see scripts/.
 
 ### Checklist
 | Status | Task |
