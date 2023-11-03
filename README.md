@@ -10,7 +10,7 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
 - **Resolution**: PtychoPINN outperforms existing deep learning models for ptychographic reconstruction in terms of image quality, with a 10 dB PSNR increase and a 3- to 6-fold gain in linear resolution. Generalizability and robustness are also improved.
 - **Scalability and Speed**: PtychoPINN is two or three orders of magnitude as fast as iterative scanning CDI reconstruction.
 
-![Architecture diagram](diagram/pinn_letters.pdf)
+![Architecture diagram](diagram/lett.png)
 <!---
 *Fig. 1: Caption for the figure.*
  -->
