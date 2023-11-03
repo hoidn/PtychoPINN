@@ -66,9 +66,9 @@ optional arguments:
   --nimgs_test NIMGS_TEST
                         Number of testing images
   --outer_offset_train OUTER_OFFSET_TRAIN
-                        Outer offset for training
+                        Scan point grid offset for training dataset
   --outer_offset_test OUTER_OFFSET_TEST
-                        Outer offset for testing
+                        Scan point grid offset for testing dataset
 ```
 
 For examples of runs with reasonable parameters, see scripts/.
