@@ -19,7 +19,57 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
 ## Usage
 `python setup.py install`
 
-To reproduce the paper results, see the usage in scripts/.
+```
+usage: PtychoPINN [-h] [--model_type MODEL_TYPE] [--label LABEL]
+                  [--positions_provided POSITIONS_PROVIDED] [--data_source DATA_SOURCE] [--set_phi]
+                  [--nepochs NEPOCHS] [--offset OFFSET] [--max_position_jitter MAX_POSITION_JITTER]
+                  [--output_prefix OUTPUT_PREFIX] [--gridsize GRIDSIZE]
+                  [--n_filters_scale N_FILTERS_SCALE] [--object_big OBJECT_BIG]
+                  [--intensity_scale_trainable INTENSITY_SCALE_TRAINABLE] [--nll_weight NLL_WEIGHT]
+                  [--mae_weight MAE_WEIGHT] [--nimgs_train NIMGS_TRAIN] [--nimgs_test NIMGS_TEST]
+                  [--outer_offset_train OUTER_OFFSET_TRAIN] [--outer_offset_test OUTER_OFFSET_TEST]
+
+Generate / load data and train the model
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --model_type MODEL_TYPE
+                        model type
+  --label LABEL         Name of this run
+  --positions_provided POSITIONS_PROVIDED
+                        Whether positions are provided or not
+  --data_source DATA_SOURCE
+                        Data source
+  --set_phi             Set non-zero phase
+  --nepochs NEPOCHS     Number of epochs
+  --offset OFFSET       Offset
+  --max_position_jitter MAX_POSITION_JITTER
+                        Maximum position jitter
+  --output_prefix OUTPUT_PREFIX
+                        Output prefix
+  --gridsize GRIDSIZE   Grid size
+  --n_filters_scale N_FILTERS_SCALE
+                        Number of filters scale
+  --object_big OBJECT_BIG
+                        If true, reconstruct the entire solution region for each set of patterns,
+                        instead of just the central N x N region.
+  --intensity_scale_trainable INTENSITY_SCALE_TRAINABLE
+                        Whether intensity scale is trainable or not
+  --nll_weight NLL_WEIGHT
+                        NLL loss weight
+  --mae_weight MAE_WEIGHT
+                        MAE loss weight
+  --nimgs_train NIMGS_TRAIN
+                        Number of training images
+  --nimgs_test NIMGS_TEST
+                        Number of testing images
+  --outer_offset_train OUTER_OFFSET_TRAIN
+                        Outer offset for training
+  --outer_offset_test OUTER_OFFSET_TEST
+                        Outer offset for testing
+```
+
+To reproduce some of the paper results, see the usage in scripts/.
 
 ### Checklist
 | Status | Task |
