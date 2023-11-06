@@ -123,6 +123,7 @@ try:
 except ImportError as e:
     print('object stitching failed. No images will be saved.')
 
+
 with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
 
