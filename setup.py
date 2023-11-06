@@ -7,8 +7,12 @@ from functools import reduce
 #    for root, dirs, files in os.walk('data/')])
 
 setup(name = 'ptychoPINN',
-    packages = find_packages('.'),
-    package_dir = {'ptychoPINN': 'ptycho'},
+#    packages = find_packages('.'),
+#    package_dir = {'ptychoPINN': 'ptycho'},
+
+    packages=find_packages('.') + ['FRC'],
+    package_dir={'ptychoPINN': 'ptycho', 'FRC': 'ptycho/FRC'},
+
     scripts = ['ptycho/train.py'],
     #package_data = {'trader': ['data/*']},
     install_requires = [
