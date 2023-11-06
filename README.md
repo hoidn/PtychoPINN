@@ -42,7 +42,7 @@ optional arguments:
                         Whether positions are provided or not
   --data_source DATA_SOURCE
                         Data source
-  --set_phi             Set non-zero phase
+  --set_phi             Set non-zero phase in object generations
   --nepochs NEPOCHS     Number of epochs
   --offset OFFSET       Offset
   --max_position_jitter MAX_POSITION_JITTER
