@@ -648,4 +648,3 @@ def realspace_loss(target, pred, **kwargs):
     else:
         mae_loss = 0.
     return tv_loss + mae_loss
-
