@@ -3,7 +3,7 @@
 This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://arxiv.org/pdf/2306.11014.pdf)". 
 
 ## Overview
-PtychoPINN is an unsupervised physics-informed neural network reconstruction method designed to facilitate real-time imaging by bypassing the resolution limitations of optics. PtychoPINN uses a NN autoencoder framework for fast reconstruction and improves imaging quality by combining the diffraction forward map with real-space overlap constraints.
+PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI designed to improve upon the speed of conventional reconstruction methods without sacrificing image quality. Compared to prior NN approaches, the main source of improvements in image quality are its combination of the diffraction forward map with real-space overlap constraints.
 
 ## Features
 - **Unsupervised / self-supervised learning**: There is no need for extensive labeled training data, making the model more practical to train.
