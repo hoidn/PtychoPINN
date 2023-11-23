@@ -71,7 +71,7 @@ optional arguments:
                         Scan point grid offset for testing dataset
 ```
 
-For sample usage, see scripts/example.sh.
+For sample usage, see `scripts/example.sh` or `notebooks/`.
 
 ### Checklist
 | Status | Task |
