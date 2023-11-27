@@ -36,7 +36,7 @@ Generate / load data and train the model
 optional arguments:
   -h, --help            show this help message and exit
   --model_type MODEL_TYPE
-                        model type ('pinn' or 'supervised')
+                        model type (pinn or supervised)
   --label LABEL         Name of this run (output directory prefix)
   --positions_provided POSITIONS_PROVIDED
                         [deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs
@@ -44,7 +44,7 @@ optional arguments:
                         Dataset specification
   --set_phi             If true, simulated objects are given non-zero phase
   --nepochs NEPOCHS     Number of epochs
-  --offset OFFSET       Scan point spacing for simulated (grid-sampled) data
+  --offset OFFSET       Offset
   --max_position_jitter MAX_POSITION_JITTER
                         Solution region is expanded around the edges by this amount
   --output_prefix OUTPUT_PREFIX
@@ -53,8 +53,7 @@ optional arguments:
   --n_filters_scale N_FILTERS_SCALE
                         Number of filters scale
   --object_big OBJECT_BIG
-                        If true, reconstruct the entire solution region for each set of patterns,
-                        instead of just the central N x N region.
+                        If true, reconstruct the entire solution region for each set of patterns, instead of just the central N x N region.
   --intensity_scale_trainable INTENSITY_SCALE_TRAINABLE
                         Whether intensity scale is trainable or not
   --nll_weight NLL_WEIGHT
@@ -68,7 +67,7 @@ optional arguments:
   --outer_offset_train OUTER_OFFSET_TRAIN
                         Scan point grid offset for (generated) training datasets
   --outer_offset_test OUTER_OFFSET_TEST
-                        Scan point grid offset for (generated) testing dataset
+                        Scan point grid offset for (generated) testing datasets
 ```
 
 For sample usage, see `scripts/example.sh` or `notebooks/`.
