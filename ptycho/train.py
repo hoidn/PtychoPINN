@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--set_phi', action='store_true', default=False, help='If true, simulated objects are given non-zero phase')
     parser.add_argument('--nepochs', type=int, default=60, help='Number of epochs')
     parser.add_argument('--offset', type=int, default=4, help='Scan point spacing for simulated (grid-sampled) data')
-    parser.add_argument('--gridsize', type=int, default=2, help='Grid size')
+    parser.add_argument('--gridsize', type=int, default=2, help='Solution region grid size (e.g. 2 -> 2x2, etc.)')
     parser.add_argument('--object_big', type=bool, default=True, help='If true, reconstruct the entire solution region for each set of patterns, instead of just the central N x N region.')
     parser.add_argument('--intensity_scale_trainable', type=bool, default=True, help='Whether intensity scale is trainable or not')
     parser.add_argument('--nll_weight', type=float, default=1., help='Diffraction reconstruction NLL loss weight')

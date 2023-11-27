@@ -37,21 +37,14 @@ optional arguments:
   -h, --help            show this help message and exit
   --model_type MODEL_TYPE
                         model type (pinn or supervised)
-  --label LABEL         Name of this run (output directory prefix)
-  --positions_provided POSITIONS_PROVIDED
-                        [deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs
+  --output_prefix OUTPUT_PREFIX
+                        output directory prefix
   --data_source DATA_SOURCE
                         Dataset specification
   --set_phi             If true, simulated objects are given non-zero phase
   --nepochs NEPOCHS     Number of epochs
-  --offset OFFSET       Offset
-  --max_position_jitter MAX_POSITION_JITTER
-                        Solution region is expanded around the edges by this amount
-  --output_prefix OUTPUT_PREFIX
-                        Output prefix
-  --gridsize GRIDSIZE   Grid size
-  --n_filters_scale N_FILTERS_SCALE
-                        Number of filters scale
+  --offset OFFSET       Scan point spacing for simulated (grid-sampled) data
+  --gridsize GRIDSIZE   Solution region grid size (e.g. 2 -> 2x2, etc.)
   --object_big OBJECT_BIG
                         If true, reconstruct the entire solution region for each set of patterns, instead of just the central N x N region.
   --intensity_scale_trainable INTENSITY_SCALE_TRAINABLE
@@ -68,6 +61,13 @@ optional arguments:
                         Scan point grid offset for (generated) training datasets
   --outer_offset_test OUTER_OFFSET_TEST
                         Scan point grid offset for (generated) testing datasets
+  --n_filters_scale N_FILTERS_SCALE
+                        Number of filters scale
+  --max_position_jitter MAX_POSITION_JITTER
+                        Solution region is expanded around the edges by this amount
+  --positions_provided POSITIONS_PROVIDED
+                        [deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs
+  --label LABEL         [deprecated] Name of this run
 ```
 
 For sample usage, see `scripts/example.sh` or `notebooks/`.
