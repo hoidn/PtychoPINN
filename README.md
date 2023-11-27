@@ -36,17 +36,17 @@ Generate / load data and train the model
 optional arguments:
   -h, --help            show this help message and exit
   --model_type MODEL_TYPE
-                        model type
-  --label LABEL         Name of this run
+                        model type ('pinn' or 'supervised')
+  --label LABEL         Name of this run (output directory prefix)
   --positions_provided POSITIONS_PROVIDED
-                        Whether positions are provided or not
+                        [deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs
   --data_source DATA_SOURCE
-                        Data source
-  --set_phi             Set non-zero phase in object generations
+                        Dataset specification
+  --set_phi             If true, simulated objects are given non-zero phase
   --nepochs NEPOCHS     Number of epochs
-  --offset OFFSET       Offset
+  --offset OFFSET       Scan point spacing for simulated (grid-sampled) data
   --max_position_jitter MAX_POSITION_JITTER
-                        Maximum position jitter
+                        Solution region is expanded around the edges by this amount
   --output_prefix OUTPUT_PREFIX
                         Output prefix
   --gridsize GRIDSIZE   Grid size
@@ -58,17 +58,17 @@ optional arguments:
   --intensity_scale_trainable INTENSITY_SCALE_TRAINABLE
                         Whether intensity scale is trainable or not
   --nll_weight NLL_WEIGHT
-                        NLL loss weight
+                        Diffraction reconstruction NLL loss weight
   --mae_weight MAE_WEIGHT
-                        MAE loss weight
+                        Diffraction reconstruction MAE loss weight
   --nimgs_train NIMGS_TRAIN
-                        Number of training images
+                        Number of generated training images
   --nimgs_test NIMGS_TEST
-                        Number of testing images
+                        Number of generated testing images
   --outer_offset_train OUTER_OFFSET_TRAIN
-                        Scan point grid offset for training dataset
+                        Scan point grid offset for (generated) training datasets
   --outer_offset_test OUTER_OFFSET_TEST
-                        Scan point grid offset for testing dataset
+                        Scan point grid offset for (generated) testing datasets
 ```
 
 For sample usage, see `scripts/example.sh` or `notebooks/`.
