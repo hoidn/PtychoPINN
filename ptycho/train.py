@@ -21,20 +21,12 @@ if __name__ == '__main__':
                         description = 'Generate / load data and train the model',
                         )
     parser.add_argument('--model_type', type=str, default='pinn', help='model type (pinn or supervised)')
-    parser.add_argument('--label', type=str, default='', help='Name of this run (output directory prefix)')
-    parser.add_argument('--positions_provided', type=bool, default=False, help='[deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs')
+    parser.add_argument('--output_prefix', type=str, default='lines2', help='output directory prefix')
     parser.add_argument('--data_source', type=str, default='lines', help='Dataset specification')
-
     parser.add_argument('--set_phi', action='store_true', default=False, help='If true, simulated objects are given non-zero phase')
-
     parser.add_argument('--nepochs', type=int, default=60, help='Number of epochs')
-
-    parser.add_argument('--offset', type=int, default=4, help='Offset')
-    parser.add_argument('--max_position_jitter', type=int, default=10, help='Solution region is expanded around the edges by this amount')
-    parser.add_argument('--output_prefix', type=str, default='lines2', help='Output prefix')
-
+    parser.add_argument('--offset', type=int, default=4, help='Scan point spacing for simulated (grid-sampled) data')
     parser.add_argument('--gridsize', type=int, default=2, help='Grid size')
-    parser.add_argument('--n_filters_scale', type=int, default=2, help='Number of filters scale')
     parser.add_argument('--object_big', type=bool, default=True, help='If true, reconstruct the entire solution region for each set of patterns, instead of just the central N x N region.')
     parser.add_argument('--intensity_scale_trainable', type=bool, default=True, help='Whether intensity scale is trainable or not')
     parser.add_argument('--nll_weight', type=float, default=1., help='Diffraction reconstruction NLL loss weight')
@@ -46,6 +38,11 @@ if __name__ == '__main__':
     parser.add_argument('--outer_offset_train', type=int, default=None, help='Scan point grid offset for (generated) training datasets')
     parser.add_argument('--outer_offset_test', type=int, default=None, help='Scan point grid offset for (generated) testing datasets')
 
+    parser.add_argument('--n_filters_scale', type=int, default=2, help='Number of filters scale')
+    parser.add_argument('--max_position_jitter', type=int, default=10, help='Solution region is expanded around the edges by this amount')
+
+    parser.add_argument('--positions_provided', type=bool, default=False, help='[deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs')
+    parser.add_argument('--label', type=str, default='', help='[deprecated] Name of this run')
     args = parser.parse_args()
 
     # offset between neighboring scan points, in pixels
