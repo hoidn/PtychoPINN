@@ -10,7 +10,6 @@ setup(name = 'ptychoPINN',
     install_requires = [
         'protobuf==3.19.6',
         'dill==0.3.6',
-        'numba',
         'numpy',
         'pandas==1.4.4',
         'pandas-datareader==0.10.0',

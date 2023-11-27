@@ -68,7 +68,7 @@ optional arguments:
   --outer_offset_train OUTER_OFFSET_TRAIN
                         Scan point grid offset for (generated) training datasets
   --outer_offset_test OUTER_OFFSET_TEST
-                        Scan point grid offset for (generated) testing datasets
+                        Scan point grid offset for (generated) testing dataset
 ```
 
 For sample usage, see `scripts/example.sh` or `notebooks/`.
