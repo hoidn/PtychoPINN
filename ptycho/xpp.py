@@ -12,9 +12,11 @@ gridh, gridw = 32, 32
 
 np.random.seed(7)
 
-#obj = np.load('../datasets/Run1084_recon3_postPC_shrunk_lowpass.npz')
-#obj = np.load('../datasets/Run1084_recon3_postPC_shrunk.npz')
-obj = np.load('../datasets/Run1084_recon3_postPC_shrunk_3.npz')
+import pkg_resources
+
+# Use pkg_resources to get the path to the data file within the installed package
+data_file_path = pkg_resources.resource_filename('ptycho', 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
+obj = np.load(data_file_path)
 
 print('raw diffraction shape', obj['diffraction'].shape)
 
