@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from . import loader
-from . import datasets
+from .datasets import scale_nphotons
 
 train_frac = .5
 N = 64

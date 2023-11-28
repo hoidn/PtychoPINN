@@ -40,10 +40,10 @@ def test_complexify_amp_phase():
 
 
 # Execute the tests
-test_complexify_function()
-
-with tf.device('/CPU:0'):
-    # Force CPU execution because one of the first two tests fails on GPU
-    test_complexify_amp_phase()
+if __name__ == "__main__":
+    test_complexify_function()
+    with tf.device('/CPU:0'):
+        # Force CPU execution because one of the first two tests fails on GPU
+        test_complexify_amp_phase()
 
 print("All tests passed!")
