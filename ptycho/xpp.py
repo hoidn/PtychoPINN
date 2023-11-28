@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from . import loader
-from ptycho.datasets import scale_nphotons
+from . import loader
+from .datasets import scale_nphotons
 
 train_frac = .5
 N = 64
@@ -131,7 +132,7 @@ def load(which, **kwargs):
     YY_full = None
 
     return {
-        'X': X,
+        'diffraction': X,
         'Y_I': Y_I,
         'Y_phi': Y_phi,
         'norm_Y_I': norm_Y_I,
