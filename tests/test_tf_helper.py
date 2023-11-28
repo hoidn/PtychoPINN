@@ -21,10 +21,11 @@ def test_complexify_function():
     expected_output = tf.constant([2.0 + 4.0j, 6.0 + 8.0j], dtype=tf.complex64)
     assert tf.math.reduce_all(complexified_fn(complex_tensor) == expected_output), "Failed on complex tensor"
 
-def test_complexify_amp_phase():
-    # Test with real tensor
-    real_tensor = tf.constant([1.0, 2.0, 3.0], dtype=tf.float32)
-    assert tf.math.reduce_all(complexified_amp_phase_fn(real_tensor) == real_tensor * 2), "Failed on real tensor"
+with tf.device('/CPU:0'):
+    def test_complexify_amp_phase():
+        # Test with real tensor
+        real_tensor = tf.constant([1.0, 2.0, 3.0], dtype=tf.float32)
+        assert tf.math.reduce_all(complexified_amp_phase_fn(real_tensor) == real_tensor * 2), "Failed on real tensor"
 
     # Test with complex tensor
     complex_tensor = tf.constant([1.0 + 2.0j, 3.0 + 4.0j], dtype=tf.complex64)
@@ -40,10 +41,10 @@ def test_complexify_amp_phase():
 
 
 # Execute the tests
-test_complexify_function()
-
-with tf.device('/CPU:0'):
-    # Force CPU execution because one of the first two tests fails on GPU
-    test_complexify_amp_phase()
+if __name__ == "__main__":
+    test_complexify_function()
+    with tf.device('/CPU:0'):
+        # Force CPU execution because one of the first two tests fails on GPU
+        test_complexify_amp_phase()
 
 print("All tests passed!")
