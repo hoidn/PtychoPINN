@@ -8,6 +8,7 @@ import tensorflow as tf
 from . import fourier as f
 from . import tf_helper as hh
 from . import params as p
+from .datagen import diagonals, grf, points, testimg, vendetta
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -187,24 +188,18 @@ def dummy_phi(Y_I):
 # TODO refactor
 def sim_object_image(size):
     if p.get('data_source') == 'lines':
-        return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
+        return diagonals.mk_diags(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
     elif p.get('data_source') == 'grf':
-        from . import grf
         return grf.mk_grf(size)
     elif p.get('data_source') == 'points':
-        from . import points
         return points.mk_points(size)
     elif p.get('data_source') == 'testimg':
-        from . import testimg
         return testimg.get_img(size)
     elif p.get('data_source') == 'testimg_reverse':
-        from . import testimg
         return testimg.get_img(size, reverse = True)
     elif p.get('data_source') == 'diagonals':
-        from . import diagonals
         return diagonals.mk_diags(size)
     elif p.get('data_source') == 'V':
-        from . import vendetta
         return vendetta.mk_vs(size)
     else:
         raise ValueError
