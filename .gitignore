@@ -5,6 +5,8 @@ __pycache__
 *.swp
 .aider*
 notebooks/untracked_notebooks*
-datasets*
 untracked*
 PlotNeuralNet*
+datasets/Run1084_recon3_postPC_shrunk.npz
+datasets/Run1084_recon3_postPC_shrunk_2.npz
+datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
