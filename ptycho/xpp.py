@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from . import loader
-from .datasets import scale_nphotons
+from ptycho.diffsim import scale_nphotons
+from ptycho import diffsim as datasets
 
 train_frac = .5
 N = 64
