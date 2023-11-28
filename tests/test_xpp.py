@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import tensorflow as tf
 from ptycho.xpp import load
 
 def test_load_function_with_synthetic_data():
