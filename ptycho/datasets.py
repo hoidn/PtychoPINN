@@ -187,8 +187,7 @@ def dummy_phi(Y_I):
 # TODO refactor
 def sim_object_image(size):
     if p.get('data_source') == 'lines':
-        from .datagen import diagonals
-        return diagonals.mk_diags(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
+        return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
     elif p.get('data_source') == 'grf':
         from .datagen import grf
         return grf.mk_grf(size)
