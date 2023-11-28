@@ -4,7 +4,7 @@ from importlib import reload
 import matplotlib.pyplot as plt
 
 from ptycho import params
-from ptycho import datasets
+from ptycho import diffsim as datasets
 from ptycho import fourier as f
 import tensorflow as tf
 
