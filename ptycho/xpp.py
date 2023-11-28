@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from . import loader
-from . import loader
-from .datasets import scale_nphotons
+from ptycho.diffsim import scale_nphotons
+from ptycho import diffsim as datasets
 
 train_frac = .5
 N = 64
@@ -89,31 +89,6 @@ def get_gt_patch(offset):
         N // 2)
 
 from . import params as cfg
-#def load(which, **kwargs):
-#    global_offsets = split_tensor(dset[key_coords_offsets], which)
-#    X, coords_nominal, coords_true = get_splits(which, **kwargs)
-#
-#    norm_Y_I = datasets.scale_nphotons(X)
-#
-#    X = tf.convert_to_tensor(X)
-#    coords_nominal = tf.convert_to_tensor(coords_nominal)
-#    coords_true = tf.convert_to_tensor(coords_true)
-#
-#    # TODO save memory in get_image_patches
-#    # TODO Real space ground truth is for the benefit of supervised learning
-#    # reconstruction. we have to be careful, since multiplying by the probe
-#    # (even just amplitude) gives away more ground truth information than what
-#    # PtychoNN uses in the context of its original paper. therefore,
-#    # we just multiply by the probe mask. Check that the simulated datasets
-#    # have the same treatment and, if not, change it.
-#    Y_obj = loader.get_image_patches(gt_image,
-#        global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
-#    Y_I = tf.math.abs(Y_obj)
-#    Y_phi = tf.math.angle(Y_obj)
-#    YY_full = None
-#    return (X, Y_I, Y_phi,
-#        norm_Y_I, YY_full, norm_Y_I,
-#        (coords_nominal, coords_true))
 
 def load(which, **kwargs):
     global_offsets = split_tensor(dset[key_coords_offsets], which)
@@ -132,7 +107,7 @@ def load(which, **kwargs):
     YY_full = None
 
     return {
-        'diffraction': X,
+        'X': X,
         'Y_I': Y_I,
         'Y_phi': Y_phi,
         'norm_Y_I': norm_Y_I,
