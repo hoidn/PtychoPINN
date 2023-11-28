@@ -1,11 +1,13 @@
 from setuptools import setup, find_packages
 
+from setuptools import setup, find_packages
+
 setup(
     name='ptychoPINN',
     # ... other setup parameters ...
     package_data={
-        # Ensure the package data is included in binary distributions
-        'ptycho': ['datasets/*'],
+        # Correct the package data path if necessary
+        'ptycho': ['datasets/*.npz'],
     },
     include_package_data=True,
     # ... rest of the setup parameters ...
