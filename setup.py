@@ -1,7 +1,19 @@
 from setuptools import setup, find_packages
 from functools import reduce
 
-setup(name = 'ptychoPINN',
+from setuptools import setup, find_packages
+
+# Define the path to the data files within the package
+package_data = {
+    'ptycho': ['datasets/*.npz'],
+}
+
+setup(
+    name='ptychoPINN',
+    # ... other setup parameters ...
+    package_data=package_data,
+    include_package_data=True,
+    # ... rest of the setup parameters ...
 
     packages=find_packages('.') + ['FRC'],
     package_dir={'ptychoPINN': 'ptycho', 'FRC': 'ptycho/FRC'},
