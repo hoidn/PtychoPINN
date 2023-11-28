@@ -132,7 +132,7 @@ def load(which, **kwargs):
     YY_full = None
 
     return {
-        'X': X,
+        'diffraction': X,
         'Y_I': Y_I,
         'Y_phi': Y_phi,
         'norm_Y_I': norm_Y_I,

@@ -12,7 +12,7 @@ def test_load_function_with_synthetic_data():
     data = load('test')  # Assuming you want to test with 'test' data
 
     # Assert that the data is loaded and normalized correctly
-    assert data['diffraction'].shape == (2, 1000, 64, 64)
+    assert data['X'].shape == (2, 1000, 64, 64)
     assert data['scan_points'].shape == (2, 1000, 2)
     # Add more assertions as needed to verify the normalization and other processing steps
 
