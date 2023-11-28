@@ -15,7 +15,8 @@ np.random.seed(7)
 import pkg_resources
 
 # Use pkg_resources to get the path to the data file within the installed package
-data_file_path = pkg_resources.resource_filename('ptycho', 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
+# Update the resource path to the correct top-level 'datasets' directory
+data_file_path = pkg_resources.resource_filename(__name__, 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
 obj = np.load(data_file_path)
 #from .utils.utils import utils
 #q_grid, I_ref = pd.read_csv(utils.resource_path("path goes here"), header = None).values.T
