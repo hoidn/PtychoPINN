@@ -83,7 +83,8 @@ def split_data(X_full, coords_nominal, coords_true, train_frac, which):
         raise ValueError("Invalid split type specified: must be 'train' or 'test'.")
 
 # Replace the call to get_splits with split_data
-X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
+# This line should be removed or commented out since it's causing the error
+# X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
 
 def split_tensor(tensor, which = 'test'):
     n_train = int(len(X_full) * train_frac)
@@ -108,7 +109,8 @@ from . import params as cfg
 
 def load(which, **kwargs):
     global_offsets = split_tensor(dset[key_coords_offsets], which)
-    X, coords_nominal, coords_true = get_splits(which, **kwargs)
+    # Ensure that split_data is called with the 'which' parameter within the load function
+    X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
 
     norm_Y_I = datasets.scale_nphotons(X)
 
