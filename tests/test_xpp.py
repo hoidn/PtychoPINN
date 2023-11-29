@@ -28,6 +28,21 @@ def test_load_function_with_synthetic_data():
 #    # Assert that the normalization factor in the loaded data matches the expected value
 #    assert np.isclose(data['norm_Y_I'], X_full_norm), "Normalization factor does not match expected value"
 
+def test_data_shape_based_on_configuration():
+    from ptycho.params import get
+    from ptycho.xpp import load
+
+    # Load test data
+    test_data = load('test')
+
+    # Get the expected shape from params.py
+    N = get('N')
+    gridsize = get('gridsize')
+    expected_shape = (test_data['X'].shape[0], N, N, gridsize**2)
+
+    # Assert that the data shape matches the expected shape
+    assert test_data['X'].shape == expected_shape, f"Data shape {test_data['X'].shape} does not match expected shape {expected_shape}"
+
 # Additional tests for other functionalities
 import numpy as np
 import pytest
