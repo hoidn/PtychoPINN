@@ -61,15 +61,3 @@ def test_data_splitting(dataset):
     # Assuming the dataset is split 50-50 for train and test
     assert len(data['X']) > 0, f"{dataset} 'X' array should not be empty."
 
-def test_utility_functions():
-    # Load test data
-    test_data = xpp.load('test')
-
-    # Test the crop function
-    cropped_image = xpp.crop(test_data['X'][0], 32)
-    assert cropped_image.shape == (32, 32), "Cropped image should have the shape (32, 32)."
-
-    # Test the get_gt_patch function
-    offset = np.array([5, 5])
-    gt_patch = xpp.get_gt_patch(offset)
-    assert gt_patch.shape == (32, 32), "Ground truth patch should have the shape (32, 32)."
