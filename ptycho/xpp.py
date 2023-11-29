@@ -45,8 +45,11 @@ dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
 
 # Images are amplitude, not intensity
 X_full = dset['diffraction']
-X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(X_full**2, axis = [1, 2]))
-X_full = X_full_norm * X_full
+def normalize_data(X_full, N):
+    X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(X_full**2, axis=[1, 2]))
+    return X_full_norm * X_full
+
+X_full = normalize_data(X_full, N)
 print('neighbor-sampled diffraction shape', X_full.shape)
 
 # TODO refactor actual / nominal positions
@@ -57,9 +60,19 @@ key_coords_relative = 'coords_start_relative'
 coords_true = dset[key_coords_relative]
 coords_nominal = dset[key_coords_relative]
 
-def get_splits(which):
+def split_data(X_full, coords_nominal, coords_true, train_frac, which):
     """
-    Returns (normalized) amplitude and phase for n generated objects
+    Splits the data into training and testing sets based on the specified fraction.
+
+    Args:
+        X_full (np.ndarray): The full dataset to be split.
+        coords_nominal (np.ndarray): The nominal coordinates associated with the dataset.
+        coords_true (np.ndarray): The true coordinates associated with the dataset.
+        train_frac (float): The fraction of the dataset to be used for training.
+        which (str): A string indicating whether to return the 'train' or 'test' split.
+
+    Returns:
+        tuple: A tuple containing the split data and coordinates.
     """
     n_train = int(len(X_full) * train_frac)
     if which == 'train':
@@ -67,7 +80,11 @@ def get_splits(which):
     elif which == 'test':
         return X_full[n_train:], coords_nominal[n_train:], coords_true[n_train:]
     else:
-        raise ValueError
+        raise ValueError("Invalid split type specified: must be 'train' or 'test'.")
+
+# Replace the call to get_splits with split_data
+# This line should be removed or commented out since it's causing the error
+# X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
 
 def split_tensor(tensor, which = 'test'):
     n_train = int(len(X_full) * train_frac)
@@ -92,7 +109,10 @@ from . import params as cfg
 
 def load(which, **kwargs):
     global_offsets = split_tensor(dset[key_coords_offsets], which)
-    X, coords_nominal, coords_true = get_splits(which, **kwargs)
+    # Define coords_nominal and coords_true before calling split_data
+    coords_nominal = dset[key_coords_relative]
+    coords_true = dset[key_coords_relative]
+    X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
 
     norm_Y_I = datasets.scale_nphotons(X)
 
