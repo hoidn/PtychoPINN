@@ -109,7 +109,9 @@ from . import params as cfg
 
 def load(which, **kwargs):
     global_offsets = split_tensor(dset[key_coords_offsets], which)
-    # Ensure that split_data is called with the 'which' parameter within the load function
+    # Define coords_nominal and coords_true before calling split_data
+    coords_nominal = dset[key_coords_relative]
+    coords_true = dset[key_coords_relative]
     X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
 
     norm_Y_I = datasets.scale_nphotons(X)
