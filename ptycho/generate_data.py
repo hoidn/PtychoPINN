@@ -153,7 +153,7 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
     # Generate simulated data and enforce dimensionality
     train_data = datasets.mk_simdata(params.get('nimgs_train'), size, probe,
                                      params.get('outer_offset_train'), jitter_scale=jitter_scale)
-    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, coords_train = train_data
+    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, (coords_train_nominal, coords_train_true) = train_data
     assert X_train.ndim == 4, "X_train must be a 4D tensor (batch, height, width, channels)"
     assert Y_I_train.ndim == 4, "Y_I_train must be a 4D tensor (batch, height, width, channels)"
     assert Y_phi_train.ndim == 4, "Y_phi_train must be a 4D tensor (batch, height, width, channels)"
@@ -258,14 +258,6 @@ if params.get('outer_offset_train') is not None:
     YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
     YY_ground_truth = YY_ground_truth_all[0, ...]
 
-# TODO refactor
-from . import tf_helper as hh
-# Create PtychoDataset instance containing both training and test data
-ptycho_dataset = PtychoDataset(
-    train_data=PtychoData(X_train, Y_I_train, Y_phi_train, YY_train_full, coords_train_nominal, coords_train_true, probe),
-    test_data=PtychoData(X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true, probe)
-)
-print(np.linalg.norm(ptycho_dataset.train_data.X[0]) /  np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
 class PtychoDataset:
     def __init__(self, train_data, test_data):
         self.train_data = train_data
@@ -280,3 +272,11 @@ class PtychoData:
         self.coords_nominal = coords_nominal
         self.coords_true = coords_true
         self.probe = probe
+
+# TODO refactor
+# Create PtychoDataset instance containing both training and test data
+ptycho_dataset = PtychoDataset(
+    train_data=PtychoData(X_train, Y_I_train, Y_phi_train, YY_train_full, coords_train_nominal, coords_train_true, probe),
+    test_data=PtychoData(X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true, probe)
+)
+print(np.linalg.norm(ptycho_dataset.train_data.X[0]) /  np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
