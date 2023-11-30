@@ -270,3 +270,13 @@ class PtychoDataset:
     def __init__(self, train_data, test_data):
         self.train_data = train_data
         self.test_data = test_data
+# Define the PtychoData class to store the data structure
+class PtychoData:
+    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe):
+        from .tf_helper import combine_complex
+        self.X = X
+        self.Y = combine_complex(Y_I, Y_phi)
+        self.YY_full = YY_full
+        self.coords_nominal = coords_nominal
+        self.coords_true = coords_true
+        self.probe = probe
