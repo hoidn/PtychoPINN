@@ -125,6 +125,9 @@ def reassemble(b, part = 'amp', **kwargs):
     stitched = stitch(b, norm_Y_I_test, norm = False, part = part, **kwargs)
     return stitched
 
+probe = probe_module.get_probe(fmt='np')
+assert probe.ndim == 2, "Probe function must be a 2D array"
+
 # TODO refactor
 if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diagonals', 'V']:
     bigN = params.params()['bigN']
@@ -146,9 +149,6 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
 
     # simulate data
     np.random.seed(1)
-    # Ensure the probe is initialized with the correct format and dimensionality
-    probe = probe_module.get_probe(fmt='np')
-    assert probe.ndim == 2, "Probe function must be a 2D array"
 
     # Generate simulated data and enforce dimensionality
     train_data = datasets.mk_simdata(params.get('nimgs_train'), size, probe,
@@ -164,7 +164,7 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
     (X_test, Y_I_test, Y_phi_test,
         _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
-        datasets.mk_simdata(params.get('nimgs_test'), size, probe.get_probe(fmt = 'np'),
+        datasets.mk_simdata(params.get('nimgs_test'), size, probe,
         params.get('outer_offset_test'), intensity_scale,
         jitter_scale = jitter_scale)
 
@@ -189,7 +189,7 @@ elif params.params()['data_source'] == 'experimental':
         intensity_scale, YY_train_full, _,
         (coords_train_nominal, coords_train_true)) =\
         datasets.mk_simdata(params.get('nimgs_train'), experimental.train_size,
-            probe.get_probe(fmt = 'np'), params.get('outer_offset_train'), jitter_scale = jitter_scale,
+            probe, params.get('outer_offset_train'), jitter_scale = jitter_scale,
             YY_I = YY_I, YY_phi = YY_phi)
 
     params.cfg['intensity_scale'] = intensity_scale
@@ -199,7 +199,7 @@ elif params.params()['data_source'] == 'experimental':
         _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
         datasets.mk_simdata(params.get('nimgs_test'), experimental.test_size,
-        probe.get_probe(fmt = 'np'), params.get('outer_offset_test'), intensity_scale,
+        probe, params.get('outer_offset_test'), intensity_scale,
         jitter_scale = jitter_scale,
         YY_I = YY_I, YY_phi = YY_phi)
     size = int(YY_test_full.shape[1])
@@ -241,7 +241,6 @@ X_train, Y_I_train, Y_phi_train, indices_shuffled =\
 
 (Y_I_test).shape, Y_I_train.shape
 
-print(np.linalg.norm(ptycho_dataset.train_data.X[0]) /  np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
 
 # inversion symmetry
 assert np.isclose(normed_ff_np(Y_I_train[0, :, :, 0]),
@@ -266,7 +265,18 @@ ptycho_dataset = PtychoDataset(
     train_data=PtychoData(X_train, Y_I_train, Y_phi_train, YY_train_full, coords_train_nominal, coords_train_true, probe),
     test_data=PtychoData(X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true, probe)
 )
+print(np.linalg.norm(ptycho_dataset.train_data.X[0]) /  np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
 class PtychoDataset:
     def __init__(self, train_data, test_data):
         self.train_data = train_data
         self.test_data = test_data
+# Define the PtychoData class to store the data structure
+class PtychoData:
+    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe):
+        from .tf_helper import combine_complex
+        self.X = X
+        self.Y = combine_complex(Y_I, Y_phi)
+        self.YY_full = YY_full
+        self.coords_nominal = coords_nominal
+        self.coords_true = coords_true
+        self.probe = probe
