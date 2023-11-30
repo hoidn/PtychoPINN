@@ -24,8 +24,10 @@ jitter_scale = params.params()['sim_jitter_scale']
 nepochs = params.cfg['nepochs']
 batch_size = params.cfg['batch_size']
 
-# TODO need to enforce that configs are set before initializing the probe
-from ptycho import probe
+# Initialize the probe function outside of the dataset-specific code
+# to ensure it is shared between training and testing
+from ptycho import probe as probe_module
+probe = probe_module.get_probe(fmt='np')
 
 def normed_ff_np(arr):
     return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(N))
@@ -144,11 +146,17 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
 
     # simulate data
     np.random.seed(1)
-    (X_train, Y_I_train, Y_phi_train,
-        intensity_scale, YY_train_full, _,
-        (coords_train_nominal, coords_train_true)) =\
-        datasets.mk_simdata(params.get('nimgs_train'), size, probe.get_probe(fmt = 'np'),
-            params.get('outer_offset_train'), jitter_scale = jitter_scale)
+    # Ensure the probe is initialized with the correct format and dimensionality
+    probe = probe_module.get_probe(fmt='np')
+    assert probe.ndim == 2, "Probe function must be a 2D array"
+
+    # Generate simulated data and enforce dimensionality
+    train_data = datasets.mk_simdata(params.get('nimgs_train'), size, probe,
+                                     params.get('outer_offset_train'), jitter_scale=jitter_scale)
+    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, coords_train = train_data
+    assert X_train.ndim == 4, "X_train must be a 4D tensor (batch, height, width, channels)"
+    assert Y_I_train.ndim == 4, "Y_I_train must be a 4D tensor (batch, height, width, channels)"
+    assert Y_phi_train.ndim == 4, "Y_phi_train must be a 4D tensor (batch, height, width, channels)"
     params.cfg['intensity_scale'] = intensity_scale
 
     #bigoffset = params.cfg['bigoffset'] = bigoffset * 2
@@ -200,30 +208,7 @@ elif params.params()['data_source'] == 'xpp':
     from ptycho import xpp
     params.set('nimgs_train', 1)
     params.set('nimgs_test', 1)
-#    if params.cfg['outer_offset_train'] is None:
-#        params.cfg['outer_offset_train'] = 4
-#
-#    if params.cfg['outer_offset_test'] is None:
-#        outer_offset_test = params.cfg['outer_offset_test'] = 20
-#    else:
-#        outer_offset_test = params.cfg['outer_offset_test']
     outer_offset_test = params.cfg['outer_offset_test']
-    #bigN = N + (gridsize - 1) * offset
-
-#    # TODO set the probe
-#    (X_train, Y_I_train, Y_phi_train,
-#        intensity_scale, YY_train_full, _,
-#        (coords_train_nominal, coords_train_true)) =\
-#        xpp.load('train')
-#
-#    params.cfg['intensity_scale'] = intensity_scale
-#
-#    (X_test, Y_I_test, Y_phi_test,
-#        _, YY_test_full, norm_Y_I_test,
-#        (coords_test_nominal, coords_test_true)) =\
-#        xpp.load('test')
-#    #size = int(YY_test_full.shape[1])
-# Loading training data
 
     train_data = xpp.load('train')
     X_train = train_data['X']
@@ -256,7 +241,7 @@ X_train, Y_I_train, Y_phi_train, indices_shuffled =\
 
 (Y_I_test).shape, Y_I_train.shape
 
-print(np.linalg.norm(X_train[0]) /  np.linalg.norm(Y_I_train[0]))
+print(np.linalg.norm(ptycho_dataset.train_data.X[0]) /  np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
 
 # inversion symmetry
 assert np.isclose(normed_ff_np(Y_I_train[0, :, :, 0]),
@@ -276,5 +261,12 @@ if params.get('outer_offset_train') is not None:
 
 # TODO refactor
 from . import tf_helper as hh
-Y_obj_train = hh.combine_complex(Y_I_train, Y_phi_train)
-Y_obj_test = hh.combine_complex(Y_I_test, Y_phi_test)
+# Create PtychoDataset instance containing both training and test data
+ptycho_dataset = PtychoDataset(
+    train_data=PtychoData(X_train, Y_I_train, Y_phi_train, YY_train_full, coords_train_nominal, coords_train_true, probe),
+    test_data=PtychoData(X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true, probe)
+)
+class PtychoDataset:
+    def __init__(self, train_data, test_data):
+        self.train_data = train_data
+        self.test_data = test_data
