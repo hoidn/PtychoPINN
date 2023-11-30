@@ -241,7 +241,7 @@ X_train, Y_I_train, Y_phi_train, indices_shuffled =\
 
 (Y_I_test).shape, Y_I_train.shape
 
-print(np.linalg.norm(X_train[0]) /  np.linalg.norm(Y_I_train[0]))
+print(np.linalg.norm(train_data.X[0]) /  np.linalg.norm(np.abs(train_data.Y[0])))
 
 # inversion symmetry
 assert np.isclose(normed_ff_np(Y_I_train[0, :, :, 0]),
@@ -261,5 +261,15 @@ if params.get('outer_offset_train') is not None:
 
 # TODO refactor
 from . import tf_helper as hh
-Y_obj_train = hh.combine_complex(Y_I_train, Y_phi_train)
-Y_obj_test = hh.combine_complex(Y_I_test, Y_phi_test)
+# Create PtychoData instances for training and test data
+train_data = PtychoData(X_train, Y_I_train, Y_phi_train, YY_train_full, coords_train_nominal, coords_train_true, probe)
+test_data = PtychoData(X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true, probe)
+class PtychoData:
+    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe):
+        from .tf_helper import combine_complex
+        self.X = X
+        self.Y = combine_complex(Y_I, Y_phi)
+        self.YY_full = YY_full
+        self.coords_nominal = coords_nominal
+        self.coords_true = coords_true
+        self.probe = probe
