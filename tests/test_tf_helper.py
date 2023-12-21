@@ -33,7 +33,9 @@ class TestCombineComplex(unittest.TestCase):
         phi = tf.constant([0.0, np.pi], dtype=tf.float32)
         expected_output = tf.constant([1.0 + 0j, -2.0 + 0j], dtype=tf.complex64)
         output_complex = combine_complex(amp, phi)
-        self.assertTrue(tf.reduce_all(tf.math.equal(output_complex, expected_output)))
+        # Use a tolerance when comparing complex numbers
+        tolerance = 1e-5
+        self.assertTrue(tf.reduce_all(tf.math.abs(output_complex - expected_output) < tolerance))
 
 if __name__ == '__main__':
     unittest.main()
