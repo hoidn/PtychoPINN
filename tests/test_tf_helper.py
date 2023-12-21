@@ -21,3 +21,19 @@ class TestGetMask(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+import unittest
+import numpy as np
+import tensorflow as tf
+from ptycho.tf_helper import combine_complex
+
+class TestCombineComplex(unittest.TestCase):
+
+    def test_combine_complex(self):
+        amp = tf.constant([1.0, 2.0], dtype=tf.float32)
+        phi = tf.constant([0.0, np.pi], dtype=tf.float32)
+        expected_output = tf.constant([1.0 + 0j, -2.0 + 0j], dtype=tf.complex64)
+        output_complex = combine_complex(amp, phi)
+        self.assertTrue(tf.reduce_all(tf.math.equal(output_complex, expected_output)))
+
+if __name__ == '__main__':
+    unittest.main()
