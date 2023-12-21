@@ -39,3 +39,24 @@ class TestCombineComplex(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+import unittest
+import tensorflow as tf
+import numpy as np
+from ptycho.tf_helper import pad_and_diffract
+
+class TestPadAndDiffract(unittest.TestCase):
+
+    def test_pad_and_diffract(self):
+        # Create a sample input tensor
+        input_tensor = tf.constant([[1.0, 2.0], [3.0, 4.0]], dtype=tf.float32)
+        input_tensor = tf.reshape(input_tensor, (1, 2, 2, 1))  # Reshape to (batch, height, width, channels)
+        # Define the desired output height and width
+        desired_height = 4
+        desired_width = 4
+        # Run pad_and_diffract function
+        _, output_tensor = pad_and_diffract(input_tensor, desired_height, desired_width)
+        # Print part of the output tensor for inspection
+        print("Part of the output tensor:", output_tensor.numpy().flatten()[:10])
+
+if __name__ == '__main__':
+    unittest.main()
