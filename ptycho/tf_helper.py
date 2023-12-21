@@ -65,11 +65,12 @@ def _fromgrid(img):
     """
     N = params()['N']
     gridsize = params()['gridsize']
-    # Calculate the batch size based on the product of grid dimensions
-    batch_size = tf.shape(img)[1] * tf.shape(img)[2]
-    if batch_size != gridsize * gridsize:
-        raise ValueError("The input tensor's grid dimensions do not match the expected gridsize.")
-    return tf.reshape(img, (-1, N, N, 1))
+    # Calculate the batch size based on the total number of elements
+    total_elements = tf.size(img)
+    batch_size = total_elements // (gridsize * gridsize * N * N)
+    if batch_size == 0:
+        raise ValueError("Batch size calculated as 0. The input tensor shape and gridsize may not be compatible.")
+    return tf.reshape(img, (batch_size, N, N, 1))
 
 def _togrid(img, gridsize = None, N = None):
     """
