@@ -28,3 +28,26 @@ class TestTFHelper(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+import unittest
+import tensorflow as tf
+from ptycho.tf_helper import get_mask
+
+class TestGetMask(unittest.TestCase):
+    def test_get_mask(self):
+        # Create a sample input tensor
+        input_tensor = tf.constant([[0.1, 0.5, 0.9],
+                                    [1.1, 0.2, 0.8]], dtype=tf.float32)
+        # Define the support threshold
+        threshold = 0.5
+        # Expected output mask
+        expected_mask = tf.constant([[0, 1, 1],
+                                     [1, 0, 1]], dtype=tf.float32)
+        
+        # Call the get_mask function
+        output_mask = get_mask(input_tensor, threshold)
+        
+        # Verify the output mask matches the expected mask
+        self.assertTrue(tf.reduce_all(tf.equal(output_mask, expected_mask)))
+
+if __name__ == '__main__':
+    unittest.main()
