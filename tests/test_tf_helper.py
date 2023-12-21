@@ -13,15 +13,20 @@ from ptycho.tf_helper import get_mask, _fromgrid, params
 class TestFromGrid(unittest.TestCase):
 
     def test_fromgrid(self):
+        print("Debug: Starting test_fromgrid")
         # Set up parameters for the test
         gridsize = params()['gridsize']
         N = params()['N']
+        print(f"Debug: Test parameters - gridsize = {gridsize}, N = {N}")
         # Create a sample input tensor in grid format
         input_tensor = tf.random.uniform((1, gridsize, gridsize, N, N), dtype=tf.float32)
+        print(f"Debug: Input tensor shape = {input_tensor.shape}")
         # Calculate the expected output shape
         expected_shape = (1, N, N, 1)
+        print(f"Debug: Expected output shape = {expected_shape}")
         # Run the _fromgrid function
         output_tensor = _fromgrid(input_tensor)
+        print(f"Debug: Output tensor shape = {output_tensor.shape}")
         # Check if the output shape matches the expected shape
         self.assertEqual(output_tensor.shape, expected_shape)
 
