@@ -7,8 +7,23 @@ from ptycho.tf_helper import get_mask, combine_complex, pad_obj
 if __name__ == '__main__':
     unittest.main()
 import unittest
-from ptycho.tf_helper import get_mask
 import tensorflow as tf
+from ptycho.tf_helper import get_mask, _fromgrid, params
+
+class TestFromGrid(unittest.TestCase):
+
+    def test_fromgrid(self):
+        # Set up parameters for the test
+        gridsize = params()['gridsize']
+        N = params()['N']
+        # Create a sample input tensor in grid format
+        input_tensor = tf.random.uniform((1, gridsize, gridsize, N, N), dtype=tf.float32)
+        # Calculate the expected output shape
+        expected_shape = (1, N, N, 1)
+        # Run the _fromgrid function
+        output_tensor = _fromgrid(input_tensor)
+        # Check if the output shape matches the expected shape
+        self.assertEqual(output_tensor.shape, expected_shape)
 
 class TestGetMask(unittest.TestCase):
 
