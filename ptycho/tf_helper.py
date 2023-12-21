@@ -67,15 +67,10 @@ def _fromgrid(img):
     N = params()['N']
     gridsize = params()['gridsize']
     print(f"Debug: N = {N}, gridsize = {gridsize}")
-    # Calculate the total number of elements for the reshaped tensor
-    total_elements = tf.shape(img)[0] * N * N
-    print(f"Debug: total_elements for reshaped tensor = {total_elements}")
-    # The batch size is the first dimension of the input tensor
-    batch_size = tf.shape(img)[0]
-    print(f"Debug: batch_size = {batch_size}")
-    if batch_size == 0:
-        raise ValueError("Batch size calculated as 0. The input tensor shape and gridsize may not be compatible.")
-    reshaped_img = tf.reshape(img, (batch_size, N, N, 1))
+    # Combine the grid dimensions and then reshape to the desired output shape
+    combined_grid_dims = gridsize * gridsize * N * N
+    reshaped_img = tf.reshape(img, (-1, combined_grid_dims))
+    reshaped_img = tf.reshape(reshaped_img, (batch_size, N, N, 1))
     print(f"Debug: reshaped_img.shape = {reshaped_img.shape}")
     return reshaped_img
 
