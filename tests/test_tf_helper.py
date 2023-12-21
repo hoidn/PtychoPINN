@@ -53,10 +53,15 @@ class TestPadAndDiffract(unittest.TestCase):
         # Define the desired output height and width
         desired_height = 4
         desired_width = 4
+        # Expected output tensor values based on provided output
+        expected_output_values = [0.0, 0.70710677, 1.0, 0.70710677, 0.35355338, 1.4577379, 1.9039432, 1.2747549, 0.5, 1.8027756]
         # Run pad_and_diffract function
         _, output_tensor = pad_and_diffract(input_tensor, desired_height, desired_width)
-        # Print part of the output tensor for inspection
-        print("Part of the output tensor:", output_tensor.numpy().flatten()[:10])
+        # Flatten the output tensor and slice the first 10 values for comparison
+        output_values = output_tensor.numpy().flatten()[:10]
+        # Check if the output values match the expected values within a tolerance
+        for expected, actual in zip(expected_output_values, output_values):
+            self.assertAlmostEqual(expected, actual, places=5)
 
 if __name__ == '__main__':
     unittest.main()
