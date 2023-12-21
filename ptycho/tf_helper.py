@@ -61,21 +61,20 @@ def pad_and_diffract(input, h, w, pad = True):
 
 def _fromgrid(img):
     """
-    Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
+    Reshape (b, g, g, N, N) to (b * g * g, N, N, 1)
     """
     print("Debug: Entering _fromgrid function")
     N = params()['N']
     gridsize = params()['gridsize']
     print(f"Debug: N = {N}, gridsize = {gridsize}")
-    # Calculate the total number of elements for the reshaped tensor
-    total_elements = tf.shape(img)[0] * N * N
-    print(f"Debug: total_elements for reshaped tensor = {total_elements}")
     # The batch size is the first dimension of the input tensor
     batch_size = tf.shape(img)[0]
-    print(f"Debug: batch_size = {batch_size}")
-    if batch_size == 0:
-        raise ValueError("Batch size calculated as 0. The input tensor shape and gridsize may not be compatible.")
-    reshaped_img = tf.reshape(img, (batch_size, N, N, 1))
+    # Calculate the new batch size after reshaping
+    new_batch_size = batch_size * gridsize * gridsize
+    print(f"Debug: new_batch_size = {new_batch_size}")
+    reshaped_img = tf.reshape(img, (new_batch_size, N, N, 1))
+    print(f"Debug: reshaped_img.shape = {reshaped_img.shape}")
+    return reshaped_img
 
 def _togrid(img, gridsize = None, N = None):
     """
