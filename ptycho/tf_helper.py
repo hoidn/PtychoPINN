@@ -66,6 +66,8 @@ def _fromgrid(img):
     N = params()['N']
     gridsize = params()['gridsize']
     batch_size = tf.shape(img)[0] // (gridsize * gridsize)
+    if batch_size == 0:
+        raise ValueError("Batch size calculated as 0. The input tensor shape and gridsize may not be compatible.")
     return tf.reshape(img, (batch_size, N, N, 1))
 
 def _togrid(img, gridsize = None, N = None):
