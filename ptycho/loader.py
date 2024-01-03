@@ -226,38 +226,37 @@ def split_data(X_full, coords_nominal, coords_true, train_frac, which):
     else:
         raise ValueError("Invalid split type specified: must be 'train' or 'test'.")
 
-#def split_tensor(tensor, frac, which='test'):
-#    """
-#    Splits a tensor into training and test portions based on the specified fraction.
-#
-#    :param tensor: The tensor to split.
-#    :param frac: Fraction of the data to be used for training.
-#    :param which: Specifies whether to return the training ('train') or test ('test') portion.
-#    :return: The appropriate portion of the tensor based on the specified fraction and 'which' parameter.
-#    """
-#    n_train = int(len(tensor) * frac)
-#    return tensor[:n_train] if which == 'train' else tensor[n_train:]
+def split_tensor(tensor, frac, which='test'):
+    """
+    Splits a tensor into training and test portions based on the specified fraction.
+
+    :param tensor: The tensor to split.
+    :param frac: Fraction of the data to be used for training.
+    :param which: Specifies whether to return the training ('train') or test ('test') portion.
+    :return: The appropriate portion of the tensor based on the specified fraction and 'which' parameter.
+    """
+    n_train = int(len(tensor) * frac)
+    return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
 def load(which, cb, **kwargs):
     from . import params as cfg
     # TODO X_full (the normalized ground truth) should be contained in dset
     # since it's derived from it
     X_full, dset, gt_image, train_frac = cb()
-    def split_tensor(tensor, frac, which='test'):
-        n_train = int(len(tensor) * frac)
-        return tensor[:n_train] if which == 'train' else tensor[n_train:]
-
     global_offsets = split_tensor(dset[key_coords_offsets], train_frac, which)
-    coords_nominal = split_tensor(dset[key_coords_relative], train_frac, which)
-    coords_true = split_tensor(dset[key_coords_relative], train_frac, which)
+    # Define coords_nominal and coords_true before calling split_data
+    coords_nominal = dset[key_coords_relative]
+    coords_true = dset[key_coords_relative]
+    X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
 
-    norm_Y_I = datasets.scale_nphotons(X_full)
+    norm_Y_I = datasets.scale_nphotons(X)
 
-    X = tf.convert_to_tensor(X_full)
+    X = tf.convert_to_tensor(X)
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
 
-    Y_obj = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+    Y_obj = get_image_patches(gt_image,
+        global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
     Y_I = tf.math.abs(Y_obj)
     Y_phi = tf.math.angle(Y_obj)
     YY_full = None
