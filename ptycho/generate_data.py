@@ -205,12 +205,12 @@ elif params.params()['data_source'] == 'experimental':
     size = int(YY_test_full.shape[1])
 
 elif params.params()['data_source'] == 'xpp':
-    from ptycho import xpp
+    from ptycho import xpp, loader
     params.set('nimgs_train', 1)
     params.set('nimgs_test', 1)
     outer_offset_test = params.cfg['outer_offset_test']
 
-    train_data = xpp.load('train')
+    train_data = loader.load('train', xpp.get_data)
     X_train = train_data['X']
     Y_I_train = train_data['Y_I']
     Y_phi_train = train_data['Y_phi']
@@ -221,7 +221,7 @@ elif params.params()['data_source'] == 'xpp':
     params.cfg['intensity_scale'] = intensity_scale
 
     # Loading test data
-    test_data = xpp.load('test')
+    test_data = loader.load('test', xpp.get_data)
     X_test = test_data['X']
     Y_I_test = test_data['Y_I']
     Y_phi_test = test_data['Y_phi']
