@@ -345,7 +345,7 @@ def prepare_outputs(Y_I_train, coords_train, X_train):
                 (cfg.get('intensity_scale') * X_train),
                 (cfg.get('intensity_scale') * X_train)**2]
 
-def train(epochs, X_train, coords_train, Y_obj_train):
+def train(epochs, trainset, coords):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
@@ -357,8 +357,8 @@ def train(epochs, X_train, coords_train, Y_obj_train):
 
     batch_size = params()['batch_size']
     history=autoencoder.fit(
-        prepare_inputs(X_train, coords_train),
-        prepare_outputs(Y_obj_train, coords_train, X_train),
+        prepare_inputs(trainset.X, coords),
+        prepare_outputs(trainset.Y, coords, trainset.X),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])
