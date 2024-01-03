@@ -157,7 +157,6 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
     assert X_train.ndim == 4, "X_train must be a 4D tensor (batch, height, width, channels)"
     assert Y_I_train.ndim == 4, "Y_I_train must be a 4D tensor (batch, height, width, channels)"
     assert Y_phi_train.ndim == 4, "Y_phi_train must be a 4D tensor (batch, height, width, channels)"
-    params.cfg['intensity_scale'] = intensity_scale
 
     #bigoffset = params.cfg['bigoffset'] = bigoffset * 2
     np.random.seed(2)
@@ -192,7 +191,6 @@ elif params.params()['data_source'] == 'experimental':
             probe, params.get('outer_offset_train'), jitter_scale = jitter_scale,
             YY_I = YY_I, YY_phi = YY_phi)
 
-    params.cfg['intensity_scale'] = intensity_scale
 
     YY_I, YY_phi = experimental.get_full_experimental('test')
     (X_test, Y_I_test, Y_phi_test,
@@ -210,6 +208,7 @@ elif params.params()['data_source'] == 'xpp':
     params.set('nimgs_test', 1)
     outer_offset_test = params.cfg['outer_offset_test']
 
+    # TODO use the object. train_pinn.py and model.py need to be updated too
     train_data = loader.load('train', xpp.get_data)
     X_train = train_data['X']
     Y_I_train = train_data['Y_I']
@@ -217,8 +216,6 @@ elif params.params()['data_source'] == 'xpp':
     intensity_scale = train_data['norm_Y_I']
     YY_train_full = train_data['YY_full']
     coords_train_nominal, coords_train_true = train_data['coords']
-
-    params.cfg['intensity_scale'] = intensity_scale
 
     # Loading test data
     test_data = loader.load('test', xpp.get_data)
@@ -232,10 +229,9 @@ elif params.params()['data_source'] == 'xpp':
 else:
     raise ValueError
 
-# TODO shuffle should be after flatten. unecessary copies
-#X_train, Y_I_train, Y_phi_train =\
-#    shuffle(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train),
-#        random_state=0)
+params.cfg['intensity_scale'] = intensity_scale
+
+# TODO shuffle should be after flatten. unecessary copies here
 X_train, Y_I_train, Y_phi_train, indices_shuffled =\
     shuffle_data(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train))
 
