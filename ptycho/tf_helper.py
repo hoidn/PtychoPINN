@@ -63,12 +63,13 @@ def _fromgrid(img):
     """
     Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
     """
+    print("Debug: Entering _fromgrid function")
     N = params()['N']
     return tf.reshape(img, (-1, N, N, 1))
 
 def _togrid(img, gridsize = None, N = None):
     """
-    Reshape (-1, N, N, 1) to (-1, gridsize, gridsize, N, N, 1)
+    Reshape (b * gridsize * gridsize, N, N, 1) to (b, gridsize, gridsize, N, N, 1)
 
     i.e. from flat format to grid format
     """

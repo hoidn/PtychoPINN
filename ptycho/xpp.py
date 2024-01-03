@@ -37,7 +37,7 @@ diff3d = np.transpose(obj['diffraction'][:, :, :gridh * gridw],
 probeGuess = obj['probeGuess']
 
 dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
-    xcoords_start, ycoords_start, K = 7, nsamples = 5)
+    xcoords_start, ycoords_start, K = 7, nsamples = 1)
 #dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
 #    xcoords_start, ycoords_start, K = 20, nsamples = 3)
 #dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
