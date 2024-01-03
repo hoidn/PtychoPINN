@@ -1,10 +1,16 @@
+""" 'Generic' loader for datasets with non-rectangular scan point patterns."""
+
 import numpy as np
 import tensorflow as tf
 from scipy.spatial import cKDTree
 
 from .params import params
+from ptycho import diffsim as datasets
 
-class PtychoData:
+key_coords_offsets = 'coords_start_offsets'
+key_coords_relative = 'coords_start_relative'
+
+class RawData:
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess):
         # Sanity checks
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess)
@@ -109,7 +115,7 @@ def tile_gt_object(gt_image, shape):
 
 def get_neighbor_diffraction_and_positions(ptycho_data, K=6, C=None, nsamples=10):
     """
-    ptycho_data: an instance of the PtychoData class
+    ptycho_data: an instance of the RawData class
     """
     gridsize = params()['gridsize']
     if C is None:
@@ -220,3 +226,54 @@ def split_data(X_full, coords_nominal, coords_true, train_frac, which):
     else:
         raise ValueError("Invalid split type specified: must be 'train' or 'test'.")
 
+#def split_tensor(tensor, frac, which='test'):
+#    """
+#    Splits a tensor into training and test portions based on the specified fraction.
+#
+#    :param tensor: The tensor to split.
+#    :param frac: Fraction of the data to be used for training.
+#    :param which: Specifies whether to return the training ('train') or test ('test') portion.
+#    :return: The appropriate portion of the tensor based on the specified fraction and 'which' parameter.
+#    """
+#    n_train = int(len(tensor) * frac)
+#    return tensor[:n_train] if which == 'train' else tensor[n_train:]
+
+def load(which, cb, **kwargs):
+    from . import params as cfg
+    # TODO X_full (the normalized ground truth) should be contained in dset
+    # since it's derived from it
+    X_full, dset, gt_image, train_frac = cb()
+    def split_tensor(tensor, frac, which='test'):
+        n_train = int(len(tensor) * frac)
+        return tensor[:n_train] if which == 'train' else tensor[n_train:]
+
+    global_offsets = split_tensor(dset[key_coords_offsets], train_frac, which)
+    coords_nominal = split_tensor(dset[key_coords_relative], train_frac, which)
+    coords_true = split_tensor(dset[key_coords_relative], train_frac, which)
+
+    norm_Y_I = datasets.scale_nphotons(X_full)
+
+    X = tf.convert_to_tensor(X_full)
+    coords_nominal = tf.convert_to_tensor(coords_nominal)
+    coords_true = tf.convert_to_tensor(coords_true)
+
+    Y_obj = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+    Y_I = tf.math.abs(Y_obj)
+    Y_phi = tf.math.angle(Y_obj)
+    YY_full = None
+
+    return {
+        'X': X,
+        'Y_I': Y_I,
+        'Y_phi': Y_phi,
+        'norm_Y_I': norm_Y_I,
+        'YY_full': YY_full,
+        'coords': (coords_nominal, coords_true),
+        'nn_indices': dset['nn_indices']
+    }
+
+# Images are amplitude, not intensity
+def normalize_data(dset, N):
+    X_full = dset['diffraction']
+    X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+    return X_full_norm * X_full
