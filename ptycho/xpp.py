@@ -6,42 +6,39 @@ from . import loader
 from ptycho.diffsim import scale_nphotons
 from ptycho import diffsim as datasets
 
+
 train_frac = .5
 N = 64
-# Dimensions of the scan point grid, assuming it's square
 gridh, gridw = 32, 32
 
 np.random.seed(7)
 
 import pkg_resources
 
-# Use pkg_resources to get the path to the data file within the installed package
-# Update the resource path to the correct top-level 'datasets' directory
 data_file_path = pkg_resources.resource_filename(__name__, 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
 obj = np.load(data_file_path)
-#from .utils.utils import utils
-#q_grid, I_ref = pd.read_csv(utils.resource_path("path goes here"), header = None).values.T
 
 print('raw diffraction shape', obj['diffraction'].shape)
 
 # TODO cast to complex64?
 gt_image = obj['objectGuess']
 
-# Load data and reorder the axes
+# Prepare the data for initialization of PtychoData
 xcoords = obj['xcoords'][:gridh * gridw]
 ycoords = obj['ycoords'][:gridh * gridw]
 xcoords_start = obj['xcoords_start'][:gridh * gridw]
 ycoords_start = obj['ycoords_start'][:gridh * gridw]
-diff3d = np.transpose(obj['diffraction'][:, :, :gridh * gridw],
-            [2, 0, 1])
+diff3d = np.transpose(obj['diffraction'][:, :, :gridh * gridw], [2, 0, 1])
 probeGuess = obj['probeGuess']
 
-dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
-    xcoords_start, ycoords_start, K = 7, nsamples = 1)
+# Initialize PtychoData with the prepared data
+ptycho_data = loader.PtychoData(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess)
+
+dset = loader.get_neighbor_diffraction_and_positions(ptycho_data, K=7,
+    nsamples=1)
 #dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
-#    xcoords_start, ycoords_start, K = 20, nsamples = 3)
-#dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
-#    xcoords_start, ycoords_start, K = 1, nsamples = 1, C = 1)
+#    xcoords_start, ycoords_start, K = 7, nsamples = 1)
+
 
 # Images are amplitude, not intensity
 X_full = dset['diffraction']
@@ -60,27 +57,6 @@ key_coords_relative = 'coords_start_relative'
 coords_true = dset[key_coords_relative]
 coords_nominal = dset[key_coords_relative]
 
-def split_data(X_full, coords_nominal, coords_true, train_frac, which):
-    """
-    Splits the data into training and testing sets based on the specified fraction.
-
-    Args:
-        X_full (np.ndarray): The full dataset to be split.
-        coords_nominal (np.ndarray): The nominal coordinates associated with the dataset.
-        coords_true (np.ndarray): The true coordinates associated with the dataset.
-        train_frac (float): The fraction of the dataset to be used for training.
-        which (str): A string indicating whether to return the 'train' or 'test' split.
-
-    Returns:
-        tuple: A tuple containing the split data and coordinates.
-    """
-    n_train = int(len(X_full) * train_frac)
-    if which == 'train':
-        return X_full[:n_train], coords_nominal[:n_train], coords_true[:n_train]
-    elif which == 'test':
-        return X_full[n_train:], coords_nominal[n_train:], coords_true[n_train:]
-    else:
-        raise ValueError("Invalid split type specified: must be 'train' or 'test'.")
 
 # Replace the call to get_splits with split_data
 # This line should be removed or commented out since it's causing the error
@@ -112,7 +88,7 @@ def load(which, **kwargs):
     # Define coords_nominal and coords_true before calling split_data
     coords_nominal = dset[key_coords_relative]
     coords_true = dset[key_coords_relative]
-    X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
+    X, coords_nominal, coords_true = loader.split_data(X_full, coords_nominal, coords_true, train_frac, which)
 
     norm_Y_I = datasets.scale_nphotons(X)
 
