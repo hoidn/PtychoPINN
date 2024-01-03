@@ -4,6 +4,32 @@ from scipy.spatial import cKDTree
 
 from .params import params
 
+class PtychoData:
+    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess):
+        # Sanity checks
+        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess)
+
+        # Assigning values if checks pass
+        self.xcoords = xcoords
+        self.ycoords = ycoords
+        self.xcoords_start = xcoords_start
+        self.ycoords_start = ycoords_start
+        self.diff3d = diff3d
+        self.probeGuess = probeGuess
+
+    def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess):
+        # Check if all inputs are numpy arrays
+        if not all(isinstance(arr, np.ndarray) for arr in [xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess]):
+            raise ValueError("All inputs must be numpy arrays.")
+
+        # Check if coordinate arrays have matching shapes
+        if not (xcoords.shape == ycoords.shape == xcoords_start.shape == ycoords_start.shape):
+            raise ValueError("Coordinate arrays must have matching shapes.")
+
+        # Add more checks as necessary, for example:
+        # - Check if 'diff3d' has the expected number of dimensions
+        # - Check if 'probeGuess' has a specific shape or type criteria
+
 # If == 1, relative coordinates are (patch CM coordinate - solution region CM
 # coordinate)
 local_offset_sign = 1
@@ -81,43 +107,80 @@ def tile_gt_object(gt_image, shape):
     gt_repeat = hh.pad(gt_repeat, N // 2)
     return gt_repeat
 
-def get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
-        xcoords_start = None, ycoords_start = None, K = 6, C = None,
-        nsamples = 10):
+def get_neighbor_diffraction_and_positions(ptycho_data, K=6, C=None, nsamples=10):
     """
-    xcoords and ycoords: 1d coordinate arrays
-    diff3d: np array of shape (B, N, N)
+    ptycho_data: an instance of the PtychoData class
     """
     gridsize = params()['gridsize']
     if C is None:
         C = gridsize**2
-    nn_indices = get_neighbor_indices(xcoords, ycoords, K = K)
+
+    nn_indices = get_neighbor_indices(ptycho_data.xcoords, ptycho_data.ycoords, K=K)
     nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
 
-    diff4d_nn = np.transpose(diff3d[nn_indices], [0, 2, 3, 1])
-    coords_nn = np.transpose(np.array([xcoords[nn_indices], ycoords[nn_indices]]),
-                [1, 0, 2])[:, None, :, :]
+    diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
+    coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices], ptycho_data.ycoords[nn_indices]]),
+                             [1, 0, 2])[:, None, :, :]
     # important: coord swap
     coords_nn = coords_nn[:, :, ::-1, :]
-    # Do this instead if you don't want random sampling
-#    diff4d_nn = diff3d[..., None]
-#    coords_nn = np.transpose(np.array([xcoords, ycoords]))[:, None, :, None]
+
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
 
-    if xcoords_start is not None:
-        coords_start_nn = np.transpose(np.array([xcoords_start[nn_indices], ycoords_start[nn_indices]]),
-                    [1, 0, 2])[:, None, :, :]
+    if ptycho_data.xcoords_start is not None:
+        coords_start_nn = np.transpose(np.array([ptycho_data.xcoords_start[nn_indices], ptycho_data.ycoords_start[nn_indices]]),
+                                       [1, 0, 2])[:, None, :, :]
         coords_start_offsets, coords_start_relative = get_relative_coords(coords_start_nn)
     else:
         coords_start_offsets = coords_start_relative = None
-    return {'diffraction': diff4d_nn,
+
+    return {
+        'diffraction': diff4d_nn,
         'coords_offsets': coords_offsets,
         'coords_relative': coords_relative,
         'coords_start_offsets': coords_start_offsets,
         'coords_start_relative': coords_start_relative,
         'coords_nn': coords_nn,
         'coords_start_nn': coords_start_nn,
-        'nn_indices': nn_indices}
+        'nn_indices': nn_indices
+    }
+
+#def get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
+#        xcoords_start = None, ycoords_start = None, K = 6, C = None,
+#        nsamples = 10):
+#    """
+#    xcoords and ycoords: 1d coordinate arrays
+#    diff3d: np array of shape (B, N, N)
+#    """
+#    gridsize = params()['gridsize']
+#    if C is None:
+#        C = gridsize**2
+#    nn_indices = get_neighbor_indices(xcoords, ycoords, K = K)
+#    nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
+#
+#    diff4d_nn = np.transpose(diff3d[nn_indices], [0, 2, 3, 1])
+#    coords_nn = np.transpose(np.array([xcoords[nn_indices], ycoords[nn_indices]]),
+#                [1, 0, 2])[:, None, :, :]
+#    # important: coord swap
+#    coords_nn = coords_nn[:, :, ::-1, :]
+#    # Do this instead if you don't want random sampling
+##    diff4d_nn = diff3d[..., None]
+##    coords_nn = np.transpose(np.array([xcoords, ycoords]))[:, None, :, None]
+#    coords_offsets, coords_relative = get_relative_coords(coords_nn)
+#
+#    if xcoords_start is not None:
+#        coords_start_nn = np.transpose(np.array([xcoords_start[nn_indices], ycoords_start[nn_indices]]),
+#                    [1, 0, 2])[:, None, :, :]
+#        coords_start_offsets, coords_start_relative = get_relative_coords(coords_start_nn)
+#    else:
+#        coords_start_offsets = coords_start_relative = None
+#    return {'diffraction': diff4d_nn,
+#        'coords_offsets': coords_offsets,
+#        'coords_relative': coords_relative,
+#        'coords_start_offsets': coords_start_offsets,
+#        'coords_start_relative': coords_start_relative,
+#        'coords_nn': coords_nn,
+#        'coords_start_nn': coords_start_nn,
+#        'nn_indices': nn_indices}
 
 def shift_and_sum(obj_tensor, global_offsets, M = 10):
     canvas_pad = 100
@@ -134,3 +197,26 @@ def reassemble_position(obj_tensor, global_offsets, M = 10):
     ones = tf.ones_like(obj_tensor)
     return shift_and_sum(obj_tensor, global_offsets, M = M) /\
         (1e-9 + shift_and_sum(ones, global_offsets, M = M))
+
+def split_data(X_full, coords_nominal, coords_true, train_frac, which):
+    """
+    Splits the data into training and testing sets based on the specified fraction.
+
+    Args:
+        X_full (np.ndarray): The full dataset to be split.
+        coords_nominal (np.ndarray): The nominal coordinates associated with the dataset.
+        coords_true (np.ndarray): The true coordinates associated with the dataset.
+        train_frac (float): The fraction of the dataset to be used for training.
+        which (str): A string indicating whether to return the 'train' or 'test' split.
+
+    Returns:
+        tuple: A tuple containing the split data and coordinates.
+    """
+    n_train = int(len(X_full) * train_frac)
+    if which == 'train':
+        return X_full[:n_train], coords_nominal[:n_train], coords_true[:n_train]
+    elif which == 'test':
+        return X_full[n_train:], coords_nominal[n_train:], coords_true[n_train:]
+    else:
+        raise ValueError("Invalid split type specified: must be 'train' or 'test'.")
+
