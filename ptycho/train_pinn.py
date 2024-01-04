@@ -11,7 +11,6 @@ jitter_scale = params.params()['sim_jitter_scale']
 nepochs = params.cfg['nepochs']
 batch_size = params.cfg['batch_size']
 
-
 # TODO reconstructed_obj -> pred_Y or something
 if params.params()['positions.provided']:
     print('using provided scan positions for training')

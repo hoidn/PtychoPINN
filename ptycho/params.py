@@ -15,6 +15,8 @@ cfg = {
     'intensity_scale.trainable': False, 'positions.provided': False,
     'object.big': True, 'probe.big': False, 'probe_scale': 10., 'set_phi': False,
     'probe.mask': True, 'model_type': 'pinn', 'label': '', 'size': 392,
+    'amp_activation': 'sigmoid',
+    }
     'amp_activation': 'sigmoid'
     }
 
@@ -46,8 +48,10 @@ def params():
 
 # TODO refactor
 def validate():
-    assert cfg['data_source'] in ['lines', 'grf', 'experimental', 'points',
-        'testimg', 'diagonals', 'xpp', 'V']
+    valid_data_sources = ['lines', 'grf', 'experimental', 'points',
+        'testimg', 'diagonals', 'xpp', 'V', 'generic']
+    assert cfg['data_source'] in valid_data_sources, \
+        f"Invalid data source: {cfg['data_source']}. Must be one of {valid_data_sources}."
     if cfg['realspace_mae_weight'] > 0.:
         assert cfg['realspace_weight'] > 0
     #assert cfg['bigoffset'] % 4 == 0

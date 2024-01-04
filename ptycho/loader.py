@@ -4,37 +4,7 @@ import numpy as np
 import tensorflow as tf
 from scipy.spatial import cKDTree
 
-from .params import params
-from ptycho import diffsim as datasets
-
-key_coords_offsets = 'coords_start_offsets'
-key_coords_relative = 'coords_start_relative'
-
-class RawData:
-    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess):
-        # Sanity checks
-        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess)
-
-        # Assigning values if checks pass
-        self.xcoords = xcoords
-        self.ycoords = ycoords
-        self.xcoords_start = xcoords_start
-        self.ycoords_start = ycoords_start
-        self.diff3d = diff3d
-        self.probeGuess = probeGuess
-
-    def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess):
-        # Check if all inputs are numpy arrays
-        if not all(isinstance(arr, np.ndarray) for arr in [xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess]):
-            raise ValueError("All inputs must be numpy arrays.")
-
-        # Check if coordinate arrays have matching shapes
-        if not (xcoords.shape == ycoords.shape == xcoords_start.shape == ycoords_start.shape):
-            raise ValueError("Coordinate arrays must have matching shapes.")
-
-        # Add more checks as necessary, for example:
-        # - Check if 'diff3d' has the expected number of dimensions
-        # - Check if 'probeGuess' has a specific shape or type criteria
+from .classes import RawData
 
 # If == 1, relative coordinates are (patch CM coordinate - solution region CM
 # coordinate)
@@ -61,7 +31,7 @@ def sample_rows(indices, n, m):
 def get_relative_coords(coords_nn):
     assert len(coords_nn.shape) == 4
     coords_offsets = np.mean(coords_nn, axis = 3)[..., None]
-    # important: sign
+    # IMPORTANT: sign
     coords_relative = local_offset_sign * (coords_nn - np.mean(coords_nn, axis = 3)[..., None])
     return coords_offsets, coords_relative
 
@@ -113,7 +83,7 @@ def tile_gt_object(gt_image, shape):
     gt_repeat = hh.pad(gt_repeat, N // 2)
     return gt_repeat
 
-def get_neighbor_diffraction_and_positions(ptycho_data, K=6, C=None, nsamples=10):
+def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples=10):
     """
     ptycho_data: an instance of the RawData class
     """
@@ -125,10 +95,11 @@ def get_neighbor_diffraction_and_positions(ptycho_data, K=6, C=None, nsamples=10
     nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
 
     diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
-    coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices], ptycho_data.ycoords[nn_indices]]),
-                             [1, 0, 2])[:, None, :, :]
-    # important: coord swap
-    coords_nn = coords_nn[:, :, ::-1, :]
+    coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices],
+                            ptycho_data.ycoords[nn_indices]]),
+                            [1, 0, 2])[:, None, :, :]
+#    # IMPORTANT: coord swap
+#    coords_nn = coords_nn[:, :, ::-1, :]
 
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
 
@@ -139,7 +110,7 @@ def get_neighbor_diffraction_and_positions(ptycho_data, K=6, C=None, nsamples=10
     else:
         coords_start_offsets = coords_start_relative = None
 
-    return {
+    dset = {
         'diffraction': diff4d_nn,
         'coords_offsets': coords_offsets,
         'coords_relative': coords_relative,
@@ -149,44 +120,10 @@ def get_neighbor_diffraction_and_positions(ptycho_data, K=6, C=None, nsamples=10
         'coords_start_nn': coords_start_nn,
         'nn_indices': nn_indices
     }
-
-#def get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
-#        xcoords_start = None, ycoords_start = None, K = 6, C = None,
-#        nsamples = 10):
-#    """
-#    xcoords and ycoords: 1d coordinate arrays
-#    diff3d: np array of shape (B, N, N)
-#    """
-#    gridsize = params()['gridsize']
-#    if C is None:
-#        C = gridsize**2
-#    nn_indices = get_neighbor_indices(xcoords, ycoords, K = K)
-#    nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
-#
-#    diff4d_nn = np.transpose(diff3d[nn_indices], [0, 2, 3, 1])
-#    coords_nn = np.transpose(np.array([xcoords[nn_indices], ycoords[nn_indices]]),
-#                [1, 0, 2])[:, None, :, :]
-#    # important: coord swap
-#    coords_nn = coords_nn[:, :, ::-1, :]
-#    # Do this instead if you don't want random sampling
-##    diff4d_nn = diff3d[..., None]
-##    coords_nn = np.transpose(np.array([xcoords, ycoords]))[:, None, :, None]
-#    coords_offsets, coords_relative = get_relative_coords(coords_nn)
-#
-#    if xcoords_start is not None:
-#        coords_start_nn = np.transpose(np.array([xcoords_start[nn_indices], ycoords_start[nn_indices]]),
-#                    [1, 0, 2])[:, None, :, :]
-#        coords_start_offsets, coords_start_relative = get_relative_coords(coords_start_nn)
-#    else:
-#        coords_start_offsets = coords_start_relative = None
-#    return {'diffraction': diff4d_nn,
-#        'coords_offsets': coords_offsets,
-#        'coords_relative': coords_relative,
-#        'coords_start_offsets': coords_start_offsets,
-#        'coords_start_relative': coords_start_relative,
-#        'coords_nn': coords_nn,
-#        'coords_start_nn': coords_start_nn,
-#        'nn_indices': nn_indices}
+    X_full = normalize_data(dset, N)
+    dset['X_full'] = X_full
+    print('neighbor-sampled diffraction shape', X_full.shape)
+    return dset
 
 def shift_and_sum(obj_tensor, global_offsets, M = 10):
     canvas_pad = 100
@@ -240,9 +177,8 @@ def split_tensor(tensor, frac, which='test'):
 
 def load(which, cb, **kwargs):
     from . import params as cfg
-    # TODO X_full (the normalized ground truth) should be contained in dset
-    # since it's derived from it
-    X_full, dset, gt_image, train_frac = cb()
+    dset, gt_image, train_frac = cb()
+    X_full = dset['X_full'] # normalized diffraction
     global_offsets = split_tensor(dset[key_coords_offsets], train_frac, which)
     # Define coords_nominal and coords_true before calling split_data
     coords_nominal = dset[key_coords_relative]
@@ -276,3 +212,13 @@ def normalize_data(dset, N):
     X_full = dset['diffraction']
     X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
     return X_full_norm * X_full
+
+def crop(arr2d, size):
+    N, M = arr2d.shape
+    return arr2d[N // 2 - (size) // 2: N // 2+ (size) // 2, N // 2 - (size) // 2: N // 2 + (size) // 2]
+
+def get_gt_patch(offset, N, gt_image):
+    from . import tf_helper as hh
+    return crop(
+        hh.translate(gt_image, offset),
+        N // 2)
