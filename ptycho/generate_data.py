@@ -3,29 +3,7 @@ import numpy as np
 from importlib import reload
 import matplotlib.pyplot as plt
 
-from ptycho import params
-from ptycho import diffsim as datasets
-from ptycho import fourier as f
-import tensorflow as tf
-
-"""
-Initialize probe and other parameters; build (simulated) training / evaluation data
-"""
-
-class PtychoDataset:
-    def __init__(self, train_data, test_data):
-        self.train_data = train_data
-        self.test_data = test_data
-
-class PtychoData:
-    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe):
-        from .tf_helper import combine_complex
-        self.X = X
-        self.Y = combine_complex(Y_I, Y_phi)
-        self.YY_full = YY_full
-        self.coords_nominal = coords_nominal
-        self.coords_true = coords_true
-        self.probe = probe
+from .classes import PtychoDataset, PtychoData
 
 # data parameters
 offset = params.cfg['offset']
