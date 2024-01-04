@@ -12,7 +12,20 @@ import tensorflow as tf
 Initialize probe and other parameters; build (simulated) training / evaluation data
 """
 
-# TODO dataset should go to a PtychoData object
+class PtychoDataset:
+    def __init__(self, train_data, test_data):
+        self.train_data = train_data
+        self.test_data = test_data
+
+class PtychoData:
+    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe):
+        from .tf_helper import combine_complex
+        self.X = X
+        self.Y = combine_complex(Y_I, Y_phi)
+        self.YY_full = YY_full
+        self.coords_nominal = coords_nominal
+        self.coords_true = coords_true
+        self.probe = probe
 
 # data parameters
 offset = params.cfg['offset']
@@ -237,7 +250,6 @@ X_train, Y_I_train, Y_phi_train, indices_shuffled =\
 
 (Y_I_test).shape, Y_I_train.shape
 
-
 # inversion symmetry
 assert np.isclose(normed_ff_np(Y_I_train[0, :, :, 0]),
                 tf.math.conj(normed_ff_np(Y_I_train[0, ::-1, ::-1, 0])),
@@ -254,20 +266,6 @@ if params.get('outer_offset_train') is not None:
     YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
     YY_ground_truth = YY_ground_truth_all[0, ...]
 
-class PtychoDataset:
-    def __init__(self, train_data, test_data):
-        self.train_data = train_data
-        self.test_data = test_data
-# Define the PtychoData class to store the data structure
-class PtychoData:
-    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe):
-        from .tf_helper import combine_complex
-        self.X = X
-        self.Y = combine_complex(Y_I, Y_phi)
-        self.YY_full = YY_full
-        self.coords_nominal = coords_nominal
-        self.coords_true = coords_true
-        self.probe = probe
 
 # TODO refactor
 # Create PtychoDataset instance containing both training and test data
