@@ -271,16 +271,19 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
-def load(which, cb, **kwargs):
+def load(which=None, cb, create_split=True, train_frac=0.5, **kwargs):
     from . import params as cfg
     dset, gt_image, train_frac = cb()
     X_full = dset['X_full'] # normalized diffraction
-    global_offsets = split_tensor(dset[key_coords_offsets], train_frac, which)
+    global_offsets = dset[key_coords_offsets]
     # Define coords_nominal and coords_true before calling split_data
     coords_nominal = dset[key_coords_relative]
     coords_true = dset[key_coords_relative]
-    X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac,
-                                                which)
+    if create_split:
+        global_offsets = split_tensor(global_offsets, train_frac, which)
+        X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
+    else:
+        X = X_full
 
     norm_Y_I = datasets.scale_nphotons(X)
 
