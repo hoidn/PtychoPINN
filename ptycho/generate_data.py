@@ -3,7 +3,18 @@ import numpy as np
 from importlib import reload
 import matplotlib.pyplot as plt
 
-from .classes import PtychoDataset, PtychoData
+from ptycho import params
+from ptycho import datasets
+from ptycho import fourier as f
+import tensorflow as tf
+
+from .loader import PtychoDataset, PtychoData
+
+"""
+Initialize probe and other parameters; build (simulated) training / evaluation data
+"""
+
+# TODO dataset should go to a PtychoData object
 
 # data parameters
 offset = params.cfg['offset']
@@ -15,10 +26,8 @@ jitter_scale = params.params()['sim_jitter_scale']
 nepochs = params.cfg['nepochs']
 batch_size = params.cfg['batch_size']
 
-# Initialize the probe function outside of the dataset-specific code
-# to ensure it is shared between training and testing
-from ptycho import probe as probe_module
-probe = probe_module.get_probe(fmt='np')
+# TODO need to enforce that configs are set before initializing the probe
+from ptycho import probe
 
 def normed_ff_np(arr):
     return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(N))
@@ -116,7 +125,7 @@ def reassemble(b, part = 'amp', **kwargs):
     stitched = stitch(b, norm_Y_I_test, norm = False, part = part, **kwargs)
     return stitched
 
-probe = probe_module.get_probe(fmt='np')
+probe = probe.get_probe(fmt='np')
 assert probe.ndim == 2, "Probe function must be a 2D array"
 
 # TODO refactor
@@ -140,21 +149,19 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
 
     # simulate data
     np.random.seed(1)
-
-    # Generate simulated data and enforce dimensionality
-    train_data = datasets.mk_simdata(params.get('nimgs_train'), size, probe,
-                                     params.get('outer_offset_train'), jitter_scale=jitter_scale)
-    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, (coords_train_nominal, coords_train_true) = train_data
-    assert X_train.ndim == 4, "X_train must be a 4D tensor (batch, height, width, channels)"
-    assert Y_I_train.ndim == 4, "Y_I_train must be a 4D tensor (batch, height, width, channels)"
-    assert Y_phi_train.ndim == 4, "Y_phi_train must be a 4D tensor (batch, height, width, channels)"
+    (X_train, Y_I_train, Y_phi_train,
+        intensity_scale, YY_train_full, _,
+        (coords_train_nominal, coords_train_true)) =\
+        datasets.mk_simdata(params.get('nimgs_train'), size, probe.get_probe(fmt = 'np'),
+            params.get('outer_offset_train'), jitter_scale = jitter_scale)
+    params.cfg['intensity_scale'] = intensity_scale
 
     #bigoffset = params.cfg['bigoffset'] = bigoffset * 2
     np.random.seed(2)
     (X_test, Y_I_test, Y_phi_test,
         _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
-        datasets.mk_simdata(params.get('nimgs_test'), size, probe,
+        datasets.mk_simdata(params.get('nimgs_test'), size, probe.get_probe(fmt = 'np'),
         params.get('outer_offset_test'), intensity_scale,
         jitter_scale = jitter_scale)
 
@@ -179,7 +186,7 @@ elif params.params()['data_source'] == 'experimental':
         intensity_scale, YY_train_full, _,
         (coords_train_nominal, coords_train_true)) =\
         datasets.mk_simdata(params.get('nimgs_train'), experimental.train_size,
-            probe, params.get('outer_offset_train'), jitter_scale = jitter_scale,
+            probe.get_probe(fmt = 'np'), params.get('outer_offset_train'), jitter_scale = jitter_scale,
             YY_I = YY_I, YY_phi = YY_phi)
 
 
@@ -188,7 +195,7 @@ elif params.params()['data_source'] == 'experimental':
         _, YY_test_full, norm_Y_I_test,
         (coords_test_nominal, coords_test_true)) =\
         datasets.mk_simdata(params.get('nimgs_test'), experimental.test_size,
-        probe, params.get('outer_offset_test'), intensity_scale,
+        probe.get_probe(fmt = 'np'), params.get('outer_offset_test'), intensity_scale,
         jitter_scale = jitter_scale,
         YY_I = YY_I, YY_phi = YY_phi)
     size = int(YY_test_full.shape[1])
@@ -218,7 +225,7 @@ elif params.params()['data_source'] == 'xpp':
     coords_test_nominal, coords_test_true = test_data['coords']
 
 elif params.params()['data_source'] == 'generic':
-    from ptycho.classes import RawData
+    from ptycho.loader import RawData
     train_data_file_path = params.get('train_data_file_path')
     test_data_file_path = params.get('test_data_file_path')
     train_raw_data, test_raw_data = RawData.from_files(train_data_file_path, test_data_file_path)
