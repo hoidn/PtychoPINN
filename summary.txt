@@ -7,3 +7,15 @@ We have made the following changes to the ptychographic dataset classes and load
 These changes were committed to the git repository with the following hashes and messages:
 - Commit hash ebb63a2 with the message: "aider: Add scan index to RawData and PtychoData classes for ptychographic datasets."
 - Commit hash d6fec0a with the message: "aider: Update `xpp.py` to reflect a single scan by initializing the `scan_index` array with zeros and passing it to the `RawData` constructor."
+
+Class Descriptions and Relationships:
+
+The `RawData` class encapsulates the raw experimental data for a ptychographic experiment. It includes the coordinates of the scan points, the starting coordinates for the scan, the diffraction patterns (diff3d), an initial guess of the probe function (probeGuess), and an array indicating the scan index for each diffraction pattern (scan_index). The scan index is used to track multiple scans within a single dataset, which is essential for experiments involving multiple scans over different objects or conditions.
+
+The `PtychoData` class represents the processed data necessary for training or testing a ptychographic reconstruction model. It contains the input diffraction patterns (X), the target amplitude and phase of the reconstructed object (Y_I and Y_phi), the full ground truth object (YY_full), nominal and true coordinates of the scan points (coords_nominal and coords_true), the probe function used in the simulation (probe), and the scan index array (scan_index). This class is designed to hold the data in a format suitable for input into machine learning models.
+
+The `PtychoDataset` class is a container for holding both training and testing data in the form of `PtychoData` instances. It provides a clear separation between the data used for model training and the data used for model evaluation, which is a common practice in machine learning to assess the performance of trained models.
+
+The relationship between these classes reflects the workflow of ptychographic data processing and reconstruction. Raw experimental data is first encapsulated in the `RawData` class. This data is then processed and organized into the `PtychoData` class, which formats the data for use in computational models. Finally, the `PtychoDataset` class groups the training and testing data sets, allowing for systematic training and evaluation of ptychographic reconstruction models.
+
+Overall, these classes serve the purpose of structuring the ptychographic data in a way that facilitates the development and application of reconstruction algorithms, particularly those based on machine learning techniques. By providing a clear and consistent data structure, these classes help streamline the process of transforming raw experimental data into actionable insights through computational reconstruction.
