@@ -8,6 +8,10 @@ These changes were committed to the git repository with the following hashes and
 - Commit hash ebb63a2 with the message: "aider: Add scan index to RawData and PtychoData classes for ptychographic datasets."
 - Commit hash d6fec0a with the message: "aider: Update `xpp.py` to reflect a single scan by initializing the `scan_index` array with zeros and passing it to the `RawData` constructor."
 
+3. Implemented a static method `from_files` in the `RawData` class to instantiate `RawData` objects from training and test data files using `numpy.load`. This method was added to facilitate the creation of `RawData` objects from user-provided file paths. The changes were committed with hash c576c92 and the message "aider: Added static method `from_files` to instantiate `RawData` objects from training and test data files."
+
+4. Added support for a new 'generic' data source in `generate_data.py` to utilize the `from_files` static method for loading data. The default data source was temporarily set to 'generic' in `params.py`, but this change was later reverted. The addition to `generate_data.py` and the reversion in `params.py` were committed with hashes 1c2f422 and cb5aec5, respectively, with the messages "aider: Added support for a new 'generic' data source and set default data source to 'generic' in generate_data.py and params.py" and "aider: Reverted changes to `params.cfg` and updated the validity check in `ptycho/params.py`."
+
 Class Descriptions and Relationships:
 
 The `RawData` class encapsulates the raw experimental data for a ptychographic experiment. It includes the coordinates of the scan points, the starting coordinates for the scan, the diffraction patterns (diff3d), an initial guess of the probe function (probeGuess), and an array indicating the scan index for each diffraction pattern (scan_index). The scan index is used to track multiple scans within a single dataset, which is essential for experiments involving multiple scans over different objects or conditions.
