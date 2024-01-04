@@ -17,8 +17,6 @@ cfg = {
     'probe.mask': True, 'model_type': 'pinn', 'label': '', 'size': 392,
     'amp_activation': 'sigmoid',
     }
-    'amp_activation': 'sigmoid'
-    }
 
 # TODO parameter description
 # probe.big: if True, increase the real space solution from 32x32 to 64x64
