@@ -36,7 +36,8 @@ diff3d = np.transpose(obj['diffraction'][:, :, :gridh * gridw], [2, 0, 1])
 probeGuess = obj['probeGuess']
 
 # Initialize RawData with the prepared data
-ptycho_data = loader.RawData(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess)
+scan_index = np.zeros(diff3d.shape[0], dtype=int)  # Array of zeros indicating a single scan index
+ptycho_data = loader.RawData(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index)
 
 dset = loader.get_neighbor_diffraction_and_positions(ptycho_data, N, K=7,
     nsamples=1)
