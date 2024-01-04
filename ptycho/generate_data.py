@@ -3,16 +3,7 @@ import numpy as np
 from importlib import reload
 import matplotlib.pyplot as plt
 
-from ptycho import params
-from ptycho import diffsim as datasets
-from ptycho import fourier as f
-import tensorflow as tf
-
-"""
-Initialize probe and other parameters; build (simulated) training / evaluation data
-"""
-
-# TODO dataset should go to a PtychoData object
+from .classes import PtychoDataset, PtychoData
 
 # data parameters
 offset = params.cfg['offset']
@@ -226,6 +217,14 @@ elif params.params()['data_source'] == 'xpp':
     norm_Y_I_test = test_data['norm_Y_I']
     coords_test_nominal, coords_test_true = test_data['coords']
 
+elif params.params()['data_source'] == 'generic':
+    from ptycho.classes import RawData
+    train_data_file_path = params.get('train_data_file_path')
+    test_data_file_path = params.get('test_data_file_path')
+    train_raw_data, test_raw_data = RawData.from_files(train_data_file_path, test_data_file_path)
+    # Assuming the RawData objects have methods to provide the necessary data for PtychoData
+    train_data = train_raw_data.to_ptycho_data()
+    test_data = test_raw_data.to_ptycho_data()
 else:
     raise ValueError
 
@@ -236,7 +235,6 @@ X_train, Y_I_train, Y_phi_train, indices_shuffled =\
     shuffle_data(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train))
 
 (Y_I_test).shape, Y_I_train.shape
-
 
 # inversion symmetry
 assert np.isclose(normed_ff_np(Y_I_train[0, :, :, 0]),
@@ -254,20 +252,6 @@ if params.get('outer_offset_train') is not None:
     YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
     YY_ground_truth = YY_ground_truth_all[0, ...]
 
-class PtychoDataset:
-    def __init__(self, train_data, test_data):
-        self.train_data = train_data
-        self.test_data = test_data
-# Define the PtychoData class to store the data structure
-class PtychoData:
-    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe):
-        from .tf_helper import combine_complex
-        self.X = X
-        self.Y = combine_complex(Y_I, Y_phi)
-        self.YY_full = YY_full
-        self.coords_nominal = coords_nominal
-        self.coords_true = coords_true
-        self.probe = probe
 
 # TODO refactor
 # Create PtychoDataset instance containing both training and test data
