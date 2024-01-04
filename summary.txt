@@ -1,0 +1,9 @@
+We have made the following changes to the ptychographic dataset classes and loader module:
+
+1. Modified the `RawData` and `PtychoData` classes to include a `scan_index` attribute. This attribute is an array where each element corresponds to the scan index of the diffraction pattern at the same position. This change allows us to track multiple scans corresponding to separate objects within the dataset.
+
+2. Updated the `xpp.py` loader module to reflect a single scan by initializing the `scan_index` array with zeros and passing it to the `RawData` constructor. This ensures that each diffraction pattern in the dataset is associated with the same scan index, indicating that they all belong to a single scan.
+
+These changes were committed to the git repository with the following hashes and messages:
+- Commit hash ebb63a2 with the message: "aider: Add scan index to RawData and PtychoData classes for ptychographic datasets."
+- Commit hash d6fec0a with the message: "aider: Update `xpp.py` to reflect a single scan by initializing the `scan_index` array with zeros and passing it to the `RawData` constructor."
