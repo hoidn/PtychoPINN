@@ -10,7 +10,7 @@ def main():
     train_data_file_path = 'train_data.npz'
 
     # Use RawData.to_file() to write them to file
-    train_data.to_file(train_data_file_path)
+    train_data.to_file(train_data_file_path, keys=['xcoords', 'ycoords', 'xcoords_start', 'ycoords_start', 'diff3d', 'probeGuess', 'scan_index'])
 
     print(f"Train data written to {train_data_file_path}")
 
