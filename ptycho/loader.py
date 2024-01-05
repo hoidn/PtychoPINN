@@ -27,6 +27,22 @@ class RawData:
         self.probeGuess = probeGuess
         self.scan_index = scan_index
 
+    def to_file(self, file_path):
+        """
+        Method to write the RawData object to a file using numpy.savez.
+
+        Args:
+            file_path (str): Path to the file where the data will be saved.
+        """
+        np.savez(file_path,
+                 xcoords=self.xcoords,
+                 ycoords=self.ycoords,
+                 xcoords_start=self.xcoords_start,
+                 ycoords_start=self.ycoords_start,
+                 diff3d=self.diff3d,
+                 probeGuess=self.probeGuess,
+                 scan_index=self.scan_index)
+
     @staticmethod
     def from_files(train_data_file_path, test_data_file_path):
         """
