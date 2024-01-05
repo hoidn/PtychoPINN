@@ -271,7 +271,7 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
-def load(which=None, cb, create_split=True, train_frac=0.5, **kwargs):
+def load(cb, which=None, create_split=True, train_frac=0.5, **kwargs):
     from . import params as cfg
     dset, gt_image, train_frac = cb()
     X_full = dset['X_full'] # normalized diffraction
