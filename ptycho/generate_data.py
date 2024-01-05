@@ -229,8 +229,10 @@ elif params.params()['data_source'] == 'generic':
     train_data_file_path = params.get('train_data_file_path')
     test_data_file_path = params.get('test_data_file_path')
     # Use loader.load() to handle the conversion from RawData to PtychoData
-    train_data = loader.load('train', lambda: RawData.from_files(train_data_file_path, test_data_file_path)[0])
-    test_data = loader.load('test', lambda: RawData.from_files(train_data_file_path, test_data_file_path)[1])
+    # Load the data without creating a train-test split
+    raw_data = RawData.from_files(train_data_file_path, test_data_file_path)
+    train_data = loader.load(None, lambda: raw_data[0], create_split=False)
+    test_data = loader.load(None, lambda: raw_data[1], create_split=False)
 else:
     raise ValueError
 
