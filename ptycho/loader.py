@@ -44,6 +44,23 @@ class RawData:
                  scan_index=self.scan_index)
 
     @staticmethod
+    def from_file(train_data_file_path):
+        """
+        """
+        # Load training data
+        train_data = np.load(train_data_file_path)
+        train_raw_data = RawData(
+            xcoords=train_data['xcoords'],
+            ycoords=train_data['ycoords'],
+            xcoords_start=train_data['xcoords_start'],
+            ycoords_start=train_data['ycoords_start'],
+            diff3d=train_data['diff3d'],
+            probeGuess=train_data['probeGuess'],
+            scan_index=train_data['scan_index']
+        )
+        return train_raw_data
+
+    @staticmethod
     def from_files(train_data_file_path, test_data_file_path):
         """
         Static method to instantiate RawData objects from training and test data files.
@@ -65,28 +82,10 @@ class RawData:
             tuple: A tuple containing the instantiated RawData objects for training and test data.
         """
         # Load training data
-        train_data = np.load(train_data_file_path)
-        train_raw_data = RawData(
-            xcoords=train_data['xcoords'],
-            ycoords=train_data['ycoords'],
-            xcoords_start=train_data['xcoords_start'],
-            ycoords_start=train_data['ycoords_start'],
-            diff3d=train_data['diff3d'],
-            probeGuess=train_data['probeGuess'],
-            scan_index=train_data['scan_index']
-        )
+        train_raw_data = RawData.from_file(train_data_file_path)
 
         # Load test data
-        test_data = np.load(test_data_file_path)
-        test_raw_data = RawData(
-            xcoords=test_data['xcoords'],
-            ycoords=test_data['ycoords'],
-            xcoords_start=test_data['xcoords_start'],
-            ycoords_start=test_data['ycoords_start'],
-            diff3d=test_data['diff3d'],
-            probeGuess=test_data['probeGuess'],
-            scan_index=test_data['scan_index']
-        )
+        test_raw_data = RawData.from_file(test_data_file_path)
 
         return train_raw_data, test_raw_data
 
