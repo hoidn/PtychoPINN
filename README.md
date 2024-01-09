@@ -1,4 +1,4 @@
-# Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction
+# Physics constrained machine learning for rapid, high resolution CDI
 
 This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://arxiv.org/pdf/2306.11014.pdf)". 
 
@@ -30,47 +30,11 @@ usage: PtychoPINN [-h] [--model_type MODEL_TYPE] [--label LABEL]
                   [--intensity_scale_trainable INTENSITY_SCALE_TRAINABLE] [--nll_weight NLL_WEIGHT]
                   [--mae_weight MAE_WEIGHT] [--nimgs_train NIMGS_TRAIN] [--nimgs_test NIMGS_TEST]
                   [--outer_offset_train OUTER_OFFSET_TRAIN] [--outer_offset_test OUTER_OFFSET_TEST]
-
-Generate / load data and train the model
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --model_type MODEL_TYPE
-                        model type (pinn or supervised)
-  --output_prefix OUTPUT_PREFIX
-                        output directory prefix
-  --data_source DATA_SOURCE
-                        Dataset specification
-  --set_phi             If true, simulated objects are given non-zero phase
-  --nepochs NEPOCHS     Number of epochs
-  --offset OFFSET       Scan point spacing for simulated (grid-sampled) data
-  --gridsize GRIDSIZE   Solution region grid size (e.g. 2 -> 2x2, etc.)
-  --object_big OBJECT_BIG
-                        If true, reconstruct the entire solution region for each set of patterns, instead of just the central N x N region.
-  --intensity_scale_trainable INTENSITY_SCALE_TRAINABLE
-                        Whether intensity scale is trainable or not
-  --nll_weight NLL_WEIGHT
-                        Diffraction reconstruction NLL loss weight
-  --mae_weight MAE_WEIGHT
-                        Diffraction reconstruction MAE loss weight
-  --nimgs_train NIMGS_TRAIN
-                        Number of generated training images
-  --nimgs_test NIMGS_TEST
-                        Number of generated testing images
-  --outer_offset_train OUTER_OFFSET_TRAIN
-                        Scan point grid offset for (generated) training datasets
-  --outer_offset_test OUTER_OFFSET_TEST
-                        Scan point grid offset for (generated) testing datasets
-  --n_filters_scale N_FILTERS_SCALE
-                        Number of filters scale
-  --max_position_jitter MAX_POSITION_JITTER
-                        Solution region is expanded around the edges by this amount
-  --positions_provided POSITIONS_PROVIDED
-                        [deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs
-  --label LABEL         [deprecated] Name of this run
 ```
 
-For sample usage, see `scripts/example.sh` or `notebooks/`.
+For script-based usage, see `scripts/example.sh`
+
+For interactive usage, see `notebooks/ptycho_lines.ipynb` and `notebooks/non_grid_CDI_example-extended.ipynb`. These demonstrate reconstruction with scanning CDI + grid scan pattern and fresnel CDI + random scan pattern, respectively.
 
 ### Checklist
 | Status | Task |
