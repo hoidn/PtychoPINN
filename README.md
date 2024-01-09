@@ -34,7 +34,7 @@ usage: PtychoPINN [-h] [--model_type MODEL_TYPE] [--label LABEL]
 
 For script-based usage, see `scripts/example.sh`
 
-For interactive usage, see `notebooks/ptycho_lines.ipynb` and `notebooks/non_grid_CDI_example.ipynb`. These demonstrate reconstruction with scanning CDI + grid scan pattern and fresnel CDI + random scan pattern, respectively.
+For interactive usage, see `notebooks/ptycho_lines.ipynb` and `notebooks/non_grid_CDI_example.ipynb`. These demonstrate reconstruction with scanning CDI + grid scan pattern + simulated data and fresnel CDI + random scan pattern + experimental data, respectively.
 
 ### Checklist
 | Status | Task |
