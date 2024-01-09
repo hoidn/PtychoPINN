@@ -35,6 +35,10 @@ objectGuess = obj['objectGuess']
 scan_index = np.zeros(diff3d.shape[0], dtype=int)  # Array of zeros indicating a single scan index
 ptycho_data = loader.RawData(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index, objectGuess = objectGuess)
 
+# half the data
+train_size = 512
+ptycho_data_train = loader.RawData(xcoords[:train_size], ycoords[:train_size], xcoords_start[:train_size], ycoords_start[:train_size], diff3d[:train_size], probeGuess, scan_index[:train_size], objectGuess = objectGuess)
+
 dset = loader.get_neighbor_diffraction_and_positions(ptycho_data, N, K=7,
     nsamples=1)
 #dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
