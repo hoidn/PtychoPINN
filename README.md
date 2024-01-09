@@ -41,7 +41,7 @@ For interactive usage, see `notebooks/ptycho_lines.ipynb` and `notebooks/non_gri
 |--------|------|
 | 🟡 | Reconstruction with non-grid scan patterns |
 | 🟡 | Position correction in CDI mode |
-| 🟡 | Workflow for experimental data |
+| 🟢 | Workflow for experimental data |
 | 🟡 | Probe fitting |
 | 🔴 | Stochastic probe model |
 | 🔴 | 128 x 128 resolution |
