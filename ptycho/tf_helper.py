@@ -61,10 +61,20 @@ def pad_and_diffract(input, h, w, pad = True):
 
 def _fromgrid(img):
     """
-    Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
+    Reshape (b, g, g, N, N) to (b * g * g, N, N, 1)
     """
+    print("Debug: Entering _fromgrid function")
     N = params()['N']
-    return tf.reshape(img, (-1, N, N, 1))
+    gridsize = params()['gridsize']
+    print(f"Debug: N = {N}, gridsize = {gridsize}")
+    # The batch size is the first dimension of the input tensor
+    batch_size = tf.shape(img)[0]
+    # Calculate the new batch size after reshaping
+    new_batch_size = batch_size * gridsize * gridsize
+    print(f"Debug: new_batch_size = {new_batch_size}")
+    reshaped_img = tf.reshape(img, (new_batch_size, N, N, 1))
+    print(f"Debug: reshaped_img.shape = {reshaped_img.shape}")
+    return reshaped_img
 
 def _togrid(img, gridsize = None, N = None):
     """
