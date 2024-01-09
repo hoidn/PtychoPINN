@@ -4,11 +4,12 @@ from importlib import reload
 import matplotlib.pyplot as plt
 
 from ptycho import params
-from ptycho import datasets
+from ptycho import diffsim as datasets
 from ptycho import fourier as f
 import tensorflow as tf
 
 from .loader import PtychoDataset, PtychoData
+from ptycho import loader
 
 """
 Initialize probe and other parameters; build (simulated) training / evaluation data
@@ -125,8 +126,8 @@ def reassemble(b, part = 'amp', **kwargs):
     stitched = stitch(b, norm_Y_I_test, norm = False, part = part, **kwargs)
     return stitched
 
-probe = probe.get_probe(fmt='np')
-assert probe.ndim == 2, "Probe function must be a 2D array"
+#probe = probe.get_probe(fmt='np')
+#assert probe.ndim == 2, "Probe function must be a 2D array"
 
 # TODO refactor
 if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diagonals', 'V']:
@@ -207,7 +208,7 @@ elif params.params()['data_source'] == 'xpp':
     outer_offset_test = params.cfg['outer_offset_test']
 
     # TODO use the object. train_pinn.py and model.py need to be updated too
-    train_data = loader.load('train', xpp.get_data)
+    train_data = loader.load( xpp.get_data, which = 'train')
     X_train = train_data['X']
     Y_I_train = train_data['Y_I']
     Y_phi_train = train_data['Y_phi']
@@ -216,7 +217,7 @@ elif params.params()['data_source'] == 'xpp':
     coords_train_nominal, coords_train_true = train_data['coords']
 
     # Loading test data
-    test_data = loader.load('test', xpp.get_data)
+    test_data = loader.load( xpp.get_data, which = 'test')
     X_test = test_data['X']
     Y_I_test = test_data['Y_I']
     Y_phi_test = test_data['Y_phi']
@@ -228,11 +229,33 @@ elif params.params()['data_source'] == 'generic':
     from ptycho.loader import RawData
     train_data_file_path = params.get('train_data_file_path')
     test_data_file_path = params.get('test_data_file_path')
-    # Use loader.load() to handle the conversion from RawData to PtychoData
+
     # Load the data without creating a train-test split
-    raw_data = RawData.from_files(train_data_file_path, test_data_file_path)
-    train_data = loader.load(None, lambda: raw_data[0], create_split=False)
-    test_data = loader.load(None, lambda: raw_data[1], create_split=False)
+    train_raw, test_raw = RawData.from_files(train_data_file_path, test_data_file_path)
+
+    dset_train = train_raw.generate_grouped_data(N, K = 7, nsamples = 1)
+    dset_test = test_raw.generate_grouped_data(N, K = 7, nsamples = 1)
+
+    # Use loader.load() to handle the conversion to PtychoData
+    train_data = loader.load(lambda: dset_train, which = None, create_split=False)
+    test_data = loader.load(lambda: dset_test, which = None, create_split=False)
+    intensity_scale = train_data['norm_Y_I']
+
+    # TODO use the object. train_pinn.py and model.py need to be updated too
+    X_train = train_data['X']
+    Y_I_train = train_data['Y_I']
+    Y_phi_train = train_data['Y_phi']
+    intensity_scale = train_data['norm_Y_I']
+    YY_train_full = train_data['YY_full']
+    coords_train_nominal, coords_train_true = train_data['coords']
+
+    # Loading test data
+    X_test = test_data['X']
+    Y_I_test = test_data['Y_I']
+    Y_phi_test = test_data['Y_phi']
+    YY_test_full = test_data['YY_full']
+    norm_Y_I_test = test_data['norm_Y_I']
+    coords_test_nominal, coords_test_true = test_data['coords']
 else:
     raise ValueError
 

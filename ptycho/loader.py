@@ -14,9 +14,11 @@ key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
 
 class RawData:
-    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
+    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
+                 scan_index, objectGuess = None):
         # Sanity checks
-        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index)
+        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
+                    probeGuess, scan_index)
 
         # Assigning values if checks pass
         self.xcoords = xcoords
@@ -26,6 +28,7 @@ class RawData:
         self.diff3d = diff3d
         self.probeGuess = probeGuess
         self.scan_index = scan_index
+        self.objectGuess = objectGuess
 
     def to_file(self, file_path):
         """
@@ -41,6 +44,7 @@ class RawData:
                  ycoords_start=self.ycoords_start,
                  diff3d=self.diff3d,
                  probeGuess=self.probeGuess,
+                 objectGuess=self.objectGuess,
                  scan_index=self.scan_index)
 
     @staticmethod
@@ -56,6 +60,7 @@ class RawData:
             ycoords_start=train_data['ycoords_start'],
             diff3d=train_data['diff3d'],
             probeGuess=train_data['probeGuess'],
+            objectGuess=train_data['objectGuess'],
             scan_index=train_data['scan_index']
         )
         return train_raw_data
@@ -88,6 +93,12 @@ class RawData:
         test_raw_data = RawData.from_file(test_data_file_path)
 
         return train_raw_data, test_raw_data
+
+    def generate_grouped_data(self, N, K = 7, nsamples = 1):
+        """
+        Generate nearest-neighbor solution region grouping.
+        """
+        return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
 
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
         # Check if all inputs are numpy arrays
@@ -209,14 +220,15 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
     coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices],
                             ptycho_data.ycoords[nn_indices]]),
                             [1, 0, 2])[:, None, :, :]
-#    # IMPORTANT: coord swap
-#    coords_nn = coords_nn[:, :, ::-1, :]
+    # IMPORTANT: coord swap
+    #coords_nn = coords_nn[:, :, ::-1, :]
 
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
 
     if ptycho_data.xcoords_start is not None:
         coords_start_nn = np.transpose(np.array([ptycho_data.xcoords_start[nn_indices], ptycho_data.ycoords_start[nn_indices]]),
                                        [1, 0, 2])[:, None, :, :]
+        #coords_start_nn = coords_start_nn[:, :, ::-1, :]
         coords_start_offsets, coords_start_relative = get_relative_coords(coords_start_nn)
     else:
         coords_start_offsets = coords_start_relative = None
@@ -229,7 +241,8 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
         'coords_start_relative': coords_start_relative,
         'coords_nn': coords_nn,
         'coords_start_nn': coords_start_nn,
-        'nn_indices': nn_indices
+        'nn_indices': nn_indices,
+        'objectGuess': ptycho_data.objectGuess
     }
     X_full = normalize_data(dset, N)
     dset['X_full'] = X_full
@@ -286,9 +299,13 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
-def load(cb, which=None, create_split=True, train_frac=0.5, **kwargs):
+def load(cb, which=None, create_split=True, **kwargs):
     from . import params as cfg
-    dset, gt_image, train_frac = cb()
+    if create_split:
+        dset, train_frac = cb()
+    else:
+        dset = cb()
+    gt_image = dset['objectGuess']
     X_full = dset['X_full'] # normalized diffraction
     global_offsets = dset[key_coords_offsets]
     # Define coords_nominal and coords_true before calling split_data
@@ -312,6 +329,7 @@ def load(cb, which=None, create_split=True, train_frac=0.5, **kwargs):
     Y_phi = tf.math.angle(Y_obj)
     YY_full = None
 
+    # TODO complex
     return {
         'X': X,
         'Y_I': Y_I,
@@ -319,7 +337,10 @@ def load(cb, which=None, create_split=True, train_frac=0.5, **kwargs):
         'norm_Y_I': norm_Y_I,
         'YY_full': YY_full,
         'coords': (coords_nominal, coords_true),
-        'nn_indices': dset['nn_indices']
+        'nn_indices': dset['nn_indices'],
+        'global_offsets': dset['coords_offsets'], # global coordinate offsets
+        'local_offsets': dset['coords_relative'] # local coordinate offsets
+
     }
 
 # Images are amplitude, not intensity

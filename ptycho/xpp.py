@@ -20,24 +20,20 @@ obj = np.load(data_file_path)
 print('raw diffraction shape', obj['diffraction'].shape)
 
 # TODO cast to complex64?
-gt_image = obj['objectGuess']
-
-# Prepare the data for initialization of RawData
-#xcoords = obj['xcoords'][:gridh * gridw]
-#ycoords = obj['ycoords'][:gridh * gridw]
 
 # This dataset uses y, x  ordering so we swap the coordinates to match the
 # program's expectation
-xcoords = obj['ycoords'][:gridh * gridw]
-ycoords = obj['xcoords'][:gridh * gridw]
+xcoords = obj['xcoords'][:gridh * gridw]
+ycoords = obj['ycoords'][:gridh * gridw]
 xcoords_start = obj['xcoords_start'][:gridh * gridw]
 ycoords_start = obj['ycoords_start'][:gridh * gridw]
 diff3d = np.transpose(obj['diffraction'][:, :, :gridh * gridw], [2, 0, 1])
 probeGuess = obj['probeGuess']
+objectGuess = obj['objectGuess']
 
 # Initialize RawData with the prepared data
 scan_index = np.zeros(diff3d.shape[0], dtype=int)  # Array of zeros indicating a single scan index
-ptycho_data = loader.RawData(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index)
+ptycho_data = loader.RawData(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index, objectGuess = objectGuess)
 
 dset = loader.get_neighbor_diffraction_and_positions(ptycho_data, N, K=7,
     nsamples=1)
@@ -50,4 +46,4 @@ coords_true = dset[key_coords_relative]
 coords_nominal = dset[key_coords_relative]
 
 def get_data(**kwargs):
-    return dset, gt_image, train_frac
+    return dset, train_frac
