@@ -4,7 +4,6 @@
 #     https://chat.openai.com/c/e6d5e400-daf9-44b7-8ef9-d49f21a634a3
 # -difference maps?
 # -double -> float32
-# Two lossess: a CDI loss and a ptychography loss
 # Apply real space loss to both amplitude and phase of the object
 
 from datetime import datetime
@@ -66,21 +65,6 @@ class ProbeIllumination(tf.keras.layers.Layer):
         else:
             return self.w * x, (self.w)[None, ...]
 
-# Stochastic probe
-#class ProbeIllumination(tf.keras.layers.Layer):
-#    def __init__(self, name = None):
-#        super(ProbeIllumination, self).__init__(name = name)
-#        self.w = initial_probe_guess
-#        self.dist = tfd.Independent(tfd.Normal(loc = tf.math.real(self.w),
-#            scale = 0.1))
-#    def call(self, inputs):
-#        x, = inputs
-#        sample = tf.cast(self.dist.sample(), tf.complex64)
-#        if cfg.get('probe.mask'):
-#            return sample  * x * probe_mask, (sample * probe_mask)[None, ...]
-#        else:
-#            return sample * x, (sample)[None, ...]
-
 probe_illumination = ProbeIllumination()
 
 nphotons = cfg.get('nphotons')
@@ -120,20 +104,6 @@ def inv_scale(inputs):
     x, = inputs
     return tf.math.exp(log_scale) * x
 
-#class LogScaler(tf.keras.layers.Layer):
-#    def __init__(self):
-#        super(LogScaler, self).__init__()
-#    def call(self, inputs):
-#        x, = inputs
-#        return tf.math.log(1 + x**2) / tf.math.log(nphotons / (N**2))
-#
-#class LogScaler_inv(tf.keras.layers.Layer):
-#    def __init__(self):
-#        super(LogScaler_inv, self).__init__()
-#    def call(self, inputs):
-#        x, = inputs
-#        return tf.math.exp((x**2) * tf.math.log(nphotons / (N**2))) - 1
-
 tf.keras.backend.clear_session()
 np.random.seed(2)
 
@@ -144,10 +114,6 @@ for file in files:
 lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
 input_img = Input(shape=(N, N, gridsize**2), name = 'input')
 input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
-
-#logscaler = LogScaler()
-#inv_logscaler = LogScaler_inv()
-#normed_input = logscaler([input_img])
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -163,7 +129,6 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
     return x0
 
 def create_encoder_functional(input_tensor, n_filters_scale):
-    # Blocks
     # x = Conv_Pool_block(input_tensor, n_filters_scale * 16)  # This block is commented out in the original
     x = Conv_Pool_block(input_tensor, n_filters_scale * 32)
     x = Conv_Pool_block(x, n_filters_scale * 64)
@@ -171,7 +136,6 @@ def create_encoder_functional(input_tensor, n_filters_scale):
     return outputs
 
 def create_decoder_base_functional(input_tensor, n_filters_scale):
-    # Blocks
     x = Conv_Up_block(input_tensor, n_filters_scale * 128)
     outputs = Conv_Up_block(x, n_filters_scale * 64)
     return outputs
@@ -234,26 +198,6 @@ def create_decoder_amp_functional(input_tensor, n_filters_scale):
     outputs = create_decoder_last_functional(x, n_filters_scale, conv1, conv2, act=act,
         name = 'amp')
     return outputs
-
-#class PositionEncoder(Model):
-#    # TODO scale tanh
-#    def __init__(self, encoder):
-#        super(AutoEncoder, self).__init__()
-#        self.encoder = encoder
-#        self.position = Lambda(lambda x:
-#            tanh(
-#                layers.Reshape((1, 2, gridsize**2))(
-#                layers.Dense(2 * gridsize**2)(
-#                layers.Flatten()(
-#                layers.Dropout(0.3)(x)))), name = 'positions_enc'
-#                )
-#            )
-#    def call(self, inputs):
-#        x, xhat, y = inputs
-#        encoded = tf.concat(
-#            [self.encoder(x), self.encoder(xhat), self.encoder(y)])
-#        encoded_pos = self.position(encoded)
-#        return encoded_pos
 
 normed_input = scale([input_img])
 decoded1, decoded2 = create_autoencoder_functional(normed_input, n_filters_scale, gridsize,
@@ -366,5 +310,4 @@ def train(epochs, X_train, coords_train, Y_obj_train):
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])
         #callbacks=[reduce_lr, earlystop, tboard_callback])
-        #callbacks=[reduce_lr, earlystop, checkpoints])
     return history
