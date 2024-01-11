@@ -128,19 +128,19 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
     x0 = UpSampling2D((p1, p2), data_format=data_format)(x0)
     return x0
 
-def create_encoder_functional(input_tensor, n_filters_scale):
+def create_encoder(input_tensor, n_filters_scale):
     # x = Conv_Pool_block(input_tensor, n_filters_scale * 16)  # This block is commented out in the original
     x = Conv_Pool_block(input_tensor, n_filters_scale * 32)
     x = Conv_Pool_block(x, n_filters_scale * 64)
     outputs = Conv_Pool_block(x, n_filters_scale * 128)
     return outputs
 
-def create_decoder_base_functional(input_tensor, n_filters_scale):
+def create_decoder_base(input_tensor, n_filters_scale):
     x = Conv_Up_block(input_tensor, n_filters_scale * 128)
     outputs = Conv_Up_block(x, n_filters_scale * 64)
     return outputs
 
-def create_decoder_last_functional(input_tensor, n_filters_scale, conv1, conv2,
+def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2,
         act=tf.keras.activations.sigmoid, name=''):
     N = cfg.get('N')  # Placeholder: this should be fetched from the actual configuration
     gridsize = cfg.get('gridsize')  # Placeholder: this should be fetched from the actual configuration
@@ -162,21 +162,21 @@ def create_decoder_last_functional(input_tensor, n_filters_scale, conv1, conv2,
     outputs = x1 + x2
     return outputs
 
-def create_decoder_phase_functional(input_tensor, n_filters_scale, gridsize, big):
+def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     num_filters = gridsize**2 if big else 1
     conv1 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     conv2 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     # Activation function using Lambda layer
     act = tf.keras.layers.Lambda(lambda x: math.pi * tf.keras.activations.tanh(x), name='phi')
-    x = create_decoder_base_functional(input_tensor, n_filters_scale)
-    outputs = create_decoder_last_functional(x, n_filters_scale, conv1, conv2, act=act,
+    x = create_decoder_base(input_tensor, n_filters_scale)
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act,
         name = 'phase')
     return outputs
 
-def create_autoencoder_functional(input_tensor, n_filters_scale, gridsize, big):
-    encoded = create_encoder_functional(input_tensor, n_filters_scale)
-    decoded_amp = create_decoder_amp_functional(encoded, n_filters_scale)
-    decoded_phase = create_decoder_phase_functional(encoded, n_filters_scale, gridsize, big)
+def create_autoencoder(input_tensor, n_filters_scale, gridsize, big):
+    encoded = create_encoder(input_tensor, n_filters_scale)
+    decoded_amp = create_decoder_amp(encoded, n_filters_scale)
+    decoded_phase = create_decoder_phase(encoded, n_filters_scale, gridsize, big)
 
     return decoded_amp, decoded_phase
 
@@ -188,19 +188,19 @@ def get_amp_activation():
     else:
         return ValueError
 
-def create_decoder_amp_functional(input_tensor, n_filters_scale):
+def create_decoder_amp(input_tensor, n_filters_scale):
     # Placeholder convolution layers and activation as defined in the original DecoderAmp class
     conv1 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
     conv2 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
     act = Lambda(get_amp_activation(), name='amp')
 
-    x = create_decoder_base_functional(input_tensor, n_filters_scale)
-    outputs = create_decoder_last_functional(x, n_filters_scale, conv1, conv2, act=act,
+    x = create_decoder_base(input_tensor, n_filters_scale)
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act,
         name = 'amp')
     return outputs
 
 normed_input = scale([input_img])
-decoded1, decoded2 = create_autoencoder_functional(normed_input, n_filters_scale, gridsize,
+decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
     cfg.get('object.big'))
 
 # Combine the two decoded outputs
