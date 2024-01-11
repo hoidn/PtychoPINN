@@ -30,6 +30,17 @@ class RawData:
         self.scan_index = scan_index
         self.objectGuess = objectGuess
 
+    def __str__(self):
+        return (f"RawData: \n"
+                f"xcoords: {self.xcoords.shape} \n"
+                f"ycoords: {self.ycoords.shape} \n"
+                f"xcoords_start: {self.xcoords_start.shape} \n"
+                f"ycoords_start: {self.ycoords_start.shape} \n"
+                f"diff3d: {self.diff3d.shape} \n"
+                f"probeGuess: {self.probeGuess.shape if self.probeGuess is not None else 'None'} \n"
+                f"scan_index: {self.scan_index.shape} \n"
+                f"objectGuess: {'Present' if self.objectGuess is not None else 'None'}")
+
     def to_file(self, file_path):
         """
         Method to write the RawData object to a file using numpy.savez.

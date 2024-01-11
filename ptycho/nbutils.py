@@ -80,7 +80,68 @@ def reconstruct_image(test_data):
     global_offsets = test_data['global_offsets']
     local_offsets = test_data['local_offsets']
 
-    obj_tensor_full, _, _ = model.autoencoder.predict(
+#    obj_tensor_full, _, _ = model.autoencoder.predict(
+#                    [test_data['X'] * model.params()['intensity_scale'],
+#                                    local_offsets])
+    obj_tensor_full = model.diffraction_to_obj.predict(
                     [test_data['X'] * model.params()['intensity_scale'],
-                                    local_offsets])
+                    local_offsets])
     return obj_tensor_full, global_offsets
+
+def print_shapes(test_data):
+    for key, value in test_data.items():
+        if value is not None:
+            if isinstance(value, tuple):
+                print(f"{key}\t")
+                for i, array in enumerate(value):
+                    print(f"  Array {i+1}{array.shape}, \t {array.dtype}")
+            else:
+                print(f"{key}\t{value.shape}, {value.dtype}")
+
+def probeshow(probeGuess, test_data):
+    # Creating a figure with three subplots
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 6))
+
+    # Plotting the magnitude of the complex array
+    img1 = ax1.imshow(np.abs(probeGuess), cmap='viridis')
+    ax1.set_title('probe amplitude')
+    fig.colorbar(img1, ax=ax1, orientation='vertical')
+
+    # Plotting the phase of the complex array
+    img2 = ax2.imshow(np.angle(probeGuess), cmap='jet')
+    ax2.set_title('probe phase')
+    fig.colorbar(img2, ax=ax2, orientation='vertical')
+
+    # Plotting the scan point positions
+    ax3.scatter(*(test_data['global_offsets'].squeeze().T))
+    ax3.set_title('scan point positions')
+
+    # Improving layout
+    plt.tight_layout()
+    plt.show()
+
+
+def track_dict_changes(input_dict, callback):
+    # Copy the original dictionary to track changes
+    original_dict = input_dict.copy()
+    # Execute the callback function
+    callback(input_dict)
+    # Determine which keys have changed or added
+    changed_or_added_keys = [key for key in input_dict if input_dict.get(key) != original_dict.get(key)]
+    return changed_or_added_keys
+
+# object heatmaps
+## Creating a figure and two subplots
+#fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+#
+## Plotting the amplitude of the complex object
+#ax1.imshow(np.absolute(objectGuess), cmap='viridis')
+#ax1.set_title('Amplitude')
+#
+## Plotting the phase of the complex object
+#ax2.imshow(np.angle(objectGuess), cmap='viridis')
+#ax2.set_title('Phase')
+#
+## Adjust layout
+#plt.tight_layout()
+#plt.show()
