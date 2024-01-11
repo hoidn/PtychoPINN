@@ -103,19 +103,19 @@ class RawData:
 
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
         # Check if all inputs are numpy arrays
-        if not all(isinstance(arr, np.ndarray) for arr in [xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index]):
-            raise ValueError("All inputs must be numpy arrays.")
+#        if not all(isinstance(arr, np.ndarray) for arr in [xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index]):
+#            raise ValueError("All inputs must be numpy arrays.")
 
         # Check if coordinate arrays have matching shapes
         if not (xcoords.shape == ycoords.shape == xcoords_start.shape == ycoords_start.shape):
             raise ValueError("Coordinate arrays must have matching shapes.")
-
+        # TODO we should allow diff3d to be None
         # Add more checks as necessary, for example:
         # - Check if 'diff3d' has the expected number of dimensions
         # - Check if 'probeGuess' has a specific shape or type criteria
         # Check if 'scan_index' has the correct length
-        if len(scan_index) != diff3d.shape[0]:
-            raise ValueError("Length of scan_index array must match the number of diffraction patterns.")
+#        if len(scan_index) != diff3d.shape[0]:
+#            raise ValueError("Length of scan_index array must match the number of diffraction patterns.")
 
 class PtychoDataset:
     def __init__(self, train_data, test_data):
@@ -246,7 +246,7 @@ def calculate_relative_coords(ptycho_data, index_grouping_cb):
     """
     nn_indices, coords_nn = group_coords(ptycho_data, index_grouping_cb)
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
-    return coords_offsets, coords_relative
+    return coords_offsets, coords_relative, nn_indices
 
 def group_coords(ptycho_data, index_grouping_cb):
     """
@@ -415,6 +415,7 @@ def get_gt_patch(offset, N, gt_image):
     return crop(
         hh.translate(gt_image, offset),
         N // 2)
+
 class PtychoDataContainer:
     """
     A class to contain ptycho data attributes for easy access and manipulation.
@@ -436,3 +437,35 @@ class PtychoDataContainer:
                f'coords_nominal={self.coords[0].shape}, coords_true={self.coords[1].shape}, ' \
                f'nn_indices={self.nn_indices.shape}, global_offsets={self.global_offsets.shape}, ' \
                f'local_offsets={self.local_offsets.shape}>'
+
+    # TODO currently this can only handle a single object image
+    @staticmethod
+    def from_simulation(xcoords, ycoords, xcoords_start, ycoords_start, probeGuess,
+                 objectGuess, scan_index = None):
+        """
+        """
+        from .diffsim import illuminate_and_diffract
+        ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start, None,
+                              probeGuess, scan_index, objectGuess)
+
+        def get_relative():
+            return get_neighbor_self_indices(xcoords, ycoords)
+
+        def get_relative_start():
+            return get_neighbor_self_indices(xcoords_start, ycoords_start)
+
+        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
+                                        ptycho_data, get_relative)
+
+        # TODO get rid of separate nominal and real coordinates
+        _, coords_true, _ = calculate_relative_coords(
+                                        ptycho_data, get_relative_start)
+        coords_nominal = coords_true
+
+        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+        Y_I = tf.math.abs(Y_obj)
+        Y_phi = tf.math.angle(Y_obj)
+        X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+        norm_Y_I = datasets.scale_nphotons(X)
+        return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, objectGuess, coords_nominal,
+                                   coords_true, nn_indices, global_offsets, local_offsets)
