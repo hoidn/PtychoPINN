@@ -1,4 +1,4 @@
-# Physics constrained machine learning for rapid, high resolution CDI
+# Physics constrained machine learning for rapid, high resolution diffractive imaging
 
 This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://arxiv.org/pdf/2306.11014.pdf)". 
 
