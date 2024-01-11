@@ -133,6 +133,7 @@ class PtychoData:
         self.probe = probe
         self.scan_index = scan_index
 
+
 ####
 # two functions to organize flat coordinate arrays into 'solution region' format
 ####
@@ -231,8 +232,10 @@ def tile_gt_object(gt_image, shape):
 
 def calculate_relative_coords(ptycho_data, index_grouping_cb):
     """
-    Calculate coords_offsets and coords_relative from ptycho_data using the provided
-    index_grouping_cb callback function.
+    Group scan indices and coordinates in to solution regions, then
+    calculate coords_offsets (global solution region coordinates) and
+    coords_relative (local solution patch coords) from ptycho_data using
+    the provided index_grouping_cb callback function.
 
     Args:
         ptycho_data (RawData): An instance of the RawData class containing the dataset.
@@ -395,7 +398,6 @@ def load(cb, which=None, create_split=True, **kwargs):
         'nn_indices': dset['nn_indices'],
         'global_offsets': dset['coords_offsets'], # global coordinate offsets
         'local_offsets': dset['coords_relative'] # local coordinate offsets
-
     }
 
 # Images are amplitude, not intensity
