@@ -133,6 +133,16 @@ class PtychoData:
         self.probe = probe
         self.scan_index = scan_index
 
+####
+# two functions to organize flat coordinate arrays into 'solution region' format
+####
+def get_neighbor_self_indices(xcoords, ycoords, K = 3):
+    """
+    assign each pattern index to itself
+    """
+    N = len(xcoords)
+    nn_indices = np.arange(N).reshape(N, 1) 
+    return nn_indices                                                                                                                                                                                     
 def get_neighbor_indices(xcoords, ycoords, K = 3):
     # Combine x and y coordinates into a single array
     points = np.column_stack((xcoords, ycoords))
@@ -143,6 +153,8 @@ def get_neighbor_indices(xcoords, ycoords, K = 3):
     # Query for K nearest neighbors for each point
     distances, nn_indices = tree.query(points, k=K+1)  # +1 because the point itself is included in the results
     return nn_indices
+
+#####
 
 def sample_rows(indices, n, m):
     N = indices.shape[0]
@@ -209,6 +221,21 @@ def tile_gt_object(gt_image, shape):
     gt_repeat = hh.pad(gt_repeat, N // 2)
     return gt_repeat
 
+def group_coords(ptycho_data, index_grouping_cb):
+    """
+    Assumes ptycho_data.xcoords and ptycho_data.ycoords are of shape (M).
+    Returns:
+        nn_indices: shape (M, C)
+        coords_nn: shape (M, 1, 2, C)
+    """
+    nn_indices = index_grouping_cb()
+
+    #diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
+    coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices],
+                            ptycho_data.ycoords[nn_indices]]),
+                            [1, 0, 2])[:, None, :, :]
+    return nn_indices, coords_nn
+
 def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples=10):
     """
     ptycho_data: an instance of the RawData class
@@ -216,14 +243,14 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
     gridsize = params()['gridsize']
     if C is None:
         C = gridsize**2
-
-    nn_indices = get_neighbor_indices(ptycho_data.xcoords, ptycho_data.ycoords, K=K)
-    nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
+    
+    def grouping_cb():
+        nn_indices = get_neighbor_indices(ptycho_data.xcoords, ptycho_data.ycoords, K=K)
+        return sample_rows(nn_indices, C, nsamples).reshape(-1, C)
+    nn_indices, coords_nn = group_coords(ptycho_data, grouping_cb)
 
     diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
-    coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices],
-                            ptycho_data.ycoords[nn_indices]]),
-                            [1, 0, 2])[:, None, :, :]
+
     # IMPORTANT: coord swap
     #coords_nn = coords_nn[:, :, ::-1, :]
 
