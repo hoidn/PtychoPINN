@@ -137,13 +137,14 @@ class PtychoData:
 ####
 # two functions to organize flat coordinate arrays into 'solution region' format
 ####
-def get_neighbor_self_indices(xcoords, ycoords, K = 3):
+def get_neighbor_self_indices(xcoords, ycoords):
     """
     assign each pattern index to itself
     """
     N = len(xcoords)
     nn_indices = np.arange(N).reshape(N, 1) 
-    return nn_indices                                                                                                                                                                                     
+    return nn_indices
+
 def get_neighbor_indices(xcoords, ycoords, K = 3):
     # Combine x and y coordinates into a single array
     points = np.column_stack((xcoords, ycoords))
@@ -230,7 +231,7 @@ def tile_gt_object(gt_image, shape):
     gt_repeat = hh.pad(gt_repeat, N // 2)
     return gt_repeat
 
-def calculate_relative_coords(ptycho_data, index_grouping_cb):
+def calculate_relative_coords(xcoords, ycoords, K = 6, C = None, nsamples = 10):
     """
     Group scan indices and coordinates in to solution regions, then
     calculate coords_offsets (global solution region coordinates) and
@@ -244,22 +245,31 @@ def calculate_relative_coords(ptycho_data, index_grouping_cb):
     Returns:
         tuple: A tuple containing coords_offsets and coords_relative.
     """
-    nn_indices, coords_nn = group_coords(ptycho_data, index_grouping_cb)
+    nn_indices, coords_nn = group_coords(xcoords, ycoords, K = K, C = C, nsamples = nsamples)
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
     return coords_offsets, coords_relative, nn_indices
 
-def group_coords(ptycho_data, index_grouping_cb):
+def group_coords(xcoords, ycoords, K = 6, C = None, nsamples = 10):
     """
+    Assemble a flat dataset into solution regions using nearest-neighbor grouping.
+
     Assumes ptycho_data.xcoords and ptycho_data.ycoords are of shape (M).
     Returns:
         nn_indices: shape (M, C)
         coords_nn: shape (M, 1, 2, C)
     """
-    nn_indices = index_grouping_cb()
+    gridsize = params()['gridsize']
+    if C is None:
+        C = gridsize**2
+    if C == 1:
+        nn_indices = get_neighbor_self_indices(xcoords, ycoords)
+    else:
+        nn_indices = get_neighbor_indices(xcoords, ycoords, K=K)
+        nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
 
     #diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
-    coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices],
-                            ptycho_data.ycoords[nn_indices]]),
+    coords_nn = np.transpose(np.array([xcoords[nn_indices],
+                            ycoords[nn_indices]]),
                             [1, 0, 2])[:, None, :, :]
     return nn_indices, coords_nn[:, :, :, :]
 
@@ -267,14 +277,9 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
     """
     ptycho_data: an instance of the RawData class
     """
-    gridsize = params()['gridsize']
-    if C is None:
-        C = gridsize**2
     
-    def grouping_cb():
-        nn_indices = get_neighbor_indices(ptycho_data.xcoords, ptycho_data.ycoords, K=K)
-        return sample_rows(nn_indices, C, nsamples).reshape(-1, C)
-    nn_indices, coords_nn = group_coords(ptycho_data, grouping_cb)
+    nn_indices, coords_nn = group_coords(ptycho_data.xcoords, ptycho_data.ycoords,
+                                         K = K, C = C, nsamples = nsamples)
 
     diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
 
@@ -448,18 +453,12 @@ class PtychoDataContainer:
         ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start, None,
                               probeGuess, scan_index, objectGuess)
 
-        def get_relative():
-            return get_neighbor_self_indices(xcoords, ycoords)
-
-        def get_relative_start():
-            return get_neighbor_self_indices(xcoords_start, ycoords_start)
-
         global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-                                        ptycho_data, get_relative)
+                    ptycho_data.xcoords, ptycho_data.ycoords)
 
         # TODO get rid of separate nominal and real coordinates
-        _, coords_true, _ = calculate_relative_coords(
-                                        ptycho_data, get_relative_start)
+        _, coords_true, _ = calculate_relative_coords(ptycho_data.xcoords_start,
+                                                      ptycho_data.ycoords_start)
         coords_nominal = coords_true
 
         Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
