@@ -100,6 +100,7 @@ class RawData:
         """
         return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
 
+
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
         # Check if all inputs are numpy arrays
         if not all(isinstance(arr, np.ndarray) for arr in [xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index]):
@@ -166,6 +167,9 @@ def crop12(arr, size):
 from .tf_helper import complexify_function
 @complexify_function
 def get_image_patches(gt_image, global_offsets, local_offsets):
+    """
+    Generate and return image patches in channel format.
+    """
     from . import tf_helper as hh
     gridsize = params()['gridsize']
     N = params()['N']
