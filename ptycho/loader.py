@@ -164,10 +164,18 @@ def sample_rows(indices, n, m):
     return result
 
 def get_relative_coords(coords_nn):
+    """
+    Calculate the relative coordinates and offsets from the nearest neighbor coordinates.
+
+    Args:
+        coords_nn (np.ndarray): Array of nearest neighbor coordinates with shape (M, 1, 2, C).
+
+    Returns:
+        tuple: A tuple containing coords_offsets and coords_relative.
+    """
     assert len(coords_nn.shape) == 4
-    coords_offsets = np.mean(coords_nn, axis = 3)[..., None]
-    # IMPORTANT: sign
-    coords_relative = local_offset_sign * (coords_nn - np.mean(coords_nn, axis = 3)[..., None])
+    coords_offsets = np.mean(coords_nn, axis=3)[..., None]
+    coords_relative = local_offset_sign * (coords_nn - coords_offsets)
     return coords_offsets, coords_relative
 
 def crop12(arr, size):
@@ -221,6 +229,22 @@ def tile_gt_object(gt_image, shape):
     gt_repeat = hh.pad(gt_repeat, N // 2)
     return gt_repeat
 
+def calculate_relative_coords(ptycho_data, index_grouping_cb):
+    """
+    Calculate coords_offsets and coords_relative from ptycho_data using the provided
+    index_grouping_cb callback function.
+
+    Args:
+        ptycho_data (RawData): An instance of the RawData class containing the dataset.
+        index_grouping_cb (callable): A callback function that defines how to group indices.
+
+    Returns:
+        tuple: A tuple containing coords_offsets and coords_relative.
+    """
+    nn_indices, coords_nn = group_coords(ptycho_data, index_grouping_cb)
+    coords_offsets, coords_relative = get_relative_coords(coords_nn)
+    return coords_offsets, coords_relative
+
 def group_coords(ptycho_data, index_grouping_cb):
     """
     Assumes ptycho_data.xcoords and ptycho_data.ycoords are of shape (M).
@@ -234,7 +258,7 @@ def group_coords(ptycho_data, index_grouping_cb):
     coords_nn = np.transpose(np.array([ptycho_data.xcoords[nn_indices],
                             ptycho_data.ycoords[nn_indices]]),
                             [1, 0, 2])[:, None, :, :]
-    return nn_indices, coords_nn
+    return nn_indices, coords_nn[:, :, :, :]
 
 def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples=10):
     """
