@@ -255,8 +255,8 @@ autoencoder_no_nll = Model(inputs = [input_img, input_positions],
 
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[obj, input_positions],
 #                           outputs=[pred_diff, flat_illuminated])
-diffraction_to_obj = tf.keras.Model(inputs=[input_img],
-                           outputs=[obj])
+diffraction_to_obj = tf.keras.Model(inputs=[input_img, input_positions],
+                           outputs=[trimmed_obj])
 
 mae_weight = cfg.get('mae_weight') # should normally be 0
 nll_weight = cfg.get('nll_weight') # should normally be 1

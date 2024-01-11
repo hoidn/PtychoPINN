@@ -2,6 +2,8 @@ import numpy as np
 import os
 from ptycho.loader import RawData
 from ptycho.xpp import ptycho_data, ptycho_data_train
+import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppresses most TensorFlow warnings
 
 def create_sample_data_file(file_path, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
     np.savez(file_path, xcoords=xcoords, ycoords=ycoords, xcoords_start=xcoords_start, ycoords_start=ycoords_start, diff3d=diff3d, probeGuess=probeGuess, scan_index=scan_index)
@@ -37,6 +39,7 @@ def test_generic_loader(remove = True):
         # Clean up the created files
         os.remove(train_data_file_path)
         os.remove(test_data_file_path)
+    return train_data, test_data
 
 if __name__ == '__main__':
     test_generic_loader()
