@@ -323,15 +323,48 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
     print('neighbor-sampled diffraction shape', X_full.shape)
     return dset
 
-def shift_and_sum(obj_tensor, global_offsets, M = 10):
-    canvas_pad = 100
+#def shift_and_sum(obj_tensor, global_offsets, M = 10):
+#    canvas_pad = 100
+#    from . import tf_helper as hh
+#    N = params()['N']
+#    offsets_2d = tf.cast(tf.squeeze(global_offsets), tf.float32)
+#    obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
+#    obj_tensor = hh.pad(obj_tensor, canvas_pad)
+#    obj_translated = hh.translate(obj_tensor, offsets_2d, interpolation = 'bilinear')
+#    return tf.reduce_sum(obj_translated, 0)
+
+def shift_and_sum(obj_tensor, global_offsets, M=10):
     from . import tf_helper as hh
+
+    # Extract necessary parameters
     N = params()['N']
-    offsets_2d = tf.cast(tf.squeeze(global_offsets), tf.float32)
+
+    # Select the central part of the object tensor
     obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
-    obj_tensor = hh.pad(obj_tensor, canvas_pad)
-    obj_translated = hh.translate(obj_tensor, offsets_2d, interpolation = 'bilinear')
-    return tf.reduce_sum(obj_translated, 0)
+
+    # Calculate the center of mass of global_offsets
+    center_of_mass = tf.reduce_mean(tf.cast(global_offsets, tf.float32), axis=0)
+
+    # Adjust global_offsets by subtracting the center of mass
+    adjusted_offsets = tf.cast(global_offsets, tf.float32) - center_of_mass
+
+    # Calculate dynamic padding based on maximum adjusted offset
+    max_offset = tf.reduce_max(tf.abs(adjusted_offsets))
+    dynamic_pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
+    print('PADDING SIZE:', dynamic_pad)
+
+    # Apply dynamic padding
+    obj_tensor = hh.pad(obj_tensor, dynamic_pad)
+
+    # Squeeze and cast adjusted offsets to 2D float for translation
+    offsets_2d = tf.cast(tf.squeeze(adjusted_offsets), tf.float32)
+
+    # Translate the object tensor
+    obj_translated = hh.translate(obj_tensor, offsets_2d, interpolation='bilinear')
+
+    # Reduce and sum across the first dimension
+    return tf.reduce_sum(obj_translated, axis=0)
+
 
 # TODO move to tf_helper?
 def reassemble_position(obj_tensor, global_offsets, M = 10):
