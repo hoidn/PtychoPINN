@@ -12,7 +12,6 @@ from . import params as p
 tfk = tf.keras
 tfkl = tf.keras.layers
 
-# TODO
 N = 64
 
 nphotons = p.get('nphotons')
@@ -38,10 +37,8 @@ def scale_nphotons(padded_obj):
     return norm
 
 def diffract_obj(sample, draw_poisson = True):
-    # run ff diffraction
     N = p.get('N')
     amplitude = hh.pad_and_diffract(sample, N, N, pad=False)[1]
-    # sample from Poisson observation likelihood
     if draw_poisson:
         observed_amp = observe_amplitude(amplitude)
         return observed_amp
@@ -60,10 +57,8 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     batch_size = p.get('batch_size')
     obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
     obj = obj * tf.cast(probe[None, ..., None], obj.dtype)
-    # TODO rename for clarity, Y_I below is *illuminated* amplitude
     Y_I = tf.math.abs(obj)
 
-    # Simulate diffraction
     X = (tf.data.Dataset.from_tensor_slices(obj)
                .batch(batch_size)
                .prefetch(tf.data.AUTOTUNE)
@@ -73,7 +68,6 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     X, Y_I, Y_phi =\
         X / intensity_scale, Y_I / intensity_scale, Y_phi
 
-    # TODO consolidate
     X, Y_I, Y_phi =\
         hh.togrid(X, Y_I, Y_phi)
 
@@ -98,7 +92,6 @@ def mk_noise(N = 64, nlines = 10):
     return np.random.uniform(size = N * N).reshape((N, N, 1))
 
 from ptycho.misc import memoize_disk_and_memory
-# TODO cleanup
 
 def extract_coords(size, repeats = 1, coord_type = 'offsets',
         outer_offset = None, **kwargs):
@@ -111,8 +104,6 @@ def extract_coords(size, repeats = 1, coord_type = 'offsets',
         r is the center of mass of that patch's solution region / grid,
             which contains gridsize**2 patches
     """
-    # TODO enforce consistency on value of size (and repeats)
-    # TODO relative coords should have opposite sign
     x = tf.range(size, dtype = tf.float32)
     y = tf.range(size, dtype = tf.float32)
     xx, yy = tf.meshgrid(x, y)
@@ -146,12 +137,8 @@ def extract_coords(size, repeats = 1, coord_type = 'offsets',
 def add_position_jitter(coords, jitter_scale):
     shape = coords.shape
     jitter = jitter_scale * tf.random.normal(shape)
-    # TODO int jitter is just for debugging. need float eventually
-#    jitter = tf.cast(jitter, tf.int32)
-#    jitter = tf.cast(jitter, tf.float32)
     return jitter + coords
 
-# TODO kwargs -> positional
 def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,
         **kwargs):
     """
@@ -164,9 +151,6 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,
     small image patch. Second gives offset coords for each solution
     region.
     """
-    # TODO take outer grid offset as positional argument
-    # x and y coordinates of the patches
-    # TODO enforce consistent value of size
     size = YY_I.shape[1]
     n = YY_I.shape[0]
     coords = true_coords = extract_coords(size, n, **kwargs)
@@ -184,7 +168,6 @@ def dummy_phi(Y_I):
         tf.cast(tf.math.tanh( (Y_I - tf.math.reduce_max(Y_I) / 2) /
             (3 * tf.math.reduce_mean(Y_I))), tf.float32)
 
-# TODO refactor
 def sim_object_image(size):
     if p.get('data_source') == 'lines':
         return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
@@ -217,10 +200,6 @@ def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
               for _ in range(n)])
     if p.get('set_phi') and YY_phi is None:
         YY_phi = dummy_phi(YY_I)
-    # TODO two cases: n and size given, or Y_I and phi given
-    # TODO there should be an option for subsampling, in case we don't want to
-    # train on a dense view of each image
-    #Y_I, Y_phi, _Y_I_full, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
     Y_I, Y_phi, _, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
         YY_phi = YY_phi, outer_offset = outer_offset, **kwargs)
     if dict_fmt:
