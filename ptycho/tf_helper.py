@@ -49,7 +49,6 @@ def pad_and_diffract(input, h, w, pad = True):
     padded = input
     assert input.shape[-1] == 1
     input = (((fft2d(
-        #tf.squeeze # this destroys shape information so need to use slicing instead
         (tf.cast((input), tf.complex64))[..., 0]
         ))))
     input = (( tf.math.real(tf.math.conj((input)) * input) / (h * w)))
@@ -99,7 +98,6 @@ def grid_to_channel(*grids):
     return [_grid_to_channel(g) for g in grids]
 
 def _flat_to_channel(img, N = None):
-    # TODO N should be picked up automatically
     gridsize = params()['gridsize']
     if N is None:
         N = params()['N']
@@ -107,7 +105,6 @@ def _flat_to_channel(img, N = None):
     img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
     return img
 
-# TODO test, consolidate
 def _flat_to_channel_2(img):
     gridsize = params()['gridsize']
     _, N, M, _ = img.shape
@@ -115,13 +112,11 @@ def _flat_to_channel_2(img):
     img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
     return img
 
-# TODO rename
 def _channel_to_flat(img):
     """
     Reshape (b, N, N, c) to (b * c, N, N, 1)
     """
     _, h, w, c = img.shape
-    #assert h == w == params()['N']
     img = tf.transpose(img, [0, 3, 1, 2], conjugate=False)
     img = tf.reshape(img, (-1, h, w, 1))
     return img
@@ -150,21 +145,12 @@ def extract_patches(x, N, offset):
 
 def extract_outer(img, fmt = 'grid',
         bigN = None, outer_offset = None):#,
-        #test = False):
     """
         Extract big patches (overlapping bigN x bigN regions over an
         entire input img)
     """
-    # TODO factor of 2, outer_offset should be positional
     if bigN is None:
         bigN = get('bigN')
-    # Reason for the stride of the outer patches to be half of the grid
-    # spacing is so that the patches have sufficient overlap (i.e., we
-    # know that the boundary of a solution region will not be properly
-    # reconstructed, so it's necessary to have overlaps)
-    # TODO enforce sufficiently dense outer grid sampling
-#    if bigoffset is None:
-#        bigoffset = cfg['bigoffset'] // 2
     assert img.shape[-1] == 1
     grid = tf.reshape(
         extract_patches(img, bigN, outer_offset // 2),
@@ -183,7 +169,6 @@ def extract_inner_grid(grid):
     offset = params()['offset']
     return extract_patches(grid, N, offset)
 
-# TODO turn extract_inner_fn into a positional argument
 def extract_nested_patches(img, fmt = 'flat',
         extract_inner_fn = extract_inner_grid,
         **kwargs):
@@ -204,10 +189,7 @@ def extract_nested_patches(img, fmt = 'flat',
     offset = params()['offset']
     gridsize = params()['gridsize']
     assert img.shape[-1] == 1
-    # First, extract 'big' patches, each of which is a grid of
-    # overlapping solution regions.
     outer_grid = extract_outer(img, fmt = 'grid', **kwargs)
-    # Then, extract individual solution regions within each patch
     grid = tf.reshape(
         extract_inner_fn(outer_grid),
         (-1, gridsize, gridsize, N, N, 1))
@@ -253,8 +235,6 @@ def extract_patches_inverse(y, N, average, gridsize = None, offset = None):
     _x = tf.zeros((b, target_size, target_size, 1), dtype = y.dtype)
     _y = extract_patches(_x, N, offset)
     if average:
-        # Divide by grad, to "average" together the overlapping patches
-        # otherwise they would simply sum up
         grad = tf.gradients(_y, _x)[0]
         return tf.gradients(_y, _x, grad_ys=y)[0] / grad
     else:
@@ -288,7 +268,6 @@ def trim_reconstruction(x, N = None):
     if N is None:
         N = cfg['N']
     shape = x.shape
-    #shape = tf.shape(x)
     if shape[1] is not None:
         assert int(shape[1]) == int(shape[2])
     try:
@@ -298,7 +277,6 @@ def trim_reconstruction(x, N = None):
     return x[:, clipsize: -clipsize,
             clipsize: -clipsize, :]
 
-# TODO assert translation isn't too big
 def extract_patches_position(imgs, offsets_xy, jitter = 0.):
     """
     Expects offsets_xy in channel format.
@@ -332,12 +310,6 @@ def center_channels(channels, offsets_xy):
     channels_centered = _flat_to_channel(ct)
     return channels_centered
 
-#####
-# Complex tensor manipulations
-#####
-## TODO use these everywhere where applicable
-# TODO move somewhere else?
-# TODO use just complex64 to save memory
 def is_complex_tensor(tensor):
     """Check if the tensor is of complex dtype."""
     return tensor.dtype in [tf.complex64, tf.complex128]
@@ -359,7 +331,6 @@ def complexify_helper(separate, combine):
         return newf
     return complexify
 
-# Define the separate and combine methods for the two complexify functions
 def separate_real_imag(channels):
     return tf.math.real(channels), tf.math.imag(channels)
 
@@ -369,14 +340,11 @@ def combine_real_imag(real, imag):
 def separate_amp_phase(channels):
     return tf.math.abs(channels), tf.math.angle(channels)
 
-# Create the complexify functions using the helper
 complexify_function = complexify_helper(separate_real_imag, combine_real_imag)
 complexify_amp_phase = complexify_helper(separate_amp_phase, combine_complex)
-# apply fn to amplitude and phase and sum the result
 complexify_sum_amp_phase = complexify_helper(separate_amp_phase, lambda a, b: a + b)
 complexify_sum_real_imag = complexify_helper(separate_real_imag, lambda a, b: a + b)
 
-#############################
 
 from tensorflow_addons.image import translate
 translate = complexify_function(translate)
@@ -386,7 +354,6 @@ class Translation(tf.keras.layers.Layer):
     def call(self, inputs):
         imgs, offsets, jitter = inputs
         jitter = tf.random.normal(tf.shape(offsets), stddev = jitter)
-        #return translate(imgs, offsets, interpolation = 'nearest')
         return translate(imgs, offsets + jitter, interpolation = 'bilinear')
 
 def flatten_offsets(channels):
@@ -408,7 +375,6 @@ def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, padded_size 
         padded_size = get_padded_size()
     offsets_flat = flatten_offsets(offsets_xy)
     imgs_flat = _channel_to_flat(imgs)
-    #imgs_flat_bigN = imgs_flat
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
     imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat, 0.])
     if agg:
@@ -435,7 +401,6 @@ def mk_centermask(inputs, N, c, kind = 'center'):
         raise ValueError
 
 def mk_norm(channels, fn_reassemble_real):
-    # TODO global / local
     N = params()['N']
     gridsize = params()['gridsize']
     ones = mk_centermask(channels, N, gridsize**2)
@@ -451,8 +416,6 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
     for the entire solution region. Overlaps between patches are
     averaged.
     """
-    # TODO:
-#    fn_reassemble_real_complex = complexify_function(fn_reassemble_real)
     real = tf.math.real(channels)
     imag = tf.math.imag(channels)
     assembled_real = fn_reassemble_real(real, average = average, **kwargs) / mk_norm(real,
@@ -490,7 +453,6 @@ def preprocess_objects(Y_I, Y_phi = None,
     Extracts normalized object patches from full real-space images, using the
     nested grid format.
     """
-    # TODO take outer grid offset as positional argument
     _Y_I_full = Y_I
     if Y_phi is None:
         Y_phi = np.zeros_like(Y_I)
@@ -508,7 +470,6 @@ def preprocess_objects(Y_I, Y_phi = None,
                 for imgs in [Y_I, Y_phi]]
 
     assert Y_I.shape[-1] == get('gridsize')**2
-    #norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
     norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
     norm_Y_I = tf.math.reduce_mean(norm_Y_I)
     Y_I /= norm_Y_I
@@ -516,7 +477,6 @@ def preprocess_objects(Y_I, Y_phi = None,
     Y_I, Y_phi =\
         channel_to_flat(Y_I, Y_phi)
     return Y_I, Y_phi, _Y_I_full / norm_Y_I, norm_Y_I
-# TODO belongs in evaluation.py?
 
 def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
         offset = 4):
@@ -525,11 +485,9 @@ def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
     reconstructed images, averaging the overlaps
     """
     assert len(output_tensor.shape) == 4
-    #assert output_tensor.shape[-1] == 1
     bsize = int(output_tensor.shape[0] / n_imgs)
     output_tensor = output_tensor[:bsize, ...]
     if M is None:
-        # assume only one image
         M = int(np.sqrt(bsize))
     if cropN is None:
         cropN = params.params()['cropN']
@@ -541,10 +499,6 @@ def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
     return obj_recon
 
 
-########
-## Loss functions
-########
-# TODO move these to another file
 def gram_matrix(input_tensor):
     result = tf.linalg.einsum('bijc,bijd->bcd', input_tensor, input_tensor)
     input_shape = tf.shape(input_tensor)
@@ -565,13 +519,11 @@ def perceptual_loss(target, pred):
     target = pp(target)
     pred = pp(pred)
 
-    # vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N // 2,N // 2,3))
     vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N, N, 3))
     vgg.trainable = False
 
     outputs = [vgg.get_layer('block2_conv2').output]
     feat_model = Model(vgg.input, outputs)
-# feat_model.trainable = False
     activatedModelVal = feat_model(pred)
     actualModelVal = feat_model(target)
     return meanSquaredLoss(gram_matrix(actualModelVal),gram_matrix(activatedModelVal))
@@ -579,7 +531,6 @@ def perceptual_loss(target, pred):
 def meanSquaredLoss(y_true,y_pred, center_target = True):
     return tf.reduce_mean(tf.keras.losses.MSE(y_true,y_pred))
 
-# TODO this doesn't work if the intensity scale is set to trainable
 def masked_MAE_loss(target, pred):
     """
     bigN
@@ -592,36 +543,20 @@ def masked_MAE_loss(target, pred):
             reassemble_patches(tf.math.abs(mask) * target))
     return mae(target, pred)
 
-#def fn_complex_to_real(fn):
-#    """
-#    apply fn to complex and imaginary parts of the argument, then return the
-#    summed result
-#    """
-#    def newf(*args, **kwargs):
-#        channels = args[0]
-#        real = tf.math.real(channels)
-#        imag = tf.math.imag(channels)
-#        out_real = fn(real, *args[1:], **kwargs)
-#        out_imag = fn(imag, *args[1:], **kwargs)
-#        return out_real + out_imag
-#    return newf
 
 @complexify_sum_real_imag
 def total_variation_complex(obj):
     """ calculate summed total variation of the real and imaginary components
         of a tensor
     """
-    # Calculate the differences along the vertical and horizontal directions
     x_deltas, y_deltas = high_pass_x_y(obj)
     return tf.reduce_sum(x_deltas**2) + tf.reduce_sum(y_deltas**2)
 
-# TODO TV on phase and amplitude separately
 def total_variation(obj, amp_only = False):
     if amp_only:
         obj = Lambda(lambda x: tf.math.abs(x))(obj)
     return total_variation_complex(obj)
 
-# TODO weighting the phase and amp differently might make sense
 @complexify_sum_amp_phase
 def complex_mae(target, pred):
     mae = tf.keras.metrics.mean_absolute_error
@@ -635,9 +570,6 @@ def masked_mae(target, pred, **kwargs):
 def realspace_loss(target, pred, **kwargs):
     if not get('probe.big'):
         pred = pred * mk_centermask(pred, N, 1, kind = 'center')
-#        # TODO this is redundant since the probe illumination function already
-#        # applies this mask. we only need this for the mae term.
-#        #target = target * mk_centermask(target, N, 1, kind = 'center')
 
     if get('tv_weight') > 0:
         tv_loss = total_variation(pred) * get('tv_weight')
