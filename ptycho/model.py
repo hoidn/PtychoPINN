@@ -20,6 +20,7 @@ import os
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
+from .loader import PtychoData
 from . import tf_helper as hh
 from . import params as cfg
 params = cfg.params
@@ -279,18 +280,19 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
-def prepare_inputs(X_train, coords_train):
+def prepare_inputs(train_data: PtychoData):
     """training inputs"""
-    return [X_train * cfg.get('intensity_scale'), coords_train]
+    return [train_data.X * cfg.get('intensity_scale'), train_data.coords]
 
-def prepare_outputs(Y_I_train, coords_train, X_train):
+def prepare_outputs(train_data: PtychoData):
     """training outputs"""
-    return [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
-                (cfg.get('intensity_scale') * X_train),
-                (cfg.get('intensity_scale') * X_train)**2]
+    return [hh.center_channels(train_data.Y_I, train_data.coords)[:, :, :, :1],
+                (cfg.get('intensity_scale') * train_data.X),
+                (cfg.get('intensity_scale') * train_data.X)**2]
 
-#def train(epochs, trainset, coords):
-def train(epochs, X_train, coords_train, Y_obj_train):
+#def train(epochs, X_train, coords_train, Y_obj_train):
+def train(epochs, trainset: PtychoData):
+    coords_train = trainset.coords
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
@@ -302,10 +304,10 @@ def train(epochs, X_train, coords_train, Y_obj_train):
 
     batch_size = params()['batch_size']
     history=autoencoder.fit(
-        prepare_inputs(X_train, coords_train),
-        prepare_outputs(Y_obj_train, coords_train, X_train),
-#        prepare_inputs(trainset.X, coords),
-#        prepare_outputs(trainset.Y, coords, trainset.X),
+#        prepare_inputs(X_train, coords_train),
+#        prepare_outputs(Y_obj_train, coords_train, X_train),
+        prepare_inputs(trainset),
+        prepare_outputs(trainset),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])
