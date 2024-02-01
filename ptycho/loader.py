@@ -135,11 +135,14 @@ class PtychoDataset:
 
 class PtychoData:
     def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe, scan_index = None):
+        # TODO get rid of nominal / true distinction
         from .tf_helper import combine_complex
         self.X = X
         self.Y = combine_complex(Y_I, Y_phi)
+        self.Y_I = Y_I
         self.YY_full = YY_full
         self.coords_nominal = coords_nominal
+        self.coords = coords_nominal
         self.coords_true = coords_true
         self.probe = probe
         self.scan_index = scan_index
