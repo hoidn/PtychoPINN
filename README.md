@@ -16,11 +16,12 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
  -->
 
 
-## Usage
-`python setup.py install`
+## Installation
+`python -m pip install .`
 
+## Script-based usage
 ```
-train.py
+$ train.py
 
 usage: PtychoPINN [-h] [--model_type MODEL_TYPE] [--label LABEL]
                   [--positions_provided POSITIONS_PROVIDED] [--data_source DATA_SOURCE] [--set_phi]
@@ -31,8 +32,6 @@ usage: PtychoPINN [-h] [--model_type MODEL_TYPE] [--label LABEL]
                   [--mae_weight MAE_WEIGHT] [--nimgs_train NIMGS_TRAIN] [--nimgs_test NIMGS_TEST]
                   [--outer_offset_train OUTER_OFFSET_TRAIN] [--outer_offset_test OUTER_OFFSET_TEST]
 ```
-
-For script-based usage, see `scripts/example.sh`
 
 For interactive usage, see `notebooks/ptycho_lines.ipynb` and `notebooks/non_grid_CDI_example.ipynb`. These demonstrate reconstruction with scanning CDI + grid scan pattern + simulated data and fresnel CDI + random scan pattern + experimental data, respectively.
 
