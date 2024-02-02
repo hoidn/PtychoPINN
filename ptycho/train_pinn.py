@@ -1,24 +1,27 @@
 from ptycho.generate_data import reassemble
 from ptycho import params, model
 
-def train_ptycho_model(ptycho_dataset):
-    # data parameters
-    offset = params.cfg['offset']
-    N = params.cfg['N']
-    gridsize = params.cfg['gridsize']
-    jitter_scale = params.params()['sim_jitter_scale']
+#offset = params.cfg['offset']
+#N = params.cfg['N']
+#gridsize = params.cfg['gridsize']
+#jitter_scale = params.params()['sim_jitter_scale']
+#batch_size = params.cfg['batch_size']
 
+def train(train_data):
     # training parameters
     nepochs = params.cfg['nepochs']
-    batch_size = params.cfg['batch_size']
+    return model.train(nepochs, train_data)
 
-    ## TODO reconstructed_obj -> pred_Y or something
-    history = model.train(nepochs, ptycho_dataset.train_data)
-    reconstructed_obj, pred_amp, reconstructed_obj_cdi = model.autoencoder.predict([ptycho_dataset.test_data.X * model.params()['intensity_scale'],
-                                                                     ptycho_dataset.test_data.coords_nominal ])
-
+def eval(test_data, history):
+    reconstructed_obj, pred_amp, reconstructed_obj_cdi = history.predict([test_data.X * model.params()['intensity_scale'], test_data.coords_nominal ])
     try:
         stitched_obj = reassemble(reconstructed_obj, part='complex')
     except (ValueError, TypeError) as e:
         print('object stitching failed:', e)
-    return history, stitched_obj
+    return reconstructed_obj, pred_amp, reconstructed_obj_cdi, stitched_obj
+
+def train_eval(ptycho_dataset):
+    ## TODO reconstructed_obj -> pred_Y or something
+    history = train(ptycho_dataset)
+    reconstructed_obj, pred_amp, reconstructed_obj_cdi, stitched_obj = eval(ptycho_dataset.test_data, history)
+    return history, reconstructed_obj, pred_amp, reconstructed_obj_cdi, stitched_obj
