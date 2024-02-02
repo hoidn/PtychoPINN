@@ -84,9 +84,13 @@ from ptycho.evaluation import save_metrics
 #    from ptycho.train_supervised import history, reconstructed_obj
 if model_type == 'pinn':
     from ptycho import train_pinn
-    history = train_pinn.history
-    reconstructed_obj = train_pinn.reconstructed_obj
-    pred_amp = train_pinn.pred_amp
+    train_output = train_pinn.train_eval(ptycho_dataset)
+#    reconstructed_obj_cdi = train_output['reconstructed_obj_cdi']
+#    stitched_obj = train_output['stitched_obj']
+    pred_amp = train_output['pred_amp']
+    history = train_output['history']
+    reconstructed_obj = train_output['reconstructed_obj']
+
 elif model_type == 'supervised':
     from ptycho import train_supervised
     history = train_supervised.history
