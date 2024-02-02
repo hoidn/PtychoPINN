@@ -13,15 +13,28 @@ def train(train_data):
     return model.train(nepochs, train_data)
 
 def eval(test_data, history):
-    reconstructed_obj, pred_amp, reconstructed_obj_cdi = history.predict([test_data.X * model.params()['intensity_scale'], test_data.coords_nominal ])
+    reconstructed_obj, pred_amp, reconstructed_obj_cdi = history.predict(
+        [test_data.X * model.params()['intensity_scale'], test_data.coords_nominal]
+    )
     try:
         stitched_obj = reassemble(reconstructed_obj, part='complex')
     except (ValueError, TypeError) as e:
         print('object stitching failed:', e)
-    return reconstructed_obj, pred_amp, reconstructed_obj_cdi, stitched_obj
+    return {
+        'reconstructed_obj': reconstructed_obj,
+        'pred_amp': pred_amp,
+        'reconstructed_obj_cdi': reconstructed_obj_cdi,
+        'stitched_obj': stitched_obj
+    }
 
 def train_eval(ptycho_dataset):
     ## TODO reconstructed_obj -> pred_Y or something
     history = train(ptycho_dataset)
-    reconstructed_obj, pred_amp, reconstructed_obj_cdi, stitched_obj = eval(ptycho_dataset.test_data, history)
-    return history, reconstructed_obj, pred_amp, reconstructed_obj_cdi, stitched_obj
+    eval_results = eval(ptycho_dataset.test_data, history)
+    return {
+        'history': history,
+        'reconstructed_obj': eval_results['reconstructed_obj'],
+        'pred_amp': eval_results['pred_amp'],
+        'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
+        'stitched_obj': eval_results['stitched_obj']
+    }
