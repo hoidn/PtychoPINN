@@ -1,7 +1,5 @@
 from setuptools import setup, find_packages
 
-from setuptools import setup, find_packages
-
 setup(
     name='ptychoPINN',
     # ... other setup parameters ...
@@ -17,30 +15,30 @@ setup(
 
     scripts = ['ptycho/train.py'],
     install_requires = [
-        'protobuf==3.19.6',
-        'dill==0.3.6',
+        'dill',
         'numpy',
-        'pandas==1.4.4',
-        'pandas-datareader==0.10.0',
-        'pathos==0.3.0',
-        'scikit-learn==1.1.2',
+        'pandas',
+        'pandas-datareader',
+        'pathos',
+        'scikit-learn',
         'scipy',
-        'tensorboard==2.10.1',
-        'tensorboard-data-server==0.6.1',
-        'tensorboard-plugin-wit==1.8.1',
-        'tensorflow==2.10.0',
-        'tensorflow-datasets==4.6.0',
-        'tensorflow-estimator==2.10.0',
-        'tensorflow-hub==0.14.0',
-        'tensorflow-metadata==1.10.0',
-        'tensorflow-probability==0.18.0',
-        'torchmetrics==0.9.3',
-        'torchvision==0.13.1',
+        'tensorboard',
+        'tensorboard-data-server',
+        'tensorboard-plugin-wit',
+        'tensorflow[and-cuda]',
+        'tensorflow-datasets',
+        'tensorflow-estimator',
+        'tensorflow-hub',
+        'tensorflow-probability',
         'ujson',
         'matplotlib',
         'Pillow',
         'imageio',
         'ipywidgets',
         'tqdm',
-        'tensorflow-addons'],
+        'tensorflow-addons',
+        'jupyter',
+        'scikit-image',
+        'opencv-python'
+        ],
     zip_safe = False)
