@@ -292,6 +292,7 @@ def prepare_outputs(train_data: PtychoData):
 
 #def train(epochs, X_train, coords_train, Y_obj_train):
 def train(epochs, trainset: PtychoData):
+    assert type(trainset) == PtychoData
     coords_train = trainset.coords
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
