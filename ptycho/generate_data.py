@@ -208,22 +208,22 @@ elif params.params()['data_source'] == 'xpp':
     outer_offset_test = params.cfg['outer_offset_test']
 
     # TODO use the object. train_pinn.py and model.py need to be updated too
-    train_data = loader.load( xpp.get_data, which = 'train')
-    X_train = train_data['X']
-    Y_I_train = train_data['Y_I']
-    Y_phi_train = train_data['Y_phi']
-    intensity_scale = train_data['norm_Y_I']
-    YY_train_full = train_data['YY_full']
-    coords_train_nominal, coords_train_true = train_data['coords']
+    train_data_container = loader.load(xpp.get_data, which='train')
+    X_train = train_data_container.X
+    Y_I_train = train_data_container.Y_I
+    Y_phi_train = train_data_container.Y_phi
+    intensity_scale = train_data_container.norm_Y_I
+    YY_train_full = train_data_container.YY_full
+    coords_train_nominal, coords_train_true = train_data_container.coords
 
     # Loading test data
-    test_data = loader.load( xpp.get_data, which = 'test')
-    X_test = test_data['X']
-    Y_I_test = test_data['Y_I']
-    Y_phi_test = test_data['Y_phi']
-    YY_test_full = test_data['YY_full']
-    norm_Y_I_test = test_data['norm_Y_I']
-    coords_test_nominal, coords_test_true = test_data['coords']
+    test_data_container = loader.load(xpp.get_data, which='test')
+    X_test = test_data_container.X
+    Y_I_test = test_data_container.Y_I
+    Y_phi_test = test_data_container.Y_phi
+    YY_test_full = test_data_container.YY_full
+    norm_Y_I_test = test_data_container.norm_Y_I
+    coords_test_nominal, coords_test_true = test_data_container.coords
 
 elif params.params()['data_source'] == 'generic':
     from ptycho.loader import RawData
