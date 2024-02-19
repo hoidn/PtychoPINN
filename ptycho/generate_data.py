@@ -239,23 +239,23 @@ elif params.params()['data_source'] == 'generic':
     # Use loader.load() to handle the conversion to PtychoData
     train_data = loader.load(lambda: dset_train, which = None, create_split=False)
     test_data = loader.load(lambda: dset_test, which = None, create_split=False)
-    intensity_scale = train_data['norm_Y_I']
+    intensity_scale = train_data.norm_Y_I
 
     # TODO use the object. train_pinn.py and model.py need to be updated too
-    X_train = train_data['X']
-    Y_I_train = train_data['Y_I']
-    Y_phi_train = train_data['Y_phi']
-    intensity_scale = train_data['norm_Y_I']
-    YY_train_full = train_data['YY_full']
-    coords_train_nominal, coords_train_true = train_data['coords']
+    X_train = train_data.X
+    Y_I_train = train_data.Y_I
+    Y_phi_train = train_data.Y_phi
+    intensity_scale = train_data.norm_Y_I
+    YY_train_full = train_data.YY_full
+    coords_train_nominal, coords_train_true = train_data.coords
 
     # Loading test data
-    X_test = test_data['X']
-    Y_I_test = test_data['Y_I']
-    Y_phi_test = test_data['Y_phi']
-    YY_test_full = test_data['YY_full']
-    norm_Y_I_test = test_data['norm_Y_I']
-    coords_test_nominal, coords_test_true = test_data['coords']
+    X_test = test_data.X
+    Y_I_test = test_data.Y_I
+    Y_phi_test = test_data.Y_phi
+    YY_test_full = test_data.YY_full
+    norm_Y_I_test = test_data.norm_Y_I
+    coords_test_nominal, coords_test_true = test_data.coords
 else:
     raise ValueError
 

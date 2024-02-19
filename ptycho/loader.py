@@ -165,6 +165,53 @@ class PtychoData:
             probe=probe
         )
 
+class PtychoDataContainer:
+    """
+    A class to contain ptycho data attributes for easy access and manipulation.
+    """
+    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets):
+        self.X = X
+        self.Y_I = Y_I
+        self.Y_phi = Y_phi
+        self.norm_Y_I = norm_Y_I
+        self.YY_full = YY_full
+        self.coords = (coords_nominal, coords_true)
+        self.nn_indices = nn_indices
+        self.global_offsets = global_offsets
+        self.local_offsets = local_offsets
+
+    def __repr__(self):
+        return f'<PtychoDataContainer X={self.X.shape}, Y_I={self.Y_I.shape}, Y_phi={self.Y_phi.shape}, ' \
+               f'norm_Y_I={self.norm_Y_I.shape}, YY_full={self.YY_full}, ' \
+               f'coords_nominal={self.coords[0].shape}, coords_true={self.coords[1].shape}, ' \
+               f'nn_indices={self.nn_indices.shape}, global_offsets={self.global_offsets.shape}, ' \
+               f'local_offsets={self.local_offsets.shape}>'
+
+    # TODO currently this can only handle a single object image
+    @staticmethod
+    def from_simulation(xcoords, ycoords, xcoords_start, ycoords_start, probeGuess,
+                 objectGuess, scan_index = None):
+        """
+        """
+        from .diffsim import illuminate_and_diffract
+        ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start, None,
+                              probeGuess, scan_index, objectGuess)
+
+        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
+                    ptycho_data.xcoords, ptycho_data.ycoords)
+
+        # TODO get rid of separate nominal and real coordinates
+        _, coords_true, _ = calculate_relative_coords(ptycho_data.xcoords_start,
+                                                      ptycho_data.ycoords_start)
+        coords_nominal = coords_true
+
+        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+        Y_I = tf.math.abs(Y_obj)
+        Y_phi = tf.math.angle(Y_obj)
+        X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+        norm_Y_I = datasets.scale_nphotons(X)
+        return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, objectGuess, coords_nominal,
+                                   coords_true, nn_indices, global_offsets, local_offsets)
 
 ####
 # two functions to organize flat coordinate arrays into 'solution region' format
@@ -463,7 +510,7 @@ def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     YY_full = None
 
     # TODO complex
-    return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], global_offsets, local_offsets)
+    return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'])
 
 # Images are amplitude, not intensity
 def normalize_data(dset, N):
@@ -481,50 +528,3 @@ def get_gt_patch(offset, N, gt_image):
         hh.translate(gt_image, offset),
         N // 2)
 
-class PtychoDataContainer:
-    """
-    A class to contain ptycho data attributes for easy access and manipulation.
-    """
-    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets):
-        self.X = X
-        self.Y_I = Y_I
-        self.Y_phi = Y_phi
-        self.norm_Y_I = norm_Y_I
-        self.YY_full = YY_full
-        self.coords = (coords_nominal, coords_true)
-        self.nn_indices = nn_indices
-        self.global_offsets = global_offsets
-        self.local_offsets = local_offsets
-
-    def __repr__(self):
-        return f'<PtychoDataContainer X={self.X.shape}, Y_I={self.Y_I.shape}, Y_phi={self.Y_phi.shape}, ' \
-               f'norm_Y_I={self.norm_Y_I.shape}, YY_full={self.YY_full}, ' \
-               f'coords_nominal={self.coords[0].shape}, coords_true={self.coords[1].shape}, ' \
-               f'nn_indices={self.nn_indices.shape}, global_offsets={self.global_offsets.shape}, ' \
-               f'local_offsets={self.local_offsets.shape}>'
-
-    # TODO currently this can only handle a single object image
-    @staticmethod
-    def from_simulation(xcoords, ycoords, xcoords_start, ycoords_start, probeGuess,
-                 objectGuess, scan_index = None):
-        """
-        """
-        from .diffsim import illuminate_and_diffract
-        ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start, None,
-                              probeGuess, scan_index, objectGuess)
-
-        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-                    ptycho_data.xcoords, ptycho_data.ycoords)
-
-        # TODO get rid of separate nominal and real coordinates
-        _, coords_true, _ = calculate_relative_coords(ptycho_data.xcoords_start,
-                                                      ptycho_data.ycoords_start)
-        coords_nominal = coords_true
-
-        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
-        Y_I = tf.math.abs(Y_obj)
-        Y_phi = tf.math.angle(Y_obj)
-        X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
-        norm_Y_I = datasets.scale_nphotons(X)
-        return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, objectGuess, coords_nominal,
-                                   coords_true, nn_indices, global_offsets, local_offsets)
