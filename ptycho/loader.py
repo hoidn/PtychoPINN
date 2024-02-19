@@ -427,7 +427,7 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
-def load(cb, which=None, create_split=True, **kwargs):
+def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     from . import params as cfg
     if create_split:
         dset, train_frac = cb()
@@ -444,6 +444,11 @@ def load(cb, which=None, create_split=True, **kwargs):
         X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
     else:
         X = X_full
+    norm_Y_I = datasets.scale_nphotons(X)
+    X = tf.convert_to_tensor(X)
+    coords_nominal = tf.convert_to_tensor(coords_nominal)
+    coords_true = tf.convert_to_tensor(coords_true)
+    Y_obj = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
 
     norm_Y_I = datasets.scale_nphotons(X)
 
@@ -458,17 +463,7 @@ def load(cb, which=None, create_split=True, **kwargs):
     YY_full = None
 
     # TODO complex
-    return {
-        'X': X,
-        'Y_I': Y_I,
-        'Y_phi': Y_phi,
-        'norm_Y_I': norm_Y_I,
-        'YY_full': YY_full,
-        'coords': (coords_nominal, coords_true),
-        'nn_indices': dset['nn_indices'],
-        'global_offsets': dset['coords_offsets'], # global coordinate offsets
-        'local_offsets': dset['coords_relative'] # local coordinate offsets
-    }
+    return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], global_offsets, local_offsets)
 
 # Images are amplitude, not intensity
 def normalize_data(dset, N):
