@@ -146,6 +146,24 @@ class PtychoData:
         self.coords_true = coords_true
         self.probe = probe
         self.scan_index = scan_index
+    @staticmethod
+    def from_loader_output(loader_output, probe):
+        """
+        Static method to create a PtychoData instance from loader output.
+
+        Args:
+            loader_output (dict): The output dictionary from loader.load().
+            probe (any): The probe tensor.
+        """
+        return PtychoData(
+            X=loader_output['X'],
+            Y_I=loader_output['Y_I'],
+            Y_phi=loader_output['Y_phi'],
+            YY_full=loader_output['YY_full'],
+            coords_nominal=loader_output['coords'][0],
+            coords_true=loader_output['coords'][1],
+            probe=probe
+        )
 
 
 ####
