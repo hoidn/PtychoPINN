@@ -1,9 +1,15 @@
 import os
-os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
 import numpy as np
 import tensorflow as tf
+
+# Check if there are any GPUs available and set memory growth accordingly
 physical_devices = tf.config.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+if physical_devices:
+    os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+else:
+    print("No GPU found, using CPU instead.")
+
 
 import tensorflow.compat.v2 as tf
 tf.enable_v2_behavior()
