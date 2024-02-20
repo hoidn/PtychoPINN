@@ -186,6 +186,30 @@ class PtychoData:
         )
 
 class PtychoDataContainer:
+    """
+    A class to contain ptycho data attributes for easy access and manipulation.
+    """
+    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
+        self.X = X
+        self.Y_I = Y_I
+        self.Y_phi = Y_phi
+        self.norm_Y_I = norm_Y_I
+        self.YY_full = YY_full
+        self.coords = (coords_nominal, coords_true)
+        self.nn_indices = nn_indices
+        self.global_offsets = global_offsets
+        self.local_offsets = local_offsets
+        self.probe = probeGuess
+
+        from .tf_helper import combine_complex
+        self.Y = combine_complex(Y_I, Y_phi)
+
+    def __repr__(self):
+        return f'<PtychoDataContainer X={self.X.shape}, Y_I={self.Y_I.shape}, Y_phi={self.Y_phi.shape}, ' \
+               f'norm_Y_I={self.norm_Y_I.shape}, YY_full={self.YY_full}, ' \
+               f'coords_nominal={self.coords[0].shape}, coords_true={self.coords[1].shape}, ' \
+               f'nn_indices={self.nn_indices.shape}, global_offsets={self.global_offsets.shape}, ' \
+               f'local_offsets={self.local_offsets.shape}>'
     @staticmethod
     def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
         """
@@ -214,27 +238,6 @@ class PtychoDataContainer:
         intensity_scale = train_data.norm_Y_I
 
         return PtychoDataContainer(train_data.X, train_data.Y_I, train_data.Y_phi, intensity_scale, train_data.YY_full, train_data.coords_nominal, train_data.coords_true, train_data.nn_indices, train_data.global_offsets, train_data.local_offsets, probeGuess)
-    """
-    A class to contain ptycho data attributes for easy access and manipulation.
-    """
-    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
-        self.X = X
-        self.Y_I = Y_I
-        self.Y_phi = Y_phi
-        self.norm_Y_I = norm_Y_I
-        self.YY_full = YY_full
-        self.coords = (coords_nominal, coords_true)
-        self.nn_indices = nn_indices
-        self.global_offsets = global_offsets
-        self.local_offsets = local_offsets
-        self.probe = probeGuess
-
-    def __repr__(self):
-        return f'<PtychoDataContainer X={self.X.shape}, Y_I={self.Y_I.shape}, Y_phi={self.Y_phi.shape}, ' \
-               f'norm_Y_I={self.norm_Y_I.shape}, YY_full={self.YY_full}, ' \
-               f'coords_nominal={self.coords[0].shape}, coords_true={self.coords[1].shape}, ' \
-               f'nn_indices={self.nn_indices.shape}, global_offsets={self.global_offsets.shape}, ' \
-               f'local_offsets={self.local_offsets.shape}>'
 
     # TODO currently this can only handle a single object image
     @staticmethod
