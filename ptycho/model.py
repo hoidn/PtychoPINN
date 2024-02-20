@@ -280,18 +280,18 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
-def prepare_inputs(train_data: PtychoData):
+def prepare_inputs(train_data: PtychoDataContainer):
     """training inputs"""
     return [train_data.X * cfg.get('intensity_scale'), train_data.coords]
 
-def prepare_outputs(train_data: PtychoData):
+def prepare_outputs(train_data: PtychoDataContainer):
     """training outputs"""
     return [hh.center_channels(train_data.Y_I, train_data.coords)[:, :, :, :1],
                 (cfg.get('intensity_scale') * train_data.X),
                 (cfg.get('intensity_scale') * train_data.X)**2]
 
 #def train(epochs, X_train, coords_train, Y_obj_train):
-def train(epochs, trainset: PtychoData):
+def train(epochs, trainset: PtychoDataContainer):
     assert type(trainset) == PtychoData
     coords_train = trainset.coords
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
