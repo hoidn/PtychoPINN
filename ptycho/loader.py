@@ -186,6 +186,34 @@ class PtychoData:
         )
 
 class PtychoDataContainer:
+    @staticmethod
+    def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
+        """
+        Static method constructor that composes a call to RawData.from_coords_without_pc() and loader.load,
+        then initializes attributes.
+
+        Args:
+            xcoords (np.ndarray): x coordinates of the scan points.
+            ycoords (np.ndarray): y coordinates of the scan points.
+            diff3d (np.ndarray): diffraction patterns.
+            probeGuess (np.ndarray): initial guess of the probe function.
+            scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
+            objectGuess (np.ndarray, optional): initial guess of the object. Defaults to None.
+            N (int, optional): The size of the image. Defaults to None.
+            K (int, optional): The number of nearest neighbors. Defaults to 7.
+            nsamples (int, optional): The number of samples. Defaults to 1.
+
+        Returns:
+            PtychoDataContainer: An instance of the PtychoDataContainer class.
+        """
+        train_raw = RawData.from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
+        dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
+
+        # Use loader.load() to handle the conversion to PtychoData
+        train_data = load(lambda: dset_train, which=None, create_split=False)
+        intensity_scale = train_data.norm_Y_I
+
+        return PtychoDataContainer(train_data.X, train_data.Y_I, train_data.Y_phi, intensity_scale, train_data.YY_full, train_data.coords_nominal, train_data.coords_true, train_data.nn_indices, train_data.global_offsets, train_data.local_offsets)
     """
     A class to contain ptycho data attributes for easy access and manipulation.
     """
