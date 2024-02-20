@@ -14,6 +14,24 @@ key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
 
 class RawData:
+    @staticmethod
+    def from_coords_without_start(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None):
+        """
+        Static method to create a RawData instance without separate start coordinates.
+        The start coordinates are set to be the same as the xcoords and ycoords.
+
+        Args:
+            xcoords (np.ndarray): x coordinates of the scan points.
+            ycoords (np.ndarray): y coordinates of the scan points.
+            diff3d (np.ndarray): diffraction patterns.
+            probeGuess (np.ndarray): initial guess of the probe function.
+            scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
+            objectGuess (np.ndarray, optional): initial guess of the object. Defaults to None.
+
+        Returns:
+            RawData: An instance of the RawData class.
+        """
+        return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
                  scan_index, objectGuess = None):
         # Sanity checks
