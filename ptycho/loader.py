@@ -213,11 +213,11 @@ class PtychoDataContainer:
         train_data = load(lambda: dset_train, which=None, create_split=False)
         intensity_scale = train_data.norm_Y_I
 
-        return PtychoDataContainer(train_data.X, train_data.Y_I, train_data.Y_phi, intensity_scale, train_data.YY_full, train_data.coords_nominal, train_data.coords_true, train_data.nn_indices, train_data.global_offsets, train_data.local_offsets)
+        return PtychoDataContainer(train_data.X, train_data.Y_I, train_data.Y_phi, intensity_scale, train_data.YY_full, train_data.coords_nominal, train_data.coords_true, train_data.nn_indices, train_data.global_offsets, train_data.local_offsets, probeGuess)
     """
     A class to contain ptycho data attributes for easy access and manipulation.
     """
-    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets):
+    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
         self.X = X
         self.Y_I = Y_I
         self.Y_phi = Y_phi
@@ -227,6 +227,7 @@ class PtychoDataContainer:
         self.nn_indices = nn_indices
         self.global_offsets = global_offsets
         self.local_offsets = local_offsets
+        self.probe = probeGuess
 
     def __repr__(self):
         return f'<PtychoDataContainer X={self.X.shape}, Y_I={self.Y_I.shape}, Y_phi={self.Y_phi.shape}, ' \
@@ -259,7 +260,7 @@ class PtychoDataContainer:
         X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
         norm_Y_I = datasets.scale_nphotons(X)
         return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, objectGuess, coords_nominal,
-                                   coords_true, nn_indices, global_offsets, local_offsets)
+                                   coords_true, nn_indices, global_offsets, local_offsets, probeGuess)
 
 ####
 # two functions to organize flat coordinate arrays into 'solution region' format
@@ -558,7 +559,7 @@ def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     YY_full = None
 
     # TODO complex
-    return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'])
+    return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
 
 # Images are amplitude, not intensity
 def normalize_data(dset, N):
