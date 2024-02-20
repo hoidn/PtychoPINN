@@ -579,3 +579,5 @@ def get_gt_patch(offset, N, gt_image):
         hh.translate(gt_image, offset),
         N // 2)
 
+    # PtychoData class has been deprecated in favor of PtychoDataContainer
+    # All references and uses of PtychoData should be updated to PtychoDataContainer
