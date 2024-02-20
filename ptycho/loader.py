@@ -153,37 +153,6 @@ class PtychoDataset:
         self.train_data = train_data
         self.test_data = test_data
 
-class PtychoData:
-    def __init__(self, X, Y_I, Y_phi, YY_full, coords_nominal, coords_true, probe, scan_index = None):
-        # TODO get rid of nominal / true distinction
-        from .tf_helper import combine_complex
-        self.X = X
-        self.Y = combine_complex(Y_I, Y_phi)
-        self.Y_I = Y_I
-        self.YY_full = YY_full
-        self.coords_nominal = coords_nominal
-        self.coords = coords_nominal
-        self.coords_true = coords_true
-        self.probe = probe
-        self.scan_index = scan_index
-    @staticmethod
-    def from_loader_output(loader_output, probe):
-        """
-        Static method to create a PtychoData instance from loader output.
-
-        Args:
-            loader_output (dict): The output dictionary from loader.load().
-            probe (any): The probe tensor.
-        """
-        return PtychoData(
-            X=loader_output['X'],
-            Y_I=loader_output['Y_I'],
-            Y_phi=loader_output['Y_phi'],
-            YY_full=loader_output['YY_full'],
-            coords_nominal=loader_output['coords'][0],
-            coords_true=loader_output['coords'][1],
-            probe=probe
-        )
 
 class PtychoDataContainer:
     """
@@ -579,5 +548,3 @@ def get_gt_patch(offset, N, gt_image):
         hh.translate(gt_image, offset),
         N // 2)
 
-    # PtychoData class has been deprecated in favor of PtychoDataContainer
-    # All references and uses of PtychoData should be updated to PtychoDataContainer
