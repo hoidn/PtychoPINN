@@ -287,5 +287,4 @@ if params.get('outer_offset_train') is not None:
 # TODO refactor
 # Correctly use PtychoDataContainer for both training and test data
 ptycho_dataset = PtychoDataset.from_raw_data_without_pc(xcoords_train, ycoords_train, diff3d_train, probeGuess_train, scan_index_train, objectGuess_train, N_train, K_train, nsamples_train, test_data=PtychoDataContainer.from_raw_data_without_pc(xcoords_test, ycoords_test, diff3d_test, probeGuess_test, scan_index_test, objectGuess_test, N_test, K_test, nsamples_test))
-)
 print(np.linalg.norm(ptycho_dataset.train_data.X[0]) /  np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
