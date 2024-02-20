@@ -495,6 +495,7 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
+def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     from . import params as cfg
     if create_split:
         dset, train_frac = cb()
