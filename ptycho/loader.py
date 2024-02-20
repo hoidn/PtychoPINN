@@ -14,8 +14,25 @@ key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
 
 class RawData:
+    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
+                 scan_index, objectGuess = None):
+        # Sanity checks
+        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
+                    probeGuess, scan_index)
+
+        # Assigning values if checks pass
+        self.xcoords = xcoords
+        self.ycoords = ycoords
+        self.xcoords_start = xcoords_start
+        self.ycoords_start = ycoords_start
+        self.diff3d = diff3d
+        self.probeGuess = probeGuess
+        self.scan_index = scan_index
+        self.objectGuess = objectGuess
+
     @staticmethod
-    def from_coords_without_start(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None):
+    def from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index,
+                               objectGuess=None):
         """
         Static method to create a RawData instance without separate start coordinates.
         The start coordinates are set to be the same as the xcoords and ycoords.
@@ -32,21 +49,6 @@ class RawData:
             RawData: An instance of the RawData class.
         """
         return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
-    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-                 scan_index, objectGuess = None):
-        # Sanity checks
-        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
-                    probeGuess, scan_index)
-
-        # Assigning values if checks pass
-        self.xcoords = xcoords
-        self.ycoords = ycoords
-        self.xcoords_start = xcoords_start
-        self.ycoords_start = ycoords_start
-        self.diff3d = diff3d
-        self.probeGuess = probeGuess
-        self.scan_index = scan_index
-        self.objectGuess = objectGuess
 
     def __str__(self):
         return (f"RawData: \n"
