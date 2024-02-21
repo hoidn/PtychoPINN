@@ -247,7 +247,8 @@ elif params.params()['data_source'] == 'generic':
     Y_phi_train = train_data.Y_phi
     intensity_scale = train_data.norm_Y_I
     YY_train_full = train_data.YY_full
-    coords_train_nominal, coords_train_true = train_data.coords_tuple
+    coords_train_nominal = train_data.coords_nominal
+    coords_train_true = train_data.coords_true
 
     # Loading test data
     X_test = test_data.X
@@ -255,7 +256,8 @@ elif params.params()['data_source'] == 'generic':
     Y_phi_test = test_data.Y_phi
     YY_test_full = test_data.YY_full
     norm_Y_I_test = test_data.norm_Y_I
-    coords_test_nominal, coords_test_true = test_data.coords_tuple
+    coords_test_nominal = test_data.coords_nominal
+    coords_test_true = test_data.coords_true
 else:
     raise ValueError
 
