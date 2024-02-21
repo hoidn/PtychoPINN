@@ -164,7 +164,10 @@ class PtychoDataContainer:
         self.Y_phi = Y_phi
         self.norm_Y_I = norm_Y_I
         self.YY_full = YY_full
-        self.coords = (coords_nominal, coords_true)
+        self.coords_tuple = (coords_nominal, coords_true)
+        self.coords_nominal = coords_nominal
+        self.coords = coords_nominal
+        self.coords_true = coords_true
         self.nn_indices = nn_indices
         self.global_offsets = global_offsets
         self.local_offsets = local_offsets
@@ -173,12 +176,12 @@ class PtychoDataContainer:
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)
 
-    def __repr__(self):
-        return f'<PtychoDataContainer X={self.X.shape}, Y_I={self.Y_I.shape}, Y_phi={self.Y_phi.shape}, ' \
-               f'norm_Y_I={self.norm_Y_I.shape}, YY_full={self.YY_full}, ' \
-               f'coords_nominal={self.coords[0].shape}, coords_true={self.coords[1].shape}, ' \
-               f'nn_indices={self.nn_indices.shape}, global_offsets={self.global_offsets.shape}, ' \
-               f'local_offsets={self.local_offsets.shape}>'
+#    def __repr__(self):
+#        return f'<PtychoDataContainer X={self.X.shape}, Y_I={self.Y_I.shape}, Y_phi={self.Y_phi.shape}, ' \
+        #               f'norm_Y_I={self.norm_Y_I.shape}, YY_full={self.YY_full}, ' \
+        #               f'coords_nominal={self.coords[0].shape}, coords_true={self.coords[1].shape}, ' \
+        #               f'nn_indices={self.nn_indices.shape}, global_offsets={self.global_offsets.shape}, ' \
+        #               f'local_offsets={self.local_offsets.shape}>'
     @staticmethod
     def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
         """
@@ -203,10 +206,7 @@ class PtychoDataContainer:
         dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
 
         # Use loader.load() to handle the conversion to PtychoData
-        train_data = load(lambda: dset_train, which=None, create_split=False)
-        intensity_scale = train_data.norm_Y_I
-
-        return PtychoDataContainer(train_data.X, train_data.Y_I, train_data.Y_phi, intensity_scale, train_data.YY_full, train_data.coords_nominal, train_data.coords_true, train_data.nn_indices, train_data.global_offsets, train_data.local_offsets, probeGuess)
+        return load(lambda: dset_train, which=None, create_split=False)
 
     # TODO currently this can only handle a single object image
     @staticmethod
@@ -497,6 +497,8 @@ def split_tensor(tensor, frac, which='test'):
 
 def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     from . import params as cfg
+    from . import probe
+    probeGuess = probe.get_probe(fmt = 'np')
     if create_split:
         dset, train_frac = cb()
     else:
@@ -529,7 +531,6 @@ def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     Y_I = tf.math.abs(Y_obj)
     Y_phi = tf.math.angle(Y_obj)
     YY_full = None
-
     # TODO complex
     return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
 
