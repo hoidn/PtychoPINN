@@ -164,7 +164,6 @@ class PtychoDataContainer:
         self.Y_phi = Y_phi
         self.norm_Y_I = norm_Y_I
         self.YY_full = YY_full
-        self.coords_tuple = (coords_nominal, coords_true)
         self.coords_nominal = coords_nominal
         self.coords = coords_nominal
         self.coords_true = coords_true
