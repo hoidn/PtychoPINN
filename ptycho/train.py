@@ -130,6 +130,11 @@ with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
 
 if save_model:
+    from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
+    from ptycho.tf_helper import Translation
+    from ptycho.tf_helper import realspace_loss as hh_realspace_loss
+    hh = {'realspace_loss': hh_realspace_loss}
+
     model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
     custom_objects = {
         'ProbeIllumination': ProbeIllumination,
