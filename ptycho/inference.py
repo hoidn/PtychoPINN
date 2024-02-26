@@ -22,8 +22,6 @@ def load_pretrained_model(model_path: str) -> Model:
         'negloglik': negloglik,
         'realspace_loss': hh['realspace_loss']
     }
-        'negloglik': negloglik
-    }
     model = tf_load_model(model_path, custom_objects=custom_objects)
     with h5py.File(model_path, 'r') as f:
         intensity_scale = f.attrs['intensity_scale']
