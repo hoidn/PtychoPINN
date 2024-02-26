@@ -145,7 +145,7 @@ if save_model:
         'negloglik': negloglik,
         'realspace_loss': hh_realspace_loss
     }
-    ModelManager.save_model(model.autoencoder, model_path, custom_objects)
+    ModelManager.save_model(model.autoencoder, model_path, custom_objects, params.get('intensity_scale'))
     with h5py.File(model_path, 'a') as f:
         f.attrs['intensity_scale'] = params.get('intensity_scale')
 
