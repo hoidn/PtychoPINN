@@ -1,19 +1,16 @@
 from ptycho.model_manager import ModelManager
 from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
 from ptycho.tf_helper import realspace_loss as hh_realspace_loss
-
+from tensorflow.keras.models import Model
 from ptycho import params
 from ptycho.loader import PtychoDataContainer
 import numpy as np
-import h5py
-import dill
 
 def load_pretrained_model(model_path: str) -> Model:
     """
     Load a pre-trained model from an H5 file.
     """
     model = ModelManager.load_model(model_path)
-    params.set('intensity_scale', intensity_scale)
     return model
 
 def prepare_data(data_container: PtychoDataContainer) -> tuple:
