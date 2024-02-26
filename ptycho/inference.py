@@ -31,7 +31,7 @@ def inference_flow(model_path, data_container):
     """
     The main flow for model inference, integrating the steps.
     """
-    pre_trained_model = load_pretrained_model(model_path or params.params()['h5_path'])
+    pre_trained_model = load_pretrained_model(model_path or params.get('h5_path'))
     X, coords_nominal = prepare_data(data_container)
     inference_results = perform_inference(pre_trained_model, X, coords_nominal)
     return inference_results
