@@ -1,4 +1,4 @@
-from tensorflow.keras.models import load_model as tf_load_model, Model
+from ptycho.model_manager import ModelManager
 from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
 from ptycho.tf_helper import realspace_loss as hh_realspace_loss
 
@@ -12,10 +12,7 @@ def load_pretrained_model(model_path: str) -> Model:
     """
     Load a pre-trained model from an H5 file.
     """
-    with h5py.File(model_path, 'r') as f:
-        intensity_scale = f.attrs['intensity_scale']
-        custom_objects = dill.loads(f.attrs['custom_objects'])
-    model = tf_load_model(model_path, custom_objects=custom_objects)
+    model = ModelManager.load_model(model_path)
     params.set('intensity_scale', intensity_scale)
     return model
 
