@@ -131,9 +131,18 @@ with open(out_prefix + '/history.dill', 'wb') as file_pi:
 
 if save_model:
     model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
-    model.autoencoder.save(model_path, save_format="tf")
+    custom_objects = {
+        'ProbeIllumination': ProbeIllumination,
+        'IntensityScaler': IntensityScaler,
+        'IntensityScaler_inv': IntensityScaler_inv,
+        'Translation': Translation,
+        'negloglik': negloglik,
+        'realspace_loss': hh_realspace_loss
+    }
+    model.autoencoder.save(model_path, save_format="tf", custom_objects=custom_objects)
     with h5py.File(model_path, 'a') as f:
         f.attrs['intensity_scale'] = params.get('intensity_scale')
+        f.attrs['custom_objects'] = dill.dumps(custom_objects)
 
 if save_data:
     with open(out_prefix + '/test_data.dill', 'wb') as f:
