@@ -63,8 +63,9 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def call(self, inputs):
         x = inputs[0]
         if cfg.get('probe.mask'):
-            return self.w * x * probe_mask, tf.expand_dims(self.w * probe_mask, axis=0)
-        return self.w * x, tf.expand_dims(self.w, axis=0)
+            return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
+        else:
+            return self.w * x, (self.w)[None, ...]
 
 probe_illumination = ProbeIllumination()
 
