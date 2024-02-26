@@ -44,3 +44,39 @@ def train_eval(ptycho_dataset):
         'stitched_obj': eval_results['stitched_obj'],
         'model_instance': model_instance
     }
+from tensorflow.keras.models import load_model
+
+# Enhance the existing eval function to optionally load a model for inference
+def eval(test_data, history=None, trained_model=None, model_path=None):
+    """
+    Evaluate the model on test data. Optionally load a model if a path is provided.
+
+    Parameters:
+    - test_data: The test data for evaluation.
+    - history: Training history, if available.
+    - trained_model: An already trained model instance, if available.
+    - model_path: Path to a saved model, if loading is required.
+
+    Returns:
+    - Evaluation results including reconstructed objects and prediction amplitudes.
+    """
+    if model_path is not None:
+        print(f"Loading model from {model_path}")
+        trained_model = load_model(model_path)
+    elif trained_model is None:
+        raise ValueError("Either a trained model instance or a model path must be provided.")
+
+    reconstructed_obj, pred_amp, reconstructed_obj_cdi = trained_model.predict(
+        [test_data.X * model.params()['intensity_scale'], test_data.coords_nominal]
+    )
+    try:
+        stitched_obj = reassemble(reconstructed_obj, part='complex')
+    except (ValueError, TypeError) as e:
+        stitched_obj = None
+        print('Object stitching failed:', e)
+    return {
+        'reconstructed_obj': reconstructed_obj,
+        'pred_amp': pred_amp,
+        'reconstructed_obj_cdi': reconstructed_obj_cdi,
+        'stitched_obj': stitched_obj
+    }
