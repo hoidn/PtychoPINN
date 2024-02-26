@@ -8,7 +8,11 @@ def load_pretrained_model(model_path: str) -> Model:
     """
     Load a pre-trained model from an H5 file.
     """
-    return tf_load_model(model_path)
+    model = tf_load_model(model_path)
+    with h5py.File(model_path, 'r') as f:
+        intensity_scale = f.attrs['intensity_scale']
+    params.set('intensity_scale', intensity_scale)
+    return model
 
 def prepare_data(data_container: PtychoDataContainer) -> tuple:
     """
