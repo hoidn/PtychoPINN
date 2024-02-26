@@ -144,7 +144,7 @@ if save_model:
         'negloglik': negloglik,
         'realspace_loss': hh_realspace_loss
     }
-    model.autoencoder.save(model_path, save_format="tf", custom_objects=custom_objects)
+    model.autoencoder.save(model_path, save_format="tf")
     with h5py.File(model_path, 'a') as f:
         f.attrs['intensity_scale'] = params.get('intensity_scale')
         f.attrs['custom_objects'] = dill.dumps(custom_objects)
