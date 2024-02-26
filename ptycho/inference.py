@@ -1,8 +1,9 @@
 from tensorflow.keras.models import Model
 from tensorflow.keras.models import load_model as tf_load_model
-from ptycho import params, model
+from ptycho import params
 from ptycho.loader import PtychoDataContainer
 import numpy as np
+import h5py
 
 def load_pretrained_model(model_path: str) -> Model:
     """
@@ -18,6 +19,7 @@ def prepare_data(data_container: PtychoDataContainer) -> tuple:
     """
     Prepare data for inference.
     """
+    from ptycho import model
     X = data_container.X * model.params()['intensity_scale']
     coords_nominal = data_container.coords_nominal
     return X, coords_nominal
@@ -26,6 +28,7 @@ def perform_inference(model: Model, X: np.ndarray, coords_nominal: np.ndarray) -
     """
     Perform inference using the pre-trained model and prepared data.
     """
+    from ptycho import model
     reconstructed_obj, pred_amp, reconstructed_obj_cdi = model.predict([X, coords_nominal])
     return {
         'reconstructed_obj': reconstructed_obj,
