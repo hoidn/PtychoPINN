@@ -315,3 +315,39 @@ def train(epochs, trainset: PtychoDataContainer):
         callbacks=[reduce_lr, earlystop])
         #callbacks=[reduce_lr, earlystop, tboard_callback])
     return history
+import numpy as np
+
+def print_model_diagnostics(model):
+    """
+    Prints diagnostic information for a given TensorFlow/Keras model.
+
+    Parameters:
+    - model: A TensorFlow/Keras model object.
+    """
+    # Print the model summary to get the architecture, layer types, output shapes, and parameter counts.
+    model.summary()
+
+    # Print input shape
+    print("Model Input Shape(s):")
+    for input_layer in model.inputs:
+        print(input_layer.shape)
+
+    # Print output shape
+    print("Model Output Shape(s):")
+    for output_layer in model.outputs:
+        print(output_layer.shape)
+
+    # Print total number of parameters
+    print("Total Parameters:", model.count_params())
+
+    # Print trainable and non-trainable parameter counts
+    trainable_count = np.sum([tf.keras.backend.count_params(w) for w in model.trainable_weights])
+    non_trainable_count = np.sum([tf.keras.backend.count_params(w) for w in model.non_trainable_weights])
+    print("Trainable Parameters:", trainable_count)
+    print("Non-trainable Parameters:", non_trainable_count)
+
+    # If the model uses any custom layers, print their names and configurations
+    print("Custom Layers (if any):")
+    for layer in model.layers:
+        if hasattr(layer, 'custom_objects'):
+            print(f"{layer.name}: {layer.custom_objects}")
