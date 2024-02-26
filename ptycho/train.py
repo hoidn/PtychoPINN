@@ -1,4 +1,5 @@
 import os
+from ptycho.model_manager import ModelManager
 from datetime import datetime
 import matplotlib
 import matplotlib.pyplot as plt
@@ -144,10 +145,9 @@ if save_model:
         'negloglik': negloglik,
         'realspace_loss': hh_realspace_loss
     }
-    model.autoencoder.save(model_path, save_format="tf")
+    ModelManager.save_model(model.autoencoder, model_path, custom_objects)
     with h5py.File(model_path, 'a') as f:
         f.attrs['intensity_scale'] = params.get('intensity_scale')
-        f.attrs['custom_objects'] = dill.dumps(custom_objects)
 
 if save_data:
     with open(out_prefix + '/test_data.dill', 'wb') as f:
