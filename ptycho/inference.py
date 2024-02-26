@@ -1,14 +1,15 @@
-import tensorflow as tf
+from tensorflow.keras.models import Model
+from tensorflow.keras.models import load_model as tf_load_model
 from ptycho import params, model
 from ptycho.loader import PtychoDataContainer
 
-def load_pretrained_model(model_path):
+def load_pretrained_model(model_path: str) -> Model:
     """
     Load a pre-trained model from an H5 file.
     """
-    return tf.keras.models.load_model(model_path)
+    return tf_load_model(model_path)
 
-def prepare_data(data_container):
+def prepare_data(data_container: PtychoDataContainer) -> tuple:
     """
     Prepare data for inference.
     """
@@ -16,7 +17,7 @@ def prepare_data(data_container):
     coords_nominal = data_container.coords_nominal
     return X, coords_nominal
 
-def perform_inference(model, X, coords_nominal):
+def perform_inference(model: Model, X: np.ndarray, coords_nominal: np.ndarray) -> dict:
     """
     Perform inference using the pre-trained model and prepared data.
     """
@@ -27,7 +28,7 @@ def perform_inference(model, X, coords_nominal):
         'reconstructed_obj_cdi': reconstructed_obj_cdi
     }
 
-def inference_flow(model_path, data_container):
+def inference_flow(model_path: str, data_container: PtychoDataContainer) -> dict:
     """
     The main flow for model inference, integrating the steps.
     """
