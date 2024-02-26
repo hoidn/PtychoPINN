@@ -2,6 +2,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.models import load_model as tf_load_model
 from ptycho import params, model
 from ptycho.loader import PtychoDataContainer
+import numpy as np
 
 def load_pretrained_model(model_path: str) -> Model:
     """
