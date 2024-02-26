@@ -9,8 +9,14 @@ def load_pretrained_model(model_path: str) -> Model:
     """
     Load a pre-trained model from an H5 file.
     """
-    custom_objects = {
-        'ProbeIllumination': ProbeIllumination,
+    custom_objects = { 
+        'ProbeIllumination': ProbeIllumination, 
+        'IntensityScaler': IntensityScaler, 
+        'IntensityScaler_inv': IntensityScaler_inv, 
+        'Translation': Translation, 
+        # Assuming negloglik is a custom loss function used in the model
+        'negloglik': negloglik,
+        # Add other custom objects here if necessary
         # Add other custom objects here if necessary
     }
     model = tf_load_model(model_path, custom_objects=custom_objects)
