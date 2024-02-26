@@ -6,6 +6,7 @@ import dill
 import argparse
 from ptycho import params
 from ptycho import misc
+import h5py
 
 plt.rcParams["figure.figsize"] = (10, 10)
 matplotlib.rcParams['font.size'] = 12
