@@ -129,7 +129,7 @@ with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
 
 if save_model:
-    model.autoencoder.save('{}.h5'.format(out_prefix + 'wts'), save_format="tf")
+    model.autoencoder.save('{}/{}'.format(out_prefix, params.get('h5_path')), save_format="tf")
 
 if save_data:
     with open(out_prefix + '/test_data.dill', 'wb') as f:
