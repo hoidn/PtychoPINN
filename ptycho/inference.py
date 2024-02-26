@@ -1,5 +1,5 @@
-from tensorflow.keras.models import Model, load_model as tf_load_model
-from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, Translation, negloglik
+from tensorflow.keras.models import load_model as tf_load_model
+from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik, Translation
 from ptycho.tf_helper import realspace_loss as hh_realspace_loss
 
 hh = {'realspace_loss': hh_realspace_loss}
