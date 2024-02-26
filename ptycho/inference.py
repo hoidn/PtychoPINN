@@ -14,17 +14,10 @@ def load_pretrained_model(model_path: str) -> Model:
     """
     Load a pre-trained model from an H5 file.
     """
-    custom_objects = {
-        'ProbeIllumination': ProbeIllumination,
-        'IntensityScaler': IntensityScaler,
-        'IntensityScaler_inv': IntensityScaler_inv,
-        'Translation': Translation,
-        'negloglik': negloglik,
-        'realspace_loss': hh['realspace_loss']
-    }
-    model = tf_load_model(model_path, custom_objects=custom_objects)
     with h5py.File(model_path, 'r') as f:
         intensity_scale = f.attrs['intensity_scale']
+        custom_objects = dill.loads(f.attrs['custom_objects'])
+    model = tf_load_model(model_path, custom_objects=custom_objects)
     params.set('intensity_scale', intensity_scale)
     return model
 
