@@ -14,6 +14,8 @@ def load_pretrained_model(model_path: str) -> Model:
         'IntensityScaler': IntensityScaler, 
         'IntensityScaler_inv': IntensityScaler_inv, 
         'Translation': Translation, 
+        'negloglik': negloglik,
+        'realspace_loss': hh.realspace_loss,
         # Assuming negloglik is a custom loss function used in the model
         'negloglik': negloglik,
         # Add other custom objects here if necessary
