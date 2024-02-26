@@ -129,7 +129,10 @@ with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
 
 if save_model:
-    model.autoencoder.save('{}/{}'.format(out_prefix, params.get('h5_path')), save_format="tf")
+    model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
+    model.autoencoder.save(model_path, save_format="tf")
+    with h5py.File(model_path, 'a') as f:
+        f.attrs['intensity_scale'] = params.get('intensity_scale')
 
 if save_data:
     with open(out_prefix + '/test_data.dill', 'wb') as f:
