@@ -1,5 +1,5 @@
 from tensorflow.keras.models import load_model as tf_load_model, Model
-from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik, Translation
+from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
 from ptycho.tf_helper import realspace_loss as hh_realspace_loss
 
 hh = {'realspace_loss': hh_realspace_loss}
@@ -13,15 +13,12 @@ def load_pretrained_model(model_path: str) -> Model:
     """
     Load a pre-trained model from an H5 file.
     """
-    custom_objects = { 
-        'ProbeIllumination': ProbeIllumination, 
-        'IntensityScaler': IntensityScaler, 
-        'IntensityScaler_inv': IntensityScaler_inv, 
-        'Translation': Translation, 
+    custom_objects = {
+        'ProbeIllumination': ProbeIllumination,
+        'IntensityScaler': IntensityScaler,
+        'IntensityScaler_inv': IntensityScaler_inv,
         'negloglik': negloglik,
-        'realspace_loss': hh['realspace_loss'],
-        # Assuming negloglik is a custom loss function used in the model
-        # Add other custom objects here if necessary
+        'realspace_loss': hh['realspace_loss']
     }
         'negloglik': negloglik
     }
