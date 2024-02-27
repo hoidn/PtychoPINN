@@ -4,6 +4,8 @@ from ptycho import params
 from ptycho.loader import PtychoDataContainer
 import numpy as np
 
+# TODO this module is for inference-only workflows. it needs to be consolidated with train_pinn
+
 def load_pretrained_model(model_path: str) -> Model:
     """
     Load a pre-trained model from an H5 file.

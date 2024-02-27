@@ -59,7 +59,7 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
         self.w = initial_probe_guess
-    @tf.function
+    #@tf.function
     def call(self, inputs):
         x = inputs[0]
         if cfg.get('probe.mask'):
