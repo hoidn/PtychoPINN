@@ -118,7 +118,7 @@ def load_recent_experiment_data(directory, N):
             params = dill.load(f)
         metrics = pd.read_csv(metrics_path)
 
-        nphotons = params['cfg']['nphotons']
+        nphotons = params['nphotons']
         if nphotons not in data or os.path.getmtime(params_path) > os.path.getmtime(os.path.join(data[nphotons]['dir'], 'params.dill')):
             data[nphotons] = {'params': params, 'metrics': metrics, 'dir': subdir}
 
