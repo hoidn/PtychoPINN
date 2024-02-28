@@ -46,7 +46,7 @@ def execute():
     cfg['intensity_scale.trainable'] = True
 
     from ptycho import train
-from ptycho.train import stitched_obj, YY_ground_truth
+from ptycho import train
 from ptycho.model import Conv_Pool_block, Conv_Up_block
     # reload(model)
     # reload(train)
@@ -82,12 +82,7 @@ from ptycho.model import Conv_Pool_block, Conv_Up_block
     axs[1, 1].set_title('Ground truth phase')
     fig.colorbar(img, ax=axs[1, 1])
     # Corrected the indentation and scope of the return statement
-    if __name__ == '__main__':
-        nphotons = parse_arguments()
-        init(nphotons)
-
-        d, YY_ground_truth, stitched_obj  = execute()
-        print(d, YY_ground_truth, stitched_obj)
+    return d, YY_ground_truth, stitched_obj
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Ptychographic reconstruction script.')
