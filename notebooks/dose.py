@@ -1,7 +1,7 @@
 import argparse
 
 def init(nphotons):
-    from ptycho import params as p
+    from ptycho.params import cfg
     p.cfg['positions.provided'] = False
     p.cfg['data_source'] = 'lines'
     p.cfg['set_phi'] = False
@@ -16,23 +16,22 @@ def init(nphotons):
     p.cfg['object.big'] = True
     p.cfg['intensity_scale.trainable'] = True
     p.cfg['probe.trainable'] = False
-    
+
     p.cfg['outer_offset_train'] = 8
     p.cfg['outer_offset_test'] = 20
     p.cfg['nimgs_train'] = 2
     p.cfg['nimgs_test'] = 2
 
     p.cfg['nphotons'] = nphotons
-    
-def execute():
-    from ptycho.evaluation import save_metrics
-    from ptycho.evaluation import trim
-    from ptycho import tf_helper as hh
 
-    from ptycho import params as p
+def execute():
+    from ptycho.evaluation import save_metrics, trim
+    from ptycho.tf_helper import pad
+
+    from ptycho.params import cfg
     from ptycho import generate_data as init
 
-    from ptycho import params as p
+    from ptycho.params import cfg
     p.cfg['data_source'] = 'lines'
     p.cfg['offset'] = 4
     p.cfg['max_position_jitter'] = 10
@@ -43,14 +42,15 @@ def execute():
     p.cfg['object.big'] = True
     p.cfg['intensity_scale.trainable'] = True
 
-    from ptycho import train, model
+    from ptycho.train import train
+from ptycho.model import Conv_Pool_block, Conv_Up_block
     # reload(model)
     # reload(train)
 
     # print(p.cfg)
-    from ptycho.train import *
+    from ptycho.train import stitched_obj, YY_ground_truth
 
-    from ptycho import train_pinn 
+    from ptycho.train_pinn import train as train_pinn, eval as eval_pinn
 
     d = save_metrics(stitched_obj, YY_ground_truth, label = 'PINN,NLL,overlaps')
     d
