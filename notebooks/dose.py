@@ -6,7 +6,7 @@ def init(nphotons):
     cfg['positions.provided'] = False
     cfg['data_source'] = 'lines'
     cfg['set_phi'] = False
-    cfg['nepochs'] = 60
+    cfg['nepochs'] = 1
 
     cfg['offset'] = 4
     cfg['max_position_jitter'] = 3
@@ -38,7 +38,6 @@ def plot_results(stitched_obj, YY_ground_truth, d):
     fig.colorbar(img1, ax=axs)
 
 def execute(nphotons, reload_modules=False):
-    from ptycho.evaluation import save_metrics, trim
     from ptycho.tf_helper import pad
     from ptycho.evaluation import save_metrics, trim
     from ptycho.tf_helper import pad
@@ -107,8 +106,8 @@ import numpy as np
 
 def load_recent_experiment_data(directory, N):
     subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and is_valid_run(os.path.join(directory, d))]
-    subdirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
     recent_subdirs = subdirs[:N]
+    subdirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
 
     data = {}
     for subdir in recent_subdirs:

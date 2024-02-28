@@ -111,9 +111,7 @@ else:
     raise ValueError
 
 try:
-    if model_type == 'pinn':
-        from ptycho.train_pinn import stitched_obj
-    elif model_type == 'supervised':
+    if model_type == 'supervised':
         from ptycho.train_supervised import stitched_obj
     plt.imsave(out_prefix + 'amp_orig.png',
                np.absolute(YY_ground_truth[:, :, 0]),
