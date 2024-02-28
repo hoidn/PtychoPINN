@@ -123,3 +123,5 @@ def load_recent_experiment_data(directory, N):
             data[nphotons] = {'params': params, 'metrics': metrics, 'dir': subdir}
 
     return {k: {'params': v['params'], 'metrics': v['metrics']} for k, v in data.items()}
+def is_valid_run(subdir):
+    return os.path.exists(os.path.join(subdir, 'params.dill'))
