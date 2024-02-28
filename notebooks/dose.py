@@ -47,6 +47,7 @@ def execute():
 
     from ptycho import train
 from ptycho import train
+from ptycho.evaluation import save_metrics
 from ptycho.model import Conv_Pool_block, Conv_Up_block
     # reload(model)
     # reload(train)
@@ -94,4 +95,4 @@ if __name__ == '__main__':
     nphotons = parse_arguments()
     init(nphotons)
 
-    d, YY_ground_truth, stitched_obj  = execute()
+    d, YY_ground_truth, stitched_obj = execute()
