@@ -105,7 +105,7 @@ import dill
 import pandas as pd
 
 def load_recent_experiment_data(directory, N):
-    subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+    subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and is_valid_run(os.path.join(directory, d))]
     subdirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
     recent_subdirs = subdirs[:N]
 
