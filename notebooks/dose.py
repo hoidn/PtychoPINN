@@ -103,6 +103,7 @@ def run_experiment_with_photons(photons_list):
 import os
 import dill
 import pandas as pd
+import numpy as np
 
 def load_recent_experiment_data(directory, N):
     subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and is_valid_run(os.path.join(directory, d))]
@@ -118,7 +119,7 @@ def load_recent_experiment_data(directory, N):
             params = dill.load(f)
         metrics = pd.read_csv(metrics_path)
 
-        nphotons = params['nphotons']
+        nphotons = int(np.log10(params['nphotons']))
         if nphotons not in data or os.path.getmtime(params_path) > os.path.getmtime(os.path.join(data[nphotons]['dir'], 'params.dill')):
             data[nphotons] = {'params': params, 'metrics': metrics, 'dir': subdir}
 
