@@ -1,4 +1,5 @@
 import os
+from ptycho.model_manager import ModelManager
 from datetime import datetime
 import matplotlib
 import matplotlib.pyplot as plt
@@ -6,6 +7,7 @@ import dill
 import argparse
 from ptycho import params
 from ptycho import misc
+import h5py
 
 plt.rcParams["figure.figsize"] = (10, 10)
 matplotlib.rcParams['font.size'] = 12
@@ -84,9 +86,14 @@ from ptycho.evaluation import save_metrics
 #    from ptycho.train_supervised import history, reconstructed_obj
 if model_type == 'pinn':
     from ptycho import train_pinn
-    history = train_pinn.history
-    reconstructed_obj = train_pinn.reconstructed_obj
-    pred_amp = train_pinn.pred_amp
+    train_output = train_pinn.train_eval(ptycho_dataset)
+#    reconstructed_obj_cdi = train_output['reconstructed_obj_cdi']
+#    stitched_obj = train_output['stitched_obj']
+    pred_amp = train_output['pred_amp']
+    history = train_output['history']
+    reconstructed_obj = train_output['reconstructed_obj']
+    stitched_obj = train_output['stitched_obj']
+
 elif model_type == 'supervised':
     from ptycho import train_supervised
     history = train_supervised.history
@@ -125,7 +132,23 @@ with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
 
 if save_model:
-    model.autoencoder.save('{}.h5'.format(out_prefix + 'wts'), save_format="tf")
+    from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
+    from ptycho.tf_helper import Translation
+    from ptycho.tf_helper import realspace_loss as hh_realspace_loss
+    hh = {'realspace_loss': hh_realspace_loss}
+
+    model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
+    custom_objects = {
+        'ProbeIllumination': ProbeIllumination,
+        'IntensityScaler': IntensityScaler,
+        'IntensityScaler_inv': IntensityScaler_inv,
+        'Translation': Translation,
+        'negloglik': negloglik,
+        'realspace_loss': hh_realspace_loss
+    }
+    ModelManager.save_model(model.autoencoder, model_path, custom_objects, params.get('intensity_scale'))
+    with h5py.File(model_path, 'a') as f:
+        f.attrs['intensity_scale'] = params.get('intensity_scale')
 
 if save_data:
     with open(out_prefix + '/test_data.dill', 'wb') as f:

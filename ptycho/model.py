@@ -20,6 +20,7 @@ import os
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
+from .loader import PtychoDataContainer
 from . import tf_helper as hh
 from . import params as cfg
 params = cfg.params
@@ -58,8 +59,9 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
         self.w = initial_probe_guess
+    #@tf.function
     def call(self, inputs):
-        x, = inputs
+        x = inputs[0]
         if cfg.get('probe.mask'):
             return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
         else:
@@ -279,18 +281,20 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
-def prepare_inputs(X_train, coords_train):
+def prepare_inputs(train_data: PtychoDataContainer):
     """training inputs"""
-    return [X_train * cfg.get('intensity_scale'), coords_train]
+    return [train_data.X * cfg.get('intensity_scale'), train_data.coords]
 
-def prepare_outputs(Y_I_train, coords_train, X_train):
+def prepare_outputs(train_data: PtychoDataContainer):
     """training outputs"""
-    return [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
-                (cfg.get('intensity_scale') * X_train),
-                (cfg.get('intensity_scale') * X_train)**2]
+    return [hh.center_channels(train_data.Y_I, train_data.coords)[:, :, :, :1],
+                (cfg.get('intensity_scale') * train_data.X),
+                (cfg.get('intensity_scale') * train_data.X)**2]
 
-#def train(epochs, trainset, coords):
-def train(epochs, X_train, coords_train, Y_obj_train):
+#def train(epochs, X_train, coords_train, Y_obj_train):
+def train(epochs, trainset: PtychoDataContainer):
+    assert type(trainset) == PtychoDataContainer
+    coords_train = trainset.coords
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
@@ -302,12 +306,48 @@ def train(epochs, X_train, coords_train, Y_obj_train):
 
     batch_size = params()['batch_size']
     history=autoencoder.fit(
-        prepare_inputs(X_train, coords_train),
-        prepare_outputs(Y_obj_train, coords_train, X_train),
-#        prepare_inputs(trainset.X, coords),
-#        prepare_outputs(trainset.Y, coords, trainset.X),
+#        prepare_inputs(X_train, coords_train),
+#        prepare_outputs(Y_obj_train, coords_train, X_train),
+        prepare_inputs(trainset),
+        prepare_outputs(trainset),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])
         #callbacks=[reduce_lr, earlystop, tboard_callback])
     return history
+import numpy as np
+
+def print_model_diagnostics(model):
+    """
+    Prints diagnostic information for a given TensorFlow/Keras model.
+
+    Parameters:
+    - model: A TensorFlow/Keras model object.
+    """
+    # Print the model summary to get the architecture, layer types, output shapes, and parameter counts.
+    model.summary()
+
+    # Print input shape
+    print("Model Input Shape(s):")
+    for input_layer in model.inputs:
+        print(input_layer.shape)
+
+    # Print output shape
+    print("Model Output Shape(s):")
+    for output_layer in model.outputs:
+        print(output_layer.shape)
+
+    # Print total number of parameters
+    print("Total Parameters:", model.count_params())
+
+    # Print trainable and non-trainable parameter counts
+    trainable_count = np.sum([tf.keras.backend.count_params(w) for w in model.trainable_weights])
+    non_trainable_count = np.sum([tf.keras.backend.count_params(w) for w in model.non_trainable_weights])
+    print("Trainable Parameters:", trainable_count)
+    print("Non-trainable Parameters:", non_trainable_count)
+
+    # If the model uses any custom layers, print their names and configurations
+    print("Custom Layers (if any):")
+    for layer in model.layers:
+        if hasattr(layer, 'custom_objects'):
+            print(f"{layer.name}: {layer.custom_objects}")
