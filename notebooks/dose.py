@@ -2,57 +2,60 @@ import argparse
 
 def init(nphotons):
     from ptycho.params import cfg
-    p.cfg['positions.provided'] = False
-    p.cfg['data_source'] = 'lines'
-    p.cfg['set_phi'] = False
-    p.cfg['nepochs'] = 60
+    from ptycho.params import cfg
+    cfg['positions.provided'] = False
+    cfg['data_source'] = 'lines'
+    cfg['set_phi'] = False
+    cfg['nepochs'] = 60
 
-    p.cfg['offset'] = 4
-    p.cfg['max_position_jitter'] = 3
-    p.cfg['output_prefix'] = 'lines3'
+    cfg['offset'] = 4
+    cfg['max_position_jitter'] = 3
+    cfg['output_prefix'] = 'lines3'
 
-    p.cfg['gridsize'] = 2
-    p.cfg['n_filters_scale'] = 2
-    p.cfg['object.big'] = True
-    p.cfg['intensity_scale.trainable'] = True
-    p.cfg['probe.trainable'] = False
+    cfg['gridsize'] = 2
+    cfg['n_filters_scale'] = 2
+    cfg['object.big'] = True
+    cfg['intensity_scale.trainable'] = True
+    cfg['probe.trainable'] = False
 
-    p.cfg['outer_offset_train'] = 8
-    p.cfg['outer_offset_test'] = 20
-    p.cfg['nimgs_train'] = 2
-    p.cfg['nimgs_test'] = 2
+    cfg['outer_offset_train'] = 8
+    cfg['outer_offset_test'] = 20
+    cfg['nimgs_train'] = 2
+    cfg['nimgs_test'] = 2
 
-    p.cfg['nphotons'] = nphotons
+    cfg['nphotons'] = nphotons
 
 def execute():
     from ptycho.evaluation import save_metrics, trim
     from ptycho.tf_helper import pad
+    from ptycho.evaluation import save_metrics, trim
+    from ptycho.tf_helper import pad
 
     from ptycho.params import cfg
-    from ptycho import generate_data as init
+    import ptycho.generate_data as init
 
     from ptycho.params import cfg
-    p.cfg['data_source'] = 'lines'
-    p.cfg['offset'] = 4
-    p.cfg['max_position_jitter'] = 10
-    p.cfg['output_prefix'] = 'lines2'
+    cfg['data_source'] = 'lines'
+    cfg['offset'] = 4
+    cfg['max_position_jitter'] = 10
+    cfg['output_prefix'] = 'lines2'
 
-    p.cfg['gridsize'] = 2
-    p.cfg['n_filters_scale'] = 2
-    p.cfg['object.big'] = True
-    p.cfg['intensity_scale.trainable'] = True
+    cfg['gridsize'] = 2
+    cfg['n_filters_scale'] = 2
+    cfg['object.big'] = True
+    cfg['intensity_scale.trainable'] = True
 
-    from ptycho.train import train
+    from ptycho import train
 from ptycho.model import Conv_Pool_block, Conv_Up_block
     # reload(model)
     # reload(train)
 
     # print(p.cfg)
-    from ptycho.train import stitched_obj, YY_ground_truth
+    stitched_obj, YY_ground_truth = train.stitched_obj, train.YY_ground_truth
 
     from ptycho.train_pinn import train as train_pinn, eval as eval_pinn
 
-    d = save_metrics(stitched_obj, YY_ground_truth, label = 'PINN,NLL,overlaps')
+    d = save_metrics(stitched_obj, YY_ground_truth, label='PINN,NLL,overlaps')
     d
     #d0 = d
 
@@ -71,14 +74,14 @@ from ptycho.model import Conv_Pool_block, Conv_Up_block
     axs[0, 1].set_title('Reconstructed phase')
 
     # ground truth amplitude images
-    img = axs[1, 0].imshow(np.absolute(init.YY_ground_truth), interpolation='none', cmap='jet')
+    img = axs[1, 0].imshow(np.absolute(YY_ground_truth), interpolation='none', cmap='jet')
     axs[1, 0].set_title('Ground truth amplitude')
 
     # ground truth phase images
-    img = axs[1, 1].imshow(np.angle(init.YY_ground_truth), interpolation='none', cmap='jet')
+    img = axs[1, 1].imshow(np.angle(YY_ground_truth), interpolation='none', cmap='jet')
     axs[1, 1].set_title('Ground truth phase')
     fig.colorbar(img, ax=axs[1, 1])
-    return d, init.YY_ground_truth, stitched_obj
+    return d, YY_ground_truth, stitched_obj
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Ptychographic reconstruction script.')
