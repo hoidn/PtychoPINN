@@ -46,6 +46,7 @@ def execute():
     cfg['intensity_scale.trainable'] = True
 
     from ptycho import train
+from ptycho.train import stitched_obj, YY_ground_truth
 from ptycho.model import Conv_Pool_block, Conv_Up_block
     # reload(model)
     # reload(train)
@@ -56,7 +57,6 @@ from ptycho.model import Conv_Pool_block, Conv_Up_block
     from ptycho.train_pinn import train as train_pinn, eval as eval_pinn
 
     d = save_metrics(stitched_obj, YY_ground_truth, label='PINN,NLL,overlaps')
-    d
     #d0 = d
 
     import matplotlib.pyplot as plt
@@ -81,7 +81,13 @@ from ptycho.model import Conv_Pool_block, Conv_Up_block
     img = axs[1, 1].imshow(np.angle(YY_ground_truth), interpolation='none', cmap='jet')
     axs[1, 1].set_title('Ground truth phase')
     fig.colorbar(img, ax=axs[1, 1])
-    return d, YY_ground_truth, stitched_obj
+    # Corrected the indentation and scope of the return statement
+    if __name__ == '__main__':
+        nphotons = parse_arguments()
+        init(nphotons)
+
+        d, YY_ground_truth, stitched_obj  = execute()
+        print(d, YY_ground_truth, stitched_obj)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Ptychographic reconstruction script.')
