@@ -92,6 +92,7 @@ if model_type == 'pinn':
     pred_amp = train_output['pred_amp']
     history = train_output['history']
     reconstructed_obj = train_output['reconstructed_obj']
+    stitched_obj = train_output['stitched_obj']
 
 elif model_type == 'supervised':
     from ptycho import train_supervised
