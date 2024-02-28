@@ -46,9 +46,6 @@ def execute():
     cfg['intensity_scale.trainable'] = True
 
     from ptycho import train
-from ptycho import train
-from ptycho.evaluation import save_metrics
-from ptycho.model import Conv_Pool_block, Conv_Up_block
     # reload(model)
     # reload(train)
 
