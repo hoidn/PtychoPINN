@@ -100,3 +100,26 @@ def run_experiment_with_photons(photons_list):
         first_iteration = False
         results[nphotons] = {'d': d, 'YY_ground_truth': YY_ground_truth, 'stitched_obj': stitched_obj}
     return results
+import os
+import dill
+import pandas as pd
+
+def load_recent_experiment_data(directory, N):
+    subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+    subdirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+    recent_subdirs = subdirs[:N]
+
+    data = {}
+    for subdir in recent_subdirs:
+        params_path = os.path.join(subdir, 'params.dill')
+        metrics_path = os.path.join(subdir, 'metrics.csv')
+
+        with open(params_path, 'rb') as f:
+            params = dill.load(f)
+        metrics = pd.read_csv(metrics_path)
+
+        nphotons = params['cfg']['nphotons']
+        if nphotons not in data or os.path.getmtime(params_path) > os.path.getmtime(os.path.join(data[nphotons]['dir'], 'params.dill')):
+            data[nphotons] = {'params': params, 'metrics': metrics, 'dir': subdir}
+
+    return {k: {'params': v['params'], 'metrics': v['metrics']} for k, v in data.items()}
