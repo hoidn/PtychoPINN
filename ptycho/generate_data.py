@@ -30,6 +30,8 @@ batch_size = params.cfg['batch_size']
 # TODO need to enforce that configs are set before initializing the probe
 from ptycho import probe
 
+print("DEBUG: generate_data module loaded")
+print("DEBUG: generate_data nphotons {}".format(params.get('nphotons')))
 def normed_ff_np(arr):
     return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(N))
 
@@ -141,6 +143,7 @@ if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diag
         outer_offset_train = params.cfg['outer_offset_train'] = outer_offset_train // 2
     else:
         outer_offset_train = params.cfg['outer_offset_train']
+        print("DEBUG: outer_offset_train set to", outer_offset_train, "in generate_data")
     if params.cfg['outer_offset_test'] is None:
         outer_offset_test = params.cfg['outer_offset_test']  = outer_offset_train
     else:
