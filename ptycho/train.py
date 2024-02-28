@@ -7,6 +7,7 @@ import dill
 import argparse
 from ptycho import params
 from ptycho import misc
+import numpy as np
 import h5py
 
 plt.rcParams["figure.figsize"] = (10, 10)
@@ -76,7 +77,14 @@ else:
 out_prefix = misc.get_path_prefix()
 os.makedirs(out_prefix, exist_ok=True)
 
-from ptycho.generate_data import *
+from ptycho import generate_data
+ptycho_dataset = generate_data.ptycho_dataset
+YY_ground_truth = generate_data.YY_ground_truth
+YY_test_full = generate_data.YY_test_full
+Y_I_test = generate_data.Y_I_test
+Y_phi_test = generate_data.Y_phi_test
+X_test = generate_data.X_test
+norm_Y_I_test = generate_data.norm_Y_I_test
 from ptycho import model
 from ptycho.evaluation import save_metrics
 
@@ -86,6 +94,7 @@ from ptycho.evaluation import save_metrics
 #    from ptycho.train_supervised import history, reconstructed_obj
 if model_type == 'pinn':
     from ptycho import train_pinn
+    print("DEBUG: generate_data diff norm {}".format(np.mean(np.abs(ptycho_dataset.train_data.X))))
     train_output = train_pinn.train_eval(ptycho_dataset)
 #    reconstructed_obj_cdi = train_output['reconstructed_obj_cdi']
 #    stitched_obj = train_output['stitched_obj']
