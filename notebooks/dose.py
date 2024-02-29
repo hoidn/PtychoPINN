@@ -169,7 +169,6 @@ def plot_heatmaps_for_all_photons(res, index):
         plot_heatmap_from_experiment(res, nphot, index)
 
 
-def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename='heatmap_plots_2x2.png', border_color='black', border_width=2):
     fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0]))
 def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename='heatmap_plots_2x2.png', border_color='black', border_width=2, axs=None):
     fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0])) if axs is None else (None, axs)
