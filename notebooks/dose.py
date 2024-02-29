@@ -64,13 +64,34 @@ def execute(nphotons, reload_modules=False):
     stitched_obj, YY_ground_truth = train.stitched_obj, train.YY_ground_truth
 
     from ptycho.train_pinn import train as train_pinn, eval as eval_pinn
+    from ptycho import misc
 
-    d = save_metrics(stitched_obj, YY_ground_truth, label='PINN,NLL,overlaps')
-    #d0 = d
+    #d = save_metrics(stitched_obj, YY_ground_truth, label='PINN,NLL,overlaps')
+#    with open(misc.get_path_prefix() + '/recon.dill', 'wb') as f:
+#        dill.dump(
+#            {'stitched_obj_amp': np.absolute(stitched_obj[0][:, :, 0]),
+#             'stitched_obj_phase': np.angle(stitched_obj[0][:, :, 0]),
+#             'YY_ground_truth_amp': np.absolute(YY_ground_truth[:, :, 0]),
+#             'YY_ground_truth_phi': np.angle(YY_ground_truth[:, :, 0])},
+#            f)
+#if model_type == 'supervised':
+#    from ptycho.train_supervised import stitched_obj
+#plt.imsave(out_prefix + 'amp_orig.png',
+#           np.absolute(YY_ground_truth[:, :, 0]),
+#           cmap='jet')
+#plt.imsave(out_prefix + 'phi_orig.png',
+#           np.angle(YY_ground_truth[:, :, 0]),
+#           cmap='jet')
+#plt.imsave(out_prefix + 'amp_recon.png', np.absolute(stitched_obj[0][:, :, 0]), cmap='jet')
+#plt.imsave(out_prefix + 'phi_recon.png', np.angle(stitched_obj[0][:, :, 0]), cmap='jet')
+#
+#
+#d = save_metrics(stitched_obj, YY_ground_truth, label = label)
+#    #d0 = d
 
-    plot_results(stitched_obj, YY_ground_truth, d)
+    plot_results(stitched_obj, YY_ground_truth, train.d)
     # Corrected the indentation and scope of the return statement
-    return d, YY_ground_truth, stitched_obj
+    return train.d, YY_ground_truth, stitched_obj
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Ptychographic reconstruction script.')
@@ -109,7 +130,8 @@ def has_amp_recon(subdir):
     return os.path.exists(os.path.join(subdir, 'amp_recon.png'))
 
 def load_recent_experiment_data(directory, N):
-    subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and is_valid_run(os.path.join(directory, d)) and has_amp_recon(os.path.join(directory, d))]
+    subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if is_valid_run(os.path.join(directory, d)) and has_amp_recon(os.path.join(directory, d))]
+    print(subdirs)
     recent_subdirs = subdirs[:N]
     subdirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
 
@@ -122,7 +144,8 @@ def load_recent_experiment_data(directory, N):
             params = dill.load(f)
         metrics = pd.read_csv(metrics_path)
 
-        nphotons = int(np.log10(params['nphotons']))
+        nphotons = (np.log10(params['nphotons']))
+        print('NPOHOT {}'.format(nphotons))
         #if nphotons not in data or os.path.getmtime(params_path) > os.path.getmtime(os.path.join(data[nphotons]['dir'], 'params.dill')):
         amp_recon_path = os.path.join(subdir, 'amp_recon.png')
         amp_recon = imread(amp_recon_path)
