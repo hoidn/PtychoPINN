@@ -166,7 +166,7 @@ def plot_heatmap_from_experiment(res, nphot, index):
 def plot_heatmaps_for_all_photons(res, index):
     for nphot in res.keys():
         plot_heatmap_from_experiment(res, nphot, index)
-def generate_2x2_heatmap_plots_using_function(res, index, filename='heatmap_plots_2x2.png'):
+def generate_2x2_heatmap_plots_using_function(res, index, filename='heatmap_plots_2x2.png', border_color='black', border_width=2):
     import matplotlib.pyplot as plt
     fig, axs = plt.subplots(2, 2, figsize=(12, 12))
     axs = axs.flatten()
@@ -174,7 +174,10 @@ def generate_2x2_heatmap_plots_using_function(res, index, filename='heatmap_plot
     for i, nphot in enumerate(photon_doses):
         ax = axs[i]
         c = res[nphot]['train_output']['dataset']
-        ax.imshow(np.log10(c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+        heatmap = ax.imshow(np.log10(c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+        for spine in ax.spines.values():
+            spine.set_edgecolor(border_color)
+            spine.set_linewidth(border_width)
         #ax.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
         ax.set_title(f'{nphot:.0e} photons', fontsize=16)
         ax.axis('off')
