@@ -111,7 +111,7 @@ elif model_type == 'supervised':
 else:
     raise ValueError
 
-save_recons(model_type, stitched_obj)
+d = save_recons(model_type, stitched_obj)
 
 with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)

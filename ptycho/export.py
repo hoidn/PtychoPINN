@@ -2,9 +2,11 @@ import dill
 import matplotlib.pyplot as plt
 import numpy as np
 from ptycho.misc import get_path_prefix
+from ptycho.params import get
 
 def save_recons(model_type, stitched_obj):
     from ptycho.generate_data import YY_ground_truth
+    from ptycho.evaluation import save_metrics
     try:
         out_prefix = get_path_prefix()
         plt.imsave(out_prefix + 'amp_orig.png',
@@ -24,6 +26,7 @@ def save_recons(model_type, stitched_obj):
                  'YY_ground_truth_phi': np.angle(YY_ground_truth[:, :, 0])},
                 f)
 
-        d = save_metrics(stitched_obj, YY_ground_truth, label = label)
+        d = save_metrics(stitched_obj, YY_ground_truth, label = get('label'))
+        return d
     except ImportError as e:
         print('object stitching failed. No images will be saved.')
