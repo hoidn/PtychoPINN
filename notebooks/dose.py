@@ -154,7 +154,7 @@ def generate_2x2_heatmap_plots(res, layout=(1, 4), filename='heatmap_plots.png',
     if fig is not None:
         plt.tight_layout()
         plt.savefig(filename)
-        plt.close(fig)
+        #plt.close(fig)
 
 def plot_heatmap_from_experiment(res, nphot, index):
     import matplotlib.pyplot as plt
@@ -163,7 +163,7 @@ def plot_heatmap_from_experiment(res, nphot, index):
     #plt.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
     plt.title(f'{nphot:.0e} photons', fontsize = 10)
     plt.savefig(f'heatmap_photon_dose_{nphot:.0e}_index_{index}.png')
-    plt.show()
+    #plt.show()
 def plot_heatmaps_for_all_photons(res, index):
     for nphot in res.keys():
         plot_heatmap_from_experiment(res, nphot, index)
@@ -187,7 +187,7 @@ def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filenam
     if fig is not None:
         plt.tight_layout()
         plt.savefig(filename)
-        plt.show()
+        #plt.show()
 
 def stack_and_display_horizontal_plots(res, index):
     from matplotlib import pyplot as plt
@@ -195,4 +195,5 @@ def stack_and_display_horizontal_plots(res, index):
     generate_2x2_heatmap_plots(res, layout=(1, 4), axs=axs[:4])
     generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), axs=axs[4:], border_color='black', border_width=2)
     plt.tight_layout()
+    plt.savefig(f'stacked_dose_progression_index_{index}.png')
     plt.show()
