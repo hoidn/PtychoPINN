@@ -302,4 +302,4 @@ def save_metrics(stitched_obj, YY_ground_truth,  label = ''):
         dill.dump(d, f)
     df = pd.DataFrame({k: d[k] for k in ['mae', 'mse', 'psnr', 'frc50']})
     df.to_csv(out_prefix + '/metrics.csv')
-    return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50']}
+    return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc']}

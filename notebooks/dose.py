@@ -5,7 +5,7 @@ def init(nphotons):
     cfg['positions.provided'] = False
     cfg['data_source'] = 'lines'
     cfg['set_phi'] = False
-    cfg['nepochs'] = 30
+    cfg['nepochs'] = 60
 
     cfg['offset'] = 4
     cfg['max_position_jitter'] = 3
@@ -146,9 +146,10 @@ def generate_and_save_heatmap(experiment_entry, ax=None, photon_dose=None):
     ax.set_title(title)
     ax.axis('off')
 
-def generate_2x2_heatmap_plots(res, layout=(1, 4), filename='heatmap_plots.png', axs=None):
-    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 4*layout[0]))
-    axs = axs.flatten()
+def generate_2x2_heatmap_plots(res, layout=(1, 4), filename='heatmap_plots.png', axs=None,
+                               fig = None):
+#    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 4*layout[0]))
+#    axs = axs.flatten()
     for i, (photon_dose, experiment_entry) in enumerate(res.items()):
         generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
     plt.tight_layout()
@@ -169,13 +170,14 @@ def plot_heatmap_from_experiment(res, nphot, index):
 def plot_heatmaps_for_all_photons(res, index):
     for nphot in res.keys():
         plot_heatmap_from_experiment(res, nphot, index)
-
-
     fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0]))
+
 def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename='heatmap_plots_2x2.png', border_color='black', border_width=2, axs=None):
-    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0])) if axs is None else (None, axs)
+    a, b = layout
+    #fig, axs = plt.subplots(1, b, figsize=(24, 3))
+    #fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0])) if axs is None else (None, axs)
     axs = axs.flatten()
-    photon_doses = list(res.keys())[:4]  # Select the first 4 photon doses for the 2x2 grid
+    photon_doses = list(res.keys())[: b]  # Select the first 4 photon doses for the 2x2 grid
     for i, nphot in enumerate(photon_doses):
         ax = axs[i]
         c = res[nphot]['train_output']['dataset']
@@ -193,11 +195,12 @@ def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filenam
         plt.savefig(filename)
         #plt.show()
 
-def stack_and_display_horizontal_plots(res, index):
+def stack_and_display_horizontal_plots(res, index, layout = (1, 4), figsize = (24, 8)):
     from matplotlib import pyplot as plt
-    fig, axs = plt.subplots(1, 8, figsize=(24, 3))
-    generate_2x2_heatmap_plots(res, layout=(1, 4), axs=axs[:4])
-    generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), axs=axs[4:], border_color='black', border_width=2)
+    a, b = layout
+    fig, axs = plt.subplots(2, b, figsize= figsize)
+    generate_2x2_heatmap_plots(res, layout= layout, axs=axs[0])
+    generate_2x2_heatmap_plots_using_function(res, index, layout= layout, axs=axs[1], border_color='black', border_width=2)
     plt.tight_layout()
     fig.savefig(f'stacked_dose_progression_index_{index}.png')
     plt.show()
