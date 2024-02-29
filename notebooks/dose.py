@@ -146,14 +146,15 @@ def generate_and_save_heatmap(experiment_entry, ax=None, photon_dose=None):
     ax.set_title(title)
     ax.axis('off')
 
-def generate_2x2_heatmap_plots(res, layout=(1, 4), filename='heatmap_plots.png'):
+def generate_2x2_heatmap_plots(res, layout=(1, 4), filename='heatmap_plots.png', axs=None):
     fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 4*layout[0]))
     axs = axs.flatten()
     for i, (photon_dose, experiment_entry) in enumerate(res.items()):
         generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
-    plt.tight_layout()
-    plt.savefig(filename)
-    plt.close(fig)
+    if fig is not None:
+        plt.tight_layout()
+        plt.savefig(filename)
+        plt.close(fig)
 
 def plot_heatmap_from_experiment(res, nphot, index):
     import matplotlib.pyplot as plt
@@ -170,6 +171,8 @@ def plot_heatmaps_for_all_photons(res, index):
 
 def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename='heatmap_plots_2x2.png', border_color='black', border_width=2):
     fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0]))
+def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename='heatmap_plots_2x2.png', border_color='black', border_width=2, axs=None):
+    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0])) if axs is None else (None, axs)
     axs = axs.flatten()
     photon_doses = list(res.keys())[:4]  # Select the first 4 photon doses for the 2x2 grid
     for i, nphot in enumerate(photon_doses):
@@ -182,38 +185,15 @@ def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filenam
         #ax.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
         #ax.set_title(f'{nphot:.0e} photons', fontsize=16)
         ax.axis('off')
+    if fig is not None:
+        plt.tight_layout()
+        plt.savefig(filename)
+        plt.show()
+
+def stack_and_display_horizontal_plots(res, index):
+    from matplotlib import pyplot as plt
+    fig, axs = plt.subplots(1, 8, figsize=(24, 3))
+    generate_2x2_heatmap_plots(res, layout=(1, 4), axs=axs[:4])
+    generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), axs=axs[4:], border_color='black', border_width=2)
     plt.tight_layout()
-    plt.savefig(filename)
     plt.show()
-def stack_and_save_horizontal_plots(res, index, filename='stacked_heatmap_plots.png'):
-    from PIL import Image
-
-    # Generate the first set of plots and save temporarily
-    temp_filename1 = 'temp_heatmap_plots_1.png'
-    generate_2x2_heatmap_plots(res, layout=(1, 4), filename=temp_filename1)
-
-    # Generate the second set of plots and save temporarily
-    temp_filename2 = 'temp_heatmap_plots_2.png'
-    generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename=temp_filename2, border_color='black', border_width=2)
-
-    # Open the images
-    img1 = Image.open(temp_filename1)
-    img2 = Image.open(temp_filename2)
-
-    # Calculate the total width and max height
-    total_width = img1.width + img2.width
-    max_height = max(img1.height, img2.height)
-
-    # Create a new blank image with the correct size
-    new_img = Image.new('RGB', (total_width, max_height))
-
-    # Paste the images next to each other
-    new_img.paste(img1, (0, 0))
-    new_img.paste(img2, (img1.width, 0))
-
-    # Save the new image
-    new_img.save(filename)
-
-    # Clean up temporary files
-    os.remove(temp_filename1)
-    os.remove(temp_filename2)
