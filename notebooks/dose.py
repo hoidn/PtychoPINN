@@ -132,13 +132,15 @@ def is_valid_run(subdir):
     return os.path.exists(os.path.join(subdir, 'params.dill'))
 import matplotlib.pyplot as plt
 
-def generate_and_save_heatmap(experiment_entry, ax, photon_dose=None):
+def generate_and_save_heatmap(experiment_entry, ax=None, photon_dose=None):
+    if ax is None:
+        fig, ax = plt.subplots()
     stitched_obj = experiment_entry['stitched_obj'][0, :, :, 0]
     metrics = experiment_entry['d']
     frc50 = metrics.get('frc50', [None])[0]
     psnr = metrics.get('psnr', [None])[0]
 
-    ax.imshow(np.abs(stitched_obj), cmap='hot', interpolation='nearest')
+    ax.imshow(np.abs(stitched_obj), cmap='jet', interpolation='nearest')
     title = f'FRC50: {frc50:.2f}, PSNR: {psnr:.2f}'
     if photon_dose is not None:
         title = f'Photons: {photon_dose:.0e}, ' + title
