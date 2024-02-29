@@ -42,7 +42,8 @@ def train_eval(ptycho_dataset):
         'pred_amp': eval_results['pred_amp'],
         'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
         'stitched_obj': eval_results['stitched_obj'],
-        'model_instance': model_instance
+        'model_instance': model_instance,
+        'dataset': ptycho_dataset.train_data
     }
 from tensorflow.keras.models import load_model
 
