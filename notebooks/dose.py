@@ -185,3 +185,35 @@ def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filenam
     plt.tight_layout()
     plt.savefig(filename)
     plt.show()
+def stack_and_save_horizontal_plots(res, index, filename='stacked_heatmap_plots.png'):
+    from PIL import Image
+
+    # Generate the first set of plots and save temporarily
+    temp_filename1 = 'temp_heatmap_plots_1.png'
+    generate_2x2_heatmap_plots(res, layout=(1, 4), filename=temp_filename1)
+
+    # Generate the second set of plots and save temporarily
+    temp_filename2 = 'temp_heatmap_plots_2.png'
+    generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename=temp_filename2, border_color='black', border_width=2)
+
+    # Open the images
+    img1 = Image.open(temp_filename1)
+    img2 = Image.open(temp_filename2)
+
+    # Calculate the total width and max height
+    total_width = img1.width + img2.width
+    max_height = max(img1.height, img2.height)
+
+    # Create a new blank image with the correct size
+    new_img = Image.new('RGB', (total_width, max_height))
+
+    # Paste the images next to each other
+    new_img.paste(img1, (0, 0))
+    new_img.paste(img2, (img1.width, 0))
+
+    # Save the new image
+    new_img.save(filename)
+
+    # Clean up temporary files
+    os.remove(temp_filename1)
+    os.remove(temp_filename2)
