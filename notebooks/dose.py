@@ -5,7 +5,7 @@ def init(nphotons):
     cfg['positions.provided'] = False
     cfg['data_source'] = 'lines'
     cfg['set_phi'] = False
-    cfg['nepochs'] = 1
+    cfg['nepochs'] = 30
 
     cfg['offset'] = 4
     cfg['max_position_jitter'] = 3
@@ -140,14 +140,14 @@ def generate_and_save_heatmap(experiment_entry, ax=None, photon_dose=None):
     psnr = metrics.get('psnr', [None])[0]
 
     ax.imshow(np.abs(stitched_obj), cmap='jet', interpolation='nearest')
-    title = f'FRC50: {frc50:.2f}, PSNR: {psnr:.2f}'
+    title = f'FRC50: {frc50:.2f}\nPSNR: {psnr:.2f}'
     if photon_dose is not None:
-        title = f'Photons: {photon_dose:.0e}, ' + title
+        title = f'Photons: {photon_dose:.0e}\n' + title
     ax.set_title(title)
     ax.axis('off')
 
-def generate_2x2_heatmap_plots(res, layout=(4, 1), filename='heatmap_plots.png'):
-    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0]))
+def generate_2x2_heatmap_plots(res, layout=(1, 4), filename='heatmap_plots.png'):
+    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 4*layout[0]))
     axs = axs.flatten()
     for i, (photon_dose, experiment_entry) in enumerate(res.items()):
         generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
@@ -160,15 +160,15 @@ def plot_heatmap_from_experiment(res, nphot, index):
     c = res[nphot]['train_output']['dataset']
     plt.imshow(np.log10(c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
     #plt.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
-    plt.title(f'{nphot:.0e} photons', fontsize = 30)
+    plt.title(f'{nphot:.0e} photons', fontsize = 10)
     plt.savefig(f'heatmap_photon_dose_{nphot:.0e}_index_{index}.png')
     plt.show()
 def plot_heatmaps_for_all_photons(res, index):
     for nphot in res.keys():
         plot_heatmap_from_experiment(res, nphot, index)
-def generate_2x2_heatmap_plots_using_function(res, index, filename='heatmap_plots_2x2.png', border_color='black', border_width=2):
-    import matplotlib.pyplot as plt
-def generate_2x2_heatmap_plots_using_function(res, index, layout=(4, 1), filename='heatmap_plots_2x2.png', border_color='black', border_width=2):
+
+
+def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename='heatmap_plots_2x2.png', border_color='black', border_width=2):
     fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0]))
     axs = axs.flatten()
     photon_doses = list(res.keys())[:4]  # Select the first 4 photon doses for the 2x2 grid
@@ -180,7 +180,7 @@ def generate_2x2_heatmap_plots_using_function(res, index, layout=(4, 1), filenam
             spine.set_edgecolor(border_color)
             spine.set_linewidth(border_width)
         #ax.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
-        ax.set_title(f'{nphot:.0e} photons', fontsize=16)
+        #ax.set_title(f'{nphot:.0e} photons', fontsize=16)
         ax.axis('off')
     plt.tight_layout()
     plt.savefig(filename)
