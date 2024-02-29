@@ -146,10 +146,11 @@ def generate_and_save_heatmap(experiment_entry, ax=None, photon_dose=None):
         title = f'Photons: {photon_dose:.0e}, ' + title
     ax.set_title(title)
     ax.axis('off')
-def generate_2x2_heatmap_plots(res):
+def generate_2x2_heatmap_plots(res, filename='heatmap_plots.png'):
     fig, axs = plt.subplots(2, 2, figsize=(12, 12))
     axs = axs.flatten()
     for i, (photon_dose, experiment_entry) in enumerate(res.items()):
         generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
     plt.tight_layout()
-    plt.show()
+    plt.savefig(filename)
+    plt.close(fig)
