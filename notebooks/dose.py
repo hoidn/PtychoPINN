@@ -105,8 +105,11 @@ import pandas as pd
 import numpy as np
 from matplotlib.image import imread
 
+def has_amp_recon(subdir):
+    return os.path.exists(os.path.join(subdir, 'amp_recon.png'))
+
 def load_recent_experiment_data(directory, N):
-    subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and is_valid_run(os.path.join(directory, d))]
+    subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and is_valid_run(os.path.join(directory, d)) and has_amp_recon(os.path.join(directory, d))]
     recent_subdirs = subdirs[:N]
     subdirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
 
