@@ -74,6 +74,7 @@ else:
     label = params.cfg['label']
     offset = params.cfg['offset']
 
+# TODO this should be a global parameter that's updated once per training and / or evaluation cycle
 out_prefix = misc.get_path_prefix()
 os.makedirs(out_prefix, exist_ok=True)
 
