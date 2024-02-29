@@ -39,7 +39,6 @@ def plot_results(stitched_obj, YY_ground_truth, d):
 def execute(nphotons, reload_modules=False):
     from ptycho.tf_helper import pad
     from ptycho.evaluation import save_metrics, trim
-    from ptycho.tf_helper import pad
     from ptycho.params import cfg
     cfg['nphotons'] = nphotons
 
