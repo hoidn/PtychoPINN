@@ -66,7 +66,7 @@ def execute(nphotons, reload_modules=False):
 
     plot_results(stitched_obj, YY_ground_truth, train.d)
     # Corrected the indentation and scope of the return statement
-    return train.d, YY_ground_truth, stitched_obj
+    return train.d, YY_ground_truth, stitched_obj, train.train_output
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Ptychographic reconstruction script.')
@@ -89,11 +89,11 @@ def run_experiment_with_photons(photons_list):
         init(nphotons)
         print("DEBUG: nphotons set to", nphotons, "in run_experiment_with_photons")
         if  first_iteration:
-            d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=False)
+            d, YY_ground_truth, stitched_obj, train_output = execute(nphotons, reload_modules=False)
         else:
-            d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=True)
+            d, YY_ground_truth, stitched_obj, train_output = execute(nphotons, reload_modules=True)
         first_iteration = False
-        results[nphotons] = {'d': d, 'YY_ground_truth': YY_ground_truth, 'stitched_obj': stitched_obj}
+        results[nphotons] = {'d': d, 'YY_ground_truth': YY_ground_truth, 'stitched_obj': stitched_obj, 'train_output': train_output}
     return results
 import os
 import dill
