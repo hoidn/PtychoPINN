@@ -8,7 +8,7 @@ def save_recons(model_type, stitched_obj):
     from ptycho.generate_data import YY_ground_truth
     from ptycho.evaluation import save_metrics
     try:
-        out_prefix = get_path_prefix()
+        out_prefix = get('output_prefix')
         plt.imsave(out_prefix + 'amp_orig.png',
                    np.absolute(YY_ground_truth[:, :, 0]),
                    cmap='jet')
