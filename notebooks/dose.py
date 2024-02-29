@@ -132,15 +132,22 @@ def is_valid_run(subdir):
     return os.path.exists(os.path.join(subdir, 'params.dill'))
 import matplotlib.pyplot as plt
 
-def generate_and_save_heatmap(experiment_entry, filename='heatmap.png'):
-    stitched_obj = experiment_entry['stitched_obj'][0, :, :, 0]
+def generate_and_save_heatmap(experiment_entry, ax, photon_dose=None):
+    stitched_obj = experiment_entry['stitched_obj']
     metrics = experiment_entry['d']
     frc50 = metrics.get('frc50', [None])[0]
     psnr = metrics.get('psnr', [None])[0]
 
-    plt.figure(figsize=(6, 6))
-    plt.imshow(np.abs(stitched_obj), cmap='jet', interpolation='nearest')
-    plt.title(f'FRC50: {frc50:.2f}, PSNR: {psnr:.2f}')
-    plt.axis('off')
-    plt.savefig(filename)
+    ax.imshow(np.abs(stitched_obj), cmap='hot', interpolation='nearest')
+    title = f'FRC50: {frc50:.2f}, PSNR: {psnr:.2f}'
+    if photon_dose is not None:
+        title = f'Photons: {photon_dose:.0e}, ' + title
+    ax.set_title(title)
+    ax.axis('off')
+def generate_2x2_heatmap_plots(res):
+    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+    axs = axs.flatten()
+    for i, (photon_dose, experiment_entry) in enumerate(res.items()):
+        generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
+    plt.tight_layout()
     plt.show()
