@@ -165,3 +165,17 @@ def plot_heatmap_from_experiment(res, nphot, index):
 def plot_heatmaps_for_all_photons(res, index):
     for nphot in res.keys():
         plot_heatmap_from_experiment(res, nphot, index)
+def generate_2x2_heatmap_plots_using_function(res, index, filename='heatmap_plots_2x2.png'):
+    import matplotlib.pyplot as plt
+    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+    axs = axs.flatten()
+    photon_doses = list(res.keys())[:4]  # Select the first 4 photon doses for the 2x2 grid
+    for i, nphot in enumerate(photon_doses):
+        ax = axs[i]
+        c = res[nphot]['train_output']['dataset']
+        ax.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+        ax.set_title(f'{nphot:.0e} photons', fontsize=16)
+        ax.axis('off')
+    plt.tight_layout()
+    plt.savefig(filename)
+    plt.show()
