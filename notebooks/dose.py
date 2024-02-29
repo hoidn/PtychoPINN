@@ -156,9 +156,9 @@ def generate_2x2_heatmap_plots(res, filename='heatmap_plots.png'):
 def plot_heatmap_from_experiment(res, nphot, index):
     import matplotlib.pyplot as plt
     c = res[nphot]['train_output']['dataset']
-    plt.imshow(c.X[index][:, :, 0], cmap='hot', interpolation='nearest')
-    plt.colorbar()
-    plt.title(f'Heatmap for photon dose {nphot} at index {index}')
+    plt.imshow(c.X[index][:, :, 0], cmap='viridis', interpolation='nearest')
+    plt.title(f'{nphot:.0e}')
+    plt.savefig(f'heatmap_photon_dose_{nphot:.0e}_index_{index}.png')
     plt.show()
 def plot_heatmaps_for_all_photons(res, index):
     for nphot in res.keys():
