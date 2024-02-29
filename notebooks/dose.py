@@ -160,3 +160,6 @@ def plot_heatmap_from_experiment(res, nphot, index):
     plt.colorbar()
     plt.title(f'Heatmap for photon dose {nphot} at index {index}')
     plt.show()
+def plot_heatmaps_for_all_photons(res, index):
+    for nphot in res.keys():
+        plot_heatmap_from_experiment(res, nphot, index)
