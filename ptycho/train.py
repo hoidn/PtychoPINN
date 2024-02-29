@@ -69,13 +69,15 @@ if __name__ == '__main__':
 
     params.cfg['outer_offset_train'] = args.outer_offset_train
     params.cfg['outer_offset_test'] = args.outer_offset_test
+    # Update the output_prefix using get_path_prefix
+    params.cfg['output_prefix'] = misc.get_path_prefix()
 else:
     model_type = params.cfg['model_type']
     label = params.cfg['label']
     offset = params.cfg['offset']
 
 # TODO this should be a global parameter that's updated once per training and / or evaluation cycle
-out_prefix = misc.get_path_prefix()
+out_prefix = params.cfg['output_prefix']
 os.makedirs(out_prefix, exist_ok=True)
 
 from ptycho import generate_data
