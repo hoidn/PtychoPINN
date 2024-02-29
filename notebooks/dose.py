@@ -158,7 +158,8 @@ def generate_2x2_heatmap_plots(res, filename='heatmap_plots.png'):
 def plot_heatmap_from_experiment(res, nphot, index):
     import matplotlib.pyplot as plt
     c = res[nphot]['train_output']['dataset']
-    plt.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+    plt.imshow(np.log10(c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+    #plt.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
     plt.title(f'{nphot:.0e} photons', fontsize = 30)
     plt.savefig(f'heatmap_photon_dose_{nphot:.0e}_index_{index}.png')
     plt.show()
@@ -173,7 +174,8 @@ def generate_2x2_heatmap_plots_using_function(res, index, filename='heatmap_plot
     for i, nphot in enumerate(photon_doses):
         ax = axs[i]
         c = res[nphot]['train_output']['dataset']
-        ax.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+        ax.imshow(np.log10(c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+        #ax.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
         ax.set_title(f'{nphot:.0e} photons', fontsize=16)
         ax.axis('off')
     plt.tight_layout()
