@@ -146,8 +146,8 @@ def generate_and_save_heatmap(experiment_entry, ax=None, photon_dose=None):
     ax.set_title(title)
     ax.axis('off')
 
-def generate_2x2_heatmap_plots(res, filename='heatmap_plots.png'):
-    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+def generate_2x2_heatmap_plots(res, layout=(4, 1), filename='heatmap_plots.png'):
+    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0]))
     axs = axs.flatten()
     for i, (photon_dose, experiment_entry) in enumerate(res.items()):
         generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
@@ -168,7 +168,8 @@ def plot_heatmaps_for_all_photons(res, index):
         plot_heatmap_from_experiment(res, nphot, index)
 def generate_2x2_heatmap_plots_using_function(res, index, filename='heatmap_plots_2x2.png', border_color='black', border_width=2):
     import matplotlib.pyplot as plt
-    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+def generate_2x2_heatmap_plots_using_function(res, index, layout=(4, 1), filename='heatmap_plots_2x2.png', border_color='black', border_width=2):
+    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0]))
     axs = axs.flatten()
     photon_doses = list(res.keys())[:4]  # Select the first 4 photon doses for the 2x2 grid
     for i, nphot in enumerate(photon_doses):
