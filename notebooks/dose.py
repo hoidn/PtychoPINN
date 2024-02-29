@@ -151,7 +151,9 @@ def generate_2x2_heatmap_plots(res, layout=(1, 4), filename='heatmap_plots.png',
     axs = axs.flatten()
     for i, (photon_dose, experiment_entry) in enumerate(res.items()):
         generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
-    if fig is not None:
+    plt.tight_layout()
+    plt.savefig(filename)
+    if axs is None:
         plt.tight_layout()
         plt.savefig(filename)
         #plt.close(fig)
@@ -184,7 +186,9 @@ def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filenam
         #ax.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
         #ax.set_title(f'{nphot:.0e} photons', fontsize=16)
         ax.axis('off')
-    if fig is not None:
+    plt.tight_layout()
+    plt.savefig(filename)
+    if axs is None:
         plt.tight_layout()
         plt.savefig(filename)
         #plt.show()
