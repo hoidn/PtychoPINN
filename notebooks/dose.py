@@ -133,13 +133,13 @@ def is_valid_run(subdir):
 import matplotlib.pyplot as plt
 
 def generate_and_save_heatmap(experiment_entry, filename='heatmap.png'):
-    stitched_obj = experiment_entry['stitched_obj']
+    stitched_obj = experiment_entry['stitched_obj'][0, :, :, 0]
     metrics = experiment_entry['d']
     frc50 = metrics.get('frc50', [None])[0]
     psnr = metrics.get('psnr', [None])[0]
 
     plt.figure(figsize=(6, 6))
-    plt.imshow(np.abs(stitched_obj), cmap='hot', interpolation='nearest')
+    plt.imshow(np.abs(stitched_obj), cmap='jet', interpolation='nearest')
     plt.title(f'FRC50: {frc50:.2f}, PSNR: {psnr:.2f}')
     plt.axis('off')
     plt.savefig(filename)
