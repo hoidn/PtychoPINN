@@ -103,6 +103,7 @@ import os
 import dill
 import pandas as pd
 import numpy as np
+from matplotlib.image import imread
 
 def load_recent_experiment_data(directory, N):
     subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and is_valid_run(os.path.join(directory, d))]
@@ -119,9 +120,10 @@ def load_recent_experiment_data(directory, N):
         metrics = pd.read_csv(metrics_path)
 
         nphotons = int(np.log10(params['nphotons']))
+        #if nphotons not in data or os.path.getmtime(params_path) > os.path.getmtime(os.path.join(data[nphotons]['dir'], 'params.dill')):
         amp_recon_path = os.path.join(subdir, 'amp_recon.png')
         amp_recon = imread(amp_recon_path)
-            data[nphotons] = {'params': params, 'metrics': metrics, 'amp_recon': amp_recon, 'dir': subdir}
+        data[nphotons] = {'params': params, 'metrics': metrics, 'amp_recon': amp_recon, 'dir': subdir}
 
     return {k: {'params': v['params'], 'metrics': v['metrics']} for k, v in data.items()}
 def is_valid_run(subdir):
