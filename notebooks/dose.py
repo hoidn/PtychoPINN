@@ -2,7 +2,6 @@ import argparse
 
 def init(nphotons):
     from ptycho.params import cfg
-    from ptycho.params import cfg
     cfg['positions.provided'] = False
     cfg['data_source'] = 'lines'
     cfg['set_phi'] = False
