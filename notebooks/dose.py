@@ -199,5 +199,5 @@ def stack_and_display_horizontal_plots(res, index):
     generate_2x2_heatmap_plots(res, layout=(1, 4), axs=axs[:4])
     generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), axs=axs[4:], border_color='black', border_width=2)
     plt.tight_layout()
-    plt.savefig(f'stacked_dose_progression_index_{index}.png')
+    fig.savefig(f'stacked_dose_progression_index_{index}.png')
     plt.show()
