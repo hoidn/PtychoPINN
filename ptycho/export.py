@@ -16,16 +16,22 @@ def save_recons(model_type, stitched_obj):
             plt.imsave(out_prefix + 'phi_orig.png',
                        np.angle(YY_ground_truth[:, :, 0]),
                        cmap='jet')
-        plt.imsave(out_prefix + 'amp_recon.png', np.absolute(stitched_obj[0][:, :, 0]), cmap='jet')
-        plt.imsave(out_prefix + 'phi_recon.png', np.angle(stitched_obj[0][:, :, 0]), cmap='jet')
+        if stitched_obj is not None:
+            plt.imsave(out_prefix + 'amp_recon.png', np.absolute(stitched_obj[0][:, :, 0]), cmap='jet')
+            plt.imsave(out_prefix + 'phi_recon.png', np.angle(stitched_obj[0][:, :, 0]), cmap='jet')
 
         with open(out_prefix + '/recon.dill', 'wb') as f:
             dump_data = {'stitched_obj_amp': np.absolute(stitched_obj[0][:, :, 0]),
                          'stitched_obj_phase': np.angle(stitched_obj[0][:, :, 0])}
+                         'stitched_obj_phase': np.angle(stitched_obj[0][:, :, 0])} if stitched_obj is not None else {}
             if YY_ground_truth is not None:
                 dump_data.update({'YY_ground_truth_amp': np.absolute(YY_ground_truth[:, :, 0]),
                                   'YY_ground_truth_phi': np.angle(YY_ground_truth[:, :, 0])})
             dill.dump(dump_data, f)
+        if YY_ground_truth is not None and stitched_obj is not None:
+            d = save_metrics(stitched_obj, YY_ground_truth, label = get('label'))
+        else:
+            d = {'error': 'YY_ground_truth or stitched_obj is None, metrics cannot be calculated.'}
 
         if YY_ground_truth is not None:
             d = save_metrics(stitched_obj, YY_ground_truth, label = get('label'))
