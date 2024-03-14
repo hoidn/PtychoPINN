@@ -240,27 +240,27 @@ elif params.params()['data_source'] == 'generic':
     dset_test = test_raw.generate_grouped_data(N, K = 7, nsamples = 1)
 
     # Use loader.load() to handle the conversion to PtychoData
-    train_data = loader.load(lambda: dset_train, which = None, create_split=False)
-    test_data = loader.load(lambda: dset_test, which = None, create_split=False)
-    intensity_scale = train_data.norm_Y_I
+    train_data_container = loader.load(lambda: dset_train, which = None, create_split=False)
+    test_data_container = loader.load(lambda: dset_test, which = None, create_split=False)
+    intensity_scale = train_data_container.norm_Y_I
 
     # TODO use the object. train_pinn.py and model.py need to be updated too
-    X_train = train_data.X
-    Y_I_train = train_data.Y_I
-    Y_phi_train = train_data.Y_phi
-    intensity_scale = train_data.norm_Y_I
-    YY_train_full = train_data.YY_full
-    coords_train_nominal = train_data.coords_nominal
-    coords_train_true = train_data.coords_true
+    X_train = train_data_container.X
+    Y_I_train = train_data_container.Y_I
+    Y_phi_train = train_data_container.Y_phi
+    intensity_scale = train_data_container.norm_Y_I
+    YY_train_full = train_data_container.YY_full
+    coords_train_nominal = train_data_container.coords_nominal
+    coords_train_true = train_data_container.coords_true
 
     # Loading test data
-    X_test = test_data.X
-    Y_I_test = test_data.Y_I
-    Y_phi_test = test_data.Y_phi
-    YY_test_full = test_data.YY_full
-    norm_Y_I_test = test_data.norm_Y_I
-    coords_test_nominal = test_data.coords_nominal
-    coords_test_true = test_data.coords_true
+    X_test = test_data_container.X
+    Y_I_test = test_data_container.Y_I
+    Y_phi_test = test_data_container.Y_phi
+    YY_test_full = test_data_container.YY_full
+    norm_Y_I_test = test_data_container.norm_Y_I
+    coords_test_nominal = test_data_container.coords_nominal
+    coords_test_true = test_data_container.coords_true
 else:
     raise ValueError
 
@@ -287,14 +287,23 @@ if params.params()['probe.trainable']:
 if params.get('outer_offset_train') is not None:
     YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
     YY_ground_truth = YY_ground_truth_all[0, ...]
+    print('DEBUG: generating grid-mode ground truth image')
+else:
+    YY_ground_truth = None
+    print('DEBUG: No ground truth image in non-grid mode')
+
 
 
 # TODO refactor
-# Correctly use PtychoDataContainer for both training and test data
-
-ptycho_dataset = PtychoDataset(
-    PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe),
-    PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe),
-)
+try:
+    ptycho_dataset = PtychoDataset(
+        train_data_container,
+        test_data_container,
+    )
+except NameError:
+    ptycho_dataset = PtychoDataset(
+        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe),
+        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe),
+    )
 
 print(np.linalg.norm(ptycho_dataset.train_data.X[0]) /  np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
