@@ -4,6 +4,7 @@ import scipy.cluster.vq as scv
 from ptycho import params
 from datetime import datetime
 
+# TODO multiple creations of this directory
 def get_path_prefix():
     label = params.cfg['label']
     prefix = params.params()['output_prefix']

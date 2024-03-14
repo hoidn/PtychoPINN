@@ -14,8 +14,6 @@ tfkl = tf.keras.layers
 
 N = 64
 
-nphotons = p.get('nphotons')
-
 def observe_amplitude(amplitude):
     """
     Sample photons from wave amplitudes by drwaing from the corresponding Poisson distributions
@@ -33,7 +31,7 @@ def scale_nphotons(padded_obj):
     Returns a single scalar.
     """
     mean_photons = tf.math.reduce_mean(count_photons(padded_obj))
-    norm = tf.math.sqrt(nphotons / mean_photons)
+    norm = tf.math.sqrt(p.get('nphotons') / mean_photons)
     return norm
 
 def diffract_obj(sample, draw_poisson = True):
