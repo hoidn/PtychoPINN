@@ -15,7 +15,7 @@ cfg = {
     'intensity_scale.trainable': False, 'positions.provided': False,
     'object.big': True, 'probe.big': False, 'probe_scale': 10., 'set_phi': False,
     'probe.mask': True, 'model_type': 'pinn', 'label': '', 'size': 392,
-    'amp_activation': 'sigmoid',
+    'amp_activation': 'sigmoid', 'h5_path': 'wts.h5'
     }
 
 # TODO parameter description
@@ -57,6 +57,7 @@ def validate():
     return True
 
 def set(key, value):
+    print("DEBUG: Setting", key, "to", value, "in params")
     cfg[key] = value
     assert validate()
 
