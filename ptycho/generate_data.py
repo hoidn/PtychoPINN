@@ -139,6 +139,7 @@ def generate_data():
     probe_np = probe.get_probe(fmt='np')
     outer_offset_train = params.cfg['outer_offset_train']
     outer_offset_test = params.cfg['outer_offset_test']
+    YY_test_full = None
 
     if data_source in ['lines', 'grf', 'points', 'testimg', 'diagonals', 'V']:
         size = params.cfg['size']
@@ -167,7 +168,7 @@ def generate_data():
         raise ValueError("Invalid data source")
 
     params.cfg['intensity_scale'] = intensity_scale
-    return ptycho_dataset.train_data.X, ptycho_dataset.train_data.Y_I, ptycho_dataset.train_data.Y_phi, ptycho_dataset.test_data.X, ptycho_dataset.test_data.Y_I, ptycho_dataset.test_data.Y_phi, YY_ground_truth, ptycho_dataset
+    return ptycho_dataset.train_data.X, ptycho_dataset.train_data.Y_I, ptycho_dataset.train_data.Y_phi, ptycho_dataset.test_data.X, ptycho_dataset.test_data.Y_I, ptycho_dataset.test_data.Y_phi, YY_ground_truth, ptycho_dataset, YY_test_full
 
 # Module-level code
 X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_ground_truth, ptycho_dataset = generate_data()
