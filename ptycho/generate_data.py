@@ -1,45 +1,60 @@
 from sklearn.utils import shuffle
 import numpy as np
-from importlib import reload
 import matplotlib.pyplot as plt
 
 from ptycho import params
 from ptycho import diffsim as datasets
-from ptycho import fourier as f
 import tensorflow as tf
 
 from .loader import PtychoDataset, PtychoDataContainer
 from ptycho import loader
-
-"""
-Initialize probe and other parameters; build (simulated) training / evaluation data
-"""
-
-# TODO dataset should go to a PtychoDataContainer object
-
-# data parameters
-offset = params.cfg['offset']
-N = params.cfg['N']
-gridsize = params.cfg['gridsize']
-jitter_scale = params.params()['sim_jitter_scale']
-
-# training parameters
-nepochs = params.cfg['nepochs']
-batch_size = params.cfg['batch_size']
-
-# TODO need to enforce that configs are set before initializing the probe
 from ptycho import probe
 
-print("DEBUG: generate_data module loaded")
-print("DEBUG: generate_data nphotons {}".format(params.get('nphotons')))
-def normed_ff_np(arr):
-    return (f.fftshift(np.absolute(f.fft2(np.array(arr)))) / np.sqrt(N))
+def load_simulated_data(size, probe, outer_offset_train, outer_offset_test, jitter_scale, intensity_scale=None):
+    np.random.seed(1)
+    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, (coords_train_nominal, coords_train_true) = \
+        datasets.mk_simdata(params.get('nimgs_train'), size, probe, outer_offset_train, jitter_scale=jitter_scale)
+    params.cfg['intensity_scale'] = intensity_scale
+
+    np.random.seed(2)
+    X_test, Y_I_test, Y_phi_test, _, YY_test_full, norm_Y_I_test, (coords_test_nominal, coords_test_true) = \
+        datasets.mk_simdata(params.get('nimgs_test'), size, probe, outer_offset_test, intensity_scale, jitter_scale=jitter_scale)
+
+    return X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true
+
+def load_experimental_data(probe, outer_offset_train, outer_offset_test, jitter_scale):
+    from ptycho import experimental
+    YY_I, YY_phi = experimental.get_full_experimental('train')
+    X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, (coords_train_nominal, coords_train_true) = \
+        datasets.mk_simdata(params.get('nimgs_train'), experimental.train_size, probe, outer_offset_train, jitter_scale=jitter_scale, YY_I=YY_I, YY_phi=YY_phi)
+
+    YY_I, YY_phi = experimental.get_full_experimental('test')
+    X_test, Y_I_test, Y_phi_test, _, YY_test_full, norm_Y_I_test, (coords_test_nominal, coords_test_true) = \
+        datasets.mk_simdata(params.get('nimgs_test'), experimental.test_size, probe, outer_offset_test, intensity_scale, jitter_scale=jitter_scale, YY_I=YY_I, YY_phi=YY_phi)
+
+    return X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true
+
+def load_xpp_data():
+    from ptycho import xpp
+    train_data_container = loader.load(xpp.get_data, which='train')
+    test_data_container = loader.load(xpp.get_data, which='test')
+    return train_data_container, test_data_container
+
+def load_generic_data(N):
+    from ptycho.loader import RawData
+    train_data_file_path = params.get('train_data_file_path')
+    test_data_file_path = params.get('test_data_file_path')
+
+    train_raw, test_raw = RawData.from_files(train_data_file_path, test_data_file_path)
+
+    dset_train = train_raw.generate_grouped_data(N, K=7, nsamples=1)
+    dset_test = test_raw.generate_grouped_data(N, K=7, nsamples=1)
+
+    train_data_container = loader.load(lambda: dset_train, which=None, create_split=False)
+    test_data_container = loader.load(lambda: dset_test, which=None, create_split=False)
+    return train_data_container, test_data_container
 
 def shuffle_data(X, Y_I, Y_phi, random_state=0):
-    """
-    Function to shuffle data.
-    X, Y_I, Y_phi are numpy arrays to be shuffled along the first axis.
-    """
     indices = np.arange(len(Y_I))
     indices_shuffled = shuffle(indices, random_state=random_state)
 
@@ -49,60 +64,36 @@ def shuffle_data(X, Y_I, Y_phi, random_state=0):
 
     return X_shuffled, Y_I_shuffled, Y_phi_shuffled, indices_shuffled
 
-def unshuffle_data(Y_I):
-    """
-    Function to unshuffle data.
-    Y_I is the shuffled numpy array.
-    indices_shuffled is the numpy array of shuffled indices.
-    """
-    unshuffle_indices = np.argsort(indices_shuffled)
-    Y_I_unshuffled = Y_I[unshuffle_indices]
-
-    return Y_I_unshuffled
-
-def get_clip_sizes(outer_offset):
-    """
-    How much to clip so that the ground truth images and reconstructions match.
-    """
-    # TODO remove the factor of 2 assumption
-    # TODO check that the rounding behavior is okay.
-    ## It might be safer to assert bigoffset % 4 == 0
-    bordersize = (N - outer_offset / 2) / 2
-
-    # Amount to trim from NxN reconstruction patches
-    borderleft = int(np.ceil(bordersize))
-    borderright = int(np.floor(bordersize))
-
-    # Amount to trim from the ground truth object
-    clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
-    clipleft = int(np.ceil(clipsize))
-    clipright = int(np.floor(clipsize))
-    return borderleft, borderright, clipleft, clipright
-
 def get_clipped_object(YY_full, outer_offset):
-    # TODO bigN, outer_offset_test factor of 2
-    # Ground truth needs to be trimmed to line up with the reconstruction
-    # Remove the portion of the test image that wasn't converted into
-    # patches of evaluation data
     borderleft, borderright, clipleft, clipright = get_clip_sizes(outer_offset)
 
-    extra_size = (YY_full.shape[1] - (N + (gridsize - 1) * offset)) % (outer_offset // 2)
+    extra_size = (YY_full.shape[1] - (params.cfg['N'] + (params.cfg['gridsize'] - 1) * params.cfg['offset'])) % (outer_offset // 2)
     if extra_size > 0:
         YY_ground_truth = YY_full[:, :-extra_size, :-extra_size]
     else:
         print('discarding length {} from test image'.format(extra_size))
         YY_ground_truth = YY_full
-    YY_ground_truth = YY_ground_truth[:, clipleft: -clipright, clipleft: -clipright]
+    YY_ground_truth = YY_ground_truth[:, clipleft:-clipright, clipleft:-clipright]
     return YY_ground_truth
 
-# TODO normalization not needed?
-def stitch(b, norm_Y_I_test = 1, norm = True, part = 'amp', outer_offset = None,
-        nimgs = None):
+def get_clip_sizes(outer_offset):
+    N = params.cfg['N']
+    gridsize = params.cfg['gridsize']
+    offset = params.cfg['offset']
+    bordersize = (N - outer_offset / 2) / 2
+    borderleft = int(np.ceil(bordersize))
+    borderright = int(np.floor(bordersize))
+    clipsize = (bordersize + ((gridsize - 1) * offset) // 2)
+    clipleft = int(np.ceil(clipsize))
+    clipright = int(np.floor(clipsize))
+    return borderleft, borderright, clipleft, clipright
+
+def stitch_data(b, norm_Y_I_test=1, norm=True, part='amp', outer_offset=None, nimgs=None):
     if nimgs is None:
         nimgs = params.get('nimgs_test')
     if outer_offset is None:
         outer_offset = params.get('outer_offset_test')
-    nsegments = int(np.sqrt((int(tf.size(b)) / nimgs) / (N**2)))
+    nsegments = int(np.sqrt((int(tf.size(b)) / nimgs) / (params.cfg['N']**2)))
     if part == 'amp':
         getpart = np.absolute
     elif part == 'phase':
@@ -112,198 +103,75 @@ def stitch(b, norm_Y_I_test = 1, norm = True, part = 'amp', outer_offset = None,
     else:
         raise ValueError
     if norm:
-        img_recon = np.reshape((norm_Y_I_test * getpart(b)), (-1, nsegments,
-                                                              nsegments, N, N, 1))
+        img_recon = np.reshape((norm_Y_I_test * getpart(b)), (-1, nsegments, nsegments, params.cfg['N'], params.cfg['N'], 1))
     else:
-        img_recon = np.reshape((getpart(b)), (-1, nsegments,
-                                                              nsegments, N, N, 1))
+        img_recon = np.reshape((getpart(b)), (-1, nsegments, nsegments, params.cfg['N'], params.cfg['N'], 1))
     borderleft, borderright, clipleft, clipright = get_clip_sizes(outer_offset)
-    img_recon = img_recon[:, :, :, borderleft: -borderright, borderleft: -borderright, :]
+    img_recon = img_recon[:, :, :, borderleft:-borderright, borderleft:-borderright, :]
     tmp = img_recon.transpose(0, 1, 3, 2, 4, 5)
     stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
     return stitched
 
-# TODO refactor
-def reassemble(b, part = 'amp', **kwargs):
-    stitched = stitch(b, norm_Y_I_test, norm = False, part = part, **kwargs)
+def reassemble(b, norm_Y_I = 1., part='amp', **kwargs):
+    stitched = stitch_data(b, norm_Y_I, norm=False, part=part, **kwargs)
     return stitched
 
-#probe = probe.get_probe(fmt='np')
-#assert probe.ndim == 2, "Probe function must be a 2D array"
-
-# TODO refactor
-if params.params()['data_source'] in ['lines', 'grf', 'points', 'testimg', 'diagonals', 'V']:
-    bigN = params.params()['bigN']
-
-    # Smaller stride so that solution regions overlap enough
-    if params.cfg['outer_offset_train'] is None:
-        # TODO move to params
-        outer_offset_train = (gridsize - 1) * offset + N // 2
-        # TODO get rid of this parameter
-        outer_offset_train = params.cfg['outer_offset_train'] = outer_offset_train // 2
+def process_simulated_data(X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_test_full, outer_offset_test):
+    X_train, Y_I_train, Y_phi_train, indices_shuffled = shuffle_data(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train))
+    if params.get('outer_offset_train') is not None:
+        YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
+        YY_ground_truth = YY_ground_truth_all[0, ...]
+        print('DEBUG: generating grid-mode ground truth image')
     else:
-        outer_offset_train = params.cfg['outer_offset_train']
-        print("DEBUG: outer_offset_train set to", outer_offset_train, "in generate_data")
-    if params.cfg['outer_offset_test'] is None:
-        outer_offset_test = params.cfg['outer_offset_test']  = outer_offset_train
-    else:
-        outer_offset_test = params.cfg['outer_offset_test']
+        YY_ground_truth = None
+        print('DEBUG: No ground truth image in non-grid mode')
+    return X_train, Y_I_train, Y_phi_train, YY_ground_truth
 
-    size = params.cfg['size']
+def create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
+                          X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true):
+    return PtychoDataset(
+        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe.get_probe(fmt='np')),
+        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe.get_probe(fmt='np')),
+    )
 
-    # simulate data
-    np.random.seed(1)
-    (X_train, Y_I_train, Y_phi_train,
-        intensity_scale, YY_train_full, _,
-        (coords_train_nominal, coords_train_true)) =\
-        datasets.mk_simdata(params.get('nimgs_train'), size, probe.get_probe(fmt = 'np'),
-            params.get('outer_offset_train'), jitter_scale = jitter_scale)
-    params.cfg['intensity_scale'] = intensity_scale
-
-    #bigoffset = params.cfg['bigoffset'] = bigoffset * 2
-    np.random.seed(2)
-    (X_test, Y_I_test, Y_phi_test,
-        _, YY_test_full, norm_Y_I_test,
-        (coords_test_nominal, coords_test_true)) =\
-        datasets.mk_simdata(params.get('nimgs_test'), size, probe.get_probe(fmt = 'np'),
-        params.get('outer_offset_test'), intensity_scale,
-        jitter_scale = jitter_scale)
-
-# TODO distinguish between bigoffset for train and test. Should have two
-# variables instead of one
-elif params.params()['data_source'] == 'experimental':
-    # TODO refactor
-    from ptycho import experimental
-    params.set('nimgs_train', 1)
-    params.set('nimgs_test', 1)
-    if params.cfg['outer_offset_train'] is None:
-        params.cfg['outer_offset_train'] = 4
-
-    if params.cfg['outer_offset_test'] is None:
-        outer_offset_test = params.cfg['outer_offset_test'] = 20
-    else:
-        outer_offset_test = params.cfg['outer_offset_test']
-    bigN = N + (gridsize - 1) * offset
-
-    YY_I, YY_phi = experimental.get_full_experimental('train')
-    (X_train, Y_I_train, Y_phi_train,
-        intensity_scale, YY_train_full, _,
-        (coords_train_nominal, coords_train_true)) =\
-        datasets.mk_simdata(params.get('nimgs_train'), experimental.train_size,
-            probe.get_probe(fmt = 'np'), params.get('outer_offset_train'), jitter_scale = jitter_scale,
-            YY_I = YY_I, YY_phi = YY_phi)
-
-
-    YY_I, YY_phi = experimental.get_full_experimental('test')
-    (X_test, Y_I_test, Y_phi_test,
-        _, YY_test_full, norm_Y_I_test,
-        (coords_test_nominal, coords_test_true)) =\
-        datasets.mk_simdata(params.get('nimgs_test'), experimental.test_size,
-        probe.get_probe(fmt = 'np'), params.get('outer_offset_test'), intensity_scale,
-        jitter_scale = jitter_scale,
-        YY_I = YY_I, YY_phi = YY_phi)
-    size = int(YY_test_full.shape[1])
-
-elif params.params()['data_source'] == 'xpp':
-    from ptycho import xpp, loader
-    params.set('nimgs_train', 1)
-    params.set('nimgs_test', 1)
+def generate_data():
+    data_source = params.params()['data_source']
+    probe_np = probe.get_probe(fmt='np')
+    outer_offset_train = params.cfg['outer_offset_train']
     outer_offset_test = params.cfg['outer_offset_test']
+    YY_test_full = None
+    norm_Y_I_test = None
 
-    # TODO use the object. train_pinn.py and model.py need to be updated too
-    train_data_container = loader.load(xpp.get_data, which='train')
-    X_train = train_data_container.X
-    Y_I_train = train_data_container.Y_I
-    Y_phi_train = train_data_container.Y_phi
-    intensity_scale = train_data_container.norm_Y_I
-    YY_train_full = train_data_container.YY_full
-    coords_train_nominal, coords_train_true = train_data_container.coords
+    if data_source in ['lines', 'grf', 'points', 'testimg', 'diagonals', 'V']:
+        size = params.cfg['size']
+        X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true = \
+            load_simulated_data(size, probe_np, outer_offset_train, outer_offset_test, params.params()['sim_jitter_scale'])
+        X_train, Y_I_train, Y_phi_train, YY_ground_truth = process_simulated_data(X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_test_full, outer_offset_test)
+        ptycho_dataset = create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
+                                               X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true)
+    elif data_source == 'experimental':
+        X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true = \
+            load_experimental_data(probe_np, outer_offset_train, outer_offset_test, params.params()['sim_jitter_scale'])
+        X_train, Y_I_train, Y_phi_train, YY_ground_truth = process_simulated_data(X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_test_full, outer_offset_test)
+        ptycho_dataset = create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
+                                               X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true)
+    elif data_source == 'xpp':
+        train_data_container, test_data_container = load_xpp_data()
+        intensity_scale = train_data_container.norm_Y_I
+        ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
+        YY_ground_truth = None
+        YY_test_full = None
+    elif data_source == 'generic':
+        train_data_container, test_data_container = load_generic_data(params.cfg['N'])
+        intensity_scale = train_data_container.norm_Y_I
+        ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
+        YY_ground_truth = None
+    else:
+        raise ValueError("Invalid data source")
 
-    # Loading test data
-    test_data_container = loader.load(xpp.get_data, which='test')
-    X_test = test_data_container.X
-    Y_I_test = test_data_container.Y_I
-    Y_phi_test = test_data_container.Y_phi
-    YY_test_full = test_data_container.YY_full
-    norm_Y_I_test = test_data_container.norm_Y_I
-    coords_test_nominal, coords_test_true = test_data_container.coords
+    params.cfg['intensity_scale'] = intensity_scale
+    return ptycho_dataset.train_data.X, ptycho_dataset.train_data.Y_I, ptycho_dataset.train_data.Y_phi, ptycho_dataset.test_data.X, ptycho_dataset.test_data.Y_I, ptycho_dataset.test_data.Y_phi, YY_ground_truth, ptycho_dataset, YY_test_full, norm_Y_I_test
 
-elif params.params()['data_source'] == 'generic':
-    from ptycho.loader import RawData
-    train_data_file_path = params.get('train_data_file_path')
-    test_data_file_path = params.get('test_data_file_path')
-
-    # Load the data without creating a train-test split
-    train_raw, test_raw = RawData.from_files(train_data_file_path, test_data_file_path)
-
-    dset_train = train_raw.generate_grouped_data(N, K = 7, nsamples = 1)
-    dset_test = test_raw.generate_grouped_data(N, K = 7, nsamples = 1)
-
-    # Use loader.load() to handle the conversion to PtychoData
-    train_data_container = loader.load(lambda: dset_train, which = None, create_split=False)
-    test_data_container = loader.load(lambda: dset_test, which = None, create_split=False)
-    intensity_scale = train_data_container.norm_Y_I
-
-    # TODO use the object. train_pinn.py and model.py need to be updated too
-    X_train = train_data_container.X
-    Y_I_train = train_data_container.Y_I
-    Y_phi_train = train_data_container.Y_phi
-    intensity_scale = train_data_container.norm_Y_I
-    YY_train_full = train_data_container.YY_full
-    coords_train_nominal = train_data_container.coords_nominal
-    coords_train_true = train_data_container.coords_true
-
-    # Loading test data
-    X_test = test_data_container.X
-    Y_I_test = test_data_container.Y_I
-    Y_phi_test = test_data_container.Y_phi
-    YY_test_full = test_data_container.YY_full
-    norm_Y_I_test = test_data_container.norm_Y_I
-    coords_test_nominal = test_data_container.coords_nominal
-    coords_test_true = test_data_container.coords_true
-else:
-    raise ValueError
-
-params.cfg['intensity_scale'] = intensity_scale
-
-# TODO shuffle should be after flatten. unecessary copies here
-X_train, Y_I_train, Y_phi_train, indices_shuffled =\
-    shuffle_data(np.array(X_train), np.array(Y_I_train), np.array(Y_phi_train))
-
-(Y_I_test).shape, Y_I_train.shape
-
-# inversion symmetry
-assert np.isclose(normed_ff_np(Y_I_train[0, :, :, 0]),
-                tf.math.conj(normed_ff_np(Y_I_train[0, ::-1, ::-1, 0])),
-                atol = 1e-4).all()
-
-print('nphoton',np.log10(np.sum((X_train[:, :, :] * intensity_scale)**2,
-    axis = (1, 2))).mean())
-
-if params.params()['probe.trainable']:
-    probe.set_probe_guess(X_train)
-
-# TODO rename / refactor
-if params.get('outer_offset_train') is not None:
-    YY_ground_truth_all = get_clipped_object(YY_test_full, outer_offset_test)
-    YY_ground_truth = YY_ground_truth_all[0, ...]
-    print('DEBUG: generating grid-mode ground truth image')
-else:
-    YY_ground_truth = None
-    print('DEBUG: No ground truth image in non-grid mode')
-
-
-
-# TODO refactor
-try:
-    ptycho_dataset = PtychoDataset(
-        train_data_container,
-        test_data_container,
-    )
-except NameError:
-    ptycho_dataset = PtychoDataset(
-        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe),
-        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe),
-    )
-
-print(np.linalg.norm(ptycho_dataset.train_data.X[0]) /  np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
+# Module-level code
+X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_ground_truth, ptycho_dataset, YY_test_full, norm_Y_I_test = generate_data()
+print(np.linalg.norm(ptycho_dataset.train_data.X[0]) / np.linalg.norm(np.abs(ptycho_dataset.train_data.Y[0])))
