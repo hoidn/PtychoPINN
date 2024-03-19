@@ -112,7 +112,7 @@ def stitch_data(b, norm_Y_I_test=1, norm=True, part='amp', outer_offset=None, ni
     stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
     return stitched
 
-def reassemble_data(b, norm_Y_I = 1., part='amp', **kwargs):
+def reassemble(b, norm_Y_I = 1., part='amp', **kwargs):
     stitched = stitch_data(b, norm_Y_I, norm=False, part=part, **kwargs)
     return stitched
 
@@ -140,6 +140,7 @@ def generate_data():
     outer_offset_train = params.cfg['outer_offset_train']
     outer_offset_test = params.cfg['outer_offset_test']
     YY_test_full = None
+    norm_Y_I_test = None
 
     if data_source in ['lines', 'grf', 'points', 'testimg', 'diagonals', 'V']:
         size = params.cfg['size']
@@ -160,7 +161,6 @@ def generate_data():
         ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
         YY_ground_truth = None
         YY_test_full = None
-        norm_Y_I_test = None
     elif data_source == 'generic':
         train_data_container, test_data_container = load_generic_data(params.cfg['N'])
         intensity_scale = train_data_container.norm_Y_I
