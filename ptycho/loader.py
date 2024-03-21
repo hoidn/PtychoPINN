@@ -201,6 +201,10 @@ class PtychoDataContainer:
         Returns:
             PtychoDataContainer: An instance of the PtychoDataContainer class.
         """
+        # TODO this could be handled by a decorator
+        from . import params as cfg
+        if N is None:
+            N = cfg.get('N')
         train_raw = RawData.from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
         dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
 
