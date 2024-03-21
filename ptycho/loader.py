@@ -20,6 +20,16 @@ class RawData:
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
 
+        print(f"xcoords shape: {xcoords.shape}")
+        print(f"ycoords shape: {ycoords.shape}")
+        print(f"xcoords_start shape: {xcoords_start.shape}")
+        print(f"ycoords_start shape: {ycoords_start.shape}")
+        if diff3d is not None:
+            print(f"diff3d shape: {diff3d.shape}")
+        if probeGuess is not None:
+            print(f"probeGuess shape: {probeGuess.shape}")
+        if scan_index is not None:
+            print(f"scan_index shape: {scan_index.shape}")
         if objectGuess is not None:
             print(f"objectGuess shape: {objectGuess.shape}")
             assert len(objectGuess.shape) == 2
