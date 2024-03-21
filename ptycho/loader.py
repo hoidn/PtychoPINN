@@ -20,6 +20,10 @@ class RawData:
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
 
+        if objectGuess is not None:
+            print(f"objectGuess shape: {objectGuess.shape}")
+            assert len(objectGuess.shape) == 2
+        
         # Assigning values if checks pass
         self.xcoords = xcoords
         self.ycoords = ycoords
@@ -206,9 +210,6 @@ class PtychoDataContainer:
         if N is None:
             N = cfg.get('N')
         train_raw = RawData.from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
-        
-        if objectGuess is not None:
-            print(f"objectGuess shape: {objectGuess.shape}")
         
         dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
 
