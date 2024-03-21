@@ -206,6 +206,10 @@ class PtychoDataContainer:
         if N is None:
             N = cfg.get('N')
         train_raw = RawData.from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
+        
+        if objectGuess is not None:
+            print(f"objectGuess shape: {objectGuess.shape}")
+        
         dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
 
         # Use loader.load() to handle the conversion to PtychoData
