@@ -20,19 +20,6 @@ class RawData:
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
 
-        print(f"xcoords shape: {xcoords.shape}")
-        print(f"ycoords shape: {ycoords.shape}")
-        print(f"xcoords_start shape: {xcoords_start.shape}")
-        print(f"ycoords_start shape: {ycoords_start.shape}")
-        if diff3d is not None:
-            print(f"diff3d shape: {diff3d.shape}")
-        if probeGuess is not None:
-            print(f"probeGuess shape: {probeGuess.shape}")
-        if scan_index is not None:
-            print(f"scan_index shape: {scan_index.shape}")
-        if objectGuess is not None:
-            print(f"objectGuess shape: {objectGuess.shape}")
-            assert len(objectGuess.shape) == 2
 
         assert len(xcoords.shape) == 1, f"Expected xcoords to be 1D, got shape {xcoords.shape}"
         assert len(ycoords.shape) == 1, f"Expected ycoords to be 1D, got shape {ycoords.shape}"
@@ -40,11 +27,22 @@ class RawData:
         assert len(ycoords_start.shape) == 1, f"Expected ycoords_start to be 1D, got shape {ycoords_start.shape}"
         if diff3d is not None:
             assert len(diff3d.shape) == 3, f"Expected diff3d to be 3D, got shape {diff3d.shape}"
+            print(f"diff3d shape: {diff3d.shape}")
         if probeGuess is not None:
             assert len(probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
+            print(f"probeGuess shape: {probeGuess.shape}")
         if scan_index is not None:
             assert len(scan_index.shape) == 1, f"Expected scan_index to be 1D, got shape {scan_index.shape}"
-        
+            print(f"scan_index shape: {scan_index.shape}")
+        if objectGuess is not None:
+            print(f"objectGuess shape: {objectGuess.shape}")
+            assert len(objectGuess.shape) == 2
+
+        print(f"xcoords shape: {xcoords.shape}")
+        print(f"ycoords shape: {ycoords.shape}")
+        print(f"xcoords_start shape: {xcoords_start.shape}")
+        print(f"ycoords_start shape: {ycoords_start.shape}")
+
         # Assigning values if checks pass
         self.xcoords = xcoords
         self.ycoords = ycoords
