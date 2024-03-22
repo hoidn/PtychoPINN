@@ -200,7 +200,10 @@ class PtychoDataContainer:
             attr = getattr(self, attr_name)
             if attr is not None:
                 if isinstance(attr, np.ndarray):
-                    repr_str += f' {attr_name}={attr.shape} mean={attr.mean():.3f}'
+                    if np.iscomplexobj(attr):
+                        repr_str += f' {attr_name}={attr.shape} mean_amplitude={np.mean(np.abs(attr)):.3f}'
+                    else:
+                        repr_str += f' {attr_name}={attr.shape} mean={attr.mean():.3f}'
                 else:
                     repr_str += f' {attr_name}={attr.shape}'
         repr_str += '>'
