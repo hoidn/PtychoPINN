@@ -152,8 +152,8 @@ class RawData:
         """
         Generate nearest-neighbor solution region grouping.
         """
-        np.random.seed(get('npseed'))
-        print('DEBUG:', 'setting np seed in generate_grouped_data')
+#        np.random.seed(get('npseed'))
+#        print('DEBUG:', 'setting np seed in generate_grouped_data')
         print('DEBUG:', 'nsamples:', nsamples)
         return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
 
@@ -526,6 +526,7 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
+# TODO this should be a method of PtychoDataContainer
 def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     from . import params as cfg
     from . import probe
@@ -563,7 +564,10 @@ def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     Y_phi = tf.math.angle(Y_obj)
     YY_full = None
     # TODO complex
-    return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    print('INFO:', which)
+    print(container)
+    return container
 
 # Images are amplitude, not intensity
 def normalize_data(dset, N):
