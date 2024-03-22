@@ -194,12 +194,17 @@ class PtychoDataContainer:
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)
 
-#    def __repr__(self):
-#        return f'<PtychoDataContainer X={self.X.shape}, Y_I={self.Y_I.shape}, Y_phi={self.Y_phi.shape}, ' \
-        #               f'norm_Y_I={self.norm_Y_I.shape}, YY_full={self.YY_full}, ' \
-        #               f'coords_nominal={self.coords[0].shape}, coords_true={self.coords[1].shape}, ' \
-        #               f'nn_indices={self.nn_indices.shape}, global_offsets={self.global_offsets.shape}, ' \
-        #               f'local_offsets={self.local_offsets.shape}>'
+    def __repr__(self):
+        repr_str = '<PtychoDataContainer'
+        for attr_name in ['X', 'Y_I', 'Y_phi', 'norm_Y_I', 'YY_full', 'coords_nominal', 'coords_true', 'nn_indices', 'global_offsets', 'local_offsets', 'probe']:
+            attr = getattr(self, attr_name)
+            if attr is not None:
+                if isinstance(attr, np.ndarray):
+                    repr_str += f' {attr_name}={attr.shape} mean={attr.mean():.3f}'
+                else:
+                    repr_str += f' {attr_name}={attr.shape}'
+        repr_str += '>'
+        return repr_str
     @staticmethod
     def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
         """
