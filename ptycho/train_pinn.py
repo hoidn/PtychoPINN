@@ -1,5 +1,4 @@
-from ptycho.generate_data import reassemble
-from ptycho import params, model
+from ptycho import params
 
 #offset = params.cfg['offset']
 #N = params.cfg['N']
@@ -7,14 +6,23 @@ from ptycho import params, model
 #jitter_scale = params.params()['sim_jitter_scale']
 #batch_size = params.cfg['batch_size']
 
-def train(train_data, model_instance = None):
-    # training parameters
+def train(train_data, intensity_scale=None, model_instance=None):
+    from . import params as p
+    # Model requires intensity_scale to be defined to set the initial
+    # value of the corresponding model parameter
+    if intensity_scale is None:
+        intensity_scale = calculate_intensity_scale(train_data)
+    p.set('intensity_scale', intensity_scale)
+    from ptycho import model
+
     if model_instance is None:
         model_instance = model.autoencoder
     nepochs = params.cfg['nepochs']
     return model_instance, model.train(nepochs, train_data)
 
 def eval(test_data, history, trained_model = None):
+    from ptycho import model
+    from ptycho.generate_data import reassemble
     if trained_model is None:
         trained_model = model.autoencoder
     reconstructed_obj, pred_amp, reconstructed_obj_cdi = trained_model.predict(
@@ -46,6 +54,7 @@ def train_eval(ptycho_dataset):
     }
 from tensorflow.keras.models import load_model
 
+# TODO duplicate
 # Enhance the existing eval function to optionally load a model for inference
 def eval(test_data, history=None, trained_model=None, model_path=None):
     """
@@ -60,6 +69,7 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
     Returns:
     - Evaluation results including reconstructed objects and prediction amplitudes.
     """
+    from ptycho import model
     if model_path is not None:
         print(f"Loading model from {model_path}")
         trained_model = load_model(model_path)
@@ -80,3 +90,23 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
         'reconstructed_obj_cdi': reconstructed_obj_cdi,
         'stitched_obj': stitched_obj
     }
+
+from .loader import PtychoDataContainer
+def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
+    import tensorflow as tf
+    from . import params as p
+    def count_photons(obj):
+        return tf.math.reduce_sum(obj**2, (1, 2))
+
+    def scale_nphotons(padded_obj):
+        mean_photons = tf.math.reduce_mean(count_photons(padded_obj))
+        norm = tf.math.sqrt(p.get('nphotons') / mean_photons)
+        return norm
+
+    # Extract the object data from the PtychoDataContainer
+    obj_data = ptycho_data_container.Y_I  # Assuming Y_I contains the object data
+
+    # Calculate the intensity scale using the adapted scale_nphotons function
+    intensity_scale = scale_nphotons(obj_data).numpy()
+
+    return intensity_scale

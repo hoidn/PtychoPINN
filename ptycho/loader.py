@@ -20,7 +20,6 @@ class RawData:
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
 
-
         assert len(xcoords.shape) == 1, f"Expected xcoords to be 1D, got shape {xcoords.shape}"
         assert len(ycoords.shape) == 1, f"Expected ycoords to be 1D, got shape {ycoords.shape}"
         assert len(xcoords_start.shape) == 1, f"Expected xcoords_start to be 1D, got shape {xcoords_start.shape}"
