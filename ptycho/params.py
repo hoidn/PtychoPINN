@@ -52,8 +52,6 @@ def validate():
         f"Invalid data source: {cfg['data_source']}. Must be one of {valid_data_sources}."
     if cfg['realspace_mae_weight'] > 0.:
         assert cfg['realspace_weight'] > 0
-    #assert cfg['bigoffset'] % 4 == 0
-    # TODO
     return True
 
 def set(key, value):
