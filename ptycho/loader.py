@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from scipy.spatial import cKDTree
 from ptycho import diffsim as datasets
-from .params import params
+from .params import params, get
 
 # If == 1, relative coordinates are (patch CM coordinate - solution region CM
 # coordinate)
@@ -20,6 +20,7 @@ class RawData:
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
 
+        # TODO these should go in the data validation method
         assert len(xcoords.shape) == 1, f"Expected xcoords to be 1D, got shape {xcoords.shape}"
         assert len(ycoords.shape) == 1, f"Expected ycoords to be 1D, got shape {ycoords.shape}"
         assert len(xcoords_start.shape) == 1, f"Expected xcoords_start to be 1D, got shape {xcoords_start.shape}"
@@ -151,6 +152,9 @@ class RawData:
         """
         Generate nearest-neighbor solution region grouping.
         """
+        np.random.seed(get('npseed'))
+        print('DEBUG:', 'setting np seed in generate_grouped_data')
+        print('DEBUG:', 'nsamples:', nsamples)
         return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
 
 
@@ -162,13 +166,6 @@ class RawData:
         # Check if coordinate arrays have matching shapes
         if not (xcoords.shape == ycoords.shape == xcoords_start.shape == ycoords_start.shape):
             raise ValueError("Coordinate arrays must have matching shapes.")
-        # TODO we should allow diff3d to be None
-        # Add more checks as necessary, for example:
-        # - Check if 'diff3d' has the expected number of dimensions
-        # - Check if 'probeGuess' has a specific shape or type criteria
-        # Check if 'scan_index' has the correct length
-#        if len(scan_index) != diff3d.shape[0]:
-#            raise ValueError("Length of scan_index array must match the number of diffraction patterns.")
 
 class PtychoDataset:
     def __init__(self, train_data, test_data):
