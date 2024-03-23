@@ -1,38 +1,22 @@
 from ptycho import params
+from .loader import PtychoDataContainer
 
-def train(train_data, intensity_scale=None, model_instance=None):
+def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None):
     from . import params as p
     # Model requires intensity_scale to be defined to set the initial
     # value of the corresponding model parameter
     if intensity_scale is None:
         intensity_scale = calculate_intensity_scale(train_data)
     p.set('intensity_scale', intensity_scale)
-    from ptycho import model
 
+    from ptycho import probe
+    probe.set_probe_guess(None, train_data.probe)
+
+    from ptycho import model
     if model_instance is None:
         model_instance = model.autoencoder
     nepochs = params.cfg['nepochs']
     return model_instance, model.train(nepochs, train_data)
-
-#def eval(test_data, history, trained_model = None):
-#    from ptycho import model
-#    from ptycho.data_preprocessing import reassemble
-#    if trained_model is None:
-#        trained_model = model.autoencoder
-#    reconstructed_obj, pred_amp, reconstructed_obj_cdi = trained_model.predict(
-#        [test_data.X * model.params()['intensity_scale'], test_data.coords_nominal]
-#    )
-#    try:
-#        stitched_obj = reassemble(reconstructed_obj, part='complex')
-#    except (ValueError, TypeError) as e:
-#        stitched_obj = None
-#        print('object stitching failed:', e)
-#    return {
-#        'reconstructed_obj': reconstructed_obj,
-#        'pred_amp': pred_amp,
-#        'reconstructed_obj_cdi': reconstructed_obj_cdi,
-#        'stitched_obj': stitched_obj
-#    }
 
 def train_eval(ptycho_dataset):
     ## TODO reconstructed_obj -> pred_Y or something
@@ -46,9 +30,8 @@ def train_eval(ptycho_dataset):
         'stitched_obj': eval_results['stitched_obj'],
         'model_instance': model_instance
     }
-from tensorflow.keras.models import load_model
 
-# TODO duplicate
+from tensorflow.keras.models import load_model
 # Enhance the existing eval function to optionally load a model for inference
 def eval(test_data, history=None, trained_model=None, model_path=None):
     """
@@ -64,6 +47,12 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
     - Evaluation results including reconstructed objects and prediction amplitudes.
     """
     from ptycho.data_preprocessing import reassemble
+
+    from ptycho import probe
+    probe.set_probe_guess(None, test_data.probe)
+    # TODO enforce that the train and test probes are the same
+    print('INFO:', 'setting probe from test data container. It MUST be consistent with the training probe')
+
     from ptycho import model
     if model_path is not None:
         print(f"Loading model from {model_path}")
@@ -86,7 +75,6 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
         'stitched_obj': stitched_obj
     }
 
-from .loader import PtychoDataContainer
 def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
     import tensorflow as tf
     from . import params as p

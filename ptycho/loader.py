@@ -237,7 +237,7 @@ class PtychoDataContainer:
         dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
 
         # Use loader.load() to handle the conversion to PtychoData
-        return load(lambda: dset_train, which=None, create_split=False)
+        return load(lambda: dset_train, probeGuess, which=None, create_split=False)
 
     # TODO currently this can only handle a single object image
     @staticmethod
@@ -527,10 +527,10 @@ def split_tensor(tensor, frac, which='test'):
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
 # TODO this should be a method of PtychoDataContainer
-def load(cb, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
+def load(cb, probeGuess, which=None, create_split=True, **kwargs) -> PtychoDataContainer:
     from . import params as cfg
     from . import probe
-    probeGuess = probe.get_probe(fmt = 'np')
+    #probeGuess = probe.get_probe(fmt = 'np')
     if create_split:
         dset, train_frac = cb()
     else:

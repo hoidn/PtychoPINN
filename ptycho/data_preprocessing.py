@@ -36,13 +36,13 @@ def load_experimental_data(probe, outer_offset_train, outer_offset_test, jitter_
 
     return X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true
 
-def load_xpp_data():
+def load_xpp_data(probeGuess):
     from ptycho import xpp
-    train_data_container = loader.load(xpp.get_data, which='train')
-    test_data_container = loader.load(xpp.get_data, which='test')
+    train_data_container = loader.load(xpp.get_data, probeGuess, which='train')
+    test_data_container = loader.load(xpp.get_data, probeGuess, which='test')
     return train_data_container, test_data_container
 
-def load_generic_data(N):
+def load_generic_data(probeGuess, N):
     from ptycho.loader import RawData
     train_data_file_path = params.get('train_data_file_path')
     test_data_file_path = params.get('test_data_file_path')
@@ -52,8 +52,8 @@ def load_generic_data(N):
     dset_train = train_raw.generate_grouped_data(N, K=7, nsamples=1)
     dset_test = test_raw.generate_grouped_data(N, K=7, nsamples=1)
 
-    train_data_container = loader.load(lambda: dset_train, which=None, create_split=False)
-    test_data_container = loader.load(lambda: dset_test, which=None, create_split=False)
+    train_data_container = loader.load(lambda: dset_train, probeGuess, which=None, create_split=False)
+    test_data_container = loader.load(lambda: dset_test, probeGuess, which=None, create_split=False)
     return train_data_container, test_data_container
 
 def shuffle_data(X, Y_I, Y_phi, random_state=0):
@@ -136,7 +136,8 @@ def create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_t
         PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe.get_probe(fmt='np')),
     )
 
-def generate_data():
+def generate_data(probeGuess = None):
+    # TODO handle probeGuess None case
     data_source = params.params()['data_source']
     probe_np = probe.get_probe(fmt='np')
     outer_offset_train = params.cfg['outer_offset_train']
@@ -158,13 +159,13 @@ def generate_data():
         ptycho_dataset = create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
                                                X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true)
     elif data_source == 'xpp':
-        train_data_container, test_data_container = load_xpp_data()
+        train_data_container, test_data_container = load_xpp_data(probeGuess)
         intensity_scale = train_data_container.norm_Y_I
         ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
         YY_ground_truth = None
         YY_test_full = None
     elif data_source == 'generic':
-        train_data_container, test_data_container = load_generic_data(params.cfg['N'])
+        train_data_container, test_data_container = load_generic_data(probeGuess, params.cfg['N'])
         intensity_scale = train_data_container.norm_Y_I
         ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
         YY_ground_truth = None
