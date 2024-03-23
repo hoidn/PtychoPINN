@@ -48,6 +48,14 @@ def get_probe_mask():
     probe_mask = tf.convert_to_tensor(probe_mask_real, tf.complex64)
     return tf.convert_to_tensor(probe_mask, tf.complex64)[..., None]
 
+def set_probe(probe):
+    # TODO optimize this scaling
+    mask = tf.cast(get_probe_mask(), probe.dtype)
+    probe_scale = params.get('probe_scale')
+    tamped_probe = mask * probe
+    norm = float(probe_scale * tf.reduce_mean(tf.math.abs(tamped_probe)))
+    params.set('probe', probe / norm)
+
 def set_probe_guess(X_train, probe_guess = None):
     if probe_guess is None:
         mu = 0.
@@ -70,14 +78,9 @@ def set_probe_guess(X_train, probe_guess = None):
     set_probe(t_probe_guess)
     return t_probe_guess
 
-def set_probe(probe):
-    # TODO optimize this scaling
-    mask = tf.cast(get_probe_mask(), probe.dtype)
-    probe_scale = params.get('probe_scale')
-    tamped_probe = mask * probe
-    norm = float(probe_scale * tf.reduce_mean(tf.math.abs(tamped_probe)))
-    params.set('probe', probe / norm)
-
-#params.set('probe', get_default_probe())
-set_probe(get_default_probe())
+# This should be more explicit
 params.set('probe_mask', get_probe_mask())
+
+# TODO this needs to be called
+def set_default_probe():
+    set_probe(get_default_probe())
