@@ -1,6 +1,6 @@
 import argparse
 
-def init(nphotons):
+def init(nphotons, loss_fn='nll'):
     from ptycho.params import cfg
     cfg['positions.provided'] = False
     cfg['data_source'] = 'lines'
@@ -23,6 +23,14 @@ def init(nphotons):
     cfg['nimgs_test'] = 2
 
     cfg['nphotons'] = nphotons
+
+    if loss_fn == 'mae':
+        cfg['mae_weight'] = 1.
+        cfg['nll_weight'] = 0.
+    elif loss_fn == 'nll':
+        pass  # Keep the current behavior
+    else:
+        raise ValueError(f"Invalid loss_fn: {loss_fn}. Must be 'mae' or 'nll'.")
 
 def plot_results(stitched_obj, YY_ground_truth, d):
     import matplotlib.pyplot as plt
