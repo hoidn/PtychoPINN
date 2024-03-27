@@ -5,7 +5,7 @@ def init(nphotons, loss_fn='nll'):
     cfg['positions.provided'] = False
     cfg['data_source'] = 'lines'
     cfg['set_phi'] = False
-    cfg['nepochs'] = 1
+    cfg['nepochs'] = 60 
 
     cfg['offset'] = 4
     cfg['max_position_jitter'] = 3
