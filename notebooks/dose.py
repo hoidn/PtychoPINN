@@ -90,12 +90,12 @@ if __name__ == '__main__':
     d, YY_ground_truth, stitched_obj = execute(nphotons)
 
 from importlib import reload
-def run_experiment_with_photons(photons_list):
+def run_experiment_with_photons(photons_list, loss_fn='nll'):
     print("DEBUG: Starting run_experiment_with_photons")
     results = {}
     first_iteration = True
     for nphotons in photons_list:
-        init(nphotons)
+        init(nphotons, loss_fn=loss_fn)
         print("DEBUG: nphotons set to", nphotons, "in run_experiment_with_photons")
         if  first_iteration:
             d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=False)
