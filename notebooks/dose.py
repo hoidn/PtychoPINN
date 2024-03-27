@@ -90,19 +90,37 @@ if __name__ == '__main__':
     d, YY_ground_truth, stitched_obj = execute(nphotons)
 
 from importlib import reload
-def run_experiment_with_photons(photons_list, loss_fn='nll'):
+import time
+import traceback
+
+def run_experiment_with_photons(photons_list, loss_fn='nll', max_retries=3, retry_delay=60):
     print("DEBUG: Starting run_experiment_with_photons")
     results = {}
     first_iteration = True
     for nphotons in photons_list:
         init(nphotons, loss_fn=loss_fn)
         print("DEBUG: nphotons set to", nphotons, "in run_experiment_with_photons")
-        if  first_iteration:
-            d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=False)
-        else:
-            d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=True)
-        first_iteration = False
-        results[nphotons] = {'d': d, 'YY_ground_truth': YY_ground_truth, 'stitched_obj': stitched_obj}
+        
+        retry_count = 0
+        while retry_count < max_retries:
+            try:
+                if first_iteration:
+                    d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=False)
+                else:
+                    d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=True)
+                first_iteration = False
+                results[nphotons] = {'d': d, 'YY_ground_truth': YY_ground_truth, 'stitched_obj': stitched_obj}
+                break  # Break out of the retry loop if successful
+            except Exception as e:
+                print(f"Error occurred for nphotons={nphotons}: {str(e)}")
+                traceback.print_exc()
+                retry_count += 1
+                if retry_count < max_retries:
+                    print(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"Max retries reached for nphotons={nphotons}. Skipping.")
+    
     return results
 import os
 import dill
