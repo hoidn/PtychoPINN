@@ -2,11 +2,10 @@ import argparse
 
 def init(nphotons):
     from ptycho.params import cfg
-    from ptycho.params import cfg
     cfg['positions.provided'] = False
     cfg['data_source'] = 'lines'
     cfg['set_phi'] = False
-    cfg['nepochs'] = 60
+    cfg['nepochs'] = 1
 
     cfg['offset'] = 4
     cfg['max_position_jitter'] = 3
@@ -25,16 +24,25 @@ def init(nphotons):
 
     cfg['nphotons'] = nphotons
 
-def execute():
-    from ptycho.evaluation import save_metrics, trim
+def plot_results(stitched_obj, YY_ground_truth, d):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    fig, axs = plt.subplots(1, 1, figsize=(5, 5))
+
+    # reconstructed amplitude images
+    img1 = axs.imshow(np.absolute(stitched_obj)[0], cmap='jet', interpolation='none')
+    axs.set_title(f'Reconstructed amplitude - FRC50: {d["frc50"][0]:.2f}')
+
+    fig.colorbar(img1, ax=axs)
+
+def execute(nphotons, reload_modules=False):
     from ptycho.tf_helper import pad
     from ptycho.evaluation import save_metrics, trim
     from ptycho.tf_helper import pad
-
     from ptycho.params import cfg
-    import ptycho.generate_data as init
+    cfg['nphotons'] = nphotons
 
-    from ptycho.params import cfg
     cfg['data_source'] = 'lines'
     cfg['offset'] = 4
     cfg['max_position_jitter'] = 10
@@ -46,41 +54,20 @@ def execute():
     cfg['intensity_scale.trainable'] = True
 
     from ptycho import train
-    # reload(model)
-    # reload(train)
+    if reload_modules:
+        reload(train.generate_data)
+        reload(train.train_pinn.model)
+        reload(train.train_pinn)
+        reload(train)
 
-    # print(p.cfg)
     stitched_obj, YY_ground_truth = train.stitched_obj, train.YY_ground_truth
 
     from ptycho.train_pinn import train as train_pinn, eval as eval_pinn
+    from ptycho import misc
 
-    d = save_metrics(stitched_obj, YY_ground_truth, label='PINN,NLL,overlaps')
-    #d0 = d
-
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    fig, axs = plt.subplots(2, 2, figsize=(10, 10))
-
-    # reconstructed amplitude images
-    img1 = axs[0, 0].imshow(np.absolute(stitched_obj)[0], cmap='jet', interpolation='none')
-    axs[0, 0].set_title('Reconstructed amplitude')
-
-    # reconstructed phase images
-    axs[0, 1].imshow(np.angle(stitched_obj)[0], cmap='jet')
-    fig.colorbar(img1, ax=axs[0, 1])
-    axs[0, 1].set_title('Reconstructed phase')
-
-    # ground truth amplitude images
-    img = axs[1, 0].imshow(np.absolute(YY_ground_truth), interpolation='none', cmap='jet')
-    axs[1, 0].set_title('Ground truth amplitude')
-
-    # ground truth phase images
-    img = axs[1, 1].imshow(np.angle(YY_ground_truth), interpolation='none', cmap='jet')
-    axs[1, 1].set_title('Ground truth phase')
-    fig.colorbar(img, ax=axs[1, 1])
+    plot_results(stitched_obj, YY_ground_truth, train.d)
     # Corrected the indentation and scope of the return statement
-    return d, YY_ground_truth, stitched_obj
+    return train.d, YY_ground_truth, stitched_obj
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Ptychographic reconstruction script.')
@@ -92,4 +79,78 @@ if __name__ == '__main__':
     nphotons = parse_arguments()
     init(nphotons)
 
-    d, YY_ground_truth, stitched_obj = execute()
+    d, YY_ground_truth, stitched_obj = execute(nphotons)
+
+from importlib import reload
+def run_experiment_with_photons(photons_list):
+    print("DEBUG: Starting run_experiment_with_photons")
+    results = {}
+    first_iteration = True
+    for nphotons in photons_list:
+        init(nphotons)
+        print("DEBUG: nphotons set to", nphotons, "in run_experiment_with_photons")
+        if  first_iteration:
+            d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=False)
+        else:
+            d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=True)
+        first_iteration = False
+        results[nphotons] = {'d': d, 'YY_ground_truth': YY_ground_truth, 'stitched_obj': stitched_obj}
+    return results
+import os
+import dill
+import pandas as pd
+import numpy as np
+from matplotlib.image import imread
+
+def has_amp_recon(subdir):
+    return os.path.exists(os.path.join(subdir, 'amp_recon.png'))
+
+def load_recent_experiment_data(directory, N):
+    subdirs = [os.path.join(directory, d) for d in os.listdir(directory) if is_valid_run(os.path.join(directory, d)) and has_amp_recon(os.path.join(directory, d))]
+    print(subdirs)
+    recent_subdirs = subdirs[:N]
+    subdirs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+
+    data = {}
+    for subdir in recent_subdirs:
+        params_path = os.path.join(subdir, 'params.dill')
+        metrics_path = os.path.join(subdir, 'metrics.csv')
+
+        with open(params_path, 'rb') as f:
+            params = dill.load(f)
+        metrics = pd.read_csv(metrics_path)
+
+        nphotons = (np.log10(params['nphotons']))
+        print('NPOHOT {}'.format(nphotons))
+        #if nphotons not in data or os.path.getmtime(params_path) > os.path.getmtime(os.path.join(data[nphotons]['dir'], 'params.dill')):
+        amp_recon_path = os.path.join(subdir, 'amp_recon.png')
+        amp_recon = imread(amp_recon_path)
+        data[nphotons] = {'params': params, 'metrics': metrics, 'amp_recon': amp_recon, 'dir': subdir}
+
+    return {k: {'params': v['params'], 'metrics': v['metrics']} for k, v in data.items()}
+def is_valid_run(subdir):
+    return os.path.exists(os.path.join(subdir, 'params.dill'))
+import matplotlib.pyplot as plt
+
+def generate_and_save_heatmap(experiment_entry, ax=None, photon_dose=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    stitched_obj = experiment_entry['stitched_obj'][0, :, :, 0]
+    metrics = experiment_entry['d']
+    frc50 = metrics.get('frc50', [None])[0]
+    psnr = metrics.get('psnr', [None])[0]
+
+    ax.imshow(np.abs(stitched_obj), cmap='jet', interpolation='nearest')
+    title = f'FRC50: {frc50:.2f}, PSNR: {psnr:.2f}'
+    if photon_dose is not None:
+        title = f'Photons: {photon_dose:.0e}, ' + title
+    ax.set_title(title)
+    ax.axis('off')
+def generate_2x2_heatmap_plots(res, filename='heatmap_plots.png'):
+    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+    axs = axs.flatten()
+    for i, (photon_dose, experiment_entry) in enumerate(res.items()):
+        generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
+    plt.tight_layout()
+    plt.savefig(filename)
+    plt.close(fig)
