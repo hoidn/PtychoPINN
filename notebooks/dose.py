@@ -75,7 +75,7 @@ def execute(nphotons, reload_modules=False):
 
     plot_results(stitched_obj, YY_ground_truth, train.d)
     # Corrected the indentation and scope of the return statement
-    return train.d, YY_ground_truth, stitched_obj
+    return train.d, YY_ground_truth, stitched_obj, train.train_output
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Ptychographic reconstruction script.')
@@ -98,11 +98,11 @@ def run_experiment_with_photons(photons_list, loss_fn='nll'):
         init(nphotons, loss_fn=loss_fn)
         print("DEBUG: nphotons set to", nphotons, "in run_experiment_with_photons")
         if  first_iteration:
-            d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=False)
+            d, YY_ground_truth, stitched_obj, train_output = execute(nphotons, reload_modules=False)
         else:
-            d, YY_ground_truth, stitched_obj = execute(nphotons, reload_modules=True)
+            d, YY_ground_truth, stitched_obj, train_output = execute(nphotons, reload_modules=True)
         first_iteration = False
-        results[nphotons] = {'d': d, 'YY_ground_truth': YY_ground_truth, 'stitched_obj': stitched_obj}
+        results[nphotons] = {'d': d, 'YY_ground_truth': YY_ground_truth, 'stitched_obj': stitched_obj, 'train_output': train_output}
     return results
 import os
 import dill
@@ -154,11 +154,62 @@ def generate_and_save_heatmap(experiment_entry, ax=None, photon_dose=None):
         title = f'Photons: {photon_dose:.0e}, ' + title
     ax.set_title(title)
     ax.axis('off')
-def generate_2x2_heatmap_plots(res, filename='heatmap_plots.png'):
-    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
-    axs = axs.flatten()
+
+def generate_2x2_heatmap_plots(res, layout=(1, 4), filename='heatmap_plots.png', axs=None,
+                               fig = None):
+#    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 4*layout[0]))
+#    axs = axs.flatten()
     for i, (photon_dose, experiment_entry) in enumerate(res.items()):
         generate_and_save_heatmap(experiment_entry, axs[i], photon_dose)
     plt.tight_layout()
     plt.savefig(filename)
-    plt.close(fig)
+    if axs is None:
+        plt.tight_layout()
+        plt.savefig(filename)
+        #plt.close(fig)
+
+def plot_heatmap_from_experiment(res, nphot, index):
+    import matplotlib.pyplot as plt
+    c = res[nphot]['train_output']['dataset']
+    plt.imshow(np.log10(c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+    #plt.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+    plt.title(f'{nphot:.0e} photons', fontsize = 10)
+    plt.savefig(f'heatmap_photon_dose_{nphot:.0e}_index_{index}.png')
+    #plt.show()
+def plot_heatmaps_for_all_photons(res, index):
+    for nphot in res.keys():
+        plot_heatmap_from_experiment(res, nphot, index)
+    fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0]))
+
+def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filename='heatmap_plots_2x2.png', border_color='black', border_width=2, axs=None):
+    a, b = layout
+    #fig, axs = plt.subplots(1, b, figsize=(24, 3))
+    #fig, axs = plt.subplots(layout[0], layout[1], figsize=(12, 3*layout[0])) if axs is None else (None, axs)
+    axs = axs.flatten()
+    photon_doses = list(res.keys())[: b]  # Select the first 4 photon doses for the 2x2 grid
+    for i, nphot in enumerate(photon_doses):
+        ax = axs[i]
+        c = res[nphot]['train_output']['dataset']
+        heatmap = ax.imshow(np.log10(c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+        for spine in ax.spines.values():
+            spine.set_edgecolor(border_color)
+            spine.set_linewidth(border_width)
+        #ax.imshow(np.log10(.5 + c.X[index][:, :, 0]), cmap='viridis', interpolation='nearest')
+        #ax.set_title(f'{nphot:.0e} photons', fontsize=16)
+        ax.axis('off')
+    plt.tight_layout()
+    plt.savefig(filename)
+    if axs is None:
+        plt.tight_layout()
+        plt.savefig(filename)
+        #plt.show()
+
+def stack_and_display_horizontal_plots(res, index, layout = (1, 4), figsize = (24, 8)):
+    from matplotlib import pyplot as plt
+    a, b = layout
+    fig, axs = plt.subplots(2, b, figsize= figsize)
+    generate_2x2_heatmap_plots(res, layout= layout, axs=axs[0])
+    generate_2x2_heatmap_plots_using_function(res, index, layout= layout, axs=axs[1], border_color='black', border_width=2)
+    plt.tight_layout()
+    fig.savefig(f'stacked_dose_progression_index_{index}.png')
+    plt.show()
