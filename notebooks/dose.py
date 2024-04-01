@@ -204,12 +204,32 @@ def generate_2x2_heatmap_plots_using_function(res, index, layout=(1, 4), filenam
         plt.savefig(filename)
         #plt.show()
 
-def stack_and_display_horizontal_plots(res, index, layout = (1, 4), figsize = (24, 8)):
+def stack_and_display_horizontal_plots(res, index, layout=(1, 4), figsize=(24, 8), crop_size=None):
     from matplotlib import pyplot as plt
+    import numpy as np
+
     a, b = layout
-    fig, axs = plt.subplots(2, b, figsize= figsize)
-    generate_2x2_heatmap_plots(res, layout= layout, axs=axs[0])
-    generate_2x2_heatmap_plots_using_function(res, index, layout= layout, axs=axs[1], border_color='black', border_width=2)
+    fig, axs = plt.subplots(2, b, figsize=figsize)
+
+    if crop_size is not None:
+        def crop_center(img, cropx, cropy):
+            y, x = img.shape
+            startx = x // 2 - (cropx // 2)
+            starty = y // 2 - (cropy // 2)
+            return img[starty:starty + cropy, startx:startx + cropx]
+
+        cropped_res = {}
+        for dose, entry in res.items():
+            stitched_obj = entry['stitched_obj'][0, :, :, 0]
+            cropped_obj = crop_center(stitched_obj, crop_size, crop_size)
+            padded_obj = np.pad(cropped_obj, ((0, crop_size - cropped_obj.shape[0]), (0, crop_size - cropped_obj.shape[1])), mode='constant')
+            cropped_res[dose] = {'stitched_obj': np.expand_dims(np.expand_dims(padded_obj, axis=0), axis=-1), **{k: v for k, v in entry.items() if k != 'stitched_obj'}}
+
+        generate_2x2_heatmap_plots(cropped_res, layout=layout, axs=axs[0])
+    else:
+        generate_2x2_heatmap_plots(res, layout=layout, axs=axs[0])
+
+    generate_2x2_heatmap_plots_using_function(res, index, layout=layout, axs=axs[1], border_color='black', border_width=2)
     plt.tight_layout()
     fig.savefig(f'stacked_dose_progression_index_{index}.png')
     plt.show()
