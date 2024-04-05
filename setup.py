@@ -26,6 +26,7 @@ setup(
         'tensorboard-data-server',
         'tensorboard-plugin-wit',
         'tensorflow[and-cuda]',
+        'keras==2.14.0',
         'tensorflow-datasets',
         'tensorflow-estimator',
         'tensorflow-hub',
