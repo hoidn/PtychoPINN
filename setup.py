@@ -39,6 +39,7 @@ setup(
         'tqdm',
         'tensorflow-addons',
         'jupyter',
+        'globus-compute-endpoint',
         'scikit-image',
         'opencv-python'
         ],
