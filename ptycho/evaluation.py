@@ -286,44 +286,6 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         'frc': (frc_amp, frc_phi)}
 
 
-
-#def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
-#        label = ''):
-#    assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
-#    YY_ground_truth = np.absolute(ground_truth_obj)
-#    YY_phi_ground_truth = np.angle(ground_truth_obj)
-#
-#    phi_pred = trim(
-#        highpass2d(
-#            np.squeeze(np.angle(stitched_obj)[0]), n = lowpass_n
-#        )
-#    )
-#    phi_target = trim(
-#        highpass2d(
-#            np.squeeze(YY_phi_ground_truth), n = lowpass_n
-#        )
-#    )
-#    amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
-#    amp_pred = trim(np.absolute(stitched_obj)[0])
-#
-#    # TODO complex FRC?
-#    mae_amp = mae(amp_target, amp_pred) # PINN
-#    mse_amp = mse(amp_target, amp_pred) # PINN
-#    psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0], normalize = True,
-#        shift = False)
-#    frc_amp, frc50_amp = frc50(amp_target[:, :, 0], amp_pred[:, :, 0])
-#
-#    mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
-#    mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
-#    psnr_phi = psnr(phi_target, phi_pred, normalize = False, shift = True)
-#    frc_phi, frc50_phi = frc50(phi_target, phi_pred)
-#
-#    return {'mae': (mae_amp, mae_phi),
-#        'mse': (mse_amp, mse_phi),
-#        'psnr': (psnr_amp, psnr_phi),
-#        'frc50': (frc50_amp, frc50_phi),
-#        'frc': (frc_amp, frc_phi)}
-#
 import pandas as pd
 import os
 import dill

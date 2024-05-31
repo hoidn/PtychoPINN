@@ -4,7 +4,6 @@
 #     https://chat.openai.com/c/e6d5e400-daf9-44b7-8ef9-d49f21a634a3
 # -difference maps?
 # -double -> float32
-# Two lossess: a CDI loss and a ptychography loss
 # Apply real space loss to both amplitude and phase of the object
 
 from datetime import datetime
@@ -21,6 +20,7 @@ import os
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
+from .loader import PtychoDataContainer
 from . import tf_helper as hh
 from . import params as cfg
 params = cfg.params
@@ -59,27 +59,13 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
         self.w = initial_probe_guess
+    #@tf.function
     def call(self, inputs):
-        x, = inputs
+        x = inputs[0]
         if cfg.get('probe.mask'):
             return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
         else:
             return self.w * x, (self.w)[None, ...]
-
-# Stochastic probe
-#class ProbeIllumination(tf.keras.layers.Layer):
-#    def __init__(self, name = None):
-#        super(ProbeIllumination, self).__init__(name = name)
-#        self.w = initial_probe_guess
-#        self.dist = tfd.Independent(tfd.Normal(loc = tf.math.real(self.w),
-#            scale = 0.1))
-#    def call(self, inputs):
-#        x, = inputs
-#        sample = tf.cast(self.dist.sample(), tf.complex64)
-#        if cfg.get('probe.mask'):
-#            return sample  * x * probe_mask, (sample * probe_mask)[None, ...]
-#        else:
-#            return sample * x, (sample)[None, ...]
 
 probe_illumination = ProbeIllumination()
 
@@ -120,20 +106,6 @@ def inv_scale(inputs):
     x, = inputs
     return tf.math.exp(log_scale) * x
 
-#class LogScaler(tf.keras.layers.Layer):
-#    def __init__(self):
-#        super(LogScaler, self).__init__()
-#    def call(self, inputs):
-#        x, = inputs
-#        return tf.math.log(1 + x**2) / tf.math.log(nphotons / (N**2))
-#
-#class LogScaler_inv(tf.keras.layers.Layer):
-#    def __init__(self):
-#        super(LogScaler_inv, self).__init__()
-#    def call(self, inputs):
-#        x, = inputs
-#        return tf.math.exp((x**2) * tf.math.log(nphotons / (N**2))) - 1
-
 tf.keras.backend.clear_session()
 np.random.seed(2)
 
@@ -144,10 +116,6 @@ for file in files:
 lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
 input_img = Input(shape=(N, N, gridsize**2), name = 'input')
 input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
-
-#logscaler = LogScaler()
-#inv_logscaler = LogScaler_inv()
-#normed_input = logscaler([input_img])
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -162,21 +130,19 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
     x0 = UpSampling2D((p1, p2), data_format=data_format)(x0)
     return x0
 
-def create_encoder_functional(input_tensor, n_filters_scale):
-    # Blocks
+def create_encoder(input_tensor, n_filters_scale):
     # x = Conv_Pool_block(input_tensor, n_filters_scale * 16)  # This block is commented out in the original
     x = Conv_Pool_block(input_tensor, n_filters_scale * 32)
     x = Conv_Pool_block(x, n_filters_scale * 64)
     outputs = Conv_Pool_block(x, n_filters_scale * 128)
     return outputs
 
-def create_decoder_base_functional(input_tensor, n_filters_scale):
-    # Blocks
+def create_decoder_base(input_tensor, n_filters_scale):
     x = Conv_Up_block(input_tensor, n_filters_scale * 128)
     outputs = Conv_Up_block(x, n_filters_scale * 64)
     return outputs
 
-def create_decoder_last_functional(input_tensor, n_filters_scale, conv1, conv2,
+def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2,
         act=tf.keras.activations.sigmoid, name=''):
     N = cfg.get('N')  # Placeholder: this should be fetched from the actual configuration
     gridsize = cfg.get('gridsize')  # Placeholder: this should be fetched from the actual configuration
@@ -198,21 +164,21 @@ def create_decoder_last_functional(input_tensor, n_filters_scale, conv1, conv2,
     outputs = x1 + x2
     return outputs
 
-def create_decoder_phase_functional(input_tensor, n_filters_scale, gridsize, big):
+def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     num_filters = gridsize**2 if big else 1
     conv1 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     conv2 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     # Activation function using Lambda layer
     act = tf.keras.layers.Lambda(lambda x: math.pi * tf.keras.activations.tanh(x), name='phi')
-    x = create_decoder_base_functional(input_tensor, n_filters_scale)
-    outputs = create_decoder_last_functional(x, n_filters_scale, conv1, conv2, act=act,
+    x = create_decoder_base(input_tensor, n_filters_scale)
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act,
         name = 'phase')
     return outputs
 
-def create_autoencoder_functional(input_tensor, n_filters_scale, gridsize, big):
-    encoded = create_encoder_functional(input_tensor, n_filters_scale)
-    decoded_amp = create_decoder_amp_functional(encoded, n_filters_scale)
-    decoded_phase = create_decoder_phase_functional(encoded, n_filters_scale, gridsize, big)
+def create_autoencoder(input_tensor, n_filters_scale, gridsize, big):
+    encoded = create_encoder(input_tensor, n_filters_scale)
+    decoded_amp = create_decoder_amp(encoded, n_filters_scale)
+    decoded_phase = create_decoder_phase(encoded, n_filters_scale, gridsize, big)
 
     return decoded_amp, decoded_phase
 
@@ -224,39 +190,19 @@ def get_amp_activation():
     else:
         return ValueError
 
-def create_decoder_amp_functional(input_tensor, n_filters_scale):
+def create_decoder_amp(input_tensor, n_filters_scale):
     # Placeholder convolution layers and activation as defined in the original DecoderAmp class
     conv1 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
     conv2 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
     act = Lambda(get_amp_activation(), name='amp')
 
-    x = create_decoder_base_functional(input_tensor, n_filters_scale)
-    outputs = create_decoder_last_functional(x, n_filters_scale, conv1, conv2, act=act,
+    x = create_decoder_base(input_tensor, n_filters_scale)
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act,
         name = 'amp')
     return outputs
 
-#class PositionEncoder(Model):
-#    # TODO scale tanh
-#    def __init__(self, encoder):
-#        super(AutoEncoder, self).__init__()
-#        self.encoder = encoder
-#        self.position = Lambda(lambda x:
-#            tanh(
-#                layers.Reshape((1, 2, gridsize**2))(
-#                layers.Dense(2 * gridsize**2)(
-#                layers.Flatten()(
-#                layers.Dropout(0.3)(x)))), name = 'positions_enc'
-#                )
-#            )
-#    def call(self, inputs):
-#        x, xhat, y = inputs
-#        encoded = tf.concat(
-#            [self.encoder(x), self.encoder(xhat), self.encoder(y)])
-#        encoded_pos = self.position(encoded)
-#        return encoded_pos
-
 normed_input = scale([input_img])
-decoded1, decoded2 = create_autoencoder_functional(normed_input, n_filters_scale, gridsize,
+decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
     cfg.get('object.big'))
 
 # Combine the two decoded outputs
@@ -311,8 +257,8 @@ autoencoder_no_nll = Model(inputs = [input_img, input_positions],
 
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[obj, input_positions],
 #                           outputs=[pred_diff, flat_illuminated])
-diffraction_to_obj = tf.keras.Model(inputs=[input_img],
-                           outputs=[obj])
+diffraction_to_obj = tf.keras.Model(inputs=[input_img, input_positions],
+                           outputs=[trimmed_obj])
 
 mae_weight = cfg.get('mae_weight') # should normally be 0
 nll_weight = cfg.get('nll_weight') # should normally be 1
@@ -335,17 +281,20 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
-def prepare_inputs(X_train, coords_train):
+def prepare_inputs(train_data: PtychoDataContainer):
     """training inputs"""
-    return [X_train * cfg.get('intensity_scale'), coords_train]
+    return [train_data.X * cfg.get('intensity_scale'), train_data.coords]
 
-def prepare_outputs(Y_I_train, coords_train, X_train):
+def prepare_outputs(train_data: PtychoDataContainer):
     """training outputs"""
-    return [hh.center_channels(Y_I_train, coords_train)[:, :, :, :1],
-                (cfg.get('intensity_scale') * X_train),
-                (cfg.get('intensity_scale') * X_train)**2]
+    return [hh.center_channels(train_data.Y_I, train_data.coords)[:, :, :, :1],
+                (cfg.get('intensity_scale') * train_data.X),
+                (cfg.get('intensity_scale') * train_data.X)**2]
 
-def train(epochs, X_train, coords_train, Y_obj_train):
+#def train(epochs, X_train, coords_train, Y_obj_train):
+def train(epochs, trainset: PtychoDataContainer):
+    assert type(trainset) == PtychoDataContainer
+    coords_train = trainset.coords
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
@@ -357,11 +306,48 @@ def train(epochs, X_train, coords_train, Y_obj_train):
 
     batch_size = params()['batch_size']
     history=autoencoder.fit(
-        prepare_inputs(X_train, coords_train),
-        prepare_outputs(Y_obj_train, coords_train, X_train),
+#        prepare_inputs(X_train, coords_train),
+#        prepare_outputs(Y_obj_train, coords_train, X_train),
+        prepare_inputs(trainset),
+        prepare_outputs(trainset),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
         callbacks=[reduce_lr, earlystop])
         #callbacks=[reduce_lr, earlystop, tboard_callback])
-        #callbacks=[reduce_lr, earlystop, checkpoints])
     return history
+import numpy as np
+
+def print_model_diagnostics(model):
+    """
+    Prints diagnostic information for a given TensorFlow/Keras model.
+
+    Parameters:
+    - model: A TensorFlow/Keras model object.
+    """
+    # Print the model summary to get the architecture, layer types, output shapes, and parameter counts.
+    model.summary()
+
+    # Print input shape
+    print("Model Input Shape(s):")
+    for input_layer in model.inputs:
+        print(input_layer.shape)
+
+    # Print output shape
+    print("Model Output Shape(s):")
+    for output_layer in model.outputs:
+        print(output_layer.shape)
+
+    # Print total number of parameters
+    print("Total Parameters:", model.count_params())
+
+    # Print trainable and non-trainable parameter counts
+    trainable_count = np.sum([tf.keras.backend.count_params(w) for w in model.trainable_weights])
+    non_trainable_count = np.sum([tf.keras.backend.count_params(w) for w in model.non_trainable_weights])
+    print("Trainable Parameters:", trainable_count)
+    print("Non-trainable Parameters:", non_trainable_count)
+
+    # If the model uses any custom layers, print their names and configurations
+    print("Custom Layers (if any):")
+    for layer in model.layers:
+        if hasattr(layer, 'custom_objects'):
+            print(f"{layer.name}: {layer.custom_objects}")
