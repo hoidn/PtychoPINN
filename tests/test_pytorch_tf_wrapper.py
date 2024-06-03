@@ -28,13 +28,15 @@ def hash_tensor(tensor):
 
 def generate_unique_id(func, *args, **kwargs):
     """
-    Generate unique ID for function output
+    Generate unique ID for function output. Modified to exclude function name from unique ID, such that
+    PyTorch and Tensorflow functions with identical inputs generate the same unique ID.
     """
 
     func_name = func.__name__
     args_hash = "_".join([hash_tensor(arg) if isinstance(arg, (tf.Tensor, torch.Tensor)) else str(arg) for arg in args])
     kwargs_hash = "_".join([f"{k}={hash_tensor(v) if isinstance(v, (tf.Tensor, torch.Tensor)) else v}" for k, v in kwargs.items()])
-    unique_id = f"{func_name}_{args_hash}_{kwargs_hash}"
+    unique_id = f"{args_hash}_{kwargs_hash}"
+    #unique_id = f"{func_name}"
 
     return unique_id
 
@@ -62,11 +64,53 @@ def load_output(func_id):
         return output
     else:
         return None
+    
+def invocation_wrapper(outer_wrapper):
+    """
+    Wrap a function with a wrapper that tracks the number of times a function is called.
+    Outer wrapper keeps track of number of calls
+    Inner wrapper is the actual function being passed through (e.g. relu or forward pass of a neural network layer)
+    """
 
-def output_consistency(func):
-    @functools.wraps(func)
+    class Invocations:
+        """
+        Invocation class keeps track of number of times function is called. Each function has its own unique key with corresponding counts
+        """
+        def __init__(self):
+            self.counts = {}
+
+        def increment_count(self, f):
+            if f not in self.counts:
+                self.counts[f] = 1
+            else:
+                self.counts[f] += 1
+
+
+    invocations = Invocations()
+
+    @functools.wraps(outer_wrapper)
+    def wrapper(f):
+        @functools.wraps(f)
+        def inner_wrapper(*args, **kwargs):
+            #Increment invocations count (each function has a separate tracker)
+            invocations.increment_count(f)
+            #If function calls are above 2, do not save function outputs (simply pass func through)
+            if invocations.counts[f] <= 2:
+                return outer_wrapper(f)(*args, **kwargs)
+            else:
+                return f(*args, **kwargs)
+            
+        return inner_wrapper
+    
+    return wrapper
+
+#Create instance of invocation wrapper that prints function details
+@invocation_wrapper
+def debug(func):
     def wrapper(*args, **kwargs):
+        print(f"Function '{func.__name__}' called with args {args} and kwargs {kwargs}")
 
+        #Save function outputs, etc.
         #Generate function id
         func_id = generate_unique_id(func, *args, **kwargs)
 
@@ -83,11 +127,41 @@ def output_consistency(func):
             if not np.allclose(output.numpy(), existing_output):
                 raise ValueError("Output mismatch for function '{func.__name__}' with id '{func_id}'")
             else:
-                print(f"Output for function '{func.__name__}' with id '{func_id}' is consistent")
+                print(f"Output for function '{func.__name__}' with id '{func_id}' is consistent")   
 
         return output
+    
 
     return wrapper
+
+
+# def output_consistency(func):
+#     @functools.wraps(func)
+#     def wrapper(*args, **kwargs):
+
+#         #Generate function id
+#         func_id = generate_unique_id(func, *args, **kwargs)
+
+#         # Generate default function output
+#         output = func(*args, **kwargs)
+
+#         # Load existing output if available
+#         existing_output = load_output(func_id)
+
+#         # Save output if not available
+#         if existing_output is None:
+#             save_output(func_id, output)
+#         else: #Check if output is consistent
+#             if not np.allclose(output.numpy(), existing_output):
+#                 raise ValueError("Output mismatch for function '{func.__name__}' with id '{func_id}'")
+#             else:
+#                 print(f"Output for function '{func.__name__}' with id '{func_id}' is consistent")
+
+#         return output
+
+#     return wrapper
+
+
 
 
 
