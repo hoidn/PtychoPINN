@@ -37,10 +37,7 @@ def load_xpp_data(file_path, gridh=32, gridw=32, train_size=512):
     ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index, objectGuess=objectGuess)
     ptycho_data_train = RawData(xcoords[:train_size], ycoords[:train_size], xcoords_start[:train_size], ycoords_start[:train_size], diff3d[:train_size], probeGuess, scan_index[:train_size], objectGuess=objectGuess)
 
-    train_data_container = load(lambda: ptycho_data_train.generate_grouped_data(64, K=7, nsamples=1), which='train')
-    test_data_container = load(lambda: ptycho_data.generate_grouped_data(64, K=7, nsamples=1), which='test')
-
-    return train_data_container, test_data_container
+    return ptycho_data_train, ptycho_data
 
 def get_data_containers(data_file_path=None, N=64, train_frac=0.5, **kwargs):
     """
@@ -60,7 +57,9 @@ def get_data_containers(data_file_path=None, N=64, train_frac=0.5, **kwargs):
     elif not os.path.isfile(data_file_path):
         raise FileNotFoundError(f"File not found: {data_file_path}")
 
-    train_data_container, test_data_container = load_xpp_data(data_file_path)
+    ptycho_data_train, ptycho_data = load_xpp_data(data_file_path)
+    train_data_container = load(lambda: ptycho_data_train.generate_grouped_data(64, K=7, nsamples=1), which='train')
+    test_data_container = load(lambda: ptycho_data.generate_grouped_data(64, K=7, nsamples=1), which='test')
     return train_data_container, test_data_container
 
 def get_data(data_file_path=None, N=64, train_frac=0.5, **kwargs):
