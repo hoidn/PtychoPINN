@@ -39,7 +39,7 @@ def load_xpp_data(file_path, gridh=32, gridw=32, train_size=512):
 
     return ptycho_data_train, ptycho_data
 
-def get_data_containers(data_file_path=None, N=64, train_frac=0.5, **kwargs):
+def get_data_containers(data_file_path, N=64, train_frac=0.5, **kwargs):
     """
     Get the train and test data containers.
     Args:
@@ -50,9 +50,7 @@ def get_data_containers(data_file_path=None, N=64, train_frac=0.5, **kwargs):
     Returns:
         tuple: A tuple containing train_data_container and test_data_container.
     """
-    if data_file_path is None:
-        data_file_path = pkg_resources.resource_filename(__name__, 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
-    elif not isinstance(data_file_path, str):
+    if not isinstance(data_file_path, str):
         raise TypeError("data_file_path must be a string.")
     elif not os.path.isfile(data_file_path):
         raise FileNotFoundError(f"File not found: {data_file_path}")
@@ -73,5 +71,17 @@ def get_data(data_file_path=None, N=64, train_frac=0.5, **kwargs):
     Returns:
         tuple: A tuple containing the grouped data and train_frac.
     """
-    train_data_container, _ = get_data_containers(data_file_path, N, train_frac, **kwargs)
-    return train_data_container.generate_grouped_data(N, K=7, nsamples=1), train_frac
+    # TODO deprecate this function
+    # TODO ptychodataset should contain the probe so that we don't have to track it separately
+    ptycho_data_train, ptycho_data = load_xpp_data(data_file_path)
+    dset = loader.get_neighbor_diffraction_and_positions(ptycho_data, N, K=7,
+        nsamples=1)
+    return dset, train_frac, ptycho_data
+
+#data_file_path = pkg_resources.resource_filename(__name__, 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
+#
+## TODO ptychodataset should contain the probe so that we don't have to track it separately
+#dset, train_frac, ptycho_data = get_data(data_file_path)
+#X_full = dset['X_full']
+#probeGuess = ptycho_data.probeGuess
+#objectGuess = ptycho_data.objectGuess 

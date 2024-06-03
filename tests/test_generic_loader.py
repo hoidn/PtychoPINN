@@ -1,17 +1,23 @@
+import pkg_resources
 import numpy as np
 import os
 from ptycho.loader import RawData
-from ptycho.xpp import ptycho_data, ptycho_data_train
+from ptycho.xpp import load_xpp_data
 import tensorflow as tf
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppresses most TensorFlow warnings
 
 def create_sample_data_file(file_path, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
     np.savez(file_path, xcoords=xcoords, ycoords=ycoords, xcoords_start=xcoords_start, ycoords_start=ycoords_start, diff3d=diff3d, probeGuess=probeGuess, scan_index=scan_index)
 
-def test_generic_loader(remove = True):
+def get_test_data_path():
+    path = 'datasets/Run1084_recon3_postPC_shrunk_3.npz'
+    return pkg_resources.resource_filename(__name__, 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
+
+def test_generic_loader(remove = True, path = None):
+    if path is None:
+        path = get_test_data_path()
     # Load RawData instances using the 'xpp' method
-    train_data = ptycho_data_train
-    test_data = ptycho_data
+    train_data, test_data = load_xpp_data(path)
 
     # Define file paths for output
     train_data_file_path = 'train_data.npz'
