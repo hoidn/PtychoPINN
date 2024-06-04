@@ -159,7 +159,7 @@ def generate_data(probeGuess = None):
         ptycho_dataset = create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
                                                X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true)
     elif data_source == 'xpp':
-        train_data_container, test_data_container = load_xpp_data(probeGuess)
+        test_data_container, train_data_container = load_xpp_data(probeGuess)
         intensity_scale = train_data_container.norm_Y_I
         ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
         YY_ground_truth = None
