@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 
 from scipy.fft import fft, fftfreq, ifft, fft2, ifft2, ifftshift
-from scipy.signal import blackman
 import matplotlib.pyplot as plt
 from scipy.fftpack import fft, fftshift
 from scipy.signal import butter
@@ -18,7 +17,8 @@ def plot_df(*args):
     return df.plot()
 
 def lowpass_g(size, y, sym = False):
-    L = signal.gaussian(len(y), std = len(y) / (size * np.pi**2), sym = sym)
+    from scipy.signal.windows import gaussian
+    L = gaussian(len(y), std = len(y) / (size * np.pi**2), sym = sym)
     L /= L.max()
     return L
 
