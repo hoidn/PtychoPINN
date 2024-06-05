@@ -131,36 +131,57 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
     return x0
 
 def create_encoder(input_tensor, n_filters_scale):
-    # x = Conv_Pool_block(input_tensor, n_filters_scale * 16)  # This block is commented out in the original
-    x = Conv_Pool_block(input_tensor, n_filters_scale * 32)
-    x = Conv_Pool_block(x, n_filters_scale * 64)
-    outputs = Conv_Pool_block(x, n_filters_scale * 128)
-    return outputs
+    N = cfg.get('N')
+    
+    if N == 64:
+        filters = [n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+    elif N == 128:
+        filters = [n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+    elif N == 256:
+        filters = [n_filters_scale * 8, n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+    else:
+        raise ValueError(f"Unsupported input size: {N}")
+    
+    x = input_tensor
+    for num_filters in filters:
+        x = Conv_Pool_block(x, num_filters)
+    
+    return x
 
 def create_decoder_base(input_tensor, n_filters_scale):
-    x = Conv_Up_block(input_tensor, n_filters_scale * 128)
-    outputs = Conv_Up_block(x, n_filters_scale * 64)
-    return outputs
+    N = cfg.get('N')
+    
+    if N == 64:
+        filters = [n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 128:
+        filters = [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 256:
+        filters = [n_filters_scale * 256, n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    else:
+        raise ValueError(f"Unsupported input size: {N}")
+    
+    x = input_tensor
+    for num_filters in filters:
+        x = Conv_Up_block(x, num_filters)
+    
+    return x
 
-def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2,
-        act=tf.keras.activations.sigmoid, name=''):
-    N = cfg.get('N')  # Placeholder: this should be fetched from the actual configuration
-    gridsize = cfg.get('gridsize')  # Placeholder: this should be fetched from the actual configuration
-
+def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2, act=tf.keras.activations.sigmoid, name=''):
+    N = cfg.get('N')
+    gridsize = cfg.get('gridsize')
+    
     c_outer = 4
     x1 = conv1(input_tensor[..., :-c_outer])
     x1 = act(x1)
     x1 = tf.keras.layers.ZeroPadding2D(((N // 4), (N // 4)), name=name + '_padded')(x1)
-
-    # Assuming the centermask function is similar to the one in the original class (needs to be defined)
-    # x1 = centermask(x1)
-    if not cfg.get('probe.big'):  # Placeholder: this should be fetched from the actual configuration
+    
+    if not cfg.get('probe.big'):
         return x1
+    
     x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * 32)
     x2 = conv2(x2)
     x2 = swish(x2)
-    # x2 = centermask(x2)  # Applying centermask operation
-
+    
     outputs = x1 + x2
     return outputs
 
@@ -168,19 +189,56 @@ def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     num_filters = gridsize**2 if big else 1
     conv1 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     conv2 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
-    # Activation function using Lambda layer
     act = tf.keras.layers.Lambda(lambda x: math.pi * tf.keras.activations.tanh(x), name='phi')
-    x = create_decoder_base(input_tensor, n_filters_scale)
-    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act,
-        name = 'phase')
+    
+    N = cfg.get('N')
+    
+    if N == 64:
+        filters = [n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 128:
+        filters = [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 256:
+        filters = [n_filters_scale * 256, n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    else:
+        raise ValueError(f"Unsupported input size: {N}")
+    
+    x = input_tensor
+    for num_filters in filters:
+        x = Conv_Up_block(x, num_filters)
+    
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act, name='phase')
+    return outputs
+
+def create_decoder_amp(input_tensor, n_filters_scale):
+    conv1 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
+    conv2 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
+    act = Lambda(get_amp_activation(), name='amp')
+    
+    N = cfg.get('N')
+    
+    if N == 64:
+        filters = [n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 128:
+        filters = [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 256:
+        filters = [n_filters_scale * 256, n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    else:
+        raise ValueError(f"Unsupported input size: {N}")
+    
+    x = input_tensor
+    for num_filters in filters:
+        x = Conv_Up_block(x, num_filters)
+    
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act, name='amp')
     return outputs
 
 def create_autoencoder(input_tensor, n_filters_scale, gridsize, big):
     encoded = create_encoder(input_tensor, n_filters_scale)
     decoded_amp = create_decoder_amp(encoded, n_filters_scale)
     decoded_phase = create_decoder_phase(encoded, n_filters_scale, gridsize, big)
-
+    
     return decoded_amp, decoded_phase
+
 
 def get_amp_activation():
     if cfg.get('amp_activation') == 'sigmoid':

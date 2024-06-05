@@ -550,7 +550,10 @@ def load(cb, probeGuess, which=None, create_split=True, **kwargs) -> PtychoDataC
     X = tf.convert_to_tensor(X)
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
-    Y_obj = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+    try:
+        Y_obj = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+    except:
+        Y_obj = tf.zeros_like(X)
 
     norm_Y_I = datasets.scale_nphotons(X)
 
@@ -558,10 +561,16 @@ def load(cb, probeGuess, which=None, create_split=True, **kwargs) -> PtychoDataC
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
 
-    Y_obj = get_image_patches(gt_image,
-        global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
-    Y_I = tf.math.abs(Y_obj)
-    Y_phi = tf.math.angle(Y_obj)
+    try:
+        Y_obj = get_image_patches(gt_image,
+            global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+        Y_I = tf.math.abs(Y_obj)
+        Y_phi = tf.math.angle(Y_obj)
+    except: 
+        Y_obj = None
+        Y_I = tf.zeros_like(X)
+        Y_phi = tf.zeros_like(X)
+
     YY_full = None
     # TODO complex
     container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
