@@ -67,8 +67,8 @@ print('raw diffraction shape', obj['diffraction'].shape)
 # TODO cast to complex64?
 probeGuess = obj['probeGuess']
 objectGuess = obj['objectGuess']
-dset = loader.get_neighbor_diffraction_and_positions(ptycho_data, N, K=7,
-    nsamples=1)
+#dset = loader.get_neighbor_diffraction_and_positions(ptycho_data, N, K=6,
+#    nsamples=4)
 
 #dset = loader.get_neighbor_diffraction_and_positions(diff3d, xcoords, ycoords,
 #    xcoords_start, ycoords_start, K = 7, nsamples = 1)
