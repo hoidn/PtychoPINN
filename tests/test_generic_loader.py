@@ -9,12 +9,12 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppresses most TensorFlow warnings
 def create_sample_data_file(file_path, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
     np.savez(file_path, xcoords=xcoords, ycoords=ycoords, xcoords_start=xcoords_start, ycoords_start=ycoords_start, diff3d=diff3d, probeGuess=probeGuess, scan_index=scan_index)
 
-def test_generic_loader(remove=True, data_file_path = None):
+def test_generic_loader(remove=True, data_file_path = None, train_size = 512):
     if data_file_path is None:
         data_file_path = pkg_resources.resource_filename('ptycho', 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
 
     # Load RawData instances using the 'xpp' method
-    test_data, train_data, _ = load_ptycho_data(data_file_path)
+    test_data, train_data, _ = load_ptycho_data(data_file_path, train_size = train_size)
 
     # Define file paths for output
     train_data_file_path = 'train_data.npz'

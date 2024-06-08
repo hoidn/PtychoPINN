@@ -318,34 +318,82 @@ def crop12(arr, size):
 # TODO move to tf_helper, except the parts that are specific to xpp
 # should be in xpp.py
 from .tf_helper import complexify_function
+from ptycho.misc import debug
+
+import tensorflow as tf
+
+
+def extract_and_translate_patch_np(image, offset, patch_size):
+    # Calculate the starting coordinates for cropping.
+    start_x = int(offset[0]) + image.shape[0] // 2 - patch_size // 2
+    start_y = int(offset[1]) + image.shape[1] // 2 - patch_size // 2
+
+    # Crop the patch from the image.
+    patch = image[start_x:start_x + patch_size, start_y:start_y + patch_size, :]
+
+    return patch
+
+def unsqueeze_coords(tensor):
+    """
+    unsqueeze 2d coordinates to flat 4d tensor format
+    """
+    # TODO assert tensor dimensionality is 2
+    return tensor[:, None, :, None]
+
+from . import tf_helper as hh
 @complexify_function
 def get_image_patches(gt_image, global_offsets, local_offsets):
     """
-    Generate and return image patches in channel format.
+    Generate and return image patches in channel format using a single canvas.
+
+    Args:
+        gt_image (tensor): Ground truth image tensor.
+        global_offsets (tensor): Global offset tensor.
+        local_offsets (tensor): Local offset tensor.
+
+    Returns:
+        tensor: Image patches in channel format.
     """
-    from . import tf_helper as hh
+    # Get necessary parameters
     gridsize = params()['gridsize']
     N = params()['N']
     B = global_offsets.shape[0]
+    c = gridsize**2
 
-    gt_repeat = tf.repeat(
-        tf.repeat(gt_image[None, ...], B, axis = 0)[..., None],
-        gridsize**2, axis = 3)
+    # Pad the ground truth image
+    gt_padded = hh.pad(gt_image[None, ..., None], N // 2)
 
-    gt_repeat = hh.pad(gt_repeat, N // 2)
-
-    gt_repeat_f = hh._channel_to_flat(gt_repeat)
-
-    offsets_c = tf.cast(
-            (global_offsets + local_offsets),
-            tf.float32)
+    # Calculate the combined offsets
+    offsets_c = calculate_combined_offsets(global_offsets, local_offsets)
 
     offsets_f = hh._channel_to_flat(offsets_c)
 
-    gt_translated = hh.translate(tf.squeeze(gt_repeat_f)[..., None],
-        -tf.squeeze(offsets_f))[:, :N, :N, :]
-    gt_translated = hh._flat_to_channel(gt_translated)
-    return gt_translated
+    # Create a canvas to store the extracted patches
+    canvas = np.array(tf.zeros((B, N, N, c)))
+
+    # Iterate over the combined offsets and extract patches
+    for i in range(B):
+        # Extract the current offset
+        for j in range(c):
+            offset = -offsets_f[i, :, :, j]
+            translated_patch = hh.translate(gt_padded, offset)
+            canvas[i, :, :, j] = np.array(translated_patch)[0, :N, :N, 0]
+
+    return tf.convert_to_tensor(canvas)
+
+def calculate_combined_offsets(global_offsets, local_offsets):
+    """
+    Calculate the combined offsets.
+
+    Args:
+        global_offsets (tensor): Global offset tensor.
+        local_offsets (tensor): Local offset tensor.
+
+    Returns:
+        tensor: Combined offset tensor.
+    """
+    offsets_c = tf.cast((global_offsets + local_offsets), tf.float32)
+    return offsets_c
 
 # TODO move to tf_helper, except the parts that are specific to xpp
 # should be in xpp.py
@@ -443,47 +491,76 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
     print('neighbor-sampled diffraction shape', X_full.shape)
     return dset
 
-#def shift_and_sum(obj_tensor, global_offsets, M = 10):
-#    canvas_pad = 100
-#    from . import tf_helper as hh
-#    N = params()['N']
-#    offsets_2d = tf.cast(tf.squeeze(global_offsets), tf.float32)
-#    obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
-#    obj_tensor = hh.pad(obj_tensor, canvas_pad)
-#    obj_translated = hh.translate(obj_tensor, offsets_2d, interpolation = 'bilinear')
-#    return tf.reduce_sum(obj_translated, 0)
+@complexify_function
+def get_image_patches(gt_image, global_offsets, local_offsets):
+    """
+    Generate and return image patches in channel format using a single canvas.
+
+    Args:
+        gt_image (tensor): Ground truth image tensor.
+        global_offsets (tensor): Global offset tensor.
+        local_offsets (tensor): Local offset tensor.
+
+    Returns:
+        tensor: Image patches in channel format.
+    """
+    # Get necessary parameters
+    gridsize = params()['gridsize']
+    N = params()['N']
+    B = global_offsets.shape[0]
+    c = gridsize**2
+
+    # Pad the ground truth image once
+    gt_padded = hh.pad(gt_image[None, ..., None], N // 2)
+
+    # Calculate the combined offsets by adding global and local offsets
+    offsets_c = tf.cast((global_offsets + local_offsets), tf.float32)
+    offsets_f = hh._channel_to_flat(offsets_c)
+
+    # Create a canvas to store the extracted patches
+    canvas = np.zeros((B, N, N, c))
+
+    # Iterate over the combined offsets and extract patches one by one
+    for i in range(B):
+        for j in range(c):
+            offset = -offsets_f[i, :, :, j]
+            translated_patch = hh.translate(gt_padded, offset)
+            canvas[i, :, :, j] = np.array(translated_patch)[0, :N, :N, 0]
+
+    # Convert the canvas to a TensorFlow tensor and return it
+    return tf.convert_to_tensor(canvas)
 
 def shift_and_sum(obj_tensor, global_offsets, M=10):
     from . import tf_helper as hh
-
     # Extract necessary parameters
     N = params()['N']
-
     # Select the central part of the object tensor
     obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
-
     # Calculate the center of mass of global_offsets
     center_of_mass = tf.reduce_mean(tf.cast(global_offsets, tf.float32), axis=0)
-
     # Adjust global_offsets by subtracting the center of mass
     adjusted_offsets = tf.cast(global_offsets, tf.float32) - center_of_mass
-
     # Calculate dynamic padding based on maximum adjusted offset
     max_offset = tf.reduce_max(tf.abs(adjusted_offsets))
     dynamic_pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
     print('PADDING SIZE:', dynamic_pad)
-
-    # Apply dynamic padding
-    obj_tensor = hh.pad(obj_tensor, dynamic_pad)
-
-    # Squeeze and cast adjusted offsets to 2D float for translation
-    offsets_2d = tf.cast(tf.squeeze(adjusted_offsets), tf.float32)
-
-    # Translate the object tensor
-    obj_translated = hh.translate(obj_tensor, offsets_2d, interpolation='bilinear')
-
-    # Reduce and sum across the first dimension
-    return tf.reduce_sum(obj_translated, axis=0)
+    
+    # Create a canvas to store the shifted and summed object tensors
+    result = tf.zeros_like(hh.pad(obj_tensor[0:1], dynamic_pad))
+    
+    # Iterate over the adjusted offsets and perform shift-and-sum
+    for i in range(len(adjusted_offsets)):
+        # Apply dynamic padding to the current object tensor
+        padded_obj_tensor = hh.pad(obj_tensor[i:i+1], dynamic_pad)
+        # Squeeze and cast adjusted offset to 2D float for translation
+        offset_2d = tf.cast(tf.squeeze(adjusted_offsets[i]), tf.float32)
+        # Translate the padded object tensor
+        translated_obj = hh.translate(padded_obj_tensor, offset_2d, interpolation='bilinear')
+        # Accumulate the translated object tensor
+        result += translated_obj[0]
+    
+    # TODO: how could we support multiple scans?
+    return result[0]
 
 
 # TODO move to tf_helper?
@@ -550,10 +627,10 @@ def load(cb, probeGuess, which=None, create_split=True, **kwargs) -> PtychoDataC
     X = tf.convert_to_tensor(X)
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
-    try:
-        Y_obj = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
-    except:
-        Y_obj = tf.zeros_like(X)
+#    try:
+#        Y_obj = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+#    except:
+#        Y_obj = tf.zeros_like(X)
 
     norm_Y_I = datasets.scale_nphotons(X)
 
@@ -561,15 +638,17 @@ def load(cb, probeGuess, which=None, create_split=True, **kwargs) -> PtychoDataC
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
 
-    try:
-        Y_obj = get_image_patches(gt_image,
-            global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
-        Y_I = tf.math.abs(Y_obj)
-        Y_phi = tf.math.angle(Y_obj)
-    except: 
-        Y_obj = None
-        Y_I = tf.zeros_like(X)
-        Y_phi = tf.zeros_like(X)
+#    try:
+    Y_obj = get_image_patches(gt_image,
+        global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+    Y_I = tf.math.abs(Y_obj)
+    Y_phi = tf.math.angle(Y_obj)
+#    except: 
+#        Y_obj = None
+#        Y_I = tf.zeros_like(X)
+#        Y_phi = tf.zeros_like(X)
+#    Y_I = tf.ones_like(X)
+#    Y_phi = tf.ones_like(X)
 
     YY_full = None
     # TODO complex
