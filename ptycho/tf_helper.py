@@ -341,7 +341,7 @@ def separate_real_imag(channels):
     return tf.math.real(channels), tf.math.imag(channels)
 
 def combine_real_imag(real, imag):
-    return tf.dtypes.complex(real, imag)
+    return tf.cast(tf.dtypes.complex(real, imag), tf.complex64)
 
 def separate_amp_phase(channels):
     return tf.math.abs(channels), tf.math.angle(channels)
@@ -352,8 +352,15 @@ complexify_sum_amp_phase = complexify_helper(separate_amp_phase, lambda a, b: a 
 complexify_sum_real_imag = complexify_helper(separate_real_imag, lambda a, b: a + b)
 
 
-from tensorflow_addons.image import translate
-translate = complexify_function(translate)
+from tensorflow_addons.image import translate as _translate
+
+#from ptycho.misc import debug
+@complexify_function
+def translate(*args, **kwargs):
+    # TODO assert dimensionality of translations is 2; i.e. B, 2
+    return _translate(*args, **kwargs)
+
+# TODO consolidate this and translate()
 class Translation(tf.keras.layers.Layer):
     def __init__(self):
         super(Translation, self).__init__()

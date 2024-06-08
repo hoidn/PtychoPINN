@@ -41,12 +41,25 @@ def crop_to_non_uniform_region_with_buffer(img_array, buffer=0):
 
     return cropped_img_array
 
-def mk_epie_comparison2x2(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude, epie_amplitude):
+import matplotlib.pyplot as plt
+
+def mk_epie_comparison2x2(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude, epie_amplitude, phase_vmin=None, phase_vmax=None):
+    """
+    Create a 2x2 comparison plot of phase and amplitude images.
+
+    Parameters:
+    - ptycho_pinn_phase: 2D array of PtychoPINN phase data
+    - epie_phase: 2D array of ePIE phase data
+    - ptycho_pinn_amplitude: 2D array of PtychoPINN amplitude data
+    - epie_amplitude: 2D array of ePIE amplitude data
+    - phase_vmin: Minimum data value for phase plots (optional)
+    - phase_vmax: Maximum data value for phase plots (optional)
+    """
     # Create a 2x2 subplot
     fig, axs = plt.subplots(2, 2, figsize=(10, 10))
 
     # PtychoPINN phase with color bar
-    ptycho_pinn_phase_img = axs[0, 0].imshow(ptycho_pinn_phase, cmap='gray')
+    ptycho_pinn_phase_img = axs[0, 0].imshow(ptycho_pinn_phase, cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
     axs[0, 0].set_title('PtychoPINN Phase')
     axs[0, 0].axis('off')
     fig.colorbar(ptycho_pinn_phase_img, ax=axs[0, 0], orientation='vertical')
@@ -58,8 +71,7 @@ def mk_epie_comparison2x2(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude, 
     fig.colorbar(epie_phase_img, ax=axs[0, 1], orientation='vertical')
 
     # PtychoPINN amplitude with color bar
-    ptycho_pinn_amplitude_img = axs[1, 0].imshow(ptycho_pinn_amplitude, cmap='gray')#,
-                                               # vmin = .2
+    ptycho_pinn_amplitude_img = axs[1, 0].imshow(ptycho_pinn_amplitude, cmap='gray')
     axs[1, 0].set_title('PtychoPINN Amplitude')
     axs[1, 0].axis('off')
     fig.colorbar(ptycho_pinn_amplitude_img, ax=axs[1, 0], orientation='vertical')
