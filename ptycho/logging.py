@@ -130,6 +130,64 @@ def load_logged_data(module_path: str, function_name: str, invocation_index: int
     except (IOError, json.JSONDecodeError) as e:
         raise LoggedDataNotFoundError(f"Error loading logged data for function {function_name} in module {module_path}: {str(e)}")
 
+import os
+import json
+from typing import List, Tuple, Union
+from ptycho.logging import LoggedDataNotFoundError, load_logged_data
+
+def get_type_and_dim(serialized_data: str) -> str:
+    if serialized_data.startswith("NumPy array"):
+        shape_start = serialized_data.find("shape") + len("shape")
+        shape_end = serialized_data.find("and data type")
+        shape = eval(serialized_data[shape_start:shape_end].strip())
+        dtype = serialized_data[shape_end + len("and data type"):].strip()
+        return f"NumPy array, shape: {shape}, dtype: {dtype}"
+    elif serialized_data.startswith("TensorFlow tensor"):
+        shape_start = serialized_data.find("shape") + len("shape")
+        shape_end = serialized_data.find("and data type")
+        shape = eval(serialized_data[shape_start:shape_end].strip())
+        dtype = serialized_data[shape_end + len("and data type"):].strip()
+        return f"TensorFlow tensor, shape: {shape}, dtype: {dtype}"
+    else:
+        return serialized_data.split(" ")[0]
+
+def process_log_file(module_path: str, function_name: str) -> None:
+    if function_name.startswith("__init__"):
+        return
+
+    invocation_index = 0
+    try:
+        inputs, outputs = load_logged_data(module_path, function_name, invocation_index)
+    except LoggedDataNotFoundError:
+        return
+
+    input_types_dims = []
+    for input_data in inputs["args"]:
+        input_types_dims.append(get_type_and_dim(input_data))
+    for input_name, input_data in inputs["kwargs"].items():
+        input_types_dims.append(f"{input_name}: {get_type_and_dim(input_data)}")
+
+    output_type_dim = get_type_and_dim(outputs)
+
+    print(f"Module: {module_path}, Function: {function_name}")
+    print("Input types and dimensionalities:")
+    for input_type_dim in input_types_dims:
+        print(f"  - {input_type_dim}")
+    print(f"Output type and dimensionality: {output_type_dim}")
+    print()
+
+def extract_logged_data(log_directory: str) -> None:
+    for module_name in os.listdir(log_directory):
+        module_directory = os.path.join(log_directory, module_name)
+        for log_file in os.listdir(module_directory):
+            function_name = log_file.split("_")[0]
+            process_log_file(module_name, function_name)
+
+# TODO this function belongs among the tests
+def main() -> None:
+    log_directory = "logs/"
+    extract_logged_data(log_directory)
+
 #####
 ## tests
 #####
@@ -233,3 +291,5 @@ def load_logged_data(module_path: str, function_name: str, invocation_index: int
 #except ZeroDivisionError:
 #    pass
 #multiply_numbers(2, 3)
+
+
