@@ -156,47 +156,48 @@ def make_invocation_counter():
 
     return increment
 
-#####
-# logging decorator
-#####
-def g(h):
-    increment_count = make_invocation_counter()
-
-    def wrapper(f):
-        @functools.wraps(f)
-        def inner(*args, **kwargs):
-            invocation_count = increment_count()
-            if invocation_count <= 2:
-                return h(f)(*args, **kwargs)
-            else:
-                return f(*args, **kwargs)
-
-        return inner
-
-    return wrapper
-
-@g
-def debug(func):
-    def wrapper(*args, **kwargs):
-        def get_type_and_shape(x):
-            if isinstance(x, np.ndarray):
-                return f"{type(x)} with shape {x.shape}"
-            elif isinstance(x, tf.Tensor):
-                return f"{type(x)} with shape {x.shape}"
-            else:
-                return str(type(x))
-
-        args_types = [get_type_and_shape(arg) for arg in args]
-        kwargs_types = {k: get_type_and_shape(v) for k, v in kwargs.items()}
-
-        print(f"Calling {func.__name__} with args types: {args_types}, kwargs types: {kwargs_types}")
-        result = func(*args, **kwargs)
-        
-        result_type = get_type_and_shape(result)
-        print(f"{func.__name__} returned {result_type}")
-        
-        return result
-    return wrapper
+######
+## logging decorator
+######
+# TODO deprecated, moved to logging.py
+#def g(h):
+#    increment_count = make_invocation_counter()
+#
+#    def wrapper(f):
+#        @functools.wraps(f)
+#        def inner(*args, **kwargs):
+#            invocation_count = increment_count()
+#            if invocation_count <= 2:
+#                return h(f)(*args, **kwargs)
+#            else:
+#                return f(*args, **kwargs)
+#
+#        return inner
+#
+#    return wrapper
+#
+#@g
+#def debug(func):
+#    def wrapper(*args, **kwargs):
+#        def get_type_and_shape(x):
+#            if isinstance(x, np.ndarray):
+#                return f"{type(x)} with shape {x.shape}"
+#            elif isinstance(x, tf.Tensor):
+#                return f"{type(x)} with shape {x.shape}"
+#            else:
+#                return str(type(x))
+#
+#        args_types = [get_type_and_shape(arg) for arg in args]
+#        kwargs_types = {k: get_type_and_shape(v) for k, v in kwargs.items()}
+#
+#        print(f"Calling {func.__name__} with args types: {args_types}, kwargs types: {kwargs_types}")
+#        result = func(*args, **kwargs)
+#        
+#        result_type = get_type_and_shape(result)
+#        print(f"{func.__name__} returned {result_type}")
+#        
+#        return result
+#    return wrapper
 
 import scipy.signal
 def cross_image(im1, im2):
