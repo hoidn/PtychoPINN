@@ -6,6 +6,7 @@ from scipy.spatial import cKDTree
 from ptycho import diffsim as datasets
 from .params import params, get
 from .logging import debug
+from .loader import RawData, PtychoDataContainer
 
 # If == 1, relative coordinates are (patch CM coordinate - solution region CM
 # coordinate)
@@ -89,7 +90,7 @@ class RawData:
                 f"objectGuess: {'Present' if self.objectGuess is not None else 'None'}")
 
     @debug()
-    def to_file(self, file_path):
+    def to_file(self, file_path: str) -> None:
         """
         Method to write the RawData object to a file using numpy.savez.
 
@@ -108,7 +109,7 @@ class RawData:
 
     @staticmethod
     @debug()
-    def from_file(train_data_file_path):
+    def from_file(train_data_file_path: str) -> 'RawData':
         """
         """
         # Load training data
