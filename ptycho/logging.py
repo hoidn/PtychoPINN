@@ -1,3 +1,21 @@
+"""
+Module for logging and inspecting function inputs, outputs, and execution times.
+
+Provides the `debug` decorator to log function invocations, including serialized inputs,
+outputs, and execution times. Supports logging to console and disk files.
+
+Includes `load_logged_data` function to load logged data from disk for a specific invocation.
+
+Handles serialization of NumPy arrays, TensorFlow tensors, and custom objects.
+
+Logging controlled by `params.get('debug')` configuration.
+
+Key components:
+- `debug` decorator
+- `load_logged_data` function
+- Helper functions: `make_invocation_counter`, `serialize_input`
+- Custom exceptions: `SerializationError`, `LoggedDataNotFoundError`
+"""
 import functools
 import inspect
 import json
