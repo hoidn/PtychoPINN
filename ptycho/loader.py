@@ -90,7 +90,7 @@ class RawData:
                 f"objectGuess: {'Present' if self.objectGuess is not None else 'None'}")
 
     @debug()
-    def to_file(self, file_path: str) -> None:
+    def to_file(self, file_path: str):
         """
         Method to write the RawData object to a file using numpy.savez.
 
@@ -109,8 +109,9 @@ class RawData:
 
     @staticmethod
     @debug()
-    def from_file(train_data_file_path: str) -> 'RawData':
+    def from_file(train_data_file_path: str) -> RawData:
         """
+        Static method to create a RawData instance from a file.
         """
         # Load training data
         train_data = np.load(train_data_file_path)
