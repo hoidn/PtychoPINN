@@ -131,7 +131,10 @@ if save_model:
         'negloglik': negloglik,
         'realspace_loss': hh_realspace_loss
     }
-    ModelManager.save_model(model.autoencoder, model_path, custom_objects, params.get('intensity_scale'))
+    try:
+        ModelManager.save_model(model.autoencoder, model_path, custom_objects, params.get('intensity_scale'))
+    except Exception as e:
+        print("model saving failed") # @debug decorators will break this
     with h5py.File(model_path, 'a') as f:
         f.attrs['intensity_scale'] = params.get('intensity_scale')
 
