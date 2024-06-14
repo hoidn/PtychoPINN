@@ -15,12 +15,12 @@ if params.get('outer_offset_train') is None or params.get('outer_offset_test') i
 def load_simulated_data(size, probe, outer_offset_train, outer_offset_test, jitter_scale, intensity_scale=None):
     np.random.seed(1)
     X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, (coords_train_nominal, coords_train_true) = \
-        datasets.mk_simdata(params.get('nimgs_train'), size, probe, outer_offset_train, jitter_scale=jitter_scale)
+        datasets.mk_simdata(params.get('nimgs_train'), size, probe, outer_offset_train, jitter_scale=jitter_scale, which = 'train')
     params.cfg['intensity_scale'] = intensity_scale
 
     np.random.seed(2)
     X_test, Y_I_test, Y_phi_test, _, YY_test_full, norm_Y_I_test, (coords_test_nominal, coords_test_true) = \
-        datasets.mk_simdata(params.get('nimgs_test'), size, probe, outer_offset_test, intensity_scale, jitter_scale=jitter_scale)
+        datasets.mk_simdata(params.get('nimgs_test'), size, probe, outer_offset_test, intensity_scale, jitter_scale=jitter_scale, which = 'test')
 
     return X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true
 
@@ -159,7 +159,7 @@ def generate_data(probeGuess = None):
         ptycho_dataset = create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
                                                X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true)
     elif data_source == 'xpp':
-        train_data_container, test_data_container = load_xpp_data(probeGuess)
+        test_data_container, train_data_container = load_xpp_data(probeGuess)
         intensity_scale = train_data_container.norm_Y_I
         ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
         YY_ground_truth = None
