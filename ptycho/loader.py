@@ -673,14 +673,14 @@ def get_gt_patch(offset, N, gt_image):
 
 
 
-#import sys
-#
-#from types import FunctionType
-#from .function_logger import log_function_call
-##Import current module
-#current_module = sys.modules[__name__]
-#
-#for name, func in list(vars(current_module).items()):
-#    if isinstance(func, FunctionType): #Note: callable(func) doesn't work b/c classes are callable. Swapped to this method instead for functions only
-#        setattr(current_module, name, log_function_call(func))
-#
+import sys
+
+from types import FunctionType
+from .function_logger import log_function_call
+#Import current module
+current_module = sys.modules[__name__]
+
+for name, func in list(vars(current_module).items()):
+    if isinstance(func, FunctionType): #Note: callable(func) doesn't work b/c classes are callable. Swapped to this method instead for functions only
+        setattr(current_module, name, log_function_call(func))
+
