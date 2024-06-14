@@ -2,6 +2,7 @@ import os
 import numpy as np
 import tensorflow as tf
 from typing import Tuple, Optional, Union, Callable, Any
+from .function_logger import log_function_call
 
 # Check if there are any GPUs available and set memory growth accordingly
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -225,7 +226,7 @@ def extract_nested_patches(img: tf.Tensor, fmt: str = 'flat',
     elif fmt == 'grid':
         return grid
     elif fmt == 'channel':
-        return _grid_to_channel(grid)#, outer_grid # TODO second output is for debugging
+        return _grid_to_channel(grid)#, 
     else:
         raise ValueError
 
@@ -654,3 +655,15 @@ def realspace_loss(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tens
     else:
         mae_loss = 0.
     return tv_loss + mae_loss
+
+
+#Code below is for function logging every call in tf_helper
+
+# TODO  should consolidate the logging method. right now we're doing it twice
+import sys
+from types import FunctionType
+#Import current module
+current_module = sys.modules[__name__]
+for name, func in list(vars(current_module).items()):
+    if isinstance(func, FunctionType): #Note: callable(func) doesn't work b/c classes are callable. Swapped to this method instead for functions only
+        setattr(current_module, name, log_function_call(func))
