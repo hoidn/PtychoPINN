@@ -41,6 +41,8 @@ def make_invocation_counter():
         return count
     return increment
 
+# TODO surround each function's output section in xml tags with the function / 
+# method path
 def debug(log_to_file: bool = True):
     def decorator(func: Callable):
         increment_count = make_invocation_counter()
@@ -206,46 +208,46 @@ def main() -> None:
     log_directory = "logs/"
     extract_logged_data(log_directory)
 
-#####
-## tests
-#####
-## Test case 1: Function with serializable inputs and output
-#@debug()
-#def add_numbers(a: int, b: int) -> int:
-#    return a + b
-#
-## Test case 2: Function with NumPy array input and output
-#@debug()
-#def multiply_array(arr: np.ndarray) -> np.ndarray:
-#    return arr * 2
-#
-## Test case 3: Function with TensorFlow tensor input and output
-#@debug()
-#def add_tensors(t1: tf.Tensor, t2: tf.Tensor) -> tf.Tensor:
-#    return t1 + t2
-#
-## Test case 4: Function with mixed input types and custom object output
-#class CustomResult:
-#    def __init__(self, value: str):
-#        self.value = value
-#
-#@debug()
-#def process_data(data: Any, flag: bool) -> CustomResult:
-#    if flag:
-#        return CustomResult("Processed: " + str(data))
-#    else:
-#        return CustomResult("Skipped: " + str(data))
-#
-## Test case 5: Function with exception
-#@debug()
-#def divide_numbers(a: int, b: int) -> float:
-#    return a / b
-#
-## Test case 6: Loading logged data from disk
-#@debug(log_to_file=True)
-#def multiply_numbers(a: int, b: int) -> int:
-#    return a * b
-#
+####
+# tests
+####
+# Test case 1: Function with serializable inputs and output
+@debug()
+def add_numbers(a: int, b: int) -> int:
+    return a + b
+
+# Test case 2: Function with NumPy array input and output
+@debug()
+def multiply_array(arr: np.ndarray) -> np.ndarray:
+    return arr * 2
+
+# Test case 3: Function with TensorFlow tensor input and output
+@debug()
+def add_tensors(t1: tf.Tensor, t2: tf.Tensor) -> tf.Tensor:
+    return t1 + t2
+
+# Test case 4: Function with mixed input types and custom object output
+class CustomResult:
+    def __init__(self, value: str):
+        self.value = value
+
+@debug()
+def process_data(data: Any, flag: bool) -> CustomResult:
+    if flag:
+        return CustomResult("Processed: " + str(data))
+    else:
+        return CustomResult("Skipped: " + str(data))
+
+# Test case 5: Function with exception
+@debug()
+def divide_numbers(a: int, b: int) -> float:
+    return a / b
+
+# Test case 6: Loading logged data from disk
+@debug(log_to_file=True)
+def multiply_numbers(a: int, b: int) -> int:
+    return a * b
+
 ## Set the debug parameter to True
 #params.cfg['debug'] = True
 #
@@ -309,5 +311,5 @@ def main() -> None:
 #except ZeroDivisionError:
 #    pass
 #multiply_numbers(2, 3)
-
-
+#
+#

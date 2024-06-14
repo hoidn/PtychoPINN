@@ -80,15 +80,18 @@ class RawData:
 
     @debug
     def __str__(self):
-        return (f"RawData: \n"
-                f"xcoords: {self.xcoords.shape} \n"
-                f"ycoords: {self.ycoords.shape} \n"
-                f"xcoords_start: {self.xcoords_start.shape} \n"
-                f"ycoords_start: {self.ycoords_start.shape} \n"
-                f"diff3d: {self.diff3d.shape} \n"
-                f"probeGuess: {self.probeGuess.shape if self.probeGuess is not None else 'None'} \n"
-                f"scan_index: {self.scan_index.shape} \n"
-                f"objectGuess: {'Present' if self.objectGuess is not None else 'None'}")
+        parts = [
+            "RawData:",
+            f"  xcoords: {self.xcoords.shape if self.xcoords is not None else 'None'}",
+            f"  ycoords: {self.ycoords.shape if self.ycoords is not None else 'None'}",
+            f"  xcoords_start: {self.xcoords_start.shape if self.xcoords_start is not None else 'None'}",
+            f"  ycoords_start: {self.ycoords_start.shape if self.ycoords_start is not None else 'None'}",
+            f"  diff3d: {self.diff3d.shape if self.diff3d is not None else 'None'}",
+            f"  probeGuess: {self.probeGuess.shape if self.probeGuess is not None else 'None'}",
+            f"  scan_index: {self.scan_index.shape if self.scan_index is not None else 'None'}",
+            f"  objectGuess: {self.objectGuess.shape if self.objectGuess is not None else 'None'}"
+        ]
+        return "\n".join(parts)
 
     @debug
     def to_file(self, file_path: str) -> None:
