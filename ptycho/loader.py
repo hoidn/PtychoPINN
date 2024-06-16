@@ -59,25 +59,6 @@ class RawData:
 
     @staticmethod
     @debug
-    def from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index,
-                               objectGuess=None):
-        """
-        Static method to create a RawData instance without separate start coordinates.
-        The start coordinates are set to be the same as the xcoords and ycoords.
-
-        Args:
-            xcoords (np.ndarray): x coordinates of the scan points.
-            ycoords (np.ndarray): y coordinates of the scan points.
-            diff3d (np.ndarray): diffraction patterns.
-            probeGuess (np.ndarray): initial guess of the probe function.
-            scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
-            objectGuess (np.ndarray, optional): initial guess of the object. Defaults to None.
-
-        Returns:
-            RawData: An instance of the RawData class.
-        """
-        return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
-
     @debug
     def __str__(self):
         parts = [
@@ -250,7 +231,7 @@ class PtychoDataContainer:
         from . import params as cfg
         if N is None:
             N = cfg.get('N')
-        train_raw = RawData.from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
+        train_raw = RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
         
         dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
 
