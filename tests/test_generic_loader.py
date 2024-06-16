@@ -16,6 +16,11 @@ def test_generic_loader(remove=True, data_file_path = None, train_size = 512):
     # Load RawData instances using the 'xpp' method
     test_data, train_data, _ = load_ptycho_data(data_file_path, train_size = train_size)
 
+#    test_data.xcoords, test_data.ycoords = -test_data.xcoords, -test_data.ycoords
+#    train_data.xcoords, train_data.ycoords = -train_data.xcoords, -train_data.ycoords
+#    test_data.xcoords_start, test_data.ycoords_start = -test_data.xcoords_start, -test_data.ycoords_start
+#    train_data.xcoords_start, train_data.ycoords_start = -train_data.xcoords_start, -train_data.ycoords_start
+
     # Define file paths for output
     train_data_file_path = 'train_data.npz'
     test_data_file_path = 'test_data.npz'
