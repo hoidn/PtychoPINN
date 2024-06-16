@@ -146,12 +146,11 @@ def load_simulated_data_container(probeGuess, config=None):
     outer_offset_test = params.cfg['outer_offset_test']
     jitter_scale = params.cfg['sim_jitter_scale']
 
-    X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true = 
-        load_simulated_data(size, probeGuess, outer_offset_train, outer_offset_test, jitter_scale)
+    X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true = load_simulated_data(size, probeGuess, outer_offset_train, outer_offset_test, jitter_scale)
 
     X_train, Y_I_train, Y_phi_train, YY_ground_truth = process_simulated_data(X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_test_full, outer_offset_test)
 
-    train_data_container = PtychoDataContainer(X_train, Y_I_train, Y_phi_train, norm_Y_I_train, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probeGuess)
+    train_data_container = PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probeGuess)
     test_data_container = PtychoDataContainer(X_test, Y_I_test, Y_phi_test, norm_Y_I_test, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probeGuess)
 
     return train_data_container, test_data_container, YY_ground_truth, YY_test_full

@@ -56,7 +56,7 @@ def validate():
     return True
 
 def set(key, value):
-    print("DEBUG: Setting", key, "to", value, "in params")
+    #print("DEBUG: Setting", key, "to", value, "in params")
     cfg[key] = value
     assert validate()
 

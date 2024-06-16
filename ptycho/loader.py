@@ -16,27 +16,35 @@ local_offset_sign = 1
 key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
 
+
 class RawData:
     @debug
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-                 scan_index, objectGuess = None):
+                 scan_index, objectGuess=None):
         # Sanity checks
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
-                    probeGuess, scan_index)
+                                  probeGuess, scan_index)
 
         # TODO these should go in the data validation method
-        assert len(xcoords.shape) == 1, f"Expected xcoords to be 1D, got shape {xcoords.shape}"
-        assert len(ycoords.shape) == 1, f"Expected ycoords to be 1D, got shape {ycoords.shape}"
-        assert len(xcoords_start.shape) == 1, f"Expected xcoords_start to be 1D, got shape {xcoords_start.shape}"
-        assert len(ycoords_start.shape) == 1, f"Expected ycoords_start to be 1D, got shape {ycoords_start.shape}"
+        assert len(
+            xcoords.shape) == 1, f"Expected xcoords to be 1D, got shape {xcoords.shape}"
+        assert len(
+            ycoords.shape) == 1, f"Expected ycoords to be 1D, got shape {ycoords.shape}"
+        assert len(
+            xcoords_start.shape) == 1, f"Expected xcoords_start to be 1D, got shape {xcoords_start.shape}"
+        assert len(
+            ycoords_start.shape) == 1, f"Expected ycoords_start to be 1D, got shape {ycoords_start.shape}"
         if diff3d is not None:
-            assert len(diff3d.shape) == 3, f"Expected diff3d to be 3D, got shape {diff3d.shape}"
+            assert len(
+                diff3d.shape) == 3, f"Expected diff3d to be 3D, got shape {diff3d.shape}"
             print(f"diff3d shape: {diff3d.shape}")
         if probeGuess is not None:
-            assert len(probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
+            assert len(
+                probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
             print(f"probeGuess shape: {probeGuess.shape}")
         if scan_index is not None:
-            assert len(scan_index.shape) == 1, f"Expected scan_index to be 1D, got shape {scan_index.shape}"
+            assert len(
+                scan_index.shape) == 1, f"Expected scan_index to be 1D, got shape {scan_index.shape}"
             print(f"scan_index shape: {scan_index.shape}")
         if objectGuess is not None:
             print(f"objectGuess shape: {objectGuess.shape}")
@@ -58,8 +66,6 @@ class RawData:
         self.objectGuess = objectGuess
 
     @staticmethod
-    @debug
-    @debug
     def __str__(self):
         parts = [
             "RawData:",
@@ -142,7 +148,7 @@ class RawData:
         return train_raw_data, test_raw_data
 
     @debug
-    def generate_grouped_data(self, N, K = 7, nsamples = 1):
+    def generate_grouped_data(self, N, K=7, nsamples=1):
         """
         Generate nearest-neighbor solution region grouping.
         """
@@ -151,19 +157,18 @@ class RawData:
         print('DEBUG:', 'nsamples:', nsamples)
         return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
 
-
     @debug
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
         # Check if all inputs are numpy arrays
-#        if not all(isinstance(arr, np.ndarray) for arr in [xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index]):
-#            raise ValueError("All inputs must be numpy arrays.")
+        #        if not all(isinstance(arr, np.ndarray) for arr in [xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index]):
+        #            raise ValueError("All inputs must be numpy arrays.")
 
         # Check if coordinate arrays have matching shapes
         if not (xcoords.shape == ycoords.shape == xcoords_start.shape == ycoords_start.shape):
             raise ValueError("Coordinate arrays must have matching shapes.")
 
+
 class PtychoDataset:
-    @debug
     def __init__(self, train_data, test_data):
         self.train_data = train_data
         self.test_data = test_data
@@ -191,7 +196,6 @@ class PtychoDataContainer:
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)
 
-    @debug
     def __repr__(self):
         repr_str = '<PtychoDataContainer'
         for attr_name in ['X', 'Y_I', 'Y_phi', 'norm_Y_I', 'YY_full', 'coords_nominal', 'coords_true', 'nn_indices', 'global_offsets', 'local_offsets', 'probe']:
@@ -206,6 +210,7 @@ class PtychoDataContainer:
                     repr_str += f' {attr_name}={attr.shape}'
         repr_str += '>'
         return repr_str
+
     @staticmethod
     @debug
     def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
@@ -231,8 +236,9 @@ class PtychoDataContainer:
         from . import params as cfg
         if N is None:
             N = cfg.get('N')
-        train_raw = RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
-        
+        train_raw = RawData(xcoords, ycoords, xcoords, ycoords,
+                            diff3d, probeGuess, scan_index, objectGuess)
+
         dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
 
         # Use loader.load() to handle the conversion to PtychoData
@@ -242,7 +248,7 @@ class PtychoDataContainer:
     @staticmethod
     @debug
     def from_simulation(xcoords, ycoords, xcoords_start, ycoords_start, probeGuess,
-                 objectGuess, scan_index = None):
+                        objectGuess, scan_index=None):
         """
         """
         from .diffsim import illuminate_and_diffract
@@ -250,17 +256,18 @@ class PtychoDataContainer:
                               probeGuess, scan_index, objectGuess)
 
         global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-                    ptycho_data.xcoords, ptycho_data.ycoords)
+            ptycho_data.xcoords, ptycho_data.ycoords)
 
         # TODO get rid of separate nominal and real coordinates
         _, coords_true, _ = calculate_relative_coords(ptycho_data.xcoords_start,
                                                       ptycho_data.ycoords_start)
         coords_nominal = coords_true
 
-        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets)
         Y_I = tf.math.abs(Y_obj)
         Y_phi = tf.math.angle(Y_obj)
-        X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+        X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(
+            Y_I, Y_phi, probeGuess)
         norm_Y_I = datasets.scale_nphotons(X)
         return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, objectGuess, coords_nominal,
                                    coords_true, nn_indices, global_offsets, local_offsets, probeGuess)
@@ -268,17 +275,20 @@ class PtychoDataContainer:
 ####
 # two functions to organize flat coordinate arrays into 'solution region' format
 ####
+
+
 @debug
 def get_neighbor_self_indices(xcoords, ycoords):
     """
     assign each pattern index to itself
     """
     N = len(xcoords)
-    nn_indices = np.arange(N).reshape(N, 1) 
+    nn_indices = np.arange(N).reshape(N, 1)
     return nn_indices
 
+
 @debug
-def get_neighbor_indices(xcoords, ycoords, K = 3):
+def get_neighbor_indices(xcoords, ycoords, K=3):
     # Combine x and y coordinates into a single array
     points = np.column_stack((xcoords, ycoords))
 
@@ -286,16 +296,20 @@ def get_neighbor_indices(xcoords, ycoords, K = 3):
     tree = cKDTree(points)
 
     # Query for K nearest neighbors for each point
-    distances, nn_indices = tree.query(points, k=K+1)  # +1 because the point itself is included in the results
+    # +1 because the point itself is included in the results
+    distances, nn_indices = tree.query(points, k=K+1)
     return nn_indices
+
 
 @debug
 def sample_rows(indices, n, m):
     N = indices.shape[0]
     result = np.zeros((N, m, n), dtype=int)
     for i in range(N):
-        result[i] = np.array([np.random.choice(indices[i], size=n, replace=False) for _ in range(m)])
+        result[i] = np.array(
+            [np.random.choice(indices[i], size=n, replace=False) for _ in range(m)])
     return result
+
 
 @debug
 def get_relative_coords(coords_nn):
@@ -313,10 +327,12 @@ def get_relative_coords(coords_nn):
     coords_relative = local_offset_sign * (coords_nn - coords_offsets)
     return coords_offsets, coords_relative
 
+
 @debug
 def crop12(arr, size):
     N, M = arr.shape[1:3]
-    return arr[:, N // 2 - (size) // 2: N // 2+ (size) // 2, N // 2 - (size) // 2: N // 2 + (size) // 2, ...]
+    return arr[:, N // 2 - (size) // 2: N // 2 + (size) // 2, N // 2 - (size) // 2: N // 2 + (size) // 2, ...]
+
 
 # TODO move to tf_helper, except the parts that are specific to xpp
 from .tf_helper import complexify_function
@@ -329,9 +345,11 @@ def extract_and_translate_patch_np(image, offset, patch_size):
     start_y = int(offset[1]) + image.shape[1] // 2 - patch_size // 2
 
     # Crop the patch from the image.
-    patch = image[start_x:start_x + patch_size, start_y:start_y + patch_size, :]
+    patch = image[start_x:start_x + patch_size,
+                  start_y:start_y + patch_size, :]
 
     return patch
+
 
 @debug
 def unsqueeze_coords(tensor):
@@ -360,22 +378,25 @@ def calculate_combined_offsets(global_offsets, local_offsets):
 
 # TODO move to tf_helper, except the parts that are specific to xpp
 # should be in xpp.py
+
+
 @debug
 def tile_gt_object(gt_image, shape):
     from . import tf_helper as hh
     gridsize = params()['gridsize']
     N = params()['N']
-    B = shape[0] #* gridsize**2
+    B = shape[0]  # * gridsize**2
 
     gt_repeat = tf.repeat(
-        tf.repeat(gt_image[None, ...], B, axis = 0)[..., None],
-        gridsize**2, axis = 3)
+        tf.repeat(gt_image[None, ...], B, axis=0)[..., None],
+        gridsize**2, axis=3)
 
     gt_repeat = hh.pad(gt_repeat, N // 2)
     return gt_repeat
 
+
 @debug
-def calculate_relative_coords(xcoords, ycoords, K = 6, C = None, nsamples = 10):
+def calculate_relative_coords(xcoords, ycoords, K=6, C=None, nsamples=10):
     """
     Group scan indices and coordinates in to solution regions, then
     calculate coords_offsets (global solution region coordinates) and
@@ -389,9 +410,11 @@ def calculate_relative_coords(xcoords, ycoords, K = 6, C = None, nsamples = 10):
     Returns:
         tuple: A tuple containing coords_offsets and coords_relative.
     """
-    nn_indices, coords_nn = group_coords(xcoords, ycoords, K = K, C = C, nsamples = nsamples)
+    nn_indices, coords_nn = group_coords(
+        xcoords, ycoords, K=K, C=C, nsamples=nsamples)
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
     return coords_offsets, coords_relative, nn_indices
+
 
 @debug
 def group_coords(xcoords: np.ndarray, ycoords: np.ndarray, K: int, C: Optional[int], nsamples: int) -> Tuple[np.ndarray, np.ndarray]:
@@ -412,33 +435,35 @@ def group_coords(xcoords: np.ndarray, ycoords: np.ndarray, K: int, C: Optional[i
         nn_indices = get_neighbor_indices(xcoords, ycoords, K=K)
         nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
 
-    #diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
+    # diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
     coords_nn = np.transpose(np.array([xcoords[nn_indices],
-                            ycoords[nn_indices]]),
-                            [1, 0, 2])[:, None, :, :]
+                                       ycoords[nn_indices]]),
+                             [1, 0, 2])[:, None, :, :]
     return nn_indices, coords_nn[:, :, :, :]
+
 
 @debug
 def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples=10):
     """
     ptycho_data: an instance of the RawData class
     """
-    
+
     nn_indices, coords_nn = group_coords(ptycho_data.xcoords, ptycho_data.ycoords,
-                                         K = K, C = C, nsamples = nsamples)
+                                         K=K, C=C, nsamples=nsamples)
 
     diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
 
     # IMPORTANT: coord swap
-    #coords_nn = coords_nn[:, :, ::-1, :]
+    # coords_nn = coords_nn[:, :, ::-1, :]
 
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
 
     if ptycho_data.xcoords_start is not None:
         coords_start_nn = np.transpose(np.array([ptycho_data.xcoords_start[nn_indices], ptycho_data.ycoords_start[nn_indices]]),
                                        [1, 0, 2])[:, None, :, :]
-        #coords_start_nn = coords_start_nn[:, :, ::-1, :]
-        coords_start_offsets, coords_start_relative = get_relative_coords(coords_start_nn)
+        # coords_start_nn = coords_start_nn[:, :, ::-1, :]
+        coords_start_offsets, coords_start_relative = get_relative_coords(
+            coords_start_nn)
     else:
         coords_start_offsets = coords_start_relative = None
 
@@ -457,6 +482,7 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
     dset['X_full'] = X_full
     print('neighbor-sampled diffraction shape', X_full.shape)
     return dset
+
 
 @complexify_function
 @debug
@@ -497,6 +523,7 @@ def get_image_patches(gt_image, global_offsets, local_offsets):
     # Convert the canvas to a TensorFlow tensor and return it
     return tf.convert_to_tensor(canvas)
 
+
 @debug
 def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
     from . import tf_helper as hh
@@ -507,19 +534,21 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
     # Extract necessary parameters
     N = params()['N']
     # Select the central part of the object tensor
-    obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
+    obj_tensor = obj_tensor[:, N // 2 - M // 2: N //
+                            2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
     # Calculate the center of mass of global_offsets
-    center_of_mass = tf.reduce_mean(tf.cast(global_offsets, tf.float32), axis=0)
+    center_of_mass = tf.reduce_mean(
+        tf.cast(global_offsets, tf.float32), axis=0)
     # Adjust global_offsets by subtracting the center of mass
     adjusted_offsets = tf.cast(global_offsets, tf.float32) - center_of_mass
     # Calculate dynamic padding based on maximum adjusted offset
     max_offset = tf.reduce_max(tf.abs(adjusted_offsets))
     dynamic_pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
     print('PADDING SIZE:', dynamic_pad)
-    
+
     # Create a canvas to store the shifted and summed object tensors
     result = tf.zeros_like(hh.pad(obj_tensor[0:1], dynamic_pad))
-    
+
     # Iterate over the adjusted offsets and perform shift-and-sum
     for i in range(len(adjusted_offsets)):
         # Apply dynamic padding to the current object tensor
@@ -527,10 +556,11 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
         # Squeeze and cast adjusted offset to 2D float for translation
         offset_2d = tf.cast(tf.squeeze(adjusted_offsets[i]), tf.float32)
         # Translate the padded object tensor
-        translated_obj = hh.translate(padded_obj_tensor, offset_2d, interpolation='bilinear')
+        translated_obj = hh.translate(
+            padded_obj_tensor, offset_2d, interpolation='bilinear')
         # Accumulate the translated object tensor
         result += translated_obj[0]
-    
+
     # TODO: how could we support multiple scans?
     return result[0]
 
@@ -539,8 +569,9 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
 @debug
 def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
     ones = tf.ones_like(obj_tensor)
-    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
-        (1e-9 + shift_and_sum(ones, global_offsets, M = M))
+    return shift_and_sum(obj_tensor, global_offsets, M=M) /\
+        (1e-9 + shift_and_sum(ones, global_offsets, M=M))
+
 
 @debug
 def split_data(X_full, coords_nominal, coords_true, train_frac, which):
@@ -563,7 +594,9 @@ def split_data(X_full, coords_nominal, coords_true, train_frac, which):
     elif which == 'test':
         return X_full[n_train:], coords_nominal[n_train:], coords_true[n_train:]
     else:
-        raise ValueError("Invalid split type specified: must be 'train' or 'test'.")
+        raise ValueError(
+            "Invalid split type specified: must be 'train' or 'test'.")
+
 
 @debug
 def split_tensor(tensor, frac, which='test'):
@@ -579,24 +612,27 @@ def split_tensor(tensor, frac, which='test'):
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
 # TODO this should be a method of PtychoDataContainer
+
+
 @debug
 def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
     from . import params as cfg
     from . import probe
-    #probeGuess = probe.get_probe(fmt = 'np')
+    # probeGuess = probe.get_probe(fmt = 'np')
     if create_split:
         dset, train_frac = cb()
     else:
         dset = cb()
     gt_image = dset['objectGuess']
-    X_full = dset['X_full'] # normalized diffraction
+    X_full = dset['X_full']  # normalized diffraction
     global_offsets = dset[key_coords_offsets]
     # Define coords_nominal and coords_true before calling split_data
     coords_nominal = dset[key_coords_relative]
     coords_true = dset[key_coords_relative]
     if create_split:
         global_offsets = split_tensor(global_offsets, train_frac, which)
-        X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
+        X, coords_nominal, coords_true = split_data(
+            X_full, coords_nominal, coords_true, train_frac, which)
     else:
         X = X_full
     norm_Y_I = datasets.scale_nphotons(X)
@@ -616,10 +652,10 @@ def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_sp
 
 #    try:
     Y_obj = get_image_patches(gt_image,
-        global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+                              global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
     Y_I = tf.math.abs(Y_obj)
     Y_phi = tf.math.angle(Y_obj)
-#    except: 
+#    except:
 #        Y_obj = None
 #        Y_I = tf.zeros_like(X)
 #        Y_phi = tf.zeros_like(X)
@@ -628,22 +664,28 @@ def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_sp
 
     YY_full = None
     # TODO complex
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true,
+                                    dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
     print('INFO:', which)
     print(container)
     return container
 
 # Images are amplitude, not intensity
+
+
 @debug
 def normalize_data(dset: dict, N: int) -> np.ndarray:
     X_full = dset['diffraction']
-    X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+    X_full_norm = ((N / 2)**2) / \
+        np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
     return X_full_norm * X_full
+
 
 @debug
 def crop(arr2d, size):
     N, M = arr2d.shape
-    return arr2d[N // 2 - (size) // 2: N // 2+ (size) // 2, N // 2 - (size) // 2: N // 2 + (size) // 2]
+    return arr2d[N // 2 - (size) // 2: N // 2 + (size) // 2, N // 2 - (size) // 2: N // 2 + (size) // 2]
+
 
 @debug
 def get_gt_patch(offset, N, gt_image):

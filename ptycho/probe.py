@@ -3,12 +3,10 @@ import numpy as np
 from . import fourier as f
 from . import params
 
-N = params.cfg['N']
-
 # most common value in testing is .7. Sometimes also .55 or .9
 default_probe_scale = params.cfg['default_probe_scale']
 
-filt = f.lowpass_g(default_probe_scale, np.ones(N), sym = True)
+filt = f.lowpass_g(default_probe_scale, np.ones(params.get('N')), sym = True)
 
 def get_default_probe(fmt = 'tf'):
     probe_np = f.gf(((np.einsum('i,j->ij', filt, filt)) > .5).astype(float), 1) + 1e-9
@@ -37,12 +35,13 @@ def get_squared_distance():
     """
     Return array of distances from the center
     """
+    N = params.get('N')
     centered_indices = np.arange(N) - N // 2 + .5
     x, y = np.meshgrid(centered_indices, centered_indices)
     d = np.sqrt(x*x+y*y)
     return d
 
-probe_mask_real = (get_squared_distance() < N // 4)[..., None]
+probe_mask_real = (get_squared_distance() < params.get('N') // 4)[..., None]
 # TODO adaptive probe mask?
 def get_probe_mask():
     probe_mask = tf.convert_to_tensor(probe_mask_real, tf.complex64)
@@ -57,6 +56,7 @@ def set_probe(probe):
     params.set('probe', probe / norm)
 
 def set_probe_guess(X_train, probe_guess = None):
+    N = params.get('N')
     if probe_guess is None:
         mu = 0.
         tmp = X_train.mean(axis = (0, 3))

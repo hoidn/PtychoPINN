@@ -66,6 +66,7 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     X, Y_I, Y_phi =\
         X / intensity_scale, Y_I / intensity_scale, Y_phi
 
+    # TODO unecessary conversation
     X, Y_I, Y_phi =\
         hh.togrid(X, Y_I, Y_phi)
 

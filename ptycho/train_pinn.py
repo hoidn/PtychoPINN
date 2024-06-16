@@ -11,8 +11,9 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
 
     from ptycho import probe
     probe.set_probe_guess(None, train_data.probe)
-
+    # TODO why can't this be in module scope?
     from ptycho import model
+
     if model_instance is None:
         model_instance = model.autoencoder
     nepochs = params.cfg['nepochs']
