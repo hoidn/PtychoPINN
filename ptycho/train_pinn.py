@@ -1,5 +1,5 @@
-from ptycho import params
 from .loader import PtychoDataContainer
+from ptycho import params
 
 def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None):
     from . import params as p
@@ -47,7 +47,7 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
     Returns:
     - Evaluation results including reconstructed objects and prediction amplitudes.
     """
-    from ptycho.data_preprocessing import reassemble
+    from ptycho.data_processing import reassemble
 
     from ptycho import probe
     probe.set_probe_guess(None, test_data.probe)
