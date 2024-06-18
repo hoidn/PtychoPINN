@@ -211,6 +211,24 @@ class PtychoDataContainer:
         repr_str += '>'
         return repr_str
 
+    def __getitem__(self, key):
+        """
+        Support slicing for PtychoDataContainer.
+        """
+        return PtychoDataContainer(
+            self.X[key],
+            self.Y_I[key],
+            self.Y_phi[key],
+            self.norm_Y_I[key],
+            self.YY_full[key] if self.YY_full is not None else None,
+            self.coords_nominal[key],
+            self.coords_true[key],
+            self.nn_indices[key],
+            self.global_offsets[key],
+            self.local_offsets[key],
+            self.probe  # Assuming probe is not sliced
+        )
+
     @staticmethod
     @debug
     def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
