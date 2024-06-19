@@ -1,7 +1,10 @@
 from .loader import PtychoDataContainer
 from ptycho import params
 
-def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None):
+def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None,
+          cfg = None, probeGuess = None):
+    assert cfg is not None
+    assert probeGuess is not None
     from . import params as p
     # Model requires intensity_scale to be defined to set the initial
     # value of the corresponding model parameter
@@ -13,28 +16,32 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
     probe.set_probe_guess(None, train_data.probe)
     # TODO why can't this be in module scope?
     from ptycho import model
+    if model_instance is not None:
+        raise NotImplementedError
 
-    if model_instance is None:
-        model_instance = model.autoencoder
     nepochs = params.cfg['nepochs']
-    return model_instance, model.train(nepochs, train_data)
+    model_layers, history = model.train(nepochs, train_data, probeGuess, cfg)
+    return model_layers, history
 
-def train_eval(ptycho_dataset):
+def train_eval(ptycho_dataset, cfg = None, probeGuess = None):
+    assert cfg is not None
     ## TODO reconstructed_obj -> pred_Y or something
-    model_instance, history = train(ptycho_dataset.train_data)
-    eval_results = eval(ptycho_dataset.test_data, history, trained_model = model_instance)
+    modelbuild, history = train(ptycho_dataset.train_data, cfg = cfg, probeGuess = probeGuess)
+    eval_results = eval(ptycho_dataset.test_data, history, modelbuild = modelbuild, cfg = cfg)
     return {
         'history': history,
         'reconstructed_obj': eval_results['reconstructed_obj'],
         'pred_amp': eval_results['pred_amp'],
         'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
         'stitched_obj': eval_results['stitched_obj'],
-        'model_instance': model_instance
+        'diffraction_to_obj': modelbuild['diffraction_to_obj'],
+        'autoencoder': modelbuild['autoencoder'],
+        'cfg': cfg
     }
 
 from tensorflow.keras.models import load_model
 # Enhance the existing eval function to optionally load a model for inference
-def eval(test_data, history=None, trained_model=None, model_path=None):
+def eval(test_data, history=None, modelbuild=None, model_path=None, cfg = None):
     """
     Evaluate the model on test data. Optionally load a model if a path is provided.
 
@@ -47,6 +54,11 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
     Returns:
     - Evaluation results including reconstructed objects and prediction amplitudes.
     """
+    assert cfg is not None
+    if modelbuild is not None:
+        trained_model = modelbuild['autoencoder']
+    else:
+        trained_model = None
     from ptycho.data_processing import reassemble
 
     from ptycho import probe
@@ -62,7 +74,7 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
         raise ValueError("Either a trained model instance or a model path must be provided.")
 
     reconstructed_obj, pred_amp, reconstructed_obj_cdi = trained_model.predict(
-        [test_data.X * model.params()['intensity_scale'], test_data.coords_nominal]
+        [test_data.X * cfg['intensity_scale'], test_data.coords_nominal]
     )
     try:
         stitched_obj = reassemble(reconstructed_obj, part='complex')

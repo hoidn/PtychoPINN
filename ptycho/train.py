@@ -11,13 +11,84 @@ from ptycho import misc
 import numpy as np
 import h5py
 
-plt.rcParams["figure.figsize"] = (10, 10)
-matplotlib.rcParams['font.size'] = 12
+def main(cfg, probeGuess = None):
+    if probeGuess is None:
+        try:
+            probeGuess = cfg['probe']
+            print('USING CONFIG PROBE')
+        except:
+            probeGuess = params.get('probe')
+            print('USING DEFAULT SIMULATION PROBE')
+    matplotlib.rcParams["figure.figsize"] = (10, 10)
+    matplotlib.rcParams['font.size'] = 12
 
-save_model = True
-save_data = False
+    save_model = True
+    save_data = False
 
-parser = argparse.ArgumentParser(description='Script to set attributes for ptycho program')
+    model_type = cfg['model_type']
+    label = cfg['label']
+    offset = cfg['offset']
+    params.cfg['output_prefix'] = misc.get_path_prefix()
+
+    out_prefix = params.get('output_prefix')
+    os.makedirs(out_prefix, exist_ok=True)
+
+    from ptycho.data_preprocessing import generate_data
+    X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_ground_truth, ptycho_dataset, YY_test_full, norm_Y_I_test = generate_data(cfg, probeGuess)
+
+    model_instance_d = dict()
+    if model_type == 'pinn':
+        from ptycho import train_pinn
+        train_output = train_pinn.train_eval(ptycho_dataset, cfg, probeGuess = probeGuess)
+        pred_amp = train_output['pred_amp']
+        history = train_output['history']
+        reconstructed_obj = train_output['reconstructed_obj']
+        stitched_obj = train_output['stitched_obj']
+        autoencoder = train_output['autoencoder']
+        model_instance_d = train_output
+
+    elif model_type == 'supervised':
+        from ptycho.train_supervised import stitched_obj
+        from ptycho import train_supervised
+        history = train_supervised.history
+        reconstructed_obj = train_supervised.reconstructed_obj
+    else:
+        raise ValueError
+
+    d = save_recons(model_type, stitched_obj)
+
+    with open(out_prefix + '/history.dill', 'wb') as file_pi:
+        dill.dump(history.history, file_pi)
+
+    if save_model:
+        from ptycho.model import ProbeIllumination, negloglik
+        from ptycho.tf_helper import Translation
+        from ptycho.tf_helper import realspace_loss as hh_realspace_loss
+        hh = {'realspace_loss': hh_realspace_loss}
+
+        model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
+        custom_objects = {
+            'ProbeIllumination': ProbeIllumination,
+            'Translation': Translation,
+            'negloglik': negloglik,
+            'realspace_loss': hh_realspace_loss
+        }
+        try:
+            ModelManager.save_model(autoencoder, model_path, custom_objects, params.get('intensity_scale'))
+        except Exception as e:
+            print("model saving failed")
+        with h5py.File(model_path, 'a') as f:
+            f.attrs['intensity_scale'] = params.get('intensity_scale')
+
+    if save_data:
+        with open(out_prefix + '/test_data.dill', 'wb') as f:
+            dill.dump(
+                {'YY_test_full': YY_test_full,
+                 'Y_I_test': Y_I_test,
+                 'Y_phi_test': Y_phi_test,
+                 'X_test': X_test}, f)
+
+    return ptycho_dataset, YY_ground_truth, YY_test_full, Y_I_test, Y_phi_test, X_test, norm_Y_I_test, history, reconstructed_obj, stitched_obj, d, model_instance_d, cfg
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -49,100 +120,27 @@ if __name__ == '__main__':
     parser.add_argument('--label', type=str, default='', help='[deprecated] Name of this run')
     args = parser.parse_args()
 
-    # offset between neighboring scan points, in pixels
-    model_type = params.cfg['model_type'] = args.model_type
-    label = params.cfg['label'] = args.label
-    params.cfg['positions.provided'] = args.positions_provided
-    params.cfg['data_source'] = args.data_source
-    params.cfg['set_phi'] = args.set_phi
-    params.cfg['nepochs'] = args.nepochs
-    offset = params.cfg['offset'] = args.offset
-    params.cfg['max_position_jitter'] = args.max_position_jitter
-    params.cfg['output_prefix'] = args.output_prefix
-    params.cfg['gridsize'] = args.gridsize
-    params.cfg['n_filters_scale'] = args.n_filters_scale
-    params.cfg['object.big'] = args.object_big
-    params.cfg['intensity_scale.trainable'] = args.intensity_scale_trainable
-    params.cfg['nll_weight'] = args.nll_weight
-    params.cfg['mae_weight'] = args.mae_weight
-    params.cfg['nimgs_train'] = args.nimgs_train
-    params.cfg['nimgs_test'] = args.nimgs_test
-
-    params.cfg['outer_offset_train'] = args.outer_offset_train
-    params.cfg['outer_offset_test'] = args.outer_offset_test
-    # Update the output_prefix using get_path_prefix
-else:
-    model_type = params.cfg['model_type']
-    label = params.cfg['label']
-    offset = params.cfg['offset']
-params.cfg['output_prefix'] = misc.get_path_prefix()
-
-# TODO this should be a global parameter that's updated once per training and / or evaluation cycle
-out_prefix = params.get('output_prefix')
-os.makedirs(out_prefix, exist_ok=True)
-
-from ptycho import generate_data
-ptycho_dataset = generate_data.ptycho_dataset
-YY_ground_truth = generate_data.YY_ground_truth
-YY_test_full = generate_data.YY_test_full
-Y_I_test = generate_data.Y_I_test
-Y_phi_test = generate_data.Y_phi_test
-X_test = generate_data.X_test
-norm_Y_I_test = generate_data.norm_Y_I_test
-from ptycho import model
-from ptycho.evaluation import save_metrics
-
-if model_type == 'pinn':
-    from ptycho import train_pinn
-    print("DEBUG: generate_data diff norm {}".format(np.mean(np.abs(ptycho_dataset.train_data.X))))
-    train_output = train_pinn.train_eval(ptycho_dataset)
-#    reconstructed_obj_cdi = train_output['reconstructed_obj_cdi']
-#    stitched_obj = train_output['stitched_obj']
-    pred_amp = train_output['pred_amp']
-    history = train_output['history']
-    reconstructed_obj = train_output['reconstructed_obj']
-    stitched_obj = train_output['stitched_obj']
-
-elif model_type == 'supervised':
-    from ptycho.train_supervised import stitched_obj
-    from ptycho import train_supervised
-    history = train_supervised.history
-    reconstructed_obj = train_supervised.reconstructed_obj
-else:
-    raise ValueError
-
-d = save_recons(model_type, stitched_obj)
-
-with open(out_prefix + '/history.dill', 'wb') as file_pi:
-    dill.dump(history.history, file_pi)
-
-if save_model:
-    from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
-    from ptycho.tf_helper import Translation
-    from ptycho.tf_helper import realspace_loss as hh_realspace_loss
-    hh = {'realspace_loss': hh_realspace_loss}
-
-    model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
-    custom_objects = {
-        'ProbeIllumination': ProbeIllumination,
-        'IntensityScaler': IntensityScaler,
-        'IntensityScaler_inv': IntensityScaler_inv,
-        'Translation': Translation,
-        'negloglik': negloglik,
-        'realspace_loss': hh_realspace_loss
+    # Create the cfg dictionary from the parsed arguments
+    cfg = {
+        'model_type': args.model_type,
+        'label': args.label,
+        'positions.provided': args.positions_provided,
+        'data_source': args.data_source,
+        'set_phi': args.set_phi,
+        'nepochs': args.nepochs,
+        'offset': args.offset,
+        'max_position_jitter': args.max_position_jitter,
+        'output_prefix': args.output_prefix,
+        'gridsize': args.gridsize,
+        'n_filters_scale': args.n_filters_scale,
+        'object.big': args.object_big,
+        'intensity_scale.trainable': args.intensity_scale_trainable,
+        'nll_weight': args.nll_weight,
+        'mae_weight': args.mae_weight,
+        'nimgs_train': args.nimgs_train,
+        'nimgs_test': args.nimgs_test,
+        'outer_offset_train': args.outer_offset_train,
+        'outer_offset_test': args.outer_offset_test
     }
-    try:
-        ModelManager.save_model(model.autoencoder, model_path, custom_objects, params.get('intensity_scale'))
-    except Exception as e:
-        print("model saving failed") # @debug decorators will break this
-    with h5py.File(model_path, 'a') as f:
-        f.attrs['intensity_scale'] = params.get('intensity_scale')
 
-if save_data:
-    with open(out_prefix + '/test_data.dill', 'wb') as f:
-        dill.dump(
-            {'YY_test_full': YY_test_full,
-             'Y_I_test': Y_I_test,
-             'Y_phi_test': Y_phi_test,
-             'X_test': X_test}, f)
-
+    ptycho_dataset, YY_ground_truth, YY_test_full, Y_I_test, Y_phi_test, X_test, norm_Y_I_test, history, reconstructed_obj, stitched_obj, d, cfg = main(cfg)

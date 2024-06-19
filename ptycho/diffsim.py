@@ -5,7 +5,6 @@ import tensorflow as tf
 
 from . import fourier as f
 from . import tf_helper as hh
-from . import params as p
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -14,14 +13,14 @@ N = 64
 
 def observe_amplitude(amplitude):
     """
-    Sample photons from wave amplitudes by drwaing from the corresponding Poisson distributions
+    Sample photons from wave amplitudes by drawing from the corresponding Poisson distributions
     """
-    return tf.sqrt((hh.tfd.Independent(hh.tfd.Poisson(amplitude**2))).sample())# + 0.5
+    return tf.sqrt((hh.tfd.Independent(hh.tfd.Poisson(amplitude**2))).sample())
 
 def count_photons(obj):
     return tf.math.reduce_sum(obj**2, (1, 2))
 
-def scale_nphotons(padded_obj):
+def scale_nphotons(padded_obj, cfg):
     """
     Calculate the object amplitude normalization factor that gives the desired
     *expected* number of observed photons, averaged over an entire dataset.
@@ -29,11 +28,11 @@ def scale_nphotons(padded_obj):
     Returns a single scalar.
     """
     mean_photons = tf.math.reduce_mean(count_photons(padded_obj))
-    norm = tf.math.sqrt(p.get('nphotons') / mean_photons)
+    norm = tf.math.sqrt(cfg['nphotons'] / mean_photons)
     return norm
 
-def diffract_obj(sample, draw_poisson = True):
-    N = p.get('N')
+def diffract_obj(sample, cfg, draw_poisson=True):
+    N = cfg['N']
     amplitude = hh.pad_and_diffract(sample, N, N, pad=False)[1]
     if draw_poisson:
         observed_amp = observe_amplitude(amplitude)
@@ -41,7 +40,7 @@ def diffract_obj(sample, draw_poisson = True):
     else:
         return amplitude
 
-def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
+def illuminate_and_diffract(Y_I, Y_phi, probe, cfg, intensity_scale=None):
     """
     Illuminate object with real or complex probe, then apply diffraction map.
 
@@ -49,8 +48,8 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     probe.
     """
     if intensity_scale is None:
-        intensity_scale = scale_nphotons(Y_I * probe[None, ..., None]).numpy()
-    batch_size = p.get('batch_size')
+        intensity_scale = scale_nphotons(Y_I * probe[None, ..., None], cfg).numpy()
+    batch_size = cfg['batch_size']
     obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
     obj = obj * tf.cast(probe[None, ..., None], obj.dtype)
     Y_I = tf.math.abs(obj)
@@ -58,25 +57,20 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     X = (tf.data.Dataset.from_tensor_slices(obj)
                .batch(batch_size)
                .prefetch(tf.data.AUTOTUNE)
-               .map(diffract_obj)
+               .map(lambda x: diffract_obj(x, cfg))
                .cache())
     X = np.vstack(list(iter(X)))
-    X, Y_I, Y_phi =\
-        X / intensity_scale, Y_I / intensity_scale, Y_phi
+    X, Y_I, Y_phi = X / intensity_scale, Y_I / intensity_scale, Y_phi
 
-    # TODO unecessary conversation
-    X, Y_I, Y_phi =\
-        hh.togrid(X, Y_I, Y_phi)
-
-    X, Y_I, Y_phi =\
-        hh.grid_to_channel(X, Y_I, Y_phi)
+    X, Y_I, Y_phi = hh.togrid(X, Y_I, Y_phi)
+    X, Y_I, Y_phi = hh.grid_to_channel(X, Y_I, Y_phi)
 
     return X, Y_I, Y_phi, intensity_scale
 
 def mk_rand(N):
     return int(N * np.random.uniform())
 
-def mk_lines_img(N = 64, nlines = 10):
+def mk_lines_img(N=64, nlines=10):
     image = np.zeros((N, N))
     for _ in range(nlines):
         rr, cc = draw.line(mk_rand(N), mk_rand(N), mk_rand(N), mk_rand(N))
@@ -85,13 +79,13 @@ def mk_lines_img(N = 64, nlines = 10):
     res[:, :, :] = image[..., None]
     return f.gf(res, 1) + 2 * f.gf(res, 5) + 5 * f.gf(res, 10)
 
-def mk_noise(N = 64, nlines = 10):
-    return np.random.uniform(size = N * N).reshape((N, N, 1))
+def mk_noise(N=64, nlines=10):
+    return np.random.uniform(size=N * N).reshape((N, N, 1))
 
 from ptycho.misc import memoize_disk_and_memory
 
-def extract_coords(size, repeats = 1, coord_type = 'offsets',
-        outer_offset = None, **kwargs):
+def extract_coords(size, repeats=1, coord_type='offsets',
+        outer_offset=None, **kwargs):
     """
     Return nominal offset coords in channel format. x and y offsets are
     stacked in the third dimension.
@@ -101,24 +95,24 @@ def extract_coords(size, repeats = 1, coord_type = 'offsets',
         r is the center of mass of that patch's solution region / grid,
             which contains gridsize**2 patches
     """
-    x = tf.range(size, dtype = tf.float32)
-    y = tf.range(size, dtype = tf.float32)
+    x = tf.range(size, dtype=tf.float32)
+    y = tf.range(size, dtype=tf.float32)
     xx, yy = tf.meshgrid(x, y)
     xx = xx[None, ..., None]
     yy = yy[None, ..., None]
     def _extract_coords(zz, fn):
         ix = fn(zz)
-        ix = tf.reduce_mean(ix, axis = (1, 2))
-        return tf.repeat(ix, repeats, axis = 0)[:, None, None, :]
+        ix = tf.reduce_mean(ix, axis=(1, 2))
+        return tf.repeat(ix, repeats, axis=0)[:, None, None, :]
     def outer(img):
-        return hh.extract_outer(img, fmt = 'grid', outer_offset = outer_offset)
+        return hh.extract_outer(img, fmt='grid', outer_offset=outer_offset)
     def inner(img):
-        return hh.extract_nested_patches(img, fmt = 'channel',
-            outer_offset = outer_offset)
+        return hh.extract_nested_patches(img, fmt='channel',
+            outer_offset=outer_offset)
     def get_patch_offsets(coords):
         offsets_x = coords[1][0] - coords[0][0]
         offsets_y = coords[1][1] - coords[0][1]
-        return tf.stack([offsets_x, offsets_y], axis = 2)[:, :, :, 0, :]
+        return tf.stack([offsets_x, offsets_y], axis=2)[:, :, :, 0, :]
     ix = _extract_coords(xx, inner)
     iy = _extract_coords(yy, inner)
     ix_offsets = _extract_coords(xx, outer)
@@ -136,8 +130,8 @@ def add_position_jitter(coords, jitter_scale):
     jitter = jitter_scale * tf.random.normal(shape)
     return jitter + coords
 
-def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,
-        **kwargs):
+def scan_and_normalize(jitter_scale=None, YY_I=None, YY_phi=None,
+        cfg=None, **kwargs):
     """
     Inputs:
     4d tensors of full (arbitrary-sized) object phase and amplitude.
@@ -156,60 +150,68 @@ def scan_and_normalize(jitter_scale = None, YY_I = None, YY_phi = None,
         true_coords = add_position_jitter(coords, jitter_scale)
 
     Y_I, Y_phi, _Y_I_full, norm_Y_I = hh.preprocess_objects(YY_I,
-        offsets_xy = true_coords, Y_phi = YY_phi, **kwargs)
+        offsets_xy=true_coords, Y_phi=YY_phi, **kwargs)
     return Y_I, Y_phi, _Y_I_full, norm_Y_I, (coords, true_coords)
 
 import math
 def dummy_phi(Y_I):
     return tf.cast(tf.constant(math.pi), tf.float32) *\
-        tf.cast(tf.math.tanh( (Y_I - tf.math.reduce_max(Y_I) / 2) /
+        tf.cast(tf.math.tanh((Y_I - tf.math.reduce_max(Y_I) / 2) /
             (3 * tf.math.reduce_mean(Y_I))), tf.float32)
 
-def sim_object_image(size, which = 'train'):
-    if p.get('data_source') == 'lines':
-        return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
-    elif p.get('data_source') == 'grf':
+def sim_object_image(size, which='train', cfg=None):
+    if cfg is None:
+        raise ValueError("Configuration dictionary 'cfg' cannot be None.")
+
+    data_source = cfg['data_source']
+
+    if data_source == 'lines':
+        return mk_lines_img(2 * size, nlines=400)[size // 2: -size // 2, size // 2: -size // 2, :1]
+    elif data_source == 'grf':
         from .datagen import grf
         return grf.mk_grf(size)
-    elif p.get('data_source') == 'points':
+    elif data_source == 'points':
         from .datagen import points
         return points.mk_points(size)
-    elif p.get('data_source') == 'testimg':
+    elif data_source == 'testimg':
         from .datagen import testimg
         if which == 'train':
             return testimg.get_img(size)
         elif which == 'test':
-            return testimg.get_img(size, reverse = True)
+            return testimg.get_img(size, reverse=True)
         else:
             raise ValueError
-    elif p.get('data_source') == 'testimg_reverse':
+    elif data_source == 'testimg_reverse':
         from .datagen import testimg
-        return testimg.get_img(size, reverse = True)
-    elif p.get('data_source') == 'diagonals':
+        return testimg.get_img(size, reverse=True)
+    elif data_source == 'diagonals':
         from .datagen import diagonals
         return diagonals.mk_diags(size)
-    elif p.get('data_source') == 'V':
+    elif data_source == 'V':
         from .datagen import vendetta
         return vendetta.mk_vs(size)
     else:
         raise ValueError
 
 @memoize_disk_and_memory
-def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
-        YY_I = None, YY_phi = None, dict_fmt = False,  which = 'train', **kwargs):
+def mk_simdata(n, size, probe, outer_offset, intensity_scale=None,
+               YY_I=None, YY_phi=None, dict_fmt=False, which='train',
+               cfg=None, **kwargs):
+    if cfg is None:
+        raise ValueError("Configuration dictionary 'cfg' cannot be None.")
+
     if YY_I is None:
-        YY_I = np.array([sim_object_image(size, which = which)
-              for _ in range(n)])
-    if p.get('set_phi') and YY_phi is None:
+        YY_I = np.array([sim_object_image(size, which=which, cfg=cfg)
+                         for _ in range(n)])
+    if cfg['set_phi'] and YY_phi is None:
         YY_phi = dummy_phi(YY_I)
-    Y_I, Y_phi, _, norm_Y_I, coords = scan_and_normalize(YY_I = YY_I,
-        YY_phi = YY_phi, outer_offset = outer_offset, **kwargs)
+    Y_I, Y_phi, _, norm_Y_I, coords = scan_and_normalize(YY_I=YY_I,
+                                                         YY_phi=YY_phi, outer_offset=outer_offset, cfg=cfg, **kwargs)
     if dict_fmt:
         d = dict()
         d['I_pre_probe'] = Y_I
         d['phi_pre_probe'] = Y_phi
-    X, Y_I, Y_phi, intensity_scale =\
-        illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
+    X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probe, cfg, intensity_scale=intensity_scale)
     if YY_phi is None:
         YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
     else:
@@ -222,5 +224,4 @@ def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
         d['norm_Y_I'] = norm_Y_I
         d['coords'] = coords
         return d
-    return X, Y_I, Y_phi, intensity_scale, YY_full,\
-        norm_Y_I, coords
+    return X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, coords

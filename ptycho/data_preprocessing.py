@@ -79,7 +79,7 @@ def load_simulated_data_container(probeGuess, config=None):
         coords_train_true,
         coords_test_nominal,
         coords_test_true,
-    ) = load_simulated_data(size, probeGuess, outer_offset_train, outer_offset_test, jitter_scale)
+    ) = load_simulated_data(probeGuess, config)
 
     X_train, Y_I_train, Y_phi_train, YY_ground_truth = process_simulated_data(
         X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_test_full, outer_offset_test
@@ -114,16 +114,18 @@ def load_simulated_data_container(probeGuess, config=None):
 
     return train_data_container, test_data_container, YY_ground_truth, YY_test_full
 
-def generate_data(probeGuess=None):
-    data_source = params.params()["data_source"]
-    probe_np = probe.get_probe(fmt="np")
-    outer_offset_train = params.cfg["outer_offset_train"]
-    outer_offset_test = params.cfg["outer_offset_test"]
+def generate_data(cfg, probeGuess=None):
+    assert probeGuess is not None
+    data_source = cfg["data_source"]
+    outer_offset_train = cfg["outer_offset_train"]
+    outer_offset_test = cfg["outer_offset_test"]
     YY_test_full = None
     norm_Y_I_test = None
 
     if data_source in ["lines", "grf", "points", "testimg", "diagonals", "V"]:
-        train_data_container, test_data_container, YY_ground_truth, YY_test_full = load_simulated_data_container(probe_np)
+        train_data_container, test_data_container, YY_ground_truth, YY_test_full = load_simulated_data_container(
+            probeGuess, cfg
+        )
         intensity_scale = train_data_container.norm_Y_I
         ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
     elif data_source == "experimental":
@@ -142,7 +144,7 @@ def generate_data(probeGuess=None):
             coords_train_true,
             coords_test_nominal,
             coords_test_true,
-        ) = load_experimental_data(probe_np, outer_offset_train, outer_offset_test, params.params()["sim_jitter_scale"])
+        ) = load_experimental_data(probeGuess, outer_offset_train, outer_offset_test, cfg["sim_jitter_scale"])
         X_train, Y_I_train, Y_phi_train, YY_ground_truth = process_simulated_data(
             X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_test_full, outer_offset_test
         )
@@ -168,7 +170,7 @@ def generate_data(probeGuess=None):
         YY_ground_truth = None
         YY_test_full = None
     elif data_source == "generic":
-        train_data_container, test_data_container = load_generic_data(probeGuess, params.cfg["N"])
+        train_data_container, test_data_container = load_generic_data(probeGuess, cfg)
         intensity_scale = train_data_container.norm_Y_I
         ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
         YY_ground_truth = None
@@ -179,7 +181,7 @@ def generate_data(probeGuess=None):
     else:
         raise ValueError("Invalid data source")
 
-    params.cfg["intensity_scale"] = intensity_scale
+    cfg["intensity_scale"] = intensity_scale
     return (
         ptycho_dataset.train_data.X,
         ptycho_dataset.train_data.Y_I,
@@ -192,3 +194,5 @@ def generate_data(probeGuess=None):
         YY_test_full,
         norm_Y_I_test,
     )
+
+

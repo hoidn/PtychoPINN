@@ -219,7 +219,7 @@ class PtychoDataContainer:
             self.X[key],
             self.Y_I[key],
             self.Y_phi[key],
-            self.norm_Y_I[key],
+            self.norm_Y_I,
             self.YY_full[key] if self.YY_full is not None else None,
             self.coords_nominal[key],
             self.coords_true[key],
@@ -543,7 +543,8 @@ def get_image_patches(gt_image, global_offsets, local_offsets):
 
 
 @debug
-def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
+def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10,
+                  pad = None, cm = None) -> tf.Tensor:
     from . import tf_helper as hh
     assert len(obj_tensor.shape) == 4
     assert obj_tensor.dtype == np.complex64
@@ -554,23 +555,30 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
     # Select the central part of the object tensor
     obj_tensor = obj_tensor[:, N // 2 - M // 2: N //
                             2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
-    # Calculate the center of mass of global_offsets
-    center_of_mass = tf.reduce_mean(
-        tf.cast(global_offsets, tf.float32), axis=0)
+
+    if cm is None:
+        # Calculate the center of mass of global_offsets
+        center_of_mass = tf.reduce_mean(
+            tf.cast(global_offsets, tf.float32), axis=0)
+    else:
+        center_of_mass = cm
+
     # Adjust global_offsets by subtracting the center of mass
     adjusted_offsets = tf.cast(global_offsets, tf.float32) - center_of_mass
     # Calculate dynamic padding based on maximum adjusted offset
     max_offset = tf.reduce_max(tf.abs(adjusted_offsets))
-    dynamic_pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
-    print('PADDING SIZE:', dynamic_pad)
+    
+    if pad is None:
+        pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
+        print('PADDING SIZE:', pad)
 
     # Create a canvas to store the shifted and summed object tensors
-    result = tf.zeros_like(hh.pad(obj_tensor[0:1], dynamic_pad))
+    result = tf.zeros_like(hh.pad(obj_tensor[0:1], pad))
 
     # Iterate over the adjusted offsets and perform shift-and-sum
     for i in range(len(adjusted_offsets)):
         # Apply dynamic padding to the current object tensor
-        padded_obj_tensor = hh.pad(obj_tensor[i:i+1], dynamic_pad)
+        padded_obj_tensor = hh.pad(obj_tensor[i:i+1], pad)
         # Squeeze and cast adjusted offset to 2D float for translation
         offset_2d = tf.cast(tf.squeeze(adjusted_offsets[i]), tf.float32)
         # Translate the padded object tensor
@@ -585,10 +593,11 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
 
 # TODO move to tf_helper?
 @debug
-def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
+def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10,
+                        pad = None, **kwargs) -> tf.Tensor:
     ones = tf.ones_like(obj_tensor)
-    return shift_and_sum(obj_tensor, global_offsets, M=M) /\
-        (1e-9 + shift_and_sum(ones, global_offsets, M=M))
+    return shift_and_sum(obj_tensor, global_offsets, M=M, pad = pad, **kwargs) /\
+        (1e-9 + shift_and_sum(ones, global_offsets, M=M, pad = pad, **kwargs))
 
 
 @debug
@@ -633,8 +642,10 @@ def split_tensor(tensor, frac, which='test'):
 
 
 @debug
-def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
-    from . import params as cfg
+def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_split: bool,
+         cfg: dict) -> PtychoDataContainer:
+    assert cfg is not None
+    #from . import params as cfg
     from . import probe
     # probeGuess = probe.get_probe(fmt = 'np')
     if create_split:
@@ -653,7 +664,7 @@ def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_sp
             X_full, coords_nominal, coords_true, train_frac, which)
     else:
         X = X_full
-    norm_Y_I = datasets.scale_nphotons(X)
+    norm_Y_I = datasets.scale_nphotons(X, cfg)
     X = tf.convert_to_tensor(X)
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
@@ -662,7 +673,7 @@ def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_sp
 #    except:
 #        Y_obj = tf.zeros_like(X)
 
-    norm_Y_I = datasets.scale_nphotons(X)
+    norm_Y_I = datasets.scale_nphotons(X, cfg)
 
     X = tf.convert_to_tensor(X)
     coords_nominal = tf.convert_to_tensor(coords_nominal)
@@ -710,4 +721,4 @@ def get_gt_patch(offset, N, gt_image):
     from . import tf_helper as hh
     return crop(
         hh.translate(gt_image, offset),
-        N // 2)
+       N // 2)

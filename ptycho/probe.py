@@ -55,6 +55,11 @@ def set_probe(probe):
     norm = float(probe_scale * tf.reduce_mean(tf.math.abs(tamped_probe)))
     params.set('probe', probe / norm)
 
+def pp_probe_guess(probe_guess):
+    probe_guess = probe_guess[..., None]
+    t_probe_guess = tf.convert_to_tensor(probe_guess, tf.complex64)
+    return t_probe_guess
+
 def set_probe_guess(X_train, probe_guess = None):
     N = params.get('N')
     if probe_guess is None:
@@ -71,8 +76,7 @@ def set_probe_guess(X_train, probe_guess = None):
         probe_guess *= (np.sum(get_default_probe()) / np.sum(probe_guess))
         t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)
     else:
-        probe_guess = probe_guess[..., None]
-        t_probe_guess = tf.convert_to_tensor(probe_guess, tf.complex64)
+        t_probe_guess = pp_probe_guess(probe_guess)
 
     #params.set('probe', t_probe_guess)
     set_probe(t_probe_guess)
