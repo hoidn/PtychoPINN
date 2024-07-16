@@ -56,7 +56,7 @@ def set_probe(probe):
     norm = float(probe_scale * tf.reduce_mean(tf.math.abs(tamped_probe)))
     params.set('probe', probe / norm)
 
-def set_probe_guess(X_train, probe_guess = None):
+def set_probe_guess(X_train = None, probe_guess = None):
     if probe_guess is None:
         mu = 0.
         tmp = X_train.mean(axis = (0, 3))
@@ -83,4 +83,4 @@ params.set('probe_mask', get_probe_mask())
 
 # TODO this needs to be called
 def set_default_probe():
-    set_probe(get_default_probe())
+    set_probe_guess(probe_guess = get_default_probe(fmt = 'np'))
