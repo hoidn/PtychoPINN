@@ -166,6 +166,30 @@ def create_decoder_base(input_tensor, n_filters_scale):
     
     return x
 
+def get_resolution_scale_factor(N):
+    """
+    Calculate the resolution-dependent filter count programmatically.
+    
+    Args:
+    N (int): The input resolution (must be a power of 2)
+    
+    Returns:
+    int: The scale factor for the given resolution
+    
+    Raises:
+    ValueError: If the input size is not a power of 2 or is outside the supported range
+    """
+    if N < 64 or N > 1024:
+        raise ValueError(f"Input size {N} is outside the supported range (64 to 1024)")
+    
+    if not (N & (N - 1) == 0) or N == 0:
+        raise ValueError(f"Input size {N} is not a power of 2")
+    
+    # Calculate the scale factor
+    # For N=64, we want 32; for N=128, we want 16; for N=256, we want 8, etc.
+    # This can be achieved by dividing 2048 by N
+    return 2048 // N
+
 def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2, act=tf.keras.activations.sigmoid, name=''):
     N = cfg.get('N')
     gridsize = cfg.get('gridsize')
@@ -178,7 +202,8 @@ def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2, act=tf.kera
     if not cfg.get('probe.big'):
         return x1
     
-    x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * 32)
+    scale_factor = get_resolution_scale_factor(N)
+    x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * scale_factor)
     x2 = conv2(x2)
     x2 = swish(x2)
     
