@@ -177,16 +177,64 @@ def get_bigN():
 
 #Translation functions
 #---------------------
-def Translation(img, offset, jitter_amt):
-    n, c, h, w = img.shape
+def Translation(img, channels, offset, jitter_amt):
+    '''
+    Translation function with custom complex number support.
+    Uses torch.nn.functional.grid_sample to perform subpixel translation.
+
+    Grid_sample takes an input of (N, C, H_in, W_in) and grid of (N, H_out, W_out, 2) to
+    output (N, C, H_out, W_out).
+
+    We transform the input solution region to (C, 1, H, W), and the grid to (C, H_out, W_out, 2).
+    The grid essentially contains all c possible translations of the input region.
+
+    The output in our case will be (C, 1, H_out, W_out)
+
+    Inputs
+    ------
+    img: torch.Tensor (C, H, W). Stack of images in a solution region
+    offset: torch.Tensor (C, 1, 2). Offset of each image in the solution region
+    '''
+    c, h, w = img.shape
+    #Unsqueeze (C, H, W) -> (C, 1, H, W)
+    torch.unsqueeze(img,1)
     #Create 2d grid to sample bilinear interpolation from
     x, y = torch.arange(h)/(h-1), torch.arange(w)/(w-1)
-    grid = torch.dstack(torch.meshgrid(x,y))*2 - 1
+    #Add offset to x, y using broadcasting (H) -> (C, H)
+    x_shifted, y_shifted = x + offset[:, 0, 0], y + offset[:, 0, 1]
 
-    #Apply F.grid_sample
+    #Create grid using manual stacking method C x H x W x 2)
+    grid = torch.stack([x_shifted.unsqueeze(-1).expand(c, -1, y_shifted.shape[1]),
+                    y_shifted.unsqueeze(1).expand(c, x_shifted.shape[1], -1)],
+                    dim = -1)
+
+    #Apply F.grid_sample to translate real and imaginary parts separately
+    translated_real = F.grid_sample(img.unsqueeze(1).real, grid, mode = 'bilinear')
+    translated_imag = F.grid_sample(img.unsqueeze(1).imag, grid, mode = 'bilinear')
+
+    #Combine real and imag
+    translated = torch.view_as_complex(torch.stack((translated_real, translated_imag),
+                                                   dim = -1))
+    
+    return translated
+
     
 
 #Flattening functions
 #---------------------
 def flatten_offsets(input: torch.Tensor) -> torch.Tensor:
     return _channel_to_flat(input)[:, 0, 0, :]
+
+def _flat_to_channel(img: torch.Tensor, N: int = None) -> torch.Tensor:
+    '''
+    Reshapes tensor from flat format to channel format. Useful to batch apply operations such as
+    translation on the flat tensor, then reshape back to channel format.
+
+    Inputs
+    ------
+    img: torch.Tensor (N, H, W)
+
+    Outputs
+    -------
+    out: torch.Tensor (M, C, H, W)
+    '''
