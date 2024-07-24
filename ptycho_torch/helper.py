@@ -84,15 +84,18 @@ def reassemble_patchess_position_real(inputs: torch.Tensor, offsets_xy: torch.Te
     if padded_size is None:
         padded_size = get_padded_size()
     #Flattening first two dimensions, adding singleton dimension to end
+    n_channels = inputs.shape[1]
     offsets_flat = torch.flatten(offsets_xy[:, 0 , 0, :], start_dim = 0, end_dim = 1)[:,:,:,None]
     imgs_flat = torch.flatten(inputs, start_dim = 0, end_dim = 1)[:,:,:,None]
     #Pad patches
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
     imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat, 0.])
     if agg:
-        imgs_merged = tf.reduce_sum(
-                _flat_to_channel(imgs_flat_bigN_translated, N = padded_size),
-                    axis = 3)[..., None]
+        imgs_channel = torch.reshape(imgs_flat_bigN_translated,
+                                     (-1, n_channels, padded_size, padded_size))
+        #Count nonzeros for normalization
+        n_nonzero = torch.count_nonzero(imgs_channel, dim = 1)
+        imgs_merged = torch.sum(imgs_channel, axis = 1)
         return imgs_merged
     else:
         print('no aggregation in patch reassembly')
@@ -192,23 +195,26 @@ def Translation(img, channels, offset, jitter_amt):
 
     Inputs
     ------
-    img: torch.Tensor (C, H, W). Stack of images in a solution region
-    offset: torch.Tensor (C, 1, 2). Offset of each image in the solution region
+    img: torch.Tensor (N, H, W). Stack of images in a solution region. dtype complex, cfloat 
+    offset: torch.Tensor (N, 1, 2). Offset of each image in the solution region
     '''
-    c, h, w = img.shape
-    #Unsqueeze (C, H, W) -> (C, 1, H, W)
-    torch.unsqueeze(img,1)
+    n, h, w = img.shape
     #Create 2d grid to sample bilinear interpolation from
-    x, y = torch.arange(h)/(h-1), torch.arange(w)/(w-1)
+    x, y = torch.arange(h), torch.arange(w)
     #Add offset to x, y using broadcasting (H) -> (C, H)
-    x_shifted, y_shifted = x + offset[:, 0, 0], y + offset[:, 0, 1]
-
+    #NOTE TO ALBERT: ADD JITTER HERE
+    x_shifted, y_shifted = (x + offset[:, 0, 0])/(h-1), (y + offset[:, 0, 1])/(w-1)
     #Create grid using manual stacking method C x H x W x 2)
-    grid = torch.stack([x_shifted.unsqueeze(-1).expand(c, -1, y_shifted.shape[1]),
-                    y_shifted.unsqueeze(1).expand(c, x_shifted.shape[1], -1)],
-                    dim = -1)
+    #Multiply by 2 and subtract 1 to shift to [-1, 1] range
+    grid = torch.stack([x_shifted.unsqueeze(-1).expand(n, -1, y_shifted.shape[1]),
+                    y_shifted.unsqueeze(1).expand(n, x_shifted.shape[1], -1)],
+                    dim = -1) * 2 - 1
 
-    #Apply F.grid_sample to translate real and imaginary parts separately
+    #Apply F.grid_sample to translate real and imaginary parts separately.
+    #grid_sample does not have native complex tensor support
+    #Need to unsqueeze img to have it work with grid_sample (check documentation). 
+    #In our case, color channels are 1 (singleton) and so we just unsqueeze at 2nd dimension
+
     translated_real = F.grid_sample(img.unsqueeze(1).real, grid, mode = 'bilinear')
     translated_imag = F.grid_sample(img.unsqueeze(1).imag, grid, mode = 'bilinear')
 
@@ -218,14 +224,12 @@ def Translation(img, channels, offset, jitter_amt):
     
     return translated
 
-    
-
 #Flattening functions
 #---------------------
 def flatten_offsets(input: torch.Tensor) -> torch.Tensor:
     return _channel_to_flat(input)[:, 0, 0, :]
 
-def _flat_to_channel(img: torch.Tensor, N: int = None) -> torch.Tensor:
+def _flat_to_channel(img: torch.Tensor, channels: int = 4) -> torch.Tensor:
     '''
     Reshapes tensor from flat format to channel format. Useful to batch apply operations such as
     translation on the flat tensor, then reshape back to channel format.
@@ -238,3 +242,10 @@ def _flat_to_channel(img: torch.Tensor, N: int = None) -> torch.Tensor:
     -------
     out: torch.Tensor (M, C, H, W)
     '''
+
+    _, H, W = img.shape
+
+    img = torch.reshape(img, (-1, channels, H, W))
+
+    return img
+    
