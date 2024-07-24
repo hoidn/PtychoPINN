@@ -55,7 +55,7 @@ def is_complex(x: torch.Tensor) -> bool:
 
 #Patch reassembly
 #---------------------
-def reassemble_patchess_position_real(inputs: torch.Tensor, offsets_xy: torch.Tensor,
+def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Tensor,
                                       agg: bool = True,
                                       padded_size: Optional[int] = None,
                                       **kwargs: Any) -> torch.Tensor:
@@ -70,8 +70,8 @@ def reassemble_patchess_position_real(inputs: torch.Tensor, offsets_xy: torch.Te
 
     Inputs
     ------
-    inputs: (n_images, n_patches, N, N)
-    offsets_xy: offset patches in x, y
+    inputs: diffraction images from model -> (n_images, n_patches, N, N)
+    offsets_xy: offset patches in x, y -> (n_images, n_patches, 1, 2)
     agg: aggregation boolean
     padded_size: Amount of padding
 
@@ -81,21 +81,26 @@ def reassemble_patchess_position_real(inputs: torch.Tensor, offsets_xy: torch.Te
         Single tensor of shape (n_images, N, N) where N is summed object size. Everything has been merged here.
     '''
 
+    assert inputs.dtype == torch.complex64, 'Input must be complex'
+
     if padded_size is None:
         padded_size = get_padded_size()
+
     #Flattening first two dimensions, adding singleton dimension to end
     n_channels = inputs.shape[1]
-    offsets_flat = torch.flatten(offsets_xy[:, 0 , 0, :], start_dim = 0, end_dim = 1)[:,:,:,None]
-    imgs_flat = torch.flatten(inputs, start_dim = 0, end_dim = 1)[:,:,:,None]
+    offsets_flat = torch.flatten(offsets_xy, start_dim = 0, end_dim = 1)#[:,:,:,None]
+    imgs_flat = torch.flatten(inputs, start_dim = 0, end_dim = 1)#[:,:,:,None]
+
     #Pad patches
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
-    imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat, 0.])
+    imgs_flat_bigN_translated = Translation(imgs_flat_bigN, -offsets_flat, 0.)
+
     if agg:
         imgs_channel = torch.reshape(imgs_flat_bigN_translated,
                                      (-1, n_channels, padded_size, padded_size))
         #Count nonzeros for normalization
         n_nonzero = torch.count_nonzero(imgs_channel, dim = 1)
-        imgs_merged = torch.sum(imgs_channel, axis = 1)
+        imgs_merged = torch.sum(imgs_channel, axis = 1)/n_nonzero
         return imgs_merged
     else:
         print('no aggregation in patch reassembly')
@@ -106,6 +111,7 @@ def reassemble_patchess_position_real(inputs: torch.Tensor, offsets_xy: torch.Te
 
 #Masking/norm functions
 #---------------------
+#UNUSED
 def mk_centermask(inputs: torch.Tensor, N: int, c: int, kind: str = 'center') -> torch.Tensor:
     '''
     Creates padded object mask to fulfill Nyquist criterion. This way, when we do FFT for
@@ -180,7 +186,7 @@ def get_bigN():
 
 #Translation functions
 #---------------------
-def Translation(img, channels, offset, jitter_amt):
+def Translation(img, offset, jitter_amt):
     '''
     Translation function with custom complex number support.
     Uses torch.nn.functional.grid_sample to perform subpixel translation.
@@ -202,8 +208,15 @@ def Translation(img, channels, offset, jitter_amt):
     #Create 2d grid to sample bilinear interpolation from
     x, y = torch.arange(h), torch.arange(w)
     #Add offset to x, y using broadcasting (H) -> (C, H)
-    #NOTE TO ALBERT: ADD JITTER HERE
-    x_shifted, y_shifted = (x + offset[:, 0, 0])/(h-1), (y + offset[:, 0, 1])/(w-1)
+    jitter_x = torch.normal(torch.zeros(offset[:,:,0].shape), #offset: [n, 1]
+                          std=jitter_amt)
+    jitter_y = torch.normal(torch.zeros(offset[:,:,1].shape), #offset: [n, 1]
+                          std=jitter_amt)
+    
+    print(offset[:,:,0].shape, jitter_x.shape)
+
+    x_shifted, y_shifted = (x + offset[:, :, 0] + jitter_x)/(h-1), \
+                           (y + offset[:, :, 1] + jitter_y)/(w-1)
     #Create grid using manual stacking method C x H x W x 2)
     #Multiply by 2 and subtract 1 to shift to [-1, 1] range
     grid = torch.stack([x_shifted.unsqueeze(-1).expand(n, -1, y_shifted.shape[1]),
