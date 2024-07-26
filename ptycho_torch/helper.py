@@ -100,12 +100,75 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
                                      (-1, n_channels, padded_size, padded_size))
         #Count nonzeros for normalization
         n_nonzero = torch.count_nonzero(imgs_channel, dim = 1)
+        #Change all zero values in n_nonzero to 1
+        n_nonzero[n_nonzero == 0] = 1
+        #Normalize merged image by number of summed channels
         imgs_merged = torch.sum(imgs_channel, axis = 1)/n_nonzero
         return imgs_merged
     else:
         print('no aggregation in patch reassembly')
         return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
+    
+def extract_channels_from_region(inputs: torch.Tensor,
+                                 offsets: torch.Tensor,
+                                 jitter_amt: float = 0.0) -> torch.Tensor:
+    
+    '''
+    Extracts averaged objects from the summed M x M solution region.
 
+    Inputs
+    ------
+    inputs: torch.Tensor (batch_size, 1, M, M), M = N + some padding size
+    offsets: torch.Tensor (batch_size, C, 1, 2)
+    jitter_amt: float
+
+    Output
+    ------
+    output: torch.Tensor (batch_size, C, N, N)
+        - Shifted images, cropped symmetrically
+    
+    '''
+    #Check offset and input dimensions
+    #List of assertions
+    if inputs.get_shape()[0] is not None:
+        assert int(inputs.get_shape()[0]) == int(offsets.get_shape()[0])
+    assert int(inputs.get_shape()[1]) == 1
+    assert int(offsets.get_shape()[3]) == 2
+
+    offsets_flat = torch.flatten(offsets, start_dim = 0, end_dim = 1)
+    stacked = 
+
+    
+    
+
+
+
+def trim_reconstruction(inputs: torch.Tensor, N: Optional[int] = None) -> torch.Tensor:
+    '''
+    Trim from shape (-1, 1, M, M) to (-1, 1, N, N) where M >= N
+    M is the expanded solution region size
+    N is the exact size of the measured diffraction input image (e.g. 64 pixels)
+
+    Assume M = get_padded_size()   
+    '''
+
+    if N is None:
+        N = cfg['N']
+
+    shape = inputs.shape
+
+    #Ensure dimension matching
+    if shape[2] is not None:
+        assert int(shape[2]) == int(shape[-1])
+    try:
+        clipsize = (int(shape[2]) - N) // 2
+    except TypeError:
+        clipsize = (get_padded_size() - N) // 2
+    
+    #return clipped input
+    return inputs[:, :,
+                  clipsize:-clipsize,
+                  clipsize:-clipsize]
 
 
 
@@ -213,12 +276,11 @@ def Translation(img, offset, jitter_amt):
     jitter_y = torch.normal(torch.zeros(offset[:,:,1].shape), #offset: [n, 1]
                           std=jitter_amt)
     
-    print(offset[:,:,0].shape, jitter_x.shape)
-
     x_shifted, y_shifted = (x + offset[:, :, 0] + jitter_x)/(h-1), \
                            (y + offset[:, :, 1] + jitter_y)/(w-1)
-    #Create grid using manual stacking method C x H x W x 2)
-    #Multiply by 2 and subtract 1 to shift to [-1, 1] range
+    
+    #Create meshgrid using manual stacking method C x H x W x 2)
+    #Multiply by 2 and subtract 1 to shift to [-1, 1] range for use by grid_sample
     grid = torch.stack([x_shifted.unsqueeze(-1).expand(n, -1, y_shifted.shape[1]),
                     y_shifted.unsqueeze(1).expand(n, x_shifted.shape[1], -1)],
                     dim = -1) * 2 - 1
