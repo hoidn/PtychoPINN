@@ -116,6 +116,14 @@ def extract_channels_from_region(inputs: torch.Tensor,
     '''
     Extracts averaged objects from the summed M x M solution region.
 
+    Essentially we're translating the solution region in reverse; we reverse the offsets we used to translate
+    the original image, so that the image patch of interest (within the solution region) is
+    centered at the origin.
+
+    
+
+    We can then use this modified translated solution region and do a simple crop extraction that's N x N about the origin.
+
     Inputs
     ------
     inputs: torch.Tensor (batch_size, 1, M, M), M = N + some padding size
@@ -136,7 +144,7 @@ def extract_channels_from_region(inputs: torch.Tensor,
     assert int(offsets.get_shape()[3]) == 2
 
     offsets_flat = torch.flatten(offsets, start_dim = 0, end_dim = 1)
-    stacked = 
+    stacked_inputs = 
 
     
     
@@ -253,14 +261,16 @@ def Translation(img, offset, jitter_amt):
     '''
     Translation function with custom complex number support.
     Uses torch.nn.functional.grid_sample to perform subpixel translation.
+    Meant to be performed on a flattened set of inputs.
 
     Grid_sample takes an input of (N, C, H_in, W_in) and grid of (N, H_out, W_out, 2) to
-    output (N, C, H_out, W_out).
+    output (N, C, H_out, W_out). In our case, C is 1 because we already flattened the channels from (N, C, H_in, W_in)
+    to (N * C, H_in, W_in). Offset is (N*C, 1, 2)
 
-    We transform the input solution region to (C, 1, H, W), and the grid to (C, H_out, W_out, 2).
+    We transform the input solution region to (N, 1, H, W), and the grid to (N, H_out, W_out, 2).
     The grid essentially contains all c possible translations of the input region.
 
-    The output in our case will be (C, 1, H_out, W_out)
+    The output in our case will be (N, 1, H_out, W_out)
 
     Inputs
     ------
