@@ -6,12 +6,10 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-#Configuration file
-cfg = {'N': 64,
-       'offset': 4,
-       'gridsize': 2,
-       'max_position_jitter': 10
-    }
+#Configurations
+from ptycho_torch.config_params import Config
+
+
 
 #Complex functions
 #---------------------
@@ -110,7 +108,7 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
         return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
     
 def extract_channels_from_region(inputs: torch.Tensor,
-                                 offsets: torch.Tensor,
+                                 offsets_xy: torch.Tensor,
                                  jitter_amt: float = 0.0) -> torch.Tensor:
     
     '''
@@ -120,8 +118,6 @@ def extract_channels_from_region(inputs: torch.Tensor,
     the original image, so that the image patch of interest (within the solution region) is
     centered at the origin.
 
-    
-
     We can then use this modified translated solution region and do a simple crop extraction that's N x N about the origin.
 
     Inputs
@@ -129,6 +125,7 @@ def extract_channels_from_region(inputs: torch.Tensor,
     inputs: torch.Tensor (batch_size, 1, M, M), M = N + some padding size
     offsets: torch.Tensor (batch_size, C, 1, 2)
     jitter_amt: float
+        Assuming zero jitter
 
     Output
     ------
@@ -138,13 +135,28 @@ def extract_channels_from_region(inputs: torch.Tensor,
     '''
     #Check offset and input dimensions
     #List of assertions
-    if inputs.get_shape()[0] is not None:
-        assert int(inputs.get_shape()[0]) == int(offsets.get_shape()[0])
-    assert int(inputs.get_shape()[1]) == 1
-    assert int(offsets.get_shape()[3]) == 2
+    if inputs.shape[0] is not None:
+        assert int(inputs.shape[0]) == int(offsets_xy.shape[0])
+    assert int(inputs.shape[1]) == 1
+    assert int(offsets_xy.shape[3]) == 2
 
-    offsets_flat = torch.flatten(offsets, start_dim = 0, end_dim = 1)
-    stacked_inputs = 
+    offsets_flat = torch.flatten(offsets_xy, start_dim = 0, end_dim = 1)
+    #We need to repeat the solution patch C # of times, so we can perform unique translations
+    #for all C image patches.
+    #Steps: Repeat -> Flatten
+    n_channels = offsets_xy.shape[1]
+    stacked_inputs = inputs.expand(-1, n_channels, -1, -1)
+    flat_stacked_inputs = torch.flatten(stacked_inputs, start_dim = 0, end_dim = 1)
+
+    #Obtain translation of patches
+    #Note, offsets must be inverted in sign compared to Translation in: reassemble_patches_position_real
+    translated_patches = Translation(flat_stacked_inputs, offsets_flat, 0.0)
+    cropped_patches = trim_reconstruction(translated_patches)
+    print(cropped_patches.shape)
+    cropped_patches = torch.reshape(cropped_patches,
+                                    (-1, n_channels, Config().get('N'), Config().get('N')))
+
+    return cropped_patches
 
     
     
@@ -154,6 +166,7 @@ def extract_channels_from_region(inputs: torch.Tensor,
 def trim_reconstruction(inputs: torch.Tensor, N: Optional[int] = None) -> torch.Tensor:
     '''
     Trim from shape (-1, 1, M, M) to (-1, 1, N, N) where M >= N
+    Second dimension is 1 because of Translation function always returning 4D tensor
     M is the expanded solution region size
     N is the exact size of the measured diffraction input image (e.g. 64 pixels)
 
@@ -161,9 +174,10 @@ def trim_reconstruction(inputs: torch.Tensor, N: Optional[int] = None) -> torch.
     '''
 
     if N is None:
-        N = cfg['N']
+        N = Config().get('N')
 
     shape = inputs.shape
+    print(shape)
 
     #Ensure dimension matching
     if shape[2] is not None:
@@ -174,7 +188,7 @@ def trim_reconstruction(inputs: torch.Tensor, N: Optional[int] = None) -> torch.
         clipsize = (get_padded_size() - N) // 2
     
     #return clipped input
-    return inputs[:, :,
+    return inputs[:,:,
                   clipsize:-clipsize,
                   clipsize:-clipsize]
 
@@ -244,14 +258,14 @@ def pad_patches(input: torch.Tensor, padded_size: Optional[int] = None) -> torch
 
 def get_padded_size():
     bigN = get_bigN()
-    buffer = cfg['max_position_jitter']
+    buffer = Config().get('max_position_jitter')
 
     return bigN + buffer
 
 def get_bigN():
-    N = cfg['N']
-    gridsize = cfg['gridsize']
-    offset = cfg['offset']
+    N = Config().get('N')
+    gridsize = Config().get('gridsize')
+    offset = Config().get('offset')
 
     return N + (gridsize - 1) * offset
 
@@ -276,6 +290,10 @@ def Translation(img, offset, jitter_amt):
     ------
     img: torch.Tensor (N, H, W). Stack of images in a solution region. dtype complex, cfloat 
     offset: torch.Tensor (N, 1, 2). Offset of each image in the solution region
+
+    Outputs
+    ------
+    out: torch.Tensor (N, 1, H_out, W_out)
     '''
     n, h, w = img.shape
     #Create 2d grid to sample bilinear interpolation from
@@ -288,20 +306,28 @@ def Translation(img, offset, jitter_amt):
     
     x_shifted, y_shifted = (x + offset[:, :, 0] + jitter_x)/(h-1), \
                            (y + offset[:, :, 1] + jitter_y)/(w-1)
-    
+       
     #Create meshgrid using manual stacking method C x H x W x 2)
     #Multiply by 2 and subtract 1 to shift to [-1, 1] range for use by grid_sample
     grid = torch.stack([x_shifted.unsqueeze(-1).expand(n, -1, y_shifted.shape[1]),
                     y_shifted.unsqueeze(1).expand(n, x_shifted.shape[1], -1)],
                     dim = -1) * 2 - 1
+    
+    #Need to transpose grid due to some weird F.grid_sample behavior
+    grid = torch.transpose(grid, 1, 2)
 
     #Apply F.grid_sample to translate real and imaginary parts separately.
     #grid_sample does not have native complex tensor support
     #Need to unsqueeze img to have it work with grid_sample (check documentation). 
     #In our case, color channels are 1 (singleton) and so we just unsqueeze at 2nd dimension
 
-    translated_real = F.grid_sample(img.unsqueeze(1).real, grid, mode = 'bilinear')
-    translated_imag = F.grid_sample(img.unsqueeze(1).imag, grid, mode = 'bilinear')
+    translated_real = F.grid_sample(img.unsqueeze(1).real, grid,
+                                    mode = 'bilinear', align_corners = True)
+    if img.dtype == torch.complex64:
+        translated_imag = F.grid_sample(img.unsqueeze(1).imag, grid,
+                                        mode = 'bilinear', align_corners = True)
+    else:
+        translated_imag = torch.zeros_like(translated_real)
 
     #Combine real and imag
     translated = torch.view_as_complex(torch.stack((translated_real, translated_imag),
