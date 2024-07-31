@@ -9,6 +9,8 @@ import math
 
 #Helper
 from ptycho_torch.config_params import Config
+from ptycho_torch.config_params import Params
+import ptycho_torch.helper as hh
 
 #Helping modules
 
@@ -112,7 +114,11 @@ class Decoder_filters(nn.Module):
         super(Decoder_filters, self).__init__()
         self.N = Config().get('N')
 
+        #Calculate number of channels for upscaling
         #Start from self.N and divide by 2 until 32 for each layer
+        #E.g. 
+        #N == 64: [n_filters_scale * 64, n_filters_scale * 32]
+        #N == 128: [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
         n_terms = int(np.log(self.N / 32) / np.log(2) + 1)
         self.filters = [int(n_filters_scale * self.N * (1/2)**i) for i in range(n_terms)]
 
@@ -187,10 +193,10 @@ class Decoder_phase(Decoder_base):
                             kernel_size = (3, 3),
                             padding = 'same')
         #Custom nn layers with specific identifiable names
-        self.add_module('phase_act', Tanh_custom_act())
+        self.add_module('phase_activation', Tanh_custom_act())
         self.add_module('phase', Decoder_last(n_filters_scale,
                                          conv1, conv2,
-                                         activation = self.phase_act))
+                                         activation = self.phase_activation))
             
     def forward(self, x):
         #Apply upscale block layers
@@ -213,10 +219,10 @@ class Decoder_amp(Decoder_base):
                             kernel_size = (3, 3),
                             padding = 'same')
         #Custom nn layers with specific identifiable names
-        self.add_module('amp_act', Tanh_custom_act())
+        self.add_module('amp_activation', Tanh_custom_act())
         self.add_module('amp', Decoder_last(n_filters_scale,
                                          conv1, conv2,
-                                         activation = self.amp_act))
+                                         activation = self.amp_activation))
             
     def forward(self, x):
         #Apply upscale block layers
@@ -225,5 +231,139 @@ class Decoder_amp(Decoder_base):
 
         #Apply final layer
         outputs = self.amp(x)
-        
 
+        return outputs
+
+#Autoencoder
+
+class Autoencoder(nn.Module):
+    def __init__(self, n_filters_scale):
+        super(Autoencoder, self).__init__()
+        #Encoder
+        encoder = Encoder(n_filters_scale)
+        #Decoders (Amplitude/Phase)
+        decoder_amp = Decoder_amp(n_filters_scale)
+        decoder_phase = Decoder_phase(n_filters_scale)
+
+    def forward(self, x):
+        #Encoder
+        x = self.encoder(x)
+        #Decoders
+        x_amp = self.decoder_amp(x)
+        x_phase = self.decoder_phase(x)
+
+        return x_amp, x_phase
+
+
+#Other modules
+class CombineComplex(nn.Module):
+    '''
+    Converts real number amplitude and phase into single complex number for FFT
+
+    Inputs
+    ------
+    amp: torch.Tensor
+        Amplitude of complex number
+    phi: torch.Tensor
+        Phase of complex number
+    
+    Outputs
+    -------
+    out: torch.Tensor
+        Complex number
+    '''
+    def __init__(self):
+        super(CombineComplex, self).__init__()
+
+    def forward(self, amp: torch.Tensor, phi: torch.Tensor) -> torch.Tensor:
+
+        out = amp.to(dtype=torch.complex64) * \
+                torch.exp(1j * phi.to(dtype=torch.complex64))
+        
+        return out
+    
+#Scaling modules
+
+# # Example usage
+# # Assuming cfg is a dictionary with the key 'intensity_scale' and appropriate value
+# cfg = {'intensity_scale': 1.0}
+# params = lambda: {'intensity_scale.trainable': True}
+
+# # Initialize the module
+# scaler_module = IntensityScalerModule(cfg, params)
+
+# # Create instances of the classes
+# scaler = scaler_module.IntensityScaler(scaler_module.log_scale)
+# inv_scaler = scaler_module.IntensityScalerInv(scaler_module.log_scale)
+
+# # Example input tensor
+# input_tensor = torch.randn(4, 4)
+
+# # Apply scaling and inverse scaling
+# scaled_tensor = scaler(input_tensor)
+# inv_scaled_tensor = inv_scaler(input_tensor)
+
+class IntensityScalerModule:
+    def __init__(self, cfg, params):
+        #Setting log scale values
+        log_scale_guess = np.log(Config().get('intensity_scale'))
+        self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
+                                      requires_grad = Params.get('intensity_scale_trainable'))
+    
+    #Intensity scaler as class
+    class IntensityScaler(nn.Module):
+        '''
+        Scales intensity with log scale factor. Supports inverse and regular scaling
+        '''
+        def __init__(self, log_scale, inv = False):
+            super(IntensityScalerModule.IntensityScaler, self).__init__()
+            self.scale_factor = torch.exp(log_scale)
+            if inv:
+                self.scale_factor = 1 / self.scale_factor
+
+        def forward(self, x):
+            return x / self.scale_factor
+        
+    #Intensity scalar as function
+
+    def scale(self, x):
+        return x / torch.exp(self.log_scale)
+    
+    def inv_scale(self, x):
+        return x * torch.exp(self.log_scale)
+
+#Full module with everything
+class PtychoPINN(nn.Module):
+    def __init__(self, cfg, params):
+        #Configuration 
+        self.n_filters_scale = Config().get('n_filters_scale')
+        self.N = Config().get('N')
+        self.gridsize = Config().get('gridsize')
+        self.offset = Config().get('offset')
+        self.object_big = Config().get('object.big')
+
+        #To-do, probe
+
+        self.autoencoder = Autoencoder(self.n_filters_scale)
+        self.combine_complex = CombineComplex()
+
+    def forward(self, x, positions, probe):
+        #Autoencoder result
+        x_amp, x_phase = self.autoencoder(x)
+        #Combine amp and phase
+        x_combined = self.combine_complex(x_amp, x_phase)
+
+        #Reassemble patches
+        if self.object_big:
+            reassembled_obj = hh.reassemble_patches_position_real(
+                x_combined,
+                positions
+            )
+        else:
+            #NOTE for albert: Check transformation math
+            reassembled_obj = hh.pad_patches(
+                torch.flatten(x_combined, start_dim = 0, end_dim = 1),
+                padded_size = hh.get_padded_size()
+            )
+
+        
