@@ -254,6 +254,26 @@ class Autoencoder(nn.Module):
 
         return x_amp, x_phase
 
+#Probe modules
+class ProbeIllumination(nn.Module):
+    '''
+    Probe illumination done using hadamard product of object tensor and 2D probe function.
+    2D probe function should be supplised by the dataloader
+    '''
+    def __init__(self):
+        super(ProbeIllumination, self).__init__()
+        N = Config().get('N')
+        #Check if probe mask exists
+        #If not, probe mask is just a ones matrix
+        #If mask exists, save mask is class attribute
+        if not Config().get('probe.mask'):
+            self.probe_mask = torch.ones((N, N))
+        else:
+            self.probe_mask = Config().get('probe.mask')
+    
+    def forward(self, x, probe):
+        return x * probe * self.probe_mask, probe * self.probe_mask
+
 
 #Other modules
 class CombineComplex(nn.Module):
@@ -282,6 +302,14 @@ class CombineComplex(nn.Module):
         
         return out
     
+class LambdaLayer(nn.Module):
+    def __init__(self, func):
+        super(LambdaLayer, self).__init__()
+        self.func = func
+    
+    def forward(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
+    
 #Scaling modules
 
 # # Example usage
@@ -304,7 +332,7 @@ class CombineComplex(nn.Module):
 # inv_scaled_tensor = inv_scaler(input_tensor)
 
 class IntensityScalerModule:
-    def __init__(self, cfg, params):
+    def __init__(self):
         #Setting log scale values
         log_scale_guess = np.log(Config().get('intensity_scale'))
         self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
@@ -324,16 +352,22 @@ class IntensityScalerModule:
         def forward(self, x):
             return x / self.scale_factor
         
-    #Intensity scalar as function
-
+    #Standalone intensity scaling functions
     def scale(self, x):
         return x / torch.exp(self.log_scale)
-    
+
     def inv_scale(self, x):
         return x * torch.exp(self.log_scale)
 
 #Full module with everything
 class PtychoPINN(nn.Module):
+    '''
+    
+    Note for forward call, because we're getting data from a memory-mapped tensor
+    x - Tensor input, comes from tensor['images']
+    positions - Tensor input, comes from tensor['coords_relative']
+    probe - Tensor input, comes from dataset/dataloader __get__ function (returns x, probe)
+    '''
     def __init__(self, cfg, params):
         #Configuration 
         self.n_filters_scale = Config().get('n_filters_scale')
@@ -342,10 +376,32 @@ class PtychoPINN(nn.Module):
         self.offset = Config().get('offset')
         self.object_big = Config().get('object.big')
 
-        #To-do, probe
-
+        #Autoencoder
         self.autoencoder = Autoencoder(self.n_filters_scale)
         self.combine_complex = CombineComplex()
+        #Adding named modules for forward operation
+        #Patch operations
+        self.add_module('reassembled_patches',
+                        LambdaLayer(hh.reassemble_patches_position_real))
+        self.add_module('pad_patches',
+                        LambdaLayer(hh.pad_patches))
+        self.add_module('trim_reconstruction',
+                        LambdaLayer(hh.trim_reconstruction))
+        self.add_module('extract_patches',
+                        LambdaLayer(hh.extract_channels_from_region))
+        #Probe Illumination
+        self.probe_illumination = ProbeIllumination()
+
+        #Pad/diffract
+        self.add_module('pad_and_diffract',
+                        LambdaLayer(hh.pad_and_diffract))
+
+        #Intensity scaling
+        self.scaler = IntensityScalerModule(cfg, params)
+        self.add_module('inv_scale',
+                        LambdaLayer(self.scaler.scale))
+
+
 
     def forward(self, x, positions, probe):
         #Autoencoder result
@@ -355,15 +411,26 @@ class PtychoPINN(nn.Module):
 
         #Reassemble patches
         if self.object_big:
-            reassembled_obj = hh.reassemble_patches_position_real(
-                x_combined,
-                positions
-            )
+            reassembled_obj = self.reassembled_patches(x_combined, positions)
         else:
             #NOTE for albert: Check transformation math
-            reassembled_obj = hh.pad_patches(
+            reassembled_obj = self.pad_patches(
                 torch.flatten(x_combined, start_dim = 0, end_dim = 1),
                 padded_size = hh.get_padded_size()
             )
+
+        #Trim object reconstruction
+        trimmed_obj = self.trim_reconstruction(reassembled_obj)
+
+        #Extract patches
+        extracted_patch_objs = self.extract_patches(trimmed_obj,
+                                                    positions)
+        #Apply probe illum
+        illuminated_objs = self.probe_illumination(extracted_patch_objs, probe)
+
+        #Pad and diffract
+        pred_diffraction = self.pad_and_diffract(illuminated_objs)
+
+        #Inverse scaling
 
         
