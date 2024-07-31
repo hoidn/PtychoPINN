@@ -152,7 +152,6 @@ def extract_channels_from_region(inputs: torch.Tensor,
     #Note, offsets must be inverted in sign compared to Translation in: reassemble_patches_position_real
     translated_patches = Translation(flat_stacked_inputs, offsets_flat, 0.0)
     cropped_patches = trim_reconstruction(translated_patches)
-    print(cropped_patches.shape)
     cropped_patches = torch.reshape(cropped_patches,
                                     (-1, n_channels, Config().get('N'), Config().get('N')))
 
@@ -177,7 +176,6 @@ def trim_reconstruction(inputs: torch.Tensor, N: Optional[int] = None) -> torch.
         N = Config().get('N')
 
     shape = inputs.shape
-    print(shape)
 
     #Ensure dimension matching
     if shape[2] is not None:
@@ -255,6 +253,13 @@ def pad_patches(input: torch.Tensor, padded_size: Optional[int] = None) -> torch
     pad_dim = (padded_size - input.shape[-1]) // 2
 
     return F.pad(input, (pad_dim, pad_dim, pad_dim, pad_dim), "constant", 0)
+
+def pad_obj(input: torch.Tensor, h: int, w: int) -> torch.Tensor:
+    '''
+    Pad object function for Nyquist criterion. An N x M image needs to be padded by N // 4
+    pixels on the top and bottom sides, and the M // 4 on the left and right sides
+    '''
+    return nn.ZeroPad2d((h // 4, h // 4, w // 4, w // 4))(input)
 
 def get_padded_size():
     bigN = get_bigN()
@@ -360,3 +365,24 @@ def _flat_to_channel(img: torch.Tensor, channels: int = 4) -> torch.Tensor:
 
     return img
     
+
+#Fourier functions for forward pass
+
+def pad_and_diffract(input: torch.Tensor, pad: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
+    '''
+    Pads channel images and performs Fourier transform, going from real space (object) to
+    reciprocal space (diffraction pattern)
+    
+    '''
+
+    h, w = input.shape[-2], input.shape[-1]
+
+    if pad:
+        input = pad_obj(input, h, w)
+    padded = input
+    #assert input.shape[-1] == 1
+    input = torch.fft.fft2(input.to(torch.complex64))
+    input = torch.real(torch.conj(input) * input) / (h * w)
+    input = torch.sqrt(torch.fft.fftshift(input, dim=(-2, -1)))
+
+    return padded, input
