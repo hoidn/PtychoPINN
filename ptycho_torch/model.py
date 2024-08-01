@@ -1,7 +1,8 @@
 #Torch
 import torch
 from torch import nn
-import torch.nn.functionl as F
+import torch.nn.functional as F
+import torch.distributions as dist
 
 #Other math
 import numpy as np
@@ -310,6 +311,21 @@ class LambdaLayer(nn.Module):
     def forward(self, *args, **kwargs):
         return self.func(*args, **kwargs)
     
+class PoissonIntensityLayer(nn.Module):
+    '''
+    Applies poisson intensity scaling using torch.distributions
+    '''
+    def __init__(self, amplitudes):
+        super(PoissonIntensityLayer, self).__init__()
+        #Poisson rate parameter (lambda)
+        Lambda = amplitudes ** 2
+        #Create Poisson distribution
+        self.poisson_dist = dist.Independent(dist.Poisson(Lambda), 1)
+
+    def forward(self, x):
+        #Apply poisson distribution
+        return -self.poisson_dist.log_prob(x)
+    
 #Scaling modules
 
 # # Example usage
@@ -319,13 +335,6 @@ class LambdaLayer(nn.Module):
 
 # # Initialize the module
 # scaler_module = IntensityScalerModule(cfg, params)
-
-# # Create instances of the classes
-# scaler = scaler_module.IntensityScaler(scaler_module.log_scale)
-# inv_scaler = scaler_module.IntensityScalerInv(scaler_module.log_scale)
-
-# # Example input tensor
-# input_tensor = torch.randn(4, 4)
 
 # # Apply scaling and inverse scaling
 # scaled_tensor = scaler(input_tensor)
@@ -362,6 +371,9 @@ class IntensityScalerModule:
 #Full module with everything
 class PtychoPINN(nn.Module):
     '''
+    Full PtychoPINN module with all sub-modules.
+    If in training, outputs loss and reconstruction
+    If in inference, outputs object functions
     
     Note for forward call, because we're getting data from a memory-mapped tensor
     x - Tensor input, comes from tensor['images']
@@ -375,6 +387,7 @@ class PtychoPINN(nn.Module):
         self.gridsize = Config().get('gridsize')
         self.offset = Config().get('offset')
         self.object_big = Config().get('object.big')
+        self.nll = Config().get('nll') #True or False
 
         #Autoencoder
         self.autoencoder = Autoencoder(self.n_filters_scale)
@@ -425,12 +438,27 @@ class PtychoPINN(nn.Module):
         #Extract patches
         extracted_patch_objs = self.extract_patches(trimmed_obj,
                                                     positions)
-        #Apply probe illum
-        illuminated_objs = self.probe_illumination(extracted_patch_objs, probe)
+        #Perform below steps if training
+        if self.training:
+            #Apply probe illum
+            illuminated_objs = self.probe_illumination(extracted_patch_objs, probe)
 
-        #Pad and diffract
-        pred_diffraction = self.pad_and_diffract(illuminated_objs)
+            #Pad and diffract
+            pred_diffraction = self.pad_and_diffract(illuminated_objs)
 
-        #Inverse scaling
+            #Inverse scaling
+            pred_amp_scaled = self.inv_scale(pred_diffraction)
+            
+            #Poisson intensity distribution
+            self.poisson = PoissonIntensityLayer(pred_amp_scaled)
+            loss_likelihood = self.poisson(x)
 
+            #MAE loss
+            loss_mae = F.l1_loss(pred_amp_scaled, x)
+
+            return pred_amp_scaled, [loss_likelihood, loss_mae]
         
+        #Performing inference
+        else:
+            return extracted_patch_objs
+            
