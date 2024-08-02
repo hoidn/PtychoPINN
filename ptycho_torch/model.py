@@ -28,19 +28,19 @@ class ConvBaseBlock(nn.Module):
     '''
     Convolutional base block for Pooling and Upscaling
     '''
-    def __init__(self, n_channels,
+    def __init__(self, in_channels, out_channels,
                  w1 = 3, w2 = 3,
                  padding = 'same',
                  activation = 'relu'):
         super(ConvBaseBlock, self).__init__()
         padding_size = w1 // 2 if padding == 'same' else 0
         #NN layers
-        self.conv1 = nn.Conv2d(in_filters = n_channels,
-                               out_filters = n_channels,
+        self.conv1 = nn.Conv2d(in_channels = in_channels,
+                               out_channels = out_channels,
                                kernel_size = (w1, w2),
                                padding = padding_size)
-        self.conv2 = nn.Conv2d(in_filters = n_channels,
-                               out_filters = n_channels,
+        self.conv2 = nn.Conv2d(in_channels = in_channels,
+                               out_channels = out_channels,
                                kernel_size = (w1, w2),
                                padding = padding_size)
         #Activation used in upblock
@@ -58,25 +58,27 @@ class ConvBaseBlock(nn.Module):
     
 class ConvPoolBlock(ConvBaseBlock):
 
-    def __init__(self, n_channels,
+    def __init__(self, in_channels, out_channels,
                  w1 = 3, w2 = 3, p1 = 2, p2 = 2,
                  padding = 'same'):
-        super(ConvPoolBlock, self).__init__(n_channels, w1, w2, padding)
+        super(ConvPoolBlock, self).__init__(in_channels, out_channels,
+                                            w1=w1, w2=w2, padding=padding)
         padding_size = w1 // 2 if padding == 'same' else 0
         #Pooling layer
         self.pool = nn.MaxPool2d(kernel_size=(p1, p2),
-                                 padding = padding_size if padding == 'same' else 0)
+                                 padding = padding_size)
         
     def _pool_or_up(self, x):
         return self.pool(x)
     
 class ConvUpBlock(ConvBaseBlock):
 
-    def __init__(self, n_channels,
+    def __init__(self, in_channels, out_channels,
                  w1 = 3, w2 = 3, p1 = 2, p2 = 2,
-                 mode = 'nearest', padding = 'same'):
+                 padding = 'same'):
         
-        super(ConvUpBlock, self).__init__(n_channels, w1, w2, padding)
+        super(ConvUpBlock, self).__init__(in_channels, out_channels,
+                                            w1=w1, w2=w2, padding=padding)
         padding_size = w1 // 2 if padding == 'same' else 0
         #NN layers
         self.up = nn.Upsample(scale_factor = (p1, p2),
@@ -94,13 +96,16 @@ class Encoder(nn.Module):
         self.N = Config().get('N')
 
         starting_coeff = 64 / (self.N / 32)
-        self.filters = [int(n_filters_scale * starting_coeff * 2**i) for i in range(4)]
+        #Starting output channels is 64. Last output size will always be n_filters_scale * 128. 
+        n_layers = int(np.log(128 / starting_coeff)/np.log(2) + 1)
+        self.filters = [4] + [int(n_filters_scale * starting_coeff * 2**i) for i in range(n_layers)]
 
         if starting_coeff < 3 or starting_coeff > 64:
             raise ValueError(f"Unsupported input size: {self.N}")
         
-        self.blocks = nn.ModuleList([ConvPoolBlock(num_filters)] 
-                                    for num_filters in self.filters)
+        self.blocks = nn.ModuleList([ConvPoolBlock(in_channels = self.filters[i-1],
+                                                   out_channels = self.filters[i])] 
+                                    for i in range(1,len(self.filters)))
         
     def forward(self, x):
         for block in self.blocks:
@@ -121,7 +126,7 @@ class Decoder_filters(nn.Module):
         #N == 64: [n_filters_scale * 64, n_filters_scale * 32]
         #N == 128: [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
         n_terms = int(np.log(self.N / 32) / np.log(2) + 1)
-        self.filters = [int(n_filters_scale * self.N * (1/2)**i) for i in range(n_terms)]
+        self.filters = [n_filters_scale * 128] + [int(n_filters_scale * self.N * (1/2)**i) for i in range(n_terms)]
 
         if self.N < 32:
             raise ValueError(f"Unsupported input size: {self.N}")
@@ -133,8 +138,9 @@ class Decoder_base(Decoder_filters):
     def __init__(self, n_filters_scale):
         super(Decoder_base, self).__init__()
         #Layers
-        self.blocks = nn.ModuleList([ConvUpBlock(num_filters)] 
-                                    for num_filters in self.filters)
+        self.blocks = nn.ModuleList([ConvUpBlock(in_channels = self.filters[i-1],
+                                                   out_channels = self.filters[i])] 
+                                    for i in range(1,len(self.filters)))
         
     def forward(self, x):
         for block in self.blocks:
@@ -184,13 +190,15 @@ class Decoder_last(nn.Module):
 class Decoder_phase(Decoder_base):
     def __init__(self, n_filters_scale):
         super(Decoder_phase, self).__init__()
+        grid_size = Config().get('gridsize')
+        num_filters = grid_size ** 2
         #Nn layers
-        conv1 = nn.Conv2d(in_filters = n_filters_scale,
-                            out_filters = n_filters_scale,
+        conv1 = nn.Conv2d(in_filters = n_filters_scale * 32,
+                            out_filters = num_filters,
                             kernel_size = (3, 3),
                             padding = 'same')
-        conv2 = nn.Conv2d(in_filters = n_filters_scale,
-                            out_filters = n_filters_scale,
+        conv2 = nn.Conv2d(in_filters = num_filters,
+                            out_filters = num_filters,
                             kernel_size = (3, 3),
                             padding = 'same')
         #Custom nn layers with specific identifiable names
@@ -211,7 +219,7 @@ class Decoder_amp(Decoder_base):
     def __init__(self, n_filters_scale):
         super(Decoder_amp, self).__init__()
         #Nn layers
-        conv1 = nn.Conv2d(in_filters = 1,
+        conv1 = nn.Conv2d(in_filters = n_filters_scale * 32,
                             out_filters = 1,
                             kernel_size = (3, 3),
                             padding = 'same')
