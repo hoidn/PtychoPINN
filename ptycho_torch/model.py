@@ -39,7 +39,7 @@ class ConvBaseBlock(nn.Module):
                                out_channels = out_channels,
                                kernel_size = (w1, w2),
                                padding = padding_size)
-        self.conv2 = nn.Conv2d(in_channels = in_channels,
+        self.conv2 = nn.Conv2d(in_channels = out_channels,
                                out_channels = out_channels,
                                kernel_size = (w1, w2),
                                padding = padding_size)
@@ -152,8 +152,7 @@ class Decoder_last(nn.Module):
     '''
     Decoder to get both amplitude and phase, combining to create full object function
     '''
-    def __init__(self, n_filters_scale,
-                  conv1, conv2,
+    def __init__(self, in_channels, out_channels, n_filters_scale,
                   activation = torch.sigmoid, name = ''):
         super(Decoder_last, self).__init__()
         #Grab parameters
@@ -161,15 +160,21 @@ class Decoder_last(nn.Module):
         self.gridsize = Config().get('gridsize')
 
         #Layers
-        self.conv1 = conv1
-        self.conv2 = conv2
-        self.conv_up_block = ConvUpBlock(n_filters_scale * 32)
+        self.conv1 =  nn.Conv2d(in_channels = in_channels,
+                                out_channels = out_channels,
+                                kernel_size = (3, 3),
+                                padding = 'same')
+        self.conv_up_block = ConvUpBlock(in_channels, n_filters_scale * 32)
+        self.conv2 =  nn.Conv2d(in_channels = n_filters_scale * 32,
+                                out_channels = out_channels,
+                                kernel_size = (3, 3),
+                                padding = 'same')
 
         #Additional
         self.activation = activation
         self.padding = nn.ConstantPad2d((self.N // 4, self.N // 4,
                                          self.N // 4, self.N //4), 0)
-        self.c_outer = 4
+        self.c_outer = self.gridsize ** 2
         
     def forward(self,x):
         x1 = self.conv1(x[:, :-self.c_outer, :, :])
@@ -191,20 +196,12 @@ class Decoder_phase(Decoder_base):
     def __init__(self, n_filters_scale):
         super(Decoder_phase, self).__init__()
         grid_size = Config().get('gridsize')
-        num_filters = grid_size ** 2
+        num_images = grid_size ** 2
         #Nn layers
-        conv1 = nn.Conv2d(in_filters = n_filters_scale * 32,
-                            out_filters = num_filters,
-                            kernel_size = (3, 3),
-                            padding = 'same')
-        conv2 = nn.Conv2d(in_filters = num_filters,
-                            out_filters = num_filters,
-                            kernel_size = (3, 3),
-                            padding = 'same')
+
         #Custom nn layers with specific identifiable names
         self.add_module('phase_activation', Tanh_custom_act())
-        self.add_module('phase', Decoder_last(n_filters_scale,
-                                         conv1, conv2,
+        self.add_module('phase', Decoder_last(n_filters_scale * 32, num_images, n_filters_scale,
                                          activation = self.phase_activation))
             
     def forward(self, x):
