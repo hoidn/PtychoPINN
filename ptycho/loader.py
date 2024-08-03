@@ -635,7 +635,7 @@ def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_sp
 
 #    try:
     Y_obj = get_image_patches(gt_image,
-        global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+        global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
     Y_I = tf.math.abs(Y_obj)
     Y_phi = tf.math.angle(Y_obj)
 #    except: 
