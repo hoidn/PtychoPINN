@@ -132,14 +132,14 @@ def process_simulated_data(X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_
 def create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
                           X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true):
     return PtychoDataset(
-        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe.get_probe(fmt='np')),
-        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe.get_probe(fmt='np')),
+        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe.get_probe(params)),
+        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe.get_probe(params)),
     )
 
 def generate_data(probeGuess = None):
     # TODO handle probeGuess None case
     data_source = params.params()['data_source']
-    probe_np = probe.get_probe(fmt='np')
+    probe_np = probe.get_probe(params)
     outer_offset_train = params.cfg['outer_offset_train']
     outer_offset_test = params.cfg['outer_offset_test']
     YY_test_full = None
