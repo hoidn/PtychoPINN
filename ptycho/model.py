@@ -44,8 +44,8 @@ offset = cfg.get('offset')
 from . import probe
 tprobe = params()['probe']
 # TODO
-#probe_mask = probe.probe_mask
-probe_mask = cfg.get('probe_mask')[:, :, :, 0]
+probe_mask = probe.get_probe_mask(N)
+#probe_mask = cfg.get('probe_mask')[:, :, :, 0]
 initial_probe_guess = tprobe
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
