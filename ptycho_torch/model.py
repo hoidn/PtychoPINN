@@ -63,10 +63,9 @@ class ConvPoolBlock(ConvBaseBlock):
                  padding = 'same'):
         super(ConvPoolBlock, self).__init__(in_channels, out_channels,
                                             w1=w1, w2=w2, padding=padding)
-        padding_size = w1 // 2 if padding == 'same' else 0
         #Pooling layer
         self.pool = nn.MaxPool2d(kernel_size=(p1, p2),
-                                 padding = padding_size)
+                                 padding = 0)
         
     def _pool_or_up(self, x):
         return self.pool(x)
@@ -104,8 +103,8 @@ class Encoder(nn.Module):
             raise ValueError(f"Unsupported input size: {self.N}")
         
         self.blocks = nn.ModuleList([ConvPoolBlock(in_channels = self.filters[i-1],
-                                                   out_channels = self.filters[i])] 
-                                    for i in range(1,len(self.filters)))
+                                                   out_channels = self.filters[i])
+                                    for i in range(1,len(self.filters))])
         
     def forward(self, x):
         for block in self.blocks:
@@ -136,11 +135,11 @@ class Decoder_filters(nn.Module):
     
 class Decoder_base(Decoder_filters):
     def __init__(self, n_filters_scale):
-        super(Decoder_base, self).__init__()
+        super(Decoder_base, self).__init__(n_filters_scale)
         #Layers
         self.blocks = nn.ModuleList([ConvUpBlock(in_channels = self.filters[i-1],
-                                                   out_channels = self.filters[i])] 
-                                    for i in range(1,len(self.filters)))
+                                                   out_channels = self.filters[i]) 
+                                    for i in range(1,len(self.filters))])
         
     def forward(self, x):
         for block in self.blocks:
@@ -163,12 +162,13 @@ class Decoder_last(nn.Module):
         self.conv1 =  nn.Conv2d(in_channels = in_channels,
                                 out_channels = out_channels,
                                 kernel_size = (3, 3),
-                                padding = 'same')
+                                padding = 3//2)
+        #conv_up_block and conv2 are separate to conv1
         self.conv_up_block = ConvUpBlock(in_channels, n_filters_scale * 32)
         self.conv2 =  nn.Conv2d(in_channels = n_filters_scale * 32,
                                 out_channels = out_channels,
                                 kernel_size = (3, 3),
-                                padding = 'same')
+                                padding = 3//2)
 
         #Additional
         self.activation = activation
@@ -177,14 +177,14 @@ class Decoder_last(nn.Module):
         self.c_outer = self.gridsize ** 2
         
     def forward(self,x):
-        x1 = self.conv1(x[:, :-self.c_outer, :, :])
+        x1 = self.conv1(x)#[:, :-self.c_outer, :, :])
         x1 = self.activation(x1)
         x1 = self.padding(x1)
 
         if not Config().get('probe.big'):
             return x1
         
-        x2 = self.conv_up_block(x[:, -self.c_outer:, :, :])
+        x2 = self.conv_up_block(x)#[:, -self.c_outer:, :, :])
         x2 = self.conv2(x2)
         x2 = F.silu(x2) #Same as swish
 
@@ -194,7 +194,7 @@ class Decoder_last(nn.Module):
 
 class Decoder_phase(Decoder_base):
     def __init__(self, n_filters_scale):
-        super(Decoder_phase, self).__init__()
+        super(Decoder_phase, self).__init__(n_filters_scale)
         grid_size = Config().get('gridsize')
         num_images = grid_size ** 2
         #Nn layers
@@ -212,22 +212,15 @@ class Decoder_phase(Decoder_base):
         #Apply final layer
         outputs = self.phase(x)
 
+        return outputs
+
 class Decoder_amp(Decoder_base):
     def __init__(self, n_filters_scale):
-        super(Decoder_amp, self).__init__()
-        #Nn layers
-        conv1 = nn.Conv2d(in_filters = n_filters_scale * 32,
-                            out_filters = 1,
-                            kernel_size = (3, 3),
-                            padding = 'same')
-        conv2 = nn.Conv2d(in_filters = 1,
-                            out_filters = 1,
-                            kernel_size = (3, 3),
-                            padding = 'same')
+        super(Decoder_amp, self).__init__(n_filters_scale)
+
         #Custom nn layers with specific identifiable names
         self.add_module('amp_activation', Tanh_custom_act())
-        self.add_module('amp', Decoder_last(n_filters_scale,
-                                         conv1, conv2,
+        self.add_module('amp', Decoder_last(n_filters_scale * 32, 1, n_filters_scale,
                                          activation = self.amp_activation))
             
     def forward(self, x):
@@ -246,10 +239,10 @@ class Autoencoder(nn.Module):
     def __init__(self, n_filters_scale):
         super(Autoencoder, self).__init__()
         #Encoder
-        encoder = Encoder(n_filters_scale)
+        self.encoder = Encoder(n_filters_scale)
         #Decoders (Amplitude/Phase)
-        decoder_amp = Decoder_amp(n_filters_scale)
-        decoder_phase = Decoder_phase(n_filters_scale)
+        self.decoder_amp = Decoder_amp(n_filters_scale)
+        self.decoder_phase = Decoder_phase(n_filters_scale)
 
     def forward(self, x):
         #Encoder
@@ -309,6 +302,11 @@ class CombineComplex(nn.Module):
         return out
     
 class LambdaLayer(nn.Module):
+    '''
+    Generic layer module for helper functions.
+
+    Mostly used for patch reconstruction
+    '''
     def __init__(self, func):
         super(LambdaLayer, self).__init__()
         self.func = func
@@ -325,6 +323,7 @@ class PoissonIntensityLayer(nn.Module):
         #Poisson rate parameter (lambda)
         Lambda = amplitudes ** 2
         #Create Poisson distribution
+        #Second parameter (batch size) controls how many dimensions are summed over
         self.poisson_dist = dist.Independent(dist.Poisson(Lambda), 1)
 
     def forward(self, x):
@@ -428,20 +427,19 @@ class PtychoPINN(nn.Module):
         x_combined = self.combine_complex(x_amp, x_phase)
 
         #Reassemble patches
+        #Object_big: All patches are together in a solution region
         if self.object_big:
             reassembled_obj = self.reassembled_patches(x_combined, positions)
         else:
+        #Single channel, no patch overlap
             #NOTE for albert: Check transformation math
             reassembled_obj = self.pad_patches(
                 torch.flatten(x_combined, start_dim = 0, end_dim = 1),
                 padded_size = hh.get_padded_size()
             )
 
-        #Trim object reconstruction
-        trimmed_obj = self.trim_reconstruction(reassembled_obj)
-
         #Extract patches
-        extracted_patch_objs = self.extract_patches(trimmed_obj,
+        extracted_patch_objs = self.extract_patches(reassembled_obj,
                                                     positions)
         #Perform below steps if training
         if self.training:
