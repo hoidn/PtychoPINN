@@ -9,7 +9,7 @@
 from datetime import datetime
 from tensorflow.keras import Input
 from tensorflow.keras import Model
-from tensorflow.keras.activations import relu, sigmoid, tanh, swish
+from tensorflow.keras.activations import relu, sigmoid, tanh, swish, softplus
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense
 from tensorflow.keras.layers import Layer
 from tensorflow.keras import layers
@@ -270,6 +270,10 @@ def get_amp_activation():
         return lambda x: sigmoid(x)
     elif cfg.get('amp_activation') == 'swish':
         return lambda x: swish(x)
+    elif cfg.get('amp_activation') == 'softplus':
+        return lambda x: softplus(x)
+    elif cfg.get('amp_activation') == 'relu':
+        return lambda x: relu(x)
     else:
         return ValueError
 

@@ -27,6 +27,7 @@ def cropshow(arr, *args, crop = True, **kwargs):
 from scipy.ndimage import gaussian_filter as gf
 
 def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0, **kwargs):
+    from . import params as cfg
     plt.rcParams["figure.figsize"] = (10, 10)
     vmin = 0
     vmax = np.absolute(b)[i].max()
@@ -77,7 +78,7 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0, **kwarg
 
     plt.subplot(aa, bb, 7)
     plt.title('True diffraction')
-    true_diffraction = np.log(X_test)[i, :, :, channel]
+    true_diffraction = np.log(cfg.get('intensity_scale') * X_test)[i, :, :, channel]
     plt.imshow(true_diffraction, cmap = 'jet')
     plt.colorbar()
     heatmaps['true_diffraction'] = true_diffraction  # add to the dictionary
@@ -90,7 +91,6 @@ def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0, **kwarg
     heatmaps['rec_diffraction'] = rec_diffraction  # add to the dictionary
 
     return heatmaps
-
 
 def plt_metrics(history, loss_type = 'MAE', metric2 = 'padded_obj_loss'):
     hist=history
@@ -212,36 +212,6 @@ def frc50(target, pred, sigma = 1):
     return shellcorr, np.where(shellcorr < .5)[0][0]
 
 
-#def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
-#        label = ''):
-#    assert np.ndim(stitched_obj) == np.ndim(ground_truth_obj), \
-#        'stitched_obj and ground_truth_obj must have the same number of dimensions'
-#    assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
-#
-#    YY_ground_truth = np.absolute(ground_truth_obj)
-#    YY_phi_ground_truth = np.angle(ground_truth_obj)
-#
-#    if np.ndim(stitched_obj) == 3:
-#        phi_pred = trim(
-#            highpass2d(
-#                np.squeeze(np.angle(stitched_obj)[0]), n = lowpass_n
-#            )
-#        )
-#        amp_pred = trim(np.absolute(stitched_obj)[0])
-#    else:  # If it's 2D
-#        phi_pred = trim(
-#            highpass2d(
-#                np.squeeze(np.angle(stitched_obj)), n = lowpass_n
-#            )
-#        )
-#        amp_pred = trim(np.absolute(stitched_obj))
-#
-#    phi_target = trim(
-#        highpass2d(
-#            np.squeeze(YY_phi_ground_truth), n = lowpass_n
-#        )
-#    )
-#    amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
 
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         label = ''):

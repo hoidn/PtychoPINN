@@ -32,6 +32,7 @@ class RawData:
         if diff3d is not None:
             assert len(diff3d.shape) == 3, f"Expected diff3d to be 3D, got shape {diff3d.shape}"
             print(f"diff3d shape: {diff3d.shape}")
+            assert diff3d.shape[1] == diff3d.shape[2]
         if probeGuess is not None:
             assert len(probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
             print(f"probeGuess shape: {probeGuess.shape}")

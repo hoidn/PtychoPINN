@@ -1,27 +1,16 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import tensorflow as tf
+from .. import loader
+
 import pkg_resources
 
-from . import loader
-from .loader import key_coords_offsets, key_coords_relative
-from ptycho import diffsim as datasets
-
-train_frac = .5
-N = 64
-gridh, gridw = 32, 32
-
-np.random.seed(7)
-
-def get_data(**kwargs):
-    return dset, train_frac
-
-def load_ptycho_data(file_path, train_size=512):
+def load_single_object(file_path, train_size=512):
     """
-    Load ptychography data from a file and return RawData objects.
+    Load ptychography data from a file and return RawData objects. We ASSUME we're processing
+    a single object. The first train_size samples will be used for training and the entire dataset 
+    will be used for evaluation.
 
     Args:
-        file_path (str, optional): Path to the data file. Defaults to the package resource 'datasets/Run1084_recon3_postPC_shrunk_3.npz'.
+        file_path: Path to the data file.
         train_size (int, optional): Number of data points to include in the training set. Defaults to 512.
 
     Returns:
@@ -37,7 +26,7 @@ def load_ptycho_data(file_path, train_size=512):
     ycoords = data['ycoords']
     xcoords_start = data['xcoords_start']
     ycoords_start = data['ycoords_start']
-    diff3d = np.transpose(data['diffraction'], [2, 0, 1])
+    diff3d = data['diffraction']
     probeGuess = data['probeGuess']
     objectGuess = data['objectGuess']
 
@@ -56,11 +45,3 @@ def load_ptycho_data(file_path, train_size=512):
 
     return ptycho_data, ptycho_data_train, data
 
-data_file_path = pkg_resources.resource_filename(__name__, 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
-ptycho_data, ptycho_data_train, obj = load_ptycho_data(data_file_path)
-print('raw diffraction shape', obj['diffraction'].shape)
-# TODO cast to complex64?
-probeGuess = obj['probeGuess']
-objectGuess = obj['objectGuess']
-
-## TODO refactor actual / nominal positions
