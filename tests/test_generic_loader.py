@@ -14,12 +14,7 @@ def test_generic_loader(remove=True, data_file_path = None, train_size = 512):
         data_file_path = pkg_resources.resource_filename('ptycho', 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
 
     # Load RawData instances using the 'xpp' method
-    test_data, train_data, _ = load_ptycho_data(data_file_path, train_size = train_size)
-
-#    test_data.xcoords, test_data.ycoords = -test_data.xcoords, -test_data.ycoords
-#    train_data.xcoords, train_data.ycoords = -train_data.xcoords, -train_data.ycoords
-#    test_data.xcoords_start, test_data.ycoords_start = -test_data.xcoords_start, -test_data.ycoords_start
-#    train_data.xcoords_start, train_data.ycoords_start = -train_data.xcoords_start, -train_data.ycoords_start
+    test_data, train_data, obj = load_ptycho_data(data_file_path, train_size = train_size)
 
     # Define file paths for output
     train_data_file_path = 'train_data.npz'
@@ -48,7 +43,7 @@ def test_generic_loader(remove=True, data_file_path = None, train_size = 512):
         os.remove(train_data_file_path)
         os.remove(test_data_file_path)
 
-    return train_data, test_data
+    return train_data, test_data, obj
 
 if __name__ == '__main__':
     test_generic_loader()
