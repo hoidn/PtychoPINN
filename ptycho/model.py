@@ -58,8 +58,8 @@ initial_probe_guess = tf.Variable(
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
-        self.w = initial_probe_guess
-    #@tf.function
+        self.w = initial_probe_guess[None, ...]
+
     def call(self, inputs):
         x = inputs[0]
         if cfg.get('probe.mask'):
@@ -334,7 +334,8 @@ pred_intensity_sampled = dist_poisson_intensity(pred_amp_scaled)
 
 # Poisson distribution over expected diffraction intensity (i.e. photons per
 # pixel)
-negloglik = lambda x, rv_x: -rv_x.log_prob((x))
+def negloglik(x, rv_x):
+    return -rv_x.log_prob(x)
 fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
 
 autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
