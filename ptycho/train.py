@@ -133,6 +133,7 @@ if save_model:
     }
     try:
         ModelManager.save_model(model.autoencoder, model_path, custom_objects, params.get('intensity_scale'))
+        print("saved model to ", model_path) # @debug decorators will break this
     except Exception as e:
         print("model saving failed") # @debug decorators will break this
     with h5py.File(model_path, 'a') as f:
