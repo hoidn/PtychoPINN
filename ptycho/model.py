@@ -43,10 +43,16 @@ offset = cfg.get('offset')
 
 from . import probe
 tprobe = params()['probe']
-# TODO
+
 probe_mask = probe.get_probe_mask(N)
 #probe_mask = cfg.get('probe_mask')[:, :, :, 0]
-initial_probe_guess = tprobe
+
+if len(tprobe.shape) == 3:
+    initial_probe_guess = tprobe[None, ...]
+elif len(tprobe.shape) == 4:
+    initial_probe_guess = tprobe
+else:
+    raise ValueError
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],
@@ -58,7 +64,7 @@ initial_probe_guess = tf.Variable(
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
-        self.w = initial_probe_guess[None, ...]
+        self.w = initial_probe_guess
 
     def call(self, inputs):
         x = inputs[0]
