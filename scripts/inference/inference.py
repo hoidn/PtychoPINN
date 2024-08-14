@@ -5,16 +5,16 @@
 Inference script for ptychography reconstruction.
 
 This script loads a trained model and test data, performs inference,
-and saves the reconstructed image comparison and optionally the probe
+and saves the reconstructed image comparison and optionally a probe visualization.
 
 Usage:
-    python inference_script.py --model_prefix <model_prefix> --test_data <test_data_file> --output_path <output_path>
+    python inference_script.py --model_prefix <model_prefix> --test_data <test_data_file> [--output_path <output_path>]
                                [--visualize_probe] [--K <K>] [--nsamples <nsamples>]
 
 Arguments:
     --model_prefix: Path prefix for the saved model and its configuration
     --test_data: Path to the .npz file containing test data
-    --output_path: Path prefix for saving output files and images
+    --output_path: Path prefix for saving output files and images (default: './')
     --visualize_probe: Flag to generate and save probe visualization
     --K: Number of nearest neighbors for grouped data generation (default: 7)
     --nsamples: Number of samples for grouped data generation (default: 1)
@@ -29,7 +29,7 @@ import signal
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from ptycho import tf_helper
+from ptycho import tf_helper, probe, loader, params, train_pinn
 from ptycho.model_manager import ModelManager
 from ptycho import loader, params
 
@@ -117,12 +117,12 @@ def load_test_data(file_path: str) -> loader.RawData:
     except Exception as e:
         raise ValueError(f"Error loading test data: {str(e)}")
 
-def load_model(name_prefix: str) -> tuple:
+def load_model(model_prefix: str) -> tuple:
     """
     Load the saved model and its configuration.
 
     Args:
-        name_prefix (str): Path prefix for the saved model and its configuration.
+        model_prefix (str): Path prefix for the saved model and its configuration.
 
     Returns:
         tuple: (tf.keras.Model, dict) - The loaded TensorFlow model and its configuration.
@@ -133,7 +133,7 @@ def load_model(name_prefix: str) -> tuple:
     """
     try:
         # Construct the base path
-        base_path = os.path.join(name_prefix, "wts.h5")
+        base_path = os.path.join(model_prefix, "wts.h5")
         
         # Define the model name
         model_name = "diffraction_to_obj"
@@ -175,15 +175,25 @@ def perform_inference(model: tf.keras.Model, test_data: loader.RawData, config: 
     Raises:
         ValueError: If there's an error during inference.
     """
-    from ptycho.nbutils import reconstruct_image, crop_to_non_uniform_region_with_buffer, mk_epie_comparison2x2
+    from ptycho.nbutils import reconstruct_image, crop_to_non_uniform_region_with_buffer
     try:
-        # Preprocess the test data
-        N = config.get('N', 64)  # Default to 64 if not specified
-        test_dataset = test_data.generate_grouped_data(N, K=K, nsamples=nsamples)
+        # Set probe guess
+        probe.set_probe_guess(None, test_data.probeGuess)
+
+        # Set random seeds
+        tf.random.set_seed(45)
+        np.random.seed(45)
+
+        # Generate grouped data
+        test_dataset = test_data.generate_grouped_data(config['N'], K=K, nsamples=nsamples)
+        
+        # Create PtychoDataContainer
+        test_data_container = loader.load(lambda: test_dataset, test_data.probeGuess,
+                                          which=None, create_split=False)
         
         # Perform reconstruction
         start_time = time.time()
-        obj_tensor_full, global_offsets = reconstruct_image(test_dataset, diffraction_to_obj=model)
+        obj_tensor_full, global_offsets = reconstruct_image(test_data_container, diffraction_to_obj=model)
         reconstruction_time = time.time() - start_time
         print(f"Reconstruction completed in {reconstruction_time:.2f} seconds")
 
@@ -206,58 +216,53 @@ def perform_inference(model: tf.keras.Model, test_data: loader.RawData, config: 
         return reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase
 
     except Exception as e:
+        print(f"Error during inference: {str(e)}")
         raise ValueError(f"Error during inference: {str(e)}")
 
 def save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_path):
-    """
-    Generate and save the comparison image.
-
-    Args:
-        reconstructed_amplitude (np.ndarray): Reconstructed amplitude image.
-        reconstructed_phase (np.ndarray): Reconstructed phase image.
-        epie_amplitude (np.ndarray): ePIE amplitude image for comparison.
-        epie_phase (np.ndarray): ePIE phase image for comparison.
-        output_path (str): Path to save the comparison image.
-
-    Raises:
-        OSError: If there's an error creating the output directory or saving the image.
-    """
     try:
         # Ensure output directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-        # Create the comparison figure
-        fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+        # Create the comparison figure with a smaller size
+        fig, axs = plt.subplots(2, 2, figsize=(4, 4))
         
         # PtychoPINN phase
         im_pinn_phase = axs[0, 0].imshow(reconstructed_phase, cmap='gray')
         axs[0, 0].set_title('PtychoPINN Phase')
-        fig.colorbar(im_pinn_phase, ax=axs[0, 0])
+        fig.colorbar(im_pinn_phase, ax=axs[0, 0], fraction=0.046, pad=0.04)
         
         # ePIE phase
         im_epie_phase = axs[0, 1].imshow(epie_phase, cmap='gray')
         axs[0, 1].set_title('ePIE Phase')
-        fig.colorbar(im_epie_phase, ax=axs[0, 1])
+        fig.colorbar(im_epie_phase, ax=axs[0, 1], fraction=0.046, pad=0.04)
         
         # PtychoPINN amplitude
         im_pinn_amp = axs[1, 0].imshow(reconstructed_amplitude, cmap='viridis')
         axs[1, 0].set_title('PtychoPINN Amplitude')
-        fig.colorbar(im_pinn_amp, ax=axs[1, 0])
+        fig.colorbar(im_pinn_amp, ax=axs[1, 0], fraction=0.046, pad=0.04)
         
         # ePIE amplitude
         im_epie_amp = axs[1, 1].imshow(epie_amplitude, cmap='viridis')
         axs[1, 1].set_title('ePIE Amplitude')
-        fig.colorbar(im_epie_amp, ax=axs[1, 1])
+        fig.colorbar(im_epie_amp, ax=axs[1, 1], fraction=0.046, pad=0.04)
         
-        # Adjust layout and save
-        plt.tight_layout()
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        # Remove axis ticks
+        for ax in axs.flat:
+            ax.set_xticks([])
+            ax.set_yticks([])
+        
+        # Adjust layout with specific padding
+        plt.tight_layout(pad=1.5)
+        
+        # Save the figure with adjusted DPI and ensuring the entire figure is saved
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.5)
         plt.close(fig)
 
         print(f"Comparison image saved to: {output_path}")
 
-    except OSError as e:
-        raise OSError(f"Error saving comparison image: {str(e)}")
+    except Exception as e:
+        print(f"Error saving comparison image: {str(e)}")
 
 def save_probe_visualization(test_data: loader.RawData, output_path: str):
     """
