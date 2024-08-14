@@ -138,7 +138,9 @@ def _channel_to_flat(img: tf.Tensor) -> tf.Tensor:
     """
     Reshape (b, N, N, c) to (b * c, N, N, 1)
     """
-    _, h, w, c = img.shape
+    shape = tf.shape(img)
+    b, h, w, c = shape[0], shape[1], shape[2], shape[3]
+    #_, h, w, c = img.shape
     img = tf.transpose(img, [0, 3, 1, 2], conjugate=False)
     img = tf.reshape(img, (-1, h, w, 1))
     return img
