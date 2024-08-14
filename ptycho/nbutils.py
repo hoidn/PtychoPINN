@@ -88,14 +88,13 @@ def mk_epie_comparison2x2(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude, 
     plt.show()
 
 # TODO type annotation
-def reconstruct_image(test_data):
+def reconstruct_image(test_data, diffraction_to_obj = None):
     global_offsets = test_data.global_offsets
     local_offsets = test_data.local_offsets
 
-#    obj_tensor_full, _, _ = model.autoencoder.predict(
-#                    [test_data['X'] * model.params()['intensity_scale'],
-#                                    local_offsets])
-    obj_tensor_full = model.diffraction_to_obj.predict(
+    if diffraction_to_obj is None:
+        diffraction_to_obj = model.diffraction_to_obj
+    obj_tensor_full = diffraction_to_obj.predict(
                     [test_data.X * model.params()['intensity_scale'],
                     local_offsets])
     return obj_tensor_full, global_offsets
