@@ -40,6 +40,14 @@ def get_probe_mask(N):
     return tf.convert_to_tensor(probe_mask, tf.complex64)[..., None]
 
 def set_probe(probe):
+    assert len(probe.shape) == 3 or len(probe.shape) == 4
+    assert probe.shape[0] == probe.shape[1]
+    assert probe.shape[-1] == 1
+    if len(probe.shape) == 4:
+        assert probe.shape[-2] == 1
+        probe = probe[:, :, :]
+        print('coercing probe shape to 3d')
+
     # This function still modifies global state
     mask = tf.cast(get_probe_mask(params.get('N')), probe.dtype)
     probe_scale = params.get('probe_scale')
