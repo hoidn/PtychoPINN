@@ -1,14 +1,10 @@
-# Ptychography Inference Script
+# PtychoPINN Inference Script
 
 This script performs inference using a trained instance of PtychoPINN on test data and generates reconstruction results.
 
 ## Prerequisites
 
-- Python 3.7 or higher
-- TensorFlow 2.x
-- NumPy
-- Matplotlib
-- ptycho package (ensure this is installed and in your Python path)
+- PtychoPINN package
 
 ## Usage
 
@@ -68,8 +64,6 @@ All outputs are saved in the specified output directory.
 ## Notes
 
 - The script uses logging to provide information about the process. Check the console output and log file for details.
-- The script can handle graceful shutdowns. Use Ctrl+C to initiate a graceful shutdown if needed.
 - Ensure that the model files (saved using the training script) are located at the path specified by `model_prefix`.
 - The `K` and `nsamples` parameters can be adjusted to experiment with different data grouping strategies.
 
-For any issues or further questions, please refer to the script documentation or contact the maintainers.
