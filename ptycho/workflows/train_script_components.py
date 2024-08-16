@@ -5,10 +5,11 @@ import numpy as np
 import tensorflow as tf
 from ptycho import params as p
 from ptycho import probe
-from ptycho.loader import RawData
+from ptycho.loader import RawData, PtychoDataContainer
 import logging
-from typing import Dict, Any, Optional, Tuple
 import matplotlib.pyplot as plt
+from typing import Union, Optional, Dict, Any, Tuple
+from ptycho import loader, probe, train_pinn
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -121,47 +122,83 @@ def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
         logger.error(f"Error loading data from {data_file_path}: {str(e)}")
         raise
 
-def run_cdi_example(train_data: RawData, test_data: Optional[RawData], config: Dict[str, Any]) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
-    """Run the main CDI example execution flow."""
-    # Initialize
-    probe.set_probe_guess(None, train_data.probeGuess)
+from typing import Union
+from ptycho.loader import RawData, PtychoDataContainer
 
-    # Setup model and training
-    from ptycho import loader, train_pinn
-    tf.random.set_seed(45)
-    np.random.seed(45)
+def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], config: Dict[str, Any]) -> PtychoDataContainer:
+    """
+    Factory function to create or return a PtychoDataContainer.
 
-    # Generate grouped data for training
-    train_dataset = train_data.generate_grouped_data(config['N'], K=7, nsamples=1)
-    train_data_container = loader.load(lambda: train_dataset, train_data.probeGuess,
-                                       which=None, create_split=False)
+    Args:
+        data (Union[RawData, PtychoDataContainer]): Input data, either RawData or PtychoDataContainer.
+        config (Dict[str, Any]): Configuration dictionary.
+
+    Returns:
+        PtychoDataContainer: The resulting PtychoDataContainer.
+
+    Raises:
+        TypeError: If the input data is neither RawData nor PtychoDataContainer.
+    """
+    if isinstance(data, PtychoDataContainer):
+        return data
+    elif isinstance(data, RawData):
+        dataset = data.generate_grouped_data(config['N'], K=7, nsamples=1)
+        return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
+    else:
+        raise TypeError("data must be either RawData or PtychoDataContainer")
+
+def run_cdi_example(
+    train_data: Union[RawData, PtychoDataContainer],
+    test_data: Optional[Union[RawData, PtychoDataContainer]],
+    config: Dict[str, Any]
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
+    """
+    Run the main CDI example execution flow.
+
+    Args:
+        train_data (Union[RawData, PtychoDataContainer]): Training data.
+        test_data (Optional[Union[RawData, PtychoDataContainer]]): Test data, or None.
+        config (Dict[str, Any]): Configuration dictionary.
+
+    Returns:
+        Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]: 
+        Reconstructed amplitude, reconstructed phase, and results dictionary.
+    """
+    # Convert input data to PtychoDataContainer
+    train_container = create_ptycho_data_container(train_data, config)
+    test_container = create_ptycho_data_container(test_data, config) if test_data is not None else None
+
+    # Initialize probe
+    probe.set_probe_guess(None, train_container.probe)
+
+    # Calculate intensity scale
+    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
 
     # Train the model
-    intensity_scale = train_pinn.calculate_intensity_scale(train_data_container)
-    history = train_pinn.train(train_data_container, intensity_scale)
+    history = train_pinn.train(train_container, intensity_scale)
     
     results = {"history": history}
     
     # Reconstruct test image if test data is provided
-    if test_data is not None:
-        raise NotImplementedError
-#        test_dataset = test_data.generate_grouped_data(config['N'], K=7, nsamples=1)
-#        obj_tensor_full, global_offsets = evaluation.reconstruct_image(test_dataset)
-#        obj_image = xpp.loader.reassemble_position(obj_tensor_full, global_offsets[:, :, :, :], M=20)
-#        
-#        recon_amp = np.absolute(obj_image)
-#        recon_phase = np.angle(obj_image)
-#        
-#        results.update({
-#            "obj_tensor_full": obj_tensor_full,
-#            "global_offsets": global_offsets,
-#            "recon_amp": recon_amp,
-#            "recon_phase": recon_phase
-#        })
+    if test_container is not None:
+        from ptycho import nbutils
+        obj_tensor_full, global_offsets = nbutils.reconstruct_image(test_container)
+        obj_image = loader.reassemble_position(obj_tensor_full, global_offsets[:, :, :, :], M=20)
+        
+        recon_amp = np.absolute(obj_image)
+        recon_phase = np.angle(obj_image)
+        
+        results.update({
+            "obj_tensor_full": obj_tensor_full,
+            "global_offsets": global_offsets,
+            "recon_amp": recon_amp,
+            "recon_phase": recon_phase
+        })
     else:
         recon_amp, recon_phase = None, None
     
     return recon_amp, recon_phase, results
+
 
 def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
     """Save the generated images and results."""

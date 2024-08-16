@@ -19,8 +19,8 @@ key_coords_relative = 'coords_start_relative'
 class RawData:
     #@debug
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-                 scan_index, objectGuess = None):
-        # Sanity checks
+             scan_index, objectGuess = None, Y = None, norm_Y_I = None):
+    # Sanity checks
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
 
@@ -57,6 +57,9 @@ class RawData:
         self.probeGuess = probeGuess
         self.scan_index = scan_index
         self.objectGuess = objectGuess
+        # TODO validity checks
+        self.Y = Y
+        self.norm_Y_I = norm_Y_I
 
     @staticmethod
     #@debug
@@ -78,6 +81,30 @@ class RawData:
             RawData: An instance of the RawData class.
         """
         return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
+
+    # TODO currently this can only handle a single object image
+    @staticmethod
+    def from_simulation(xcoords, ycoords, probeGuess,
+                 objectGuess, scan_index = None):
+        """
+        """
+        from .diffsim import illuminate_and_diffract
+        xcoords_start = xcoords
+        ycoords_start = ycoords
+        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
+                    xcoords, ycoords)
+
+        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+        Y_I = tf.math.abs(Y_obj)
+        Y_phi = tf.math.angle(Y_obj)
+        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+        norm_Y_I = datasets.scale_nphotons(X)
+        assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
+        # TODO RawData should have a method for generating the illuminated ground truth object
+        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X),
+              probeGuess, scan_index, objectGuess, Y = tf.squeeze(hh.combine_complex(
+                  Y_I_xprobe, Y_phi_xprobe)), norm_Y_I = norm_Y_I)
+              #probeGuess, scan_index, objectGuess, Y = tf.squeeze(Y_obj), norm_Y_I = norm_Y_I)
 
     #@debug
     def __str__(self):
@@ -193,6 +220,7 @@ class PtychoDataContainer:
     """
     A class to contain ptycho data attributes for easy access and manipulation.
     """
+    # TODO use complex Y instead of separate amplitude and phase
     #@debug
     def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
         self.X = X
@@ -258,32 +286,6 @@ class PtychoDataContainer:
         # Use loader.load() to handle the conversion to PtychoData
         return load(lambda: dset_train, probeGuess, which=None, create_split=False)
 
-    # TODO currently this can only handle a single object image
-    @staticmethod
-    #@debug
-    def from_simulation(xcoords, ycoords, xcoords_start, ycoords_start, probeGuess,
-                 objectGuess, scan_index = None):
-        """
-        """
-        from .diffsim import illuminate_and_diffract
-        ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start, None,
-                              probeGuess, scan_index, objectGuess)
-
-        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-                    ptycho_data.xcoords, ptycho_data.ycoords)
-
-        # TODO get rid of separate nominal and real coordinates
-        _, coords_true, _ = calculate_relative_coords(ptycho_data.xcoords_start,
-                                                      ptycho_data.ycoords_start)
-        coords_nominal = coords_true
-
-        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
-        Y_I = tf.math.abs(Y_obj)
-        Y_phi = tf.math.angle(Y_obj)
-        X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
-        norm_Y_I = datasets.scale_nphotons(X)
-        return PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, objectGuess, coords_nominal,
-                                   coords_true, nn_indices, global_offsets, local_offsets, probeGuess)
 
 ####
 # two functions to organize flat coordinate arrays into 'solution region' format
@@ -432,7 +434,6 @@ def group_coords(xcoords: np.ndarray, ycoords: np.ndarray, K: int, C: Optional[i
         nn_indices = get_neighbor_indices(xcoords, ycoords, K=K)
         nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
 
-    #diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
     coords_nn = np.transpose(np.array([xcoords[nn_indices],
                             ycoords[nn_indices]]),
                             [1, 0, 2])[:, None, :, :]
@@ -448,6 +449,10 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
                                          K = K, C = C, nsamples = nsamples)
 
     diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
+    if ptycho_data.Y is not None:
+        Y4d_nn = np.transpose(ptycho_data.Y[nn_indices], [0, 2, 3, 1])
+    else:
+        Y4d_nn = None
 
     # IMPORTANT: coord swap
     #coords_nn = coords_nn[:, :, ::-1, :]
@@ -464,6 +469,7 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
 
     dset = {
         'diffraction': diff4d_nn,
+        'Y': Y4d_nn,
         'coords_offsets': coords_offsets,
         'coords_relative': coords_relative,
         'coords_start_offsets': coords_start_offsets,
@@ -600,10 +606,9 @@ def split_tensor(tensor, frac, which='test'):
 
 # TODO this should be a method of PtychoDataContainer
 #@debug
-def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
+def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
     from . import params as cfg
     from . import probe
-    #probeGuess = probe.get_probe(fmt = 'np')
     if create_split:
         dset, train_frac = cb()
     else:
@@ -624,9 +629,9 @@ def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_sp
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
 #    try:
-#        Y_obj = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+#        Y = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
 #    except:
-#        Y_obj = tf.zeros_like(X)
+#        Y = tf.zeros_like(X)
 
     norm_Y_I = datasets.scale_nphotons(X)
 
@@ -635,17 +640,23 @@ def load(cb: Callable[[], RawData], probeGuess: tf.Tensor, which: str, create_sp
     coords_true = tf.convert_to_tensor(coords_true)
 
 #    try:
-    Y_obj = get_image_patches(gt_image,
-        global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
-    Y_I = tf.math.abs(Y_obj)
-    Y_phi = tf.math.angle(Y_obj)
+    if dset['Y'] is None:
+        Y = get_image_patches(gt_image,
+            global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
+        print("loader: generating ground truth patches from image and offsets")
+    else:
+        Y = dset['Y']
+        print("loader: using provided ground truth patches")
+    Y_I = tf.math.abs(Y)
+    Y_phi = tf.math.angle(Y)
 #    except: 
-#        Y_obj = None
+#        Y = None
 #        Y_I = tf.zeros_like(X)
 #        Y_phi = tf.zeros_like(X)
 #    Y_I = tf.ones_like(X)
 #    Y_phi = tf.ones_like(X)
 
+    # TODO get rid of?
     YY_full = None
     # TODO complex
     container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
@@ -671,3 +682,44 @@ def get_gt_patch(offset, N, gt_image):
     return crop(
         hh.translate(gt_image, offset),
         N // 2)
+
+
+def load_xpp_npz(file_path, train_size=512):
+    """
+    Load ptychography data from a file and return RawData objects.
+
+    Args:
+        file_path (str, optional): Path to the data file. Defaults to the package resource 'datasets/Run1084_recon3_postPC_shrunk_3.npz'.
+        train_size (int, optional): Number of data points to include in the training set. Defaults to 512.
+
+    Returns:
+        tuple: A tuple containing two RawData objects:
+            - ptycho_data: RawData object containing the full dataset.
+            - ptycho_data_train: RawData object containing a subset of the data for training.
+    """
+    # Load data from file
+    data = np.load(file_path)
+
+    # Extract required arrays from loaded data
+    xcoords = data['xcoords']
+    ycoords = data['ycoords']
+    xcoords_start = data['xcoords_start']
+    ycoords_start = data['ycoords_start']
+    diff3d = np.transpose(data['diffraction'], [2, 0, 1])
+    probeGuess = data['probeGuess']
+    objectGuess = data['objectGuess']
+
+    # Create scan_index array
+    scan_index = np.zeros(diff3d.shape[0], dtype=int)
+
+    # Create RawData object for the full dataset
+    ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start,
+                                 diff3d, probeGuess, scan_index, objectGuess=objectGuess)
+
+    # Create RawData object for the training subset
+    ptycho_data_train = RawData(xcoords[:train_size], ycoords[:train_size],
+                                       xcoords_start[:train_size], ycoords_start[:train_size],
+                                       diff3d[:train_size], probeGuess,
+                                       scan_index[:train_size], objectGuess=objectGuess)
+
+    return ptycho_data, ptycho_data_train, data
