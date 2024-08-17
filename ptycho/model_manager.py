@@ -128,3 +128,27 @@ class ModelManager:
         for model_name in model_names:
             loaded_models[model_name] = ModelManager.load_model(base_path, model_name)
         return loaded_models
+
+
+def save(out_prefix):
+    from ptycho import model
+    from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
+    from ptycho.tf_helper import Translation
+    from ptycho.tf_helper import realspace_loss as hh_realspace_loss
+
+    model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
+    custom_objects = {
+        'ProbeIllumination': ProbeIllumination,
+        'IntensityScaler': IntensityScaler,
+        'IntensityScaler_inv': IntensityScaler_inv,
+        'Translation': Translation,
+        'negloglik': negloglik,
+        'realspace_loss': hh_realspace_loss
+    }
+    
+    models_to_save = {
+        'autoencoder': model.autoencoder,
+        'diffraction_to_obj': model.diffraction_to_obj
+    }
+    
+    ModelManager.save_multiple_models(models_to_save, model_path, custom_objects, params.get('intensity_scale'))
