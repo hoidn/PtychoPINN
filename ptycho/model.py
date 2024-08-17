@@ -49,10 +49,12 @@ probe_mask = probe.get_probe_mask(N)
 
 if len(tprobe.shape) == 3:
     initial_probe_guess = tprobe[None, ...]
+    #probe_mask = probe_mask[None, ...]
 elif len(tprobe.shape) == 4:
     initial_probe_guess = tprobe
 else:
     raise ValueError
+
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],

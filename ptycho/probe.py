@@ -37,7 +37,8 @@ def get_probe_mask_real(N):
 def get_probe_mask(N):
     probe_mask_real = get_probe_mask_real(N)
     probe_mask = tf.convert_to_tensor(probe_mask_real, tf.complex64)
-    return tf.convert_to_tensor(probe_mask, tf.complex64)[..., None]
+    #return tf.convert_to_tensor(probe_mask, tf.complex64)[..., None]
+    return tf.convert_to_tensor(probe_mask, tf.complex64)
 
 def set_probe(probe):
     assert len(probe.shape) == 3 or len(probe.shape) == 4
