@@ -38,7 +38,7 @@ def update_params(new_config):
                 ARG_TO_CONFIG_MAP[arg] = (k2, new_value)
                 break
         else:
-            print(f"Warning: No matching key found for '{k2}' in ARG_TO_CONFIG_MAP")
+            p.set(k2, new_value)
 
 def parse_arguments():
     """Parse command-line arguments for the CDI script."""
