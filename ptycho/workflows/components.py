@@ -31,48 +31,44 @@ ARG_TO_CONFIG_MAP = {
     "N": ("N", 64)
 }
 
-def load_data(file_path: str) -> loader.RawData:
+def load_data(file_path, n_images=None):
     """
-    Load test data from a .npz file.
+    Load ptychography data from a file and return RawData objects.
 
     Args:
-        file_path (str): Path to the .npz file containing test data.
+        file_path (str, optional): Path to the data file. Defaults to the package resource 'datasets/Run1084_recon3_postPC_shrunk_3.npz'.
+        n_images (int, optional): Number of data points to include in the training set. Defaults to 512.
 
     Returns:
-        loader.RawData: A RawData object containing the loaded test data.
-
-    Raises:
-        FileNotFoundError: If the file doesn't exist.
-        ValueError: If the required arrays are missing from the .npz file.
+        tuple: A tuple containing two RawData objects:
+            - ptycho_data: RawData object containing the full dataset.
+            - ptycho_data_train: RawData object containing a subset of the data for training.
     """
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Test data file not found: {file_path}")
+    # Load data from file
+    data = np.load(file_path)
 
-    try:
-        data = np.load(file_path)
-        required_keys = ['xcoords', 'ycoords', 'xcoords_start', 'ycoords_start', 'diffraction', 'probeGuess', 'objectGuess']
-        if not all(key in data for key in required_keys):
-            raise ValueError(f"Missing required arrays in the test data file. Required: {required_keys}")
+    # Extract required arrays from loaded data
+    xcoords = data['xcoords']
+    ycoords = data['ycoords']
+    xcoords_start = data['xcoords_start']
+    ycoords_start = data['ycoords_start']
+    diff3d = np.transpose(data['diffraction'], [2, 0, 1])
+    probeGuess = data['probeGuess']
+    objectGuess = data['objectGuess']
 
-        xcoords = data['xcoords']
-        ycoords = data['ycoords']
-        xcoords_start = data['xcoords_start']
-        ycoords_start = data['ycoords_start']
-        diff3d = np.transpose(data['diffraction'], [2, 0, 1])
-        probeGuess = data['probeGuess']
-        objectGuess = data['objectGuess']
-        
-        # Create a dummy scan_index (all zeros) with the same length as xcoords
-        scan_index = np.zeros(len(xcoords), dtype=int)
+    # Create scan_index array
+    scan_index = np.zeros(diff3d.shape[0], dtype=int)
 
-        test_data = loader.RawData(xcoords, ycoords, xcoords_start, ycoords_start,
-                                   diff3d, probeGuess, scan_index, objectGuess=objectGuess)
+    if n_images is None:
+        n_images = xcoords.shape[0]
 
-        print(f"Loaded test data: {test_data}")
-        return test_data
+    # Create RawData object for the training subset
+    ptycho_data = RawData(xcoords[:n_images], ycoords[:n_images],
+                                       xcoords_start[:n_images], ycoords_start[:n_images],
+                                       diff3d[:n_images], probeGuess,
+                                       scan_index[:n_images], objectGuess=objectGuess)
 
-    except Exception as e:
-        raise ValueError(f"Error loading test data: {str(e)}")
+    return ptycho_data
 
 def update_params(new_config):
     for k2, new_value in new_config.items():
@@ -155,6 +151,7 @@ def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
     Returns:
         Tuple[RawData, RawData, Any]: A tuple containing the full dataset, training subset, and additional data
     """
+    # TODO deprecated
     from ptycho.loader import load_xpp_npz
     if not os.path.exists(data_file_path):
         raise FileNotFoundError(f"Data file not found: {data_file_path}")
