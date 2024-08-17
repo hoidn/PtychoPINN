@@ -101,9 +101,10 @@ class RawData:
         norm_Y_I = datasets.scale_nphotons(X)
         assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
         # TODO RawData should have a method for generating the illuminated ground truth object
-        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X),
-              probeGuess, scan_index, objectGuess, Y = tf.squeeze(hh.combine_complex(
-                  Y_I_xprobe, Y_phi_xprobe)), norm_Y_I = norm_Y_I)
+        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
+                       probeGuess, scan_index, objectGuess,
+                       Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
+                       norm_Y_I = norm_Y_I)
               #probeGuess, scan_index, objectGuess, Y = tf.squeeze(Y_obj), norm_Y_I = norm_Y_I)
 
     #@debug
