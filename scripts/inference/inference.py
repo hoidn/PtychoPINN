@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 from ptycho import tf_helper, probe, loader, params, train_pinn
 from ptycho.model_manager import ModelManager
 from ptycho import loader, params
-from ptycho.workflows.train_script_components import load_data
+from ptycho.workflows.components import load_data
 
 # Set up logging
 logging.basicConfig(level=logging.INFO,

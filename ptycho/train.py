@@ -2,6 +2,7 @@
 
 import os
 from ptycho.model_manager import ModelManager
+from ptycho import model_manager
 from ptycho.export import save_recons
 from datetime import datetime
 import matplotlib
@@ -109,32 +110,7 @@ with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
 
 if save_model:
-    from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
-    from ptycho.tf_helper import Translation
-    from ptycho.tf_helper import realspace_loss as hh_realspace_loss
-    hh = {'realspace_loss': hh_realspace_loss}
-
-    model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
-    custom_objects = {
-        'ProbeIllumination': ProbeIllumination,
-        'IntensityScaler': IntensityScaler,
-        'IntensityScaler_inv': IntensityScaler_inv,
-        'Translation': Translation,
-        'negloglik': negloglik,
-        'realspace_loss': hh_realspace_loss
-    }
-    
-    models_to_save = {
-        'autoencoder': model.autoencoder,
-        'diffraction_to_obj': model.diffraction_to_obj
-    }
-    
-    ModelManager.save_multiple_models(models_to_save, model_path, custom_objects, params.get('intensity_scale'))
-#    try:
-#        ModelManager.save_multiple_models(models_to_save, model_path, custom_objects, params.get('intensity_scale'))
-#        print("Saved models to", model_path)
-#    except Exception as e:
-#        print("Model saving failed:", str(e))
+    model_manager.save(out_prefix)
 
 if save_data:
     with open(out_prefix + '/test_data.dill', 'wb') as f:
