@@ -31,6 +31,49 @@ ARG_TO_CONFIG_MAP = {
     "N": ("N", 64)
 }
 
+def load_data(file_path: str) -> loader.RawData:
+    """
+    Load test data from a .npz file.
+
+    Args:
+        file_path (str): Path to the .npz file containing test data.
+
+    Returns:
+        loader.RawData: A RawData object containing the loaded test data.
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist.
+        ValueError: If the required arrays are missing from the .npz file.
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Test data file not found: {file_path}")
+
+    try:
+        data = np.load(file_path)
+        required_keys = ['xcoords', 'ycoords', 'xcoords_start', 'ycoords_start', 'diffraction', 'probeGuess', 'objectGuess']
+        if not all(key in data for key in required_keys):
+            raise ValueError(f"Missing required arrays in the test data file. Required: {required_keys}")
+
+        xcoords = data['xcoords']
+        ycoords = data['ycoords']
+        xcoords_start = data['xcoords_start']
+        ycoords_start = data['ycoords_start']
+        diff3d = np.transpose(data['diffraction'], [2, 0, 1])
+        probeGuess = data['probeGuess']
+        objectGuess = data['objectGuess']
+        
+        # Create a dummy scan_index (all zeros) with the same length as xcoords
+        scan_index = np.zeros(len(xcoords), dtype=int)
+
+        test_data = loader.RawData(xcoords, ycoords, xcoords_start, ycoords_start,
+                                   diff3d, probeGuess, scan_index, objectGuess=objectGuess)
+
+        print(f"Loaded test data: {test_data}")
+        return test_data
+
+    except Exception as e:
+        raise ValueError(f"Error loading test data: {str(e)}")
+
 def update_params(new_config):
     for k2, new_value in new_config.items():
         for arg, (config_k2, _) in ARG_TO_CONFIG_MAP.items():
