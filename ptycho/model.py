@@ -9,7 +9,7 @@
 from datetime import datetime
 from tensorflow.keras import Input
 from tensorflow.keras import Model
-from tensorflow.keras.activations import relu, sigmoid, tanh, swish
+from tensorflow.keras.activations import relu, sigmoid, tanh, swish, softplus
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense
 from tensorflow.keras.layers import Layer
 from tensorflow.keras import layers
@@ -43,10 +43,18 @@ offset = cfg.get('offset')
 
 from . import probe
 tprobe = params()['probe']
-# TODO
-#probe_mask = probe.probe_mask
-probe_mask = cfg.get('probe_mask')[:, :, :, 0]
-initial_probe_guess = tprobe
+
+probe_mask = probe.get_probe_mask(N)
+#probe_mask = cfg.get('probe_mask')[:, :, :, 0]
+
+if len(tprobe.shape) == 3:
+    initial_probe_guess = tprobe[None, ...]
+    #probe_mask = probe_mask[None, ...]
+elif len(tprobe.shape) == 4:
+    initial_probe_guess = tprobe
+else:
+    raise ValueError
+
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],
@@ -59,7 +67,7 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
         self.w = initial_probe_guess
-    #@tf.function
+
     def call(self, inputs):
         x = inputs[0]
         if cfg.get('probe.mask'):
@@ -131,36 +139,82 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
     return x0
 
 def create_encoder(input_tensor, n_filters_scale):
-    # x = Conv_Pool_block(input_tensor, n_filters_scale * 16)  # This block is commented out in the original
-    x = Conv_Pool_block(input_tensor, n_filters_scale * 32)
-    x = Conv_Pool_block(x, n_filters_scale * 64)
-    outputs = Conv_Pool_block(x, n_filters_scale * 128)
-    return outputs
+    N = cfg.get('N')
+    
+    if N == 64:
+        filters = [n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+    elif N == 128:
+        filters = [n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+    elif N == 256:
+        filters = [n_filters_scale * 8, n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+    else:
+        raise ValueError(f"Unsupported input size: {N}")
+    
+    x = input_tensor
+    for num_filters in filters:
+        x = Conv_Pool_block(x, num_filters)
+    
+    return x
 
 def create_decoder_base(input_tensor, n_filters_scale):
-    x = Conv_Up_block(input_tensor, n_filters_scale * 128)
-    outputs = Conv_Up_block(x, n_filters_scale * 64)
-    return outputs
+    N = cfg.get('N')
+    
+    if N == 64:
+        filters = [n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 128:
+        filters = [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 256:
+        filters = [n_filters_scale * 256, n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    else:
+        raise ValueError(f"Unsupported input size: {N}")
+    
+    x = input_tensor
+    for num_filters in filters:
+        x = Conv_Up_block(x, num_filters)
+    
+    return x
 
-def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2,
-        act=tf.keras.activations.sigmoid, name=''):
-    N = cfg.get('N')  # Placeholder: this should be fetched from the actual configuration
-    gridsize = cfg.get('gridsize')  # Placeholder: this should be fetched from the actual configuration
+def get_resolution_scale_factor(N):
+    """
+    Calculate the resolution-dependent filter count programmatically.
+    
+    Args:
+    N (int): The input resolution (must be a power of 2)
+    
+    Returns:
+    int: The scale factor for the given resolution
+    
+    Raises:
+    ValueError: If the input size is not a power of 2 or is outside the supported range
+    """
+    if N < 64 or N > 1024:
+        raise ValueError(f"Input size {N} is outside the supported range (64 to 1024)")
+    
+    if not (N & (N - 1) == 0) or N == 0:
+        raise ValueError(f"Input size {N} is not a power of 2")
+    
+    # Calculate the scale factor
+    # For N=64, we want 32; for N=128, we want 16; for N=256, we want 8, etc.
+    # This can be achieved by dividing 2048 by N
+    return 2048 // N
 
+def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2, act=tf.keras.activations.sigmoid, name=''):
+    N = cfg.get('N')
+    gridsize = cfg.get('gridsize')
+    
     c_outer = 4
     x1 = conv1(input_tensor[..., :-c_outer])
     x1 = act(x1)
     x1 = tf.keras.layers.ZeroPadding2D(((N // 4), (N // 4)), name=name + '_padded')(x1)
-
-    # Assuming the centermask function is similar to the one in the original class (needs to be defined)
-    # x1 = centermask(x1)
-    if not cfg.get('probe.big'):  # Placeholder: this should be fetched from the actual configuration
+    
+    if not cfg.get('probe.big'):
         return x1
-    x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * 32)
+    
+    scale_factor = get_resolution_scale_factor(N)
+    x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * scale_factor)
     x2 = conv2(x2)
     x2 = swish(x2)
-    # x2 = centermask(x2)  # Applying centermask operation
-
+    
     outputs = x1 + x2
     return outputs
 
@@ -168,25 +222,66 @@ def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     num_filters = gridsize**2 if big else 1
     conv1 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     conv2 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
-    # Activation function using Lambda layer
     act = tf.keras.layers.Lambda(lambda x: math.pi * tf.keras.activations.tanh(x), name='phi')
-    x = create_decoder_base(input_tensor, n_filters_scale)
-    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act,
-        name = 'phase')
+    
+    N = cfg.get('N')
+    
+    if N == 64:
+        filters = [n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 128:
+        filters = [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 256:
+        filters = [n_filters_scale * 256, n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    else:
+        raise ValueError(f"Unsupported input size: {N}")
+    
+    x = input_tensor
+    for num_filters in filters:
+        x = Conv_Up_block(x, num_filters)
+    
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act, name='phase')
+    return outputs
+
+def create_decoder_amp(input_tensor, n_filters_scale):
+    conv1 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
+    conv2 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
+    act = Lambda(get_amp_activation(), name='amp')
+    
+    N = cfg.get('N')
+    
+    if N == 64:
+        filters = [n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 128:
+        filters = [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    elif N == 256:
+        filters = [n_filters_scale * 256, n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+    else:
+        raise ValueError(f"Unsupported input size: {N}")
+    
+    x = input_tensor
+    for num_filters in filters:
+        x = Conv_Up_block(x, num_filters)
+    
+    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act, name='amp')
     return outputs
 
 def create_autoencoder(input_tensor, n_filters_scale, gridsize, big):
     encoded = create_encoder(input_tensor, n_filters_scale)
     decoded_amp = create_decoder_amp(encoded, n_filters_scale)
     decoded_phase = create_decoder_phase(encoded, n_filters_scale, gridsize, big)
-
+    
     return decoded_amp, decoded_phase
+
 
 def get_amp_activation():
     if cfg.get('amp_activation') == 'sigmoid':
         return lambda x: sigmoid(x)
     elif cfg.get('amp_activation') == 'swish':
         return lambda x: swish(x)
+    elif cfg.get('amp_activation') == 'softplus':
+        return lambda x: softplus(x)
+    elif cfg.get('amp_activation') == 'relu':
+        return lambda x: relu(x)
     else:
         return ValueError
 
@@ -247,7 +342,8 @@ pred_intensity_sampled = dist_poisson_intensity(pred_amp_scaled)
 
 # Poisson distribution over expected diffraction intensity (i.e. photons per
 # pixel)
-negloglik = lambda x, rv_x: -rv_x.log_prob((x))
+def negloglik(x, rv_x):
+    return -rv_x.log_prob(x)
 fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
 
 autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
