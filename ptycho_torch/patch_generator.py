@@ -1,6 +1,7 @@
 
 import numpy as np
 from scipy.spatial import cKDTree
+from ptycho_torch.config_params import Params
 #All methods for patch generation that used to be in loader will go here
 #Will be imported into dset_loader for generating patches of grid_size ** 2
 
@@ -66,7 +67,7 @@ def get_neighbor_diffraction_and_positions(PtychoDataset, index, N, K=6, C=None,
     print('neighbor-sampled diffraction shape', X_full.shape)
     return dset
 
-def group_coords(xcoords, ycoords, params, C):
+def group_coords(xcoords, ycoords, C):
     """
     Assemble a flat dataset into solution regions using nearest-neighbor grouping.
     ---
@@ -83,7 +84,7 @@ def group_coords(xcoords, ycoords, params, C):
         coords_nn: shape (M, C, 1, 2)
     """
     if C is None:
-        C = params['n_images']
+        C = Params().get('n_images')
     #No overlaps enforced
     if C == 1:
         nn_indices = get_neighbor_self_indices(xcoords,
@@ -91,8 +92,8 @@ def group_coords(xcoords, ycoords, params, C):
     #Yes overlaps enforced
     else:
         nn_indices = get_neighbor_indices(xcoords,
-                                          ycoords, K=params['K'])
-        nn_indices = sample_rows(nn_indices, C, params['n_subsample']).reshape(-1, C)
+                                          ycoords, K=Params().get('K'))
+        nn_indices = sample_rows(nn_indices, C, Params().get('n_subsample')).reshape(-1, C)
 
     #Get final array of coordinates (M* x C x 1 x 2)
     coords_nn = np.stack([xcoords[nn_indices],

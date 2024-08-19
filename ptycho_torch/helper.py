@@ -158,10 +158,6 @@ def extract_channels_from_region(inputs: torch.Tensor,
     return cropped_patches
 
     
-    
-
-
-
 def trim_reconstruction(inputs: torch.Tensor, N: Optional[int] = None) -> torch.Tensor:
     '''
     Trim from shape (-1, 1, M, M) to (-1, 1, N, N) where M >= N
@@ -169,7 +165,12 @@ def trim_reconstruction(inputs: torch.Tensor, N: Optional[int] = None) -> torch.
     M is the expanded solution region size
     N is the exact size of the measured diffraction input image (e.g. 64 pixels)
 
-    Assume M = get_padded_size()   
+    Assume M = get_padded_size()
+
+    Inputs
+    ------
+    inputs: torch.Tensor (batch_size, 1, M, M)
+    N: int, size of last two dimensions
     '''
 
     if N is None:
@@ -228,6 +229,7 @@ def mk_centermask(inputs: torch.Tensor, N: int, c: int, kind: str = 'center') ->
     else:
         raise ValueError
 
+#UNUSED
 def mk_norm(inputs: torch.Tensor, fn_reassemble_real: Callable[[torch.Tensor], torch.Tensor]) -> torch.Tensor:
     '''
     Create normalization tensor based on count_mask from mk_centermask
@@ -372,6 +374,10 @@ def pad_and_diffract(input: torch.Tensor, pad: bool = True) -> Tuple[torch.Tenso
     '''
     Pads channel images and performs Fourier transform, going from real space (object) to
     reciprocal space (diffraction pattern)
+
+    Input
+    --------
+    input: torch.Tensor (N, C, H, W). Does not need to be a flattened tensor.
     
     '''
 
@@ -385,4 +391,4 @@ def pad_and_diffract(input: torch.Tensor, pad: bool = True) -> Tuple[torch.Tenso
     input = torch.real(torch.conj(input) * input) / (h * w)
     input = torch.sqrt(torch.fft.fftshift(input, dim=(-2, -1)))
 
-    return padded, input
+    return input, padded

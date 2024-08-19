@@ -27,6 +27,8 @@ class Tanh_custom_act(nn.Module):
 class ConvBaseBlock(nn.Module):
     '''
     Convolutional base block for Pooling and Upscaling
+
+    If padding = same, padding is half of kernel size
     '''
     def __init__(self, in_channels, out_channels,
                  w1 = 3, w2 = 3,
@@ -97,6 +99,11 @@ class Encoder(nn.Module):
         starting_coeff = 64 / (self.N / 32)
         #Starting output channels is 64. Last output size will always be n_filters_scale * 128. 
         n_layers = int(np.log(128 / starting_coeff)/np.log(2) + 1)
+        #Examples
+        #N == 64:
+        #filters = [n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+        #N == 128:
+        #filters = [n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
         self.filters = [4] + [int(n_filters_scale * starting_coeff * 2**i) for i in range(n_layers)]
 
         if starting_coeff < 3 or starting_coeff > 64:
@@ -158,13 +165,16 @@ class Decoder_last(nn.Module):
         self.N = Config().get('N')
         self.gridsize = Config().get('gridsize')
 
+        #Channel splitting
+        self.c_outer = self.gridsize ** 2
+
         #Layers
-        self.conv1 =  nn.Conv2d(in_channels = in_channels,
+        self.conv1 =  nn.Conv2d(in_channels = in_channels - self.c_outer,
                                 out_channels = out_channels,
                                 kernel_size = (3, 3),
                                 padding = 3//2)
         #conv_up_block and conv2 are separate to conv1
-        self.conv_up_block = ConvUpBlock(in_channels, n_filters_scale * 32)
+        self.conv_up_block = ConvUpBlock(self.c_outer, n_filters_scale * 32)
         self.conv2 =  nn.Conv2d(in_channels = n_filters_scale * 32,
                                 out_channels = out_channels,
                                 kernel_size = (3, 3),
@@ -174,17 +184,17 @@ class Decoder_last(nn.Module):
         self.activation = activation
         self.padding = nn.ConstantPad2d((self.N // 4, self.N // 4,
                                          self.N // 4, self.N //4), 0)
-        self.c_outer = self.gridsize ** 2
+
         
     def forward(self,x):
-        x1 = self.conv1(x)#[:, :-self.c_outer, :, :])
+        x1 = self.conv1(x[:, :-self.c_outer, :, :])
         x1 = self.activation(x1)
         x1 = self.padding(x1)
 
         if not Config().get('probe.big'):
             return x1
         
-        x2 = self.conv_up_block(x)#[:, -self.c_outer:, :, :])
+        x2 = self.conv_up_block(x[:, -self.c_outer:, :, :])
         x2 = self.conv2(x2)
         x2 = F.silu(x2) #Same as swish
 
@@ -232,26 +242,6 @@ class Decoder_amp(Decoder_base):
         outputs = self.amp(x)
 
         return outputs
-
-#Autoencoder
-
-class Autoencoder(nn.Module):
-    def __init__(self, n_filters_scale):
-        super(Autoencoder, self).__init__()
-        #Encoder
-        self.encoder = Encoder(n_filters_scale)
-        #Decoders (Amplitude/Phase)
-        self.decoder_amp = Decoder_amp(n_filters_scale)
-        self.decoder_phase = Decoder_phase(n_filters_scale)
-
-    def forward(self, x):
-        #Encoder
-        x = self.encoder(x)
-        #Decoders
-        x_amp = self.decoder_amp(x)
-        x_phase = self.decoder_phase(x)
-
-        return x_amp, x_phase
 
 #Probe modules
 class ProbeIllumination(nn.Module):
@@ -317,18 +307,129 @@ class LambdaLayer(nn.Module):
 class PoissonIntensityLayer(nn.Module):
     '''
     Applies poisson intensity scaling using torch.distributions
+    Calculates the negative log likelihood of observing the raw data given the predicted intensities
+
     '''
     def __init__(self, amplitudes):
         super(PoissonIntensityLayer, self).__init__()
         #Poisson rate parameter (lambda)
         Lambda = amplitudes ** 2
         #Create Poisson distribution
-        #Second parameter (batch size) controls how many dimensions are summed over
-        self.poisson_dist = dist.Independent(dist.Poisson(Lambda), 1)
+        #Second parameter (batch size) controls how many dimensions are summed over starting from the last
+        self.poisson_dist = dist.Independent(dist.Poisson(Lambda), 3)
 
     def forward(self, x):
         #Apply poisson distribution
         return -self.poisson_dist.log_prob(x)
+    
+#Autoencoder
+
+class Autoencoder(nn.Module):
+    def __init__(self, n_filters_scale):
+        super(Autoencoder, self).__init__()
+        #Encoder
+        self.encoder = Encoder(n_filters_scale)
+        #Decoders (Amplitude/Phase)
+        self.decoder_amp = Decoder_amp(n_filters_scale)
+        self.decoder_phase = Decoder_phase(n_filters_scale)
+
+    def forward(self, x):
+        #Encoder
+        x = self.encoder(x)
+        #Decoders
+        x_amp = self.decoder_amp(x)
+        x_phase = self.decoder_phase(x)
+
+        return x_amp, x_phase
+
+class ForwardModel(nn.Module):
+    '''
+    Forward model receiving complex object prediction, and applies physics-informed real space overlap
+    conditions to the solution space.
+
+    Inputs
+    ------
+    x: torch.Tensor, dtype = complex64
+    positions: torch.Tensor, dtype = float32
+        Positions of patches in real space
+    probe: torch.Tensor, dtype = complex64
+        Probe function
+    '''
+    def __init__(self):
+        super(ForwardModel, self).__init__()
+
+        #Configuration 
+        self.n_filters_scale = Config().get('n_filters_scale')
+        self.N = Config().get('N')
+        self.gridsize = Config().get('gridsize')
+        self.offset = Config().get('offset')
+        self.object_big = Config().get('object.big')
+        self.nll = Config().get('nll') #True or False
+
+        #Patch operations
+        self.add_module('reassembled_patches',
+                        LambdaLayer(hh.reassemble_patches_position_real))
+        self.add_module('pad_patches',
+                        LambdaLayer(hh.pad_patches))
+        self.add_module('trim_reconstruction',
+                        LambdaLayer(hh.trim_reconstruction))
+        self.add_module('extract_patches',
+                        LambdaLayer(hh.extract_channels_from_region))
+        #Probe Illumination
+        self.probe_illumination = ProbeIllumination()
+
+        #Pad/diffract
+        self.add_module('pad_and_diffract',
+                        LambdaLayer(hh.pad_and_diffract))
+
+        #Intensity scaling
+        self.scaler = IntensityScalerModule()
+        self.add_module('inv_scale',
+                        LambdaLayer(self.scaler.scale))
+        
+    def forward(self, x, positions, probe):
+        #Reassemble patches
+        #Object_big: All patches are together in a solution region
+        if self.object_big:
+            reassembled_obj = self.reassembled_patches(x, positions)
+        else:
+        #Single channel, no patch overlap
+            #NOTE for albert: Check transformation math
+            reassembled_obj = self.pad_patches(
+                torch.flatten(x, start_dim = 0, end_dim = 1),
+                padded_size = hh.get_padded_size()
+            )
+
+        #Extract patches
+        extracted_patch_objs = self.extract_patches(reassembled_obj[:,None,:,:],
+                                                    positions)
+        #Perform below steps if training
+        if self.training:
+            #Apply probe illum
+            illuminated_objs = self.probe_illumination(extracted_patch_objs,
+                                                       probe)
+            #Pad and diffract
+            pred_diffraction = self.pad_and_diffract(illuminated_objs,
+                                                     pad = False)
+            #Inverse scaling
+            pred_amp_scaled = self.scaler.inv_scale(pred_diffraction)
+
+            return pred_amp_scaled
+        
+        #Performing inference
+        else:
+            return extracted_patch_objs, None
+        
+class PoissonLoss(nn.Module):
+    def __init__(self):
+        super(PoissonLoss, self).__init__()
+    
+    def forward(self, pred, raw):
+        self.poisson = PoissonIntensityLayer(pred)
+        loss_likelihood = self.poisson(raw)
+        loss_mae = F.l1_loss(pred, raw)
+
+        return loss_likelihood, loss_mae
     
 #Scaling modules
 
@@ -349,7 +450,7 @@ class IntensityScalerModule:
         #Setting log scale values
         log_scale_guess = np.log(Config().get('intensity_scale'))
         self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
-                                      requires_grad = Params.get('intensity_scale_trainable'))
+                                      requires_grad = Params().get('intensity_scale_trainable'))
     
     #Intensity scaler as class
     class IntensityScaler(nn.Module):
@@ -385,83 +486,24 @@ class PtychoPINN(nn.Module):
     probe - Tensor input, comes from dataset/dataloader __get__ function (returns x, probe)
     '''
     def __init__(self, cfg, params):
-        #Configuration 
         self.n_filters_scale = Config().get('n_filters_scale')
-        self.N = Config().get('N')
-        self.gridsize = Config().get('gridsize')
-        self.offset = Config().get('offset')
-        self.object_big = Config().get('object.big')
-        self.nll = Config().get('nll') #True or False
-
         #Autoencoder
         self.autoencoder = Autoencoder(self.n_filters_scale)
         self.combine_complex = CombineComplex()
         #Adding named modules for forward operation
         #Patch operations
-        self.add_module('reassembled_patches',
-                        LambdaLayer(hh.reassemble_patches_position_real))
-        self.add_module('pad_patches',
-                        LambdaLayer(hh.pad_patches))
-        self.add_module('trim_reconstruction',
-                        LambdaLayer(hh.trim_reconstruction))
-        self.add_module('extract_patches',
-                        LambdaLayer(hh.extract_channels_from_region))
-        #Probe Illumination
-        self.probe_illumination = ProbeIllumination()
-
-        #Pad/diffract
-        self.add_module('pad_and_diffract',
-                        LambdaLayer(hh.pad_and_diffract))
-
-        #Intensity scaling
-        self.scaler = IntensityScalerModule(cfg, params)
-        self.add_module('inv_scale',
-                        LambdaLayer(self.scaler.scale))
-
-
+        self.forward_model = ForwardModel()
+        self.PoissonLoss = PoissonLoss()
 
     def forward(self, x, positions, probe):
         #Autoencoder result
         x_amp, x_phase = self.autoencoder(x)
         #Combine amp and phase
         x_combined = self.combine_complex(x_amp, x_phase)
-
-        #Reassemble patches
-        #Object_big: All patches are together in a solution region
-        if self.object_big:
-            reassembled_obj = self.reassembled_patches(x_combined, positions)
-        else:
-        #Single channel, no patch overlap
-            #NOTE for albert: Check transformation math
-            reassembled_obj = self.pad_patches(
-                torch.flatten(x_combined, start_dim = 0, end_dim = 1),
-                padded_size = hh.get_padded_size()
-            )
-
-        #Extract patches
-        extracted_patch_objs = self.extract_patches(reassembled_obj,
-                                                    positions)
-        #Perform below steps if training
+        #Run through forward model
+        x_out = self.forward_model(x_combined, positions, probe)
         if self.training:
-            #Apply probe illum
-            illuminated_objs = self.probe_illumination(extracted_patch_objs, probe)
+            return self.PoissonLoss(x_out)
 
-            #Pad and diffract
-            pred_diffraction = self.pad_and_diffract(illuminated_objs)
-
-            #Inverse scaling
-            pred_amp_scaled = self.inv_scale(pred_diffraction)
-            
-            #Poisson intensity distribution
-            self.poisson = PoissonIntensityLayer(pred_amp_scaled)
-            loss_likelihood = self.poisson(x)
-
-            #MAE loss
-            loss_mae = F.l1_loss(pred_amp_scaled, x)
-
-            return pred_amp_scaled, [loss_likelihood, loss_mae]
-        
-        #Performing inference
-        else:
-            return extracted_patch_objs
+        return x_out
             

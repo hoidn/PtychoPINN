@@ -1,6 +1,6 @@
 import numpy as np
 from ptycho.params import params, get
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from mmap_ninja import RaggedMmap
 from pathlib import Path
 import zipfile
@@ -14,6 +14,9 @@ from tensordict.prototype import tensorclass
 
 #Patch generation
 from ptycho_torch.patch_generator import group_coords, get_relative_coords
+
+#Parameters
+from ptycho_torch.config_params import Params
 
 #Helper methods
 def npz_headers(npz):
@@ -62,13 +65,10 @@ class PtychoDataset(Dataset):
         e.g. K = 6, n_subsample = 10, n_images = 4.  Then we subsample 10 patches from 6C4=15
 
     """
-    def __init__(self, ptycho_dir, probe_dir, params):
+    def __init__(self, ptycho_dir, probe_dir):
         #Directories
         self.ptycho_dir = ptycho_dir
         self.probe_dir = probe_dir
-
-        #Note to self: probe mapping will be in params
-        self.params = params
 
         #Calculate length for __len__ method
         self.length, self.im_shape, self.cum_length = self.calculate_length(ptycho_dir)
@@ -89,7 +89,7 @@ class PtychoDataset(Dataset):
 
         for npz_file in Path(ptycho_dir).iterdir():
             tensor_shape = list(npz_headers(npz_file))
-            total_length += tensor_shape[0][0] * self.params['n_subsample'] #Double indexing to access number inside nested list
+            total_length += tensor_shape[0][0] * Params().get('n_subsample') #Double indexing to access number inside nested list
             im_shape = tensor_shape[0][1:]
             cumulative_length.append(total_length)
         
@@ -115,8 +115,8 @@ class PtychoDataset(Dataset):
 
 
         """
-        n_images = self.params['grid_size'][0] * self.params['grid_size'][1]
-        self.params['n_images'] = n_images
+        n_images = Params().get('grid_size')[0] * Params().get('grid_size')[1]
+        Params().add('n_images', n_images)
 
         #Create memory map for every tensor. We'll be populating the diffraction image in batches, and the
         #other coordinate tensors in full for every individual dataset
@@ -154,6 +154,10 @@ class PtychoDataset(Dataset):
                 "nn_indices": MemoryMappedTensor.empty(
                     (mmap_length, n_images),
                     dtype=torch.int64
+                ),
+                "experiment_id": MemoryMappedTensor.empty(
+                    (mmap_length),
+                    dtype=torch.int64
                 )},
             batch_size = mmap_length,
         )
@@ -163,7 +167,7 @@ class PtychoDataset(Dataset):
         print("Memory map creation time: {}".format(end - start))
 
         #Lock memory map
-        mmap_ptycho.memmap_(prefix="data/memmap")
+        mmap_ptycho.memmap_like(prefix="data/memmap")
 
         #Go through each npz file and populate mmap_diffraction
         batch_size = 1024
@@ -184,7 +188,7 @@ class PtychoDataset(Dataset):
 
             #Get indices for solution patches on current dataset
             nn_indices, coords_nn = group_coords(xcoords, ycoords,
-                                      self.params, C=self.params['C'])
+                                      C=Params().get('C'))
             
             #Coords_nn is (N x 4 x 1 x 2). Contains all 4 sets of (x,y) coords for an image patch
             coords_start_nn = np.stack([xcoords_start[nn_indices],
@@ -218,11 +222,21 @@ class PtychoDataset(Dataset):
                 local_to = min(j + batch_size, curr_nn_index_length)
                 global_to += local_to - j
 
-                print('global_from: {}, global_to: {}'.format(global_from, global_to))
-                print('j: {}, local_to: {}'.format(j, local_to))
-  
-                #Write to diffraction memory map
                 mmap_ptycho["images"][global_from:global_to] = torch.from_numpy(diff_stack[nn_indices[j:local_to]])
+
+                #Writing everything simultaneously as a TensorDict
+                # mmap_ptycho[global_from:global_to] = TensorDict(
+                #     {
+                #         "images": torch.from_numpy(diff_stack[nn_indices[j:local_to]]),
+                #         "coords_center": torch.from_numpy(coords_com[j:local_to]),
+                #         "coords_relative": torch.from_numpy(coords_relative[j:local_to]),
+                #         "coords_start_center": torch.from_numpy(coords_start_com[j:local_to]),
+                #         "coords_start_relative": torch.from_numpy(coords_start_relative[j:local_to]),
+                #         "nn_indices": torch.from_numpy(nn_indices[j:local_to]),
+                #         "experiment_id": torch.from_numpy(np.full(local_to - j, i))
+                #     },
+                #     batch_size = (local_to - j)
+                # )
 
                 #Update global
                 global_from += global_to - global_from
@@ -280,16 +294,28 @@ class PtychoDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Returns memory mapped tensordict, alongside probe
+        Returns memory mapped tensordict, alongside probe. Written to be batched
+        so you can return multiple instances
         """
         #Find experimental index comparing index to cumulative length
-        exp_idx = np.searchsorted(self.cum_length, idx, side='right') - 1
-        probe_idx = self.params['probe_map'][exp_idx]
-        probe = torch.from_numpy(self.params['probes'][probe_idx])
+        #Experimental index is used to find the probe corresponding to the right experiment
+        # exp_idx = np.searchsorted(self.cum_length, idx, side='right') - 1
+        exp_idx = self.mmap_ptycho['experiment_id'][idx]
+        probes = Params().get('probes')
+        probes_indexed = probes[exp_idx]
 
-        return self.mmap_ptycho[idx], probe
+        return self.mmap_ptycho[idx], probes_indexed
         
+#Collation
 
+class TensorDictDataLoader(DataLoader):
+    def __iter__(self):
+        #Iterator over sampler
+        batch_sampler = self.batch_sampler
+        dataset = self.dataset
+
+        for batch_indices in batch_sampler:
+            yield dataset[batch_indices]
 
 
 #Testing
