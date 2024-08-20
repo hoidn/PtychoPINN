@@ -219,7 +219,8 @@ def reassemble_cdi_image(
     test_data: Union[RawData, PtychoDataContainer],
     config: Dict[str, Any],
     flip_x: bool = False,
-    flip_y: bool = False
+    flip_y: bool = False,
+    transpose: bool = False
 ) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
     """
     Reassemble the CDI image using the trained model.
@@ -229,6 +230,7 @@ def reassemble_cdi_image(
         config (Dict[str, Any]): Configuration dictionary.
         flip_x (bool): Whether to flip the x coordinates. Default is False.
         flip_y (bool): Whether to flip the y coordinates. Default is False.
+        transpose (bool): Whether to transpose the image by swapping the 1st and 2nd dimensions. Default is False.
 
     Returns:
         Tuple[np.ndarray, np.ndarray, Dict[str, Any]]: 
@@ -241,6 +243,13 @@ def reassemble_cdi_image(
     
     # Log the shape of global_offsets
     logger.info(f"Shape of global_offsets: {global_offsets.shape}")
+
+    # Assert that obj_tensor_full is a 4D tensor
+    assert obj_tensor_full.ndim == 4, f"Expected obj_tensor_full to be a 4D tensor, but got shape {obj_tensor_full.shape}"
+
+    # Transpose the image if requested
+    if transpose:
+        obj_tensor_full = np.transpose(obj_tensor_full, (0, 2, 1, 3))
 
     # Flip coordinates if requested
     if flip_x:
@@ -267,7 +276,8 @@ def run_cdi_example(
     test_data: Optional[Union[RawData, PtychoDataContainer]],
     config: Dict[str, Any],
     flip_x: bool = False,
-    flip_y: bool = False
+    flip_y: bool = False,
+    transpose: bool = False
 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
     """
     Run the main CDI example execution flow.
@@ -278,6 +288,7 @@ def run_cdi_example(
         config (Dict[str, Any]): Configuration dictionary.
         flip_x (bool): Whether to flip the x coordinates. Default is False.
         flip_y (bool): Whether to flip the y coordinates. Default is False.
+        transpose (bool): Whether to transpose the image by swapping the 1st and 2nd dimensions. Default is False.
 
     Returns:
         Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]: 
@@ -288,7 +299,7 @@ def run_cdi_example(
     
     # Reassemble test image if test data is provided
     if test_data is not None:
-        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y)
+        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y, transpose)
         results = {**train_results, **reassemble_results}
     else:
         recon_amp, recon_phase = None, None
