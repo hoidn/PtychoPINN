@@ -31,7 +31,7 @@ ARG_TO_CONFIG_MAP = {
     "N": ("N", 64)
 }
 
-def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1):
+def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
     """
     Load ptychography data from a file and return RawData objects.
 
@@ -42,6 +42,7 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
         flip_y (bool, optional): If True, flip the sign of y coordinates. Defaults to False.
         swap_xy (bool, optional): If True, swap x and y coordinates. Defaults to False.
         n_samples (int, optional): Number of samples to generate. Defaults to 1.
+        coord_scale (float, optional): Scale factor for x and y coordinates. Defaults to 1.0.
 
     Returns:
         RawData: RawData object containing the dataset.
@@ -71,6 +72,12 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
         xcoords, ycoords = ycoords, xcoords
         xcoords_start, ycoords_start = ycoords_start, xcoords_start
         #probeGuess = np.transpose(probeGuess)
+
+    # Apply coordinate scaling
+    xcoords *= coord_scale
+    ycoords *= coord_scale
+    xcoords_start *= coord_scale
+    ycoords_start *= coord_scale
 
     # Create scan_index array
     scan_index = np.zeros(diff3d.shape[0], dtype=int)
