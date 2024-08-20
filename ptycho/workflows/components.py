@@ -187,6 +187,78 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")
 
+def train_cdi_model(
+    train_data: Union[RawData, PtychoDataContainer],
+    config: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Train the CDI model.
+
+    Args:
+        train_data (Union[RawData, PtychoDataContainer]): Training data.
+        config (Dict[str, Any]): Configuration dictionary.
+
+    Returns:
+        Dict[str, Any]: Results dictionary containing training history.
+    """
+    # Convert input data to PtychoDataContainer
+    train_container = create_ptycho_data_container(train_data, config)
+
+    # Initialize probe
+    probe.set_probe_guess(None, train_container.probe)
+
+    # Calculate intensity scale
+    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
+
+    # Train the model
+    history = train_pinn.train(train_container, intensity_scale)
+    
+    return {"history": history}
+
+def reassemble_cdi_image(
+    test_data: Union[RawData, PtychoDataContainer],
+    config: Dict[str, Any],
+    flip_x: bool = False,
+    flip_y: bool = False
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
+    """
+    Reassemble the CDI image using the trained model.
+
+    Args:
+        test_data (Union[RawData, PtychoDataContainer]): Test data.
+        config (Dict[str, Any]): Configuration dictionary.
+        flip_x (bool): Whether to flip the x coordinates. Default is False.
+        flip_y (bool): Whether to flip the y coordinates. Default is False.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, Dict[str, Any]]: 
+        Reconstructed amplitude, reconstructed phase, and results dictionary.
+    """
+    test_container = create_ptycho_data_container(test_data, config)
+    
+    from ptycho import nbutils
+    obj_tensor_full, global_offsets = nbutils.reconstruct_image(test_container)
+    
+    # Flip coordinates if requested
+    if flip_x:
+        global_offsets[:, 0, :, :] = -global_offsets[:, 0, :, :]
+    if flip_y:
+        global_offsets[:, 1, :, :] = -global_offsets[:, 1, :, :]
+    
+    obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=20)
+    
+    recon_amp = np.absolute(obj_image)
+    recon_phase = np.angle(obj_image)
+    
+    results = {
+        "obj_tensor_full": obj_tensor_full,
+        "global_offsets": global_offsets,
+        "recon_amp": recon_amp,
+        "recon_phase": recon_phase
+    }
+    
+    return recon_amp, recon_phase, results
+
 def run_cdi_example(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
@@ -208,45 +280,16 @@ def run_cdi_example(
         Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]: 
         Reconstructed amplitude, reconstructed phase, and results dictionary.
     """
-    # Convert input data to PtychoDataContainer
-    train_container = create_ptycho_data_container(train_data, config)
-    test_container = create_ptycho_data_container(test_data, config) if test_data is not None else None
-
-    # Initialize probe
-    probe.set_probe_guess(None, train_container.probe)
-
-    # Calculate intensity scale
-    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
-
     # Train the model
-    history = train_pinn.train(train_container, intensity_scale)
+    train_results = train_cdi_model(train_data, config)
     
-    results = {"history": history}
-    
-    # Reconstruct test image if test data is provided
-    if test_container is not None:
-        from ptycho import nbutils
-        obj_tensor_full, global_offsets = nbutils.reconstruct_image(test_container)
-        
-        # Flip coordinates if requested
-        if flip_x:
-            global_offsets[:, 0, :, :] = -global_offsets[:, 0, :, :]
-        if flip_y:
-            global_offsets[:, 1, :, :] = -global_offsets[:, 1, :, :]
-        
-        obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=20)
-        
-        recon_amp = np.absolute(obj_image)
-        recon_phase = np.angle(obj_image)
-        
-        results.update({
-            "obj_tensor_full": obj_tensor_full,
-            "global_offsets": global_offsets,
-            "recon_amp": recon_amp,
-            "recon_phase": recon_phase
-        })
+    # Reassemble test image if test data is provided
+    if test_data is not None:
+        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y)
+        results = {**train_results, **reassemble_results}
     else:
         recon_amp, recon_phase = None, None
+        results = train_results
     
     return recon_amp, recon_phase, results
 
