@@ -237,7 +237,8 @@ def reassemble_cdi_image(
     flip_x: bool = False,
     flip_y: bool = False,
     transpose: bool = False,
-    M: int = 20
+    M: int = 20,
+    coord_scale: float = 1.0
 ) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
     """
     Reassemble the CDI image using the trained model.
@@ -248,6 +249,8 @@ def reassemble_cdi_image(
         flip_x (bool): Whether to flip the x coordinates. Default is False.
         flip_y (bool): Whether to flip the y coordinates. Default is False.
         transpose (bool): Whether to transpose the image by swapping the 1st and 2nd dimensions. Default is False.
+        M (int): Parameter for reassemble_position function. Default is 20.
+        coord_scale (float): Scale factor for x and y coordinates. Default is 1.0.
 
     Returns:
         Tuple[np.ndarray, np.ndarray, Dict[str, Any]]: 
@@ -273,6 +276,9 @@ def reassemble_cdi_image(
         global_offsets[:, 0, 0, :] = -global_offsets[:, 0, 0, :]
     if flip_y:
         global_offsets[:, 0, 1, :] = -global_offsets[:, 0, 1, :]
+    
+    # Scale coordinates
+    global_offsets *= coord_scale
     
     obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=M)
     
