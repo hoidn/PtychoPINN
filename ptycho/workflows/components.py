@@ -263,6 +263,7 @@ def reassemble_cdi_image(
         Tuple[np.ndarray, np.ndarray, Dict[str, Any]]: 
         Reconstructed amplitude, reconstructed phase, and results dictionary.
     """
+    # TODO use train_pinn.eval to get reconstructed diffraction amplitude
     test_container = create_ptycho_data_container(test_data, config)
     
     from ptycho import nbutils
