@@ -190,7 +190,9 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
 def run_cdi_example(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
-    config: Dict[str, Any]
+    config: Dict[str, Any],
+    flip_x: bool = False,
+    flip_y: bool = False
 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
     """
     Run the main CDI example execution flow.
@@ -199,6 +201,8 @@ def run_cdi_example(
         train_data (Union[RawData, PtychoDataContainer]): Training data.
         test_data (Optional[Union[RawData, PtychoDataContainer]]): Test data, or None.
         config (Dict[str, Any]): Configuration dictionary.
+        flip_x (bool): Whether to flip the x coordinates. Default is False.
+        flip_y (bool): Whether to flip the y coordinates. Default is False.
 
     Returns:
         Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]: 
@@ -223,7 +227,14 @@ def run_cdi_example(
     if test_container is not None:
         from ptycho import nbutils
         obj_tensor_full, global_offsets = nbutils.reconstruct_image(test_container)
-        obj_image = loader.reassemble_position(obj_tensor_full, global_offsets[:, :, :, :], M=20)
+        
+        # Flip coordinates if requested
+        if flip_x:
+            global_offsets[:, 0, :, :] = -global_offsets[:, 0, :, :]
+        if flip_y:
+            global_offsets[:, 1, :, :] = -global_offsets[:, 1, :, :]
+        
+        obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=20)
         
         recon_amp = np.absolute(obj_image)
         recon_phase = np.angle(obj_image)
