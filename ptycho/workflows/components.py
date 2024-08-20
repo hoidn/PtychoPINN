@@ -239,11 +239,14 @@ def reassemble_cdi_image(
     from ptycho import nbutils
     obj_tensor_full, global_offsets = nbutils.reconstruct_image(test_container)
     
+    # Log the shape of global_offsets
+    logger.info(f"Shape of global_offsets: {global_offsets.shape}")
+
     # Flip coordinates if requested
     if flip_x:
-        global_offsets[:, 0, :, :] = -global_offsets[:, 0, :, :]
+        global_offsets[:, 0, 0, :] = -global_offsets[:, 0, 0, :]
     if flip_y:
-        global_offsets[:, 1, :, :] = -global_offsets[:, 1, :, :]
+        global_offsets[:, 0, 1, :] = -global_offsets[:, 0, 1, :]
     
     obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=20)
     
