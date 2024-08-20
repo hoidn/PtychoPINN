@@ -216,7 +216,11 @@ def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2, act=tf.kera
         x2 = conv2(x2)
         x2 = swish(x2)
         
-        outputs = x1 + x2
+        # Drop the central region of x2
+        center_mask = hh.mk_centermask(x2, N, 1, kind='border')
+        x2_masked = x2 * center_mask
+        
+        outputs = x1 + x2_masked
         return outputs
 
     else:
