@@ -220,7 +220,8 @@ def reassemble_cdi_image(
     config: Dict[str, Any],
     flip_x: bool = False,
     flip_y: bool = False,
-    transpose: bool = False
+    transpose: bool = False,
+    M: int = 20
 ) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
     """
     Reassemble the CDI image using the trained model.
@@ -257,7 +258,7 @@ def reassemble_cdi_image(
     if flip_y:
         global_offsets[:, 0, 1, :] = -global_offsets[:, 0, 1, :]
     
-    obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=20)
+    obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=M)
     
     recon_amp = np.absolute(obj_image)
     recon_phase = np.angle(obj_image)
@@ -277,7 +278,8 @@ def run_cdi_example(
     config: Dict[str, Any],
     flip_x: bool = False,
     flip_y: bool = False,
-    transpose: bool = False
+    transpose: bool = False,
+    M: int = 20
 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
     """
     Run the main CDI example execution flow.
@@ -299,7 +301,7 @@ def run_cdi_example(
     
     # Reassemble test image if test data is provided
     if test_data is not None:
-        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y, transpose)
+        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y, transpose, M=M)
         results = {**train_results, **reassemble_results}
     else:
         recon_amp, recon_phase = None, None
