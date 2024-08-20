@@ -31,7 +31,7 @@ ARG_TO_CONFIG_MAP = {
     "N": ("N", 64)
 }
 
-def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False):
+def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1):
     """
     Load ptychography data from a file and return RawData objects.
 
@@ -41,6 +41,7 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
         flip_x (bool, optional): If True, flip the sign of x coordinates. Defaults to False.
         flip_y (bool, optional): If True, flip the sign of y coordinates. Defaults to False.
         swap_xy (bool, optional): If True, swap x and y coordinates. Defaults to False.
+        n_samples (int, optional): Number of samples to generate. Defaults to 1.
 
     Returns:
         RawData: RawData object containing the dataset.
@@ -194,7 +195,7 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        dataset = data.generate_grouped_data(config['N'], K=7, nsamples=1)
+        dataset = data.generate_grouped_data(config['N'], K=7, nsamples=config.get('n_samples', 1))
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")
