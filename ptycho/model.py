@@ -201,22 +201,30 @@ def get_resolution_scale_factor(N):
 def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2, act=tf.keras.activations.sigmoid, name=''):
     N = cfg.get('N')
     gridsize = cfg.get('gridsize')
-    
-    c_outer = 4
-    x1 = conv1(input_tensor[..., :-c_outer])
-    x1 = act(x1)
-    x1 = tf.keras.layers.ZeroPadding2D(((N // 4), (N // 4)), name=name + '_padded')(x1)
-    
-    if not cfg.get('probe.big'):
-        return x1
-    
+
     scale_factor = get_resolution_scale_factor(N)
-    x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * scale_factor)
-    x2 = conv2(x2)
-    x2 = swish(x2)
-    
-    outputs = x1 + x2
-    return outputs
+    if cfg.get('pad_object'):
+        c_outer = 4
+        x1 = conv1(input_tensor[..., :-c_outer])
+        x1 = act(x1)
+        x1 = tf.keras.layers.ZeroPadding2D(((N // 4), (N // 4)), name=name + '_padded')(x1)
+        
+        if not cfg.get('probe.big'):
+            return x1
+        
+        x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * scale_factor)
+        x2 = conv2(x2)
+        x2 = swish(x2)
+        
+        outputs = x1 + x2
+        return outputs
+
+    else:
+        x2 = Conv_Up_block(input_tensor, n_filters_scale * scale_factor)
+        x2 = conv2(x2)
+        x2 = act(x2)
+        return x2
+
 
 def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     num_filters = gridsize**2 if big else 1
