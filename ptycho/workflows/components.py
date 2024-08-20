@@ -62,12 +62,15 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     if flip_x:
         xcoords = -xcoords
         xcoords_start = -xcoords_start
+        probeGuess = probeGuess[::-1, :]
     if flip_y:
         ycoords = -ycoords
         ycoords_start = -ycoords_start
+        probeGuess = probeGuess[:, ::-1]
     if swap_xy:
         xcoords, ycoords = ycoords, xcoords
         xcoords_start, ycoords_start = ycoords_start, xcoords_start
+        probeGuess = np.transpose(probeGuess)
 
     # Create scan_index array
     scan_index = np.zeros(diff3d.shape[0], dtype=int)
