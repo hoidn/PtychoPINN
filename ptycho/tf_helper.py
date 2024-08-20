@@ -288,6 +288,7 @@ def reassemble_patches_real(channels: tf.Tensor, average: bool = True, **kwargs:
 
 #@debug
 def pad_patches(imgs: tf.Tensor, padded_size: Optional[int] = None) -> tf.Tensor:
+    N = params()['N']
     if padded_size is None:
         padded_size = get_padded_size()
     return tfkl.ZeroPadding2D(((padded_size - N) // 2, (padded_size - N) // 2))(imgs)
@@ -443,9 +444,6 @@ def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, ag
     else:
         print('no aggregation in patch reassembly')
         return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
-
-gridsize = params()['gridsize']
-N = params()['N']
 
 #@debug
 def mk_centermask(inputs: tf.Tensor, N: int, c: int, kind: str = 'center') -> tf.Tensor:
@@ -638,12 +636,14 @@ def complex_mae(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
 
 #@debug
 def masked_mae(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tensor:
+    N = params()['N']
     mae = tf.keras.metrics.mean_absolute_error
     pred = pred * mk_centermask(pred, N, 1, kind = 'center')
     return mae(target, pred)
 
 #@debug
 def realspace_loss(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tensor:
+    N = params()['N']
     if not get('probe.big'):
         pred = pred * mk_centermask(pred, N, 1, kind = 'center')
 

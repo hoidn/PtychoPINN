@@ -77,19 +77,17 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
 
 def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
     import tensorflow as tf
+    import numpy as np
     from . import params as p
     def count_photons(obj):
-        return tf.math.reduce_sum(obj**2, (1, 2))
+        pcount = np.mean(tf.math.reduce_sum(obj**2, (1, 2)))
+        return pcount
 
-    def scale_nphotons(padded_obj):
-        mean_photons = tf.math.reduce_mean(count_photons(padded_obj))
-        norm = tf.math.sqrt(p.get('nphotons') / mean_photons)
-        return norm
-
-    # Extract the object data from the PtychoDataContainer
-    obj_data = ptycho_data_container.Y_I  # Assuming Y_I contains the object data
+    def scale_nphotons(X):
+        # TODO assumes X is already normalized. this should be enforced
+        return tf.math.sqrt(p.get('nphotons')) / (p.get('N') / 2)
 
     # Calculate the intensity scale using the adapted scale_nphotons function
-    intensity_scale = scale_nphotons(obj_data).numpy()
+    intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
 
     return intensity_scale
