@@ -22,7 +22,9 @@ def visualize_results(results: Dict[str, Any], test_data, i: int = 200, output_p
     probe = np.absolute(params.get('probe')[:, :, 0, 0])
 
     # Call the summarize function
-    heatmaps = evaluation.summarize(test_data, results, i=i, channel=0, crop=False)
+    heatmaps = evaluation.summarize(i, results['pred_amp'] + 1, results['reconstructed_obj'], 
+                                    X_test, Y_I_test, Y_phi_test,
+                                    probe, channel=0, crop=False)
 
     # Save the heatmaps
     for name, heatmap in heatmaps.items():
