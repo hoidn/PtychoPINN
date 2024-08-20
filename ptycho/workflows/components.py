@@ -31,18 +31,19 @@ ARG_TO_CONFIG_MAP = {
     "N": ("N", 64)
 }
 
-def load_data(file_path, n_images=None):
+def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False):
     """
     Load ptychography data from a file and return RawData objects.
 
     Args:
         file_path (str, optional): Path to the data file. Defaults to the package resource 'datasets/Run1084_recon3_postPC_shrunk_3.npz'.
         n_images (int, optional): Number of data points to include in the training set. Defaults to 512.
+        flip_x (bool, optional): If True, flip the sign of x coordinates. Defaults to False.
+        flip_y (bool, optional): If True, flip the sign of y coordinates. Defaults to False.
+        swap_xy (bool, optional): If True, swap x and y coordinates. Defaults to False.
 
     Returns:
-        tuple: A tuple containing two RawData objects:
-            - ptycho_data: RawData object containing the full dataset.
-            - ptycho_data_train: RawData object containing a subset of the data for training.
+        RawData: RawData object containing the dataset.
     """
     # Load data from file
     data = np.load(file_path)
@@ -56,6 +57,17 @@ def load_data(file_path, n_images=None):
     probeGuess = data['probeGuess']
     objectGuess = data['objectGuess']
 
+    # Apply coordinate transformations
+    if flip_x:
+        xcoords = -xcoords
+        xcoords_start = -xcoords_start
+    if flip_y:
+        ycoords = -ycoords
+        ycoords_start = -ycoords_start
+    if swap_xy:
+        xcoords, ycoords = ycoords, xcoords
+        xcoords_start, ycoords_start = ycoords_start, xcoords_start
+
     # Create scan_index array
     scan_index = np.zeros(diff3d.shape[0], dtype=int)
 
@@ -64,9 +76,9 @@ def load_data(file_path, n_images=None):
 
     # Create RawData object for the training subset
     ptycho_data = RawData(xcoords[:n_images], ycoords[:n_images],
-                                       xcoords_start[:n_images], ycoords_start[:n_images],
-                                       diff3d[:n_images], probeGuess,
-                                       scan_index[:n_images], objectGuess=objectGuess)
+                          xcoords_start[:n_images], ycoords_start[:n_images],
+                          diff3d[:n_images], probeGuess,
+                          scan_index[:n_images], objectGuess=objectGuess)
 
     return ptycho_data
 
