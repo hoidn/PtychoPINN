@@ -640,14 +640,15 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
 
-#    try:
-    if dset['Y'] is None:
-        Y = get_image_patches(gt_image,
-            global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
-        print("loader: generating ground truth patches from image and offsets")
-    else:
-        Y = dset['Y']
-        print("loader: using provided ground truth patches")
+##    try:
+#    if dset['Y'] is None:
+#        Y = get_image_patches(gt_image,
+#            global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
+#        print("loader: generating ground truth patches from image and offsets")
+#    else:
+#        Y = dset['Y']
+#        print("loader: using provided ground truth patches")
+    Y = tf.ones_like(X)
     Y_I = tf.math.abs(Y)
     Y_phi = tf.math.angle(Y)
 #    except: 
