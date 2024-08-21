@@ -29,6 +29,26 @@ import tensorflow_addons as tfa
 from .tf_helper import complex_gaussian_filter2d
 gaussian_filter2d = tfa.image.gaussian_filter2d
 
+def complex_gaussian_filter2d(input_tensor, filter_shape, sigma):
+    """
+    Apply Gaussian filter to complex-valued tensor.
+    
+    Args:
+    input_tensor: Complex-valued input tensor
+    filter_shape: Tuple of integers specifying the filter shape
+    sigma: Float or tuple of floats for the Gaussian kernel standard deviation
+    
+    Returns:
+    Complex-valued tensor after applying Gaussian filter
+    """
+    real_part = tf.math.real(input_tensor)
+    imag_part = tf.math.imag(input_tensor)
+    
+    filtered_real = gaussian_filter2d(real_part, filter_shape=filter_shape, sigma=sigma)
+    filtered_imag = gaussian_filter2d(imag_part, filter_shape=filter_shape, sigma=sigma)
+    
+    return tf.complex(filtered_real, filtered_imag)
+
 tfk = hh.tf.keras
 tfkl = hh.tf.keras.layers
 tfpl = tfp.layers
