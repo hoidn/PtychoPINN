@@ -67,6 +67,7 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
         self.w = initial_probe_guess
+        self.sigma = cfg.get('gaussian_smoothing_sigma')
 
     def call(self, inputs):
         # x is expected to have shape (batch_size, N, N, gridsize**2)
@@ -79,8 +80,8 @@ class ProbeIllumination(tf.keras.layers.Layer):
         # Apply multiplication first
         illuminated = self.w * x
         
-        # Apply Gaussian smoothing
-        smoothed = Lambda(lambda t: gaussian_filter2d(t, filter_shape=(3, 3), sigma=1.0))(illuminated)
+        # Apply Gaussian smoothing with parameterized sigma
+        smoothed = Lambda(lambda t: gaussian_filter2d(t, filter_shape=(3, 3), sigma=self.sigma))(illuminated)
         
         if cfg.get('probe.mask'):
             # Output shape: (batch_size, N, N, gridsize**2)
