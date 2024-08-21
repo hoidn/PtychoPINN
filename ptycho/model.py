@@ -26,6 +26,7 @@ from . import params as cfg
 params = cfg.params
 
 import tensorflow_addons as tfa
+from .tf_helper import complex_gaussian_filter2d
 gaussian_filter2d = tfa.image.gaussian_filter2d
 
 tfk = hh.tf.keras
@@ -81,7 +82,7 @@ class ProbeIllumination(tf.keras.layers.Layer):
         illuminated = self.w * x
         
         # Apply Gaussian smoothing with parameterized sigma
-        smoothed = Lambda(lambda t: complex_gaussian_filter2d(t, filter_shape=(3, 3), sigma=self.sigma))(illuminated)
+        smoothed = complex_gaussian_filter2d(illuminated, filter_shape=(3, 3), sigma=self.sigma)
         
         if cfg.get('probe.mask'):
             # Output shape: (batch_size, N, N, gridsize**2)
