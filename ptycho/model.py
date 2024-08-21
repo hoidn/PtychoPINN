@@ -69,10 +69,18 @@ class ProbeIllumination(tf.keras.layers.Layer):
         self.w = initial_probe_guess
 
     def call(self, inputs):
+        # x is expected to have shape (batch_size, N, N, gridsize**2)
+        # where N is the size of each patch and gridsize**2 is the number of patches
         x = inputs[0]
+        
+        # self.w has shape (1, N, N, 1) or (1, N, N, gridsize**2) if probe.big is True
+        # probe_mask has shape (N, N, 1)
+        
         if cfg.get('probe.mask'):
+            # Output shape: (batch_size, N, N, gridsize**2)
             return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
         else:
+            # Output shape: (batch_size, N, N, gridsize**2)
             return self.w * x, (self.w)[None, ...]
 
 probe_illumination = ProbeIllumination()
