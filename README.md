@@ -20,7 +20,9 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
 `python -m pip install .`
 
 ## Usage
-See examples and READMEs under scripts/
+See examples and READMEs under scripts/.
+
+For an example of interactive (Jupyter) usage, see notebooks/nongrid_simulations.ipynb 
 
 ### Checklist
 | Status | Task |
