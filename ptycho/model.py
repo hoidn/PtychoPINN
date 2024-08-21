@@ -76,12 +76,18 @@ class ProbeIllumination(tf.keras.layers.Layer):
         # self.w has shape (1, N, N, 1) or (1, N, N, gridsize**2) if probe.big is True
         # probe_mask has shape (N, N, 1)
         
+        # Apply multiplication first
+        illuminated = self.w * x
+        
+        # Apply Gaussian smoothing
+        smoothed = Lambda(lambda t: gaussian_filter2d(t, filter_shape=(3, 3), sigma=1.0))(illuminated)
+        
         if cfg.get('probe.mask'):
             # Output shape: (batch_size, N, N, gridsize**2)
-            return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
+            return smoothed * probe_mask, (self.w * probe_mask)[None, ...]
         else:
             # Output shape: (batch_size, N, N, gridsize**2)
-            return self.w * x, (self.w)[None, ...]
+            return smoothed, (self.w)[None, ...]
 
 probe_illumination = ProbeIllumination()
 
