@@ -9,7 +9,7 @@ from ptycho.loader import RawData, PtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple
-from ptycho import loader, probe, train_pinn
+from ptycho import loader, probe
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -212,6 +212,7 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
 
 def train_cdi_model(
     train_data: Union[RawData, PtychoDataContainer],
+    test_data: Optional[Union[RawData, PtychoDataContainer]],
     config: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
@@ -224,19 +225,28 @@ def train_cdi_model(
     Returns:
         Dict[str, Any]: Results dictionary containing training history.
     """
+    from ptycho.loader import PtychoDataset
+    from ptycho import train_pinn
     # Convert input data to PtychoDataContainer
     train_container = create_ptycho_data_container(train_data, config)
+    if test_data is not None:
+        test_container = create_ptycho_data_container(test_data, config)
+    else:
+        test_container = None
 
     # Initialize probe
     probe.set_probe_guess(None, train_container.probe)
 
-    # Calculate intensity scale
-    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
+#    # Calculate intensity scale
+#    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
 
     # Train the model
-    history = train_pinn.train(train_container, intensity_scale)
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+    results['train_container'] = train_container
+    results['test_container'] = test_container
+    #history = train_pinn.train(train_container)
     
-    return {"history": history}
+    return results
 
 def reassemble_cdi_image(
     test_data: Union[RawData, PtychoDataContainer],
@@ -327,7 +337,7 @@ def run_cdi_example(
         Reconstructed amplitude, reconstructed phase, and results dictionary.
     """
     # Train the model
-    train_results = train_cdi_model(train_data, config)
+    train_results = train_cdi_model(train_data, test_data, config)
     
     # Reassemble test image if test data is provided
     if test_data is not None:
