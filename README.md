@@ -30,11 +30,9 @@ non_grid_CDI_example.ipynb shows interactive usage using a dataset that is provi
 | Status | Task |
 |--------|------|
 | 🟢 | Reconstruction with non-grid scan patterns |
-| 🟢 | Workflow for experimental data |
-| 🟡 | Position correction in CDI mode |
-| 🟡 | Probe fitting |
-| 🔴 | Stochastic probe model |
 | 🟢 | 128 x 128 resolution |
+| 🔴 | Position correction |
+| 🔴 | Stochastic probe model |
 
 <!-- 
 * subpixel convolution (Depth-to-space)
