@@ -26,7 +26,6 @@ from . import params as cfg
 params = cfg.params
 
 import tensorflow_addons as tfa
-from .tf_helper import complex_gaussian_filter2d
 gaussian_filter2d = tfa.image.gaussian_filter2d
 
 def complex_gaussian_filter2d(input_tensor, filter_shape, sigma):
