@@ -81,11 +81,11 @@ class ProbeIllumination(tf.keras.layers.Layer):
         illuminated = self.w * x
         
         # Apply Gaussian smoothing with parameterized sigma
-        smoothed = Lambda(lambda t: gaussian_filter2d(t, filter_shape=(3, 3), sigma=self.sigma))(illuminated)
+        smoothed = Lambda(lambda t: complex_gaussian_filter2d(t, filter_shape=(3, 3), sigma=self.sigma))(illuminated)
         
         if cfg.get('probe.mask'):
             # Output shape: (batch_size, N, N, gridsize**2)
-            return smoothed * probe_mask, (self.w * probe_mask)[None, ...]
+            return smoothed * tf.cast(probe_mask, tf.complex64), (self.w * tf.cast(probe_mask, tf.complex64))[None, ...]
         else:
             # Output shape: (batch_size, N, N, gridsize**2)
             return smoothed, (self.w)[None, ...]
