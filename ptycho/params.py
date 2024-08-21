@@ -16,7 +16,8 @@ cfg = {
     'object.big': True, 'probe.big': False, 'probe_scale': 10., 'set_phi': False,
     'probe.mask': True, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392,
     'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42,
-    'debug': True
+    'debug': True,
+    'gaussian_smoothing_sigma': 1.0  # New parameter for Gaussian smoothing sigma
     }
 
 # TODO parameter description
