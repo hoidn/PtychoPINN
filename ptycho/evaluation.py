@@ -26,33 +26,11 @@ def cropshow(arr, *args, crop = True, **kwargs):
 
 from scipy.ndimage import gaussian_filter as gf
 
-def summarize(data, results, i=0, channel=0, **kwargs):
+def summarize(i, a, b, X_test, Y_I_test, Y_phi_test, probe, channel = 0, **kwargs):
     from . import params as cfg
-    from ptycho.loader import PtychoDataContainer, RawData
-
-    if isinstance(data, PtychoDataContainer):
-        X_test = data.X
-        Y_I_test = data.Y_I
-        Y_phi_test = data.Y_phi
-        probe = data.probe
-    elif isinstance(data, RawData):
-        X_test = data.diff3d
-        Y_I_test = np.abs(data.obj)
-        Y_phi_test = np.angle(data.obj)
-        probe = data.probe
-    else:
-        raise ValueError("data must be either PtychoDataContainer or RawData")
-
     plt.rcParams["figure.figsize"] = (10, 10)
-    
-    pred_amp = results.get('pred_amp')
-    reconstructed_obj = results.get('reconstructed_obj')
-
-    if pred_amp is None or reconstructed_obj is None:
-        raise ValueError("pred_amp and reconstructed_obj must be present in results")
-
     vmin = 0
-    vmax = np.absolute(reconstructed_obj)[i].max()
+    vmax = np.absolute(b)[i].max()
 
     heatmaps = {}  # initialize the dictionary to store the heatmaps
     probe = np.absolute(probe)
@@ -65,7 +43,7 @@ def summarize(data, results, i=0, channel=0, **kwargs):
 
     plt.subplot(aa, bb, 2)
     plt.title('Reconstructed amp.\n(illuminated)')
-    rec_amp_illuminated = (np.absolute(reconstructed_obj))[i] * probe[..., None]
+    rec_amp_illuminated = (np.absolute(b))[i] * probe[..., None]
     cropshow(rec_amp_illuminated, cmap = 'jet', **kwargs)
     heatmaps['rec_amp_illuminated'] = rec_amp_illuminated  # add to the dictionary
 
@@ -84,19 +62,19 @@ def summarize(data, results, i=0, channel=0, **kwargs):
 
     plt.subplot(aa, bb, 5)
     plt.title('Reconstructed amp. (full)')
-    rec_amp_full = (np.absolute(reconstructed_obj))[i]
+    rec_amp_full = (np.absolute(b))[i]
     cropshow(rec_amp_full, cmap = 'jet', **kwargs)
     heatmaps['rec_amp_full'] = rec_amp_full  # add to the dictionary
 
     plt.subplot(aa, bb, 6)
     plt.title('Reconstructed phase')
-    rec_phase = (np.angle(reconstructed_obj) * (probe > .01)[..., None])[i]
+    rec_phase = (np.angle(b) * (probe > .01)[..., None])[i]
     rec_phase[np.isclose(rec_phase,  0)] = np.nan
     cropshow(rec_phase, cmap = 'jet', **kwargs)
     plt.colorbar()
     heatmaps['rec_phase'] = rec_phase  # add to the dictionary
-    print('phase min:', np.min((np.angle(reconstructed_obj) * (probe > .01)[..., None])),
-        'phase max:', np.max((np.angle(reconstructed_obj) * (probe > .01)[..., None])))
+    print('phase min:', np.min((np.angle(b) * (probe > .01)[..., None])),
+        'phase max:', np.max((np.angle(b) * (probe > .01)[..., None])))
 
     plt.subplot(aa, bb, 7)
     plt.title('True diffraction')
@@ -107,7 +85,7 @@ def summarize(data, results, i=0, channel=0, **kwargs):
 
     plt.subplot(aa, bb, 8)
     plt.title('Recon diffraction')
-    rec_diffraction = np.log(pred_amp)[i, :, :, channel]
+    rec_diffraction = np.log(a)[i, :, :, channel]
     plt.imshow(rec_diffraction, cmap = 'jet')
     plt.colorbar()
     heatmaps['rec_diffraction'] = rec_diffraction  # add to the dictionary
