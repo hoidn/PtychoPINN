@@ -85,7 +85,6 @@ graph TD
 
     subgraph loader.py
         RawData[RawData]
-        get_image_patches[get_image_patches]
         PtychoDataset[PtychoDataset]
         PtychoDataContainer[PtychoDataContainer]
         get_neighbor_self_indices[get_neighbor_self_indices]
@@ -108,7 +107,6 @@ graph TD
         normalize_data[normalize_data]
         crop[crop]
         get_gt_patch[get_gt_patch]
-        load -.-> "diffsim:scale_nphotons"
 
         RawData --> RawData._check_data_validity
         RawData --> RawData.generate_grouped_data
@@ -142,7 +140,6 @@ graph TD
         create_ptycho_dataset[create_ptycho_dataset]
         load_simulated_data_container[load_simulated_data_container]
         generate_data[generate_data]
-        process_simulated_data[process_simulated_data]
         load_experimental_data[load_experimental_data]
         load_xpp_data[load_xpp_data]
         load_generic_data[load_generic_data]
@@ -151,7 +148,6 @@ graph TD
         generate_data --> load_experimental_data
         generate_data --> load_xpp_data
         generate_data --> load_generic_data
-        generate_data -.-> "diffsim:mk_simdata"
 
         create_ptycho_dataset -.-> ".data.loader: PtychoDataContainer"
         create_ptycho_dataset -.-> ".data.loader: PtychoDataset"
@@ -465,3 +461,165 @@ graph TD
 
         preprocess_cxi_to_npy -.-> ".probe_processor: process_probe()"
     end
+
+%% project level
+graph TD
+    subgraph model[model.py]
+        model_ProbeIllumination[ProbeIllumination]
+        model_create_autoencoder[create_autoencoder]
+        model_train[train]
+    end
+
+    subgraph train_pinn[train_pinn.py]
+        train_pinn_train[train]
+        train_pinn_train_eval[train_eval]
+        train_pinn_eval[eval]
+    end
+
+    subgraph inference[inference.py]
+        inference_load_pretrained_model[load_pretrained_model]
+        inference_prepare_data[prepare_data]
+        inference_perform_inference[perform_inference]
+        inference_inference_flow[inference_flow]
+    end
+
+    subgraph loader[loader.py]
+        loader_RawData[RawData]
+        loader_PtychoDataContainer[PtychoDataContainer]
+        loader_load[load]
+    end
+
+    subgraph data_preprocessing[data_preprocessing.py]
+        data_preprocessing_create_ptycho_dataset[create_ptycho_dataset]
+        data_preprocessing_load_simulated_data_container[load_simulated_data_container]
+        data_preprocessing_generate_data[generate_data]
+    end
+
+    subgraph evaluation[evaluation.py]
+        evaluation_eval_reconstruction[eval_reconstruction]
+        evaluation_save_metrics[save_metrics]
+    end
+
+    subgraph generate_data[generate_data.py]
+        generate_data_main[main]
+    end
+
+    subgraph tf_helper[tf_helper.py]
+        tf_helper_pad_and_diffract[pad_and_diffract]
+        tf_helper_reassemble_patches[reassemble_patches]
+        tf_helper_extract_patches_position[extract_patches_position]
+    end
+
+    subgraph probe[probe.py]
+        probe_get_probe[get_probe]
+        probe_set_probe_guess[set_probe_guess]
+    end
+
+    subgraph params[params.py]
+        params_cfg[cfg]
+        params_get[get]
+        params_set[set]
+    end
+
+    subgraph misc[misc.py]
+        misc_get_path_prefix[get_path_prefix]
+        misc_memoize_disk_and_memory[memoize_disk_and_memory]
+    end
+
+    subgraph diffsim[diffsim.py]
+        diffsim_illuminate_and_diffract[illuminate_and_diffract]
+        diffsim_mk_simdata[mk_simdata]
+    end
+
+    subgraph xpp[xpp.py]
+        xpp_get_data[get_data]
+    end
+
+    subgraph train[train.py]
+        train_main[main]
+    end
+
+    subgraph train_supervised[train_supervised.py]
+        train_supervised_get_recon_patches_single_channel[get_recon_patches_single_channel]
+        train_supervised_get_recon_patches_grid[get_recon_patches_grid]
+    end
+
+    subgraph plotting[plotting.py]
+        plotting_ishow_imgs[ishow_imgs]
+    end
+
+    subgraph nbutils[nbutils.py]
+        nbutils_reconstruct_image[reconstruct_image]
+        nbutils_probeshow[probeshow]
+    end
+
+    subgraph export[export.py]
+        export_save_recons[save_recons]
+    end
+
+    subgraph logging[logging.py]
+        logging_debug[debug]
+        logging_load_logged_data[load_logged_data]
+    end
+
+    subgraph cxiprocess[cxiprocess.py]
+        cxiprocess_preprocess_cxi_to_npy[preprocess_cxi_to_npy]
+    end
+
+    %% Inter-module dependencies
+    train_pinn_train --> model_train
+    train_pinn_eval --> model_ProbeIllumination
+    inference_prepare_data --> model.params
+    inference_perform_inference --> model.predict
+    loader_PtychoDataContainer --> model_ProbeIllumination
+
+    inference_inference_flow --> inference_load_pretrained_model
+    inference_inference_flow --> inference_prepare_data
+    inference_inference_flow --> inference_perform_inference
+
+    train_pinn_train --> loader_PtychoDataContainer
+    train_pinn_eval --> loader_PtychoDataContainer
+
+    data_preprocessing_create_ptycho_dataset --> loader_PtychoDataContainer
+    data_preprocessing_load_simulated_data_container --> loader_PtychoDataContainer
+
+    evaluation_eval_reconstruction --> model.params
+    evaluation_save_metrics --> data_preprocessing_generate_data
+
+    generate_data_main --> data_preprocessing_generate_data
+
+    model_ProbeIllumination --> probe_get_probe
+    model_train --> tf_helper_pad_and_diffract
+    model_train --> tf_helper_reassemble_patches
+    model_train --> tf_helper_extract_patches_position
+
+    loader_load --> params_get
+    probe_set_probe_guess --> params_set
+
+    diffsim_illuminate_and_diffract --> tf_helper_pad_and_diffract
+    diffsim_illuminate_and_diffract --> tf_helper_togrid
+    diffsim_illuminate_and_diffract --> tf_helper_grid_to_channel
+
+    train_main --> data_preprocessing_generate_data
+    train_main --> train_pinn_train_eval
+    train_main --> evaluation_save_metrics
+    train_main --> misc_get_path_prefix
+
+    train_supervised_get_recon_patches_single_channel --> tf_helper_combine_complex
+    train_supervised_get_recon_patches_grid --> tf_helper_combine_complex
+
+    nbutils_reconstruct_image --> model.diffraction_to_obj
+    nbutils_reconstruct_image --> model.params
+
+    export_save_recons --> misc_get_path_prefix
+    export_save_recons --> params_get
+    export_save_recons --> evaluation_save_metrics
+
+    logging_debug --> params_get
+
+    cxiprocess_preprocess_cxi_to_npy --> probe.process_probe
+
+    %% Data flow
+    data_preprocessing_generate_data --> train_pinn_train
+    data_preprocessing_generate_data --> inference_prepare_data
+    data_preprocessing_generate_data --> evaluation_eval_reconstruction
