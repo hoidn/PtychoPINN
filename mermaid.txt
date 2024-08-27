@@ -485,14 +485,18 @@ graph TD
 
     subgraph loader[loader.py]
         loader_RawData[RawData]
+        get_image_patches[get_image_patches]
         loader_PtychoDataContainer[PtychoDataContainer]
         loader_load[load]
+        loader_load -.-> "diffsim:scale_nphotons"
     end
 
     subgraph data_preprocessing[data_preprocessing.py]
         data_preprocessing_create_ptycho_dataset[create_ptycho_dataset]
         data_preprocessing_load_simulated_data_container[load_simulated_data_container]
         data_preprocessing_generate_data[generate_data]
+        process_simulated_data[process_simulated_data]
+        data_preprocessing_generate_data -.-> "diffsim:mk_simdata"
     end
 
     subgraph evaluation[evaluation.py]
@@ -513,6 +517,10 @@ graph TD
     subgraph probe[probe.py]
         probe_get_probe[get_probe]
         probe_set_probe_guess[set_probe_guess]
+        get_squared_distance[get_squared_distance]
+        get_probe_mask_real[get_probe_mask_real]
+        get_probe_mask[get_probe_mask]
+        set_probe[set_probe]
     end
 
     subgraph params[params.py]
@@ -527,7 +535,19 @@ graph TD
     end
 
     subgraph diffsim[diffsim.py]
+        observe_amplitude[observe_amplitude]
+        count_photons[count_photons]
+        scale_nphotons[scale_nphotons]
+        diffract_obj[diffract_obj]
         diffsim_illuminate_and_diffract[illuminate_and_diffract]
+        mk_rand[mk_rand]
+        mk_lines_img[mk_lines_img]
+        mk_noise[mk_noise]
+        extract_coords[extract_coords]
+        add_position_jitter[add_position_jitter]
+        scan_and_normalize[scan_and_normalize]
+        dummy_phi[dummy_phi]
+        sim_object_image[sim_object_image]
         diffsim_mk_simdata[mk_simdata]
     end
 
@@ -549,8 +569,12 @@ graph TD
     end
 
     subgraph nbutils[nbutils.py]
+        crop_to_non_uniform_region_with_buffer[crop_to_non_uniform_region_with_buffer]
+        mk_epie_comparison2x2[mk_epie_comparison2x2]
         nbutils_reconstruct_image[reconstruct_image]
+        print_shapes[print_shapes]
         nbutils_probeshow[probeshow]
+        track_dict_changes[track_dict_changes]
     end
 
     subgraph export[export.py]
@@ -558,12 +582,28 @@ graph TD
     end
 
     subgraph logging[logging.py]
+        make_invocation_counter[make_invocation_counter]
         logging_debug[debug]
         logging_load_logged_data[load_logged_data]
+        get_type_and_dim[get_type_and_dim]
+        process_log_file[process_log_file]
+        extract_logged_data[extract_logged_data]
+        main[main]
+        CustomResult[CustomResult]
     end
 
     subgraph cxiprocess[cxiprocess.py]
+        load_diffraction_data[load_diffraction_data]
+        bin_diffraction_data[bin_diffraction_data]
+        crop_diffraction_data[crop_diffraction_data]
+        preprocess_diffraction_data[preprocess_diffraction_data]
+        load_probe_data[load_probe_data]
+        load_scan_positions[load_scan_positions]
+        load_scan_index[load_scan_index]
+        load_object_guess[load_object_guess]
+        save_preprocessed_data[save_preprocessed_data]
         cxiprocess_preprocess_cxi_to_npy[preprocess_cxi_to_npy]
+        cxiprocess_preprocess_cxi_to_npy -.-> "probe_processor:process_probe"
     end
 
     %% Inter-module dependencies
