@@ -1,0 +1,463 @@
+graph TD
+    subgraph model.py
+        ProbeIllumination[ProbeIllumination]
+        IntensityScaler[IntensityScaler]
+        IntensityScaler_inv[IntensityScaler_inv]
+        Translation[Translation]
+        Conv_Pool_block[Conv_Pool_block]
+        Conv_Up_block[Conv_Up_block]
+        create_encoder[create_encoder]
+        create_decoder_base[create_decoder_base]
+        get_resolution_scale_factor[get_resolution_scale_factor]
+        create_decoder_last[create_decoder_last]
+        create_decoder_phase[create_decoder_phase]
+        create_decoder_amp[create_decoder_amp]
+        create_autoencoder[create_autoencoder]
+        get_amp_activation[get_amp_activation]
+        print_model_diagnostics[print_model_diagnostics]
+        scale[scale]
+        inv_scale[inv_scale]
+        negloglik[negloglik]
+        train[train]
+        prepare_inputs[prepare_inputs]
+        prepare_outputs[prepare_outputs]
+        
+        create_encoder --> Conv_Pool_block
+        create_decoder_base --> Conv_Up_block
+        create_decoder_last --> Conv_Up_block
+        create_decoder_phase --> Conv_Up_block
+        create_decoder_phase --> create_decoder_last
+        create_decoder_amp --> create_decoder_base
+        create_decoder_amp --> create_decoder_last
+        create_autoencoder --> create_encoder
+        create_autoencoder --> create_decoder_amp
+        create_autoencoder --> create_decoder_phase
+        train --> prepare_inputs
+        train --> prepare_outputs
+        
+        ProbeIllumination -.-> ".params: cfg.get()"
+        Translation -.-> ".tf_helper: translate()"
+        create_encoder -.-> ".params: cfg.get()"
+        create_decoder_base -.-> ".params: cfg.get()"
+        create_decoder_last -.-> ".params: cfg.get()"
+        create_decoder_phase -.-> ".params: cfg.get()"
+        get_amp_activation -.-> ".params: cfg.get()"
+        train -.-> ".params: params()"
+        prepare_inputs -.-> ".params: cfg.get()"
+        prepare_outputs -.-> ".tf_helper: hh.center_channels()"
+        prepare_outputs -.-> ".params: cfg.get()"
+    end
+
+    subgraph train_pinn.py
+        train_pinn_train[train]
+        train_pinn_train_eval[train_eval]
+        train_pinn_eval[eval]
+        calculate_intensity_scale[calculate_intensity_scale]
+
+        train_pinn_train --> calculate_intensity_scale
+        train_pinn_train_eval --> train_pinn_train
+        train_pinn_train_eval --> train_pinn_eval
+
+        train_pinn_train -.-> ".params: params.set()"
+        train_pinn_train -.-> ".probe: probe.set_probe_guess()"
+        train_pinn_train -.-> ".model: model.train()"
+        train_pinn_eval -.-> ".probe: probe.set_probe_guess()"
+        train_pinn_eval -.-> ".model: model.params()"
+        train_pinn_eval -.-> ".data_preprocessing: reassemble()"
+        calculate_intensity_scale -.-> ".params: p.get()"
+    end
+
+    subgraph inference.py
+        load_pretrained_model[load_pretrained_model]
+        prepare_data[prepare_data]
+        perform_inference[perform_inference]
+        inference_flow[inference_flow]
+
+        inference_flow --> load_pretrained_model
+        inference_flow --> prepare_data
+        inference_flow --> perform_inference
+
+        load_pretrained_model -.-> ".model_manager: ModelManager.load_model()"
+        prepare_data -.-> ".model: model.params()"
+        perform_inference -.-> ".model: model.predict()"
+        inference_flow -.-> ".params: params.get()"
+    end
+
+    subgraph loader.py
+        RawData[RawData]
+        PtychoDataset[PtychoDataset]
+        PtychoDataContainer[PtychoDataContainer]
+        get_neighbor_self_indices[get_neighbor_self_indices]
+        get_neighbor_indices[get_neighbor_indices]
+        sample_rows[sample_rows]
+        get_relative_coords[get_relative_coords]
+        crop12[crop12]
+        extract_and_translate_patch_np[extract_and_translate_patch_np]
+        unsqueeze_coords[unsqueeze_coords]
+        calculate_combined_offsets[calculate_combined_offsets]
+        tile_gt_object[tile_gt_object]
+        calculate_relative_coords[calculate_relative_coords]
+        group_coords[group_coords]
+        get_neighbor_diffraction_and_positions[get_neighbor_diffraction_and_positions]
+        shift_and_sum[shift_and_sum]
+        reassemble_position[reassemble_position]
+        split_data[split_data]
+        split_tensor[split_tensor]
+        load[load]
+        normalize_data[normalize_data]
+        crop[crop]
+        get_gt_patch[get_gt_patch]
+
+        RawData --> RawData._check_data_validity
+        RawData --> RawData.generate_grouped_data
+        calculate_relative_coords --> group_coords
+        calculate_relative_coords --> get_relative_coords
+        group_coords --> get_neighbor_self_indices
+        group_coords --> get_neighbor_indices
+        group_coords --> sample_rows
+        get_neighbor_diffraction_and_positions --> group_coords
+        get_neighbor_diffraction_and_positions --> get_relative_coords
+        get_neighbor_diffraction_and_positions --> normalize_data
+        reassemble_position --> shift_and_sum
+        load --> split_tensor
+        load --> split_data
+        get_gt_patch --> crop
+
+        PtychoDataContainer -.-> ".utils.tf_helper: hh.combine_complex()"
+        tile_gt_object -.-> ".utils.params: params.get()"
+        tile_gt_object -.-> ".utils.tf_helper: hh.pad()"
+        group_coords -.-> ".utils.params: params.get()"
+        shift_and_sum -.-> ".utils.params: params.get()"
+        shift_and_sum -.-> ".utils.tf_helper: hh.pad()"
+        shift_and_sum -.-> ".utils.tf_helper: hh.translate()"
+        load -.-> ".utils.params: params.get()"
+        load -.-> ".simulation.diffsim: datasets.scale_nphotons()"
+        load -.-> ".utils.tf_helper: hh.combine_complex()"
+        get_gt_patch -.-> ".utils.tf_helper: hh.translate()"
+    end
+
+    subgraph data_preprocessing.py
+        create_ptycho_dataset[create_ptycho_dataset]
+        load_simulated_data_container[load_simulated_data_container]
+        generate_data[generate_data]
+        load_experimental_data[load_experimental_data]
+        load_xpp_data[load_xpp_data]
+        load_generic_data[load_generic_data]
+
+        generate_data --> load_simulated_data_container
+        generate_data --> load_experimental_data
+        generate_data --> load_xpp_data
+        generate_data --> load_generic_data
+
+        create_ptycho_dataset -.-> ".data.loader: PtychoDataContainer"
+        create_ptycho_dataset -.-> ".data.loader: PtychoDataset"
+        create_ptycho_dataset -.-> ".utils.probe: probe.get_probe"
+        load_simulated_data_container -.-> ".utils.params: params.set"
+        load_simulated_data_container -.-> ".simulation.simulate_data: simulate_data"
+        load_simulated_data_container -.-> ".simulation.simulate_data: process_simulated_data"
+        load_simulated_data_container -.-> ".data.loader: PtychoDataContainer"
+        generate_data -.-> ".data.loader: PtychoDataset"
+        load_experimental_data -.-> ".simulation.experimental: experimental.get_full_experimental"
+        load_experimental_data -.-> ".simulation.simulate_data: simulate_data"
+        load_xpp_data -.-> ".xpp: xpp.load_data"
+        load_generic_data -.-> ".data.loader: RawData.from_files"
+        load_generic_data -.-> ".simulation.simulate_data: simulate_data.load_data"
+    end
+
+    subgraph evaluation.py
+        recon_patches[recon_patches]
+        symmetrize[symmetrize]
+        symmetrize_3d[symmetrize_3d]
+        cropshow[cropshow]
+        summarize[summarize]
+        plt_metrics[plt_metrics]
+        trim[trim]
+        mae[mae]
+        mse[mse]
+        psnr[psnr]
+        fft2d[fft2d]
+        highpass2d[highpass2d]
+        lowpass2d[lowpass2d]
+        frc50[frc50]
+        eval_reconstruction[eval_reconstruction]
+        save_metrics[save_metrics]
+
+        summarize --> cropshow
+        highpass2d --> fft2d
+        lowpass2d --> fft2d
+        eval_reconstruction --> trim
+        eval_reconstruction --> highpass2d
+        eval_reconstruction --> mae
+        eval_reconstruction --> mse
+        eval_reconstruction --> psnr
+        eval_reconstruction --> frc50
+        save_metrics --> eval_reconstruction
+
+        recon_patches -.-> ".generate_data: data.reassemble()"
+        trim -.-> ".params: params.get()"
+        frc50 -.-> ".FRC.fourier_ring_corr: frc.FSC()"
+        save_metrics -.-> ".misc: misc.get_path_prefix()"
+    end
+
+    subgraph generate_data.py
+        main[main]
+        X_train[X_train]
+        Y_I_train[Y_I_train]
+        Y_phi_train[Y_phi_train]
+        X_test[X_test]
+        Y_I_test[Y_I_test]
+        Y_phi_test[Y_phi_test]
+        YY_ground_truth[YY_ground_truth]
+        ptycho_dataset[ptycho_dataset]
+        YY_test_full[YY_test_full]
+        norm_Y_I_test[norm_Y_I_test]
+
+        main -.-> ".data_preprocessing: generate_data()"
+        main -.-> ".params: p.get()"
+    end
+
+    subgraph probe.py
+        get_lowpass_filter[get_lowpass_filter]
+        get_default_probe[get_default_probe]
+        get_probe[get_probe]
+        to_np[to_np]
+        get_squared_distance[get_squared_distance]
+        get_probe_mask_real[get_probe_mask_real]
+        get_probe_mask[get_probe_mask]
+        set_probe[set_probe]
+        set_probe_guess[set_probe_guess]
+
+        get_default_probe --> get_lowpass_filter
+        get_probe_mask_real --> get_squared_distance
+        get_probe_mask --> get_probe_mask_real
+        set_probe --> get_probe_mask
+        set_probe_guess --> get_default_probe
+        set_probe_guess --> get_probe_mask_real
+
+        get_lowpass_filter -.-> ".fourier: f.lowpass_g()"
+        get_default_probe -.-> ".fourier: f.gf()"
+        get_default_probe -.-> ".params: params.cfg"
+        get_probe -.-> ".params: params.get()"
+        set_probe -.-> ".params: params.get()"
+        set_probe -.-> ".params: params.set()"
+        set_probe_guess -.-> ".fourier: f.fftshift()"
+        set_probe_guess -.-> ".fourier: f.ifft2()"
+        set_probe_guess -.-> ".fourier: f.ifftshift()"
+    end
+
+    subgraph params.py
+        cfg[cfg]
+        get_bigN[get_bigN]
+        get_padding_size[get_padding_size]
+        get_padded_size[get_padded_size]
+        params[params]
+        validate[validate]
+        set[set]
+        get[get]
+
+        get_padded_size --> get_bigN
+        params --> get_bigN
+        set --> validate
+        get --> get_bigN
+
+        get_bigN --> cfg
+        get_padding_size --> cfg
+        get_padded_size --> cfg
+        params --> cfg
+        validate --> cfg
+        set --> cfg
+        get --> cfg
+    end
+
+    subgraph misc.py
+        get_path_prefix[get_path_prefix]
+        colormap2arr[colormap2arr]
+        memoize_disk_and_memory[memoize_disk_and_memory]
+        cross_image[cross_image]
+
+        get_path_prefix -.-> ".params: params.cfg"
+        get_path_prefix -.-> ".params: params.get()"
+        get_path_prefix -.-> ".params: params.set()"
+        memoize_disk_and_memory -.-> ".params: params.cfg"
+    end
+
+graph TD
+    subgraph diffsim.py
+        observe_amplitude[observe_amplitude]
+        count_photons[count_photons]
+        scale_nphotons[scale_nphotons]
+        diffract_obj[diffract_obj]
+        illuminate_and_diffract[illuminate_and_diffract]
+        mk_rand[mk_rand]
+        mk_lines_img[mk_lines_img]
+        mk_noise[mk_noise]
+        extract_coords[extract_coords]
+        add_position_jitter[add_position_jitter]
+        scan_and_normalize[scan_and_normalize]
+        dummy_phi[dummy_phi]
+        sim_object_image[sim_object_image]
+        mk_simdata[mk_simdata]
+
+        scale_nphotons --> count_photons
+        diffract_obj --> observe_amplitude
+        illuminate_and_diffract --> scale_nphotons
+        illuminate_and_diffract --> diffract_obj
+        mk_lines_img --> mk_rand
+        scan_and_normalize --> extract_coords
+        scan_and_normalize --> add_position_jitter
+        sim_object_image --> mk_lines_img
+        sim_object_image --> mk_noise
+        mk_simdata --> sim_object_image
+        mk_simdata --> scan_and_normalize
+        mk_simdata --> illuminate_and_diffract
+
+        observe_amplitude -.-> ".tf_helper: hh.tfd.Independent"
+        observe_amplitude -.-> ".tf_helper: hh.tfd.Poisson"
+        scale_nphotons -.-> ".params: p.get()"
+        diffract_obj -.-> ".tf_helper: hh.pad_and_diffract"
+        illuminate_and_diffract -.-> ".tf_helper: hh.combine_complex"
+        illuminate_and_diffract -.-> ".tf_helper: hh.togrid"
+        illuminate_and_diffract -.-> ".tf_helper: hh.grid_to_channel"
+        illuminate_and_diffract -.-> ".params: p.get()"
+        mk_lines_img -.-> ".fourier: f.gf"
+        extract_coords -.-> ".tf_helper: hh.extract_outer"
+        extract_coords -.-> ".tf_helper: hh.extract_nested_patches"
+        scan_and_normalize -.-> ".tf_helper: hh.preprocess_objects"
+        sim_object_image -.-> ".params: p.get()"
+        sim_object_image -.-> ".datagen.grf: grf.mk_grf"
+        sim_object_image -.-> ".datagen.points: points.mk_points"
+        sim_object_image -.-> ".datagen.testimg: testimg.get_img"
+        sim_object_image -.-> ".datagen.diagonals: diagonals.mk_diags"
+        sim_object_image -.-> ".datagen.vendetta: vendetta.mk_vs"
+        mk_simdata -.-> ".params: p.get()"
+        mk_simdata -.-> ".tf_helper: hh.combine_complex"
+    end
+
+    subgraph xpp.py
+        get_data[get_data]
+        train_frac[train_frac]
+        N[N]
+        gridh[gridh]
+        gridw[gridw]
+        data_file_path[data_file_path]
+        ptycho_data[ptycho_data]
+        ptycho_data_train[ptycho_data_train]
+        obj[obj]
+        probeGuess[probeGuess]
+        objectGuess[objectGuess]
+
+        ptycho_data -.-> ".loader: load_ptycho_data()"
+        ptycho_data_train -.-> ".loader: load_ptycho_data()"
+    end
+
+    subgraph train.py
+        main[main]
+        save_model[save_model]
+        save_data[save_data]
+        parser[parser]
+
+        main -.-> ".params: params.cfg"
+        main -.-> ".misc: misc.get_path_prefix()"
+        main -.-> ".generate_data: generate_data.ptycho_dataset"
+        main -.-> ".generate_data: generate_data.YY_ground_truth"
+        main -.-> ".generate_data: generate_data.YY_test_full"
+        main -.-> ".generate_data: generate_data.Y_I_test"
+        main -.-> ".generate_data: generate_data.Y_phi_test"
+        main -.-> ".generate_data: generate_data.X_test"
+        main -.-> ".generate_data: generate_data.norm_Y_I_test"
+        main -.-> ".model_manager: model_manager.save()"
+        main -.-> ".train_pinn: train_pinn.train_eval()"
+        main -.-> ".train_supervised: train_supervised.stitched_obj"
+        main -.-> ".train_supervised: train_supervised.history"
+        main -.-> ".train_supervised: train_supervised.reconstructed_obj"
+        main -.-> ".export: save_recons()"
+    end
+
+    subgraph train_supervised.py
+        xyshift[xyshift]
+        get_recon_patches_single_channel[get_recon_patches_single_channel]
+        get_recon_patches_grid[get_recon_patches_grid]
+        offset[offset]
+        model[model]
+        history[history]
+        reconstructed_obj[reconstructed_obj]
+        reconstructed_obj_train[reconstructed_obj_train]
+        stitched_obj[stitched_obj]
+
+        get_recon_patches_grid --> xyshift
+
+        offset -.-> ".params: p.get()"
+        get_recon_patches_single_channel -.-> ".baselines: bl.params.params()"
+        get_recon_patches_single_channel -.-> ".tf_helper: hh.combine_complex()"
+        get_recon_patches_grid -.-> ".baselines: bl.params.params()"
+        get_recon_patches_grid -.-> ".tf_helper: hh.combine_complex()"
+        stitched_obj -.-> ".generate_data: reassemble()"
+    end
+
+    subgraph plotting.py
+        ishow_imgs[ishow_imgs]
+    end
+
+    subgraph nbutils.py
+        crop_to_non_uniform_region_with_buffer[crop_to_non_uniform_region_with_buffer]
+        mk_epie_comparison2x2[mk_epie_comparison2x2]
+        reconstruct_image[reconstruct_image]
+        print_shapes[print_shapes]
+        probeshow[probeshow]
+        track_dict_changes[track_dict_changes]
+
+        reconstruct_image -.-> ".model: model.diffraction_to_obj"
+        reconstruct_image -.-> ".model: model.params"
+    end
+
+    subgraph export.py
+        save_recons[save_recons]
+
+        save_recons -.-> ".misc: get_path_prefix()"
+        save_recons -.-> ".params: get()"
+        save_recons -.-> ".evaluation: save_metrics()"
+    end
+
+    subgraph logging.py
+        make_invocation_counter[make_invocation_counter]
+        debug[debug]
+        load_logged_data[load_logged_data]
+        get_type_and_dim[get_type_and_dim]
+        process_log_file[process_log_file]
+        extract_logged_data[extract_logged_data]
+        main[main]
+        CustomResult[CustomResult]
+
+        debug --> make_invocation_counter
+        process_log_file --> load_logged_data
+        process_log_file --> get_type_and_dim
+        extract_logged_data --> process_log_file
+        main --> extract_logged_data
+
+        debug -.-> ".params: params.get()"
+    end
+
+    subgraph cxiprocess.py
+        load_diffraction_data[load_diffraction_data]
+        bin_diffraction_data[bin_diffraction_data]
+        crop_diffraction_data[crop_diffraction_data]
+        preprocess_diffraction_data[preprocess_diffraction_data]
+        load_probe_data[load_probe_data]
+        load_scan_positions[load_scan_positions]
+        load_scan_index[load_scan_index]
+        load_object_guess[load_object_guess]
+        save_preprocessed_data[save_preprocessed_data]
+        preprocess_cxi_to_npy[preprocess_cxi_to_npy]
+
+        preprocess_diffraction_data --> crop_diffraction_data
+        preprocess_diffraction_data --> bin_diffraction_data
+        preprocess_cxi_to_npy --> load_diffraction_data
+        preprocess_cxi_to_npy --> load_probe_data
+        preprocess_cxi_to_npy --> preprocess_diffraction_data
+        preprocess_cxi_to_npy --> load_scan_positions
+        preprocess_cxi_to_npy --> load_scan_index
+        preprocess_cxi_to_npy --> load_object_guess
+        preprocess_cxi_to_npy --> save_preprocessed_data
+
+        preprocess_cxi_to_npy -.-> ".probe_processor: process_probe()"
+    end
