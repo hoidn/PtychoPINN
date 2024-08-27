@@ -85,6 +85,7 @@ graph TD
 
     subgraph loader.py
         RawData[RawData]
+        get_image_patches[get_image_patches]
         PtychoDataset[PtychoDataset]
         PtychoDataContainer[PtychoDataContainer]
         get_neighbor_self_indices[get_neighbor_self_indices]
@@ -107,6 +108,7 @@ graph TD
         normalize_data[normalize_data]
         crop[crop]
         get_gt_patch[get_gt_patch]
+        load -.-> "diffsim:scale_nphotons"
 
         RawData --> RawData._check_data_validity
         RawData --> RawData.generate_grouped_data
@@ -140,6 +142,7 @@ graph TD
         create_ptycho_dataset[create_ptycho_dataset]
         load_simulated_data_container[load_simulated_data_container]
         generate_data[generate_data]
+        process_simulated_data[process_simulated_data]
         load_experimental_data[load_experimental_data]
         load_xpp_data[load_xpp_data]
         load_generic_data[load_generic_data]
@@ -148,6 +151,7 @@ graph TD
         generate_data --> load_experimental_data
         generate_data --> load_xpp_data
         generate_data --> load_generic_data
+        generate_data -.-> "diffsim:mk_simdata"
 
         create_ptycho_dataset -.-> ".data.loader: PtychoDataContainer"
         create_ptycho_dataset -.-> ".data.loader: PtychoDataset"
