@@ -632,8 +632,10 @@ graph TD
     model_train --> tf_helper_pad_and_diffract
     model_train --> tf_helper_reassemble_patches
     model_train --> tf_helper_extract_patches_position
+    model_train --> tf_helper_center_channels
 
     loader_load --> params_get
+    loader_load --> diffsim_scale_nphotons
     probe_set_probe_guess --> params_set
 
     diffsim_illuminate_and_diffract --> tf_helper_pad_and_diffract
@@ -641,6 +643,16 @@ graph TD
     diffsim_illuminate_and_diffract --> tf_helper_grid_to_channel
 
     train_main --> data_preprocessing_generate_data
+    train_main --> model_manager_save
+
+    train_pinn_train --> probe_set_probe_guess
+    train_pinn_eval --> data_preprocessing_reassemble
+
+    evaluation_eval_reconstruction --> tf_helper_trim_reconstruction
+    evaluation_eval_reconstruction --> tf_helper_highpass2d
+
+    inference_load_pretrained_model --> model_manager_ModelManager_load_model
+    data_preprocessing_generate_data --> diffsim_mk_simdata
     train_main --> train_pinn_train_eval
     train_main --> evaluation_save_metrics
     train_main --> misc_get_path_prefix
