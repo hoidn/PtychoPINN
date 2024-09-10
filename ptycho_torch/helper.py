@@ -398,15 +398,41 @@ def illuminate_and_diffract(input: torch.Tensor, probe: torch.Tensor, intensity_
     '''
     Performs illumination and diffraction of a single object.
     Supports complex tensors
+
+    Inputs
+    --------
+    input: torch.Tensor (N, H, W)
+        - Channels are missing because we don't expect channels to show up here
+        - We are only illuminating a set of position-based patches from the object
+    probe: torch.Tensor (N, H, W)
     '''
+    #Add batch dimension for single image
     input_amp = torch.abs(input)
     input_phase = torch.angle(input)
 
     if intensity_scale is None:
-        intensity_scale = scale_nphotons(input_amp * probe)
+        intensity_scale = scale_nphotons(input_amp * torch.abs(probe))
+    
+    input_scaled = intensity_scale * input
 
+    #Multiply by probe
+    probe_product = input_scaled * probe
 
+    #Get new intensity
+    input_amp = torch.abs(probe_product)
 
+    #Perform FFT
+    output = torch.fft.fft2(probe_product.to(torch.complex64))
+    output = torch.real(torch.conj(output) * output) / (input.shape[-2] * input.shape[-1])
+    output = torch.sqrt(torch.fft.fftshift(output, dim=(-2, -1)))
+
+    #Scale by intensity
+    output, input_amp, =\
+            output / intensity_scale, input_amp / intensity_scale
+    
+    input_scaled = combine_complex(input_amp, input_phase)
+    
+    return output, input_scaled
 
 #Photon scaling functions
 def scale_nphotons(input: torch.Tensor) -> float:
@@ -416,6 +442,7 @@ def scale_nphotons(input: torch.Tensor) -> float:
 
     Returns a single scalar.
     """
+    #Average across every single input pixel, across all batches
     mean_photons = torch.mean(input**2)
     norm_factor = torch.sqrt(Params().get('nphotons') / mean_photons)
 

@@ -77,7 +77,7 @@ def simulate_from_npz(file_path, nimages, buffer=None, random_seed=None):
     return generate_simulated_data(objectGuess, probeGuess, nimages, buffer, random_seed)
     
 
-def generate_simulated_data(objectGuess, probeGuess, nimages, buffer, random_seed=None):
+def generate_simulated_data(objectGuess, probeGuess, nimages, random_seed=None):
     """
     Generate simulated ptychography data using random scan positions.
 
@@ -100,7 +100,7 @@ def generate_simulated_data(objectGuess, probeGuess, nimages, buffer, random_see
         raise ValueError("objectGuess and probeGuess must be 2D arrays")
     if not np.iscomplexobj(objectGuess) or not np.iscomplexobj(probeGuess):
         raise ValueError("objectGuess and probeGuess must be complex-valued")
-    if nimages <= 0 or buffer < 0:
+    if nimages <= 0:
         raise ValueError("nimages must be positive and buffer must be non-negative")
     
     N = Params().get('N')
@@ -124,35 +124,40 @@ def generate_simulated_data(objectGuess, probeGuess, nimages, buffer, random_see
 
     # Generate simulated data
     raw_data = from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)
+
     return raw_data
 
-def from_simulation(xcoords, ycoords, probe, objectGuess, scan_index):
+def from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index = None):
     """
     Generate simulated ptychography data using random scan positions.
 
     """
+    #Convert all input vars to torch
+    xcoords = torch.from_numpy(xcoords)
+    ycoords = torch.from_numpy(ycoords)
+    probeGuess = torch.from_numpy(probeGuess)
+    objectGuess = torch.from_numpy(objectGuess)
 
-    xcoords_start = xcoords
-    ycoords_start = ycoords
+    sampled_obj_patches = get_image_patches(objectGuess, probeGuess, xcoords, ycoords)
 
-    sampled_diff3d = get_image_patches(objectGuess, xcoords, ycoords)
+    print(sampled_obj_patches.shape)
 
+    diff_obj_patches, obj = hh.illuminate_and_diffract(sampled_obj_patches.squeeze(), probeGuess)
+    output_scaling_factor = hh.scale_nphotons(diff_obj_patches)
 
+    output_dict = {
+        'diff3d':  diff_obj_patches,
+        'object': obj,
+        'obj_scale_factor': output_scaling_factor,
+        'xcoords': xcoords,
+        'ycoords': ycoords,
+        'xcoords_start': xcoords,
+        'ycoords_start': ycoords,
+        'scan_index': scan_index
+    }
 
-    norm_factor = hh.scale_nphotons(objectGuess)
-
-
-
-    X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
-    norm_Y_I = datasets.scale_nphotons(X)
-    assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
-    # TODO RawData should have a method for generating the illuminated ground truth object
-    return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
-                    probeGuess, scan_index, objectGuess,
-                    Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
-                    norm_Y_I = norm_Y_I)
-
-def get_image_patches(objectGuess, xcoords, ycoords):
+    return output_dict
+def get_image_patches(objectGuess, probeGuess, xcoords, ycoords):
     """
     Get and return image patches from single canvas
 
@@ -165,33 +170,34 @@ def get_image_patches(objectGuess, xcoords, ycoords):
     
     """
 
-    N = Params().get('N')
-    gridsize = Params().get('gridsize')
-
-    B = len(xcoords)
-    c = gridsize ** 2
-
     #No need to pad canvas. We will never sample anywhere from outside the canvas
-    canvas = torch.from_numpy(objectGuess)
+    N = Params().get('N')
+    n_images = len(xcoords)
+    #Need to add batch dimension to objectGuess
+    canvas = objectGuess[None].expand(n_images,-1,-1)
 
-    #Use grid_sample to sample all coordinates to get smaller patches
     #All coordinates are in pixel units
     #Remember that F.grid_sample needs coords in [-1, 1], so need to shift
-    h, w = canvas.shape
-    x, y = torch.arange(h), torch.arange(w)
-    x_shifted, y_shifted = x / (h-1), y / (w-1) #map to [0,1]
+    h_obj, w_obj = objectGuess.shape
+    h_prob, w_prob = probeGuess.shape
+    x, y = torch.arange(h_prob), torch.arange(w_prob)
+    #Create "grid coordinates" at every xcoord location
+    x_shifted, y_shifted = ((xcoords - N/2)[:,None] + x)/ (h_obj-1), \
+                           ((ycoords - N/2)[:,None] + y)/ (w_obj-1) #map to [0,1]
+    
     #Creating a meshgrid of size (H x W x 2)
-    grid = torch.stack([x_shifted.unsqueeze(-1).expand(-1, len(y_shifted)),
-                        y_shifted.unsqueeze(0).expand(len(x_shifted.shape), -1)],
+    grid = torch.stack([x_shifted.unsqueeze(-1).expand(n_images, -1, y_shifted.shape[1]),
+                        y_shifted.unsqueeze(1).expand(n_images, x_shifted.shape[1], -1)],
                         dim = -1) * 2 - 1 #map to [-1,1]
     #F.grid_sample behavior needs tranpose
     grid = torch.transpose(grid, 1, 2)
+    grid = grid.to(torch.float32)
 
-    #F.grid_sample needs (N,C,H,W), so we put in two dummy N,C dimensions
-    sampled_real = F.grid_sample(canvas[None,None,...].real, grid,
+    #F.grid_sample needs (N,C,H,W), so we put in 1 dummy C dimension
+    sampled_real = F.grid_sample(canvas.unsqueeze(1).real, grid,
                                  mode = 'bilinear', align_corners = True)
 
-    sampled_imag = F.grid_sample(canvas[None,None,...].imag, grid,
+    sampled_imag = F.grid_sample(canvas.unsqueeze(1).imag, grid,
                                  mode = 'bilinear', align_corners = True)
     
     sampled_complex = torch.view_as_complex(torch.stack([sampled_real, sampled_imag],
