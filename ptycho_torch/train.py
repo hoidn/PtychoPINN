@@ -23,13 +23,9 @@ class PtychoPINN(L.LightningModule):
     Lightning module equivalent of PtychoPINN module from ptycho_torch.model
     We initialize all hyperparameters within here so that the Lightning trainer checkpoints it all
     '''
-    def __init__(self, config_list, params_list):
+    def __init__(self):
         super().__init__()
-        #Set configs and params
-        config = Config()
-        config.set_settings(config_list)
-        params = Params()
-        params.set_settings(params_list)
+
 
         self.n_filters_scale = Config().get('n_filters_scale')
         #Submodules
@@ -63,10 +59,28 @@ class PtychoPINN(L.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr = 2e-2)
 
+def main(dataset, config_list, params_list):
+    #Can grab this from some config/params file later or default
+
+    #Set configs and params
+    config = Config()
+    config.set_settings(config_list)
+    params = Params()
+    params.set_settings(params_list)
+
+    #Dataloader
+    train_loader = DataLoader(dataset, batch_size = 64)
+
+    #Create model
+    model = PtychoPINN()
+
+    #Create trainer
+    trainer = L.Trainer(max_epochs = 100)
+
 #Define main function
 if __name__ == '__main__':
     try:
-
+        print('test')
 
     except Exception as e:
         print(f"Training failed: {str(e)}")

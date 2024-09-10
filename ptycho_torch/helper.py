@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 #Configurations
 from ptycho_torch.config_params import Config
+from ptycho_torch.config_params import Params
 
 
 
@@ -392,3 +393,30 @@ def pad_and_diffract(input: torch.Tensor, pad: bool = True) -> Tuple[torch.Tenso
     input = torch.sqrt(torch.fft.fftshift(input, dim=(-2, -1)))
 
     return input, padded
+
+def illuminate_and_diffract(input: torch.Tensor, probe: torch.Tensor, intensity_scale = None) -> torch.Tensor:
+    '''
+    Performs illumination and diffraction of a single object.
+    Supports complex tensors
+    '''
+    input_amp = torch.abs(input)
+    input_phase = torch.angle(input)
+
+    if intensity_scale is None:
+        intensity_scale = scale_nphotons(input_amp * probe)
+
+
+
+
+#Photon scaling functions
+def scale_nphotons(input: torch.Tensor) -> float:
+    """
+    Calculate the object amplitude normalization factor that gives the desired
+    *expected* number of observed photons, averaged over an entire dataset.
+
+    Returns a single scalar.
+    """
+    mean_photons = torch.mean(input**2)
+    norm_factor = torch.sqrt(Params().get('nphotons') / mean_photons)
+
+    return norm_factor
