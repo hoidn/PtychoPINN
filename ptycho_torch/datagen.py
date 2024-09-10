@@ -74,7 +74,7 @@ def simulate_from_npz(file_path, nimages, buffer=None, random_seed=None):
         buffer = min(objectGuess.shape) * 0.05  # 5% of the smaller dimension
 
     # Generate simulated data
-    return generate_simulated_data(objectGuess, probeGuess, nimages, buffer, random_seed)
+    return generate_simulated_data(objectGuess, probeGuess, nimages, random_seed)
     
 
 def generate_simulated_data(objectGuess, probeGuess, nimages, random_seed=None):
@@ -139,8 +139,6 @@ def from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index = None
     objectGuess = torch.from_numpy(objectGuess)
 
     sampled_obj_patches = get_image_patches(objectGuess, probeGuess, xcoords, ycoords)
-
-    print(sampled_obj_patches.shape)
 
     diff_obj_patches, obj = hh.illuminate_and_diffract(sampled_obj_patches.squeeze(), probeGuess)
     output_scaling_factor = hh.scale_nphotons(diff_obj_patches)
