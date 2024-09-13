@@ -120,7 +120,7 @@ def generate_simulated_data(objectGuess, probeGuess, nimages, random_seed=None):
     ycoords = np.random.uniform(buffer, height - buffer, nimages)
 
     # Create scan_index
-    scan_index = np.zeros(nimages, dtype=int)
+    scan_index = np.zeros(nimages, dtype = int)
 
     # Generate simulated data
     raw_data = from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)

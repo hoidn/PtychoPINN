@@ -84,7 +84,7 @@ def group_coords(xcoords, ycoords, C):
         coords_nn: shape (M, C, 1, 2)
     """
     if C is None:
-        C = Params().get('n_images')
+        C = Params().get('C')
     #No overlaps enforced
     if C == 1:
         nn_indices = get_neighbor_self_indices(xcoords,

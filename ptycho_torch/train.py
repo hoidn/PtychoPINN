@@ -5,10 +5,7 @@ import sys
 import lightning as L
 import torch
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, Subset
-from torchmetrics import Accuracy
-from torchvision import transforms
-from torchvision.datasets import MNIST
+from torch.utils.data import Subset
 
 #Configs/Params
 from ptycho_torch.config_params import Config, Params
@@ -17,6 +14,7 @@ import mlflow.pytorch
 from mlflow import MlflowClient
 
 from ptycho_torch.model import Autoencoder, CombineComplex, ForwardModel, PoissonLoss
+from ptycho_torch.dset_loader_pt_mmap import TensorDictDataLoader
 
 class PtychoPINN(L.LightningModule):
     '''
@@ -69,7 +67,7 @@ def main(dataset, config_list, params_list):
     params.set_settings(params_list)
 
     #Dataloader
-    train_loader = DataLoader(dataset, batch_size = 64)
+    train_loader = TensorDictDataLoader(dataset, batch_size = 64)
 
     #Create model
     model = PtychoPINN()

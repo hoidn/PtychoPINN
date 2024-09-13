@@ -13,6 +13,9 @@ from ptycho_torch.config_params import Config
 from ptycho_torch.config_params import Params
 import ptycho_torch.helper as hh
 
+#Ensuring 64float b/c of complex numbers
+torch.set_default_dtype(torch.float32)
+
 #Helping modules
 
 class Tanh_custom_act(nn.Module):
@@ -242,6 +245,26 @@ class Decoder_amp(Decoder_base):
         outputs = self.amp(x)
 
         return outputs
+    
+#Autoencoder
+
+class Autoencoder(nn.Module):
+    def __init__(self, n_filters_scale):
+        super(Autoencoder, self).__init__()
+        #Encoder
+        self.encoder = Encoder(n_filters_scale)
+        #Decoders (Amplitude/Phase)
+        self.decoder_amp = Decoder_amp(n_filters_scale)
+        self.decoder_phase = Decoder_phase(n_filters_scale)
+
+    def forward(self, x):
+        #Encoder
+        x = self.encoder(x)
+        #Decoders
+        x_amp = self.decoder_amp(x)
+        x_phase = self.decoder_phase(x)
+
+        return x_amp, x_phase
 
 #Probe modules
 class ProbeIllumination(nn.Module):
@@ -322,26 +345,6 @@ class PoissonIntensityLayer(nn.Module):
         #Apply poisson distribution
         return -self.poisson_dist.log_prob(x)
     
-#Autoencoder
-
-class Autoencoder(nn.Module):
-    def __init__(self, n_filters_scale):
-        super(Autoencoder, self).__init__()
-        #Encoder
-        self.encoder = Encoder(n_filters_scale)
-        #Decoders (Amplitude/Phase)
-        self.decoder_amp = Decoder_amp(n_filters_scale)
-        self.decoder_phase = Decoder_phase(n_filters_scale)
-
-    def forward(self, x):
-        #Encoder
-        x = self.encoder(x)
-        #Decoders
-        x_amp = self.decoder_amp(x)
-        x_phase = self.decoder_phase(x)
-
-        return x_amp, x_phase
-
 class ForwardModel(nn.Module):
     '''
     Forward model receiving complex object prediction, and applies physics-informed real space overlap
@@ -367,7 +370,7 @@ class ForwardModel(nn.Module):
         self.nll = Config().get('nll') #True or False
 
         #Patch operations
-        self.add_module('reassembled_patches',
+        self.add_module('reassemble_patches',
                         LambdaLayer(hh.reassemble_patches_position_real))
         self.add_module('pad_patches',
                         LambdaLayer(hh.pad_patches))
@@ -391,7 +394,7 @@ class ForwardModel(nn.Module):
         #Reassemble patches
         #Object_big: All patches are together in a solution region
         if self.object_big:
-            reassembled_obj = self.reassembled_patches(x, positions)
+            reassembled_obj = self.reassemble_patches(x, positions)
         else:
         #Single channel, no patch overlap
             #NOTE for albert: Check transformation math
@@ -406,11 +409,13 @@ class ForwardModel(nn.Module):
         #Perform below steps if training
         if self.training:
             #Apply probe illum
-            illuminated_objs = self.probe_illumination(extracted_patch_objs,
+            illuminated_objs, _ = self.probe_illumination(extracted_patch_objs,
                                                        probe)
             #Pad and diffract
-            pred_diffraction = self.pad_and_diffract(illuminated_objs,
+            pred_diffraction, _ = self.pad_and_diffract(illuminated_objs,
                                                      pad = False)
+            
+            print(f'Pred_diffraction: {pred_diffraction}, dtype: {pred_diffraction.dtype}')
             #Inverse scaling
             pred_amp_scaled = self.scaler.inv_scale(pred_diffraction)
 
@@ -418,7 +423,7 @@ class ForwardModel(nn.Module):
         
         #Performing inference
         else:
-            return extracted_patch_objs, None
+            return extracted_patch_objs
         
 class PoissonLoss(nn.Module):
     def __init__(self):
@@ -484,8 +489,10 @@ class PtychoPINN(nn.Module):
     x - Tensor input, comes from tensor['images']
     positions - Tensor input, comes from tensor['coords_relative']
     probe - Tensor input, comes from dataset/dataloader __get__ function (returns x, probe)
+    n_filters_scale - 
     '''
-    def __init__(self, cfg, params):
+    def __init__(self):
+        super(PtychoPINN, self).__init__()
         self.n_filters_scale = Config().get('n_filters_scale')
         #Autoencoder
         self.autoencoder = Autoencoder(self.n_filters_scale)
@@ -503,7 +510,7 @@ class PtychoPINN(nn.Module):
         #Run through forward model
         x_out = self.forward_model(x_combined, positions, probe)
         if self.training:
-            return self.PoissonLoss(x_out)
+            return self.PoissonLoss(x_out, x)
 
         return x_out
             

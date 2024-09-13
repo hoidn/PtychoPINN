@@ -1,16 +1,15 @@
 import numpy as np
 from ptycho.params import params, get
 from torch.utils.data import Dataset, DataLoader
-from mmap_ninja import RaggedMmap
 from pathlib import Path
 import zipfile
 from collections import defaultdict
 import torch
 import time
+import os
 
 #Memory mapping
 from tensordict import MemoryMappedTensor, TensorDict
-from tensordict.prototype import tensorclass
 
 #Patch generation
 from ptycho_torch.patch_generator import group_coords, get_relative_coords
@@ -65,9 +64,11 @@ class PtychoDataset(Dataset):
         e.g. K = 6, n_subsample = 10, n_images = 4.  Then we subsample 10 patches from 6C4=15
 
     """
-    def __init__(self, ptycho_dir, probe_dir):
+    def __init__(self, ptycho_dir, probe_dir, data_dir='data/memmap', remake_map = True):
         #Directories
         self.ptycho_dir = ptycho_dir
+        if not os.path.exists(ptycho_dir):
+            os.mkdir(ptycho_dir)
         self.probe_dir = probe_dir
 
         #Calculate length for __len__ method
@@ -76,7 +77,11 @@ class PtychoDataset(Dataset):
         #Putting all relevant information within accessible dictionary
         self.data_dict = defaultdict(list)
         #Image stack
-        self.memory_map_data(Path(self.ptycho_dir).iterdir())
+        if not os.path.exists(data_dir) or remake_map:
+            self.memory_map_data(Path(self.ptycho_dir).iterdir())
+        else:
+            print('Existing map found. Loading memory-mapped data')
+            self.mmap_ptycho = TensorDict.load_memmap(data_dir)
 
         
     def calculate_length(self, ptycho_dir):
@@ -206,6 +211,7 @@ class PtychoDataset(Dataset):
             mmap_ptycho["coords_start_center"][start:end] = torch.from_numpy(coords_start_com)
             mmap_ptycho["coords_start_relative"][start:end] = torch.from_numpy(coords_start_relative)
             mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(nn_indices)
+            mmap_ptycho["experiment_id"][start:end] = torch.tensor(i)
 
             non_diff_time = time.time() - non_diff_timer_start
             print("Non-diffraction memory map write time: {}".format(non_diff_time))
@@ -302,7 +308,9 @@ class PtychoDataset(Dataset):
         # exp_idx = np.searchsorted(self.cum_length, idx, side='right') - 1
         exp_idx = self.mmap_ptycho['experiment_id'][idx]
         probes = Params().get('probes')
-        probes_indexed = probes[exp_idx]
+
+        channels = Params().get('C')
+        probes_indexed = probes[exp_idx].unsqueeze(1).expand(-1,channels,-1,-1)
 
         return self.mmap_ptycho[idx], probes_indexed
         

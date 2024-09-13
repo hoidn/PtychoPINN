@@ -134,6 +134,7 @@ def extract_channels_from_region(inputs: torch.Tensor,
         - Shifted images, cropped symmetrically
     
     '''
+    offsets_flat = torch.flatten(offsets_xy, start_dim = 0, end_dim = 1)
     #Check offset and input dimensions
     #List of assertions
     if inputs.shape[0] is not None:
@@ -141,7 +142,7 @@ def extract_channels_from_region(inputs: torch.Tensor,
     assert int(inputs.shape[1]) == 1
     assert int(offsets_xy.shape[3]) == 2
 
-    offsets_flat = torch.flatten(offsets_xy, start_dim = 0, end_dim = 1)
+    
     #We need to repeat the solution patch C # of times, so we can perform unique translations
     #for all C image patches.
     #Steps: Repeat -> Flatten

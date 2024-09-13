@@ -13,7 +13,8 @@
 cfg = {'N': 64,
        'offset': 4,
        'gridsize': 2,
-       'max_position_jitter': 10
+       'max_position_jitter': 10,
+       'n_filters_scale': 2
     }
 
 params = {
