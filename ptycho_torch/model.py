@@ -9,8 +9,7 @@ import numpy as np
 import math
 
 #Helper
-from ptycho_torch.config_params import Config
-from ptycho_torch.config_params import Params
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig
 import ptycho_torch.helper as hh
 
 #Ensuring 64float b/c of complex numbers
@@ -97,7 +96,7 @@ class Encoder(nn.Module):
     def __init__(self, n_filters_scale):
         super(Encoder, self).__init__()
 
-        self.N = Config().get('N')
+        self.N = DataConfig().get('N')
 
         starting_coeff = 64 / (self.N / 32)
         #Starting output channels is 64. Last output size will always be n_filters_scale * 128. 
@@ -127,7 +126,7 @@ class Encoder(nn.Module):
 class Decoder_filters(nn.Module):
     def __init__(self, n_filters_scale):
         super(Decoder_filters, self).__init__()
-        self.N = Config().get('N')
+        self.N = DataConfig().get('N')
 
         #Calculate number of channels for upscaling
         #Start from self.N and divide by 2 until 32 for each layer
@@ -165,8 +164,8 @@ class Decoder_last(nn.Module):
                   activation = torch.sigmoid, name = ''):
         super(Decoder_last, self).__init__()
         #Grab parameters
-        self.N = Config().get('N')
-        self.gridsize = Config().get('gridsize')
+        self.N = DataConfig().get('N')
+        self.gridsize = DataConfig().get('gridsize')
 
         #Channel splitting
         self.c_outer = self.gridsize ** 2
@@ -194,7 +193,7 @@ class Decoder_last(nn.Module):
         x1 = self.activation(x1)
         x1 = self.padding(x1)
 
-        if not Config().get('probe.big'):
+        if not ModelConfig().get('probe.big'):
             return x1
         
         x2 = self.conv_up_block(x[:, -self.c_outer:, :, :])
@@ -208,7 +207,7 @@ class Decoder_last(nn.Module):
 class Decoder_phase(Decoder_base):
     def __init__(self, n_filters_scale):
         super(Decoder_phase, self).__init__(n_filters_scale)
-        grid_size = Config().get('gridsize')
+        grid_size = DataConfig().get('gridsize')
         num_images = grid_size ** 2
         #Nn layers
 
@@ -274,14 +273,14 @@ class ProbeIllumination(nn.Module):
     '''
     def __init__(self):
         super(ProbeIllumination, self).__init__()
-        N = Config().get('N')
+        N = DataConfig().get('N')
         #Check if probe mask exists
         #If not, probe mask is just a ones matrix
         #If mask exists, save mask is class attribute
-        if not Config().get('probe.mask'):
+        if not ModelConfig().get('probe.mask'):
             self.probe_mask = torch.ones((N, N))
         else:
-            self.probe_mask = Config().get('probe.mask')
+            self.probe_mask = ModelConfig().get('probe.mask')
     
     def forward(self, x, probe):
         return x * probe * self.probe_mask, probe * self.probe_mask
@@ -362,12 +361,12 @@ class ForwardModel(nn.Module):
         super(ForwardModel, self).__init__()
 
         #Configuration 
-        self.n_filters_scale = Config().get('n_filters_scale')
-        self.N = Config().get('N')
-        self.gridsize = Config().get('gridsize')
-        self.offset = Config().get('offset')
-        self.object_big = Config().get('object.big')
-        self.nll = Config().get('nll') #True or False
+        self.n_filters_scale = ModelConfig().get('n_filters_scale')
+        self.N = DataConfig().get('N')
+        self.gridsize = DataConfig().get('gridsize')
+        self.offset = ModelConfig().get('offset')
+        self.object_big = ModelConfig().get('object.big')
+        self.nll = TrainingConfig().get('nll') #True or False
 
         #Patch operations
         self.add_module('reassemble_patches',
@@ -453,9 +452,9 @@ class PoissonLoss(nn.Module):
 class IntensityScalerModule:
     def __init__(self):
         #Setting log scale values
-        log_scale_guess = np.log(Config().get('intensity_scale'))
+        log_scale_guess = np.log(ModelConfig().get('intensity_scale'))
         self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
-                                      requires_grad = Params().get('intensity_scale_trainable'))
+                                      requires_grad = ModelConfig().get('intensity_scale_trainable'))
     
     #Intensity scaler as class
     class IntensityScaler(nn.Module):

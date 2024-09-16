@@ -3,24 +3,47 @@
 #Typical config values (need to be declared separately in __main__ or jupyter notebook)
 
 #The way you use this is:
-# 1. Defining a cfg or param dictionary
-# 2. Declare Config() or Params() class
+# 1. Defining a settings dictionary
+# 2. Declare specific class: ModelConfig(), TrainingConfig(), DataConfig()
 # 3. Call set_config or set_params methods using dictionary
-# 4. Now Config() class or Params() class can be accessed globally
+# 4. Now the respective class can be accessed globally
 
 #Configuration file for reference (this is not used within this file but used when configs are
 #declared in other files)
-cfg = {'N': 64,
-       'offset': 4,
-       'gridsize': 2,
-       'max_position_jitter': 10,
-       'n_filters_scale': 2
-    }
 
-params = {
-
-
+data_config_default = {
+    'nphotons': 1e5,
+    'N': 128,
+    'C': 4,
+    'K': 6,
+    'n_subsample': 10,
+    'grid_size': (2,2),
 }
+
+model_config_default = {
+    'intensity_scale_trainable': True,
+    'max_position_jitter': 10, #Random jitter for translation (helps make model more robust)
+    'n_filters_scale': 2, #Shrinking factor for channels
+    'intensity_scale': 15000.0, #General intensity scale guess, this can be trainable. Needs to be float
+    'object.big': True, #True if need patch reassembly
+    'probe.big': True, #True if need patch reassembly
+    'offset': 4
+}
+
+training_config_default = {
+    'nll': True #Negative log likelihood for loss function
+}
+
+param_dict = {'probes': probe,
+    'nphotons': 1e5,
+    'N': 128,
+    'C': 4,
+    'K': 6,
+    'n_subsample': 10,
+    'grid_size': (2,2),
+    'intensity_scale_trainable': True,
+}
+
 
 class Settings:
     _instance = None
@@ -43,12 +66,14 @@ class Settings:
     def add(self, key, value):
         self.settings[key] = value
 
-class Config(Settings):
+class TrainingConfig(Settings):
     _instance = None
 
-class Params(Settings):
+class ModelConfig(Settings):
     _instance = None
 
+class DataConfig(Settings):
+    _instance = None
 # class Config:
 #     _instance = None
 

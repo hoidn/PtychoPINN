@@ -7,8 +7,7 @@ from torch import nn
 import torch.nn.functional as F
 
 #Configurations
-from ptycho_torch.config_params import Config
-from ptycho_torch.config_params import Params
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig
 
 
 
@@ -155,7 +154,7 @@ def extract_channels_from_region(inputs: torch.Tensor,
     translated_patches = Translation(flat_stacked_inputs, offsets_flat, 0.0)
     cropped_patches = trim_reconstruction(translated_patches)
     cropped_patches = torch.reshape(cropped_patches,
-                                    (-1, n_channels, Config().get('N'), Config().get('N')))
+                                    (-1, n_channels, DataConfig().get('N'), DataConfig().get('N')))
 
     return cropped_patches
 
@@ -176,7 +175,7 @@ def trim_reconstruction(inputs: torch.Tensor, N: Optional[int] = None) -> torch.
     '''
 
     if N is None:
-        N = Config().get('N')
+        N = DataConfig().get('N')
 
     shape = inputs.shape
 
@@ -267,14 +266,14 @@ def pad_obj(input: torch.Tensor, h: int, w: int) -> torch.Tensor:
 
 def get_padded_size():
     bigN = get_bigN()
-    buffer = Config().get('max_position_jitter')
+    buffer = ModelConfig().get('max_position_jitter')
 
     return bigN + buffer
 
 def get_bigN():
-    N = Config().get('N')
-    gridsize = Config().get('gridsize')
-    offset = Config().get('offset')
+    N = DataConfig().get('N')
+    gridsize = DataConfig().get('gridsize')
+    offset = ModelConfig().get('offset')
 
     return N + (gridsize - 1) * offset
 
@@ -445,6 +444,6 @@ def scale_nphotons(input: torch.Tensor) -> float:
     """
     #Average across every single input pixel, across all batches
     mean_photons = torch.mean(input**2)
-    norm_factor = torch.sqrt(Params().get('nphotons') / mean_photons)
+    norm_factor = torch.sqrt(DataConfig().get('nphotons') / mean_photons)
 
     return norm_factor
