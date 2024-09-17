@@ -441,9 +441,13 @@ def scale_nphotons(input: torch.Tensor) -> float:
     *expected* number of observed photons, averaged over an entire dataset.
 
     Returns a single scalar.
+
+    Inputs
+    --------
+    input: torch.Tensor (N, H, W)
     """
-    #Average across every single input pixel, across all batches
-    mean_photons = torch.mean(input**2)
+    #Find the mean photons PER image, first by summing all pixels per image, then averaging over all images
+    mean_photons = torch.mean(torch.sum(input**2), dim = (1, 2))
     norm_factor = torch.sqrt(DataConfig().get('nphotons') / mean_photons)
 
     return norm_factor

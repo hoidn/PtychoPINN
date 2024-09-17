@@ -18,6 +18,8 @@ from ptycho_torch.patch_generator import group_coords, get_relative_coords
 from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 
 #Helper methods
+import ptycho_torch.helper as hh
+
 def npz_headers(npz):
     """
     Takes a path to an .npz file, which is a Zip archive of .npy files.
@@ -69,7 +71,7 @@ class PtychoDataset(Dataset):
         self.ptycho_dir = ptycho_dir
         if not os.path.exists(ptycho_dir):
             os.mkdir(ptycho_dir)
-        self.probe_dir = probe_dir
+        self.probes = DataConfig().get('probes')
 
         #Calculate length for __len__ method
         self.length, self.im_shape, self.cum_length = self.calculate_length(ptycho_dir)
@@ -87,7 +89,9 @@ class PtychoDataset(Dataset):
     def calculate_length(self, ptycho_dir):
         """
         Calculates length from series of npz files without loading them using npz_header
-        Also calculates cumulative length for linear indexing accounting for n_subsample
+        Also calculates cumulative length for linear indexing, since we are creating "groups" of channels for ptychography training.
+        This means that the total length of image groups is equal to the # diffraction images * # of groupings.
+
         """
         total_length = 0
         cumulative_length = [0]
@@ -220,7 +224,11 @@ class PtychoDataset(Dataset):
             #----
             diff_timer_start = time.time()
             curr_nn_index_length = len(nn_indices)
-            diff_stack = np.load(npz_file)['diff3d']
+            diff_stack = torch.from_numpy(np.load(npz_file)['diff3d'])
+
+            #Perform normalization on diff_stack
+            log_norm_factor = torch.log(hh.scale_nphotons(diff_stack))
+            diff_stack = diff_stack / torch.exp(log_norm_factor)
 
             #Write to memory mapped tensor in batches
             for j in range(0, curr_nn_index_length, batch_size):
@@ -228,7 +236,7 @@ class PtychoDataset(Dataset):
                 local_to = min(j + batch_size, curr_nn_index_length)
                 global_to += local_to - j
 
-                mmap_ptycho["images"][global_from:global_to] = torch.from_numpy(diff_stack[nn_indices[j:local_to]])
+                mmap_ptycho["images"][global_from:global_to] = diff_stack[nn_indices[j:local_to]]
 
                 #Writing everything simultaneously as a TensorDict
                 # mmap_ptycho[global_from:global_to] = TensorDict(
@@ -249,6 +257,10 @@ class PtychoDataset(Dataset):
 
             diff_time = time.time() - diff_timer_start
             print("Diffraction memory map write time: {}".format(diff_time))
+
+            #Calculate intensity scale for given experiment and add to 
+
+        
 
         self.mmap_ptycho = mmap_ptycho
 
@@ -301,22 +313,32 @@ class PtychoDataset(Dataset):
     def __getitem__(self, idx):
         """
         Returns memory mapped tensordict, alongside probe. Written to be batched
-        so you can return multiple instances
+        so you can return multiple instances.
+
+        Probe dimensionality is expanded to match the data channels. This is so multiplication operations are broadcast correctly.
         """
         #Find experimental index comparing index to cumulative length
         #Experimental index is used to find the probe corresponding to the right experiment
         # exp_idx = np.searchsorted(self.cum_length, idx, side='right') - 1
         exp_idx = self.mmap_ptycho['experiment_id'][idx]
-        probes = DataConfig().get('probes')
 
         channels = DataConfig().get('C')
-        probes_indexed = probes[exp_idx].unsqueeze(1).expand(-1,channels,-1,-1)
+
+        #Expand probe to match number of channels for data.
+        probes_indexed = self.probes[exp_idx].unsqueeze(1).expand(-1,channels,-1,-1)
 
         return self.mmap_ptycho[idx], probes_indexed
         
 #Collation
 
 class TensorDictDataLoader(DataLoader):
+    '''
+    Modifiers dataloader class that allows for batch sampling exploiting the structure of TensorDicts
+    Given a set of indices, we can directly index all of them simultaneously from the TensorDict instead of calling
+    yield on a single index at a time.
+
+    This allows us to return a TensorDict object which already has indexing built in.
+    '''
     def __iter__(self):
         #Iterator over sampler
         batch_sampler = self.batch_sampler
@@ -326,9 +348,6 @@ class TensorDictDataLoader(DataLoader):
             yield dataset[batch_indices]
 
 
-#Testing
-#Going to implement tensorclass which has memory mapping TENSOR functionality built in, will be built on top of 
-#existing dataset
 
 #Tensor memory mapping has the advantage that it's already in shared memory so using multiple workers for the
 #dataloader on a single gpu is viable
