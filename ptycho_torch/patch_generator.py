@@ -1,7 +1,7 @@
 
 import numpy as np
 from scipy.spatial import cKDTree
-from ptycho_torch.config_params import Params
+from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 #All methods for patch generation that used to be in loader will go here
 #Will be imported into dset_loader for generating patches of grid_size ** 2
 
@@ -84,7 +84,7 @@ def group_coords(xcoords, ycoords, C):
         coords_nn: shape (M, C, 1, 2)
     """
     if C is None:
-        C = Params().get('C')
+        C = DataConfig().get('C')
     #No overlaps enforced
     if C == 1:
         nn_indices = get_neighbor_self_indices(xcoords,
@@ -92,8 +92,8 @@ def group_coords(xcoords, ycoords, C):
     #Yes overlaps enforced
     else:
         nn_indices = get_neighbor_indices(xcoords,
-                                          ycoords, K=Params().get('K'))
-        nn_indices = sample_rows(nn_indices, C, Params().get('n_subsample')).reshape(-1, C)
+                                          ycoords, K=DataConfig().get('K'))
+        nn_indices = sample_rows(nn_indices, C, DataConfig().get('n_subsample')).reshape(-1, C)
 
     #Get final array of coordinates (M* x C x 1 x 2)
     coords_nn = np.stack([xcoords[nn_indices],

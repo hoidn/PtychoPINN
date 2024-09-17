@@ -34,17 +34,6 @@ training_config_default = {
     'nll': True #Negative log likelihood for loss function
 }
 
-param_dict = {'probes': probe,
-    'nphotons': 1e5,
-    'N': 128,
-    'C': 4,
-    'K': 6,
-    'n_subsample': 10,
-    'grid_size': (2,2),
-    'intensity_scale_trainable': True,
-}
-
-
 class Settings:
     _instance = None
 

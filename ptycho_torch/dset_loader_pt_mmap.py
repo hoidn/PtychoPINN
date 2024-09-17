@@ -15,7 +15,7 @@ from tensordict import MemoryMappedTensor, TensorDict
 from ptycho_torch.patch_generator import group_coords, get_relative_coords
 
 #Parameters
-from ptycho_torch.config_params import Params
+from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 
 #Helper methods
 def npz_headers(npz):
@@ -94,7 +94,7 @@ class PtychoDataset(Dataset):
 
         for npz_file in Path(ptycho_dir).iterdir():
             tensor_shape = list(npz_headers(npz_file))
-            total_length += tensor_shape[0][0] * Params().get('n_subsample') #Double indexing to access number inside nested list
+            total_length += tensor_shape[0][0] * DataConfig().get('n_subsample') #Double indexing to access number inside nested list
             im_shape = tensor_shape[0][1:]
             cumulative_length.append(total_length)
         
@@ -120,8 +120,8 @@ class PtychoDataset(Dataset):
 
 
         """
-        n_images = Params().get('grid_size')[0] * Params().get('grid_size')[1]
-        Params().add('n_images', n_images)
+        n_images = DataConfig().get('grid_size')[0] * DataConfig().get('grid_size')[1]
+        DataConfig().add('n_images', n_images)
 
         #Create memory map for every tensor. We'll be populating the diffraction image in batches, and the
         #other coordinate tensors in full for every individual dataset
@@ -193,7 +193,7 @@ class PtychoDataset(Dataset):
 
             #Get indices for solution patches on current dataset
             nn_indices, coords_nn = group_coords(xcoords, ycoords,
-                                      C=Params().get('C'))
+                                      C=DataConfig().get('C'))
             
             #Coords_nn is (N x 4 x 1 x 2). Contains all 4 sets of (x,y) coords for an image patch
             coords_start_nn = np.stack([xcoords_start[nn_indices],
@@ -307,9 +307,9 @@ class PtychoDataset(Dataset):
         #Experimental index is used to find the probe corresponding to the right experiment
         # exp_idx = np.searchsorted(self.cum_length, idx, side='right') - 1
         exp_idx = self.mmap_ptycho['experiment_id'][idx]
-        probes = Params().get('probes')
+        probes = DataConfig().get('probes')
 
-        channels = Params().get('C')
+        channels = DataConfig().get('C')
         probes_indexed = probes[exp_idx].unsqueeze(1).expand(-1,channels,-1,-1)
 
         return self.mmap_ptycho[idx], probes_indexed
