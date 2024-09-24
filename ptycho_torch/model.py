@@ -423,6 +423,8 @@ class ForwardModel(nn.Module):
         #Performing inference
         else:
             return extracted_patch_objs
+
+#Loss functions
         
 class PoissonLoss(nn.Module):
     def __init__(self):
@@ -431,9 +433,17 @@ class PoissonLoss(nn.Module):
     def forward(self, pred, raw):
         self.poisson = PoissonIntensityLayer(pred)
         loss_likelihood = self.poisson(raw)
+
+        return loss_likelihood
+    
+class MAELoss(nn.Module):
+    def __init__(self):
+        super(MAELoss, self).__init__()
+
+    def forward(self, pred, raw):
         loss_mae = F.l1_loss(pred, raw)
 
-        return loss_likelihood, loss_mae
+        return loss_mae
     
 #Scaling modules
 
@@ -492,14 +502,18 @@ class PtychoPINN(nn.Module):
     '''
     def __init__(self):
         super(PtychoPINN, self).__init__()
-        self.n_filters_scale = Config().get('n_filters_scale')
+        self.n_filters_scale = ModelConfig().get('n_filters_scale')
         #Autoencoder
         self.autoencoder = Autoencoder(self.n_filters_scale)
         self.combine_complex = CombineComplex()
         #Adding named modules for forward operation
         #Patch operations
         self.forward_model = ForwardModel()
-        self.PoissonLoss = PoissonLoss()
+        #Choose loss function
+        if ModelConfig().get('loss_function') == 'Poisson':
+            self.Loss = PoissonLoss()
+        elif ModelConfig().get('loss_function') == 'MAE':
+            self.Loss = MAELoss()
 
     def forward(self, x, positions, probe):
         #Autoencoder result
@@ -508,8 +522,9 @@ class PtychoPINN(nn.Module):
         x_combined = self.combine_complex(x_amp, x_phase)
         #Run through forward model
         x_out = self.forward_model(x_combined, positions, probe)
+        #Get loss
         if self.training:
-            return self.PoissonLoss(x_out, x)
+            return self.Loss(x_out, x)
 
         return x_out
             
