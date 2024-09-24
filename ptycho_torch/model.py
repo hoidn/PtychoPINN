@@ -347,12 +347,12 @@ class PoissonIntensityLayer(nn.Module):
 class ForwardModel(nn.Module):
     '''
     Forward model receiving complex object prediction, and applies physics-informed real space overlap
-    conditions to the solution space.
+    constraints to the solution space.
 
     Inputs
     ------
-    x: torch.Tensor, dtype = complex64
-    positions: torch.Tensor, dtype = float32
+    x: torch.Tensor (N, C, H, W), dtype = complex64
+    positions: torch.Tensor (N, C, 1, 2), dtype = float32
         Positions of patches in real space
     probe: torch.Tensor, dtype = complex64
         Probe function
@@ -413,8 +413,6 @@ class ForwardModel(nn.Module):
             #Pad and diffract
             pred_diffraction, _ = self.pad_and_diffract(illuminated_objs,
                                                      pad = False)
-            
-            print(f'Pred_diffraction: {pred_diffraction}, dtype: {pred_diffraction.dtype}')
             #Inverse scaling
             pred_amp_scaled = self.scaler.inv_scale(pred_diffraction)
 
@@ -495,10 +493,13 @@ class PtychoPINN(nn.Module):
     If in inference, outputs object functions
     
     Note for forward call, because we're getting data from a memory-mapped tensor
-    x - Tensor input, comes from tensor['images']
+
+    Inputs
+    -------
+    x: torch.Tensor (N, C, H, W)
     positions - Tensor input, comes from tensor['coords_relative']
     probe - Tensor input, comes from dataset/dataloader __get__ function (returns x, probe)
-    n_filters_scale - 
+
     '''
     def __init__(self):
         super(PtychoPINN, self).__init__()

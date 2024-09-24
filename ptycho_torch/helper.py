@@ -5,6 +5,7 @@ from typing import Tuple, Optional, Union, Callable, Any
 import torch
 from torch import nn
 import torch.nn.functional as F
+from ptycho_torch.model import CombineComplex
 
 #Configurations
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig
@@ -29,12 +30,10 @@ def combine_complex(amp: torch.Tensor, phi: torch.Tensor) -> torch.Tensor:
     out: torch.Tensor
         Complex number
     '''
-    
-    out = amp.to(dtype=torch.complex64) * \
-        torch.exp(1j * phi.to(dtype=torch.complex64))
-    
-    return out
 
+    CC = CombineComplex()
+       
+    return CC(amp, phi)
 def is_complex(x: torch.Tensor) -> bool:
     '''
     Check if tensor is complex dtype.
@@ -345,9 +344,6 @@ def Translation(img, offset, jitter_amt):
 
 #Flattening functions
 #---------------------
-def flatten_offsets(input: torch.Tensor) -> torch.Tensor:
-    return _channel_to_flat(input)[:, 0, 0, :]
-
 def _flat_to_channel(img: torch.Tensor, channels: int = 4) -> torch.Tensor:
     '''
     Reshapes tensor from flat format to channel format. Useful to batch apply operations such as
@@ -379,6 +375,7 @@ def pad_and_diffract(input: torch.Tensor, pad: bool = True) -> Tuple[torch.Tenso
     Input
     --------
     input: torch.Tensor (N, C, H, W). Does not need to be a flattened tensor.
+    pad: Boolean. Whether to pad the input before performing the Fourier transform.
     
     '''
 
@@ -412,7 +409,7 @@ def illuminate_and_diffract(input: torch.Tensor, probe: torch.Tensor, intensity_
 
     if intensity_scale is None:
         intensity_scale = scale_nphotons(input_amp * torch.abs(probe))
-    
+
     input_scaled = intensity_scale * input
 
     #Multiply by probe
@@ -446,8 +443,8 @@ def scale_nphotons(input: torch.Tensor) -> float:
     --------
     input: torch.Tensor (N, H, W)
     """
-    #Find the mean photons PER image, first by summing all pixels per image, then averaging over all images
-    mean_photons = torch.mean(torch.sum(input**2), dim = (1, 2))
+    #Find the mean photons PER image, first by summing all pixels per image, then averaging the sums from all images
+    mean_photons = torch.mean(torch.sum(input**2, dim = (1, 2)))
     norm_factor = torch.sqrt(DataConfig().get('nphotons') / mean_photons)
 
     return norm_factor

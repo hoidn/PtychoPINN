@@ -9,7 +9,7 @@ import torch.nn.functional as F
 #Other functions
 import ptycho_torch.patch_generator as pg
 import ptycho_torch.helper as hh
-from ptycho_torch.config_params import Params
+from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 
 
 
@@ -103,7 +103,7 @@ def generate_simulated_data(objectGuess, probeGuess, nimages, random_seed=None):
     if nimages <= 0:
         raise ValueError("nimages must be positive and buffer must be non-negative")
     
-    N = Params().get('N')
+    N = DataConfig().get('N')
 
     # Get object dimensions
     height, width = objectGuess.shape
@@ -169,7 +169,7 @@ def get_image_patches(objectGuess, probeGuess, xcoords, ycoords):
     """
 
     #No need to pad canvas. We will never sample anywhere from outside the canvas
-    N = Params().get('N')
+    N = DataConfig().get('N')
     n_images = len(xcoords)
     #Need to add batch dimension to objectGuess
     canvas = objectGuess[None].expand(n_images,-1,-1)
