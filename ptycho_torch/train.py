@@ -1,20 +1,39 @@
 #Most basic modules
 import sys
+import argparse
 
-#Going to use lightning to handle most training
-import lightning as L
+#ML libraries
 import torch
 from torch.nn import functional as F
 from torch.utils.data import Subset
 
-#Configs/Params
-from ptycho_torch.config_params import Config, Params
-
+#Automation modules
+#Lightning
+import lightning as L
+#MLFlow
 import mlflow.pytorch
 from mlflow import MlflowClient
 
-from ptycho_torch.model import Autoencoder, CombineComplex, ForwardModel, PoissonLoss
-from ptycho_torch.dset_loader_pt_mmap import TensorDictDataLoader
+#Configs/Params
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig
+from ptycho_torch.config_params import data_config_default, model_config_default, training_config_default
+
+#Dataloader
+from ptycho_torch.dset_loader_pt_mmap import TensorDictDataLoader, PtychoDataset
+
+#Custom modules
+from ptycho_torch.model import Autoencoder, CombineComplex, ForwardModel, PoissonLoss, MAELoss
+
+#Helper function for mlflow
+def print_auto_logged_info(r):
+    tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+    artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+    print(f"run_id: {r.info.run_id}")
+    print(f"artifacts: {artifacts}")
+    print(f"params: {r.data.params}")
+    print(f"metrics: {r.data.metrics}")
+    print(f"tags: {tags}")
+
 
 class PtychoPINN(L.LightningModule):
     '''
@@ -23,14 +42,16 @@ class PtychoPINN(L.LightningModule):
     '''
     def __init__(self):
         super().__init__()
-
-
-        self.n_filters_scale = Config().get('n_filters_scale')
+        self.n_filters_scale = ModelConfig().get('n_filters_scale')
         #Submodules
         self.autoencoder = Autoencoder(self.n_filters_scale)
         self.combine_complex = CombineComplex()
         self.forward_model = ForwardModel()
-        self.PoissonLoss = PoissonLoss()
+
+        if ModelConfig().get('loss_function') == 'Poisson':
+            self.Loss = PoissonLoss()
+        elif ModelConfig().get('loss_function') == 'MAE':
+            self.Loss = MAELoss()
     
     def forward(self, x, positions, probe):
         #Autoencoder result
@@ -50,24 +71,30 @@ class PtychoPINN(L.LightningModule):
         #Calculate loss
         loss = self.PoissonLoss(pred, x)
 
-        self.log("train_loss", loss, on_epoch = True)
+        #Logging
+        self.log("poisson_train_loss", loss, on_epoch = True)
 
         return loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr = 2e-2)
 
-def main(dataset, config_list, params_list):
-    #Can grab this from some config/params file later or default
+def main(ptycho_dir, probe_dir):
+    #Define configs
+    modelconfig = ModelConfig()
+    trainingconfig = TrainingConfig()
+    dataconfig = DataConfig()
 
-    #Set configs and params
-    config = Config()
-    config.set_settings(config_list)
-    params = Params()
-    params.set_settings(params_list)
+    #Set configs
+    modelconfig.set_settings(model_config_default)
+    trainingconfig.set_settings(training_config_default)
+    dataconfig.set_settings(data_config_default)
+
+    #Creating dataset
+    ptycho_dataset = PtychoDataset(ptycho_dir, probe_dir, remake_map=True)
 
     #Dataloader
-    train_loader = TensorDictDataLoader(dataset, batch_size = 64)
+    train_loader = TensorDictDataLoader(ptycho_dataset, batch_size = 64)
 
     #Create model
     model = PtychoPINN()
@@ -75,10 +102,37 @@ def main(dataset, config_list, params_list):
     #Create trainer
     trainer = L.Trainer(max_epochs = 100)
 
+    #Mlflow setup
+    # mlflow.set_tracking_uri("")
+    mlflow.set_experiment("PtychoPINN vanilla")
+
+    mlflow.pytorch.autolog(checkpoint_monitor = "poisson_train_loss")
+
+    #Train the model
+    with mlflow.start_run() as run:
+        trainer.fit(model, train_loader)
+
+    print_auto_logged_info(mlflow.get_run(run_id = run.info.run_id))
+
 #Define main function
 if __name__ == '__main__':
+    #Parsing
+    parser = argparse.ArgumentParser(description = "Run training for ptycho_torch")
+    #Arguments
+    parser.add_argument('--ptycho_dir', type = str, help = 'Path to ptycho directory')
+    parser.add_argument('--probe_dir', type = str, help = 'Path to probe directory')
+    #Parse
+    args = parser.parse_args()
+
+    #Assign to vars
+    ptycho_dir = args.ptycho_dir
+    probe_dir = args.probe_dir
+
+    print(f"Probe: {probe_dir}")
+    print(f"Ptycho: {ptycho_dir}")
+
     try:
-        print('test')
+        main(ptycho_dir, probe_dir)
 
     except Exception as e:
         print(f"Training failed: {str(e)}")

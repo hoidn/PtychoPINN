@@ -55,14 +55,21 @@ class PtychoDataset(Dataset):
     For example, diffraction[0] will return the entire image stack from the first experiment
     coords[0] would return the stack of image coordinates from the first experiment
 
+    Inputs
+    -------
+    ptycho_dir: Directory containing individual ptychography scans as npz files. If non-npz, expected to be normalized or
+    rewritten via a data adapting software such as Ptychodus
+    probe_dir: Directory containing probe guesses as npz files. If non-npz, expected to be normalized or
+    rewritten via a data adapting software such as Ptychodus
+
     Params
-    grid_size = tuple of image grid size (e.g. 2 x 2 is most used)
+    grid_size: tuple of image grid size (e.g. 2 x 2 is most used)
                 n_images = grid_size[0] * grid_size[1] (e.g. 2 x 2 = 4)
-    probe_map = list of probe indices assigned to each experiment
+    probe_map: list of probe indices assigned to each experiment
                 (e.g. [0, 1, 0] -> Exp 1, Probe 1. Exp 2, Probe 2. Exp 3, Probe 1)
-    probes = list of probes used in experiments. Will be h x w numpy tensors.
-    K = # of nearest neighbors to group together to select image patch from
-    n_subsample = # of patches to subsample from each group of size K
+    probes: list of probes used in experiments. Will be h x w numpy tensors.
+    K: # of nearest neighbors to group together to select image patch from
+    n_subsample: # of patches to subsample from each group of size K
         e.g. K = 6, n_subsample = 10, n_images = 4.  Then we subsample 10 patches from 6C4=15
 
     """
@@ -71,7 +78,11 @@ class PtychoDataset(Dataset):
         self.ptycho_dir = ptycho_dir
         if not os.path.exists(ptycho_dir):
             os.mkdir(ptycho_dir)
-        self.probes = DataConfig().get('probes')
+        #Either grab probes from directory or expect them to be provided in configs
+        if DataConfig().get('probe_dir_bool'):
+            self.get_probes(probe_dir)
+        else:
+            self.probes = DataConfig().get('probes')
 
         #Calculate length for __len__ method
         self.length, self.im_shape, self.cum_length = self.calculate_length(ptycho_dir)
@@ -265,6 +276,20 @@ class PtychoDataset(Dataset):
         self.mmap_ptycho = mmap_ptycho
 
         return 
+    
+    def get_probes(self, probe_dir):
+        '''
+        Expect a series of npz files with different probes. Each probe will correspond to a
+        different experiment or sets of experiments
+        '''
+
+        self.probes = []
+
+        for probe_file in os.listdir(probe_dir):
+            probe_path = os.path.join(probe_dir, probe_file)
+            probe_data = np.load(probe_path)
+            probe_data = probe_data['probe']
+            self.probes.append(probe_data)
     
     def generate_ptycho_groupings(self, index):
         """
