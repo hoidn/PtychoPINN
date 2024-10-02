@@ -18,6 +18,7 @@ data_config_default = {
     'K': 6,
     'n_subsample': 10,
     'grid_size': (2,2),
+    'probe_dir_bool': True,
 }
 
 model_config_default = {

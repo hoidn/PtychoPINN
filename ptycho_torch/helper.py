@@ -6,6 +6,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from ptycho_torch.model import CombineComplex
+import numpy as np
 
 #Configurations
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig
@@ -432,6 +433,31 @@ def illuminate_and_diffract(input: torch.Tensor, probe: torch.Tensor, intensity_
     return output, input_scaled
 
 #Photon scaling functions
+
+def normalize_data(X: torch.Tensor) -> torch.Tensor:
+    """
+    Scale the photon counts in the diffraction image accounting for zero padding condition
+    and the fact that diffraction pixel values are the square root of the intensity, which we're
+    looking to scale to
+
+    Returns scaled data and scaling factor
+
+    Inputs
+    --------
+    input: torch.Tensor (N, H, W)
+
+    Outputs
+    --------
+    Tensor: torch.Tensor (N, H, W)
+    Scaling_factor: float
+    
+    """
+    N = DataConfig().get('N')
+    scaling_factor = ((N / 2) ** 2) / torch.mean(torch.sum(input**2, dim = (1, 2)))
+
+    return X * scaling_factor, scaling_factor
+
+
 def scale_nphotons(input: torch.Tensor) -> float:
     """
     Calculate the object amplitude normalization factor that gives the desired

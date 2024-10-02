@@ -89,6 +89,7 @@ class PtychoDataset(Dataset):
 
         #Putting all relevant information within accessible dictionary
         self.data_dict = defaultdict(list)
+
         #Image stack
         if not os.path.exists(data_dir) or remake_map:
             self.memory_map_data(Path(self.ptycho_dir).iterdir())
@@ -237,9 +238,9 @@ class PtychoDataset(Dataset):
             curr_nn_index_length = len(nn_indices)
             diff_stack = torch.from_numpy(np.load(npz_file)['diff3d'])
 
-            #Perform normalization on diff_stack
-            log_norm_factor = torch.log(hh.scale_nphotons(diff_stack))
-            diff_stack = diff_stack / torch.exp(log_norm_factor)
+            #Perform normalization on diffraction image stack
+            diff_stack, norm_factor = hh.normalize_data(diff_stack)
+            self.data_dict["scaling_constant"].append(norm_factor)
 
             #Write to memory mapped tensor in batches
             for j in range(0, curr_nn_index_length, batch_size):
@@ -290,16 +291,6 @@ class PtychoDataset(Dataset):
             probe_data = np.load(probe_path)
             probe_data = probe_data['probe']
             self.probes.append(probe_data)
-    
-    def generate_ptycho_groupings(self, index):
-        """
-        Generates ptycho grouping indices using methods from patch_generator
-        """
-        nn_indices, coords_nn = group_coords(self, index)
-
-        return nn_indices, coords_nn
-
-
 
     def load_diffraction_data(self, npz_file):
         """
@@ -315,6 +306,8 @@ class PtychoDataset(Dataset):
     #Methods for mapping all other data 
     def map_data(self, ptycho_dir):
         """
+        Currently unused.
+
         Maps all data from npzs to specific arrays held in memory
         Data will be in format data_dict['parameter'][experiment #][image #]
         """
@@ -341,10 +334,18 @@ class PtychoDataset(Dataset):
         so you can return multiple instances.
 
         Probe dimensionality is expanded to match the data channels. This is so multiplication operations are broadcast correctly.
+        
+        Output
+        -------
+        self.mmap_ptych[idx] - Batched TensorDict containing all relevant information for training. See
+            function memory_map_data for further details. Length is batch size
+        probes_indexed - (N,C,H,W) tensor, where N is batch size. C is number of channels, where the probe is duplicated
+            H and W are height and width of diffraction pattern. The dimensionality should be exactly the same as the output of the autoencoder.
+        scaling_constant - Scaling constants required for each diffraction image
+        
         """
-        #Find experimental index comparing index to cumulative length
         #Experimental index is used to find the probe corresponding to the right experiment
-        # exp_idx = np.searchsorted(self.cum_length, idx, side='right') - 1
+        #exp_idx is a list of experiment indices that are then used to index probe/scaling constants
         exp_idx = self.mmap_ptycho['experiment_id'][idx]
 
         channels = DataConfig().get('C')
@@ -352,7 +353,10 @@ class PtychoDataset(Dataset):
         #Expand probe to match number of channels for data.
         probes_indexed = self.probes[exp_idx].unsqueeze(1).expand(-1,channels,-1,-1)
 
-        return self.mmap_ptycho[idx], probes_indexed
+        #Scaling constant
+        scaling_const = self.data_dict['scaling_constant'][exp_idx]
+
+        return self.mmap_ptycho[idx], probes_indexed, scaling_const
         
 #Collation
 

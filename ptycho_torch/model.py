@@ -389,7 +389,7 @@ class ForwardModel(nn.Module):
         self.add_module('inv_scale',
                         LambdaLayer(self.scaler.scale))
         
-    def forward(self, x, positions, probe):
+    def forward(self, x, positions, probe, scale_factor):
         #Reassemble patches
         #Object_big: All patches are together in a solution region
         if self.object_big:
@@ -414,7 +414,7 @@ class ForwardModel(nn.Module):
             pred_diffraction, _ = self.pad_and_diffract(illuminated_objs,
                                                      pad = False)
             #Inverse scaling
-            pred_amp_scaled = self.scaler.inv_scale(pred_diffraction)
+            pred_amp_scaled = self.scaler.inv_scale(pred_diffraction, scale_factor)
 
             return pred_amp_scaled
         
@@ -458,10 +458,20 @@ class MAELoss(nn.Module):
 # inv_scaled_tensor = inv_scaler(input_tensor)
 
 class IntensityScalerModule:
+    '''
+    Scaler module that works with single experiment data and multi-experiment data.
+
+    If single experiment data, ModelConfig will have an "intensity_scale" parameter that is determined
+    during the dataloading process. This is to set up log_scale as a learnable parameter.
+
+    If multi-experiment data, log_scale is no longer learnable since there are multiple different experiments
+    and different log_scales to learn.
+    '''
     def __init__(self):
         #Setting log scale values
-        log_scale_guess = np.log(ModelConfig().get('intensity_scale'))
-        self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
+        if ModelConfig().get('intensity_scale_trainable'):
+            log_scale_guess = np.log(ModelConfig().get('intensity_scale'))
+            self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
                                       requires_grad = ModelConfig().get('intensity_scale_trainable'))
     
     #Intensity scaler as class
@@ -479,11 +489,13 @@ class IntensityScalerModule:
             return x / self.scale_factor
         
     #Standalone intensity scaling functions
-    def scale(self, x):
-        return x / torch.exp(self.log_scale)
+    def scale(self, x, scale_factor):
+        log_scale = torch.log(scale_factor)
+        return x / torch.exp(log_scale)
 
-    def inv_scale(self, x):
-        return x * torch.exp(self.log_scale)
+    def inv_scale(self, x, scale_factor):
+        log_scale = torch.log(scale_factor)
+        return x * torch.exp(log_scale)
 
 #Full module with everything
 class PtychoPINN(nn.Module):
@@ -516,13 +528,13 @@ class PtychoPINN(nn.Module):
         elif ModelConfig().get('loss_function') == 'MAE':
             self.Loss = MAELoss()
 
-    def forward(self, x, positions, probe):
+    def forward(self, x, positions, probe, scale_factor):
         #Autoencoder result
         x_amp, x_phase = self.autoencoder(x)
         #Combine amp and phase
         x_combined = self.combine_complex(x_amp, x_phase)
         #Run through forward model
-        x_out = self.forward_model(x_combined, positions, probe)
+        x_out = self.forward_model(x_combined, positions, probe, scale_factor)
         #Get loss
         if self.training:
             return self.Loss(x_out, x)

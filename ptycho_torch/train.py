@@ -1,6 +1,7 @@
 #Most basic modules
 import sys
 import argparse
+import os
 
 #ML libraries
 import torch
@@ -100,7 +101,8 @@ def main(ptycho_dir, probe_dir):
     model = PtychoPINN()
 
     #Create trainer
-    trainer = L.Trainer(max_epochs = 100)
+    trainer = L.Trainer(max_epochs = 100,
+                        default_root_dir = os.path.dirname(os.getcwd()))
 
     #Mlflow setup
     # mlflow.set_tracking_uri("")
