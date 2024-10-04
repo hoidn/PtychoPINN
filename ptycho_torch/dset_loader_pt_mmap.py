@@ -76,10 +76,10 @@ class PtychoDataset(Dataset):
     def __init__(self, ptycho_dir, probe_dir, data_dir='data/memmap', remake_map = True):
         #Directories
         self.ptycho_dir = ptycho_dir
-        if not os.path.exists(ptycho_dir):
-            os.mkdir(ptycho_dir)
+        self.n_files = len(os.listdir(ptycho_dir))
+
         #Either grab probes from directory or expect them to be provided in configs
-        if DataConfig().get('probe_dir_bool'):
+        if DataConfig().get('probe_dir_get'):
             self.get_probes(probe_dir)
         else:
             self.probes = DataConfig().get('probes')
@@ -88,7 +88,7 @@ class PtychoDataset(Dataset):
         self.length, self.im_shape, self.cum_length = self.calculate_length(ptycho_dir)
 
         #Putting all relevant information within accessible dictionary
-        self.data_dict = defaultdict(list)
+        self.data_dict = {}
 
         #Image stack
         if not os.path.exists(data_dir) or remake_map:
@@ -190,6 +190,10 @@ class PtychoDataset(Dataset):
         #Lock memory map
         mmap_ptycho.memmap_like(prefix="data/memmap")
 
+        #Create normalization tensor for all experiments
+        self.data_dict["scaling_constant"] = torch.empty(self.n_files,
+                                                         dtype = torch.float64)
+
         #Go through each npz file and populate mmap_diffraction
         batch_size = 1024
         #Keep track of memory map write indices
@@ -240,7 +244,7 @@ class PtychoDataset(Dataset):
 
             #Perform normalization on diffraction image stack
             diff_stack, norm_factor = hh.normalize_data(diff_stack)
-            self.data_dict["scaling_constant"].append(norm_factor)
+            self.data_dict["scaling_constant"][i] = norm_factor
 
             #Write to memory mapped tensor in batches
             for j in range(0, curr_nn_index_length, batch_size):
@@ -280,17 +284,19 @@ class PtychoDataset(Dataset):
     
     def get_probes(self, probe_dir):
         '''
-        Expect a series of npz files with different probes. Each probe will correspond to a
-        different experiment or sets of experiments
+        Retrieve all used experimental probes from probe directory. Expect a series of npz files with different probes.
+        Puts them all in the same tensor, self.probes, which will be indexed in __getitem__
+
         '''
+        N = DataConfig().get('N')
+        n_probes = len(os.listdir(probe_dir))
+        self.probes = torch.empty(size=(n_probes, N, N), dtype = torch.complex64)
 
-        self.probes = []
-
-        for probe_file in os.listdir(probe_dir):
+        for i, probe_file in enumerate(os.listdir(probe_dir)):
             probe_path = os.path.join(probe_dir, probe_file)
             probe_data = np.load(probe_path)
             probe_data = probe_data['probe']
-            self.probes.append(probe_data)
+            self.probes[i] = probe_data
 
     def load_diffraction_data(self, npz_file):
         """
@@ -341,7 +347,7 @@ class PtychoDataset(Dataset):
             function memory_map_data for further details. Length is batch size
         probes_indexed - (N,C,H,W) tensor, where N is batch size. C is number of channels, where the probe is duplicated
             H and W are height and width of diffraction pattern. The dimensionality should be exactly the same as the output of the autoencoder.
-        scaling_constant - Scaling constants required for each diffraction image
+        scaling_constant - (N) tensor, scaling constants required for each diffraction image
         
         """
         #Experimental index is used to find the probe corresponding to the right experiment

@@ -450,10 +450,10 @@ def normalize_data(X: torch.Tensor) -> torch.Tensor:
     --------
     Tensor: torch.Tensor (N, H, W)
     Scaling_factor: float
-    
+
     """
     N = DataConfig().get('N')
-    scaling_factor = ((N / 2) ** 2) / torch.mean(torch.sum(input**2, dim = (1, 2)))
+    scaling_factor = ((N / 2) ** 2) / torch.mean(torch.sum(X**2, dim = (1, 2)))
 
     return X * scaling_factor, scaling_factor
 
