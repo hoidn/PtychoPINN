@@ -107,6 +107,25 @@ class RawData:
                        norm_Y_I = norm_Y_I)
               #probeGuess, scan_index, objectGuess, Y = tf.squeeze(Y_obj), norm_Y_I = norm_Y_I)
 
+    @staticmethod
+    def from_simulation_with_patches(xcoords, ycoords, probeGuess, objectGuess, scan_index):
+        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
+                xcoords, ycoords)
+
+        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+        Y_I = tf.math.abs(Y_obj)
+        Y_phi = tf.math.angle(Y_obj)
+        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+        
+        # Create RawData object
+        raw_data = RawData(xcoords, ycoords, xcoords, ycoords, tf.squeeze(X).numpy(),
+                           probeGuess, scan_index, objectGuess,
+                           Y = tf.squeeze(hh.combine_complex(Y_I_xprobe, Y_phi_xprobe)).numpy(),
+                           norm_Y_I = intensity_scale)
+        
+        # Return both RawData and the original patches
+        return raw_data, Y_obj
+
     #@debug
     def __str__(self):
         parts = [
