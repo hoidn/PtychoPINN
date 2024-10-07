@@ -78,3 +78,9 @@ def set_probe_guess(X_train = None, probe_guess = None):
     #params.set('probe', t_probe_guess)
     set_probe(t_probe_guess)
     return t_probe_guess
+
+def set_default_probe():
+    """
+    use an idealized disk shaped probe. Only for simulated data workflows.
+    """
+    set_probe(get_default_probe(params.get('N'), fmt = 'tf'))
