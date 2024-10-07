@@ -21,15 +21,19 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
 def train_eval(ptycho_dataset):
     ## TODO reconstructed_obj -> pred_Y or something
     model_instance, history = train(ptycho_dataset.train_data)
-    eval_results = eval(ptycho_dataset.test_data, history, trained_model = model_instance)
-    return {
+    results = {
         'history': history,
-        'reconstructed_obj': eval_results['reconstructed_obj'],
-        'pred_amp': eval_results['pred_amp'],
-        'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
-        'stitched_obj': eval_results['stitched_obj'],
         'model_instance': model_instance
     }
+    if ptycho_dataset.test_data is not None:
+        eval_results = eval(ptycho_dataset.test_data, history, trained_model=model_instance)
+        results.update({
+            'reconstructed_obj': eval_results['reconstructed_obj'],
+            'pred_amp': eval_results['pred_amp'],
+            'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
+            'stitched_obj': eval_results['stitched_obj'],
+        })
+    return results
 
 from tensorflow.keras.models import load_model
 # Enhance the existing eval function to optionally load a model for inference
