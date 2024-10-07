@@ -83,29 +83,50 @@ class RawData:
         return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
 
     # TODO currently this can only handle a single object image
+#    @staticmethod
+#    def from_simulation(xcoords, ycoords, probeGuess,
+#                 objectGuess, scan_index = None):
+#        """
+#        """
+#        from .diffsim import illuminate_and_diffract
+#        xcoords_start = xcoords
+#        ycoords_start = ycoords
+#        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
+#                    xcoords, ycoords)
+#
+#        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+#        Y_I = tf.math.abs(Y_obj)
+#        Y_phi = tf.math.angle(Y_obj)
+#        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+#        norm_Y_I = datasets.scale_nphotons(X)
+#        assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
+#        # TODO RawData should have a method for generating the illuminated ground truth object
+#        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
+#                       probeGuess, scan_index, objectGuess,
+#                       Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
+#                       norm_Y_I = norm_Y_I)
+#              #probeGuess, scan_index, objectGuess, Y = tf.squeeze(Y_obj), norm_Y_I = norm_Y_I)
+
     @staticmethod
-    def from_simulation(xcoords, ycoords, probeGuess,
-                 objectGuess, scan_index = None):
-        """
-        """
-        from .diffsim import illuminate_and_diffract
-        xcoords_start = xcoords
-        ycoords_start = ycoords
+    def from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index, return_patches=False):
         global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-                    xcoords, ycoords)
+                xcoords, ycoords)
+        from .diffsim import illuminate_and_diffract
 
         Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
         Y_I = tf.math.abs(Y_obj)
         Y_phi = tf.math.angle(Y_obj)
         X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
-        norm_Y_I = datasets.scale_nphotons(X)
-        assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
-        # TODO RawData should have a method for generating the illuminated ground truth object
-        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
-                       probeGuess, scan_index, objectGuess,
-                       Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
-                       norm_Y_I = norm_Y_I)
-              #probeGuess, scan_index, objectGuess, Y = tf.squeeze(Y_obj), norm_Y_I = norm_Y_I)
+        
+        raw_data = RawData(xcoords, ycoords, xcoords, ycoords, tf.squeeze(X).numpy(),
+                           probeGuess, scan_index, objectGuess,
+                           Y = tf.squeeze(hh.combine_complex(Y_I_xprobe, Y_phi_xprobe)).numpy(),
+                           norm_Y_I = intensity_scale)
+        
+        if return_patches:
+            return raw_data, Y_obj
+        else:
+            return raw_data
 
     #@debug
     def __str__(self):
@@ -640,14 +661,15 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
 
-#    try:
-    if dset['Y'] is None:
-        Y = get_image_patches(gt_image,
-            global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
-        print("loader: generating ground truth patches from image and offsets")
-    else:
-        Y = dset['Y']
-        print("loader: using provided ground truth patches")
+##    try:
+#    if dset['Y'] is None:
+#        Y = get_image_patches(gt_image,
+#            global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
+#        print("loader: generating ground truth patches from image and offsets")
+#    else:
+#        Y = dset['Y']
+#        print("loader: using provided ground truth patches")
+    Y = tf.ones_like(X)
     Y_I = tf.math.abs(Y)
     Y_phi = tf.math.angle(Y)
 #    except: 
@@ -667,6 +689,7 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
 
 # Images are amplitude, not intensity
 #@debug
+# TODO SHOULDN'T THE NORMALIZATION BE SQUARE ROOTED?
 def normalize_data(dset: dict, N: int) -> np.ndarray:
     X_full = dset['diffraction']
     X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))

@@ -9,7 +9,7 @@ from ptycho.loader import RawData, PtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple
-from ptycho import loader, probe, train_pinn
+from ptycho import loader, probe
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,18 +31,21 @@ ARG_TO_CONFIG_MAP = {
     "N": ("N", 64)
 }
 
-def load_data(file_path, n_images=None):
+def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
     """
     Load ptychography data from a file and return RawData objects.
 
     Args:
         file_path (str, optional): Path to the data file. Defaults to the package resource 'datasets/Run1084_recon3_postPC_shrunk_3.npz'.
         n_images (int, optional): Number of data points to include in the training set. Defaults to 512.
+        flip_x (bool, optional): If True, flip the sign of x coordinates. Defaults to False.
+        flip_y (bool, optional): If True, flip the sign of y coordinates. Defaults to False.
+        swap_xy (bool, optional): If True, swap x and y coordinates. Defaults to False.
+        n_samples (int, optional): Number of samples to generate. Defaults to 1.
+        coord_scale (float, optional): Scale factor for x and y coordinates. Defaults to 1.0.
 
     Returns:
-        tuple: A tuple containing two RawData objects:
-            - ptycho_data: RawData object containing the full dataset.
-            - ptycho_data_train: RawData object containing a subset of the data for training.
+        RawData: RawData object containing the dataset.
     """
     # Load data from file
     data = np.load(file_path)
@@ -56,6 +59,26 @@ def load_data(file_path, n_images=None):
     probeGuess = data['probeGuess']
     objectGuess = data['objectGuess']
 
+    # Apply coordinate transformations
+    if flip_x:
+        xcoords = -xcoords
+        xcoords_start = -xcoords_start
+        #probeGuess = probeGuess[::-1, :]
+    if flip_y:
+        ycoords = -ycoords
+        ycoords_start = -ycoords_start
+        #probeGuess = probeGuess[:, ::-1]
+    if swap_xy:
+        xcoords, ycoords = ycoords, xcoords
+        xcoords_start, ycoords_start = ycoords_start, xcoords_start
+        #probeGuess = np.transpose(probeGuess)
+
+    # Apply coordinate scaling
+    xcoords *= coord_scale
+    ycoords *= coord_scale
+    xcoords_start *= coord_scale
+    ycoords_start *= coord_scale
+
     # Create scan_index array
     scan_index = np.zeros(diff3d.shape[0], dtype=int)
 
@@ -64,9 +87,9 @@ def load_data(file_path, n_images=None):
 
     # Create RawData object for the training subset
     ptycho_data = RawData(xcoords[:n_images], ycoords[:n_images],
-                                       xcoords_start[:n_images], ycoords_start[:n_images],
-                                       diff3d[:n_images], probeGuess,
-                                       scan_index[:n_images], objectGuess=objectGuess)
+                          xcoords_start[:n_images], ycoords_start[:n_images],
+                          diff3d[:n_images], probeGuess,
+                          scan_index[:n_images], objectGuess=objectGuess)
 
     return ptycho_data
 
@@ -182,15 +205,121 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        dataset = data.generate_grouped_data(config['N'], K=7, nsamples=1)
+        dataset = data.generate_grouped_data(config['N'], K=7, nsamples=config.get('n_samples', 1))
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")
 
-def run_cdi_example(
+def train_cdi_model(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
     config: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Train the CDI model.
+
+    Args:
+        train_data (Union[RawData, PtychoDataContainer]): Training data.
+        config (Dict[str, Any]): Configuration dictionary.
+
+    Returns:
+        Dict[str, Any]: Results dictionary containing training history.
+    """
+    from ptycho.loader import PtychoDataset
+    from ptycho import train_pinn
+    # Convert input data to PtychoDataContainer
+    train_container = create_ptycho_data_container(train_data, config)
+    if test_data is not None:
+        test_container = create_ptycho_data_container(test_data, config)
+    else:
+        test_container = None
+
+    # Initialize probe
+    probe.set_probe_guess(None, train_container.probe)
+
+#    # Calculate intensity scale
+#    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
+
+    # Train the model
+    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+    results['train_container'] = train_container
+    results['test_container'] = test_container
+    #history = train_pinn.train(train_container)
+    
+    return results
+
+def reassemble_cdi_image(
+    test_data: Union[RawData, PtychoDataContainer],
+    config: Dict[str, Any],
+    flip_x: bool = False,
+    flip_y: bool = False,
+    transpose: bool = False,
+    M: int = 20,
+    coord_scale: float = 1.0
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
+    """
+    Reassemble the CDI image using the trained model.
+
+    Args:
+        test_data (Union[RawData, PtychoDataContainer]): Test data.
+        config (Dict[str, Any]): Configuration dictionary.
+        flip_x (bool): Whether to flip the x coordinates. Default is False.
+        flip_y (bool): Whether to flip the y coordinates. Default is False.
+        transpose (bool): Whether to transpose the image by swapping the 1st and 2nd dimensions. Default is False.
+        M (int): Parameter for reassemble_position function. Default is 20.
+        coord_scale (float): Scale factor for x and y coordinates. Default is 1.0.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray, Dict[str, Any]]: 
+        Reconstructed amplitude, reconstructed phase, and results dictionary.
+    """
+    # TODO use train_pinn.eval to get reconstructed diffraction amplitude
+    test_container = create_ptycho_data_container(test_data, config)
+    
+    from ptycho import nbutils
+    obj_tensor_full, global_offsets = nbutils.reconstruct_image(test_container)
+    
+    # Log the shape of global_offsets
+    logger.info(f"Shape of global_offsets: {global_offsets.shape}")
+
+    # Assert that obj_tensor_full is a 4D tensor
+    assert obj_tensor_full.ndim == 4, f"Expected obj_tensor_full to be a 4D tensor, but got shape {obj_tensor_full.shape}"
+
+    # Transpose the image if requested
+    if transpose:
+        obj_tensor_full = np.transpose(obj_tensor_full, (0, 2, 1, 3))
+
+    # Flip coordinates if requested
+    if flip_x:
+        global_offsets[:, 0, 0, :] = -global_offsets[:, 0, 0, :]
+    if flip_y:
+        global_offsets[:, 0, 1, :] = -global_offsets[:, 0, 1, :]
+    
+    # Scale coordinates
+    global_offsets *= coord_scale
+    
+    obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=M)
+    
+    recon_amp = np.absolute(obj_image)
+    recon_phase = np.angle(obj_image)
+    
+    results = {
+        "obj_tensor_full": obj_tensor_full,
+        "global_offsets": global_offsets,
+        "recon_amp": recon_amp,
+        "recon_phase": recon_phase
+    }
+    
+    return recon_amp, recon_phase, results
+
+def run_cdi_example(
+    train_data: Union[RawData, PtychoDataContainer],
+    test_data: Optional[Union[RawData, PtychoDataContainer]],
+    config: Dict[str, Any],
+    flip_x: bool = False,
+    flip_y: bool = False,
+    transpose: bool = False,
+    M: int = 20
 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
     """
     Run the main CDI example execution flow.
@@ -199,45 +328,25 @@ def run_cdi_example(
         train_data (Union[RawData, PtychoDataContainer]): Training data.
         test_data (Optional[Union[RawData, PtychoDataContainer]]): Test data, or None.
         config (Dict[str, Any]): Configuration dictionary.
+        flip_x (bool): Whether to flip the x coordinates. Default is False.
+        flip_y (bool): Whether to flip the y coordinates. Default is False.
+        transpose (bool): Whether to transpose the image by swapping the 1st and 2nd dimensions. Default is False.
 
     Returns:
         Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]: 
         Reconstructed amplitude, reconstructed phase, and results dictionary.
     """
-    # Convert input data to PtychoDataContainer
-    train_container = create_ptycho_data_container(train_data, config)
-    test_container = create_ptycho_data_container(test_data, config) if test_data is not None else None
-
-    # Initialize probe
-    probe.set_probe_guess(None, train_container.probe)
-
-    # Calculate intensity scale
-    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
-
     # Train the model
-    history = train_pinn.train(train_container, intensity_scale)
+    train_results = train_cdi_model(train_data, test_data, config)
     
-    results = {"history": history}
+    recon_amp, recon_phase = None, None
     
-    # Reconstruct test image if test data is provided
-    if test_container is not None:
-        from ptycho import nbutils
-        obj_tensor_full, global_offsets = nbutils.reconstruct_image(test_container)
-        obj_image = loader.reassemble_position(obj_tensor_full, global_offsets[:, :, :, :], M=20)
-        
-        recon_amp = np.absolute(obj_image)
-        recon_phase = np.angle(obj_image)
-        
-        results.update({
-            "obj_tensor_full": obj_tensor_full,
-            "global_offsets": global_offsets,
-            "recon_amp": recon_amp,
-            "recon_phase": recon_phase
-        })
-    else:
-        recon_amp, recon_phase = None, None
+    # Reassemble test image if test data is provided and reconstructed_obj is available
+    if test_data is not None and 'reconstructed_obj' in train_results:
+        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y, transpose, M=M)
+        train_results.update(reassemble_results)
     
-    return recon_amp, recon_phase, results
+    return recon_amp, recon_phase, train_results
 
 
 def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
