@@ -13,7 +13,7 @@ def get_default_probe(N, fmt='tf'):
     if fmt == 'np':
         return probe_np
     elif fmt == 'tf':
-        return tf.convert_to_tensor(probe_np, tf.float32)[..., None]
+        return tf.convert_to_tensor(probe_np, tf.complex64)[..., None]
     else:
         raise ValueError("Invalid format specified")
 
