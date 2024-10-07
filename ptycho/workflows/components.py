@@ -339,15 +339,14 @@ def run_cdi_example(
     # Train the model
     train_results = train_cdi_model(train_data, test_data, config)
     
-    # Reassemble test image if test data is provided
-    if test_data is not None:
-        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y, transpose, M=M)
-        results = {**train_results, **reassemble_results}
-    else:
-        recon_amp, recon_phase = None, None
-        results = train_results
+    recon_amp, recon_phase = None, None
     
-    return recon_amp, recon_phase, results
+    # Reassemble test image if test data is provided and reconstructed_obj is available
+    if test_data is not None and 'reconstructed_obj' in train_results:
+        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y, transpose, M=M)
+        train_results.update(reassemble_results)
+    
+    return recon_amp, recon_phase, train_results
 
 
 def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
