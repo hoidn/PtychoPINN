@@ -72,7 +72,10 @@ def set_probe_guess(X_train = None, probe_guess = None):
         probe_guess *= (np.sum(get_default_probe(N)) / np.sum(probe_guess))
         t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)
     else:
-        probe_guess = probe_guess[..., None]
+        if probe_guess.ndim not in [2, 3]:
+            raise ValueError("probe_guess must have 2 or 3 dimensions")
+        if probe_guess.ndim == 2:
+            probe_guess = probe_guess[..., None]
         t_probe_guess = tf.convert_to_tensor(probe_guess, tf.complex64)
 
     #params.set('probe', t_probe_guess)
