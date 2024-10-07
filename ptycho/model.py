@@ -28,6 +28,26 @@ params = cfg.params
 import tensorflow_addons as tfa
 gaussian_filter2d = tfa.image.gaussian_filter2d
 
+def complex_gaussian_filter2d(input_tensor, filter_shape, sigma):
+    """
+    Apply Gaussian filter to complex-valued tensor.
+    
+    Args:
+    input_tensor: Complex-valued input tensor
+    filter_shape: Tuple of integers specifying the filter shape
+    sigma: Float or tuple of floats for the Gaussian kernel standard deviation
+    
+    Returns:
+    Complex-valued tensor after applying Gaussian filter
+    """
+    real_part = tf.math.real(input_tensor)
+    imag_part = tf.math.imag(input_tensor)
+    
+    filtered_real = gaussian_filter2d(real_part, filter_shape=filter_shape, sigma=sigma)
+    filtered_imag = gaussian_filter2d(imag_part, filter_shape=filter_shape, sigma=sigma)
+    
+    return tf.complex(filtered_real, filtered_imag)
+
 tfk = hh.tf.keras
 tfkl = hh.tf.keras.layers
 tfpl = tfp.layers
@@ -67,13 +87,31 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
         self.w = initial_probe_guess
+        self.sigma = cfg.get('gaussian_smoothing_sigma')
 
     def call(self, inputs):
+        # x is expected to have shape (batch_size, N, N, gridsize**2)
+        # where N is the size of each patch and gridsize**2 is the number of patches
         x = inputs[0]
-        if cfg.get('probe.mask'):
-            return self.w * x * probe_mask, (self.w * probe_mask)[None, ...]
+        
+        # self.w has shape (1, N, N, 1) or (1, N, N, gridsize**2) if probe.big is True
+        # probe_mask has shape (N, N, 1)
+        
+        # Apply multiplication first
+        illuminated = self.w * x
+        
+        # Apply Gaussian smoothing only if sigma is not 0
+        if self.sigma != 0:
+            smoothed = complex_gaussian_filter2d(illuminated, filter_shape=(3, 3), sigma=self.sigma)
         else:
-            return self.w * x, (self.w)[None, ...]
+            smoothed = illuminated
+        
+        if cfg.get('probe.mask'):
+            # Output shape: (batch_size, N, N, gridsize**2)
+            return smoothed * tf.cast(probe_mask, tf.complex64), (self.w * tf.cast(probe_mask, tf.complex64))[None, ...]
+        else:
+            # Output shape: (batch_size, N, N, gridsize**2)
+            return smoothed, (self.w)[None, ...]
 
 probe_illumination = ProbeIllumination()
 
@@ -201,22 +239,34 @@ def get_resolution_scale_factor(N):
 def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2, act=tf.keras.activations.sigmoid, name=''):
     N = cfg.get('N')
     gridsize = cfg.get('gridsize')
-    
-    c_outer = 4
-    x1 = conv1(input_tensor[..., :-c_outer])
-    x1 = act(x1)
-    x1 = tf.keras.layers.ZeroPadding2D(((N // 4), (N // 4)), name=name + '_padded')(x1)
-    
-    if not cfg.get('probe.big'):
-        return x1
-    
+
     scale_factor = get_resolution_scale_factor(N)
-    x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * scale_factor)
-    x2 = conv2(x2)
-    x2 = swish(x2)
-    
-    outputs = x1 + x2
-    return outputs
+    if cfg.get('pad_object'):
+        c_outer = 4
+        x1 = conv1(input_tensor[..., :-c_outer])
+        x1 = act(x1)
+        x1 = tf.keras.layers.ZeroPadding2D(((N // 4), (N // 4)), name=name + '_padded')(x1)
+        
+        if not cfg.get('probe.big'):
+            return x1
+        
+        x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * scale_factor)
+        x2 = conv2(x2)
+        x2 = swish(x2)
+        
+        # Drop the central region of x2
+        center_mask = hh.mk_centermask(x2, N, 1, kind='border')
+        x2_masked = x2 * center_mask
+        
+        outputs = x1 + x2_masked
+        return outputs
+
+    else:
+        x2 = Conv_Up_block(input_tensor, n_filters_scale * scale_factor)
+        x2 = conv2(x2)
+        x2 = act(x2)
+        return x2
+
 
 def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     num_filters = gridsize**2 if big else 1

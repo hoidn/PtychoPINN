@@ -13,7 +13,7 @@ def get_default_probe(N, fmt='tf'):
     if fmt == 'np':
         return probe_np
     elif fmt == 'tf':
-        return tf.convert_to_tensor(probe_np, tf.float32)[..., None]
+        return tf.convert_to_tensor(probe_np, tf.complex64)[..., None]
     else:
         raise ValueError("Invalid format specified")
 
@@ -72,9 +72,18 @@ def set_probe_guess(X_train = None, probe_guess = None):
         probe_guess *= (np.sum(get_default_probe(N)) / np.sum(probe_guess))
         t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)
     else:
-        probe_guess = probe_guess[..., None]
+        if probe_guess.ndim not in [2, 3]:
+            raise ValueError("probe_guess must have 2 or 3 dimensions")
+        if probe_guess.ndim == 2:
+            probe_guess = probe_guess[..., None]
         t_probe_guess = tf.convert_to_tensor(probe_guess, tf.complex64)
 
     #params.set('probe', t_probe_guess)
     set_probe(t_probe_guess)
     return t_probe_guess
+
+def set_default_probe():
+    """
+    use an idealized disk shaped probe. Only for simulated data workflows.
+    """
+    set_probe(get_default_probe(params.get('N'), fmt = 'tf'))
