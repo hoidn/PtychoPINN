@@ -100,8 +100,11 @@ class ProbeIllumination(tf.keras.layers.Layer):
         # Apply multiplication first
         illuminated = self.w * x
         
-        # Apply Gaussian smoothing with parameterized sigma
-        smoothed = complex_gaussian_filter2d(illuminated, filter_shape=(3, 3), sigma=self.sigma)
+        # Apply Gaussian smoothing only if sigma is not 0
+        if self.sigma != 0:
+            smoothed = complex_gaussian_filter2d(illuminated, filter_shape=(3, 3), sigma=self.sigma)
+        else:
+            smoothed = illuminated
         
         if cfg.get('probe.mask'):
             # Output shape: (batch_size, N, N, gridsize**2)
