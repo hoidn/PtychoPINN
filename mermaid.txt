@@ -1,115 +1,129 @@
+%% Consolidated module-level mermaid diagrams
+
 graph TD
-    subgraph model.py
-        ProbeIllumination[ProbeIllumination]
-        IntensityScaler[IntensityScaler]
-        IntensityScaler_inv[IntensityScaler_inv]
-        Translation[Translation]
-        Conv_Pool_block[Conv_Pool_block]
-        Conv_Up_block[Conv_Up_block]
-        create_encoder[create_encoder]
-        create_decoder_base[create_decoder_base]
-        get_resolution_scale_factor[get_resolution_scale_factor]
-        create_decoder_last[create_decoder_last]
-        create_decoder_phase[create_decoder_phase]
-        create_decoder_amp[create_decoder_amp]
-        create_autoencoder[create_autoencoder]
-        get_amp_activation[get_amp_activation]
-        print_model_diagnostics[print_model_diagnostics]
-        scale[scale]
-        inv_scale[inv_scale]
-        negloglik[negloglik]
-        train[train]
-        prepare_inputs[prepare_inputs]
-        prepare_outputs[prepare_outputs]
-        
+    %% model.py
+    subgraph model[model.py]
+        ProbeIllumination_init[ProbeIllumination.__init__()]
+        ProbeIllumination_call[ProbeIllumination.call()]
+        IntensityScaler_init[IntensityScaler.__init__()]
+        IntensityScaler_call[IntensityScaler.call()]
+        IntensityScaler_inv_init[IntensityScaler_inv.__init__()]
+        IntensityScaler_inv_call[IntensityScaler_inv.call()]
+        scale[scale()]
+        inv_scale[inv_scale()]
+        Conv_Pool_block[Conv_Pool_block()]
+        Conv_Up_block[Conv_Up_block()]
+        create_encoder[create_encoder()]
+        create_decoder_base[create_decoder_base()]
+        get_resolution_scale_factor[get_resolution_scale_factor()]
+        create_decoder_last[create_decoder_last()]
+        create_decoder_phase[create_decoder_phase()]
+        create_decoder_amp[create_decoder_amp()]
+        create_autoencoder[create_autoencoder()]
+        get_amp_activation[get_amp_activation()]
+        prepare_inputs[prepare_inputs()]
+        prepare_outputs[prepare_outputs()]
+        train[train()]
+        print_model_diagnostics[print_model_diagnostics()]
+
+        %% Internal dependencies
         create_encoder --> Conv_Pool_block
         create_decoder_base --> Conv_Up_block
-        create_decoder_last --> Conv_Up_block
-        create_decoder_phase --> Conv_Up_block
+        create_decoder_phase --> create_decoder_base
         create_decoder_phase --> create_decoder_last
         create_decoder_amp --> create_decoder_base
         create_decoder_amp --> create_decoder_last
+        create_decoder_amp --> get_amp_activation
         create_autoencoder --> create_encoder
         create_autoencoder --> create_decoder_amp
         create_autoencoder --> create_decoder_phase
         train --> prepare_inputs
         train --> prepare_outputs
-        
-        ProbeIllumination -.-> ".params: cfg.get()"
-        Translation -.-> ".tf_helper: translate()"
+
+        %% External dependencies
+        ProbeIllumination_init -.-> ".params: cfg.get()"
+        ProbeIllumination_call -.-> ".tf_helper: hh.combine_complex"
+        ProbeIllumination_call -.-> ".params: cfg.get()"
         create_encoder -.-> ".params: cfg.get()"
         create_decoder_base -.-> ".params: cfg.get()"
         create_decoder_last -.-> ".params: cfg.get()"
+        create_decoder_last -.-> ".tf_helper: hh.mk_centermask"
         create_decoder_phase -.-> ".params: cfg.get()"
+        create_decoder_amp -.-> ".params: cfg.get()"
         get_amp_activation -.-> ".params: cfg.get()"
-        train -.-> ".params: params()"
         prepare_inputs -.-> ".params: cfg.get()"
-        prepare_outputs -.-> ".tf_helper: hh.center_channels()"
+        prepare_outputs -.-> ".tf_helper: hh.center_channels"
         prepare_outputs -.-> ".params: cfg.get()"
+        train -.-> ".params: params()"
     end
 
-    subgraph train_pinn.py
-        train_pinn_train[train]
-        train_pinn_train_eval[train_eval]
-        train_pinn_eval[eval]
-        calculate_intensity_scale[calculate_intensity_scale]
+    %% train_pinn.py
+    subgraph train_pinn[train_pinn.py]
+        train_pinn_train[train()]
+        train_eval[train_eval()]
+        eval[eval()]
+        calculate_intensity_scale[calculate_intensity_scale()]
 
+        %% Internal dependencies
+        train_eval --> train_pinn_train
+        train_eval --> eval
         train_pinn_train --> calculate_intensity_scale
-        train_pinn_train_eval --> train_pinn_train
-        train_pinn_train_eval --> train_pinn_eval
 
+        %% External dependencies
         train_pinn_train -.-> ".params: params.set()"
         train_pinn_train -.-> ".probe: probe.set_probe_guess()"
         train_pinn_train -.-> ".model: model.train()"
-        train_pinn_eval -.-> ".probe: probe.set_probe_guess()"
-        train_pinn_eval -.-> ".model: model.params()"
-        train_pinn_eval -.-> ".data_preprocessing: reassemble()"
-        calculate_intensity_scale -.-> ".params: p.get()"
+        eval -.-> ".probe: probe.set_probe_guess()"
+        eval -.-> ".model: model.predict()"
+        eval -.-> ".data_preprocessing: reassemble()"
+        calculate_intensity_scale -.-> ".params: params.get()"
     end
 
-    subgraph inference.py
-        load_pretrained_model[load_pretrained_model]
-        prepare_data[prepare_data]
-        perform_inference[perform_inference]
-        inference_flow[inference_flow]
+    %% loader.py
+    subgraph loader[loader.py]
+        RawData_init[RawData.__init__()]
+        RawData_str[RawData.__str__()]
+        RawData_to_file[RawData.to_file()]
+        RawData_from_file[RawData.from_file()]
+        RawData_from_files[RawData.from_files()]
+        RawData_generate_grouped_data[RawData.generate_grouped_data()]
+        RawData_check_data_validity[RawData._check_data_validity()]
+        RawData_from_coords_without_pc[RawData.from_coords_without_pc()]
+        RawData_from_simulation[RawData.from_simulation()]
+        PtychoDataset_init[PtychoDataset.__init__()]
+        PtychoDataContainer_init[PtychoDataContainer.__init__()]
+        PtychoDataContainer_repr[PtychoDataContainer.__repr__()]
+        PtychoDataContainer_from_raw_data_without_pc[PtychoDataContainer.from_raw_data_without_pc()]
+        get_neighbor_self_indices[get_neighbor_self_indices()]
+        get_neighbor_indices[get_neighbor_indices()]
+        sample_rows[sample_rows()]
+        get_relative_coords[get_relative_coords()]
+        crop12[crop12()]
+        extract_and_translate_patch_np[extract_and_translate_patch_np()]
+        unsqueeze_coords[unsqueeze_coords()]
+        calculate_combined_offsets[calculate_combined_offsets()]
+        tile_gt_object[tile_gt_object()]
+        calculate_relative_coords[calculate_relative_coords()]
+        group_coords[group_coords()]
+        get_neighbor_diffraction_and_positions[get_neighbor_diffraction_and_positions()]
+        shift_and_sum[shift_and_sum()]
+        reassemble_position[reassemble_position()]
+        split_data[split_data()]
+        split_tensor[split_tensor()]
+        load[load()]
+        normalize_data[normalize_data()]
+        crop[crop()]
+        get_gt_patch[get_gt_patch()]
+        load_xpp_npz[load_xpp_npz()]
 
-        inference_flow --> load_pretrained_model
-        inference_flow --> prepare_data
-        inference_flow --> perform_inference
-
-        load_pretrained_model -.-> ".model_manager: ModelManager.load_model()"
-        prepare_data -.-> ".model: model.params()"
-        perform_inference -.-> ".model: model.predict()"
-        inference_flow -.-> ".params: params.get()"
-    end
-
-    subgraph loader.py
-        RawData[RawData]
-        PtychoDataset[PtychoDataset]
-        PtychoDataContainer[PtychoDataContainer]
-        get_neighbor_self_indices[get_neighbor_self_indices]
-        get_neighbor_indices[get_neighbor_indices]
-        sample_rows[sample_rows]
-        get_relative_coords[get_relative_coords]
-        crop12[crop12]
-        extract_and_translate_patch_np[extract_and_translate_patch_np]
-        unsqueeze_coords[unsqueeze_coords]
-        calculate_combined_offsets[calculate_combined_offsets]
-        tile_gt_object[tile_gt_object]
-        calculate_relative_coords[calculate_relative_coords]
-        group_coords[group_coords]
-        get_neighbor_diffraction_and_positions[get_neighbor_diffraction_and_positions]
-        shift_and_sum[shift_and_sum]
-        reassemble_position[reassemble_position]
-        split_data[split_data]
-        split_tensor[split_tensor]
-        load[load]
-        normalize_data[normalize_data]
-        crop[crop]
-        get_gt_patch[get_gt_patch]
-
-        RawData --> RawData._check_data_validity
-        RawData --> RawData.generate_grouped_data
+        %% Internal dependencies
+        RawData_init --> RawData_check_data_validity
+        RawData_from_file --> RawData_init
+        RawData_from_files --> RawData_from_file
+        RawData_generate_grouped_data --> get_neighbor_diffraction_and_positions
+        RawData_from_coords_without_pc --> RawData_init
+        PtychoDataContainer_from_raw_data_without_pc --> RawData_from_coords_without_pc
+        PtychoDataContainer_from_raw_data_without_pc --> load
         calculate_relative_coords --> group_coords
         calculate_relative_coords --> get_relative_coords
         group_coords --> get_neighbor_self_indices
@@ -123,65 +137,238 @@ graph TD
         load --> split_data
         get_gt_patch --> crop
 
-        PtychoDataContainer -.-> ".utils.tf_helper: hh.combine_complex()"
-        tile_gt_object -.-> ".utils.params: params.get()"
-        tile_gt_object -.-> ".utils.tf_helper: hh.pad()"
-        group_coords -.-> ".utils.params: params.get()"
-        shift_and_sum -.-> ".utils.params: params.get()"
-        shift_and_sum -.-> ".utils.tf_helper: hh.pad()"
-        shift_and_sum -.-> ".utils.tf_helper: hh.translate()"
-        load -.-> ".utils.params: params.get()"
-        load -.-> ".simulation.diffsim: datasets.scale_nphotons()"
-        load -.-> ".utils.tf_helper: hh.combine_complex()"
-        get_gt_patch -.-> ".utils.tf_helper: hh.translate()"
+        %% External dependencies
+        RawData_generate_grouped_data -.-> ".params: params.get()"
+        RawData_from_simulation -.-> ".diffsim: datasets.illuminate_and_diffract"
+        RawData_from_simulation -.-> ".diffsim: datasets.scale_nphotons"
+        RawData_from_simulation -.-> ".tf_helper: hh.combine_complex"
+        PtychoDataContainer_init -.-> ".tf_helper: hh.combine_complex"
+        PtychoDataContainer_from_raw_data_without_pc -.-> ".params: cfg.get()"
+        tile_gt_object -.-> ".params: params()"
+        tile_gt_object -.-> ".tf_helper: hh.pad"
+        group_coords -.-> ".params: params()"
+        shift_and_sum -.-> ".params: params()"
+        shift_and_sum -.-> ".tf_helper: hh.pad"
+        shift_and_sum -.-> ".tf_helper: hh.translate"
+        load -.-> ".diffsim: datasets.scale_nphotons"
+        load -.-> ".probe: probe.get_probe_mask_real"
+        get_gt_patch -.-> ".tf_helper: hh.translate"
     end
 
-    subgraph data_preprocessing.py
-        create_ptycho_dataset[create_ptycho_dataset]
-        load_simulated_data_container[load_simulated_data_container]
-        generate_data[generate_data]
-        load_experimental_data[load_experimental_data]
-        load_xpp_data[load_xpp_data]
-        load_generic_data[load_generic_data]
+    %% tf_helper.py
+    subgraph tf_helper[tf_helper.py]
+        get_mask[get_mask()]
+        combine_complex[combine_complex()]
+        pad_obj[pad_obj()]
+        pad_and_diffract[pad_and_diffract()]
+        _fromgrid[_fromgrid()]
+        _togrid[_togrid()]
+        togrid[togrid()]
+        _grid_to_channel[_grid_to_channel()]
+        grid_to_channel[grid_to_channel()]
+        _flat_to_channel[_flat_to_channel()]
+        _flat_to_channel_2[_flat_to_channel_2()]
+        _channel_to_flat[_channel_to_flat()]
+        _channel_to_patches[_channel_to_patches()]
+        channel_to_flat[channel_to_flat()]
+        extract_patches[extract_patches()]
+        extract_outer[extract_outer()]
+        extract_inner_grid[extract_inner_grid()]
+        extract_nested_patches[extract_nested_patches()]
+        mk_extract_inner_position[mk_extract_inner_position()]
+        extract_nested_patches_position[extract_nested_patches_position()]
+        extract_patches_inverse[extract_patches_inverse()]
+        reassemble_patches_real[reassemble_patches_real()]
+        pad_patches[pad_patches()]
+        pad[pad()]
+        trim_reconstruction[trim_reconstruction()]
+        extract_patches_position[extract_patches_position()]
+        center_channels[center_channels()]
+        is_complex_tensor[is_complex_tensor()]
+        complexify_helper[complexify_helper()]
+        separate_real_imag[separate_real_imag()]
+        combine_real_imag[combine_real_imag()]
+        separate_amp_phase[separate_amp_phase()]
+        translate[translate()]
+        Translation_call[Translation.call()]
+        flatten_offsets[flatten_offsets()]
+        pad_reconstruction[pad_reconstruction()]
+        _reassemble_patches_position_real[_reassemble_patches_position_real()]
+        mk_centermask[mk_centermask()]
+        mk_norm[mk_norm()]
+        reassemble_patches[reassemble_patches()]
+        reassemble_whole_object[reassemble_whole_object()]
+        mk_reassemble_position_real[mk_reassemble_position_real()]
+        preprocess_objects[preprocess_objects()]
+        reassemble_nested_average[reassemble_nested_average()]
+        gram_matrix[gram_matrix()]
+        high_pass_x_y[high_pass_x_y()]
+        perceptual_loss[perceptual_loss()]
+        meanSquaredLoss[meanSquaredLoss()]
+        masked_MAE_loss[masked_MAE_loss()]
+        total_variation_complex[total_variation_complex()]
+        total_variation[total_variation()]
+        complex_mae[complex_mae()]
+        masked_mae[masked_mae()]
+        realspace_loss[realspace_loss()]
 
-        generate_data --> load_simulated_data_container
-        generate_data --> load_experimental_data
-        generate_data --> load_xpp_data
-        generate_data --> load_generic_data
+        %% Internal dependencies
+        pad_and_diffract --> pad_obj
+        togrid --> _togrid
+        grid_to_channel --> _grid_to_channel
+        channel_to_flat --> _channel_to_flat
+        extract_outer --> extract_patches
+        extract_outer --> _fromgrid
+        extract_outer --> _grid_to_channel
+        extract_inner_grid --> extract_patches
+        extract_nested_patches --> extract_outer
+        extract_nested_patches --> _fromgrid
+        extract_nested_patches --> _grid_to_channel
+        extract_nested_patches_position --> extract_nested_patches
+        extract_nested_patches_position --> mk_extract_inner_position
+        reassemble_patches_real --> _channel_to_patches
+        reassemble_patches_real --> extract_patches_inverse
+        extract_patches_position --> flatten_offsets
+        extract_patches_position --> _channel_to_flat
+        extract_patches_position --> trim_reconstruction
+        center_channels --> _channel_to_flat
+        center_channels --> flatten_offsets
+        center_channels --> _flat_to_channel
+        Translation_call --> translate
+        flatten_offsets --> _channel_to_flat
+        pad_reconstruction --> _channel_to_flat
+        pad_reconstruction --> pad_patches
+        _reassemble_patches_position_real --> flatten_offsets
+        _reassemble_patches_position_real --> _channel_to_flat
+        _reassemble_patches_position_real --> pad_patches
+        _reassemble_patches_position_real --> _flat_to_channel
+        mk_norm --> mk_centermask
+        reassemble_patches --> mk_norm
+        reassemble_whole_object --> reassemble_patches
+        mk_reassemble_position_real --> _reassemble_patches_position_real
+        preprocess_objects --> extract_nested_patches
+        preprocess_objects --> extract_nested_patches_position
+        preprocess_objects --> channel_to_flat
+        reassemble_nested_average --> _togrid
+        reassemble_nested_average --> trim_reconstruction
+        reassemble_nested_average --> extract_patches_inverse
+        perceptual_loss --> gram_matrix
+        perceptual_loss --> meanSquaredLoss
+        total_variation_complex --> high_pass_x_y
+        total_variation --> total_variation_complex
+        masked_MAE_loss --> trim_reconstruction
+        masked_MAE_loss --> reassemble_patches
+        masked_mae --> mk_centermask
+        realspace_loss --> mk_centermask
+        realspace_loss --> total_variation
+        realspace_loss --> complex_mae
 
-        create_ptycho_dataset -.-> ".data.loader: PtychoDataContainer"
-        create_ptycho_dataset -.-> ".data.loader: PtychoDataset"
-        create_ptycho_dataset -.-> ".utils.probe: probe.get_probe"
-        load_simulated_data_container -.-> ".utils.params: params.set"
-        load_simulated_data_container -.-> ".simulation.simulate_data: simulate_data"
-        load_simulated_data_container -.-> ".simulation.simulate_data: process_simulated_data"
-        load_simulated_data_container -.-> ".data.loader: PtychoDataContainer"
-        generate_data -.-> ".data.loader: PtychoDataset"
-        load_experimental_data -.-> ".simulation.experimental: experimental.get_full_experimental"
-        load_experimental_data -.-> ".simulation.simulate_data: simulate_data"
-        load_xpp_data -.-> ".xpp: xpp.load_data"
-        load_generic_data -.-> ".data.loader: RawData.from_files"
-        load_generic_data -.-> ".simulation.simulate_data: simulate_data.load_data"
+        %% External dependencies
+        _fromgrid -.-> ".params: params()"
+        _togrid -.-> ".params: params()"
+        _grid_to_channel -.-> ".params: params()"
+        _flat_to_channel -.-> ".params: params()"
+        _flat_to_channel_2 -.-> ".params: params()"
+        _channel_to_patches -.-> ".params: params()"
+        extract_outer -.-> ".params: get()"
+        extract_inner_grid -.-> ".params: cfg['N']"
+        extract_inner_grid -.-> ".params: params()"
+        extract_nested_patches -.-> ".params: cfg['N']"
+        extract_nested_patches -.-> ".params: params()"
+        extract_patches_inverse -.-> ".params: params()"
+        reassemble_patches_real -.-> ".params: params()"
+        pad_patches -.-> ".params: params()"
+        pad_patches -.-> ".params: get_padded_size()"
+        trim_reconstruction -.-> ".params: cfg['N']"
+        trim_reconstruction -.-> ".params: get_padded_size()"
+        extract_patches_position -.-> ".params: params()"
+        pad_reconstruction -.-> ".params: get_padded_size()"
+        _reassemble_patches_position_real -.-> ".params: get_padded_size()"
+        mk_norm -.-> ".params: params()"
+        reassemble_nested_average -.-> ".params: params.params()"
+        masked_MAE_loss -.-> ".params: params()"
+        masked_mae -.-> ".params: params()"
+        realspace_loss -.-> ".params: get()"
     end
 
-    subgraph evaluation.py
-        recon_patches[recon_patches]
-        symmetrize[symmetrize]
-        symmetrize_3d[symmetrize_3d]
-        cropshow[cropshow]
-        summarize[summarize]
-        plt_metrics[plt_metrics]
-        trim[trim]
-        mae[mae]
-        mse[mse]
-        psnr[psnr]
-        fft2d[fft2d]
-        highpass2d[highpass2d]
-        lowpass2d[lowpass2d]
-        frc50[frc50]
-        eval_reconstruction[eval_reconstruction]
-        save_metrics[save_metrics]
+subgraph params[params.py]
+        get_bigN[get_bigN()]
+        get_padding_size[get_padding_size()]
+        get_padded_size[get_padded_size()]
+        params[params()]
+        validate[validate()]
+        set[set()]
+        get[get()]
+        cfg[cfg]
 
+        %% Internal dependencies
+        get_padded_size --> get_bigN
+        get_padded_size --> get_padding_size
+        params --> get_bigN
+        set --> validate
+        get --> get_bigN
+
+        %% External dependencies
+        get_bigN -.-> cfg
+        get_padding_size -.-> cfg
+        validate -.-> cfg
+        set -.-> cfg
+        get -.-> cfg
+    end
+
+    %% probe.py
+    subgraph probe[probe.py]
+        get_lowpass_filter[get_lowpass_filter()]
+        get_default_probe[get_default_probe()]
+        get_probe[get_probe()]
+        to_np[to_np()]
+        get_squared_distance[get_squared_distance()]
+        get_probe_mask_real[get_probe_mask_real()]
+        get_probe_mask[get_probe_mask()]
+        set_probe[set_probe()]
+        set_probe_guess[set_probe_guess()]
+
+        %% Internal dependencies
+        get_default_probe --> get_lowpass_filter
+        get_probe_mask_real --> get_squared_distance
+        get_probe_mask --> get_probe_mask_real
+        set_probe_guess --> get_default_probe
+        set_probe_guess --> get_probe_mask_real
+
+        %% External dependencies
+        get_lowpass_filter -.-> ".fourier: f.lowpass_g()"
+        get_default_probe -.-> ".fourier: f.gf()"
+        get_default_probe -.-> ".params: params.cfg"
+        get_probe -.-> ".params: params.get()"
+        set_probe -.-> ".params: params.get()"
+        set_probe -.-> ".params: params.set()"
+        set_probe_guess -.-> ".fourier: f.fftshift()"
+        set_probe_guess -.-> ".fourier: f.ifft2()"
+        set_probe_guess -.-> ".fourier: f.ifftshift()"
+        set_probe_guess -.-> ".params: params.get()"
+        set_probe_guess -.-> ".params: params.set()"
+    end
+
+    %% evaluation.py
+    subgraph evaluation[evaluation.py]
+        recon_patches[recon_patches()]
+        symmetrize[symmetrize()]
+        symmetrize_3d[symmetrize_3d()]
+        cropshow[cropshow()]
+        summarize[summarize()]
+        plt_metrics[plt_metrics()]
+        trim[trim()]
+        mae[mae()]
+        mse[mse()]
+        psnr[psnr()]
+        fft2d[fft2d()]
+        highpass2d[highpass2d()]
+        lowpass2d[lowpass2d()]
+        frc50[frc50()]
+        eval_reconstruction[eval_reconstruction()]
+        save_metrics[save_metrics()]
+
+        %% Internal dependencies
         summarize --> cropshow
         highpass2d --> fft2d
         lowpass2d --> fft2d
@@ -193,128 +380,97 @@ graph TD
         eval_reconstruction --> frc50
         save_metrics --> eval_reconstruction
 
+        %% External dependencies
         recon_patches -.-> ".generate_data: data.reassemble()"
+        summarize -.-> ".params: cfg.get()"
         trim -.-> ".params: params.get()"
         frc50 -.-> ".FRC.fourier_ring_corr: frc.FSC()"
         save_metrics -.-> ".misc: misc.get_path_prefix()"
+        save_metrics -.-> ".params: params.cfg"
     end
 
-    subgraph generate_data.py
-        main[main]
-        X_train[X_train]
-        Y_I_train[Y_I_train]
-        Y_phi_train[Y_phi_train]
-        X_test[X_test]
-        Y_I_test[Y_I_test]
-        Y_phi_test[Y_phi_test]
-        YY_ground_truth[YY_ground_truth]
-        ptycho_dataset[ptycho_dataset]
-        YY_test_full[YY_test_full]
-        norm_Y_I_test[norm_Y_I_test]
+    %% data_preprocessing.py
+    subgraph data_preprocessing[data_preprocessing.py]
+        load_simulated_data[load_simulated_data()]
+        load_experimental_data[load_experimental_data()]
+        load_xpp_data[load_xpp_data()]
+        load_generic_data[load_generic_data()]
+        shuffle_data[shuffle_data()]
+        get_clipped_object[get_clipped_object()]
+        get_clip_sizes[get_clip_sizes()]
+        stitch_data[stitch_data()]
+        reassemble[reassemble()]
+        process_simulated_data[process_simulated_data()]
+        create_ptycho_dataset[create_ptycho_dataset()]
+        generate_data[generate_data()]
 
-        main -.-> ".data_preprocessing: generate_data()"
-        main -.-> ".params: p.get()"
+        %% Internal dependencies
+        get_clipped_object --> get_clip_sizes
+        stitch_data --> get_clip_sizes
+        reassemble --> stitch_data
+        process_simulated_data --> shuffle_data
+        process_simulated_data --> get_clipped_object
+        generate_data --> load_simulated_data
+        generate_data --> load_experimental_data
+        generate_data --> load_xpp_data
+        generate_data --> load_generic_data
+        generate_data --> process_simulated_data
+        generate_data --> create_ptycho_dataset
+
+        %% External dependencies
+        load_simulated_data -.-> ".diffsim: datasets.mk_simdata"
+        load_experimental_data -.-> ".simulation.experimental: experimental.get_full_experimental"
+        load_experimental_data -.-> ".diffsim: datasets.mk_simdata"
+        load_xpp_data -.-> ".loader: loader.load"
+        load_xpp_data -.-> ".xpp: xpp.get_data"
+        load_generic_data -.-> ".loader: RawData.from_files"
+        load_generic_data -.-> ".loader: loader.load"
+        get_clipped_object -.-> ".params: params.cfg"
+        get_clip_sizes -.-> ".params: params.cfg"
+        stitch_data -.-> ".params: params.get()"
+        process_simulated_data -.-> ".params: params.get()"
+        create_ptycho_dataset -.-> ".probe: probe.get_probe"
+        generate_data -.-> ".params: params.params()"
+        generate_data -.-> ".params: params.cfg"
+        generate_data -.-> ".probe: probe.get_probe"
     end
 
-    subgraph probe.py
-        get_lowpass_filter[get_lowpass_filter]
-        get_default_probe[get_default_probe]
-        get_probe[get_probe]
-        to_np[to_np]
-        get_squared_distance[get_squared_distance]
-        get_probe_mask_real[get_probe_mask_real]
-        get_probe_mask[get_probe_mask]
-        set_probe[set_probe]
-        set_probe_guess[set_probe_guess]
+    %% diffsim.py
+    subgraph diffsim[diffsim.py]
+        observe_amplitude[observe_amplitude()]
+        count_photons[count_photons()]
+        scale_nphotons[scale_nphotons()]
+        diffract_obj[diffract_obj()]
+        illuminate_and_diffract[illuminate_and_diffract()]
+        mk_rand[mk_rand()]
+        mk_lines_img[mk_lines_img()]
+        mk_noise[mk_noise()]
+        extract_coords[extract_coords()]
+        add_position_jitter[add_position_jitter()]
+        scan_and_normalize[scan_and_normalize()]
+        dummy_phi[dummy_phi()]
+        sim_object_image[sim_object_image()]
+        mk_simdata[mk_simdata()]
 
-        get_default_probe --> get_lowpass_filter
-        get_probe_mask_real --> get_squared_distance
-        get_probe_mask --> get_probe_mask_real
-        set_probe --> get_probe_mask
-        set_probe_guess --> get_default_probe
-        set_probe_guess --> get_probe_mask_real
-
-        get_lowpass_filter -.-> ".fourier: f.lowpass_g()"
-        get_default_probe -.-> ".fourier: f.gf()"
-        get_default_probe -.-> ".params: params.cfg"
-        get_probe -.-> ".params: params.get()"
-        set_probe -.-> ".params: params.get()"
-        set_probe -.-> ".params: params.set()"
-        set_probe_guess -.-> ".fourier: f.fftshift()"
-        set_probe_guess -.-> ".fourier: f.ifft2()"
-        set_probe_guess -.-> ".fourier: f.ifftshift()"
-    end
-
-    subgraph params.py
-        cfg[cfg]
-        get_bigN[get_bigN]
-        get_padding_size[get_padding_size]
-        get_padded_size[get_padded_size]
-        params[params]
-        validate[validate]
-        set[set]
-        get[get]
-
-        get_padded_size --> get_bigN
-        params --> get_bigN
-        set --> validate
-        get --> get_bigN
-
-        get_bigN --> cfg
-        get_padding_size --> cfg
-        get_padded_size --> cfg
-        params --> cfg
-        validate --> cfg
-        set --> cfg
-        get --> cfg
-    end
-
-    subgraph misc.py
-        get_path_prefix[get_path_prefix]
-        colormap2arr[colormap2arr]
-        memoize_disk_and_memory[memoize_disk_and_memory]
-        cross_image[cross_image]
-
-        get_path_prefix -.-> ".params: params.cfg"
-        get_path_prefix -.-> ".params: params.get()"
-        get_path_prefix -.-> ".params: params.set()"
-        memoize_disk_and_memory -.-> ".params: params.cfg"
-    end
-
-graph TD
-    subgraph diffsim.py
-        observe_amplitude[observe_amplitude]
-        count_photons[count_photons]
-        scale_nphotons[scale_nphotons]
-        diffract_obj[diffract_obj]
-        illuminate_and_diffract[illuminate_and_diffract]
-        mk_rand[mk_rand]
-        mk_lines_img[mk_lines_img]
-        mk_noise[mk_noise]
-        extract_coords[extract_coords]
-        add_position_jitter[add_position_jitter]
-        scan_and_normalize[scan_and_normalize]
-        dummy_phi[dummy_phi]
-        sim_object_image[sim_object_image]
-        mk_simdata[mk_simdata]
-
+        %% Internal dependencies
         scale_nphotons --> count_photons
         diffract_obj --> observe_amplitude
         illuminate_and_diffract --> scale_nphotons
         illuminate_and_diffract --> diffract_obj
         mk_lines_img --> mk_rand
         scan_and_normalize --> extract_coords
-        scan_and_normalize --> add_position_jitter
         sim_object_image --> mk_lines_img
         sim_object_image --> mk_noise
         mk_simdata --> sim_object_image
         mk_simdata --> scan_and_normalize
         mk_simdata --> illuminate_and_diffract
 
+        %% External dependencies
         observe_amplitude -.-> ".tf_helper: hh.tfd.Independent"
         observe_amplitude -.-> ".tf_helper: hh.tfd.Poisson"
         scale_nphotons -.-> ".params: p.get()"
         diffract_obj -.-> ".tf_helper: hh.pad_and_diffract"
+        diffract_obj -.-> ".params: p.get()"
         illuminate_and_diffract -.-> ".tf_helper: hh.combine_complex"
         illuminate_and_diffract -.-> ".tf_helper: hh.togrid"
         illuminate_and_diffract -.-> ".tf_helper: hh.grid_to_channel"
@@ -324,131 +480,128 @@ graph TD
         extract_coords -.-> ".tf_helper: hh.extract_nested_patches"
         scan_and_normalize -.-> ".tf_helper: hh.preprocess_objects"
         sim_object_image -.-> ".params: p.get()"
-        sim_object_image -.-> ".datagen.grf: grf.mk_grf"
-        sim_object_image -.-> ".datagen.points: points.mk_points"
-        sim_object_image -.-> ".datagen.testimg: testimg.get_img"
-        sim_object_image -.-> ".datagen.diagonals: diagonals.mk_diags"
-        sim_object_image -.-> ".datagen.vendetta: vendetta.mk_vs"
         mk_simdata -.-> ".params: p.get()"
-        mk_simdata -.-> ".tf_helper: hh.combine_complex"
     end
 
-    subgraph xpp.py
-        get_data[get_data]
-        train_frac[train_frac]
-        N[N]
-        gridh[gridh]
-        gridw[gridw]
-        data_file_path[data_file_path]
-        ptycho_data[ptycho_data]
-        ptycho_data_train[ptycho_data_train]
-        obj[obj]
-        probeGuess[probeGuess]
-        objectGuess[objectGuess]
+    %% model_manager.py
+    subgraph model_manager[model_manager.py]
+        ModelManager_save_model[ModelManager.save_model()]
+        ModelManager_load_model[ModelManager.load_model()]
+        ModelManager_save_multiple_models[ModelManager.save_multiple_models()]
+        ModelManager_load_multiple_models[ModelManager.load_multiple_models()]
+        save[save()]
 
-        ptycho_data -.-> ".loader: load_ptycho_data()"
-        ptycho_data_train -.-> ".loader: load_ptycho_data()"
+        %% Internal dependencies
+        ModelManager_save_multiple_models --> ModelManager_save_model
+        ModelManager_load_multiple_models --> ModelManager_load_model
+        save --> ModelManager_save_multiple_models
+
+        %% External dependencies
+        ModelManager_load_model -.-> ".params: params.cfg.update()"
+        ModelManager_load_model -.-> ".params: params.set()"
+        save -.-> ".params: params.get()"
     end
 
-    subgraph train.py
-        main[main]
-        save_model[save_model]
-        save_data[save_data]
-        parser[parser]
+    %% misc.py
+    subgraph misc[misc.py]
+        get_path_prefix[get_path_prefix()]
+        colormap2arr[colormap2arr()]
+        memoize_disk_and_memory[memoize_disk_and_memory()]
+        cross_image[cross_image()]
 
-        main -.-> ".params: params.cfg"
-        main -.-> ".misc: misc.get_path_prefix()"
-        main -.-> ".generate_data: generate_data.ptycho_dataset"
-        main -.-> ".generate_data: generate_data.YY_ground_truth"
-        main -.-> ".generate_data: generate_data.YY_test_full"
-        main -.-> ".generate_data: generate_data.Y_I_test"
-        main -.-> ".generate_data: generate_data.Y_phi_test"
-        main -.-> ".generate_data: generate_data.X_test"
-        main -.-> ".generate_data: generate_data.norm_Y_I_test"
-        main -.-> ".model_manager: model_manager.save()"
-        main -.-> ".train_pinn: train_pinn.train_eval()"
-        main -.-> ".train_supervised: train_supervised.stitched_obj"
-        main -.-> ".train_supervised: train_supervised.history"
-        main -.-> ".train_supervised: train_supervised.reconstructed_obj"
-        main -.-> ".export: save_recons()"
+        %% External dependencies
+        get_path_prefix -.-> ".params: params.cfg"
+        get_path_prefix -.-> ".params: params.params()"
+        get_path_prefix -.-> ".params: params.get()"
+        get_path_prefix -.-> ".params: params.set()"
     end
 
-    subgraph train_supervised.py
-        xyshift[xyshift]
-        get_recon_patches_single_channel[get_recon_patches_single_channel]
-        get_recon_patches_grid[get_recon_patches_grid]
-        offset[offset]
-        model[model]
-        history[history]
-        reconstructed_obj[reconstructed_obj]
-        reconstructed_obj_train[reconstructed_obj_train]
-        stitched_obj[stitched_obj]
+    %% inference.py
+    subgraph inference[inference.py]
+        load_pretrained_model[load_pretrained_model()]
+        prepare_data[prepare_data()]
+        perform_inference[perform_inference()]
+        inference_flow[inference_flow()]
 
-        get_recon_patches_grid --> xyshift
+        %% Internal dependencies
+        inference_flow --> load_pretrained_model
+        inference_flow --> prepare_data
+        inference_flow --> perform_inference
 
-        offset -.-> ".params: p.get()"
-        get_recon_patches_single_channel -.-> ".baselines: bl.params.params()"
-        get_recon_patches_single_channel -.-> ".tf_helper: hh.combine_complex()"
-        get_recon_patches_grid -.-> ".baselines: bl.params.params()"
-        get_recon_patches_grid -.-> ".tf_helper: hh.combine_complex()"
-        stitched_obj -.-> ".generate_data: reassemble()"
+        %% External dependencies
+        load_pretrained_model -.-> ".model_manager: ModelManager.load_model()"
+        prepare_data -.-> ".model: model.params()"
+        perform_inference -.-> ".model: model.predict()"
+        perform_inference -.-> ".model: model.params()"
+        inference_flow -.-> ".params: params.get()"
     end
 
-    subgraph plotting.py
-        ishow_imgs[ishow_imgs]
+    %% generate_data.py
+    subgraph generate_data[generate_data.py]
+        main[main()]
+
+        %% External dependencies
+        main -.-> ".data_preprocessing: generate_data()"
+        main -.-> ".params: p.get()"
     end
 
-    subgraph nbutils.py
-        crop_to_non_uniform_region_with_buffer[crop_to_non_uniform_region_with_buffer]
-        mk_epie_comparison2x2[mk_epie_comparison2x2]
-        reconstruct_image[reconstruct_image]
-        print_shapes[print_shapes]
-        probeshow[probeshow]
-        track_dict_changes[track_dict_changes]
+    %% export.py
+    subgraph export[export.py]
+        save_recons[save_recons()]
 
-        reconstruct_image -.-> ".model: model.diffraction_to_obj"
-        reconstruct_image -.-> ".model: model.params"
-    end
-
-    subgraph export.py
-        save_recons[save_recons]
-
+        %% External dependencies
         save_recons -.-> ".misc: get_path_prefix()"
         save_recons -.-> ".params: get()"
         save_recons -.-> ".evaluation: save_metrics()"
     end
 
-    subgraph logging.py
-        make_invocation_counter[make_invocation_counter]
-        debug[debug]
-        load_logged_data[load_logged_data]
-        get_type_and_dim[get_type_and_dim]
-        process_log_file[process_log_file]
-        extract_logged_data[extract_logged_data]
-        main[main]
-        CustomResult[CustomResult]
+    %% logging.py
+    subgraph logging[logging.py]
+        SerializationError[SerializationError]
+        LoggedDataNotFoundError[LoggedDataNotFoundError]
+        make_invocation_counter[make_invocation_counter()]
+        debug[debug()]
+        load_logged_data[load_logged_data()]
+        get_type_and_dim[get_type_and_dim()]
+        process_log_file[process_log_file()]
+        extract_logged_data[extract_logged_data()]
+        main[main()]
 
+        %% Internal dependencies
         debug --> make_invocation_counter
         process_log_file --> load_logged_data
         process_log_file --> get_type_and_dim
         extract_logged_data --> process_log_file
         main --> extract_logged_data
 
+        %% External dependencies
         debug -.-> ".params: params.get()"
     end
 
-    subgraph cxiprocess.py
-        load_diffraction_data[load_diffraction_data]
-        bin_diffraction_data[bin_diffraction_data]
-        crop_diffraction_data[crop_diffraction_data]
-        preprocess_diffraction_data[preprocess_diffraction_data]
-        load_probe_data[load_probe_data]
-        load_scan_positions[load_scan_positions]
-        load_scan_index[load_scan_index]
-        load_object_guess[load_object_guess]
-        save_preprocessed_data[save_preprocessed_data]
-        preprocess_cxi_to_npy[preprocess_cxi_to_npy]
+    %% xpp.py
+    subgraph xpp[xpp.py]
+        get_data[get_data()]
+        cross_image[cross_image()]
 
+        %% External dependencies
+        ptycho_data -.-> ".loader: load_ptycho_data()"
+        ptycho_data_train -.-> ".loader: load_ptycho_data()"
+    end
+
+    %% cxiprocess.py
+    subgraph cxiprocess[cxiprocess.py]
+        load_diffraction_data[load_diffraction_data()]
+        bin_diffraction_data[bin_diffraction_data()]
+        crop_diffraction_data[crop_diffraction_data()]
+        preprocess_diffraction_data[preprocess_diffraction_data()]
+        load_probe_data[load_probe_data()]
+        load_scan_positions[load_scan_positions()]
+        load_scan_index[load_scan_index()]
+        load_object_guess[load_object_guess()]
+        save_preprocessed_data[save_preprocessed_data()]
+        preprocess_cxi_to_npy[preprocess_cxi_to_npy()]
+
+        %% Internal dependencies
         preprocess_diffraction_data --> crop_diffraction_data
         preprocess_diffraction_data --> bin_diffraction_data
         preprocess_cxi_to_npy --> load_diffraction_data
@@ -459,8 +612,429 @@ graph TD
         preprocess_cxi_to_npy --> load_object_guess
         preprocess_cxi_to_npy --> save_preprocessed_data
 
+        %% External dependencies
         preprocess_cxi_to_npy -.-> ".probe_processor: process_probe()"
     end
+
+    %% nbutils.py
+    subgraph nbutils[nbutils.py]
+        crop_to_non_uniform_region_with_buffer[crop_to_non_uniform_region_with_buffer()]
+        mk_epie_comparison2x2[mk_epie_comparison2x2()]
+        reconstruct_image[reconstruct_image()]
+        print_shapes[print_shapes()]
+        probeshow[probeshow()]
+        track_dict_changes[track_dict_changes()]
+
+        %% External dependencies
+        reconstruct_image -.-> ".model: model.diffraction_to_obj"
+        reconstruct_image -.-> ".model: model.params"
+    end
+
+    %% plotting.py
+    subgraph plotting[plotting.py]
+        ishow_imgs[ishow_imgs()]
+    end
+
+subgraph fourier[fourier.py]
+        plot_df[plot_df()]
+        lowpass_g[lowpass_g()]
+        highpass_g[highpass_g()]
+        bandpass_g[bandpass_g()]
+        clip_high[clip_high()]
+        clip_low[clip_low()]
+        clip_low_window[clip_low_window()]
+        if_mag[if_mag()]
+        power[power()]
+        mag[mag()]
+        lorenz[lorenz()]
+
+        %% Internal dependencies
+        highpass_g --> lowpass_g
+        bandpass_g --> lowpass_g
+        bandpass_g --> highpass_g
+        mag --> power
+    end
+
+    %% train_supervised.py
+    subgraph train_supervised[train_supervised.py]
+        xyshift[xyshift()]
+        get_recon_patches_single_channel[get_recon_patches_single_channel()]
+        get_recon_patches_grid[get_recon_patches_grid()]
+        offset[offset]
+        model[model]
+        history[history]
+        reconstructed_obj[reconstructed_obj]
+        reconstructed_obj_train[reconstructed_obj_train]
+        stitched_obj[stitched_obj]
+
+        %% Internal dependencies
+        get_recon_patches_grid --> xyshift
+
+        %% External dependencies
+        get_recon_patches_single_channel -.-> ".baselines: bl.params.params()"
+        get_recon_patches_single_channel -.-> ".tf_helper: hh.combine_complex()"
+        get_recon_patches_grid -.-> ".baselines: bl.params.params()"
+        get_recon_patches_grid -.-> ".tf_helper: hh.combine_complex()"
+        stitched_obj -.-> ".generate_data: reassemble()"
+    end
+
+    %% autotest/debug.py
+    subgraph debug[debug.py]
+        Debug_init[Debug.__init__()]
+        Debug_decorate[Debug.decorate()]
+        Debug_formatConsoleLog[Debug._formatConsoleLog()]
+        TestDebug_setUp[TestDebug.setUp()]
+        TestDebug_test_decorate_call[TestDebug.test_decorate_call()]
+        TestDebug_test_decorate_return[TestDebug.test_decorate_return()]
+        TestDebug_test_decorate_error[TestDebug.test_decorate_error()]
+        obj[obj]
+        debug[debug]
+
+        %% Internal dependencies
+        Debug_decorate --> Debug_formatConsoleLog
+
+        %% External dependencies
+        Debug_init -.-> ".configuration: Configuration()"
+        Debug_init -.-> ".serializer: Serializer()"
+        Debug_init -.-> ".logger: Logger()"
+        Debug_init -.-> ".functionmapping: FunctionMapping()"
+        TestDebug_setUp -.-> ".configuration: Configuration()"
+        TestDebug_setUp -.-> ".serializer: Serializer()"
+        TestDebug_setUp -.-> ".logger: Logger()"
+        TestDebug_setUp -.-> ".functionmapping: FunctionMapping()"
+        TestDebug_test_decorate_call -.-> "Debug.decorate()"
+        TestDebug_test_decorate_return -.-> "Debug.decorate()"
+        TestDebug_test_decorate_error -.-> "Debug.decorate()"
+    end
+
+    %% autotest/functionmapping.py
+    subgraph functionmapping[functionmapping.py]
+        FunctionMapping_init[FunctionMapping.__init__()]
+        FunctionMapping_get_log_file_path[FunctionMapping.get_log_file_path()]
+        FunctionMapping_save_function[FunctionMapping.save_function()]
+        FunctionMapping_load_function_from_path[FunctionMapping.load_function_from_path()]
+        FunctionMapping_get_module_and_function_from_log_path[FunctionMapping.get_module_and_function_from_log_path()]
+        FunctionMapping_load_function[FunctionMapping.load_function()]
+        FunctionMapping_get_module_path[FunctionMapping.get_module_path()]
+        sample_function[sample_function()]
+        another_function[another_function()]
+        test_get_log_file_path[test_get_log_file_path()]
+        test_load_function[test_load_function()]
+        test_get_module_path[test_get_module_path()]
+
+        %% Internal dependencies
+        FunctionMapping_save_function --> FunctionMapping_get_module_and_function_from_log_path
+        FunctionMapping_load_function_from_path --> FunctionMapping_get_module_and_function_from_log_path
+        FunctionMapping_load_function --> FunctionMapping_load_function_from_path
+        test_get_log_file_path --> FunctionMapping_get_log_file_path
+        test_load_function --> FunctionMapping_get_log_file_path
+        test_load_function --> FunctionMapping_load_function
+        test_get_module_path --> FunctionMapping_get_module_path
+    end
+
+    %% autotest/logger.py
+    subgraph logger[logger.py]
+        Logger_init[Logger.__init__()]
+        Logger_logCall[Logger.logCall()]
+        Logger_logReturn[Logger.logReturn()]
+        Logger_logError[Logger.logError()]
+        Logger_loadLog[Logger.loadLog()]
+        Logger_searchLogDirectory[Logger.searchLogDirectory()]
+        Logger_validateLogFilePath[Logger.validateLogFilePath()]
+        TestLogger_setUp[TestLogger.setUp()]
+        TestLogger_tearDown[TestLogger.tearDown()]
+        TestLogger_test_logCall[TestLogger.test_logCall()]
+        TestLogger_test_logReturn[TestLogger.test_logReturn()]
+        TestLogger_test_logError[TestLogger.test_logError()]
+        TestLogger_test_loadLog[TestLogger.test_loadLog()]
+        TestLogger_test_searchLogDirectory[TestLogger.test_searchLogDirectory()]
+        TestLogger_test_validateLogFilePath[TestLogger.test_validateLogFilePath()]
+
+        %% Internal dependencies
+        Logger_searchLogDirectory --> Logger_validateLogFilePath
+
+        %% External dependencies
+        Logger_init -.-> ".serializer: Serializer()"
+        TestLogger_setUp -.-> "Logger()"
+        TestLogger_test_logCall -.-> "Logger.logCall()"
+        TestLogger_test_logReturn -.-> "Logger.logReturn()"
+        TestLogger_test_logError -.-> "Logger.logError()"
+        TestLogger_test_loadLog -.-> "Logger.logCall()"
+        TestLogger_test_loadLog -.-> "Logger.logReturn()"
+        TestLogger_test_loadLog -.-> "Logger.loadLog()"
+        TestLogger_test_searchLogDirectory -.-> "Logger.searchLogDirectory()"
+        TestLogger_test_validateLogFilePath -.-> "Logger.validateLogFilePath()"
+    end
+
+    %% autotest/serializer.py
+    subgraph serializer[serializer.py]
+        Serializer_serialize[Serializer.serialize()]
+        Serializer_deserialize[Serializer.deserialize()]
+    end
+
+    %% autotest/testing.py
+    subgraph testing[testing.py]
+        TestSummary_init[TestSummary.__init__()]
+        TestSummary_increment_passed[TestSummary.increment_passed()]
+        TestSummary_increment_failed[TestSummary.increment_failed()]
+        TestSummary_increment_skipped[TestSummary.increment_skipped()]
+        TestSummary_repr[TestSummary.__repr__()]
+        Testing_init[Testing.__init__()]
+        Testing_testCallable[Testing.testCallable()]
+        Testing_createTestCase[Testing.createTestCase()]
+        Testing_runTestSuite[Testing.runTestSuite()]
+        TestTesting_setUp[TestTesting.setUp()]
+        TestTesting_test_testCallable[TestTesting.test_testCallable()]
+        TestTesting_test_createTestCase[TestTesting.test_createTestCase()]
+        TestTesting_test_runTestSuite[TestTesting.test_runTestSuite()]
+        add[add()]
+        multiply[multiply()]
+        divide[divide()]
+
+        %% Internal dependencies
+        Testing_runTestSuite --> Testing_createTestCase
+        Testing_runTestSuite --> Testing_testCallable
+        Testing_runTestSuite --> TestSummary_init
+
+        %% External dependencies
+        Testing_init -.-> ".logger: Logger()"
+        Testing_init -.-> ".functionmapping: FunctionMapping()"
+        Testing_testCallable -.-> ".logger: Logger.searchLogDirectory()"
+        Testing_testCallable -.-> ".logger: Logger.loadLog()"
+        Testing_testCallable -.-> ".logger: Logger.serializer.deserialize()"
+        Testing_createTestCase -.-> ".logger: Logger.searchLogDirectory()"
+        Testing_createTestCase -.-> ".logger: Logger.loadLog()"
+        Testing_createTestCase -.-> ".functionmapping: FunctionMapping.load_function()"
+        Testing_runTestSuite -.-> ".logger: Logger.searchLogDirectory()"
+        TestTesting_setUp -.-> ".logger: Logger()"
+        TestTesting_setUp -.-> ".functionmapping: FunctionMapping()"
+        TestTesting_test_testCallable -.-> "Testing.testCallable()"
+        TestTesting_test_testCallable -.-> ".logger: Logger.logReturn()"
+        TestTesting_test_createTestCase -.-> "Testing.createTestCase()"
+        TestTesting_test_createTestCase -.-> ".logger: Logger.logReturn()"
+        TestTesting_test_createTestCase -.-> ".functionmapping: FunctionMapping.save_function()"
+        TestTesting_test_runTestSuite -.-> "Testing.runTestSuite()"
+        TestTesting_test_runTestSuite -.-> ".logger: Logger.logReturn()"
+        TestTesting_test_runTestSuite -.-> ".functionmapping: FunctionMapping.save_function()"
+    end
+
+    %% autotest/configuration.py
+    subgraph configuration[configuration.py]
+        Configuration_init[Configuration.__init__()]
+        Configuration_getDebugFlag[Configuration.getDebugFlag()]
+        Configuration_getLogFilePrefix[Configuration.getLogFilePrefix()]
+    end
+
+    %% datagen/grf.py
+    subgraph grf[grf.py]
+        powerspec[powerspec()]
+        smooth_field[smooth_field()]
+        mainland[mainland()]
+        normalize_field[normalize_field()]
+        generate_map[generate_map()]
+        mk_grf[mk_grf()]
+
+        %% Internal dependencies
+        generate_map --> normalize_field
+        generate_map --> smooth_field
+        mk_grf --> generate_map
+
+        %% External dependencies
+        generate_map -.-> "pbox.powerbox.PowerBox()"
+    end
+
+    %% datagen/vendetta.py
+    subgraph vendetta[vendetta.py]
+        letter_to_array[letter_to_array()]
+        create_canvas[create_canvas()]
+        create_sprite[create_sprite()]
+        add_sprite_to_canvas[add_sprite_to_canvas()]
+        mk_vs[mk_vs()]
+        font_path[font_path]
+        sprite[sprite]
+
+        %% Internal dependencies
+        mk_vs --> create_canvas
+        mk_vs --> create_sprite
+        mk_vs --> add_sprite_to_canvas
+
+        %% External dependencies
+        mk_vs -.-> ".fourier: f.gf()"
+    end
+
+    %% datagen/testimg.py
+    subgraph testimg[testimg.py]
+        first_and_last[first_and_last()]
+        get_block[get_block()]
+        get_img[get_img()]
+        path[path]
+        image[image]
+        N[N]
+        imgs[imgs]
+        rev[rev]
+        it[it]
+        rev_it[rev_it]
+
+        %% Internal dependencies
+        get_img --> get_block
+
+        %% External dependencies
+        imgs -.-> ".tf_helper: hh.extract_patches()"
+        N -.-> ".params: params.get()"
+    end
+
+    %% datagen/diagonals.py
+    subgraph diagonals[diagonals.py]
+        draw_lines[draw_lines()]
+        mk_diags[mk_diags()]
+
+        %% Internal dependencies
+        mk_diags --> draw_lines
+
+        %% External dependencies
+        mk_diags -.-> "scipy.ndimage: gf"
+    end
+
+    %% datagen/points.py
+    subgraph points[points.py]
+        randones[randones()]
+        mk_points[mk_points()]
+
+        %% Internal dependencies
+        mk_points --> randones
+
+        %% External dependencies
+        mk_points -.-> "scipy.ndimage: gf"
+    end
+
+    %% FRC/fourier_ring_corr.py
+    subgraph fourier_ring_corr[fourier_ring_corr.py]
+        FSC[FSC()]
+
+        %% External dependencies
+        FSC -.-> ".spin_average: sa.spinavej()"
+    end
+
+    %% FRC/spin_average.py
+    subgraph spin_average[spin_average.py]
+        spinavej[spinavej()]
+    end
+
+    %% workflows/visualize_results.py
+    subgraph visualize_results[visualize_results.py]
+        visualize_results[visualize_results()]
+
+        %% External dependencies
+        visualize_results -.-> ".evaluation: evaluation.summarize()"
+    end
+
+    %% workflows/components.py
+    subgraph components[components.py]
+        load_data[load_data()]
+        update_params[update_params()]
+        parse_arguments[parse_arguments()]
+        load_yaml_config[load_yaml_config()]
+        merge_configs[merge_configs()]
+        validate_config[validate_config()]
+        setup_configuration[setup_configuration()]
+        load_and_prepare_data[load_and_prepare_data()]
+        create_ptycho_data_container[create_ptycho_data_container()]
+        train_cdi_model[train_cdi_model()]
+        reassemble_cdi_image[reassemble_cdi_image()]
+        run_cdi_example[run_cdi_example()]
+        save_outputs[save_outputs()]
+        ARG_TO_CONFIG_MAP[ARG_TO_CONFIG_MAP]
+
+        %% Internal dependencies
+        setup_configuration --> load_yaml_config
+        setup_configuration --> merge_configs
+        setup_configuration --> validate_config
+        train_cdi_model --> create_ptycho_data_container
+        reassemble_cdi_image --> create_ptycho_data_container
+        run_cdi_example --> train_cdi_model
+        run_cdi_example --> reassemble_cdi_image
+
+        %% External dependencies
+        update_params -.-> ".params: p.set()"
+        merge_configs -.-> ".params: p.cfg"
+        setup_configuration -.-> ".params: p.cfg.update()"
+        load_and_prepare_data -.-> ".loader: loader.load_xpp_npz()"
+        create_ptycho_data_container -.-> ".loader: loader.load()"
+        train_cdi_model -.-> ".probe: probe.set_probe_guess()"
+        train_cdi_model -.-> ".train_pinn: train_pinn.train_eval()"
+        reassemble_cdi_image -.-> ".loader: loader.reassemble_position()"
+    end
+
+%% scripts/training/train.py
+    subgraph train_script[train.py]
+        main[main()]
+
+        %% External dependencies
+        main -.-> ".workflows.components: parse_arguments()"
+        main -.-> ".workflows.components: setup_configuration()"
+        main -.-> ".workflows.components: load_data()"
+        main -.-> ".workflows.components: run_cdi_example()"
+        main -.-> ".model_manager: model_manager.save()"
+        main -.-> ".workflows.components: save_outputs()"
+    end
+
+    %% scripts/inference/inference.py
+    subgraph inference_script[inference.py]
+        parse_arguments[parse_arguments()]
+        load_model[load_model()]
+        perform_inference[perform_inference()]
+        save_comparison_image[save_comparison_image()]
+        save_probe_visualization[save_probe_visualization()]
+        main[main()]
+
+        %% Internal dependencies
+        main --> parse_arguments
+        main --> load_model
+        main --> perform_inference
+        main --> save_comparison_image
+        main --> save_probe_visualization
+
+        %% External dependencies
+        load_model -.-> ".model_manager: ModelManager.load_model()"
+        load_model -.-> ".params: params.cfg"
+        perform_inference -.-> ".probe: probe.set_probe_guess()"
+        perform_inference -.-> ".loader: loader.reassemble_position()"
+        main -.-> ".workflows.components: load_data()"
+    end
+
+    %% scripts/train.py
+    subgraph train_main[train.py]
+        parse_arguments[parse_arguments()]
+        load_yaml_config[load_yaml_config()]
+        merge_configs[merge_configs()]
+        validate_config[validate_config()]
+        setup_configuration[setup_configuration()]
+        load_and_prepare_data[load_and_prepare_data()]
+        run_cdi_example[run_cdi_example()]
+        save_outputs[save_outputs()]
+        main[main()]
+        ARG_TO_CONFIG_MAP[ARG_TO_CONFIG_MAP]
+
+        %% Internal dependencies
+        setup_configuration --> load_yaml_config
+        setup_configuration --> merge_configs
+        setup_configuration --> validate_config
+        main --> parse_arguments
+        main --> setup_configuration
+        main --> load_and_prepare_data
+        main --> run_cdi_example
+        main --> save_outputs
+
+        %% External dependencies
+        merge_configs -.-> ".params: params.cfg"
+        setup_configuration -.-> ".params: params.cfg.update()"
+        load_and_prepare_data -.-> ".xpp: xpp.load_ptycho_data()"
+        run_cdi_example -.-> ".probe: probe.set_probe_guess()"
+        run_cdi_example -.-> ".generate_data: generate_data.generate_data()"
+        run_cdi_example -.-> ".model: model.train()"
+        save_outputs -.-> ".evaluation: save_metrics()"
+    end
+
 
 %% project level
 graph TD
