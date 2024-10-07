@@ -17,7 +17,7 @@ data_config_default = {
     'C': 4,
     'K': 6,
     'n_subsample': 10,
-    'grid_size': (2,2),
+    'gridsize': (2,2),
     'probe_dir_get': False,
 }
 

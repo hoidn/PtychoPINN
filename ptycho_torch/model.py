@@ -15,6 +15,8 @@ import ptycho_torch.helper as hh
 #Ensuring 64float b/c of complex numbers
 torch.set_default_dtype(torch.float32)
 
+device = TrainingConfig().get('device')
+
 #Helping modules
 
 class Tanh_custom_act(nn.Module):
@@ -165,10 +167,10 @@ class Decoder_last(nn.Module):
         super(Decoder_last, self).__init__()
         #Grab parameters
         self.N = DataConfig().get('N')
-        self.gridsize = DataConfig().get('gridsize')
+        self.gridsize = DataConfig().get('grid_size')
 
         #Channel splitting
-        self.c_outer = self.gridsize ** 2
+        self.c_outer = self.gridsize[0] * self.gridsize[1]
 
         #Layers
         self.conv1 =  nn.Conv2d(in_channels = in_channels - self.c_outer,
@@ -207,8 +209,8 @@ class Decoder_last(nn.Module):
 class Decoder_phase(Decoder_base):
     def __init__(self, n_filters_scale):
         super(Decoder_phase, self).__init__(n_filters_scale)
-        grid_size = DataConfig().get('gridsize')
-        num_images = grid_size ** 2
+        grid_size = DataConfig().get('grid_size')
+        num_images = grid_size[0] * grid_size[1]
         #Nn layers
 
         #Custom nn layers with specific identifiable names
@@ -271,14 +273,14 @@ class ProbeIllumination(nn.Module):
     Probe illumination done using hadamard product of object tensor and 2D probe function.
     2D probe function should be supplised by the dataloader
     '''
-    def __init__(self):
+    def __init__(self, device):
         super(ProbeIllumination, self).__init__()
         N = DataConfig().get('N')
         #Check if probe mask exists
         #If not, probe mask is just a ones matrix
         #If mask exists, save mask is class attribute
         if not ModelConfig().get('probe.mask'):
-            self.probe_mask = torch.ones((N, N))
+            self.probe_mask = torch.ones((N, N), device = device)
         else:
             self.probe_mask = ModelConfig().get('probe.mask')
     
@@ -357,13 +359,13 @@ class ForwardModel(nn.Module):
     probe: torch.Tensor, dtype = complex64
         Probe function
     '''
-    def __init__(self):
+    def __init__(self, device):
         super(ForwardModel, self).__init__()
 
         #Configuration 
         self.n_filters_scale = ModelConfig().get('n_filters_scale')
         self.N = DataConfig().get('N')
-        self.gridsize = DataConfig().get('gridsize')
+        self.gridsize = DataConfig().get('grid_size')
         self.offset = ModelConfig().get('offset')
         self.object_big = ModelConfig().get('object.big')
         self.nll = TrainingConfig().get('nll') #True or False
@@ -378,7 +380,7 @@ class ForwardModel(nn.Module):
         self.add_module('extract_patches',
                         LambdaLayer(hh.extract_channels_from_region))
         #Probe Illumination
-        self.probe_illumination = ProbeIllumination()
+        self.probe_illumination = ProbeIllumination(device)
 
         #Pad/diffract
         self.add_module('pad_and_diffract',
@@ -516,12 +518,13 @@ class PtychoPINN(nn.Module):
     def __init__(self):
         super(PtychoPINN, self).__init__()
         self.n_filters_scale = ModelConfig().get('n_filters_scale')
+        self.device = TrainingConfig().get('device')
         #Autoencoder
         self.autoencoder = Autoencoder(self.n_filters_scale)
         self.combine_complex = CombineComplex()
         #Adding named modules for forward operation
         #Patch operations
-        self.forward_model = ForwardModel()
+        self.forward_model = ForwardModel(self.device)
         #Choose loss function
         if ModelConfig().get('loss_function') == 'Poisson':
             self.Loss = PoissonLoss()
@@ -533,7 +536,8 @@ class PtychoPINN(nn.Module):
         x_amp, x_phase = self.autoencoder(x)
         #Combine amp and phase
         x_combined = self.combine_complex(x_amp, x_phase)
-        #Run through forward model
+        #Run through forward j
+        scale_factor = scale_factor.view(-1, 1, 1, 1)
         x_out = self.forward_model(x_combined, positions, probe, scale_factor)
         #Get loss
         if self.training:

@@ -78,24 +78,39 @@ class PtychoDataset(Dataset):
         self.ptycho_dir = ptycho_dir
         self.n_files = len(os.listdir(ptycho_dir))
 
+        #Putting all relevant information within accessible dictionary
+        self.data_dict = {}
+
         #Either grab probes from directory or expect them to be provided in configs
         if DataConfig().get('probe_dir_get'):
             self.get_probes(probe_dir)
         else:
-            self.probes = DataConfig().get('probes')
+            self.data_dict['probes'] = DataConfig().get('probes')
 
-        #Calculate length for __len__ method
+        #Calculate length for __len__ method and __get__
         self.length, self.im_shape, self.cum_length = self.calculate_length(ptycho_dir)
 
-        #Putting all relevant information within accessible dictionary
-        self.data_dict = {}
+        #Image stack memory mapping
+        data_prefix = data_dir.split('/')[0]
+        state_path = data_prefix +'/' + 'state_files.npz'
 
-        #Image stack
+        #If memory map wasn't made or you want to remake it
         if not os.path.exists(data_dir) or remake_map:
             self.memory_map_data(Path(self.ptycho_dir).iterdir())
+            #Save self.data_dict and self.probes in npz file
+            np.savez(state_path,
+                     data_dict=self.data_dict)
+        #Otherwise, if path exists, load memory map and probe/other constants
         else:
             print('Existing map found. Loading memory-mapped data')
             self.mmap_ptycho = TensorDict.load_memmap(data_dir)
+            temp = np.load(state_path, allow_pickle=True)
+
+            #Assign other important params
+            self.data_dict = temp['data_dict'].item()
+
+
+        
 
         
     def calculate_length(self, ptycho_dir):
@@ -290,13 +305,13 @@ class PtychoDataset(Dataset):
         '''
         N = DataConfig().get('N')
         n_probes = len(os.listdir(probe_dir))
-        self.probes = torch.empty(size=(n_probes, N, N), dtype = torch.complex64)
+        self.data_dict['probes'] = torch.empty(size=(n_probes, N, N), dtype = torch.complex64)
 
         for i, probe_file in enumerate(os.listdir(probe_dir)):
             probe_path = os.path.join(probe_dir, probe_file)
             probe_data = np.load(probe_path)
             probe_data = probe_data['probe']
-            self.probes[i] = probe_data
+            self.data_dict['probes'][i] = probe_data
 
     def load_diffraction_data(self, npz_file):
         """
@@ -357,7 +372,7 @@ class PtychoDataset(Dataset):
         channels = DataConfig().get('C')
 
         #Expand probe to match number of channels for data.
-        probes_indexed = self.probes[exp_idx].unsqueeze(1).expand(-1,channels,-1,-1)
+        probes_indexed = self.data_dict['probes'][exp_idx].unsqueeze(1).expand(-1,channels,-1,-1)
 
         #Scaling constant
         scaling_const = self.data_dict['scaling_constant'][exp_idx]

@@ -11,7 +11,7 @@ import numpy as np
 #Configurations
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig
 
-
+device = TrainingConfig().get('device')
 
 #Complex functions
 #---------------------
@@ -272,10 +272,10 @@ def get_padded_size():
 
 def get_bigN():
     N = DataConfig().get('N')
-    gridsize = DataConfig().get('gridsize')
+    gridsize = DataConfig().get('grid_size')
     offset = ModelConfig().get('offset')
 
-    return N + (gridsize - 1) * offset
+    return N + (gridsize[0] - 1) * offset
 
 #Translation functions
 #---------------------
@@ -305,11 +305,11 @@ def Translation(img, offset, jitter_amt):
     '''
     n, h, w = img.shape
     #Create 2d grid to sample bilinear interpolation from
-    x, y = torch.arange(h), torch.arange(w)
+    x, y = torch.arange(h, device = device), torch.arange(w, device = device)
     #Add offset to x, y using broadcasting (H) -> (C, H)
-    jitter_x = torch.normal(torch.zeros(offset[:,:,0].shape), #offset: [n, 1]
+    jitter_x = torch.normal(torch.zeros(offset[:,:,0].shape, device=device), #offset: [n, 1]
                           std=jitter_amt)
-    jitter_y = torch.normal(torch.zeros(offset[:,:,1].shape), #offset: [n, 1]
+    jitter_y = torch.normal(torch.zeros(offset[:,:,1].shape, device=device), #offset: [n, 1]
                           std=jitter_amt)
     
     x_shifted, y_shifted = (x + offset[:, :, 0] + jitter_x)/(h-1), \
@@ -335,7 +335,8 @@ def Translation(img, offset, jitter_amt):
         translated_imag = F.grid_sample(img.unsqueeze(1).imag, grid,
                                         mode = 'bilinear', align_corners = True)
     else:
-        translated_imag = torch.zeros_like(translated_real)
+        translated_imag = torch.zeros_like(translated_real,
+                                           device = device)
 
     #Combine real and imag
     translated = torch.view_as_complex(torch.stack((translated_real, translated_imag),
