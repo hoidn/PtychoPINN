@@ -169,23 +169,23 @@ class PtychoDataset(Dataset):
         mmap_ptycho = TensorDict(
             {   "images": MemoryMappedTensor.empty(
                     (mmap_length, n_images, *self.im_shape),
-                    dtype=torch.float64,
+                    dtype=torch.float32,
                 ),
                 "coords_center": MemoryMappedTensor.empty(
                     (mmap_length, 1, 1, 2),
-                    dtype=torch.float64,
+                    dtype=torch.float32,
                 ),
                 "coords_relative": MemoryMappedTensor.empty(
                     (mmap_length, n_images, 1, 2),
-                    dtype=torch.float64,
+                    dtype=torch.float32,
                 ),
                 "coords_start_center": MemoryMappedTensor.empty(
                     (mmap_length, 1, 1, 2),
-                    dtype=torch.float64,
+                    dtype=torch.float32,
                 ),
                 "coords_start_relative": MemoryMappedTensor.empty(
                     (mmap_length, n_images, 1, 2),
-                    dtype=torch.float64,
+                    dtype=torch.float32,
                 ),
                 "nn_indices": MemoryMappedTensor.empty(
                     (mmap_length, n_images),
@@ -193,7 +193,7 @@ class PtychoDataset(Dataset):
                 ),
                 "experiment_id": MemoryMappedTensor.empty(
                     (mmap_length),
-                    dtype=torch.int64
+                    dtype=torch.int32
                 )},
             batch_size = mmap_length,
         )
@@ -207,7 +207,7 @@ class PtychoDataset(Dataset):
 
         #Create normalization tensor for all experiments
         self.data_dict["scaling_constant"] = torch.empty(self.n_files,
-                                                         dtype = torch.float64)
+                                                         dtype = torch.float32)
 
         #Go through each npz file and populate mmap_diffraction
         batch_size = 1024
@@ -306,11 +306,11 @@ class PtychoDataset(Dataset):
         N = DataConfig().get('N')
         n_probes = len(os.listdir(probe_dir))
         self.data_dict['probes'] = torch.empty(size=(n_probes, N, N), dtype = torch.complex64)
-
+        print(os.listdir(probe_dir))
         for i, probe_file in enumerate(os.listdir(probe_dir)):
             probe_path = os.path.join(probe_dir, probe_file)
             probe_data = np.load(probe_path)
-            probe_data = probe_data['probe']
+            probe_data = torch.from_numpy(probe_data['probe'])
             self.data_dict['probes'][i] = probe_data
 
     def load_diffraction_data(self, npz_file):

@@ -273,19 +273,20 @@ class ProbeIllumination(nn.Module):
     Probe illumination done using hadamard product of object tensor and 2D probe function.
     2D probe function should be supplised by the dataloader
     '''
-    def __init__(self, device):
+    def __init__(self):
         super(ProbeIllumination, self).__init__()
+    
+    def forward(self, x, probe):
         N = DataConfig().get('N')
         #Check if probe mask exists
         #If not, probe mask is just a ones matrix
         #If mask exists, save mask is class attribute
         if not ModelConfig().get('probe.mask'):
-            self.probe_mask = torch.ones((N, N), device = device)
+            probe_mask = torch.ones((N, N)).to(x.device)
         else:
-            self.probe_mask = ModelConfig().get('probe.mask')
-    
-    def forward(self, x, probe):
-        return x * probe * self.probe_mask, probe * self.probe_mask
+            probe_mask = ModelConfig().get('probe.mask')
+
+        return x * probe * probe_mask, probe * probe_mask
 
 
 #Other modules
@@ -359,7 +360,7 @@ class ForwardModel(nn.Module):
     probe: torch.Tensor, dtype = complex64
         Probe function
     '''
-    def __init__(self, device):
+    def __init__(self):
         super(ForwardModel, self).__init__()
 
         #Configuration 
@@ -380,7 +381,7 @@ class ForwardModel(nn.Module):
         self.add_module('extract_patches',
                         LambdaLayer(hh.extract_channels_from_region))
         #Probe Illumination
-        self.probe_illumination = ProbeIllumination(device)
+        self.probe_illumination = ProbeIllumination()
 
         #Pad/diffract
         self.add_module('pad_and_diffract',
@@ -519,12 +520,13 @@ class PtychoPINN(nn.Module):
         super(PtychoPINN, self).__init__()
         self.n_filters_scale = ModelConfig().get('n_filters_scale')
         self.device = TrainingConfig().get('device')
+        self.predict = False
         #Autoencoder
         self.autoencoder = Autoencoder(self.n_filters_scale)
         self.combine_complex = CombineComplex()
         #Adding named modules for forward operation
         #Patch operations
-        self.forward_model = ForwardModel(self.device)
+        self.forward_model = ForwardModel()
         #Choose loss function
         if ModelConfig().get('loss_function') == 'Poisson':
             self.Loss = PoissonLoss()
@@ -536,12 +538,15 @@ class PtychoPINN(nn.Module):
         x_amp, x_phase = self.autoencoder(x)
         #Combine amp and phase
         x_combined = self.combine_complex(x_amp, x_phase)
-        #Run through forward j
-        scale_factor = scale_factor.view(-1, 1, 1, 1)
-        x_out = self.forward_model(x_combined, positions, probe, scale_factor)
-        #Get loss
-        if self.training:
-            return self.Loss(x_out, x)
+        if self.predict:
+            return x_combined
+        else:
+            #Run through forward model
+            scale_factor = scale_factor.view(-1, 1, 1, 1)
+            x_out = self.forward_model(x_combined, positions, probe, scale_factor)
+            #Get loss
+            if self.training:
+                return self.Loss(x_out, x)
 
-        return x_out
+            return x_out
             

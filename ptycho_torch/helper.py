@@ -11,8 +11,6 @@ import numpy as np
 #Configurations
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig
 
-device = TrainingConfig().get('device')
-
 #Complex functions
 #---------------------
 def combine_complex(amp: torch.Tensor, phi: torch.Tensor) -> torch.Tensor:
@@ -305,11 +303,11 @@ def Translation(img, offset, jitter_amt):
     '''
     n, h, w = img.shape
     #Create 2d grid to sample bilinear interpolation from
-    x, y = torch.arange(h, device = device), torch.arange(w, device = device)
+    x, y = torch.arange(h).to(img.device), torch.arange(w).to(img.device)
     #Add offset to x, y using broadcasting (H) -> (C, H)
-    jitter_x = torch.normal(torch.zeros(offset[:,:,0].shape, device=device), #offset: [n, 1]
+    jitter_x = torch.normal(torch.zeros(offset[:,:,0].shape).to(img.device), #offset: [n, 1]
                           std=jitter_amt)
-    jitter_y = torch.normal(torch.zeros(offset[:,:,1].shape, device=device), #offset: [n, 1]
+    jitter_y = torch.normal(torch.zeros(offset[:,:,1].shape).to(img.device), #offset: [n, 1]
                           std=jitter_amt)
     
     x_shifted, y_shifted = (x + offset[:, :, 0] + jitter_x)/(h-1), \
@@ -328,15 +326,15 @@ def Translation(img, offset, jitter_amt):
     #grid_sample does not have native complex tensor support
     #Need to unsqueeze img to have it work with grid_sample (check documentation). 
     #In our case, color channels are 1 (singleton) and so we just unsqueeze at 2nd dimension
-
+    
     translated_real = F.grid_sample(img.unsqueeze(1).real, grid,
                                     mode = 'bilinear', align_corners = True)
+
     if img.dtype == torch.complex64:
         translated_imag = F.grid_sample(img.unsqueeze(1).imag, grid,
                                         mode = 'bilinear', align_corners = True)
     else:
-        translated_imag = torch.zeros_like(translated_real,
-                                           device = device)
+        translated_imag = torch.zeros_like(translated_real).to(img)
 
     #Combine real and imag
     translated = torch.view_as_complex(torch.stack((translated_real, translated_imag),
