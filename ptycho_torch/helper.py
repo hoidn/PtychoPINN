@@ -334,7 +334,7 @@ def Translation(img, offset, jitter_amt):
         translated_imag = F.grid_sample(img.unsqueeze(1).imag, grid,
                                         mode = 'bilinear', align_corners = True)
     else:
-        translated_imag = torch.zeros_like(translated_real).to(img)
+        translated_imag = torch.zeros_like(translated_real).to(img.device)
 
     #Combine real and imag
     translated = torch.view_as_complex(torch.stack((translated_real, translated_imag),
