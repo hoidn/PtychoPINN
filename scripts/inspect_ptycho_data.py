@@ -24,7 +24,7 @@ def load_ptycho_data(file_path: str) -> PtychoDataContainer:
         nn_indices=data['nn_indices'],
         global_offsets=data['global_offsets'],
         local_offsets=data['local_offsets'],
-        probe=data['probe']
+        probeGuess=data['probe']
     )
 
 def inspect_ptycho_frames(data: PtychoDataContainer, num_frames: int = 2):
