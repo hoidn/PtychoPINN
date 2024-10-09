@@ -83,30 +83,6 @@ class RawData:
         return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
 
     # TODO currently this can only handle a single object image
-#    @staticmethod
-#    def from_simulation(xcoords, ycoords, probeGuess,
-#                 objectGuess, scan_index = None):
-#        """
-#        """
-#        from .diffsim import illuminate_and_diffract
-#        xcoords_start = xcoords
-#        ycoords_start = ycoords
-#        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-#                    xcoords, ycoords)
-#
-#        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
-#        Y_I = tf.math.abs(Y_obj)
-#        Y_phi = tf.math.angle(Y_obj)
-#        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
-#        norm_Y_I = datasets.scale_nphotons(X)
-#        assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
-#        # TODO RawData should have a method for generating the illuminated ground truth object
-#        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
-#                       probeGuess, scan_index, objectGuess,
-#                       Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
-#                       norm_Y_I = norm_Y_I)
-#              #probeGuess, scan_index, objectGuess, Y = tf.squeeze(Y_obj), norm_Y_I = norm_Y_I)
-
     @staticmethod
     def from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index, return_patches=False):
         global_offsets, local_offsets, nn_indices = calculate_relative_coords(
@@ -276,6 +252,29 @@ class PtychoDataContainer:
                     repr_str += f' {attr_name}={attr.shape}'
         repr_str += '>'
         return repr_str
+
+    #@debug
+    def to_npz(self, file_path: str) -> None:
+        """
+        Write the underlying arrays to an npz file.
+
+        Args:
+            file_path (str): Path to the output npz file.
+        """
+        np.savez(
+            file_path,
+            X=self.X.numpy() if tf.is_tensor(self.X) else self.X,
+            Y_I=self.Y_I.numpy() if tf.is_tensor(self.Y_I) else self.Y_I,
+            Y_phi=self.Y_phi.numpy() if tf.is_tensor(self.Y_phi) else self.Y_phi,
+            norm_Y_I=self.norm_Y_I,
+            YY_full=self.YY_full,
+            coords_nominal=self.coords_nominal.numpy() if tf.is_tensor(self.coords_nominal) else self.coords_nominal,
+            coords_true=self.coords_true.numpy() if tf.is_tensor(self.coords_true) else self.coords_true,
+            nn_indices=self.nn_indices,
+            global_offsets=self.global_offsets,
+            local_offsets=self.local_offsets,
+            probe=self.probe.numpy() if tf.is_tensor(self.probe) else self.probe
+        )
     @staticmethod
     #@debug
     def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
