@@ -12,7 +12,7 @@ def load_ptycho_data(file_path: str) -> PtychoDataContainer:
     Returns:
         PtychoDataContainer: Loaded ptycho data.
     """
-    data = np.load(file_path)
+    data = np.load(file_path, allow_pickle=True)
     return PtychoDataContainer(
         X=data['X'],
         Y_I=data['Y_I'],
@@ -54,11 +54,20 @@ def inspect_ptycho_frames(data: PtychoDataContainer, num_frames: int = 2):
     plt.show()
 
 if __name__ == "__main__":
-    # Replace with the actual path to your npz file
-    file_path = "path/to/your/ptycho_data.npz"
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python inspect_ptycho_data.py <path_to_npz_file>")
+        sys.exit(1)
+
+    file_path = sys.argv[1]
     
-    # Load the data
-    ptycho_data = load_ptycho_data(file_path)
-    
-    # Inspect the frames
-    inspect_ptycho_frames(ptycho_data)
+    try:
+        # Load the data
+        ptycho_data = load_ptycho_data(file_path)
+        
+        # Inspect the frames
+        inspect_ptycho_frames(ptycho_data)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)
