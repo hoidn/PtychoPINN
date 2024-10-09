@@ -83,30 +83,6 @@ class RawData:
         return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
 
     # TODO currently this can only handle a single object image
-#    @staticmethod
-#    def from_simulation(xcoords, ycoords, probeGuess,
-#                 objectGuess, scan_index = None):
-#        """
-#        """
-#        from .diffsim import illuminate_and_diffract
-#        xcoords_start = xcoords
-#        ycoords_start = ycoords
-#        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-#                    xcoords, ycoords)
-#
-#        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
-#        Y_I = tf.math.abs(Y_obj)
-#        Y_phi = tf.math.angle(Y_obj)
-#        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
-#        norm_Y_I = datasets.scale_nphotons(X)
-#        assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
-#        # TODO RawData should have a method for generating the illuminated ground truth object
-#        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
-#                       probeGuess, scan_index, objectGuess,
-#                       Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
-#                       norm_Y_I = norm_Y_I)
-#              #probeGuess, scan_index, objectGuess, Y = tf.squeeze(Y_obj), norm_Y_I = norm_Y_I)
-
     @staticmethod
     def from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index, return_patches=False):
         global_offsets, local_offsets, nn_indices = calculate_relative_coords(
