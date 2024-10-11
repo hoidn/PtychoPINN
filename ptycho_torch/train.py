@@ -67,6 +67,7 @@ class PtychoPINN(L.LightningModule):
         #Combine amp and phase
         x_combined = self.combine_complex(x_amp, x_phase)
         #Run through forward model
+        scale_factor = scale_factor.view(-1, 1, 1, 1)
         x_out = self.forward_model(x_combined, positions, probe, scale_factor)
 
         return x_out
@@ -80,7 +81,7 @@ class PtychoPINN(L.LightningModule):
         #Run through forward model
         pred = self(x, positions, probe, scale)
         #Calculate loss
-        loss = self.Loss(pred, x)
+        loss = self.Loss(pred, x).sum()
 
         #Logging
         self.log("poisson_train_loss", loss, on_epoch = True)
