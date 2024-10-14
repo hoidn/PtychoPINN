@@ -89,7 +89,7 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     #Pad patches
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
-    imgs_flat_bigN_translated = Translation(imgs_flat_bigN, -offsets_flat, 0.)
+    imgs_flat_bigN_translated = Translation(imgs_flat_bigN, offsets_flat, 0.)
 
     if agg:
         imgs_channel = torch.reshape(imgs_flat_bigN_translated,
