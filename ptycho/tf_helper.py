@@ -461,6 +461,7 @@ def mk_centermask(inputs: tf.Tensor, N: int, c: int, kind: str = 'center') -> tf
 def mk_norm(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Tensor], tf.Tensor]) -> tf.Tensor:
     N = params()['N']
     gridsize = params()['gridsize']
+    # TODO if probe.big is True, shouldn't the ones fill the full N x N region?
     ones = mk_centermask(channels, N, gridsize**2)
     assembled_ones = fn_reassemble_real(ones, average = False)
     norm = assembled_ones + .001
