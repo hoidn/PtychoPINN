@@ -79,81 +79,81 @@ graph TD
         calculate_intensity_scale -.-> ".params: params.get()"
     end
 
-    %% loader.py
-    subgraph loader[loader.py]
-        RawData_init[RawData.__init__()]
-        RawData_str[RawData.__str__()]
-        RawData_to_file[RawData.to_file()]
-        RawData_from_file[RawData.from_file()]
-        RawData_from_files[RawData.from_files()]
-        RawData_generate_grouped_data[RawData.generate_grouped_data()]
-        RawData_check_data_validity[RawData._check_data_validity()]
-        RawData_from_coords_without_pc[RawData.from_coords_without_pc()]
-        RawData_from_simulation[RawData.from_simulation()]
-        PtychoDataset_init[PtychoDataset.__init__()]
-        PtychoDataContainer_init[PtychoDataContainer.__init__()]
-        PtychoDataContainer_repr[PtychoDataContainer.__repr__()]
-        PtychoDataContainer_from_raw_data_without_pc[PtychoDataContainer.from_raw_data_without_pc()]
-        get_neighbor_self_indices[get_neighbor_self_indices()]
-        get_neighbor_indices[get_neighbor_indices()]
-        sample_rows[sample_rows()]
-        get_relative_coords[get_relative_coords()]
-        crop12[crop12()]
-        extract_and_translate_patch_np[extract_and_translate_patch_np()]
-        unsqueeze_coords[unsqueeze_coords()]
-        calculate_combined_offsets[calculate_combined_offsets()]
-        tile_gt_object[tile_gt_object()]
-        calculate_relative_coords[calculate_relative_coords()]
-        group_coords[group_coords()]
-        get_neighbor_diffraction_and_positions[get_neighbor_diffraction_and_positions()]
-        shift_and_sum[shift_and_sum()]
-        reassemble_position[reassemble_position()]
-        split_data[split_data()]
-        split_tensor[split_tensor()]
-        load[load()]
-        normalize_data[normalize_data()]
-        crop[crop()]
-        get_gt_patch[get_gt_patch()]
-        load_xpp_npz[load_xpp_npz()]
+%% loader.py
+subgraph loader[loader.py]
+    PtychoDataset_init[PtychoDataset.__init__()]
+    PtychoDataContainer_init[PtychoDataContainer.__init__()]
+    PtychoDataContainer_repr[PtychoDataContainer.__repr__()]
+    PtychoDataContainer_from_raw_data_without_pc[PtychoDataContainer.from_raw_data_without_pc()]
+    split_data[split_data()]
+    split_tensor[split_tensor()]
+    load[load()]
+    crop[crop()]
+    get_gt_patch[get_gt_patch()]
+    load_xpp_npz[load_xpp_npz()]
 
-        %% Internal dependencies
-        RawData_init --> RawData_check_data_validity
-        RawData_from_file --> RawData_init
-        RawData_from_files --> RawData_from_file
-        RawData_generate_grouped_data --> get_neighbor_diffraction_and_positions
-        RawData_from_coords_without_pc --> RawData_init
-        PtychoDataContainer_from_raw_data_without_pc --> RawData_from_coords_without_pc
-        PtychoDataContainer_from_raw_data_without_pc --> load
-        calculate_relative_coords --> group_coords
-        calculate_relative_coords --> get_relative_coords
-        group_coords --> get_neighbor_self_indices
-        group_coords --> get_neighbor_indices
-        group_coords --> sample_rows
-        get_neighbor_diffraction_and_positions --> group_coords
-        get_neighbor_diffraction_and_positions --> get_relative_coords
-        get_neighbor_diffraction_and_positions --> normalize_data
-        reassemble_position --> shift_and_sum
-        load --> split_tensor
-        load --> split_data
-        get_gt_patch --> crop
+    %% Internal dependencies
+    PtychoDataContainer_from_raw_data_without_pc --> load
+    load --> split_tensor
+    load --> split_data
+    get_gt_patch --> crop
 
-        %% External dependencies
-        RawData_generate_grouped_data -.-> ".params: params.get()"
-        RawData_from_simulation -.-> ".diffsim: datasets.illuminate_and_diffract"
-        RawData_from_simulation -.-> ".diffsim: datasets.scale_nphotons"
-        RawData_from_simulation -.-> ".tf_helper: hh.combine_complex"
-        PtychoDataContainer_init -.-> ".tf_helper: hh.combine_complex"
-        PtychoDataContainer_from_raw_data_without_pc -.-> ".params: cfg.get()"
-        tile_gt_object -.-> ".params: params()"
-        tile_gt_object -.-> ".tf_helper: hh.pad"
-        group_coords -.-> ".params: params()"
-        shift_and_sum -.-> ".params: params()"
-        shift_and_sum -.-> ".tf_helper: hh.pad"
-        shift_and_sum -.-> ".tf_helper: hh.translate"
-        load -.-> ".diffsim: datasets.scale_nphotons"
-        load -.-> ".probe: probe.get_probe_mask_real"
-        get_gt_patch -.-> ".tf_helper: hh.translate"
-    end
+    %% External dependencies
+    PtychoDataContainer_init -.-> ".tf_helper: hh.combine_complex"
+    PtychoDataContainer_from_raw_data_without_pc -.-> ".params: cfg.get()"
+    PtychoDataContainer_from_raw_data_without_pc -.-> ".raw_data: RawData.from_coords_without_pc"
+    load -.-> ".diffsim: datasets.scale_nphotons"
+    load -.-> ".probe: probe.get_probe_mask_real"
+    get_gt_patch -.-> ".tf_helper: hh.translate"
+    load_xpp_npz -.-> ".raw_data: RawData"
+end
+
+%% raw_data.py
+subgraph raw_data[raw_data.py]
+    RawData_init[RawData.__init__()]
+    RawData_str[RawData.__str__()]
+    RawData_to_file[RawData.to_file()]
+    RawData_from_file[RawData.from_file()]
+    RawData_from_files[RawData.from_files()]
+    RawData_generate_grouped_data[RawData.generate_grouped_data()]
+    RawData_check_data_validity[RawData._check_data_validity()]
+    RawData_from_coords_without_pc[RawData.from_coords_without_pc()]
+    RawData_from_simulation[RawData.from_simulation()]
+    get_neighbor_self_indices[get_neighbor_self_indices()]
+    get_neighbor_indices[get_neighbor_indices()]
+    sample_rows[sample_rows()]
+    get_relative_coords[get_relative_coords()]
+    calculate_relative_coords[calculate_relative_coords()]
+    group_coords[group_coords()]
+    get_neighbor_diffraction_and_positions[get_neighbor_diffraction_and_positions()]
+    get_image_patches[get_image_patches()]
+    normalize_data[normalize_data()]
+
+    %% Internal dependencies
+    RawData_init --> RawData_check_data_validity
+    RawData_from_file --> RawData_init
+    RawData_from_files --> RawData_from_file
+    RawData_generate_grouped_data --> get_neighbor_diffraction_and_positions
+    RawData_from_coords_without_pc --> RawData_init
+    calculate_relative_coords --> group_coords
+    calculate_relative_coords --> get_relative_coords
+    group_coords --> get_neighbor_self_indices
+    group_coords --> get_neighbor_indices
+    group_coords --> sample_rows
+    get_neighbor_diffraction_and_positions --> group_coords
+    get_neighbor_diffraction_and_positions --> get_relative_coords
+    get_neighbor_diffraction_and_positions --> normalize_data
+
+    %% External dependencies
+    RawData_generate_grouped_data -.-> ".params: params.get()"
+    RawData_from_simulation -.-> ".diffsim: datasets.illuminate_and_diffract"
+    RawData_from_simulation -.-> ".diffsim: datasets.scale_nphotons"
+    RawData_from_simulation -.-> ".tf_helper: hh.combine_complex"
+    get_image_patches -.-> ".params: params.get()"
+    get_image_patches -.-> ".tf_helper: hh.pad"
+    get_image_patches -.-> ".tf_helper: hh.translate"
+    group_coords -.-> ".params: params.get()"
+end
 
     %% tf_helper.py
     subgraph tf_helper[tf_helper.py]
