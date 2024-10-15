@@ -100,12 +100,24 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
     norm_flat_bigN_translated = Translation(norm_flat_bigN, offsets_flat, 0.)
 
     if agg:
+        #First reshape batch * channel dim tensors to (batch, channel, size, size)
         imgs_channel = torch.reshape(imgs_flat_bigN_translated,
                                      (-1, n_channels, padded_size, padded_size))
         norm_channel = torch.reshape(norm_flat_bigN_translated,
                                      (-1, n_channels, padded_size, padded_size))
+        #Then decide which pixels you want to keep. We're getting rid of all pixels outside the N/2 x N/2 window
+        #due to nyquist sampling
+
+        #Boolean mask from N//2 sized masking
+        boolean_mask = torch.any(norm_channel, dim = 1).to(inputs.device) #(b, N, N)
+        #Count number of nonzeros from the ones mask, which has been modified by boolean_mask
+        non_zeros = torch.count_nonzero(norm_channel * boolean_mask[:,None,:,:], axis = 1).to(inputs.device)
+        #Change value of non_zeros from 0 to 1 in regions without any data. We'll be dividing
+        #by the number of non_zeros, so this is to avoid div by 0
+        non_zeros[non_zeros == 0] = 1
+
         #Normalize merged image by number of summed channels
-        imgs_merged = torch.sum(imgs_channel, axis = 1) / (torch.sum(norm_channel, axis = 1) + .001)
+        imgs_merged = (torch.sum(imgs_channel, axis = 1) * boolean_mask) / non_zeros
         return imgs_merged
     else:
         print('no aggregation in patch reassembly')
@@ -118,7 +130,7 @@ def norm_mask(inputs):
     B, C, N, _ = inputs.shape
 
     #Mask with half-size
-    ones = torch.ones(B, C, N//2, N//2)
+    ones = torch.ones(B, C, N//2, N//2).to(inputs.device)
     #Pad rest
     ones = nn.ZeroPad2d(N//4)(ones)
 

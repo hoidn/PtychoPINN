@@ -72,7 +72,15 @@ class PtychoPINN(L.LightningModule):
 
         return x_out
     
-    def training_step(self, batch, batch_id):
+    def forward_predict(self, x, positions, probe, scale_factor):
+        #Autoencoder result
+        x_amp, x_phase = self.autoencoder(x)
+        #Combine amp and phase
+        x_combined = self.combine_complex(x_amp, x_phase)
+
+        return x_combined
+    
+    def training_step(self, batch):
         #Grab required data fields from TensorDict
         x, positions, probe, scale = batch[0]['images'], \
                                      batch[0]['coords_relative'], \
@@ -87,9 +95,21 @@ class PtychoPINN(L.LightningModule):
         self.log("poisson_train_loss", loss, on_epoch = True)
 
         return loss
+    
+    def predict_step(self, batch):
+        #Grab required data fields from TensorDict
+        x, positions, probe, scale = batch[0]['images'], \
+                                     batch[0]['coords_relative'], \
+                                     batch[1], \
+                                     batch[2]
+        
+        #Run through part of forward model
+        pred = self.forward_predict(x, positions, probe, scale)
+
+        return pred
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr = 2e-2)
+        return torch.optim.Adam(self.parameters(), lr = 1e-3)
 
 #Training functions
 
@@ -146,7 +166,9 @@ def main(ptycho_dir, probe_dir):
     trainer = L.Trainer(max_epochs = 3,
                         default_root_dir = os.path.dirname(os.getcwd()),
                         devices = 'auto',
-                        accelerator = 'gpu')
+                        accelerator = 'gpu',
+                        gradient_clip_val = 10,
+                        accumulate_grad_batches=4)
 
     #Mlflow setup
     # mlflow.set_tracking_uri("")

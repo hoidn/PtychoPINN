@@ -476,6 +476,8 @@ class IntensityScalerModule:
             log_scale_guess = np.log(ModelConfig().get('intensity_scale'))
             self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
                                       requires_grad = ModelConfig().get('intensity_scale_trainable'))
+        else:
+            self.log_scale = None
     
     #Intensity scaler as class
     class IntensityScaler(nn.Module):
@@ -493,12 +495,21 @@ class IntensityScalerModule:
         
     #Standalone intensity scaling functions
     def scale(self, x, scale_factor):
-        log_scale = torch.log(scale_factor)
-        return x / torch.exp(log_scale)
+        if self.log_scale:
+            log_scale = torch.exp(self.log_scale)
+        else:
+            log_scale = torch.sqrt(scale_factor)
+        return x * log_scale
 
     def inv_scale(self, x, scale_factor):
-        log_scale = torch.log(scale_factor)
-        return x * torch.exp(log_scale)
+        '''
+        Undoes the scaling operation, goes from normalized space -> experimental space
+        '''
+        if self.log_scale:
+            log_scale = torch.exp(self.log_scale)
+        else:
+            log_scale = torch.sqrt(scale_factor)
+        return x / log_scale
 
 #Full module with everything
 class PtychoPINN(nn.Module):
