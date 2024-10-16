@@ -31,9 +31,9 @@ import signal
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from ptycho import tf_helper, probe, loader, params, train_pinn
+from ptycho import tf_helper, probe, params, train_pinn
 from ptycho.model_manager import ModelManager
-from ptycho import loader, params
+from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data
 
 # Set up logging
@@ -118,13 +118,13 @@ def load_model(model_prefix: str) -> tuple:
     except Exception as e:
         raise ValueError(f"Failed to load model: {str(e)}")
 
-def perform_inference(model: tf.keras.Model, test_data: loader.RawData, config: dict, K: int, nsamples: int) -> tuple:
+def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K: int, nsamples: int) -> tuple:
     """
     Perform inference using the loaded model and test data.
 
     Args:
         model (tf.keras.Model): The loaded TensorFlow model.
-        test_data (loader.RawData): The RawData object containing test data.
+        test_data (RawData): The RawData object containing test data.
         config (dict): The model's configuration dictionary.
         K (int): Number of nearest neighbors for grouped data generation.
         nsamples (int): Number of samples for grouped data generation.
@@ -225,12 +225,12 @@ def save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amp
     except Exception as e:
         print(f"Error saving comparison image: {str(e)}")
 
-def save_probe_visualization(test_data: loader.RawData, output_path: str):
+def save_probe_visualization(test_data: RawData, output_path: str):
     """
     Generate and save the probe visualization.
 
     Args:
-        test_data (loader.RawData): The RawData object containing test data.
+        test_data (RawData): The RawData object containing test data.
         output_path (str): Path to save the probe visualization.
 
     Raises:
