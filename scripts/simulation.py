@@ -8,7 +8,6 @@ from ptycho.workflows.components import (
     setup_configuration,
     run_cdi_example,
     update_params,
-
 )
 
 def save_plot_to_file(fig, filename):
@@ -16,6 +15,8 @@ def save_plot_to_file(fig, filename):
     plt.close(fig)
 
 def generate_html_report(output_dir, image_files):
+    import base64
+
     html_content = """
     <!DOCTYPE html>
     <html lang="en">
@@ -62,9 +63,19 @@ def generate_html_report(output_dir, image_files):
     for image_file in image_files:
         image_name = os.path.basename(image_file)
         image_title = image_name.replace('_', ' ').replace('.png', '').title()
+        
+        # Read the image file and encode it in base64
+        with open(image_file, 'rb') as img_f:
+            image_data = img_f.read()
+            encoded_image = base64.b64encode(image_data).decode('utf-8')
+        
+        # Determine the image's MIME type
+        mime_type = 'image/png'  # Adjust if using other image formats
+        
+        # Embed the image in the HTML using a data URI
         html_content += f"""
         <div class="image-container">
-            <img src="{image_name}" alt="{image_title}">
+            <img src="data:{mime_type};base64,{encoded_image}" alt="{image_title}">
             <p class="image-title">{image_title}</p>
         </div>
         """
@@ -158,12 +169,12 @@ def main():
     image_files = []
 
     # Visualize simulated data
-    plt.figure(figsize=(20, 20))
-    visualize_simulated_data(data_for_vis)
-    filename = os.path.join(args.output_dir, 'simulated_data_summary.png')
-    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    #plt.figure(figsize=(20, 20))
+    visualize_simulated_data(data_for_vis, args.output_dir)
+    filename = os.path.join(args.output_dir, "simulated_data_visualization.png")
+    #plt.savefig(filename, dpi=300, bbox_inches='tight')
     image_files.append(filename)
-    plt.close()
+    #plt.close()
 
     # Plot random groups
     for i in range(3):  # Generate 3 sets of random groups
@@ -196,12 +207,12 @@ def main():
     image_files.append(filename)
     plt.close()
 
-    # Generate HTML report
-    image_filenames = [os.path.basename(file) for file in image_files]
-    generate_html_report(args.output_dir, image_filenames)
+    # Generate HTML report with embedded images
+    generate_html_report(args.output_dir, image_files)
 
     print(f"Simulation and visualization complete. Results saved in {args.output_dir}")
     print(f"Open {os.path.join(args.output_dir, 'report.html')} to view the visualizations.")
 
 if __name__ == "__main__":
     main()
+
