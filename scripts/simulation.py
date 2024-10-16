@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import sys
 import matplotlib.pyplot as plt
 from ptycho.workflows.components import (
     setup_configuration,
@@ -14,7 +15,7 @@ def save_plot_to_file(fig, filename):
     fig.savefig(filename, dpi=300, bbox_inches='tight')
     plt.close(fig)
 
-def generate_html_report(output_dir, image_files):
+def generate_html_report(output_dir, image_files, args, params):
     import base64
 
     html_content = """
@@ -29,11 +30,11 @@ def generate_html_report(output_dir, image_files):
                 font-family: Arial, sans-serif;
                 line-height: 1.6;
                 color: #333;
-                max-width: 800px;
+                max-width: 1000px;
                 margin: 0 auto;
                 padding: 20px;
             }
-            h1 {
+            h1, h2 {
                 color: #2c3e50;
                 text-align: center;
             }
@@ -54,10 +55,67 @@ def generate_html_report(output_dir, image_files):
                 margin-top: 10px;
                 text-align: center;
             }
+            .command, .parameters {
+                background-color: #f4f4f4;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 10px;
+                margin-bottom: 20px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+            .parameter-name {
+                font-weight: bold;
+            }
+            .parameter-description {
+                margin-left: 20px;
+                margin-bottom: 10px;
+            }
         </style>
     </head>
     <body>
         <h1>Ptychography Simulation Report</h1>
+        
+        <h2>Launch Command</h2>
+        <div class="command">
+        {' '.join(sys.argv)}
+        </div>
+        
+        <h2>Model Parameters</h2>
+        <div class="parameters">
+    """
+
+    for key, value in params.items():
+        html_content += f'<p><span class="parameter-name">{key}:</span> {value}</p>\n'
+        if key == "N":
+            html_content += '<p class="parameter-description">Size of the simulation grid.</p>\n'
+        elif key == "probe_scale":
+            html_content += '<p class="parameter-description">Probe scale factor.</p>\n'
+        elif key == "nphotons":
+            html_content += '<p class="parameter-description">Number of photons.</p>\n'
+        elif key == "mae_weight":
+            html_content += '<p class="parameter-description">Weight for MAE loss.</p>\n'
+        elif key == "nll_weight":
+            html_content += '<p class="parameter-description">Weight for NLL loss.</p>\n'
+        elif key == "nepochs":
+            html_content += '<p class="parameter-description">Number of epochs for training.</p>\n'
+        elif key == "intensity_scale.trainable":
+            html_content += '<p class="parameter-description">Whether intensity scale is trainable.</p>\n'
+        elif key == "positions.provided":
+            html_content += '<p class="parameter-description">Whether positions are provided.</p>\n'
+        elif key == "probe.big":
+            html_content += '<p class="parameter-description">Whether to use a big probe.</p>\n'
+        elif key == "probe.mask":
+            html_content += '<p class="parameter-description">Whether to use a probe mask.</p>\n'
+        elif key == "data_source":
+            html_content += '<p class="parameter-description">Type of data source.</p>\n'
+        elif key == "gridsize":
+            html_content += '<p class="parameter-description">Grid size for simulation.</p>\n'
+
+    html_content += """
+        </div>
+        
+        <h2>Visualizations</h2>
     """
 
     for image_file in image_files:
@@ -207,8 +265,8 @@ def main():
     image_files.append(filename)
     plt.close()
 
-    # Generate HTML report with embedded images
-    generate_html_report(args.output_dir, image_files)
+    # Generate HTML report with embedded images, launch command, and model parameters
+    generate_html_report(args.output_dir, image_files, args, params)
 
     print(f"Simulation and visualization complete. Results saved in {args.output_dir}")
     print(f"Open {os.path.join(args.output_dir, 'report.html')} to view the visualizations.")
