@@ -62,10 +62,9 @@ def generate_html_report(output_dir, image_files):
     for image_file in image_files:
         image_name = os.path.basename(image_file)
         image_title = image_name.replace('_', ' ').replace('.png', '').title()
-        relative_path = os.path.relpath(image_file, output_dir)
         html_content += f"""
         <div class="image-container">
-            <img src="{relative_path}" alt="{image_title}">
+            <img src="{image_name}" alt="{image_title}">
             <p class="image-title">{image_title}</p>
         </div>
         """
@@ -198,7 +197,8 @@ def main():
     plt.close()
 
     # Generate HTML report
-    generate_html_report(args.output_dir, image_files)
+    image_filenames = [os.path.basename(file) for file in image_files]
+    generate_html_report(args.output_dir, image_filenames)
 
     print(f"Simulation and visualization complete. Results saved in {args.output_dir}")
     print(f"Open {os.path.join(args.output_dir, 'report.html')} to view the visualizations.")
