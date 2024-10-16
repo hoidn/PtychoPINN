@@ -1,5 +1,4 @@
 import numpy as np
-import tensorflow as tf
 from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.loader import RawData
 import os
