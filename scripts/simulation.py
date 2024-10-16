@@ -32,17 +32,19 @@ def main():
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility.")
     parser.add_argument("--nepochs", type=int, default=50, help="Number of epochs for training.")
     parser.add_argument("--output_prefix", default="tmp", help="Prefix for output files.")
-    parser.add_argument("--intensity_scale_trainable", action="store_true", help="Make intensity scale trainable.")
-    parser.add_argument("--positions_provided", action="store_true", help="Positions are provided.")
-    parser.add_argument("--probe_big", action="store_true", help="Use big probe.")
-    parser.add_argument("--probe_mask", action="store_true", help="Use probe mask.")
+    parser.add_argument("--intensity_scale_trainable", action="store_true", default=False, help="Make intensity scale trainable.")
+    parser.add_argument("--positions_provided", action="store_true", default=True, help="Positions are provided.")
+    parser.add_argument("--probe_big", action="store_true", default=True, help="Use big probe.")
+    parser.add_argument("--probe_mask", action="store_true", default=False, help="Use probe mask.")
     parser.add_argument("--data_source", default="generic", help="Data source type.")
     parser.add_argument("--gridsize", type=int, default=1, help="Grid size.")
-    parser.add_argument("--train_data_file_path", help="Path to train data file.")
-    parser.add_argument("--test_data_file_path", help="Path to test data file.")
+    parser.add_argument("--train_data_file_path", default=None, help="Path to train data file.")
+    parser.add_argument("--test_data_file_path", default=None, help="Path to test data file.")
     parser.add_argument("--N", type=int, default=128, help="Size of the simulation grid.")
     parser.add_argument("--probe_scale", type=int, default=4, help="Probe scale factor.")
     parser.add_argument("--nphotons", type=float, default=1e9, help="Number of photons.")
+    parser.add_argument("--mae_weight", type=float, default=1, help="Weight for MAE loss.")
+    parser.add_argument("--nll_weight", type=float, default=0, help="Weight for NLL loss.")
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
     args = parser.parse_args()
 
@@ -62,6 +64,8 @@ def main():
         "N": args.N,
         "probe_scale": args.probe_scale,
         "nphotons": args.nphotons,
+        "mae_weight": args.mae_weight,
+        "nll_weight": args.nll_weight,
     }
     
 
