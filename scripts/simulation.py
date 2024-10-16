@@ -40,26 +40,37 @@ def main():
     parser.add_argument("output_dir", help="Directory to save output visualizations.")
     parser.add_argument("--nimages", type=int, default=2000, help="Number of images to simulate.")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility.")
+    parser.add_argument("--nepochs", type=int, default=50, help="Number of epochs for training.")
+    parser.add_argument("--output_prefix", default="tmp", help="Prefix for output files.")
+    parser.add_argument("--intensity_scale_trainable", action="store_true", help="Make intensity scale trainable.")
+    parser.add_argument("--positions_provided", action="store_true", help="Positions are provided.")
+    parser.add_argument("--probe_big", action="store_true", help="Use big probe.")
+    parser.add_argument("--probe_mask", action="store_true", help="Use probe mask.")
+    parser.add_argument("--data_source", default="generic", help="Data source type.")
+    parser.add_argument("--gridsize", type=int, default=1, help="Grid size.")
+    parser.add_argument("--train_data_file_path", help="Path to train data file.")
+    parser.add_argument("--test_data_file_path", help="Path to test data file.")
+    parser.add_argument("--N", type=int, default=128, help="Size of the simulation grid.")
+    parser.add_argument("--probe_scale", type=int, default=4, help="Probe scale factor.")
+    parser.add_argument("--nphotons", type=float, default=1e9, help="Number of photons.")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     params = {
-        "nepochs": 50,
-        "output_prefix": "tmp",
-        "intensity_scale.trainable": True,
-        "positions.provided": True,
-        "probe.big": True,
-        "probe.mask": False,
-        "data_source": "generic",
-        "gridsize": 1,
-        "train_data_file_path": None,
-        "test_data_file_path": None,
-        "N": 128,
-        "probe_scale": 4,
-        "nphotons": 1e9,
-        # "amp_activation": 'swish'
-        
+        "nepochs": args.nepochs,
+        "output_prefix": args.output_prefix,
+        "intensity_scale.trainable": args.intensity_scale_trainable,
+        "positions.provided": args.positions_provided,
+        "probe.big": args.probe_big,
+        "probe.mask": args.probe_mask,
+        "data_source": args.data_source,
+        "gridsize": args.gridsize,
+        "train_data_file_path": args.train_data_file_path,
+        "test_data_file_path": args.test_data_file_path,
+        "N": args.N,
+        "probe_scale": args.probe_scale,
+        "nphotons": args.nphotons,
     }
 
     update_params(params)
