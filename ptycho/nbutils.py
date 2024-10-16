@@ -85,8 +85,8 @@ def compare(obj_tensor_full, global_offsets, objectGuess, ptychonn_tensor=None):
 
     # Process PtychoPINN data
     ptychopinn_image = loader.reassemble_position(obj_tensor_full, global_offsets[:, :, :, :], M=20)
-    ptychopinn_phase = np.angle(ptychopinn_image[..., 0])
-    ptychopinn_amplitude = np.abs(ptychopinn_image[..., 0])
+    ptychopinn_phase = crop_to_non_uniform_region_with_buffer(np.angle(ptychopinn_image[..., 0]), buffer=-20)
+    ptychopinn_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(ptychopinn_image[..., 0]), buffer=-20)
 
     # Process ground truth data
     gt_phase = crop_to_non_uniform_region_with_buffer(np.angle(objectGuess), buffer=-20)
@@ -95,8 +95,8 @@ def compare(obj_tensor_full, global_offsets, objectGuess, ptychonn_tensor=None):
     # Process PtychoNN data if provided
     if ptychonn_tensor is not None:
         ptychonn_image = loader.reassemble_position(ptychonn_tensor, global_offsets[:, :, :, :], M=20)
-        ptychonn_phase = np.angle(ptychonn_image[..., 0])
-        ptychonn_amplitude = np.abs(ptychonn_image[..., 0])
+        ptychonn_phase = crop_to_non_uniform_region_with_buffer(np.angle(ptychonn_image[..., 0]), buffer=-20)
+        ptychonn_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(ptychonn_image[..., 0]), buffer=-20)
         
         # Create comparison with all three methods
         mk_comparison(ptychopinn_phase + 1j * ptychopinn_amplitude, 
