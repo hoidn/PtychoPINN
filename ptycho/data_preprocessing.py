@@ -43,11 +43,12 @@ def load_xpp_data(probeGuess):
     return train_data_container, test_data_container
 
 def load_generic_data(probeGuess, N):
-    from ptycho.loader import RawData
+    from ptycho.raw_data import RawData
     train_data_file_path = params.get('train_data_file_path')
     test_data_file_path = params.get('test_data_file_path')
 
-    train_raw, test_raw = RawData.from_files(train_data_file_path, test_data_file_path)
+    train_raw = RawData.from_file(train_data_file_path)
+    test_raw = RawData.from_file(test_data_file_path)
 
     dset_train = train_raw.generate_grouped_data(N, K=7, nsamples=1)
     dset_test = test_raw.generate_grouped_data(N, K=7, nsamples=1)

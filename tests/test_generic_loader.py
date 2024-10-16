@@ -1,6 +1,6 @@
 import numpy as np
 import os
-from ptycho.loader import RawData
+from ptycho.raw_data import RawData
 from ptycho.xpp import load_ptycho_data
 import tensorflow as tf
 import pkg_resources
