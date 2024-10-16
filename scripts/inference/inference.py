@@ -31,7 +31,7 @@ import signal
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from ptycho import tf_helper, probe, params, train_pinn
+from ptycho import probe, params, train_pinn
 from ptycho.model_manager import ModelManager
 from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data
@@ -149,9 +149,8 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         test_dataset = test_data.generate_grouped_data(config['N'], K=K, nsamples=nsamples)
         
         # Create PtychoDataContainer
-        from ptycho.data_container import PtychoDataContainer
-        test_data_container = PtychoDataContainer(lambda: test_dataset, test_data.probeGuess,
-                                                  which=None, create_split=False)
+        from ptycho import loader
+        test_data_container = loader.load(lambda: test_dataset, test_data.probeGuess, which=None, create_split=False)
         
         # Perform reconstruction
         start_time = time.time()
@@ -160,7 +159,7 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         print(f"Reconstruction completed in {reconstruction_time:.2f} seconds")
 
         # Process the reconstructed image
-        from ptycho.nbutils import reassemble_position
+        from ptycho.tf_helper import reassemble_position
         obj_image = reassemble_position(obj_tensor_full, global_offsets, M=20)
         
         # Extract amplitude and phase
