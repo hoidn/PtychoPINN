@@ -151,8 +151,8 @@ def visualize_simulated_data(data: Dict[str, np.ndarray], output_dir: str) -> No
     os.makedirs(output_dir, exist_ok=True)
 
     # Create a large figure with multiple subplots
-    fig = plt.figure(figsize=(20, 20))
-    gs = fig.add_gridspec(4, 3)
+    fig = plt.figure(figsize=(24, 30))
+    gs = fig.add_gridspec(5, 3, height_ratios=[1, 0.2, 1, 0.2, 1])
 
     # Plot probe guess
     ax_probe = fig.add_subplot(gs[0, 0])
@@ -170,10 +170,10 @@ def visualize_simulated_data(data: Dict[str, np.ndarray], output_dir: str) -> No
     ax_scan.set_ylabel("Y Coordinate")
     ax_scan.set_aspect('equal')
 
+    # Add title for diffraction patterns
+    fig.text(0.5, 0.62, "Sample Diffraction Patterns", ha='center', va='center', fontsize=16)
+
     # Plot a sample of diffraction patterns
-    ax_diff = fig.add_subplot(gs[1, :])
-    ax_diff.set_title("Sample Diffraction Patterns", fontsize=16)
-    ax_diff.axis('off')
     for i in range(3):
         if i < min(3, data['diffraction_patterns'].shape[0]):
             ax = fig.add_subplot(gs[2, i])
@@ -181,13 +181,13 @@ def visualize_simulated_data(data: Dict[str, np.ndarray], output_dir: str) -> No
             ax.set_title(f"Pattern {i}")
             plt.colorbar(im, ax=ax)
 
+    # Add title for ground truth patches
+    fig.text(0.5, 0.22, "Sample Ground Truth Patches", ha='center', va='center', fontsize=16)
+
     # Plot ground truth patches
-    ax_gt = fig.add_subplot(gs[3, :])
-    ax_gt.set_title("Sample Ground Truth Patches", fontsize=16)
-    ax_gt.axis('off')
     for i in range(3):
         if i < min(3, data['ground_truth_patches'].shape[0]):
-            ax = fig.add_subplot(gs[3, i])
+            ax = fig.add_subplot(gs[4, i])
             plot_complex_image(ax, data['ground_truth_patches'][i], f"Patch {i}")
 
     plt.tight_layout()
