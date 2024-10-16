@@ -232,6 +232,87 @@ def make_invocation_counter():
 #    return wrapper
 
 import scipy.signal
+import functools
+import hashlib
+import json
+import os
+import numpy as np
+from ptycho.loader import RawData
+
+def memoize_simulated_data(func):
+    memory_cache = {}
+    disk_cache_dir = 'memoized_simulated_data'
+    if not os.path.exists(disk_cache_dir):
+        os.makedirs(disk_cache_dir)
+
+    def array_to_bytes(arr):
+        return arr.tobytes(), arr.dtype.str, arr.shape
+
+    def bytes_to_array(data, dtype, shape):
+        return np.frombuffer(data, dtype=np.dtype(dtype)).reshape(shape)
+
+    @functools.wraps(func)
+    def wrapper(objectGuess, probeGuess, nimages, buffer, random_seed=None, return_patches=True):
+        # Create a unique hash for the input parameters
+        hash_input = {
+            'objectGuess': array_to_bytes(objectGuess),
+            'probeGuess': array_to_bytes(probeGuess),
+            'nimages': nimages,
+            'buffer': buffer,
+            'random_seed': random_seed,
+            'return_patches': return_patches
+        }
+        hash_str = json.dumps(hash_input, sort_keys=True).encode('utf-8')
+        hash_hex = hashlib.sha256(hash_str).hexdigest()
+
+        if hash_hex in memory_cache:
+            print("Loading result from memory cache.")
+            return memory_cache[hash_hex]
+
+        disk_cache_file = os.path.join(disk_cache_dir, f'{hash_hex}.npz')
+        if os.path.exists(disk_cache_file):
+            print("Loading result from disk cache.")
+            with np.load(disk_cache_file, allow_pickle=True) as data:
+                raw_data_dict = data['raw_data'].item()
+                raw_data = RawData(
+                    xcoords=raw_data_dict['xcoords'],
+                    ycoords=raw_data_dict['ycoords'],
+                    xcoords_start=raw_data_dict['xcoords_start'],
+                    ycoords_start=raw_data_dict['ycoords_start'],
+                    diff3d=raw_data_dict['diff3d'],
+                    probeGuess=raw_data_dict['probeGuess']
+                )
+                if return_patches:
+                    patches = data['patches']
+                    result = (raw_data, patches)
+                else:
+                    result = raw_data
+        else:
+            print("No cached result found. Calculating and caching the result.")
+            result = func(objectGuess, probeGuess, nimages, buffer, random_seed, return_patches)
+            
+            if isinstance(result, tuple):
+                raw_data, patches = result
+            else:
+                raw_data = result
+                patches = None
+
+            raw_data_dict = {
+                'xcoords': raw_data.xcoords,
+                'ycoords': raw_data.ycoords,
+                'xcoords_start': raw_data.xcoords_start,
+                'ycoords_start': raw_data.ycoords_start,
+                'diff3d': raw_data.diff3d,
+                'probeGuess': raw_data.probeGuess
+            }
+
+            np.savez(disk_cache_file, raw_data=raw_data_dict, patches=patches)
+
+        memory_cache[hash_hex] = result
+        return result
+
+    return wrapper
+
 def cross_image(im1, im2):
     """
     Find offsets through 2d autocorrelation
