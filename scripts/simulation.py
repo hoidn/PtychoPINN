@@ -3,23 +3,13 @@
 
 import argparse
 import os
-import numpy as np
 import matplotlib.pyplot as plt
-from ptycho.nongrid_simulation import (
-    simulate_from_npz,
-    visualize_simulated_data,
-    plot_random_groups,
-    compare_reconstructions,
-)
-from ptycho import tf_helper as hh
-from ptycho import baselines as bl
 from ptycho.workflows.components import (
     setup_configuration,
-    create_ptycho_data_container,
     run_cdi_example,
-    update_params
+    update_params,
+
 )
-from ptycho import probe
 
 def save_plot_to_file(fig, filename):
     fig.savefig(filename, dpi=300, bbox_inches='tight')
@@ -53,6 +43,7 @@ def main():
     parser.add_argument("--N", type=int, default=128, help="Size of the simulation grid.")
     parser.add_argument("--probe_scale", type=int, default=4, help="Probe scale factor.")
     parser.add_argument("--nphotons", type=float, default=1e9, help="Number of photons.")
+    parser.add_argument("--config", type=str, help="Path to YAML configuration file")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -72,8 +63,21 @@ def main():
         "probe_scale": args.probe_scale,
         "nphotons": args.nphotons,
     }
+    
 
     update_params(params)
+    config = setup_configuration(args, args.config)
+
+    from ptycho import probe
+    from ptycho.nongrid_simulation import (
+        simulate_from_npz,
+        visualize_simulated_data,
+        plot_random_groups,
+        compare_reconstructions,
+    )
+    from ptycho import tf_helper as hh
+    from ptycho import baselines as bl
+    from ptycho.workflows.components import create_ptycho_data_container
 
     # Simulate data
     simulated_data, ground_truth_patches = simulate_from_npz(
