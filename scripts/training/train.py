@@ -96,7 +96,7 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> D
         logger.error(f"Error setting up configuration: {e}")
         raise
 
-def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, Any]:
+def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
     """
     Load and prepare the data from a single file path.
 
@@ -104,7 +104,7 @@ def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, Any]:
         data_file_path (str): Path to the data file
 
     Returns:
-        Tuple[RawData, Any]: A tuple containing the full dataset and additional data
+        Tuple[RawData, RawData, Any]: A tuple containing the full dataset, training subset, and additional data
     """
     if not os.path.exists(data_file_path):
         raise FileNotFoundError(f"Data file not found: {data_file_path}")
@@ -182,11 +182,11 @@ def main(args) -> None:
     config = setup_configuration(args, args.config)
     
     try:
-        ptycho_data, obj = load_and_prepare_data(config['train_data_file_path'])
+        ptycho_data, ptycho_data_train, obj = load_and_prepare_data(config['train_data_file_path'])
         
         test_data = None
         if config['test_data_file_path']:
-            test_ptycho_data, test_obj = load_and_prepare_data(config['test_data_file_path'])
+            test_ptycho_data, test_ptycho_data_train, test_obj = load_and_prepare_data(config['test_data_file_path'])
             test_data = test_ptycho_data
         
         recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config)

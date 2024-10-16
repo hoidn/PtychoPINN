@@ -1,12 +1,7 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import tensorflow as tf
 import pkg_resources
 
-from . import loader
-from .loader import key_coords_offsets, key_coords_relative
 from .loader import load_xpp_npz as load_ptycho_data
-from ptycho import diffsim as datasets
 
 train_frac = .5
 N = 64
