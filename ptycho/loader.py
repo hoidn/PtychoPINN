@@ -660,6 +660,7 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     coords_nominal = tf.convert_to_tensor(coords_nominal)
     coords_true = tf.convert_to_tensor(coords_true)
 
+    # TODO we shouldn't be nuking the ground truth
 ##    try:
 #    if dset['Y'] is None:
 #        Y = get_image_patches(gt_image,
@@ -668,15 +669,14 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
 #    else:
 #        Y = dset['Y']
 #        print("loader: using provided ground truth patches")
-    Y = tf.ones_like(X)
+    if dset['Y'] is None:
+        Y = tf.ones_like(X)
+        print("loader: setting dummy Y ground truth")
+    else:
+        Y = dset['Y']
+        print("loader: using provided ground truth patches")
     Y_I = tf.math.abs(Y)
     Y_phi = tf.math.angle(Y)
-#    except: 
-#        Y = None
-#        Y_I = tf.zeros_like(X)
-#        Y_phi = tf.zeros_like(X)
-#    Y_I = tf.ones_like(X)
-#    Y_phi = tf.ones_like(X)
 
     # TODO get rid of?
     YY_full = None
