@@ -4,7 +4,7 @@ Stores global variables for data generation and model configuration
 # TODO naming convention for different types of parameters
 # TODO what default value and initialization for the probe scale?
 cfg = {
-    'N': 64, 'offset': 4, 'gridsize': 2,
+    'N': 128, 'offset': 4, 'gridsize': 2,
     'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16,
     'nepochs': 60, 'n_filters_scale': 2, 'output_prefix': 'outputs',
     'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.,

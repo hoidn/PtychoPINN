@@ -163,7 +163,7 @@ def main(ptycho_dir, probe_dir):
     model = PtychoPINN()
 
     #Create trainer
-    trainer = L.Trainer(max_epochs = 3,
+    trainer = L.Trainer(max_epochs = 15,
                         default_root_dir = os.path.dirname(os.getcwd()),
                         devices = 'auto',
                         accelerator = 'gpu',
