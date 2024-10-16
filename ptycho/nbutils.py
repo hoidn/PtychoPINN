@@ -89,6 +89,45 @@ def mk_comparison2x2(method1_phase, method2_phase, method1_amplitude, method2_am
 
     plt.show()
 
+def save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_path=None):
+    """
+    Create and display the comparison figure with reconstructed and ePIE results.
+    If output_path is provided, save the figure to that path.
+    """
+    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+    
+    # PtychoPINN phase
+    im_pinn_phase = axs[0, 0].imshow(reconstructed_phase, cmap='gray')
+    axs[0, 0].set_title('PtychoPINN Phase')
+    fig.colorbar(im_pinn_phase, ax=axs[0, 0], fraction=0.046, pad=0.04)
+    
+    # ePIE phase
+    im_epie_phase = axs[0, 1].imshow(epie_phase, cmap='gray')
+    axs[0, 1].set_title('ePIE Phase')
+    fig.colorbar(im_epie_phase, ax=axs[0, 1], fraction=0.046, pad=0.04)
+    
+    # PtychoPINN amplitude
+    im_pinn_amp = axs[1, 0].imshow(reconstructed_amplitude, cmap='viridis')
+    axs[1, 0].set_title('PtychoPINN Amplitude')
+    fig.colorbar(im_pinn_amp, ax=axs[1, 0], fraction=0.046, pad=0.04)
+    
+    # ePIE amplitude
+    im_epie_amp = axs[1, 1].imshow(epie_amplitude, cmap='viridis')
+    axs[1, 1].set_title('ePIE Amplitude')
+    fig.colorbar(im_epie_amp, ax=axs[1, 1], fraction=0.046, pad=0.04)
+    
+    # Remove axis ticks
+    for ax in axs.flat:
+        ax.set_xticks([])
+        ax.set_yticks([])
+    
+    plt.tight_layout()
+    
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    
+    plt.show()
+
 # TODO type annotation
 def reconstruct_image(test_data, diffraction_to_obj = None):
     global_offsets = test_data.global_offsets
