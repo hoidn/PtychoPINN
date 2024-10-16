@@ -80,44 +80,28 @@ def mk_comparison(method1, method2, method1_name='PtychoNN', method2_name='groun
     plt.tight_layout(pad=3.0)
     plt.show()
 
-def save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_path=None):
-    """
-    Create and display the comparison figure with reconstructed and ePIE results.
-    If output_path is provided, save the figure to that path.
-    """
-    fig, axs = plt.subplots(2, 2, figsize=(12, 12))
-    
-    # PtychoPINN phase
-    im_pinn_phase = axs[0, 0].imshow(reconstructed_phase, cmap='gray')
-    axs[0, 0].set_title('PtychoPINN Phase')
-    fig.colorbar(im_pinn_phase, ax=axs[0, 0], fraction=0.046, pad=0.04)
-    
-    # ePIE phase
-    im_epie_phase = axs[0, 1].imshow(epie_phase, cmap='gray')
-    axs[0, 1].set_title('ePIE Phase')
-    fig.colorbar(im_epie_phase, ax=axs[0, 1], fraction=0.046, pad=0.04)
-    
-    # PtychoPINN amplitude
-    im_pinn_amp = axs[1, 0].imshow(reconstructed_amplitude, cmap='viridis')
-    axs[1, 0].set_title('PtychoPINN Amplitude')
-    fig.colorbar(im_pinn_amp, ax=axs[1, 0], fraction=0.046, pad=0.04)
-    
-    # ePIE amplitude
-    im_epie_amp = axs[1, 1].imshow(epie_amplitude, cmap='viridis')
-    axs[1, 1].set_title('ePIE Amplitude')
-    fig.colorbar(im_epie_amp, ax=axs[1, 1], fraction=0.046, pad=0.04)
-    
-    # Remove axis ticks
-    for ax in axs.flat:
-        ax.set_xticks([])
-        ax.set_yticks([])
-    
-    plt.tight_layout()
-    
-    if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    
-    plt.show()
+def compare(test_data, obj_tensor_full, objectGuess):
+    from ptycho import loader
+    # Reconstruct the image from test_data and obj_tensor_full
+    obj_tensor_full, global_offsets = reconstruct_image(test_data)
+
+    # Reassemble the position with adjustments to the global offsets
+    obj_image = loader.reassemble_position(obj_tensor_full, -global_offsets[:, :, :, :], M=20)
+
+    # Compute the amplitude and phase of the reconstructed image
+    recon_amp_ptychopinn = np.absolute(obj_image)
+    recon_phase_ptychopinn = np.angle(obj_image)
+
+    # Extract the phase and amplitude for the 0th channel (assuming multi-channel)
+    ptycho_pinn_phase = recon_phase_ptychopinn[..., 0]
+    ptycho_pinn_amplitude = recon_amp_ptychopinn[..., 0]
+
+    # Process the objectGuess from obj using custom cropping functions
+    epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(objectGuess), buffer=-20)
+    epie_amplitude = crop_to_non_uniform_region_with_buffer(np.absolute(objectGuess), buffer=-20)
+
+    # Create a comparison of the reconstructed phase and amplitude
+    mk_comparison(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude, epie_amplitude)
 
 # TODO type annotation
 def reconstruct_image(test_data, diffraction_to_obj = None):
