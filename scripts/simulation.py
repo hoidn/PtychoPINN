@@ -62,9 +62,10 @@ def generate_html_report(output_dir, image_files):
     for image_file in image_files:
         image_name = os.path.basename(image_file)
         image_title = image_name.replace('_', ' ').replace('.png', '').title()
+        relative_path = os.path.relpath(image_file, output_dir)
         html_content += f"""
         <div class="image-container">
-            <img src="{image_file}" alt="{image_title}">
+            <img src="{relative_path}" alt="{image_title}">
             <p class="image-title">{image_title}</p>
         </div>
         """
