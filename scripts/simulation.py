@@ -16,11 +16,64 @@ def save_plot_to_file(fig, filename):
     plt.close(fig)
 
 def generate_html_report(output_dir, image_files):
-    html_content = "<html><body>"
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Ptychography Simulation Report</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+            h1 {
+                color: #2c3e50;
+                text-align: center;
+            }
+            .image-container {
+                margin-bottom: 30px;
+            }
+            img {
+                max-width: 100%;
+                height: auto;
+                display: block;
+                margin: 0 auto;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 5px;
+            }
+            .image-title {
+                font-weight: bold;
+                margin-top: 10px;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Ptychography Simulation Report</h1>
+    """
+
     for image_file in image_files:
-        html_content += f'<img src="{image_file}" style="max-width:100%"><br><br>'
-    html_content += "</body></html>"
-    
+        image_name = os.path.basename(image_file)
+        image_title = image_name.replace('_', ' ').replace('.png', '').title()
+        html_content += f"""
+        <div class="image-container">
+            <img src="{image_file}" alt="{image_title}">
+            <p class="image-title">{image_title}</p>
+        </div>
+        """
+
+    html_content += """
+    </body>
+    </html>
+    """
+
     with open(os.path.join(output_dir, 'report.html'), 'w') as f:
         f.write(html_content)
 
