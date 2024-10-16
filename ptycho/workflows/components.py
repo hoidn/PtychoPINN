@@ -28,7 +28,9 @@ ARG_TO_CONFIG_MAP = {
     "probe_scale": ("probe_scale", 4),
     "train_data_file_path": ("train_data_file_path", None),
     "test_data_file_path": ("test_data_file_path", None),
-    "N": ("N", 64)
+    "N": ("N", 64),
+#    "mae_weight": ("mae_weight", 0.),
+#    "nll_weight": ("nll_weight", 1.)
 }
 
 def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
@@ -142,10 +144,10 @@ def merge_configs(yaml_config: Optional[Dict[str, Any]], args_config: Dict[str, 
 
     return config
 
-def validate_config(config: Dict[str, Any]) -> None:
-    """Validate the configuration."""
-    if 'train_data_file_path' not in config or config['train_data_file_path'] is None:
-        raise ValueError("train_data_file_path is a required parameter and must be provided")
+#def validate_config(config: Dict[str, Any]) -> None:
+#    """Validate the configuration."""
+#    if 'train_data_file_path' not in config or config['train_data_file_path'] is None:
+#        raise ValueError("train_data_file_path is a required parameter and must be provided")
 
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> Dict[str, Any]:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
@@ -153,7 +155,7 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> D
         yaml_config = load_yaml_config(yaml_path) if yaml_path else None
         args_config = vars(args)
         config = merge_configs(yaml_config, args_config)
-        validate_config(config)
+        #validate_config(config)
         p.cfg.update(config)  # Update the global configuration
         
         logger.info("Configuration setup complete")
@@ -346,6 +348,8 @@ def run_cdi_example(
         recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y, transpose, M=M)
         train_results.update(reassemble_results)
     
+    # TODO instead of returning a tuple we should have a coherent data structure for storing
+    # the output of inference + reassembly runs. 
     return recon_amp, recon_phase, train_results
 
 
