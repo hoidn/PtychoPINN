@@ -149,8 +149,9 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         test_dataset = test_data.generate_grouped_data(config['N'], K=K, nsamples=nsamples)
         
         # Create PtychoDataContainer
-        test_data_container = loader.load(lambda: test_dataset, test_data.probeGuess,
-                                          which=None, create_split=False)
+        from ptycho.data_container import PtychoDataContainer
+        test_data_container = PtychoDataContainer(lambda: test_dataset, test_data.probeGuess,
+                                                  which=None, create_split=False)
         
         # Perform reconstruction
         start_time = time.time()
@@ -159,7 +160,8 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         print(f"Reconstruction completed in {reconstruction_time:.2f} seconds")
 
         # Process the reconstructed image
-        obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=20)
+        from ptycho.nbutils import reassemble_position
+        obj_image = reassemble_position(obj_tensor_full, global_offsets, M=20)
         
         # Extract amplitude and phase
         reconstructed_amplitude = np.abs(obj_image)
