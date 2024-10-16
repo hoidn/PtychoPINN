@@ -80,28 +80,38 @@ def mk_comparison(method1, method2, method1_name='PtychoNN', method2_name='groun
     plt.tight_layout(pad=3.0)
     plt.show()
 
-def compare(test_data, obj_tensor_full, objectGuess):
+def compare(test_data, obj_tensor_full, objectGuess, ptychonn_tensor=None):
     from ptycho import loader
-    # Reconstruct the image from test_data and obj_tensor_full
+
+    # Process PtychoPINN data
     obj_tensor_full, global_offsets = reconstruct_image(test_data)
+    ptychopinn_image = loader.reassemble_position(obj_tensor_full, -global_offsets[:, :, :, :], M=20)
+    ptychopinn_phase = np.angle(ptychopinn_image[..., 0])
+    ptychopinn_amplitude = np.abs(ptychopinn_image[..., 0])
 
-    # Reassemble the position with adjustments to the global offsets
-    obj_image = loader.reassemble_position(obj_tensor_full, -global_offsets[:, :, :, :], M=20)
+    # Process ground truth data
+    gt_phase = crop_to_non_uniform_region_with_buffer(np.angle(objectGuess), buffer=-20)
+    gt_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(objectGuess), buffer=-20)
 
-    # Compute the amplitude and phase of the reconstructed image
-    recon_amp_ptychopinn = np.absolute(obj_image)
-    recon_phase_ptychopinn = np.angle(obj_image)
-
-    # Extract the phase and amplitude for the 0th channel (assuming multi-channel)
-    ptycho_pinn_phase = recon_phase_ptychopinn[..., 0]
-    ptycho_pinn_amplitude = recon_amp_ptychopinn[..., 0]
-
-    # Process the objectGuess from obj using custom cropping functions
-    epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(objectGuess), buffer=-20)
-    epie_amplitude = crop_to_non_uniform_region_with_buffer(np.absolute(objectGuess), buffer=-20)
-
-    # Create a comparison of the reconstructed phase and amplitude
-    mk_comparison(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude, epie_amplitude)
+    # Process PtychoNN data if provided
+    if ptychonn_tensor is not None:
+        ptychonn_image = loader.reassemble_position(ptychonn_tensor, -global_offsets[:, :, :, :], M=20)
+        ptychonn_phase = np.angle(ptychonn_image[..., 0])
+        ptychonn_amplitude = np.abs(ptychonn_image[..., 0])
+        
+        # Create comparison with all three methods
+        mk_comparison(ptychopinn_phase + 1j * ptychopinn_amplitude, 
+                      gt_phase + 1j * gt_amplitude, 
+                      method1_name='PtychoPINN', 
+                      method2_name='ground truth',
+                      method0=ptychonn_phase + 1j * ptychonn_amplitude, 
+                      method0_name='PtychoNN')
+    else:
+        # Create comparison with only PtychoPINN and ground truth
+        mk_comparison(ptychopinn_phase + 1j * ptychopinn_amplitude, 
+                      gt_phase + 1j * gt_amplitude, 
+                      method1_name='PtychoPINN', 
+                      method2_name='ground truth')
 
 # TODO type annotation
 def reconstruct_image(test_data, diffraction_to_obj = None):
