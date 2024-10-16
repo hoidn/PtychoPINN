@@ -237,7 +237,6 @@ import hashlib
 import json
 import os
 import numpy as np
-from ptycho.loader import RawData
 
 def memoize_simulated_data(func):
     memory_cache = {}
@@ -253,6 +252,7 @@ def memoize_simulated_data(func):
 
     @functools.wraps(func)
     def wrapper(objectGuess, probeGuess, nimages, buffer, random_seed=None, return_patches=True):
+        from ptycho.loader import RawData
         # Create a unique hash for the input parameters
         hash_input = {
             'objectGuess': array_to_bytes(objectGuess),
