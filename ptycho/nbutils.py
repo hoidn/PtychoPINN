@@ -43,44 +43,46 @@ def crop_to_non_uniform_region_with_buffer(img_array, buffer=0):
 
 import matplotlib.pyplot as plt
 
-def mk_epie_comparison2x2(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude, epie_amplitude, phase_vmin=None, phase_vmax=None):
+def mk_comparison2x2(method1_phase, method2_phase, method1_amplitude, method2_amplitude, method1_name='PtychoPINN', method2_name='ePIE', phase_vmin=None, phase_vmax=None):
     """
     Create a 2x2 comparison plot of phase and amplitude images.
 
     Parameters:
-    - ptycho_pinn_phase: 2D array of PtychoPINN phase data
-    - epie_phase: 2D array of ePIE phase data
-    - ptycho_pinn_amplitude: 2D array of PtychoPINN amplitude data
-    - epie_amplitude: 2D array of ePIE amplitude data
+    - method1_phase: 2D array of method1 phase data
+    - method2_phase: 2D array of method2 phase data
+    - method1_amplitude: 2D array of method1 amplitude data
+    - method2_amplitude: 2D array of method2 amplitude data
+    - method1_name: Name of the first method (default: 'PtychoPINN')
+    - method2_name: Name of the second method (default: 'ePIE')
     - phase_vmin: Minimum data value for phase plots (optional)
     - phase_vmax: Maximum data value for phase plots (optional)
     """
     # Create a 2x2 subplot
     fig, axs = plt.subplots(2, 2, figsize=(10, 10))
 
-    # PtychoPINN phase with color bar
-    ptycho_pinn_phase_img = axs[0, 0].imshow(ptycho_pinn_phase, cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
-    axs[0, 0].set_title('PtychoPINN Phase')
+    # Method1 phase with color bar
+    method1_phase_img = axs[0, 0].imshow(method1_phase, cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
+    axs[0, 0].set_title(f'{method1_name} Phase')
     axs[0, 0].axis('off')
-    fig.colorbar(ptycho_pinn_phase_img, ax=axs[0, 0], orientation='vertical')
+    fig.colorbar(method1_phase_img, ax=axs[0, 0], orientation='vertical')
 
-    # ePIE phase with color bar
-    epie_phase_img = axs[0, 1].imshow(epie_phase, cmap='gray')
-    axs[0, 1].set_title('ePIE Phase')
+    # Method2 phase with color bar
+    method2_phase_img = axs[0, 1].imshow(method2_phase, cmap='gray')
+    axs[0, 1].set_title(f'{method2_name} Phase')
     axs[0, 1].axis('off')
-    fig.colorbar(epie_phase_img, ax=axs[0, 1], orientation='vertical')
+    fig.colorbar(method2_phase_img, ax=axs[0, 1], orientation='vertical')
 
-    # PtychoPINN amplitude with color bar
-    ptycho_pinn_amplitude_img = axs[1, 0].imshow(ptycho_pinn_amplitude, cmap='gray')
-    axs[1, 0].set_title('PtychoPINN Amplitude')
+    # Method1 amplitude with color bar
+    method1_amplitude_img = axs[1, 0].imshow(method1_amplitude, cmap='gray')
+    axs[1, 0].set_title(f'{method1_name} Amplitude')
     axs[1, 0].axis('off')
-    fig.colorbar(ptycho_pinn_amplitude_img, ax=axs[1, 0], orientation='vertical')
+    fig.colorbar(method1_amplitude_img, ax=axs[1, 0], orientation='vertical')
 
-    # ePIE amplitude with color bar
-    epie_amplitude_img = axs[1, 1].imshow(epie_amplitude, cmap='gray')
-    axs[1, 1].set_title('ePIE Amplitude')
+    # Method2 amplitude with color bar
+    method2_amplitude_img = axs[1, 1].imshow(method2_amplitude, cmap='gray')
+    axs[1, 1].set_title(f'{method2_name} Amplitude')
     axs[1, 1].axis('off')
-    fig.colorbar(epie_amplitude_img, ax=axs[1, 1], orientation='vertical')
+    fig.colorbar(method2_amplitude_img, ax=axs[1, 1], orientation='vertical')
 
     # Adjust layout to prevent overlap
     plt.tight_layout(pad=3.0)
