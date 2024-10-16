@@ -43,50 +43,41 @@ def crop_to_non_uniform_region_with_buffer(img_array, buffer=0):
 
 import matplotlib.pyplot as plt
 
-def mk_comparison2x2(method1_phase, method2_phase, method1_amplitude, method2_amplitude, method1_name='PtychoPINN', method2_name='ePIE', phase_vmin=None, phase_vmax=None):
+def mk_comparison(method1, method2, method1_name='PtychoNN', method2_name='ground truth', method0=None, method0_name='ePIE', phase_vmin=None, phase_vmax=None):
     """
-    Create a 2x2 comparison plot of phase and amplitude images.
+    Create a comparison plot of phase and amplitude images for 2 or 3 methods.
 
     Parameters:
-    - method1_phase: 2D array of method1 phase data
-    - method2_phase: 2D array of method2 phase data
-    - method1_amplitude: 2D array of method1 amplitude data
-    - method2_amplitude: 2D array of method2 amplitude data
-    - method1_name: Name of the first method (default: 'PtychoPINN')
-    - method2_name: Name of the second method (default: 'ePIE')
+    - method1: Complex 2D array of method1 data
+    - method2: Complex 2D array of method2 data
+    - method1_name: Name of the first method (default: 'PtychoNN')
+    - method2_name: Name of the second method (default: 'ground truth')
+    - method0: Complex 2D array of method0 data (optional)
+    - method0_name: Name of the optional third method (default: 'ePIE')
     - phase_vmin: Minimum data value for phase plots (optional)
     - phase_vmax: Maximum data value for phase plots (optional)
     """
-    # Create a 2x2 subplot
-    fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+    num_methods = 3 if method0 is not None else 2
+    fig, axs = plt.subplots(2, num_methods, figsize=(5*num_methods, 10))
 
-    # Method1 phase with color bar
-    method1_phase_img = axs[0, 0].imshow(method1_phase, cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
-    axs[0, 0].set_title(f'{method1_name} Phase')
-    axs[0, 0].axis('off')
-    fig.colorbar(method1_phase_img, ax=axs[0, 0], orientation='vertical')
+    methods = [method0, method1, method2] if num_methods == 3 else [method1, method2]
+    method_names = [method0_name, method1_name, method2_name] if num_methods == 3 else [method1_name, method2_name]
 
-    # Method2 phase with color bar
-    method2_phase_img = axs[0, 1].imshow(method2_phase, cmap='gray')
-    axs[0, 1].set_title(f'{method2_name} Phase')
-    axs[0, 1].axis('off')
-    fig.colorbar(method2_phase_img, ax=axs[0, 1], orientation='vertical')
+    for i, (method, name) in enumerate(zip(methods, method_names)):
+        # Phase plot
+        phase_img = axs[0, i].imshow(np.angle(method), cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
+        axs[0, i].set_title(f'{name} Phase')
+        axs[0, i].axis('off')
+        fig.colorbar(phase_img, ax=axs[0, i], orientation='vertical')
 
-    # Method1 amplitude with color bar
-    method1_amplitude_img = axs[1, 0].imshow(method1_amplitude, cmap='gray')
-    axs[1, 0].set_title(f'{method1_name} Amplitude')
-    axs[1, 0].axis('off')
-    fig.colorbar(method1_amplitude_img, ax=axs[1, 0], orientation='vertical')
-
-    # Method2 amplitude with color bar
-    method2_amplitude_img = axs[1, 1].imshow(method2_amplitude, cmap='gray')
-    axs[1, 1].set_title(f'{method2_name} Amplitude')
-    axs[1, 1].axis('off')
-    fig.colorbar(method2_amplitude_img, ax=axs[1, 1], orientation='vertical')
+        # Amplitude plot
+        amp_img = axs[1, i].imshow(np.abs(method), cmap='viridis')
+        axs[1, i].set_title(f'{name} Amplitude')
+        axs[1, i].axis('off')
+        fig.colorbar(amp_img, ax=axs[1, i], orientation='vertical')
 
     # Adjust layout to prevent overlap
     plt.tight_layout(pad=3.0)
-
     plt.show()
 
 def save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_path=None):
