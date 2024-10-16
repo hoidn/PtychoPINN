@@ -448,6 +448,11 @@ def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, ag
 #@debug
 def mk_centermask(inputs: tf.Tensor, N: int, c: int, kind: str = 'center') -> tf.Tensor:
     b = tf.shape(inputs)[0]
+#    if get('probe.big'):
+#        ones = tf.ones((b, N, N, c), dtype = inputs.dtype)
+#    else:
+#        ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
+#        ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
     ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
     ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
     if kind == 'center':

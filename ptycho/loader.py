@@ -686,12 +686,14 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     print(container)
     return container
 
-# Images are amplitude, not intensity
 #@debug
-# TODO SHOULDN'T THE NORMALIZATION BE SQUARE ROOTED?
 def normalize_data(dset: dict, N: int) -> np.ndarray:
+    # Images are amplitude, not intensity
     X_full = dset['diffraction']
-    X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+    X_full_norm = np.sqrt(
+            ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+            )
+    #print('X NORM', X_full_norm)
     return X_full_norm * X_full
 
 #@debug
