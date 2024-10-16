@@ -42,6 +42,9 @@ def load_probe_object(file_path: str) -> Tuple[np.ndarray, np.ndarray]:
     except Exception as e:
         raise RuntimeError(f"Error loading data from {file_path}: {str(e)}")
 
+from ptycho.misc import memoize_simulated_data
+
+@memoize_simulated_data
 def generate_simulated_data(objectGuess: np.ndarray, probeGuess: np.ndarray, nimages: int, buffer: float, random_seed: int = None, return_patches: bool = True) -> Union[RawData, Tuple[RawData, np.ndarray]]:
     """
     Generate simulated ptychography data using random scan positions.
