@@ -454,7 +454,6 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
     return dset
 
 #@debug
-# TODO SHOULDN'T THE NORMALIZATION BE SQUARE ROOTED?
 def normalize_data(dset: dict, N: int) -> np.ndarray:
     """
     Normalize the diffraction data.
@@ -466,6 +465,10 @@ def normalize_data(dset: dict, N: int) -> np.ndarray:
     Returns:
         np.ndarray: Normalized diffraction data.
     """
+    # Images are amplitude, not intensity
     X_full = dset['diffraction']
-    X_full_norm = ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+    X_full_norm = np.sqrt(
+            ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+            )
     return X_full_norm * X_full
+
