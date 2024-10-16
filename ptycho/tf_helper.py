@@ -485,6 +485,43 @@ def reassemble_patches(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Ten
     return tf.dtypes.complex(assembled_real, assembled_imag)
 
 #@debug
+def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
+    from . import tf_helper as hh
+    assert len(obj_tensor.shape) == 4
+    assert obj_tensor.dtype == np.complex64
+    assert len(global_offsets.shape) == 4
+    assert global_offsets.dtype == np.float64
+    # Extract necessary parameters
+    N = params()['N']
+    # Select the central part of the object tensor
+    obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
+    # Calculate the center of mass of global_offsets
+    center_of_mass = tf.reduce_mean(tf.cast(global_offsets, tf.float32), axis=0)
+    # Adjust global_offsets by subtracting the center of mass
+    adjusted_offsets = tf.cast(global_offsets, tf.float32) - center_of_mass
+    # Calculate dynamic padding based on maximum adjusted offset
+    max_offset = tf.reduce_max(tf.abs(adjusted_offsets))
+    dynamic_pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
+    print('PADDING SIZE:', dynamic_pad)
+    
+    # Create a canvas to store the shifted and summed object tensors
+    result = tf.zeros_like(hh.pad(obj_tensor[0:1], dynamic_pad))
+    
+    # Iterate over the adjusted offsets and perform shift-and-sum
+    for i in range(len(adjusted_offsets)):
+        # Apply dynamic padding to the current object tensor
+        padded_obj_tensor = hh.pad(obj_tensor[i:i+1], dynamic_pad)
+        # Squeeze and cast adjusted offset to 2D float for translation
+        offset_2d = tf.cast(tf.squeeze(adjusted_offsets[i]), tf.float32)
+        # Translate the padded object tensor
+        translated_obj = hh.translate(padded_obj_tensor, offset_2d, interpolation='bilinear')
+        # Accumulate the translated object tensor
+        result += translated_obj[0]
+    
+    # TODO: how could we support multiple scans?
+    return result[0]
+
+#@debug
 def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 226, norm: bool = False) -> tf.Tensor:
     """
     patches: tensor of shape (B, N, N, gridsize**2) containing reconstruction patches
@@ -501,6 +538,11 @@ def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 
     if norm:
         return img / reassemble_whole_object(tf.ones_like(patches), offsets, size = size, norm = False)
     return img
+
+def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
+    ones = tf.ones_like(obj_tensor)
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+        (1e-9 + shift_and_sum(ones, global_offsets, M = M))
 
 #@debug
 def mk_reassemble_position_real(input_positions: tf.Tensor, **outer_kwargs: Any) -> Callable[[tf.Tensor], tf.Tensor]:
