@@ -80,12 +80,11 @@ def mk_comparison(method1, method2, method1_name='PtychoNN', method2_name='groun
     plt.tight_layout(pad=3.0)
     plt.show()
 
-def compare(test_data, obj_tensor_full, objectGuess, ptychonn_tensor=None):
+def compare(obj_tensor_full, global_offsets, objectGuess, ptychonn_tensor=None):
     from ptycho import loader
 
     # Process PtychoPINN data
-    obj_tensor_full, global_offsets = reconstruct_image(test_data)
-    ptychopinn_image = loader.reassemble_position(obj_tensor_full, -global_offsets[:, :, :, :], M=20)
+    ptychopinn_image = loader.reassemble_position(obj_tensor_full, global_offsets[:, :, :, :], M=20)
     ptychopinn_phase = np.angle(ptychopinn_image[..., 0])
     ptychopinn_amplitude = np.abs(ptychopinn_image[..., 0])
 
@@ -95,7 +94,7 @@ def compare(test_data, obj_tensor_full, objectGuess, ptychonn_tensor=None):
 
     # Process PtychoNN data if provided
     if ptychonn_tensor is not None:
-        ptychonn_image = loader.reassemble_position(ptychonn_tensor, -global_offsets[:, :, :, :], M=20)
+        ptychonn_image = loader.reassemble_position(ptychonn_tensor, global_offsets[:, :, :, :], M=20)
         ptychonn_phase = np.angle(ptychonn_image[..., 0])
         ptychonn_amplitude = np.abs(ptychonn_image[..., 0])
         
