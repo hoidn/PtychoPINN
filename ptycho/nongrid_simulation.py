@@ -137,54 +137,64 @@ def plot_complex_image(ax: plt.Axes, data: np.ndarray, title: str) -> None:
     cax_phase = divider.append_axes("bottom", size="5%", pad=0.5)
     plt.colorbar(im_phase, cax=cax_phase, orientation="horizontal")
 
-def visualize_simulated_data(data: Dict[str, np.ndarray]) -> None:
+def visualize_simulated_data(data: Dict[str, np.ndarray], output_dir: str) -> None:
     """
-    Visualize the simulated ptychography data.
+    Visualize the simulated ptychography data and save all plots in a single image file.
 
     Args:
         data (dict): Dictionary containing the loaded simulated data.
+        output_dir (str): Directory to save the output plot.
     """
+    import os
+
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Create a large figure with multiple subplots
+    fig = plt.figure(figsize=(20, 20))
+    gs = fig.add_gridspec(4, 3)
+
+    # Plot probe guess
+    ax_probe = fig.add_subplot(gs[0, 0])
+    plot_complex_image(ax_probe, data['probe_guess'], "Probe Guess")
+
+    # Plot object guess
+    ax_object = fig.add_subplot(gs[0, 1])
+    plot_complex_image(ax_object, data['object'], "Object Guess")
+
+    # Plot scan positions
+    ax_scan = fig.add_subplot(gs[0, 2])
+    ax_scan.scatter(data['x_coordinates'], data['y_coordinates'], alpha=0.5)
+    ax_scan.set_title("Scan Positions")
+    ax_scan.set_xlabel("X Coordinate")
+    ax_scan.set_ylabel("Y Coordinate")
+    ax_scan.set_aspect('equal')
+
     # Plot a sample of diffraction patterns
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    fig.suptitle("Sample Diffraction Patterns", fontsize=16)
-    for i, ax in enumerate(axes.flat):
-        if i < min(6, data['diffraction_patterns'].shape[0]):
+    ax_diff = fig.add_subplot(gs[1, :])
+    ax_diff.set_title("Sample Diffraction Patterns", fontsize=16)
+    ax_diff.axis('off')
+    for i in range(3):
+        if i < min(3, data['diffraction_patterns'].shape[0]):
+            ax = fig.add_subplot(gs[2, i])
             im = ax.imshow(np.log(data['diffraction_patterns'][i]), cmap='viridis')
             ax.set_title(f"Pattern {i}")
             plt.colorbar(im, ax=ax)
-    plt.tight_layout()
-    plt.show()
 
     # Plot ground truth patches
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    fig.suptitle("Sample Ground Truth Patches", fontsize=16)
-    for i, ax in enumerate(axes.flat):
-        if i < min(6, data['ground_truth_patches'].shape[0]):
+    ax_gt = fig.add_subplot(gs[3, :])
+    ax_gt.set_title("Sample Ground Truth Patches", fontsize=16)
+    ax_gt.axis('off')
+    for i in range(3):
+        if i < min(3, data['ground_truth_patches'].shape[0]):
+            ax = fig.add_subplot(gs[3, i])
             plot_complex_image(ax, data['ground_truth_patches'][i], f"Patch {i}")
-    plt.tight_layout()
-    plt.show()
 
-    # Plot probe guess
-    fig, ax = plt.subplots(figsize=(10, 10))
-    plot_complex_image(ax, data['probe_guess'], "Probe Guess")
     plt.tight_layout()
-    plt.show()
+    plt.savefig(os.path.join(output_dir, "simulated_data_visualization.png"), dpi=300, bbox_inches='tight')
+    plt.close(fig)
 
-    # Plot object guess
-    fig, ax = plt.subplots(figsize=(10, 10))
-    plot_complex_image(ax, data['object'], "Object Guess")
-    plt.tight_layout()
-    plt.show()
-
-    # Plot scan positions
-    fig, ax = plt.subplots(figsize=(10, 10))
-    ax.scatter(data['x_coordinates'], data['y_coordinates'], alpha=0.5)
-    ax.set_title("Scan Positions")
-    ax.set_xlabel("X Coordinate")
-    ax.set_ylabel("Y Coordinate")
-    ax.set_aspect('equal')
-    plt.tight_layout()
-    plt.show()
+    print(f"All plots have been saved to: {os.path.join(output_dir, 'simulated_data_visualization.png')}")
 
 def plot_random_groups(tmp: RawData, K: int, figsize: Tuple[int, int] = (15, 5), seed: int = None) -> None:
     """
