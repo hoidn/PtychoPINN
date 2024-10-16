@@ -25,7 +25,7 @@ ARG_TO_CONFIG_MAP = {
     "probe_mask": ("probe.mask", False),
     "data_source": ("data_source", "generic"),
     "gridsize": ("gridsize", 1),
-    "probe_scale": ("probe_scale", 5),
+    "probe_scale": ("probe_scale", 4),
     "train_data_file_path": ("train_data_file_path", None),
     "test_data_file_path": ("test_data_file_path", None),
     "N": ("N", 64)
