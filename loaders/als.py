@@ -1,5 +1,5 @@
 import numpy as np
-from .. import loader
+from ptycho.raw_data import RawData
 
 import pkg_resources
 
@@ -34,14 +34,14 @@ def load_single_object(file_path, train_size=512):
     scan_index = np.zeros(diff3d.shape[0], dtype=int)
 
     # Create RawData object for the full dataset
-    ptycho_data = loader.RawData(xcoords, ycoords, xcoords_start, ycoords_start,
-                                 diff3d, probeGuess, scan_index, objectGuess=objectGuess)
+    ptycho_data = RawData(xcoords, ycoords, xcoords_start, ycoords_start,
+                          diff3d, probeGuess, scan_index, objectGuess=objectGuess)
 
     # Create RawData object for the training subset
-    ptycho_data_train = loader.RawData(xcoords[:train_size], ycoords[:train_size],
-                                       xcoords_start[:train_size], ycoords_start[:train_size],
-                                       diff3d[:train_size], probeGuess,
-                                       scan_index[:train_size], objectGuess=objectGuess)
+    ptycho_data_train = RawData(xcoords[:train_size], ycoords[:train_size],
+                                xcoords_start[:train_size], ycoords_start[:train_size],
+                                diff3d[:train_size], probeGuess,
+                                scan_index[:train_size], objectGuess=objectGuess)
 
     return ptycho_data, ptycho_data_train, data
 
