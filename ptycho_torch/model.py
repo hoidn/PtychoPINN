@@ -177,6 +177,7 @@ class Decoder_last(nn.Module):
                                 out_channels = out_channels,
                                 kernel_size = (3, 3),
                                 padding = 3//2)
+        
         #conv_up_block and conv2 are separate to conv1
         self.conv_up_block = ConvUpBlock(self.c_outer, n_filters_scale * 32)
         self.conv2 =  nn.Conv2d(in_channels = n_filters_scale * 32,

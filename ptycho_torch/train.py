@@ -163,11 +163,11 @@ def main(ptycho_dir, probe_dir):
     model = PtychoPINN()
 
     #Create trainer
-    trainer = L.Trainer(max_epochs = 15,
+    trainer = L.Trainer(max_epochs = 25,
                         default_root_dir = os.path.dirname(os.getcwd()),
                         devices = 'auto',
                         accelerator = 'gpu',
-                        gradient_clip_val = 10,
+                        gradient_clip_val = 5,
                         accumulate_grad_batches=4)
 
     #Mlflow setup

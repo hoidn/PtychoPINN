@@ -102,16 +102,14 @@ class PtychoDataset(Dataset):
                      data_dict=self.data_dict)
         #Otherwise, if path exists, load memory map and probe/other constants
         else:
+            #THIS FUNCTIONALITY CURRENTLY DOESNT WORK
+            #I DONT EVEN KNOW IF YOU CAN LOAD A PREVIOUS MEMORY MAP
             print('Existing map found. Loading memory-mapped data')
             self.mmap_ptycho = TensorDict.load_memmap(data_dir)
             temp = np.load(state_path, allow_pickle=True)
 
             #Assign other important params
             self.data_dict = temp['data_dict'].item()
-
-
-        
-
         
     def calculate_length(self, ptycho_dir):
         """
