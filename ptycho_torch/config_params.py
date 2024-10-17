@@ -21,9 +21,9 @@ data_config_default = {
     'probe_dir_get': True,
 }
 
-
 model_config_default = {
     'intensity_scale_trainable': True,
+    'intensity_scale': 10000.0,
     'max_position_jitter': 10, #Random jitter for translation (helps make model more robust)
     'n_filters_scale': 2, #Shrinking factor for channels
     'intensity_scale': 15000.0, #General intensity scale guess, this can be trainable. Needs to be float

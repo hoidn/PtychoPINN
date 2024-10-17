@@ -82,28 +82,60 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
     if padded_size is None:
         padded_size = get_padded_size()
 
+    #Create ones mask for normaliziation, which cuts off half the image b/c Nyquist limit
+    norm = norm_mask(inputs)
+
     #Flattening first two dimensions, adding singleton dimension to end
     n_channels = inputs.shape[1]
     offsets_flat = torch.flatten(offsets_xy, start_dim = 0, end_dim = 1)#[:,:,:,None]
     imgs_flat = torch.flatten(inputs, start_dim = 0, end_dim = 1)#[:,:,:,None]
+    norm_flat = torch.flatten(norm, start_dim = 0, end_dim = 1)#[:,:,:,None]
 
-    #Pad patches
+    #Pad patches and translate
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
     imgs_flat_bigN_translated = Translation(imgs_flat_bigN, offsets_flat, 0.)
 
+    #Same thing with norm
+    norm_flat_bigN = pad_patches(norm_flat, padded_size)
+    norm_flat_bigN_translated = Translation(norm_flat_bigN, offsets_flat, 0.)
+
     if agg:
+        #First reshape batch * channel dim tensors to (batch, channel, size, size)
         imgs_channel = torch.reshape(imgs_flat_bigN_translated,
                                      (-1, n_channels, padded_size, padded_size))
-        #Count nonzeros for normalization
-        n_nonzero = torch.count_nonzero(imgs_channel, dim = 1)
-        #Change all zero values in n_nonzero to 1
-        n_nonzero[n_nonzero == 0] = 1
+        norm_channel = torch.reshape(norm_flat_bigN_translated,
+                                     (-1, n_channels, padded_size, padded_size))
+        #Then decide which pixels you want to keep. We're getting rid of all pixels outside the N/2 x N/2 window
+        #due to nyquist sampling
+
+        #Boolean mask from N//2 sized masking
+        boolean_mask = torch.any(norm_channel, dim = 1).to(inputs.device) #(b, N, N)
+        #Count number of nonzeros from the ones mask, which has been modified by boolean_mask
+        non_zeros = torch.count_nonzero(norm_channel * boolean_mask[:,None,:,:], axis = 1).to(inputs.device)
+        #Change value of non_zeros from 0 to 1 in regions without any data. We'll be dividing
+        #by the number of non_zeros, so this is to avoid div by 0
+        non_zeros[non_zeros == 0] = 1
+
         #Normalize merged image by number of summed channels
-        imgs_merged = torch.sum(imgs_channel, axis = 1)/n_nonzero
+        imgs_merged = (torch.sum(imgs_channel, axis = 1) * boolean_mask) / non_zeros
         return imgs_merged
     else:
         print('no aggregation in patch reassembly')
         return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
+    
+def norm_mask(inputs):
+    '''
+    Creates normalization mask for patch reassembly. Simply returns a mask of ones which has reduced dimensionality
+    '''
+    B, C, N, _ = inputs.shape
+
+    #Mask with half-size
+    ones = torch.ones(B, C, N//2, N//2).to(inputs.device)
+    #Pad rest
+    ones = nn.ZeroPad2d(N//4)(ones)
+
+    return ones
+
     
 def extract_channels_from_region(inputs: torch.Tensor,
                                  offsets_xy: torch.Tensor,
@@ -149,7 +181,7 @@ def extract_channels_from_region(inputs: torch.Tensor,
 
     #Obtain translation of patches
     #Note, offsets must be inverted in sign compared to Translation in: reassemble_patches_position_real
-    translated_patches = Translation(flat_stacked_inputs, offsets_flat, 0.0)
+    translated_patches = Translation(flat_stacked_inputs, -offsets_flat, 0.0)
     cropped_patches = trim_reconstruction(translated_patches)
     cropped_patches = torch.reshape(cropped_patches,
                                     (-1, n_channels, DataConfig().get('N'), DataConfig().get('N')))
@@ -319,7 +351,7 @@ def Translation(img, offset, jitter_amt):
                     y_shifted.unsqueeze(1).expand(n, x_shifted.shape[1], -1)],
                     dim = -1) * 2 - 1
     
-    #Need to transpose grid due to some weird F.grid_sample behavior
+    #Need to transpose grid due to some weird F.grid_sample behavior to make it align with tensorflow
     grid = torch.transpose(grid, 1, 2)
 
     #Apply F.grid_sample to translate real and imaginary parts separately.
