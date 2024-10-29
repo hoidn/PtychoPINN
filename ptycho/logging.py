@@ -25,7 +25,7 @@ import tensorflow as tf
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Tuple
 
-from . import params
+import ptycho.params as params
 
 class SerializationError(Exception):
     pass

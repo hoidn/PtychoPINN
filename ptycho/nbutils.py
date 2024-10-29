@@ -43,49 +43,74 @@ def crop_to_non_uniform_region_with_buffer(img_array, buffer=0):
 
 import matplotlib.pyplot as plt
 
-def mk_epie_comparison2x2(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude, epie_amplitude, phase_vmin=None, phase_vmax=None):
+def mk_comparison(method1, method2, method1_name='PtychoNN', method2_name='ground truth', method0=None, method0_name='ePIE', phase_vmin=None, phase_vmax=None):
     """
-    Create a 2x2 comparison plot of phase and amplitude images.
+    Create a comparison plot of phase and amplitude images for 2 or 3 methods.
 
     Parameters:
-    - ptycho_pinn_phase: 2D array of PtychoPINN phase data
-    - epie_phase: 2D array of ePIE phase data
-    - ptycho_pinn_amplitude: 2D array of PtychoPINN amplitude data
-    - epie_amplitude: 2D array of ePIE amplitude data
+    - method1: Complex 2D array of method1 data
+    - method2: Complex 2D array of method2 data
+    - method1_name: Name of the first method (default: 'PtychoNN')
+    - method2_name: Name of the second method (default: 'ground truth')
+    - method0: Complex 2D array of method0 data (optional)
+    - method0_name: Name of the optional third method (default: 'ePIE')
     - phase_vmin: Minimum data value for phase plots (optional)
     - phase_vmax: Maximum data value for phase plots (optional)
     """
-    # Create a 2x2 subplot
-    fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+    num_methods = 3 if method0 is not None else 2
+    fig, axs = plt.subplots(2, num_methods, figsize=(5*num_methods, 10))
 
-    # PtychoPINN phase with color bar
-    ptycho_pinn_phase_img = axs[0, 0].imshow(ptycho_pinn_phase, cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
-    axs[0, 0].set_title('PtychoPINN Phase')
-    axs[0, 0].axis('off')
-    fig.colorbar(ptycho_pinn_phase_img, ax=axs[0, 0], orientation='vertical')
+    methods = [method0, method1, method2] if num_methods == 3 else [method1, method2]
+    method_names = [method0_name, method1_name, method2_name] if num_methods == 3 else [method1_name, method2_name]
 
-    # ePIE phase with color bar
-    epie_phase_img = axs[0, 1].imshow(epie_phase, cmap='gray')
-    axs[0, 1].set_title('ePIE Phase')
-    axs[0, 1].axis('off')
-    fig.colorbar(epie_phase_img, ax=axs[0, 1], orientation='vertical')
+    for i, (method, name) in enumerate(zip(methods, method_names)):
+        # Phase plot
+        phase_img = axs[0, i].imshow(np.angle(method), cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
+        axs[0, i].set_title(f'{name} Phase')
+        axs[0, i].axis('off')
+        fig.colorbar(phase_img, ax=axs[0, i], orientation='vertical')
 
-    # PtychoPINN amplitude with color bar
-    ptycho_pinn_amplitude_img = axs[1, 0].imshow(ptycho_pinn_amplitude, cmap='gray')
-    axs[1, 0].set_title('PtychoPINN Amplitude')
-    axs[1, 0].axis('off')
-    fig.colorbar(ptycho_pinn_amplitude_img, ax=axs[1, 0], orientation='vertical')
-
-    # ePIE amplitude with color bar
-    epie_amplitude_img = axs[1, 1].imshow(epie_amplitude, cmap='gray')
-    axs[1, 1].set_title('ePIE Amplitude')
-    axs[1, 1].axis('off')
-    fig.colorbar(epie_amplitude_img, ax=axs[1, 1], orientation='vertical')
+        # Amplitude plot
+        amp_img = axs[1, i].imshow(np.abs(method), cmap='viridis')
+        axs[1, i].set_title(f'{name} Amplitude')
+        axs[1, i].axis('off')
+        fig.colorbar(amp_img, ax=axs[1, i], orientation='vertical')
 
     # Adjust layout to prevent overlap
     plt.tight_layout(pad=3.0)
-
     plt.show()
+
+def compare(obj_tensor_full, global_offsets, objectGuess, ptychonn_tensor=None):
+    from ptycho import loader
+
+    # Process PtychoPINN data
+    ptychopinn_image = loader.reassemble_position(obj_tensor_full, global_offsets[:, :, :, :], M=20)
+    ptychopinn_phase = crop_to_non_uniform_region_with_buffer(np.angle(ptychopinn_image[..., 0]), buffer=-20)
+    ptychopinn_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(ptychopinn_image[..., 0]), buffer=-20)
+
+    # Process ground truth data
+    gt_phase = crop_to_non_uniform_region_with_buffer(np.angle(objectGuess), buffer=-20)
+    gt_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(objectGuess), buffer=-20)
+
+    # Process PtychoNN data if provided
+    if ptychonn_tensor is not None:
+        ptychonn_image = loader.reassemble_position(ptychonn_tensor, global_offsets[:, :, :, :], M=20)
+        ptychonn_phase = crop_to_non_uniform_region_with_buffer(np.angle(ptychonn_image[..., 0]), buffer=-20)
+        ptychonn_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(ptychonn_image[..., 0]), buffer=-20)
+        
+        # Create comparison with all three methods
+        mk_comparison(ptychopinn_phase + 1j * ptychopinn_amplitude, 
+                      gt_phase + 1j * gt_amplitude, 
+                      method1_name='PtychoPINN', 
+                      method2_name='ground truth',
+                      method0=ptychonn_phase + 1j * ptychonn_amplitude, 
+                      method0_name='PtychoNN')
+    else:
+        # Create comparison with only PtychoPINN and ground truth
+        mk_comparison(ptychopinn_phase + 1j * ptychopinn_amplitude, 
+                      gt_phase + 1j * gt_amplitude, 
+                      method1_name='PtychoPINN', 
+                      method2_name='ground truth')
 
 # TODO type annotation
 def reconstruct_image(test_data, diffraction_to_obj = None):
