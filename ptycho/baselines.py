@@ -10,17 +10,10 @@ from tensorflow.keras import Sequential
 from tensorflow.keras import Input
 from tensorflow.keras import Model
 
-from ptycho import generate_data as data
-from .evaluation import recon_patches
-
 tf.keras.backend.clear_session()
 np.random.seed(123)
 
-# files=glob.glob('%s/*' %wt_path)
-# for file in files:
-#     os.remove(file)
-
-h,w=64,64
+h,w=params.get('N'), params.get('N')
 nepochs=params.get('nepochs')
 wt_path = 'wts4' #Where to store network weights
 batch_size = 32
@@ -92,8 +85,8 @@ def train(X_train, Y_I_train, Y_phi_train, autoencoder = None):
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
 
-    #history=autoencoder.fit(X_train,
-    history=autoencoder.fit(X_train * params.params()['intensity_scale'],
+    #history=autoencoder.fit(X_train * params.params()['intensity_scale'],
+    history=autoencoder.fit(X_train,
         [Y_I_train, Y_phi_train], shuffle=True,
         batch_size=batch_size, verbose=1, epochs=nepochs,
         validation_split = 0.05, callbacks=[reduce_lr, earlystop])
