@@ -220,6 +220,18 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
 
 #@debug
 def normalize_data(dset: dict, N: int) -> np.ndarray:
+    # TODO this should be baked into the model pipeline. If we can
+    # assume consistent normalization, we can get rid of intensity_scale
+    # as a model parameter since the post normalization average L2 norm
+    # will be fixed. Normalizing in the model's dataloader will make
+    # things more self-contained and avoid the need for separately
+    # scaling simulated datasets. While we're at it we should get rid of
+    # all the unecessary multiiplying and dividing by intensity_scale.
+    # As long as nphotons is a dataset-level attribute (i.e. an attribute of RawData 
+    # and PtychoDataContainer), nothing is lost
+    # by keeping the diffraction in normalized format everywhere except
+    # before the Poisson NLL calculation in model.py.
+
     # Images are amplitude, not intensity
     X_full = dset['diffraction']
     X_full_norm = np.sqrt(

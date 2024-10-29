@@ -57,7 +57,7 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     elif len(probe.shape) == 3:
         assert probe.shape[-1] == 1
     if intensity_scale is None:
-        probe_amplitude = tf.abs(probe)
+        probe_amplitude = tf.cast(tf.abs(probe), Y_I.dtype)
         intensity_scale = scale_nphotons(Y_I * probe_amplitude[None, ...]).numpy()
     batch_size = p.get('batch_size')
     obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
