@@ -50,6 +50,12 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     Returned Y_I and Y_phi are amplitude and phase *after* illumination with the
     probe.
     """
+    # ensure probe is broadcastable
+    if len(probe.shape) == 2:
+        assert probe.shape[0] == probe.shape[1]
+        probe = probe[..., None]
+    elif len(probe.shape) == 3:
+        assert probe.shape[-1] == 1
     if intensity_scale is None:
         probe_amplitude = tf.abs(probe)
         intensity_scale = scale_nphotons(Y_I * probe_amplitude[None, ...]).numpy()

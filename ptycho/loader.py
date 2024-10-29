@@ -157,7 +157,78 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
-@debug
+# TODO this should be a method of PtychoDataContainer
+#@debug
+def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
+    from . import params as cfg
+    from . import probe
+    if create_split:
+        dset, train_frac = cb()
+    else:
+        dset = cb()
+    gt_image = dset['objectGuess']
+    X_full = dset['X_full'] # normalized diffraction
+    global_offsets = dset[key_coords_offsets]
+    # Define coords_nominal and coords_true before calling split_data
+    coords_nominal = dset[key_coords_relative]
+    coords_true = dset[key_coords_relative]
+    if create_split:
+        global_offsets = split_tensor(global_offsets, train_frac, which)
+        X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
+    else:
+        X = X_full
+    norm_Y_I = datasets.scale_nphotons(X)
+    X = tf.convert_to_tensor(X)
+    coords_nominal = tf.convert_to_tensor(coords_nominal)
+    coords_true = tf.convert_to_tensor(coords_true)
+#    try:
+#        Y = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
+#    except:
+#        Y = tf.zeros_like(X)
+
+    norm_Y_I = datasets.scale_nphotons(X)
+
+    X = tf.convert_to_tensor(X)
+    coords_nominal = tf.convert_to_tensor(coords_nominal)
+    coords_true = tf.convert_to_tensor(coords_true)
+
+    # TODO we shouldn't be nuking the ground truth
+##    try:
+#    if dset['Y'] is None:
+#        Y = get_image_patches(gt_image,
+#            global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
+#        print("loader: generating ground truth patches from image and offsets")
+#    else:
+#        Y = dset['Y']
+#        print("loader: using provided ground truth patches")
+    if dset['Y'] is None:
+        Y = tf.ones_like(X)
+        print("loader: setting dummy Y ground truth")
+    else:
+        Y = dset['Y']
+        print("loader: using provided ground truth patches")
+    Y_I = tf.math.abs(Y)
+    Y_phi = tf.math.angle(Y)
+
+    # TODO get rid of?
+    YY_full = None
+    # TODO complex
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    print('INFO:', which)
+    print(container)
+    return container
+
+#@debug
+def normalize_data(dset: dict, N: int) -> np.ndarray:
+    # Images are amplitude, not intensity
+    X_full = dset['diffraction']
+    X_full_norm = np.sqrt(
+            ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+            )
+    #print('X NORM', X_full_norm)
+    return X_full_norm * X_full
+
+#@debug
 def crop(arr2d, size):
     N, M = arr2d.shape
     return arr2d[N // 2 - (size) // 2: N // 2+ (size) // 2, N // 2 - (size) // 2: N // 2 + (size) // 2]
