@@ -14,8 +14,10 @@ cfg = {
     'data_source': 'lines', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
     'object.big': True, 'probe.big': False, 'probe_scale': 10., 'set_phi': False,
-    'probe.mask': True, 'model_type': 'pinn', 'label': '', 'size': 392,
-    'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42
+    'probe.mask': True, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392,
+    'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42,
+    'debug': True,
+    'gaussian_smoothing_sigma': 0.0  # New parameter for Gaussian smoothing sigma
     }
 
 # TODO parameter description

@@ -20,30 +20,19 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
 `python -m pip install .`
 
 ## Usage
-```
-$ train.py
+See examples and READMEs under scripts/.
 
-usage: PtychoPINN [-h] [--model_type MODEL_TYPE] [--label LABEL]
-                  [--positions_provided POSITIONS_PROVIDED] [--data_source DATA_SOURCE] [--set_phi]
-                  [--nepochs NEPOCHS] [--offset OFFSET] [--max_position_jitter MAX_POSITION_JITTER]
-                  [--output_prefix OUTPUT_PREFIX] [--gridsize GRIDSIZE]
-                  [--n_filters_scale N_FILTERS_SCALE] [--object_big OBJECT_BIG]
-                  [--intensity_scale_trainable INTENSITY_SCALE_TRAINABLE] [--nll_weight NLL_WEIGHT]
-                  [--mae_weight MAE_WEIGHT] [--nimgs_train NIMGS_TRAIN] [--nimgs_test NIMGS_TEST]
-                  [--outer_offset_train OUTER_OFFSET_TRAIN] [--outer_offset_test OUTER_OFFSET_TEST]
-```
+For an example of interactive (Jupyter) usage, see notebooks/nongrid_simulations.ipynb. If you don't have inputs in the right .npz format you can simulate data.
 
-For interactive usage, see `notebooks/ptycho_lines.ipynb` and `notebooks/non_grid_CDI_example.ipynb`. These demonstrate reconstruction with scanning CDI + grid scan pattern + simulated data and fresnel CDI + random scan pattern + experimental data, respectively.
+non_grid_CDI_example.ipynb shows interactive usage using a dataset that is provided with the repo.
 
 ### Checklist
 | Status | Task |
 |--------|------|
 | 🟢 | Reconstruction with non-grid scan patterns |
-| 🟢 | Workflow for experimental data |
-| 🟡 | Position correction in CDI mode |
-| 🟡 | Probe fitting |
+| 🟢 | 128 x 128 resolution |
+| 🔴 | Position correction |
 | 🔴 | Stochastic probe model |
-| 🔴 | 128 x 128 resolution |
 
 <!-- 
 * subpixel convolution (Depth-to-space)

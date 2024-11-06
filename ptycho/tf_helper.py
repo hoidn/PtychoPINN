@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import tensorflow as tf
+from typing import Tuple, Optional, Union, Callable, Any
 
 # Check if there are any GPUs available and set memory growth accordingly
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -22,6 +23,8 @@ from tensorflow.signal import fft2d, fftshift
 import tensorflow_probability as tfp
 
 from .params import params, cfg, get, get_padded_size
+#from .logging import debug
+from .autotest.debug import debug
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -29,26 +32,31 @@ tfpl = tfp.layers
 tfd = tfp.distributions
 
 support_threshold = .0
-def get_mask(input, support_threshold):
+#@debug
+def get_mask(input: tf.Tensor, support_threshold: float) -> tf.Tensor:
     mask = tf.where(input > support_threshold, tf.ones_like(input),
                     tf.zeros_like(input))
     return mask
 
-def combine_complex(amp, phi):
+#@debug
+def combine_complex(amp: tf.Tensor, phi: tf.Tensor) -> tf.Tensor:
     output = tf.cast(amp, tf.complex64) * tf.exp(
         1j * tf.cast(phi, tf.complex64))
     return output
 
-def pad_obj(input, h, w):
+#@debug
+def pad_obj(input: tf.Tensor, h: int, w: int) -> tf.Tensor:
     return tfkl.ZeroPadding2D((h // 4, w // 4), name = 'padded_obj')(input)
 
-def pad_and_diffract(input, h, w, pad = True):
+#@debug
+def pad_and_diffract(input: tf.Tensor, h: int, w: int, pad: bool = True) -> Tuple[tf.Tensor, tf.Tensor]:
     """
     zero-pad the real-space object and then calculate the far field
     diffraction amplitude.
 
     Uses sysmmetric FT - L2 norm is conserved
     """
+    input = tf.ensure_shape(input, (None, h, w, 1))
     print('input shape', input.shape)
     if pad:
         input = pad_obj(input, h, w)
@@ -64,7 +72,8 @@ def pad_and_diffract(input, h, w, pad = True):
         ))
     return padded, input
 
-def _fromgrid(img):
+#@debug
+def _fromgrid(img: tf.Tensor) -> tf.Tensor:
     """
     Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
     """
@@ -72,7 +81,8 @@ def _fromgrid(img):
     N = params()['N']
     return tf.reshape(img, (-1, N, N, 1))
 
-def _togrid(img, gridsize = None, N = None):
+#@debug
+def _togrid(img: tf.Tensor, gridsize: Optional[int] = None, N: Optional[int] = None) -> tf.Tensor:
     """
     Reshape (b * gridsize * gridsize, N, N, 1) to (b, gridsize, gridsize, N, N, 1)
 
@@ -84,13 +94,15 @@ def _togrid(img, gridsize = None, N = None):
         N = params()['N']
     return tf.reshape(img, (-1, gridsize, gridsize, N, N, 1))
 
-def togrid(*imgs):
+#@debug
+def togrid(*imgs: tf.Tensor) -> Tuple[tf.Tensor, ...]:
     """
     Reshape (-1, N, N, 1) to (-1, gridsize, gridsize, N, N)
     """
     return [_togrid(img) for img in imgs]
 
-def _grid_to_channel(grid):
+#@debug
+def _grid_to_channel(grid: tf.Tensor) -> tf.Tensor:
     """
     Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, gridsize * gridsize)
     """
@@ -100,10 +112,12 @@ def _grid_to_channel(grid):
     img = tf.reshape(img, (-1, ww, hh, gridsize**2))
     return img
 
-def grid_to_channel(*grids):
+#@debug
+def grid_to_channel(*grids: tf.Tensor) -> Tuple[tf.Tensor, ...]:
     return [_grid_to_channel(g) for g in grids]
 
-def _flat_to_channel(img, N = None):
+#@debug
+def _flat_to_channel(img: tf.Tensor, N: Optional[int] = None) -> tf.Tensor:
     gridsize = params()['gridsize']
     if N is None:
         N = params()['N']
@@ -111,23 +125,28 @@ def _flat_to_channel(img, N = None):
     img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
     return img
 
-def _flat_to_channel_2(img):
+#@debug
+def _flat_to_channel_2(img: tf.Tensor) -> tf.Tensor:
     gridsize = params()['gridsize']
     _, N, M, _ = img.shape
     img = tf.reshape(img, (-1, gridsize**2, N, M))
     img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
     return img
 
-def _channel_to_flat(img):
+#@debug
+def _channel_to_flat(img: tf.Tensor) -> tf.Tensor:
     """
     Reshape (b, N, N, c) to (b * c, N, N, 1)
     """
-    _, h, w, c = img.shape
+    shape = tf.shape(img)
+    b, h, w, c = shape[0], shape[1], shape[2], shape[3]
+    #_, h, w, c = img.shape
     img = tf.transpose(img, [0, 3, 1, 2], conjugate=False)
     img = tf.reshape(img, (-1, h, w, 1))
     return img
 
-def _channel_to_patches(channel):
+#@debug
+def _channel_to_patches(channel: tf.Tensor) -> tf.Tensor:
     """
     reshape (-1, N, N, gridsize * gridsize) to (-1, gridsize, gridsize, N**2)
     """
@@ -137,10 +156,12 @@ def _channel_to_patches(channel):
     img = tf.reshape(img, (-1, gridsize, gridsize, N**2))
     return img
 
-def channel_to_flat(*imgs):
+#@debug
+def channel_to_flat(*imgs: tf.Tensor) -> Tuple[tf.Tensor, ...]:
     return [_channel_to_flat(g) for g in imgs]
 
-def extract_patches(x, N, offset):
+#@debug
+def extract_patches(x: tf.Tensor, N: int, offset: int) -> tf.Tensor:
     return tf.image.extract_patches(
         x,
         [1, N, N, 1],
@@ -149,8 +170,9 @@ def extract_patches(x, N, offset):
         padding="VALID"
     )
 
-def extract_outer(img, fmt = 'grid',
-        bigN = None, outer_offset = None):#,
+#@debug
+def extract_outer(img: tf.Tensor, fmt: str = 'grid',
+        bigN: Optional[int] = None, outer_offset: Optional[int] = None) -> tf.Tensor:#,
     """
         Extract big patches (overlapping bigN x bigN regions over an
         entire input img)
@@ -170,14 +192,16 @@ def extract_outer(img, fmt = 'grid',
     else:
         raise ValueError
 
-def extract_inner_grid(grid):
+#@debug
+def extract_inner_grid(grid: tf.Tensor) -> tf.Tensor:
     N = cfg['N']
     offset = params()['offset']
     return extract_patches(grid, N, offset)
 
-def extract_nested_patches(img, fmt = 'flat',
-        extract_inner_fn = extract_inner_grid,
-        **kwargs):
+#@debug
+def extract_nested_patches(img: tf.Tensor, fmt: str = 'flat',
+        extract_inner_fn: Callable[[tf.Tensor], tf.Tensor] = extract_inner_grid,
+        **kwargs: Any) -> tf.Tensor:
     """
     Extract small patches (overlapping N x N regions on a gridsize x gridsize
         grid) within big patches (overlapping bigN x bigN regions over the
@@ -208,13 +232,16 @@ def extract_nested_patches(img, fmt = 'flat',
     else:
         raise ValueError
 
-def mk_extract_inner_position(offsets_xy):
-    def inner(grid):
+#@debug
+def mk_extract_inner_position(offsets_xy: tf.Tensor) -> Callable[[tf.Tensor], Tuple[tf.Tensor]]:
+    #@debug
+    def inner(grid: tf.Tensor) -> Tuple[tf.Tensor]:
         return extract_patches_position(grid, offsets_xy),
     return inner
 
-def extract_nested_patches_position(img, offsets_xy, fmt = 'flat',
-        **kwargs):
+#@debug
+def extract_nested_patches_position(img: tf.Tensor, offsets_xy: tf.Tensor, fmt: str = 'flat',
+        **kwargs: Any) -> tf.Tensor:
     """
     Extract small patches (overlapping N x N regions on a gridsize x gridsize
         grid) within big patches (overlapping bigN x bigN regions over the
@@ -230,7 +257,8 @@ def extract_nested_patches_position(img, offsets_xy, fmt = 'flat',
         **kwargs)
 
 @tf.function
-def extract_patches_inverse(y, N, average, gridsize = None, offset = None):
+#@debug
+def extract_patches_inverse(y: tf.Tensor, N: int, average: bool, gridsize: Optional[int] = None, offset: Optional[int] = None) -> tf.Tensor:
     if gridsize is None:
         gridsize = params()['gridsize']
     if offset is None:
@@ -246,7 +274,8 @@ def extract_patches_inverse(y, N, average, gridsize = None, offset = None):
     else:
         return tf.gradients(_y, _x, grad_ys=y)[0]
 
-def reassemble_patches_real(channels, average = True, **kwargs):
+#@debug
+def reassemble_patches_real(channels: tf.Tensor, average: bool = True, **kwargs: Any) -> tf.Tensor:
     """
     Given image patches (shaped such that the channel dimension indexes
     patches within a single solution region), reassemble into an image
@@ -257,15 +286,19 @@ def reassemble_patches_real(channels, average = True, **kwargs):
     N = params()['N']
     return extract_patches_inverse(real, N, average, **kwargs)
 
-def pad_patches(imgs, padded_size = None):
+#@debug
+def pad_patches(imgs: tf.Tensor, padded_size: Optional[int] = None) -> tf.Tensor:
+    N = params()['N']
     if padded_size is None:
         padded_size = get_padded_size()
     return tfkl.ZeroPadding2D(((padded_size - N) // 2, (padded_size - N) // 2))(imgs)
 
-def pad(imgs, size):
+#@debug
+def pad(imgs: tf.Tensor, size: int) -> tf.Tensor:
     return tfkl.ZeroPadding2D((size, size))(imgs)
 
-def trim_reconstruction(x, N = None):
+#@debug
+def trim_reconstruction(x: tf.Tensor, N: Optional[int] = None) -> tf.Tensor:
     """
     Trim from shape (_, M, M, _) to (_, N, N, _), where M >= N
 
@@ -283,7 +316,8 @@ def trim_reconstruction(x, N = None):
     return x[:, clipsize: -clipsize,
             clipsize: -clipsize, :]
 
-def extract_patches_position(imgs, offsets_xy, jitter = 0.):
+#@debug
+def extract_patches_position(imgs: tf.Tensor, offsets_xy: tf.Tensor, jitter: float = 0.) -> tf.Tensor:
     """
     Expects offsets_xy in channel format.
 
@@ -308,7 +342,8 @@ def extract_patches_position(imgs, offsets_xy, jitter = 0.):
         Translation()([flat_padded, offsets_flat, jitter]))
     return channels_translated
 
-def center_channels(channels, offsets_xy):
+#@debug
+def center_channels(channels: tf.Tensor, offsets_xy: tf.Tensor) -> tf.Tensor:
     """
     Undo image patch offsets
     """
@@ -316,16 +351,20 @@ def center_channels(channels, offsets_xy):
     channels_centered = _flat_to_channel(ct)
     return channels_centered
 
-def is_complex_tensor(tensor):
+#@debug
+def is_complex_tensor(tensor: tf.Tensor) -> bool:
     """Check if the tensor is of complex dtype."""
     return tensor.dtype in [tf.complex64, tf.complex128]
 
-def complexify_helper(separate, combine):
+#@debug
+def complexify_helper(separate: Callable[[tf.Tensor], Tuple[tf.Tensor, tf.Tensor]], combine: Callable[[tf.Tensor, tf.Tensor], tf.Tensor]) -> Callable:
     """
     Create a "complexify" function based on the provided separation and combination methods.
     """
-    def complexify(fn):
-        def newf(*args, **kwargs):
+    #@debug
+    def complexify(fn: Callable[..., tf.Tensor]) -> Callable[..., tf.Tensor]:
+        #@debug
+        def newf(*args: Any, **kwargs: Any) -> tf.Tensor:
             channels = args[0]
             if is_complex_tensor(channels):
                 part1, part2 = separate(channels)
@@ -337,13 +376,16 @@ def complexify_helper(separate, combine):
         return newf
     return complexify
 
-def separate_real_imag(channels):
+#@debug
+def separate_real_imag(channels: Union[tf.Tensor, np.ndarray]) -> Tuple[Union[tf.Tensor, np.ndarray], Union[tf.Tensor, np.ndarray]]:
     return tf.math.real(channels), tf.math.imag(channels)
 
-def combine_real_imag(real, imag):
-    return tf.dtypes.complex(real, imag)
+#@debug
+def combine_real_imag(real: Union[tf.Tensor, np.ndarray], imag: Union[tf.Tensor, np.ndarray]) -> Union[tf.Tensor, np.ndarray]:
+    return tf.cast(tf.dtypes.complex(real, imag), tf.complex64)
 
-def separate_amp_phase(channels):
+#@debug
+def separate_amp_phase(channels: Union[tf.Tensor, np.ndarray]) -> Tuple[Union[tf.Tensor, np.ndarray], Union[tf.Tensor, np.ndarray]]:
     return tf.math.abs(channels), tf.math.angle(channels)
 
 complexify_function = complexify_helper(separate_real_imag, combine_real_imag)
@@ -352,26 +394,37 @@ complexify_sum_amp_phase = complexify_helper(separate_amp_phase, lambda a, b: a 
 complexify_sum_real_imag = complexify_helper(separate_real_imag, lambda a, b: a + b)
 
 
-from tensorflow_addons.image import translate
-translate = complexify_function(translate)
+from tensorflow_addons.image import translate as _translate
+
+#from ptycho.misc import debug
+@complexify_function
+#@debug
+def translate(imgs: tf.Tensor, offsets: tf.Tensor, **kwargs: Any) -> tf.Tensor:
+    # TODO assert dimensionality of translations is 2; i.e. B, 2
+    return _translate(imgs, offsets, **kwargs)
+
+# TODO consolidate this and translate()
 class Translation(tf.keras.layers.Layer):
-    def __init__(self):
+    def __init__(self) -> None:
         super(Translation, self).__init__()
-    def call(self, inputs):
+    def call(self, inputs: Tuple[tf.Tensor, tf.Tensor, float]) -> tf.Tensor:
         imgs, offsets, jitter = inputs
         jitter = tf.random.normal(tf.shape(offsets), stddev = jitter)
         return translate(imgs, offsets + jitter, interpolation = 'bilinear')
 
-def flatten_offsets(channels):
+#@debug
+def flatten_offsets(channels: tf.Tensor) -> tf.Tensor:
     return _channel_to_flat(channels)[:, 0, :, 0]
 
-def pad_reconstruction(channels):
+#@debug
+def pad_reconstruction(channels: tf.Tensor) -> tf.Tensor:
     padded_size = get_padded_size()
     imgs_flat = _channel_to_flat(channels)
     return pad_patches(imgs_flat, padded_size)
 
-def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, padded_size = None,
-        **kwargs):
+#@debug
+def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, agg: bool = True, padded_size: Optional[int] = None,
+        **kwargs: Any) -> tf.Tensor:
     """
     Pass this function as an argument to reassemble_patches by wrapping it, e.g.:
         def reassemble_patches_position_real(imgs, **kwargs):
@@ -392,11 +445,14 @@ def _reassemble_patches_position_real(imgs, offsets_xy, agg = True, padded_size 
         print('no aggregation in patch reassembly')
         return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
 
-gridsize = params()['gridsize']
-N = params()['N']
-
-def mk_centermask(inputs, N, c, kind = 'center'):
+#@debug
+def mk_centermask(inputs: tf.Tensor, N: int, c: int, kind: str = 'center') -> tf.Tensor:
     b = tf.shape(inputs)[0]
+#    if get('probe.big'):
+#        ones = tf.ones((b, N, N, c), dtype = inputs.dtype)
+#    else:
+#        ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
+#        ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
     ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
     ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
     if kind == 'center':
@@ -406,16 +462,19 @@ def mk_centermask(inputs, N, c, kind = 'center'):
     else:
         raise ValueError
 
-def mk_norm(channels, fn_reassemble_real):
+#@debug
+def mk_norm(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Tensor], tf.Tensor]) -> tf.Tensor:
     N = params()['N']
     gridsize = params()['gridsize']
+    # TODO if probe.big is True, shouldn't the ones fill the full N x N region?
     ones = mk_centermask(channels, N, gridsize**2)
     assembled_ones = fn_reassemble_real(ones, average = False)
     norm = assembled_ones + .001
     return norm
 
-def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
-        average = False, **kwargs):
+#@debug
+def reassemble_patches(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Tensor], tf.Tensor] = reassemble_patches_real,
+        average: bool = False, **kwargs: Any) -> tf.Tensor:
     """
     Given image patches (shaped such that the channel dimension indexes
     patches within a single solution region), reassemble into an image
@@ -430,7 +489,45 @@ def reassemble_patches(channels, fn_reassemble_real = reassemble_patches_real,
         fn_reassemble_real)
     return tf.dtypes.complex(assembled_real, assembled_imag)
 
-def reassemble_whole_object(patches, offsets, size = 226, norm = False):
+#@debug
+def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
+    from . import tf_helper as hh
+    assert len(obj_tensor.shape) == 4
+    assert obj_tensor.dtype == np.complex64
+    assert len(global_offsets.shape) == 4
+    assert global_offsets.dtype == np.float64
+    # Extract necessary parameters
+    N = params()['N']
+    # Select the central part of the object tensor
+    obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
+    # Calculate the center of mass of global_offsets
+    center_of_mass = tf.reduce_mean(tf.cast(global_offsets, tf.float32), axis=0)
+    # Adjust global_offsets by subtracting the center of mass
+    adjusted_offsets = tf.cast(global_offsets, tf.float32) - center_of_mass
+    # Calculate dynamic padding based on maximum adjusted offset
+    max_offset = tf.reduce_max(tf.abs(adjusted_offsets))
+    dynamic_pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
+    print('PADDING SIZE:', dynamic_pad)
+    
+    # Create a canvas to store the shifted and summed object tensors
+    result = tf.zeros_like(hh.pad(obj_tensor[0:1], dynamic_pad))
+    
+    # Iterate over the adjusted offsets and perform shift-and-sum
+    for i in range(len(adjusted_offsets)):
+        # Apply dynamic padding to the current object tensor
+        padded_obj_tensor = hh.pad(obj_tensor[i:i+1], dynamic_pad)
+        # Squeeze and cast adjusted offset to 2D float for translation
+        offset_2d = tf.cast(tf.squeeze(adjusted_offsets[i]), tf.float32)
+        # Translate the padded object tensor
+        translated_obj = hh.translate(padded_obj_tensor, offset_2d, interpolation='bilinear')
+        # Accumulate the translated object tensor
+        result += translated_obj[0]
+    
+    # TODO: how could we support multiple scans?
+    return result[0]
+
+#@debug
+def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 226, norm: bool = False) -> tf.Tensor:
     """
     patches: tensor of shape (B, N, N, gridsize**2) containing reconstruction patches
 
@@ -447,14 +544,22 @@ def reassemble_whole_object(patches, offsets, size = 226, norm = False):
         return img / reassemble_whole_object(tf.ones_like(patches), offsets, size = size, norm = False)
     return img
 
-def mk_reassemble_position_real(input_positions, **outer_kwargs):
-    def reassemble_patches_position_real(imgs, **kwargs):
+def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
+    ones = tf.ones_like(obj_tensor)
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+        (1e-9 + shift_and_sum(ones, global_offsets, M = M))
+
+#@debug
+def mk_reassemble_position_real(input_positions: tf.Tensor, **outer_kwargs: Any) -> Callable[[tf.Tensor], tf.Tensor]:
+    #@debug
+    def reassemble_patches_position_real(imgs: tf.Tensor, **kwargs: Any) -> tf.Tensor:
         return _reassemble_patches_position_real(imgs, input_positions,
             **outer_kwargs)
     return reassemble_patches_position_real
 
-def preprocess_objects(Y_I, Y_phi = None,
-        offsets_xy = None, **kwargs):
+#@debug
+def preprocess_objects(Y_I: np.ndarray, Y_phi: Optional[np.ndarray] = None,
+        offsets_xy: Optional[tf.Tensor] = None, **kwargs: Any) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
     """
     Extracts normalized object patches from full real-space images, using the
     nested grid format.
@@ -484,8 +589,9 @@ def preprocess_objects(Y_I, Y_phi = None,
         channel_to_flat(Y_I, Y_phi)
     return Y_I, Y_phi, _Y_I_full / norm_Y_I, norm_Y_I
 
-def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
-        offset = 4):
+#@debug
+def reassemble_nested_average(output_tensor: tf.Tensor, cropN: Optional[int] = None, M: Optional[int] = None, n_imgs: int = 1,
+        offset: int = 4) -> tf.Tensor:
     """
     Stitch reconstruction patches from (first) model output into full
     reconstructed images, averaging the overlaps
@@ -505,13 +611,15 @@ def reassemble_nested_average(output_tensor, cropN = None, M = None, n_imgs = 1,
     return obj_recon
 
 
-def gram_matrix(input_tensor):
+#@debug
+def gram_matrix(input_tensor: tf.Tensor) -> tf.Tensor:
     result = tf.linalg.einsum('bijc,bijd->bcd', input_tensor, input_tensor)
     input_shape = tf.shape(input_tensor)
     num_locations = tf.cast(input_shape[1]*input_shape[2], tf.float32)
     return result/(num_locations)
 
-def high_pass_x_y(image):
+#@debug
+def high_pass_x_y(image: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
     x_var = image[:,:,1:,:] - image[:,:,:-1,:]
     y_var = image[:,1:,:,:] - image[:,:-1,:,:]
     return x_var, y_var
@@ -519,7 +627,8 @@ def high_pass_x_y(image):
 pp = tfk.Sequential([
     Lambda(lambda x: tf.image.grayscale_to_rgb(x)),
 ])
-def perceptual_loss(target, pred):
+#@debug
+def perceptual_loss(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
     """
     """
     target = pp(target)
@@ -534,10 +643,12 @@ def perceptual_loss(target, pred):
     actualModelVal = feat_model(target)
     return meanSquaredLoss(gram_matrix(actualModelVal),gram_matrix(activatedModelVal))
 
-def meanSquaredLoss(y_true,y_pred, center_target = True):
+#@debug
+def meanSquaredLoss(y_true: tf.Tensor, y_pred: tf.Tensor, center_target: bool = True) -> tf.Tensor:
     return tf.reduce_mean(tf.keras.losses.MSE(y_true,y_pred))
 
-def masked_MAE_loss(target, pred):
+#@debug
+def masked_MAE_loss(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
     """
     bigN
     """
@@ -551,29 +662,36 @@ def masked_MAE_loss(target, pred):
 
 
 @complexify_sum_real_imag
-def total_variation_complex(obj):
+#@debug
+def total_variation_complex(obj: tf.Tensor) -> tf.Tensor:
     """ calculate summed total variation of the real and imaginary components
         of a tensor
     """
     x_deltas, y_deltas = high_pass_x_y(obj)
     return tf.reduce_sum(x_deltas**2) + tf.reduce_sum(y_deltas**2)
 
-def total_variation(obj, amp_only = False):
+#@debug
+def total_variation(obj: tf.Tensor, amp_only: bool = False) -> tf.Tensor:
     if amp_only:
         obj = Lambda(lambda x: tf.math.abs(x))(obj)
     return total_variation_complex(obj)
 
 @complexify_sum_amp_phase
-def complex_mae(target, pred):
+#@debug
+def complex_mae(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
     mae = tf.keras.metrics.mean_absolute_error
     return mae(target, pred)
 
-def masked_mae(target, pred, **kwargs):
+#@debug
+def masked_mae(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tensor:
+    N = params()['N']
     mae = tf.keras.metrics.mean_absolute_error
     pred = pred * mk_centermask(pred, N, 1, kind = 'center')
     return mae(target, pred)
 
-def realspace_loss(target, pred, **kwargs):
+#@debug
+def realspace_loss(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tensor:
+    N = params()['N']
     if not get('probe.big'):
         pred = pred * mk_centermask(pred, N, 1, kind = 'center')
 
