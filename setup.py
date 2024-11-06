@@ -11,7 +11,8 @@ setup(
     # ... rest of the setup parameters ...
 
     packages=find_packages('.') + ['FRC'],
-    package_dir={'ptychoPINN': 'ptycho', 'FRC': 'ptycho/FRC'},
+    package_dir={'ptychoPINN': 'ptycho', 'FRC': 'ptycho/FRC',
+                 'autotest': 'ptycho/autotest'},
 
     scripts = ['ptycho/train.py'],
     install_requires = [

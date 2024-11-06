@@ -21,16 +21,19 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
 def train_eval(ptycho_dataset):
     ## TODO reconstructed_obj -> pred_Y or something
     model_instance, history = train(ptycho_dataset.train_data)
-    eval_results = eval(ptycho_dataset.test_data, history, trained_model = model_instance)
-    return {
+    results = {
         'history': history,
-        'reconstructed_obj': eval_results['reconstructed_obj'],
-        'pred_amp': eval_results['pred_amp'],
-        'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
-        'stitched_obj': eval_results['stitched_obj'],
-        'model_instance': model_instance,
-        'dataset': ptycho_dataset.train_data
+        'model_instance': model_instance
     }
+    if ptycho_dataset.test_data is not None:
+        eval_results = eval(ptycho_dataset.test_data, history, trained_model=model_instance)
+        results.update({
+            'reconstructed_obj': eval_results['reconstructed_obj'],
+            'pred_amp': eval_results['pred_amp'],
+            'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
+            'stitched_obj': eval_results['stitched_obj'],
+        })
+    return results
 
 from tensorflow.keras.models import load_model
 # Enhance the existing eval function to optionally load a model for inference
@@ -78,19 +81,17 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
 
 def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
     import tensorflow as tf
+    import numpy as np
     from . import params as p
     def count_photons(obj):
-        return tf.math.reduce_sum(obj**2, (1, 2))
+        pcount = np.mean(tf.math.reduce_sum(obj**2, (1, 2)))
+        return pcount
 
-    def scale_nphotons(padded_obj):
-        mean_photons = tf.math.reduce_mean(count_photons(padded_obj))
-        norm = tf.math.sqrt(p.get('nphotons') / mean_photons)
-        return norm
-
-    # Extract the object data from the PtychoDataContainer
-    obj_data = ptycho_data_container.Y_I  # Assuming Y_I contains the object data
+    def scale_nphotons(X):
+        # TODO assumes X is already normalized. this should be enforced
+        return tf.math.sqrt(p.get('nphotons')) / (p.get('N') / 2)
 
     # Calculate the intensity scale using the adapted scale_nphotons function
-    intensity_scale = scale_nphotons(obj_data).numpy()
+    intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
 
     return intensity_scale

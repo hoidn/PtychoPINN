@@ -15,12 +15,12 @@ if params.get('outer_offset_train') is None or params.get('outer_offset_test') i
 def load_simulated_data(size, probe, outer_offset_train, outer_offset_test, jitter_scale, intensity_scale=None):
     np.random.seed(1)
     X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, _, (coords_train_nominal, coords_train_true) = \
-        datasets.mk_simdata(params.get('nimgs_train'), size, probe, outer_offset_train, jitter_scale=jitter_scale)
+        datasets.mk_simdata(params.get('nimgs_train'), size, probe, outer_offset_train, jitter_scale=jitter_scale, which = 'train')
     params.cfg['intensity_scale'] = intensity_scale
 
     np.random.seed(2)
     X_test, Y_I_test, Y_phi_test, _, YY_test_full, norm_Y_I_test, (coords_test_nominal, coords_test_true) = \
-        datasets.mk_simdata(params.get('nimgs_test'), size, probe, outer_offset_test, intensity_scale, jitter_scale=jitter_scale)
+        datasets.mk_simdata(params.get('nimgs_test'), size, probe, outer_offset_test, intensity_scale, jitter_scale=jitter_scale, which = 'test')
 
     return X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true
 
@@ -43,11 +43,12 @@ def load_xpp_data(probeGuess):
     return train_data_container, test_data_container
 
 def load_generic_data(probeGuess, N):
-    from ptycho.loader import RawData
+    from ptycho.raw_data import RawData
     train_data_file_path = params.get('train_data_file_path')
     test_data_file_path = params.get('test_data_file_path')
 
-    train_raw, test_raw = RawData.from_files(train_data_file_path, test_data_file_path)
+    train_raw = RawData.from_file(train_data_file_path)
+    test_raw = RawData.from_file(test_data_file_path)
 
     dset_train = train_raw.generate_grouped_data(N, K=7, nsamples=1)
     dset_test = test_raw.generate_grouped_data(N, K=7, nsamples=1)
@@ -132,14 +133,14 @@ def process_simulated_data(X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_
 def create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
                           X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true):
     return PtychoDataset(
-        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe.get_probe(fmt='np')),
-        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe.get_probe(fmt='np')),
+        PtychoDataContainer(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true, None, None, None, probe.get_probe(params)),
+        PtychoDataContainer(X_test, Y_I_test, Y_phi_test, intensity_scale, YY_test_full, coords_test_nominal, coords_test_true, None, None, None, probe.get_probe(params)),
     )
 
 def generate_data(probeGuess = None):
     # TODO handle probeGuess None case
     data_source = params.params()['data_source']
-    probe_np = probe.get_probe(fmt='np')
+    probe_np = probe.get_probe(params)
     outer_offset_train = params.cfg['outer_offset_train']
     outer_offset_test = params.cfg['outer_offset_test']
     YY_test_full = None
@@ -159,7 +160,7 @@ def generate_data(probeGuess = None):
         ptycho_dataset = create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
                                                X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true)
     elif data_source == 'xpp':
-        train_data_container, test_data_container = load_xpp_data(probeGuess)
+        test_data_container, train_data_container = load_xpp_data(probeGuess)
         intensity_scale = train_data_container.norm_Y_I
         ptycho_dataset = PtychoDataset(train_data_container, test_data_container)
         YY_ground_truth = None

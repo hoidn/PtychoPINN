@@ -50,11 +50,18 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
     Returned Y_I and Y_phi are amplitude and phase *after* illumination with the
     probe.
     """
+    # ensure probe is broadcastable
+    if len(probe.shape) == 2:
+        assert probe.shape[0] == probe.shape[1]
+        probe = probe[..., None]
+    elif len(probe.shape) == 3:
+        assert probe.shape[-1] == 1
     if intensity_scale is None:
-        intensity_scale = scale_nphotons(Y_I * probe[None, ..., None]).numpy()
+        probe_amplitude = tf.cast(tf.abs(probe), Y_I.dtype)
+        intensity_scale = scale_nphotons(Y_I * probe_amplitude[None, ...]).numpy()
     batch_size = p.get('batch_size')
     obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
-    obj = obj * tf.cast(probe[None, ..., None], obj.dtype)
+    obj = obj * tf.cast(probe[None, ...], obj.dtype)
     Y_I = tf.math.abs(obj)
 
     X = (tf.data.Dataset.from_tensor_slices(obj)
@@ -166,7 +173,7 @@ def dummy_phi(Y_I):
         tf.cast(tf.math.tanh( (Y_I - tf.math.reduce_max(Y_I) / 2) /
             (3 * tf.math.reduce_mean(Y_I))), tf.float32)
 
-def sim_object_image(size):
+def sim_object_image(size, which = 'train'):
     if p.get('data_source') == 'lines':
         return mk_lines_img(2 * size, nlines = 400)[size // 2: -size // 2, size // 2: -size // 2, :1]
     elif p.get('data_source') == 'grf':
@@ -177,7 +184,12 @@ def sim_object_image(size):
         return points.mk_points(size)
     elif p.get('data_source') == 'testimg':
         from .datagen import testimg
-        return testimg.get_img(size)
+        if which == 'train':
+            return testimg.get_img(size)
+        elif which == 'test':
+            return testimg.get_img(size, reverse = True)
+        else:
+            raise ValueError
     elif p.get('data_source') == 'testimg_reverse':
         from .datagen import testimg
         return testimg.get_img(size, reverse = True)
@@ -192,9 +204,9 @@ def sim_object_image(size):
 
 @memoize_disk_and_memory
 def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
-        YY_I = None, YY_phi = None, dict_fmt = False,  **kwargs):
+        YY_I = None, YY_phi = None, dict_fmt = False,  which = 'train', **kwargs):
     if YY_I is None:
-        YY_I = np.array([sim_object_image(size)
+        YY_I = np.array([sim_object_image(size, which = which)
               for _ in range(n)])
     if p.get('set_phi') and YY_phi is None:
         YY_phi = dummy_phi(YY_I)
