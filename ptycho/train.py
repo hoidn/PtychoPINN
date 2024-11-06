@@ -1,5 +1,8 @@
+# train.py
+
 import os
 from ptycho.model_manager import ModelManager
+from ptycho import model_manager
 from ptycho.export import save_recons
 from datetime import datetime
 import matplotlib
@@ -34,22 +37,17 @@ if __name__ == '__main__':
     parser.add_argument('--object_big', type=bool, default=True, help='If true, reconstruct the entire solution region for each set of patterns, instead of just the central N x N region.')
     parser.add_argument('--nll_weight', type=float, default=1., help='Diffraction reconstruction NLL loss weight')
     parser.add_argument('--mae_weight', type=float, default=0., help='Diffraction reconstruction MAE loss weight')
-
     parser.add_argument('--nimgs_train', type=int, default=params.cfg['nimgs_train'], help='Number of generated training images')
     parser.add_argument('--nimgs_test', type=int, default=params.cfg['nimgs_test'], help='Number of generated testing images')
-
     parser.add_argument('--outer_offset_train', type=int, default=None, help='Scan point grid offset for (generated) training datasets')
     parser.add_argument('--outer_offset_test', type=int, default=None, help='Scan point grid offset for (generated) testing datasets')
-
     parser.add_argument('--n_filters_scale', type=int, default=2, help='Number of filters scale')
     parser.add_argument('--max_position_jitter', type=int, default=10, help='Solution region is expanded around the edges by this amount')
     parser.add_argument('--intensity_scale_trainable', type=bool, default=True, help='If true, sets the model-internal normalization of diffraction amplitudes to trainable')
-
     parser.add_argument('--positions_provided', type=bool, default=False, help='[deprecated] Whether nominal or true (nominal + jitter) positions are provided in simulation runs')
     parser.add_argument('--label', type=str, default='', help='[deprecated] Name of this run')
     args = parser.parse_args()
 
-    # offset between neighboring scan points, in pixels
     model_type = params.cfg['model_type'] = args.model_type
     label = params.cfg['label'] = args.label
     params.cfg['positions.provided'] = args.positions_provided
@@ -67,17 +65,14 @@ if __name__ == '__main__':
     params.cfg['mae_weight'] = args.mae_weight
     params.cfg['nimgs_train'] = args.nimgs_train
     params.cfg['nimgs_test'] = args.nimgs_test
-
     params.cfg['outer_offset_train'] = args.outer_offset_train
     params.cfg['outer_offset_test'] = args.outer_offset_test
-    # Update the output_prefix using get_path_prefix
 else:
     model_type = params.cfg['model_type']
     label = params.cfg['label']
     offset = params.cfg['offset']
 params.cfg['output_prefix'] = misc.get_path_prefix()
 
-# TODO this should be a global parameter that's updated once per training and / or evaluation cycle
 out_prefix = params.get('output_prefix')
 os.makedirs(out_prefix, exist_ok=True)
 
@@ -96,8 +91,6 @@ if model_type == 'pinn':
     from ptycho import train_pinn
     print("DEBUG: generate_data diff norm {}".format(np.mean(np.abs(ptycho_dataset.train_data.X))))
     train_output = train_pinn.train_eval(ptycho_dataset)
-#    reconstructed_obj_cdi = train_output['reconstructed_obj_cdi']
-#    stitched_obj = train_output['stitched_obj']
     pred_amp = train_output['pred_amp']
     history = train_output['history']
     reconstructed_obj = train_output['reconstructed_obj']
@@ -117,23 +110,7 @@ with open(out_prefix + '/history.dill', 'wb') as file_pi:
     dill.dump(history.history, file_pi)
 
 if save_model:
-    from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
-    from ptycho.tf_helper import Translation
-    from ptycho.tf_helper import realspace_loss as hh_realspace_loss
-    hh = {'realspace_loss': hh_realspace_loss}
-
-    model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
-    custom_objects = {
-        'ProbeIllumination': ProbeIllumination,
-        'IntensityScaler': IntensityScaler,
-        'IntensityScaler_inv': IntensityScaler_inv,
-        'Translation': Translation,
-        'negloglik': negloglik,
-        'realspace_loss': hh_realspace_loss
-    }
-    ModelManager.save_model(model.autoencoder, model_path, custom_objects, params.get('intensity_scale'))
-    with h5py.File(model_path, 'a') as f:
-        f.attrs['intensity_scale'] = params.get('intensity_scale')
+    model_manager.save(out_prefix)
 
 if save_data:
     with open(out_prefix + '/test_data.dill', 'wb') as f:
@@ -142,4 +119,3 @@ if save_data:
              'Y_I_test': Y_I_test,
              'Y_phi_test': Y_phi_test,
              'X_test': X_test}, f)
-
