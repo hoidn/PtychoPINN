@@ -99,8 +99,11 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         self.N = DataConfig().get('N')
-
         starting_coeff = 64 / (self.N / 32)
+        if ModelConfig().get('object.big'):
+            starting_filter_n = DataConfig().get('grid_size')[0] * DataConfig().get('grid_size')[1]
+        else:
+            starting_filter_n = 1
         #Starting output channels is 64. Last output size will always be n_filters_scale * 128. 
         n_layers = int(np.log(128 / starting_coeff)/np.log(2) + 1)
         #Examples
@@ -108,7 +111,7 @@ class Encoder(nn.Module):
         #filters = [n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
         #N == 128:
         #filters = [n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
-        self.filters = [4] + [int(n_filters_scale * starting_coeff * 2**i) for i in range(n_layers)]
+        self.filters = [starting_filter_n] + [int(n_filters_scale * starting_coeff * 2**i) for i in range(n_layers)]
 
         if starting_coeff < 3 or starting_coeff > 64:
             raise ValueError(f"Unsupported input size: {self.N}")
@@ -126,6 +129,9 @@ class Encoder(nn.Module):
 #Decoders
 
 class Decoder_filters(nn.Module):
+    '''
+    Base decoder class handling dynamic channel sizing in self.filters
+    '''
     def __init__(self, n_filters_scale):
         super(Decoder_filters, self).__init__()
         self.N = DataConfig().get('N')
@@ -170,7 +176,10 @@ class Decoder_last(nn.Module):
         self.gridsize = DataConfig().get('grid_size')
 
         #Channel splitting
-        self.c_outer = self.gridsize[0] * self.gridsize[1]
+        if ModelConfig().get('object.big'):
+            self.c_outer = self.gridsize[0] * self.gridsize[1]
+        else:
+            self.c_outer = 1
 
         #Layers
         self.conv1 =  nn.Conv2d(in_channels = in_channels - self.c_outer,
@@ -211,12 +220,15 @@ class Decoder_phase(Decoder_base):
     def __init__(self, n_filters_scale):
         super(Decoder_phase, self).__init__(n_filters_scale)
         grid_size = DataConfig().get('grid_size')
-        num_images = grid_size[0] * grid_size[1]
+        if ModelConfig().get('object.big'):
+            num_channels = grid_size[0] * grid_size[1]
+        else:
+            num_channels = 1
         #Nn layers
 
         #Custom nn layers with specific identifiable names
         self.add_module('phase_activation', Tanh_custom_act())
-        self.add_module('phase', Decoder_last(n_filters_scale * 32, num_images, n_filters_scale,
+        self.add_module('phase', Decoder_last(n_filters_scale * 32, num_channels, n_filters_scale,
                                          activation = self.phase_activation))
             
     def forward(self, x):
@@ -370,7 +382,6 @@ class ForwardModel(nn.Module):
         self.gridsize = DataConfig().get('grid_size')
         self.offset = ModelConfig().get('offset')
         self.object_big = ModelConfig().get('object.big')
-        self.nll = TrainingConfig().get('nll') #True or False
 
         #Patch operations
         self.add_module('reassemble_patches',
@@ -398,17 +409,18 @@ class ForwardModel(nn.Module):
         #Object_big: All patches are together in a solution region
         if self.object_big:
             reassembled_obj = self.reassemble_patches(x, positions)
+            #Extract patches
+            extracted_patch_objs = self.extract_patches(reassembled_obj[:,None,:,:], positions)
         else:
         #Single channel, no patch overlap
             #NOTE for albert: Check transformation math
-            reassembled_obj = self.pad_patches(
-                torch.flatten(x, start_dim = 0, end_dim = 1),
-                padded_size = hh.get_padded_size()
-            )
+            #Temporarily removed because it seemed superfluous
+            # reassembled_obj = self.pad_patches(
+            #     torch.flatten(x, start_dim = 0, end_dim = 1),
+            #     padded_size = hh.get_padded_size()
+            # )
+            extracted_patch_objs = x
 
-        #Extract patches
-        extracted_patch_objs = self.extract_patches(reassembled_obj[:,None,:,:],
-                                                    positions)
         #Perform below steps if training
         if self.training:
             #Apply probe illum
@@ -441,9 +453,11 @@ class PoissonLoss(nn.Module):
 class MAELoss(nn.Module):
     def __init__(self):
         super(MAELoss, self).__init__()
+        self.mae = nn.L1Loss(reduction = 'none')
 
     def forward(self, pred, raw):
-        loss_mae = F.l1_loss(pred, raw)
+        #Note: Prediction has not been squared yet, must be squared here
+        loss_mae = self.mae(pred**2, raw)
 
         return loss_mae
     
@@ -499,7 +513,7 @@ class IntensityScalerModule:
         if self.log_scale:
             log_scale = torch.exp(self.log_scale)
         else:
-            log_scale = torch.sqrt(scale_factor)
+            log_scale = scale_factor
         return x * log_scale
 
     def inv_scale(self, x, scale_factor):
@@ -509,7 +523,7 @@ class IntensityScalerModule:
         if self.log_scale:
             log_scale = torch.exp(self.log_scale)
         else:
-            log_scale = torch.sqrt(scale_factor)
+            log_scale = scale_factor
         return x / log_scale
 
 #Full module with everything

@@ -7,6 +7,7 @@ from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 
 def get_neighbor_diffraction_and_positions(PtychoDataset, index, N, K=6, C=None, nsamples=10):
     """
+    UNUSED CURENTLY
     Returns, for a single experimental dataset, the relative offsets and coordinates for nearest neighboring groups of diffraction
     images of stack size grid_size ** 2. Can be iteratively run to calculate for all experiments
 

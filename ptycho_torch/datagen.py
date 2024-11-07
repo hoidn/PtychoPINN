@@ -140,13 +140,15 @@ def from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index = None
 
     sampled_obj_patches = get_image_patches(objectGuess, probeGuess, xcoords, ycoords)
 
-    diff_obj_patches, obj = hh.illuminate_and_diffract(sampled_obj_patches.squeeze(), probeGuess)
+    diff_obj_patches, obj, scaling = hh.illuminate_and_diffract(sampled_obj_patches.squeeze(), probeGuess)
     output_scaling_factor = hh.scale_nphotons(diff_obj_patches)
 
     output_dict = {
         'diff3d':  diff_obj_patches,
+        'original_object': sampled_obj_patches.squeeze(),
         'object': obj,
         'obj_scale_factor': output_scaling_factor,
+        'diff_scale_factor': scaling,
         'xcoords': xcoords,
         'ycoords': ycoords,
         'xcoords_start': xcoords,

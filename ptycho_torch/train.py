@@ -55,6 +55,7 @@ class PtychoPINN(L.LightningModule):
         #Adding named modules for forward operation
         #Patch operations
         self.forward_model = ForwardModel()
+
         #Choose loss function
         if ModelConfig().get('loss_function') == 'Poisson':
             self.Loss = PoissonLoss()
@@ -88,11 +89,16 @@ class PtychoPINN(L.LightningModule):
                                      batch[2]
         #Run through forward model
         pred = self(x, positions, probe, scale)
+
         #Calculate loss
         loss = self.Loss(pred, x).sum()
 
         #Logging
-        self.log("poisson_train_loss", loss, on_epoch = True)
+        if ModelConfig().get('loss_function') == 'Poisson':
+            self.log("poisson_train_loss", loss, on_epoch = True)
+        elif ModelConfig().get('loss_function') == 'MAE':
+            self.log("mae_train_loss", loss, on_epoch = True)
+        
 
         return loss
     
@@ -109,7 +115,7 @@ class PtychoPINN(L.LightningModule):
         return pred
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr = 1e-3)
+        return torch.optim.Adam(self.parameters(), lr = 2e-3)
 
 #Training functions
 
@@ -149,6 +155,14 @@ def main(ptycho_dir, probe_dir):
     trainingconfig.set_settings(training_config_default)
     dataconfig.set_settings(data_config_default)
 
+    #Modify specific settings here
+    dataconfig.add('N', 64)
+    dataconfig.add('normalize', False)
+
+    modelconfig.add('object.big', False)
+    modelconfig.add('probe.big', False)
+
+
     #Creating dataset
     print('Creating dataset...')
     ptycho_dataset = PtychoDataset(ptycho_dir, probe_dir, remake_map=True)
@@ -161,20 +175,21 @@ def main(ptycho_dir, probe_dir):
     #Create model
     print('Creating model...')
     model = PtychoPINN()
+    model.training = True
 
     #Create trainer
-    trainer = L.Trainer(max_epochs = 25,
+    trainer = L.Trainer(max_epochs = 300,
                         default_root_dir = os.path.dirname(os.getcwd()),
                         devices = 'auto',
                         accelerator = 'gpu',
-                        gradient_clip_val = 5,
-                        accumulate_grad_batches=4)
+                        gradient_clip_val = 10,
+                        accumulate_grad_batches=5)
 
     #Mlflow setup
     # mlflow.set_tracking_uri("")
     mlflow.set_experiment("PtychoPINN vanilla")
 
-    mlflow.pytorch.autolog(checkpoint_monitor = "poisson_train_loss")
+    mlflow.pytorch.autolog(checkpoint_monitor = "mae_train_loss")
 
     #Train the model
     with mlflow.start_run() as run:
@@ -203,7 +218,8 @@ if __name__ == '__main__':
     print(os.getcwd())
 
     try:
-        main('datasets/dummy_data_small', 'datasets/probes')
+        main('datasets/lines_no_overlap_diff',
+             'datasets/probes_lines')
 
     except Exception as e:
         print(f"Training failed: {str(e)}")

@@ -122,8 +122,14 @@ class PtychoDataset(Dataset):
         cumulative_length = [0]
 
         for npz_file in Path(ptycho_dir).iterdir():
+            #Check whether object.big is checked
+            if ModelConfig().get('object.big'):
+                multiplier = DataConfig().get('n_subsample')
+            else:
+                multiplier = 1
             tensor_shape = list(npz_headers(npz_file))
-            total_length += tensor_shape[0][0] * DataConfig().get('n_subsample') #Double indexing to access number inside nested list
+
+            total_length += tensor_shape[0][0] * multiplier #Double indexing to access number inside nested list
             im_shape = tensor_shape[0][1:]
             cumulative_length.append(total_length)
         
@@ -149,8 +155,11 @@ class PtychoDataset(Dataset):
 
 
         """
-        n_images = DataConfig().get('grid_size')[0] * DataConfig().get('grid_size')[1]
-        DataConfig().add('n_images', n_images)
+        if ModelConfig().get('object.big'):
+            n_channels = DataConfig().get('grid_size')[0] * DataConfig().get('grid_size')[1]
+        else:
+            n_channels = 1
+        DataConfig().add('n_images', n_channels)
 
         #Create memory map for every tensor. We'll be populating the diffraction image in batches, and the
         #other coordinate tensors in full for every individual dataset
@@ -166,7 +175,7 @@ class PtychoDataset(Dataset):
 
         mmap_ptycho = TensorDict(
             {   "images": MemoryMappedTensor.empty(
-                    (mmap_length, n_images, *self.im_shape),
+                    (mmap_length, n_channels, *self.im_shape),
                     dtype=torch.float32,
                 ),
                 "coords_center": MemoryMappedTensor.empty(
@@ -174,7 +183,7 @@ class PtychoDataset(Dataset):
                     dtype=torch.float32,
                 ),
                 "coords_relative": MemoryMappedTensor.empty(
-                    (mmap_length, n_images, 1, 2),
+                    (mmap_length, n_channels, 1, 2),
                     dtype=torch.float32,
                 ),
                 "coords_start_center": MemoryMappedTensor.empty(
@@ -182,11 +191,11 @@ class PtychoDataset(Dataset):
                     dtype=torch.float32,
                 ),
                 "coords_start_relative": MemoryMappedTensor.empty(
-                    (mmap_length, n_images, 1, 2),
+                    (mmap_length, n_channels, 1, 2),
                     dtype=torch.float32,
                 ),
                 "nn_indices": MemoryMappedTensor.empty(
-                    (mmap_length, n_images),
+                    (mmap_length, n_channels),
                     dtype=torch.int64
                 ),
                 "experiment_id": MemoryMappedTensor.empty(
@@ -217,33 +226,40 @@ class PtychoDataset(Dataset):
             #NON-DIFFRACTION IMAGE MAPPING
             #----
             #Assume: N = # of scans
-            xcoords = np.load(npz_file)['xcoords']
-            ycoords = np.load(npz_file)['ycoords']
-            xcoords_start = np.load(npz_file)['xcoords_start']
-            ycoords_start = np.load(npz_file)['ycoords_start']
-
             start, end = self.cum_length[i], self.cum_length[i+1]
-
-            #Get indices for solution patches on current dataset
-            nn_indices, coords_nn = group_coords(xcoords, ycoords,
-                                      C=DataConfig().get('C'))
-            
-            #Coords_nn is (N x 4 x 1 x 2). Contains all 4 sets of (x,y) coords for an image patch
-            coords_start_nn = np.stack([xcoords_start[nn_indices],
-                                        ycoords_start[nn_indices]],axis=2)[:, :, None, :]
-            
-            #Get relative and center of mass coordinates
-            coords_com, coords_relative = get_relative_coords(coords_nn)
-            coords_start_com, coords_start_relative = get_relative_coords(coords_start_nn)
 
             #Writing to non-diffraction memory maps in one go:
             non_diff_timer_start = time.time()
 
-            mmap_ptycho["coords_center"][start:end] = torch.from_numpy(coords_com)
-            mmap_ptycho["coords_relative"][start:end] = torch.from_numpy(coords_relative)
-            mmap_ptycho["coords_start_center"][start:end] = torch.from_numpy(coords_start_com)
-            mmap_ptycho["coords_start_relative"][start:end] = torch.from_numpy(coords_start_relative)
-            mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(nn_indices)
+            #If solution patches are enforced, then must include alot more metadata
+            if ModelConfig().get('object.big'):
+                #Grabbing information from npz file
+                xcoords = np.load(npz_file)['xcoords']
+                ycoords = np.load(npz_file)['ycoords']
+                xcoords_start = np.load(npz_file)['xcoords_start']
+                ycoords_start = np.load(npz_file)['ycoords_start']
+                #Get indices for solution patches on current dataset
+                nn_indices, coords_nn = group_coords(xcoords, ycoords,
+                                        C=DataConfig().get('C'))
+                
+                #Coords_nn is (N x 4 x 1 x 2). Contains all 4 sets of (x,y) coords for an image patch
+                coords_start_nn = np.stack([xcoords_start[nn_indices],
+                                            ycoords_start[nn_indices]],axis=2)[:, :, None, :]
+                
+                #Get relative and center of mass coordinates
+                coords_com, coords_relative = get_relative_coords(coords_nn)
+                coords_start_com, coords_start_relative = get_relative_coords(coords_start_nn)
+
+                mmap_ptycho["coords_center"][start:end] = torch.from_numpy(coords_com)
+                mmap_ptycho["coords_relative"][start:end] = torch.from_numpy(coords_relative)
+                mmap_ptycho["coords_start_center"][start:end] = torch.from_numpy(coords_start_com)
+                mmap_ptycho["coords_start_relative"][start:end] = torch.from_numpy(coords_start_relative)
+                mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(nn_indices)
+            else:
+                #Otherwise, the indices are just an arange from 0 to N-1
+                nn_indices = np.arange(end-start)
+                mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(nn_indices)[:,None]
+
             mmap_ptycho["experiment_id"][start:end] = torch.tensor(i)
 
             non_diff_time = time.time() - non_diff_timer_start
@@ -255,9 +271,16 @@ class PtychoDataset(Dataset):
             curr_nn_index_length = len(nn_indices)
             diff_stack = torch.from_numpy(np.load(npz_file)['diff3d'])
 
+            #Inserting dummy channel dimension if n_channels = 1
+            if not ModelConfig().get('object.big'):
+                diff_stack = diff_stack[:,None]
+
             #Perform normalization on diffraction image stack
-            diff_stack, norm_factor = hh.normalize_data(diff_stack)
-            self.data_dict["scaling_constant"][i] = norm_factor
+            if DataConfig().get('normalize'):
+                diff_stack, norm_factor = hh.normalize_data(diff_stack)
+                self.data_dict["scaling_constant"][i] = norm_factor
+            else:
+                self.data_dict["scaling_constant"][i] = 1
 
             #Write to memory mapped tensor in batches
             for j in range(0, curr_nn_index_length, batch_size):
@@ -367,7 +390,10 @@ class PtychoDataset(Dataset):
         #exp_idx is a list of experiment indices that are then used to index probe/scaling constants
         exp_idx = self.mmap_ptycho['experiment_id'][idx]
 
-        channels = DataConfig().get('C')
+        if ModelConfig().get('object.big'):
+            channels = DataConfig().get('C')
+        else:
+            channels = 1
 
         #Expand probe to match number of channels for data.
         probes_indexed = self.data_dict['probes'][exp_idx].unsqueeze(1).expand(-1,channels,-1,-1)

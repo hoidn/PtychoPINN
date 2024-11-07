@@ -249,9 +249,9 @@ def mk_centermask(inputs: torch.Tensor, N: int, c: int, kind: str = 'center') ->
     output: Padded mask
     '''
     n_images = inputs.shape[0]
-    count_mask = torch.ones((n_images, c, N//2, N//2),
+    count_mask = torch.ones((n_images, c, N, N),
                               dtype = inputs.dtype)
-    count_mask = F.pad(count_mask, (N//4, N//4, N//4, N//4), "constant", 0)
+    #count_mask = F.pad(count_mask, (N//4, N//4, N//4, N//4), "constant", 0)
 
     if kind == 'center':
         return count_mask
@@ -461,7 +461,7 @@ def illuminate_and_diffract(input: torch.Tensor, probe: torch.Tensor, intensity_
     
     input_scaled = combine_complex(input_amp, input_phase)
     
-    return output, input_scaled
+    return output, input_scaled, intensity_scale
 
 #Photon scaling functions
 

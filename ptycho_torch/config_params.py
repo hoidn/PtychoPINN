@@ -19,18 +19,19 @@ data_config_default = {
     'n_subsample': 10,
     'grid_size': (2,2),
     'probe_dir_get': True,
+    'normalize': True
 }
 
 model_config_default = {
-    'intensity_scale_trainable': True,
+    'intensity_scale_trainable': False,
     'intensity_scale': 10000.0,
     'max_position_jitter': 10, #Random jitter for translation (helps make model more robust)
     'n_filters_scale': 2, #Shrinking factor for channels
     'intensity_scale': 15000.0, #General intensity scale guess, this can be trainable. Needs to be float
-    'object.big': True, #True if need patch reassembly
+    'object.big': False, #True if need patch reassembly
     'probe.big': True, #True if need patch reassembly
     'offset': 4,
-    'loss_function': 'Poisson'
+    'loss_function': 'MAE'
 }
 
 training_config_default = {
@@ -58,6 +59,7 @@ class Settings:
             return self.settings.get(key)
     def add(self, key, value):
         self.settings[key] = value
+
 
 class TrainingConfig(Settings):
     _instance = None
