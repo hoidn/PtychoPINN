@@ -183,6 +183,7 @@ def main(ptycho_dir, probe_dir):
                         devices = 'auto',
                         accelerator = 'gpu',
                         gradient_clip_val = 10,
+                        strategy = TrainingConfig().get('strategy')
                         accumulate_grad_batches=5)
 
     #Mlflow setup
