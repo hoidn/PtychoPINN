@@ -36,7 +36,8 @@ model_config_default = {
 
 training_config_default = {
     'nll': True, #Negative log likelihood for loss function
-    'device': 'cuda'
+    'device': 'cuda',
+    'strategy': 'ddp'
 }
 
 class Settings:
@@ -69,3 +70,5 @@ class ModelConfig(Settings):
 
 class DataConfig(Settings):
     _instance = None
+
+#Creating dataclasses 

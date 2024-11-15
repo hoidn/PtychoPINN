@@ -104,14 +104,16 @@ class Encoder(nn.Module):
             starting_filter_n = DataConfig().get('grid_size')[0] * DataConfig().get('grid_size')[1]
         else:
             starting_filter_n = 1
+        self.filters = [starting_filter_n]
         #Starting output channels is 64. Last output size will always be n_filters_scale * 128. 
-        n_layers = int(np.log(128 / starting_coeff)/np.log(2) + 1)
-        #Examples
-        #N == 64:
-        #filters = [n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
-        #N == 128:
-        #filters = [n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
-        self.filters = [starting_filter_n] + [int(n_filters_scale * starting_coeff * 2**i) for i in range(n_layers)]
+        if self.N == 64:
+            self.filters = self.filters + [n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+        elif self.N == 128:
+            self.filters = self.filters + [n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+        elif self.N == 256:
+            self.filters = self.filters + [n_filters_scale * 8, n_filters_scale * 16, n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
+
+
 
         if starting_coeff < 3 or starting_coeff > 64:
             raise ValueError(f"Unsupported input size: {self.N}")
@@ -141,10 +143,16 @@ class Decoder_filters(nn.Module):
         #E.g. 
         #N == 64: [n_filters_scale * 64, n_filters_scale * 32]
         #N == 128: [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
-        n_terms = int(np.log(self.N / 32) / np.log(2) + 1)
-        self.filters = [n_filters_scale * 128] + [int(n_filters_scale * self.N * (1/2)**i) for i in range(n_terms)]
+        self.filters = [n_filters_scale * 128]
 
-        if self.N < 32:
+        if self.N == 64:
+            self.filters = self.filters + [n_filters_scale * 64, n_filters_scale * 32]
+        elif self.N == 128:
+            self.filters = self.filters + [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+        elif self.N == 256:
+            self.filters = self.filters + [n_filters_scale * 256, n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
+
+        if self.N < 64:
             raise ValueError(f"Unsupported input size: {self.N}")
         
     def forward(self, x):
@@ -288,16 +296,18 @@ class ProbeIllumination(nn.Module):
     '''
     def __init__(self):
         super(ProbeIllumination, self).__init__()
+        self.N = DataConfig().get('N')
+        self.mask = ModelConfig().get('probe_mask')
     
     def forward(self, x, probe):
-        N = DataConfig().get('N')
+        
         #Check if probe mask exists
         #If not, probe mask is just a ones matrix
         #If mask exists, save mask is class attribute
-        if not ModelConfig().get('probe.mask'):
-            probe_mask = torch.ones((N, N)).to(x.device)
+        if not self.mask:
+            probe_mask = torch.ones((self.N, self.N)).to(x.device)
         else:
-            probe_mask = ModelConfig().get('probe.mask')
+            probe_mask = ModelConfig().get('probe_mask')
 
         return x * probe * probe_mask, probe * probe_mask
 
@@ -334,6 +344,10 @@ class LambdaLayer(nn.Module):
     Generic layer module for helper functions.
 
     Mostly used for patch reconstruction
+
+    Note from 11/15/2024: Pytorch lightning really doesn't like LambdaLayers. 
+    Will treat them as if they were identity operations.
+    Replaced all LambdaLayers in the forward model with their respective helper functions
     '''
     def __init__(self, func):
         super(LambdaLayer, self).__init__()
@@ -384,33 +398,32 @@ class ForwardModel(nn.Module):
         self.object_big = ModelConfig().get('object.big')
 
         #Patch operations
-        self.add_module('reassemble_patches',
-                        LambdaLayer(hh.reassemble_patches_position_real))
-        self.add_module('pad_patches',
-                        LambdaLayer(hh.pad_patches))
-        self.add_module('trim_reconstruction',
-                        LambdaLayer(hh.trim_reconstruction))
-        self.add_module('extract_patches',
-                        LambdaLayer(hh.extract_channels_from_region))
+
+        self.reassemble_patches = LambdaLayer(hh.reassemble_patches_position_real)
+
+        self.pad_patches = LambdaLayer(hh.pad_patches)
+
+        self.trim_reconstruction = LambdaLayer(hh.trim_reconstruction)
+
+        self.extract_patches = LambdaLayer(hh.extract_channels_from_region)
+
         #Probe Illumination
         self.probe_illumination = ProbeIllumination()
 
         #Pad/diffract
-        self.add_module('pad_and_diffract',
-                        LambdaLayer(hh.pad_and_diffract))
+        self.pad_and_diffract = LambdaLayer(hh.pad_and_diffract)
 
         #Intensity scaling
         self.scaler = IntensityScalerModule()
-        self.add_module('inv_scale',
-                        LambdaLayer(self.scaler.scale))
+
         
     def forward(self, x, positions, probe, scale_factor):
         #Reassemble patches
         #Object_big: All patches are together in a solution region
         if self.object_big:
-            reassembled_obj = self.reassemble_patches(x, positions)
+            reassembled_obj = hh.reassemble_patches_position_real(x, positions)
             #Extract patches
-            extracted_patch_objs = self.extract_patches(reassembled_obj[:,None,:,:], positions)
+            extracted_patch_objs = hh.extract_channels_from_region(reassembled_obj[:,None,:,:], positions)
         else:
         #Single channel, no patch overlap
             #NOTE for albert: Check transformation math
@@ -421,22 +434,21 @@ class ForwardModel(nn.Module):
             # )
             extracted_patch_objs = x
 
-        #Perform below steps if training
-        if self.training:
-            #Apply probe illum
-            illuminated_objs, _ = self.probe_illumination(extracted_patch_objs,
-                                                       probe)
-            #Pad and diffract
-            pred_diffraction, _ = self.pad_and_diffract(illuminated_objs,
-                                                     pad = False)
-            #Inverse scaling
-            pred_amp_scaled = self.scaler.inv_scale(pred_diffraction, scale_factor)
 
-            return pred_amp_scaled
+        #Apply probe illum
+        illuminated_objs, _ = self.probe_illumination(extracted_patch_objs,
+                                                    probe)
+        #Pad and diffract
+        pred_diffraction, _ = hh.pad_and_diffract(illuminated_objs,
+                                                    pad = False)
+        #Inverse scaling
+        pred_amp_scaled = self.scaler.inv_scale(pred_diffraction, scale_factor)
+
+        return pred_amp_scaled
         
-        #Performing inference
-        else:
-            return extracted_patch_objs
+        # #Performing inference
+        # else:
+        #     return extracted_patch_objs
 
 #Loss functions
         

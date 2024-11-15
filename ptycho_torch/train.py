@@ -69,7 +69,7 @@ class PtychoPINN(L.LightningModule):
         x_combined = self.combine_complex(x_amp, x_phase)
         #Run through forward model
         scale_factor = scale_factor.view(-1, 1, 1, 1)
-        x_out = self.forward_model(x_combined, positions, probe, scale_factor)
+        x_out = self.forward_model.forward(x_combined, positions, probe * 2, scale_factor)
 
         return x_out
     
@@ -110,12 +110,19 @@ class PtychoPINN(L.LightningModule):
                                      batch[2]
         
         #Run through part of forward model
-        pred = self.forward_predict(x, positions, probe, scale)
+        pred = self(x, positions, probe, scale)
 
         return pred
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr = 2e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr = 1e-3)
+
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+
+        return {
+                "optimizer": optimizer,
+                "lr_scheduler": scheduler
+                }
 
 #Training functions
 
@@ -178,13 +185,13 @@ def main(ptycho_dir, probe_dir):
     model.training = True
 
     #Create trainer
-    trainer = L.Trainer(max_epochs = 300,
+    trainer = L.Trainer(max_epochs = 150,
                         default_root_dir = os.path.dirname(os.getcwd()),
                         devices = 'auto',
                         accelerator = 'gpu',
-                        gradient_clip_val = 10,
-                        strategy = TrainingConfig().get('strategy')
-                        accumulate_grad_batches=5)
+                        gradient_clip_val = 20,
+                        # strategy = TrainingConfig().get('strategy'),
+                        accumulate_grad_batches=3)
 
     #Mlflow setup
     # mlflow.set_tracking_uri("")
