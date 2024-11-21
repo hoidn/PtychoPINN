@@ -1,5 +1,18 @@
 #!/usr/bin/env python
 
+import logging
+import sys
+
+# Set up logging to both file and console
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('train_debug.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 from ptycho.workflows.components import (
     parse_arguments,
     setup_configuration,
