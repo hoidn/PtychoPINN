@@ -26,18 +26,14 @@ logger = logging.getLogger(__name__)
 ARG_TO_CONFIG_MAP = {
     "nepochs": ("nepochs", 50),
     "output_prefix": ("output_prefix", "tmp"),
-    "intensity_scale_trainable": ("intensity_scale.trainable", True),
-    "positions_provided": ("positions.provided", True),
-    "probe_big": ("probe.big", True),
-    "probe_mask": ("probe.mask", False),
-    "data_source": ("data_source", "generic"),
-    "gridsize": ("gridsize", 1),
-    "probe_scale": ("probe_scale", 4),
+    "intensity_scale_trainable": ("intensity_scale_trainable", True),
+    "probe_big": ("probe_big", False),
+    "probe_mask": ("probe_mask", True),
+    "gridsize": ("gridsize", 2),
+    "probe_scale": ("probe_scale", 10.0),
     "train_data_file_path": ("train_data_file_path", None),
     "test_data_file_path": ("test_data_file_path", None),
-    "N": ("N", 64),
-#    "mae_weight": ("mae_weight", 0.),
-#    "nll_weight": ("nll_weight", 1.)
+    "N": ("N", 64)
 }
 
 def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
@@ -162,13 +158,25 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
         yaml_config = load_yaml_config(yaml_path) if yaml_path else None
         args_config = vars(args)
         config_dict = merge_configs(yaml_config, args_config)
-        #validate_config(config)
-        p.cfg.update(config_dict)  # Update the global configuration
         
-        logger.info("Configuration setup complete")
-        logger.info(f"Final configuration: {config_dict}")
+        # Prepare model config parameters with all required fields
+        model_params = {
+            'N': config_dict.pop('N', 64),
+            'gridsize': config_dict.pop('gridsize', 2),
+            'n_filters_scale': config_dict.pop('n_filters_scale', 2),
+            'model_type': config_dict.pop('model_type', 'pinn'),
+            'amp_activation': config_dict.pop('amp_activation', 'sigmoid'),
+            'object_big': config_dict.pop('object_big', True),
+            'probe_big': config_dict.pop('probe_big', False),
+            'probe_mask': config_dict.pop('probe_mask', True),
+            'pad_object': config_dict.pop('pad_object', True),
+            'probe_scale': config_dict.pop('probe_scale', 10.0)
+        }
         
-        # Convert dictionary paths to Path objects
+        # Create ModelConfig instance
+        model_config = ModelConfig(**model_params)
+        
+        # Convert paths
         if 'train_data_file_path' in config_dict:
             train_path = config_dict.pop('train_data_file_path')
             config_dict['train_data_file'] = Path(train_path) if train_path is not None else None
@@ -180,12 +188,18 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
         if 'output_prefix' in config_dict:
             output_path = config_dict.pop('output_prefix')
             config_dict['output_dir'] = Path(output_path) if output_path is not None else None
-            
+        
+        # Add model config to main config
+        config_dict['model'] = model_config
+        
         # Create TrainingConfig from dictionary
         config = TrainingConfig(**config_dict)
         
         # Update the global configuration
-        p.cfg.update(config_dict)
+        p.cfg.update(dataclass_to_legacy_dict(config))
+        
+        logger.info("Configuration setup complete")
+        logger.info(f"Final configuration: {config}")
         
         return config
     except (yaml.YAMLError, IOError, ValueError) as e:
