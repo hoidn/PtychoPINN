@@ -193,8 +193,12 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
         # Add model config to main config
         config_dict['model'] = model_config
         
-        # Create TrainingConfig from dictionary
-        config = TrainingConfig(**config_dict)
+        # Filter config_dict to only include fields defined in TrainingConfig
+        valid_fields = {f.name for f in fields(TrainingConfig)}
+        filtered_config = {k: v for k, v in config_dict.items() if k in valid_fields}
+        
+        # Create TrainingConfig from filtered dictionary
+        config = TrainingConfig(**filtered_config)
         
         # Update the global configuration
         p.cfg.update(dataclass_to_legacy_dict(config))
