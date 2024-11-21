@@ -170,11 +170,16 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
         
         # Convert dictionary paths to Path objects
         if 'train_data_file_path' in config_dict:
-            config_dict['train_data_file'] = Path(config_dict.pop('train_data_file_path'))
+            train_path = config_dict.pop('train_data_file_path')
+            config_dict['train_data_file'] = Path(train_path) if train_path is not None else None
+            
         if 'test_data_file_path' in config_dict:
-            config_dict['test_data_file'] = Path(config_dict.pop('test_data_file_path'))
+            test_path = config_dict.pop('test_data_file_path')
+            config_dict['test_data_file'] = Path(test_path) if test_path is not None else None
+            
         if 'output_prefix' in config_dict:
-            config_dict['output_dir'] = Path(config_dict.pop('output_prefix'))
+            output_path = config_dict.pop('output_prefix')
+            config_dict['output_dir'] = Path(output_path) if output_path is not None else None
             
         # Create TrainingConfig from dictionary
         config = TrainingConfig(**config_dict)
