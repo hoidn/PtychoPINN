@@ -118,7 +118,7 @@ def parse_arguments():
                     )
         else:
             # Handle path fields specially
-            if field.type == Path:
+            if field.type == Path or str(field.type).startswith("typing.Optional[pathlib.Path"):
                 logger.debug(f"Field: {field.name}")
                 logger.debug(f"Field type: {field.type}")
                 logger.debug(f"Field default: {field.default}")
