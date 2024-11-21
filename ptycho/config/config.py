@@ -111,6 +111,7 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
         'probe_mask': 'probe.mask',
         'probe_trainable': 'probe.trainable',
         'intensity_scale_trainable': 'intensity_scale.trainable',
+        'positions_provided': 'positions.provided',
         'output_dir': 'output_prefix'
     }
 
