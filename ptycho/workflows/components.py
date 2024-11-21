@@ -132,19 +132,6 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
         logger.error(f"Error loading YAML config: {e}")
         raise
 
-def merge_configs(yaml_config: Optional[Dict[str, Any]], args_config: Dict[str, Any]) -> Dict[str, Any]:
-    """Merge configurations with explicit precedence: defaults -> YAML -> command-line args."""
-    config = p.cfg.copy()  # Start with default configuration
-    
-    if yaml_config:
-        config.update(yaml_config)  # Update with YAML configuration
-    
-    # Update with command-line args
-    for arg_name, cfg_key in ARG_TO_CONFIG_MAP.items():
-        if args_config[arg_name] is not None:
-            config[cfg_key] = args_config[arg_name]
-
-    return config
 
 #def validate_config(config: Dict[str, Any]) -> None:
 #    """Validate the configuration."""
