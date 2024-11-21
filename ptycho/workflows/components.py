@@ -9,6 +9,7 @@ from ptycho.loader import RawData, PtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple
+from pathlib import Path
 from ptycho.config.config import TrainingConfig
 from ptycho import loader, probe
 from typing import Union, Optional, Tuple, Dict, Any
@@ -160,12 +161,12 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
     try:
         yaml_config = load_yaml_config(yaml_path) if yaml_path else None
         args_config = vars(args)
-        config = merge_configs(yaml_config, args_config)
+        config_dict = merge_configs(yaml_config, args_config)
         #validate_config(config)
-        p.cfg.update(config)  # Update the global configuration
+        p.cfg.update(config_dict)  # Update the global configuration
         
         logger.info("Configuration setup complete")
-        logger.info(f"Final configuration: {config}")
+        logger.info(f"Final configuration: {config_dict}")
         
         # Convert dictionary paths to Path objects
         if 'train_data_file_path' in config_dict:
