@@ -83,14 +83,14 @@ def parse_args() -> TrainingConfig:
     # Create ModelConfig
     model_fields = {
         k: v for k, v in config_dict.items()
-        if k in [f.name for f in ModelConfig.__dataclass_fields__]
+        if k in ModelConfig.__dataclass_fields__
     }
     model_config = ModelConfig(**model_fields)
 
     # Create TrainingConfig including ModelConfig
     training_fields = {
         k: v for k, v in config_dict.items()
-        if k in [f.name for f in TrainingConfig.__dataclass_fields__]
+        if k in TrainingConfig.__dataclass_fields__ and k != 'model'
     }
     training_config = TrainingConfig(
         model=model_config,
