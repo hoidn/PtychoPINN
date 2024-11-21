@@ -27,11 +27,13 @@ logger = logging.getLogger(__name__)
 ARG_TO_CONFIG_MAP = {
     "nepochs": ("nepochs", 50),
     "output_prefix": ("output_prefix", "tmp"),
-    "intensity_scale_trainable": ("intensity_scale_trainable", True),
-    "probe_big": ("probe_big", False),
-    "probe_mask": ("probe_mask", True),
-    "gridsize": ("gridsize", 2),
-    "probe_scale": ("probe_scale", 10.0),
+    "intensity_scale_trainable": ("intensity_scale.trainable", True),
+    "positions_provided": ("positions.provided", True),
+    "probe_big": ("probe.big", True),
+    "probe_mask": ("probe.mask", False),
+    "data_source": ("data_source", "generic"),
+    "gridsize": ("gridsize", 1),
+    "probe_scale": ("probe_scale", 4),
     "train_data_file_path": ("train_data_file_path", None),
     "test_data_file_path": ("test_data_file_path", None),
     "N": ("N", 64)
