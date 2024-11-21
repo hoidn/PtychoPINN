@@ -7,7 +7,7 @@ import yaml
 class ModelConfig:
     """Core model architecture parameters."""
     N: Literal[64, 128, 256] = 64
-    gridsize: int = 2  
+    gridsize: int = 1
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
     amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
@@ -15,7 +15,7 @@ class ModelConfig:
     probe_big: bool = True  # Changed default
     probe_mask: bool = False  # Changed default
     pad_object: bool = True
-    probe_scale: float = 10.0
+    probe_scale: float = 4.
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -24,7 +24,7 @@ class TrainingConfig:
     train_data_file: Path  # Added
     test_data_file: Optional[Path] = None  # Added
     batch_size: int = 16
-    nepochs: int = 60
+    nepochs: int = 50
     mae_weight: float = 0.0
     nll_weight: float = 1.0
     realspace_mae_weight: float = 0.0
