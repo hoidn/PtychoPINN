@@ -31,15 +31,17 @@ The height and width of the diffraction patterns are equal and determined by the
 
 ## Data Loading
 
-By default, the training script loads up to 512 images from the input data file. This limit can be adjusted through the configuration.
+By default, the training script loads up to 512 images from the input data file. This limit is hardcoded but can be modified in the source code if needed.
 
 ## Configuration
 
-The training script uses a configuration file (`config.yaml`) to set various parameters, such as:
+The training script uses a configuration file (`config.yaml`) to set various parameters. The configuration system supports both new-style configuration and legacy parameters. Key parameters include:
+
 - Number of epochs
 - Batch size
 - Learning rate
 - Output directory
+- Train data file path
 - Test data file path (optional)
 - Image transformation options:
   - flip_x: Flip images horizontally
@@ -59,29 +61,39 @@ You can provide a custom configuration file using the `--config` command-line ar
    ```
    python train.py --train_data_file /path/to/your/train_data.npz [--config /path/to/config.yaml]
    ```
-   Replace `/path/to/your/train_data.npz` with the actual path to your training data file.
+   Note: The script supports both `--train_data_file` and the legacy `--train_data_file_path` arguments.
 
-4. The script will load the data, preprocess it, and start training the model.
+4. The script will:
+   - Load and validate the configuration
+   - Load the training data (and test data if specified)
+   - Run the CDI example
+   - Save the model and outputs
+   - Display progress information during training
 
-5. During training, the script will display progress information, such as the current epoch, loss values, and metrics.
+## Error Handling
 
-6. After training, the script will save the trained model along with its associated files in the specified output directory.
+The script includes comprehensive error handling:
+- All exceptions during execution are caught and logged
+- Detailed error messages are written to both the debug log and console
+- The script will exit with an error status if any critical errors occur
 
 ## Output Structure
 
-The training script generates the following output files:
+The training script generates the following outputs:
 
 - Model artifacts saved to the specified output directory
 - Debug logs written to 'train_debug.log'
 - Console output showing training progress
-
-The output files are organized in the specified output directory. The exact structure and contents may vary depending on the configuration and training process.
+- Training results including:
+  - Reconstructed amplitude
+  - Reconstructed phase
+  - Additional training metrics and results
 
 ## Logging
 
-The script provides two levels of logging:
+The script implements a two-level logging system:
 - Debug information is written to 'train_debug.log'
 - Info level messages are displayed in the console
 
-This helps track both detailed debugging information and high-level progress during training.
+This dual logging system helps track both detailed debugging information and high-level progress during training.
 
