@@ -16,6 +16,7 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
     if model_instance is None:
         model_instance = model.autoencoder
     nepochs = params.cfg['nepochs']
+    params.print_params()
     return model_instance, model.train(nepochs, train_data)
 
 def train_eval(ptycho_dataset):
