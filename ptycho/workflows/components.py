@@ -23,20 +23,20 @@ from ptycho import params
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Define the mapping between command-line argument names and config keys with defaults
+# Define the mapping between command-line argument names and config keys
 ARG_TO_CONFIG_MAP = {
-    "nepochs": ("nepochs", 50),
-    "output_prefix": ("output_prefix", "tmp"),
-    "intensity_scale_trainable": ("intensity_scale.trainable", True),
-    "positions_provided": ("positions.provided", True),
-    "probe_big": ("probe.big", True),
-    "probe_mask": ("probe.mask", False),
-    "data_source": ("data_source", "generic"),
-    "gridsize": ("gridsize", 1),
-    "probe_scale": ("probe_scale", 4),
-    "train_data_file_path": ("train_data_file_path", None),
-    "test_data_file_path": ("test_data_file_path", None),
-    "N": ("N", 64)
+    "nepochs": "nepochs",
+    "output_prefix": "output_prefix",
+    "intensity_scale_trainable": "intensity_scale.trainable",
+    "positions_provided": "positions.provided", 
+    "probe_big": "probe.big",
+    "probe_mask": "probe.mask",
+    "data_source": "data_source",
+    "gridsize": "gridsize",
+    "probe_scale": "probe_scale",
+    "train_data_file_path": "train_data_file_path",
+    "test_data_file_path": "test_data_file_path",
+    "N": "N"
 }
 
 def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
@@ -141,12 +141,10 @@ def merge_configs(yaml_config: Optional[Dict[str, Any]], args_config: Dict[str, 
     if yaml_config:
         config.update(yaml_config)  # Update with YAML configuration
     
-    # Update with command-line args, using ARG_TO_CONFIG_MAP
-    for arg_name, (cfg_key, default) in ARG_TO_CONFIG_MAP.items():
+    # Update with command-line args
+    for arg_name, cfg_key in ARG_TO_CONFIG_MAP.items():
         if args_config[arg_name] is not None:
             config[cfg_key] = args_config[arg_name]
-        elif cfg_key not in config:
-            config[cfg_key] = default
 
     return config
 
