@@ -8,7 +8,7 @@ from ptycho import probe
 from ptycho.loader import RawData, PtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
-from typing import Union, Optional, Dict, Any, Tuple
+from typing import Union, Optional, Dict, Any, Tuple, Literal
 from pathlib import Path
 from ptycho.config.config import TrainingConfig, ModelConfig, dataclass_to_legacy_dict
 from dataclasses import fields
@@ -98,12 +98,23 @@ def parse_arguments():
         if field.name == 'model':
             # Handle ModelConfig fields
             for model_field in fields(ModelConfig):
-                parser.add_argument(
-                    f"--{model_field.name}",
-                    type=model_field.type,
-                    default=model_field.default,
-                    help=f"Model parameter: {model_field.name}"
-                )
+                # Special handling for Literal types
+                if hasattr(model_field.type, "__origin__") and model_field.type.__origin__ is Literal:
+                    choices = list(model_field.type.__args__)
+                    parser.add_argument(
+                        f"--{model_field.name}",
+                        type=str,
+                        choices=choices,
+                        default=model_field.default,
+                        help=f"Model parameter: {model_field.name}, choices: {choices}"
+                    )
+                else:
+                    parser.add_argument(
+                        f"--{model_field.name}",
+                        type=model_field.type,
+                        default=model_field.default,
+                        help=f"Model parameter: {model_field.name}"
+                    )
         else:
             # Handle path fields specially
             if field.type == Path:
