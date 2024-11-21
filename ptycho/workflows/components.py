@@ -119,9 +119,12 @@ def parse_arguments():
         else:
             # Handle path fields specially
             if field.type == Path:
+                logger.debug(f"Field: {field.name}")
+                logger.debug(f"Field type: {field.type}")
+                logger.debug(f"Field default: {field.default}")
                 parser.add_argument(
                     f"--{field.name}",
-                    type=str,
+                    type=lambda x: (logger.debug(f"Converting path value: {x}"), Path(x) if x is not None else None)[1],
                     default=None if field.default == None else str(field.default),
                     help=f"Path for {field.name}"
                 )
