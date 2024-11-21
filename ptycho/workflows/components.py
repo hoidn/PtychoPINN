@@ -9,6 +9,7 @@ from ptycho.loader import RawData, PtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple
+from ptycho.config.config import TrainingConfig
 from ptycho import loader, probe
 from typing import Union, Optional, Tuple, Dict, Any
 from ptycho.raw_data import RawData
@@ -195,13 +196,13 @@ def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
 from typing import Union
 from ptycho.loader import RawData, PtychoDataContainer
 
-def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], config: Dict[str, Any]) -> PtychoDataContainer:
+def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], config: TrainingConfig) -> PtychoDataContainer:
     """
     Factory function to create or return a PtychoDataContainer.
 
     Args:
         data (Union[RawData, PtychoDataContainer]): Input data, either RawData or PtychoDataContainer.
-        config (Dict[str, Any]): Configuration dictionary.
+        config (TrainingConfig): Training configuration object.
 
     Returns:
         PtychoDataContainer: The resulting PtychoDataContainer.
@@ -212,7 +213,7 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        dataset = data.generate_grouped_data(config['N'], K=7, nsamples=config.get('n_samples', 1))
+        dataset = data.generate_grouped_data(config.model.N, K=7, nsamples=1)
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")
@@ -220,7 +221,7 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
 def train_cdi_model(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
-    config: Dict[str, Any]
+    config: TrainingConfig
 ) -> Dict[str, Any]:
     """
     Train the CDI model.
@@ -257,7 +258,7 @@ def train_cdi_model(
 
 def reassemble_cdi_image(
     test_data: Union[RawData, PtychoDataContainer],
-    config: Dict[str, Any],
+    config: TrainingConfig,
     flip_x: bool = False,
     flip_y: bool = False,
     transpose: bool = False,
