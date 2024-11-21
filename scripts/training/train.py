@@ -13,6 +13,12 @@ from ptycho import model_manager, params
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     args = parse_arguments()
+    
+    # Handle legacy argument name
+    if hasattr(args, 'train_data_file_path'):
+        args.train_data_file = args.train_data_file_path
+        delattr(args, 'train_data_file_path')
+        
     config = setup_configuration(args, args.config)
     
     # Update global params with new-style config at entry point
