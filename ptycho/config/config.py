@@ -136,7 +136,7 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
 def update_legacy_dict(cfg: Dict[str, Any], dataclass_obj: Any) -> None:
     """Update legacy dictionary with dataclass values.
     
-    Only updates keys that already exist in the legacy dictionary.
+    Updates all values from the dataclass, adding new keys if needed.
     
     Args:
         cfg: Legacy dictionary to update
@@ -144,7 +144,5 @@ def update_legacy_dict(cfg: Dict[str, Any], dataclass_obj: Any) -> None:
     """
     new_values = dataclass_to_legacy_dict(dataclass_obj)
     
-    # Only update existing keys
-    for key, value in new_values.items():
-        if key in cfg:
-            cfg[key] = value
+    # Update all values from dataclass
+    cfg.update(new_values)
