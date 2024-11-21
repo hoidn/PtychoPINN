@@ -44,7 +44,7 @@ The training script uses a configuration file (`config.yaml`) to set various par
 - Test data file path (`test_data_file`, optional)
 - Model parameters:
   - N: Size of diffraction patterns (64, 128, or 256)
-  - gridsize: Grid size for model
+  - gridsize: Grid size for model - controls number of images processed per solution region (e.g., gridsize=2 means 2²=4 images at a time)
   - n_filters_scale: Scale factor for number of filters
   - model_type: 'pinn' or 'supervised'
   - amp_activation: Activation function ('sigmoid', 'swish', 'softplus', 'relu')
