@@ -12,8 +12,8 @@ class ModelConfig:
     model_type: Literal['pinn', 'supervised'] = 'pinn'
     amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
     object_big: bool = True
-    probe_big: bool = False
-    probe_mask: bool = True
+    probe_big: bool = True  # Changed default
+    probe_mask: bool = False  # Changed default
     pad_object: bool = True
     probe_scale: float = 10.0
 
@@ -30,8 +30,10 @@ class TrainingConfig:
     realspace_mae_weight: float = 0.0
     realspace_weight: float = 0.0
     nphotons: float = 1e9
+    positions_provided: bool = True  # Added with correct default
+    data_source: str = 'generic'  # Added with correct default
     probe_trainable: bool = False
-    intensity_scale_trainable: bool = False
+    intensity_scale_trainable: bool = True  # Changed default
     output_dir: Path = Path("training_outputs")
 
 @dataclass(frozen=True)
