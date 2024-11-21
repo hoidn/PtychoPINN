@@ -3,15 +3,20 @@
 import logging
 import sys
 
-# Set up logging to both file and console
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('train_debug.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+# Set up file handler for debug logging
+file_handler = logging.FileHandler('train_debug.log')
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+# Set up console handler for info logging
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+# Configure root logger
+logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().addHandler(file_handler)
+logging.getLogger().addHandler(console_handler)
 
 from ptycho.workflows.components import (
     parse_arguments,
