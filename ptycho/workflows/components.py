@@ -10,6 +10,11 @@ import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple
 from ptycho import loader, probe
+from typing import Union, Optional, Tuple, Dict, Any
+from ptycho.raw_data import RawData
+from ptycho.loader import PtychoDataContainer
+from ptycho.config.config import TrainingConfig, update_legacy_dict
+from ptycho import params
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -317,7 +322,7 @@ def reassemble_cdi_image(
 def run_cdi_example(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
-    config: Dict[str, Any],
+    config: TrainingConfig,
     flip_x: bool = False,
     flip_y: bool = False,
     transpose: bool = False,
@@ -327,17 +332,23 @@ def run_cdi_example(
     Run the main CDI example execution flow.
 
     Args:
-        train_data (Union[RawData, PtychoDataContainer]): Training data.
-        test_data (Optional[Union[RawData, PtychoDataContainer]]): Test data, or None.
-        config (Dict[str, Any]): Configuration dictionary.
-        flip_x (bool): Whether to flip the x coordinates. Default is False.
-        flip_y (bool): Whether to flip the y coordinates. Default is False.
-        transpose (bool): Whether to transpose the image by swapping the 1st and 2nd dimensions. Default is False.
+        train_data: Training data
+        test_data: Optional test data
+        config: Training configuration parameters
+        flip_x: Whether to flip the x coordinates
+        flip_y: Whether to flip the y coordinates
+        transpose: Whether to transpose the image by swapping dimensions
+        M: Parameter for reassemble_position function
 
     Returns:
-        Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]: 
-        Reconstructed amplitude, reconstructed phase, and results dictionary.
+        Tuple containing:
+        - reconstructed amplitude (or None)
+        - reconstructed phase (or None)
+        - results dictionary
     """
+    # Update global params with new-style config at entry point
+    update_legacy_dict(params.cfg, config)
+    
     # Train the model
     train_results = train_cdi_model(train_data, test_data, config)
     
@@ -345,11 +356,11 @@ def run_cdi_example(
     
     # Reassemble test image if test data is provided and reconstructed_obj is available
     if test_data is not None and 'reconstructed_obj' in train_results:
-        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(test_data, config, flip_x, flip_y, transpose, M=M)
+        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(
+            test_data, config, flip_x, flip_y, transpose, M=M
+        )
         train_results.update(reassemble_results)
     
-    # TODO instead of returning a tuple we should have a coherent data structure for storing
-    # the output of inference + reassembly runs. 
     return recon_amp, recon_phase, train_results
 
 
