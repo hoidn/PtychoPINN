@@ -320,7 +320,8 @@ def reassemble_cdi_image(
     # Scale coordinates
     global_offsets *= coord_scale
     
-    obj_image = loader.reassemble_position(obj_tensor_full, global_offsets, M=M)
+    from ptycho import tf_helper as hh
+    obj_image = hh.reassemble_position(obj_tensor_full, global_offsets, M=M)
     
     recon_amp = np.absolute(obj_image)
     recon_phase = np.angle(obj_image)
