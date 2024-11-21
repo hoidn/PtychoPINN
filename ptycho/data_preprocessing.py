@@ -154,6 +154,10 @@ def generate_data(probeGuess = None):
         ptycho_dataset = create_ptycho_dataset(X_train, Y_I_train, Y_phi_train, intensity_scale, YY_train_full, coords_train_nominal, coords_train_true,
                                                X_test, Y_I_test, Y_phi_test, YY_test_full, coords_test_nominal, coords_test_true)
     elif data_source == 'experimental':
+        # Ensure nimgs parameters are 1 for experimental data
+        assert params.get('nimgs_train') == 1, "nimgs_train must be 1 for experimental data"
+        assert params.get('nimgs_test') == 1, "nimgs_test must be 1 for experimental data"
+        
         X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, intensity_scale, YY_train_full, YY_test_full, norm_Y_I_test, coords_train_nominal, coords_train_true, coords_test_nominal, coords_test_true = \
             load_experimental_data(probe_np, outer_offset_train, outer_offset_test, params.params()['sim_jitter_scale'])
         X_train, Y_I_train, Y_phi_train, YY_ground_truth = process_simulated_data(X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, YY_test_full, outer_offset_test)
