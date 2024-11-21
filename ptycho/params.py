@@ -1,6 +1,8 @@
 """
 Stores global variables for data generation and model configuration
 """
+import numpy as np
+import tensorflow as tf
 # TODO naming convention for different types of parameters
 # TODO what default value and initialization for the probe scale?
 cfg = {
@@ -66,3 +68,19 @@ def get(key):
         cfg['bigN'] = get_bigN()
         return cfg['bigN']
     return cfg[key]
+
+def print_params():
+    """Print all parameters with special handling for arrays/tensors"""
+    all_params = params()
+    print("Current Parameters:")
+    print("-" * 20)
+    for key, value in sorted(all_params.items()):
+        if isinstance(value, (np.ndarray, tf.Tensor)):
+            print(f"{key}:")
+            print(f"  shape: {value.shape}")
+            print(f"  mean: {np.mean(value):.3f}")
+            print(f"  std: {np.std(value):.3f}")
+            print(f"  min: {np.min(value):.3f}")
+            print(f"  max: {np.max(value):.3f}")
+        else:
+            print(f"{key}: {value}")
