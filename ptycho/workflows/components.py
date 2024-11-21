@@ -10,7 +10,7 @@ import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple
 from pathlib import Path
-from ptycho.config.config import TrainingConfig
+from ptycho.config.config import TrainingConfig, ModelConfig, dataclass_to_legacy_dict
 from ptycho import loader, probe
 from typing import Union, Optional, Tuple, Dict, Any
 from ptycho.raw_data import RawData
