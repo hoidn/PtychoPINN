@@ -4,17 +4,19 @@ from ptycho.workflows.components import (
     parse_arguments,
     setup_configuration,
     load_data,
-    #load_and_prepare_data,
     run_cdi_example,
     save_outputs,
     logger
 )
-
-from ptycho import model_manager
+from ptycho.config.config import TrainingConfig, update_legacy_dict
+from ptycho import model_manager, params
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     args = parse_arguments()
-    config = setup_configuration(args, args.config)
+    config: TrainingConfig = setup_configuration(args, args.config)
+    
+    # Update global params with new-style config at entry point
+    update_legacy_dict(params.cfg, config)
     
     try:
 
