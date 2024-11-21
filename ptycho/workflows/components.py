@@ -90,6 +90,7 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
 
 def parse_arguments():
     """Parse command-line arguments based on TrainingConfig fields."""
+    logger = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
     
