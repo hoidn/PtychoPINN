@@ -37,17 +37,18 @@ By default, the training script loads up to 512 images from the input data file.
 
 The training script uses a configuration file (`config.yaml`) to set various parameters. The configuration system supports both new-style configuration and legacy parameters. Key parameters include:
 
-- Number of epochs
-- Batch size
-- Learning rate
-- Output directory
-- Train data file path
-- Test data file path (optional)
-- Image transformation options:
-  - flip_x: Flip images horizontally
-  - flip_y: Flip images vertically
-  - transpose: Transpose the images
-  - M: Image reassembly parameter (default: 20)
+- Number of epochs (`nepochs`)
+- Batch size (`batch_size`)
+- Output directory (`output_dir`)
+- Train data file path (`train_data_file`)
+- Test data file path (`test_data_file`, optional)
+- Model parameters:
+  - N: Size of diffraction patterns (64, 128, or 256)
+  - gridsize: Grid size for model
+  - n_filters_scale: Scale factor for number of filters
+  - model_type: 'pinn' or 'supervised'
+  - amp_activation: Activation function ('sigmoid', 'swish', 'softplus', 'relu')
+  - Various boolean flags for model configuration
 
 You can provide a custom configuration file using the `--config` command-line argument.
 
