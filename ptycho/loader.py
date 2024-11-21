@@ -8,7 +8,7 @@ from .params import params, get
 from .autotest.debug import debug
 from . import diffsim as datasets
 from . import tf_helper as hh
-from .raw_data import RawData
+from .raw_data import RawData, key_coords_offsets, key_coords_relative 
 
 class PtychoDataset:
     @debug
