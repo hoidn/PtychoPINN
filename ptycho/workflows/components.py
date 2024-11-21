@@ -388,14 +388,27 @@ def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], r
     
     # Save test results if available
     if amplitude is not None and phase is not None:
-#        # Save as NumPy files
-#        np.save(os.path.join(output_prefix, "reconstructed_amplitude.npy"), amplitude)
-#        np.save(os.path.join(output_prefix, "reconstructed_phase.npy"), phase)
-#        np.save(os.path.join(output_prefix, "obj_tensor_full.npy"), results["obj_tensor_full"])
-#        np.save(os.path.join(output_prefix, "global_offsets.npy"), results["global_offsets"])
+        logger.info(f"Amplitude array shape: {amplitude.shape}")
+        logger.info(f"Phase array shape: {phase.shape}")
         
-        # Save as PNG files
-        plt.imsave(os.path.join(output_prefix, "reconstructed_amplitude.png"), amplitude, cmap='gray')
-        plt.imsave(os.path.join(output_prefix, "reconstructed_phase.png"), phase, cmap='viridis')
+        # Squeeze any extra dimensions
+        amplitude = np.squeeze(amplitude)
+        phase = np.squeeze(phase)
+        
+        logger.info(f"Squeezed amplitude shape: {amplitude.shape}")
+        logger.info(f"Squeezed phase shape: {phase.shape}")
+        
+        # Save as PNG files using plt.figure() to handle 2D arrays properly
+        plt.figure(figsize=(8,8))
+        plt.imshow(amplitude, cmap='gray')
+        plt.colorbar()
+        plt.savefig(os.path.join(output_prefix, "reconstructed_amplitude.png"))
+        plt.close()
+        
+        plt.figure(figsize=(8,8))
+        plt.imshow(phase, cmap='viridis')
+        plt.colorbar()
+        plt.savefig(os.path.join(output_prefix, "reconstructed_phase.png"))
+        plt.close()
         
     logger.info(f"Outputs saved to {output_prefix}")
