@@ -23,21 +23,8 @@ from ptycho import params
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Define the mapping between command-line argument names and config keys
-ARG_TO_CONFIG_MAP = {
-    "nepochs": "nepochs",
-    "output_prefix": "output_prefix",
-    "intensity_scale_trainable": "intensity_scale.trainable",
-    "positions_provided": "positions.provided", 
-    "probe_big": "probe.big",
-    "probe_mask": "probe.mask",
-    "data_source": "data_source",
-    "gridsize": "gridsize",
-    "probe_scale": "probe_scale",
-    "train_data_file_path": "train_data_file_path",
-    "test_data_file_path": "test_data_file_path",
-    "N": "N"
-}
+from dataclasses import fields
+from ptycho.config.config import ModelConfig, TrainingConfig
 
 def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
     """
@@ -101,27 +88,38 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
 
     return ptycho_data
 
-def update_params(new_config):
-    for k2, new_value in new_config.items():
-        for arg, (config_k2, _) in ARG_TO_CONFIG_MAP.items():
-            if config_k2 == k2:
-                ARG_TO_CONFIG_MAP[arg] = (k2, new_value)
-                break
-        else:
-            p.set(k2, new_value)
-
 def parse_arguments():
-    """Parse command-line arguments for the CDI script."""
+    """Parse command-line arguments based on TrainingConfig fields."""
     parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
-    
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
     
-    for arg_name, (_, default) in ARG_TO_CONFIG_MAP.items():
-        if __name__ == '__main__':
-            parser.add_argument(f"--{arg_name}", type=str, required=True, 
-                                help="Path to the training data file")
-        parser.add_argument(f"--{arg_name}", type=type(default) if default is not None else str, 
-                            default=default, help=f"Default: {default}")
+    # Add arguments based on TrainingConfig fields
+    for field in fields(TrainingConfig):
+        if field.name == 'model':
+            # Handle ModelConfig fields
+            for model_field in fields(ModelConfig):
+                parser.add_argument(
+                    f"--{model_field.name}",
+                    type=model_field.type,
+                    default=model_field.default,
+                    help=f"Model parameter: {model_field.name}"
+                )
+        else:
+            # Handle path fields specially
+            if field.type == Path:
+                parser.add_argument(
+                    f"--{field.name}",
+                    type=str,
+                    default=None if field.default == None else str(field.default),
+                    help=f"Path for {field.name}"
+                )
+            else:
+                parser.add_argument(
+                    f"--{field.name}",
+                    type=field.type,
+                    default=field.default,
+                    help=f"Training parameter: {field.name}"
+                )
     
     return parser.parse_args()
 
@@ -158,50 +156,25 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
     try:
         yaml_config = load_yaml_config(yaml_path) if yaml_path else None
         args_config = vars(args)
-        config_dict = merge_configs(yaml_config, args_config)
         
-        # Prepare model config parameters with all required fields
-        model_params = {
-            'N': config_dict.pop('N', 64),
-            'gridsize': config_dict.pop('gridsize', 2),
-            'n_filters_scale': config_dict.pop('n_filters_scale', 2),
-            'model_type': config_dict.pop('model_type', 'pinn'),
-            'amp_activation': config_dict.pop('amp_activation', 'sigmoid'),
-            'object_big': config_dict.pop('object_big', True),
-            'probe_big': config_dict.pop('probe_big', False),
-            'probe_mask': config_dict.pop('probe_mask', True),
-            'pad_object': config_dict.pop('pad_object', True),
-            'probe_scale': config_dict.pop('probe_scale', 10.0)
-        }
+        # Convert string paths to Path objects
+        for key in ['train_data_file', 'test_data_file', 'output_dir']:
+            if key in args_config and args_config[key] is not None:
+                args_config[key] = Path(args_config[key])
         
-        # Create ModelConfig instance
-        model_config = ModelConfig(**model_params)
+        # Create ModelConfig from args
+        model_fields = {f.name for f in fields(ModelConfig)}
+        model_args = {k: v for k, v in args_config.items() if k in model_fields}
+        model_config = ModelConfig(**model_args)
         
-        # Convert paths
-        if 'train_data_file_path' in config_dict:
-            train_path = config_dict.pop('train_data_file_path')
-            config_dict['train_data_file'] = Path(train_path) if train_path is not None else None
-            
-        if 'test_data_file_path' in config_dict:
-            test_path = config_dict.pop('test_data_file_path')
-            config_dict['test_data_file'] = Path(test_path) if test_path is not None else None
-            
-        if 'output_prefix' in config_dict:
-            output_path = config_dict.pop('output_prefix')
-            config_dict['output_dir'] = Path(output_path) if output_path is not None else None
-        
-        # Add model config to main config
-        config_dict['model'] = model_config
-        
-        # Filter config_dict to only include fields defined in TrainingConfig
-        valid_fields = {f.name for f in fields(TrainingConfig)}
-        filtered_config = {k: v for k, v in config_dict.items() if k in valid_fields}
-        
-        # Create TrainingConfig from filtered dictionary
-        config = TrainingConfig(**filtered_config)
+        # Create TrainingConfig
+        training_fields = {f.name for f in fields(TrainingConfig)}
+        training_args = {k: v for k, v in args_config.items() 
+                        if k in training_fields and k != 'model'}
+        config = TrainingConfig(model=model_config, **training_args)
         
         # Update the global configuration
-        p.cfg.update(dataclass_to_legacy_dict(config))
+        update_legacy_dict(params.cfg, config)
         
         logger.info("Configuration setup complete")
         logger.info(f"Final configuration: {config}")
