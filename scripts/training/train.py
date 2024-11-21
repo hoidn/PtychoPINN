@@ -21,17 +21,15 @@ def main() -> None:
     try:
 
         #ptycho_data, ptycho_data_train, obj = load_and_prepare_data(config['train_data_file_path'])
-        ptycho_data = load_data(config.train_data_file_path, n_images = 512)
+        ptycho_data = load_data(str(config.train_data_file), n_images = 512)
         
         test_data = None
-        if config.test_data_file_path:
-
-            #test_data, test_ptycho_data_train, test_obj = load_and_prepare_data(config['test_data_file_path'])
-            test_data = load_data(config.test_data_file_path)
+        if config.test_data_file:
+            test_data = load_data(str(config.test_data_file))
 
         recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config)
-        model_manager.save(config.output_prefix)
-        save_outputs(recon_amp, recon_phase, results, config.output_prefix)
+        model_manager.save(str(config.output_dir))
+        save_outputs(recon_amp, recon_phase, results, str(config.output_dir))
     except Exception as e:
         logger.error(f"An error occurred during execution: {e}")
         raise

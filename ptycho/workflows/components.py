@@ -155,7 +155,7 @@ def merge_configs(yaml_config: Optional[Dict[str, Any]], args_config: Dict[str, 
 #    if 'train_data_file_path' not in config or config['train_data_file_path'] is None:
 #        raise ValueError("train_data_file_path is a required parameter and must be provided")
 
-def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> Dict[str, Any]:
+def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
     try:
         yaml_config = load_yaml_config(yaml_path) if yaml_path else None
@@ -166,6 +166,20 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> D
         
         logger.info("Configuration setup complete")
         logger.info(f"Final configuration: {config}")
+        
+        # Convert dictionary paths to Path objects
+        if 'train_data_file_path' in config_dict:
+            config_dict['train_data_file'] = Path(config_dict.pop('train_data_file_path'))
+        if 'test_data_file_path' in config_dict:
+            config_dict['test_data_file'] = Path(config_dict.pop('test_data_file_path'))
+        if 'output_prefix' in config_dict:
+            config_dict['output_dir'] = Path(config_dict.pop('output_prefix'))
+            
+        # Create TrainingConfig from dictionary
+        config = TrainingConfig(**config_dict)
+        
+        # Update the global configuration
+        p.cfg.update(config_dict)
         
         return config
     except (yaml.YAMLError, IOError, ValueError) as e:
