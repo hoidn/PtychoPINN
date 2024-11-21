@@ -29,6 +29,10 @@ Note: The distinction between `xcoords`/`ycoords` and `xcoords_start`/`ycoords_s
 
 The height and width of the diffraction patterns are equal and determined by the model parameter `N`, which is typically set to 64 or 128. The value of `N` should be consistent with the model configuration.
 
+## Data Loading
+
+By default, the training script loads up to 512 images from the input data file. This limit can be adjusted through the configuration.
+
 ## Configuration
 
 The training script uses a configuration file (`config.yaml`) to set various parameters, such as:
@@ -36,7 +40,12 @@ The training script uses a configuration file (`config.yaml`) to set various par
 - Batch size
 - Learning rate
 - Output directory
-- Data-specific parameters
+- Test data file path (optional)
+- Image transformation options:
+  - flip_x: Flip images horizontally
+  - flip_y: Flip images vertically
+  - transpose: Transpose the images
+  - M: Image reassembly parameter (default: 20)
 
 You can provide a custom configuration file using the `--config` command-line argument.
 
@@ -48,7 +57,7 @@ You can provide a custom configuration file using the `--config` command-line ar
 
 3. Run the training script:
    ```
-   python train.py --train_data_file_path /path/to/your/train_data.npz [--config /path/to/config.yaml]
+   python train.py --train_data_file /path/to/your/train_data.npz [--config /path/to/config.yaml]
    ```
    Replace `/path/to/your/train_data.npz` with the actual path to your training data file.
 
@@ -60,25 +69,19 @@ You can provide a custom configuration file using the `--config` command-line ar
 
 ## Output Structure
 
-The training script generates the following output files for each trained model:
+The training script generates the following output files:
 
-- `model.h5`: The trained model weights saved in HDF5 format.
-- `custom_objects.dill`: A dill file containing the custom objects used in the model.
-- `params.dill`: A dill file containing the model parameters and configuration.
+- Model artifacts saved to the specified output directory
+- Debug logs written to 'train_debug.log'
+- Console output showing training progress
 
-The output files are organized in a directory structure as follows:
-```
-<output_directory>_<model_name>/
-    ├── model.h5
-    ├── custom_objects.dill
-    └── params.dill
-```
+The output files are organized in the specified output directory. The exact structure and contents may vary depending on the configuration and training process.
 
-The `model_name` corresponds to the name of the trained model. The script saves two main models:
+## Logging
 
-1. `autoencoder`: This is the full end-to-end model used for training. It takes the input diffraction patterns and positions, and outputs the reconstructed object, predicted amplitude (scaled), and predicted intensity (sampled from a Poisson distribution). The `autoencoder` model is compiled with multiple loss functions, including real-space loss, mean absolute error (MAE), and negative log-likelihood (NLL) of the Poisson distribution.
+The script provides two levels of logging:
+- Debug information is written to 'train_debug.log'
+- Info level messages are displayed in the console
 
-2. `diffraction_to_obj`: This is a submodel of the `autoencoder` used for inference or evaluation. It takes the input diffraction patterns and positions, and outputs only the reconstructed object. The `diffraction_to_obj` model is not compiled with any loss functions and is not directly used for training.
-
-To load a trained model, you can use the `ModelManager.load_model(model_path, model_name)` function provided in the `model_manager.py` file. This function will load the model weights, custom objects, and parameters, and return the loaded model instance.
+This helps track both detailed debugging information and high-level progress during training.
 
