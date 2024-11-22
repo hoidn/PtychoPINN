@@ -85,6 +85,31 @@ class PtychoDataContainer:
         # Use loader.load() to handle the conversion to PtychoData
         return load(lambda: dset_train, probeGuess, which=None, create_split=False)
 
+    #@debug
+    def to_npz(self, file_path: str) -> None:
+        """
+        Write the underlying arrays to an npz file.
+
+        Args:
+            file_path (str): Path to the output npz file.
+        """
+        np.savez(
+            file_path,
+            X=self.X.numpy() if tf.is_tensor(self.X) else self.X,
+            Y_I=self.Y_I.numpy() if tf.is_tensor(self.Y_I) else self.Y_I,
+            Y_phi=self.Y_phi.numpy() if tf.is_tensor(self.Y_phi) else self.Y_phi,
+            norm_Y_I=self.norm_Y_I,
+            YY_full=self.YY_full,
+            coords_nominal=self.coords_nominal.numpy() if tf.is_tensor(self.coords_nominal) else self.coords_nominal,
+            coords_true=self.coords_true.numpy() if tf.is_tensor(self.coords_true) else self.coords_true,
+            nn_indices=self.nn_indices,
+            global_offsets=self.global_offsets,
+            local_offsets=self.local_offsets,
+            probe=self.probe.numpy() if tf.is_tensor(self.probe) else self.probe
+        )
+
+    # TODO is this deprecated, given the above method to_npz()?
+
 @debug
 def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
     from . import params as cfg
