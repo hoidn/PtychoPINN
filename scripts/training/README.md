@@ -12,9 +12,9 @@ The training script expects the input data to be in the following format:
 
 - Coordinates (x, y) of the scan points
 - Diffraction patterns
-- Initial guess of the probe function
+- Ground truth of the probe function
 - Scan indices for each diffraction pattern
-- (Optional) Initial guess of the object
+- (Optional) Ground truth of the object
 
 The data should be provided as a NumPy `.npz` file with the following keys:
 - `xcoords`: x coordinates of the scan points
@@ -22,7 +22,7 @@ The data should be provided as a NumPy `.npz` file with the following keys:
 - `xcoords_start`: starting x coordinates for the scan (deprecated, same as `xcoords`)
 - `ycoords_start`: starting y coordinates for the scan (deprecated, same as `ycoords`)
 - `diff3d`: diffraction patterns with shape `(num_diffraction_patterns, N, N)`, where `N` is the model parameter (typically 64 or 128)
-- `probeGuess`: initial guess of the probe function
+- `probeGuess`: complex-valued probe ground truth
 - `scan_index`: array indicating the scan index for each diffraction pattern
 
 Note: The distinction between `xcoords`/`ycoords` and `xcoords_start`/`ycoords_start` is only relevant if the iterative solver used to generate the probe ground truth used position correction. This distinction is deprecated, so `xcoords` and `xcoords_start` (and `ycoords` and `ycoords_start`) can be assumed to be the same.
