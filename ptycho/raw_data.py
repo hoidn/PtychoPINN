@@ -7,7 +7,7 @@ from ptycho.autotest.debug import debug
 from ptycho import diffsim as datasets
 from ptycho import tf_helper as hh
 
-# Constants
+# Constants, # TODO cleanup / refactor
 local_offset_sign = 1
 key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
