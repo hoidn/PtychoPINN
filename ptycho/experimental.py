@@ -49,7 +49,7 @@ def reconstruct_object(data4d, scan_grid_offset):
     """
     Given a 4d object patches, reconstruct the whole object
     """
-    hh.extract_patches_inverse(
+    return hh.extract_patches_inverse(
        data4d.reshape((data4d.shape[0], data4d.shape[1], -1))[None, ...],
        N, True, gridsize = data4d.shape[0],
        offset = scan_grid_offset)
