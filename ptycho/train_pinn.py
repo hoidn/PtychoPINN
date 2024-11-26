@@ -96,3 +96,17 @@ def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> flo
     intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
 
     return intensity_scale
+
+# New alternative implementation
+from ptycho.image import reassemble_patches as _reassemble_patches
+
+def stitch_eval_result(reconstructed_obj, config, **kwargs):
+    """
+    Alternative implementation using new stitching module.
+    Preserves existing behavior while allowing transition to new API.
+    """
+    try:
+        return _reassemble_patches(reconstructed_obj, config, part='complex', **kwargs)
+    except (ValueError, TypeError) as e:
+        print('Object stitching failed:', e)
+        return None
