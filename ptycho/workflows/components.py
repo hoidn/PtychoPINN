@@ -18,6 +18,7 @@ from ptycho.raw_data import RawData
 from ptycho.loader import PtychoDataContainer
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import params
+from ptycho.image import reassemble_patches
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

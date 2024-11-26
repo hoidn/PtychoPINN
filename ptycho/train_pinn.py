@@ -1,5 +1,6 @@
 from ptycho import params
 from .loader import PtychoDataContainer
+from .image import reassemble_patches
 
 def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None):
     from . import params as p
@@ -28,11 +29,12 @@ def train_eval(ptycho_dataset):
     }
     if ptycho_dataset.test_data is not None:
         eval_results = eval(ptycho_dataset.test_data, history, trained_model=model_instance)
+        stitched_obj = reassemble_patches(eval_results['reconstructed_obj'], config, part='complex')
         results.update({
             'reconstructed_obj': eval_results['reconstructed_obj'],
             'pred_amp': eval_results['pred_amp'],
             'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
-            'stitched_obj': eval_results['stitched_obj'],
+            'stitched_obj': stitched_obj,
         })
     return results
 
