@@ -16,6 +16,7 @@ class ModelConfig:
     probe_mask: bool = False  # Changed default
     pad_object: bool = True
     probe_scale: float = 4.
+    gaussian_smoothing_sigma: float = 0.0
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -41,7 +42,6 @@ class InferenceConfig:
     """Inference specific configuration."""
     model: ModelConfig
     model_path: Path
-    gaussian_smoothing_sigma: float = 0.0
     debug: bool = False
     output_dir: Path = Path("inference_outputs")
 
@@ -53,6 +53,8 @@ def validate_model_config(config: ModelConfig) -> None:
         raise ValueError(f"n_filters_scale must be positive, got {config.n_filters_scale}")
     if config.probe_scale <= 0:
         raise ValueError(f"probe_scale must be positive, got {config.probe_scale}")
+    if config.gaussian_smoothing_sigma < 0:
+        raise ValueError(f"gaussian_smoothing_sigma must be non-negative, got {config.gaussian_smoothing_sigma}")
 
 def validate_training_config(config: TrainingConfig) -> None:
     """Validate training configuration."""
@@ -73,8 +75,6 @@ def validate_inference_config(config: InferenceConfig) -> None:
     validate_model_config(config.model)
     if not config.model_path.exists():
         raise ValueError(f"model_path does not exist: {config.model_path}")
-    if config.gaussian_smoothing_sigma < 0:
-        raise ValueError(f"gaussian_smoothing_sigma must be non-negative, got {config.gaussian_smoothing_sigma}")
 
 def load_yaml_config(path: Path) -> Dict[str, Any]:
     """Load YAML configuration file.
