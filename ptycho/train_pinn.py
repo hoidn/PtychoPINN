@@ -29,6 +29,8 @@ def train_eval(ptycho_dataset):
     }
     if ptycho_dataset.test_data is not None:
         eval_results = eval(ptycho_dataset.test_data, history, trained_model=model_instance)
+        # Get config from the dataset
+        config = ptycho_dataset.test_data.config if hasattr(ptycho_dataset.test_data, 'config') else params.cfg
         stitched_obj = reassemble_patches(eval_results['reconstructed_obj'], config, part='complex')
         results.update({
             'reconstructed_obj': eval_results['reconstructed_obj'],
