@@ -2,6 +2,7 @@ from ptycho.generate_data import *
 from ptycho import tf_helper as hh
 from ptycho import baselines as bl
 from ptycho import params as p
+from ptycho.image import reassemble_patches
 
 offset = p.get('offset')
 
@@ -53,7 +54,7 @@ else:
     raise ValueError
 
 try:
-    stitched_obj = reassemble(reconstructed_obj, part='complex')
+    stitched_obj = reassemble_patches(reconstructed_obj, config, part='complex')
 except (ValueError, TypeError) as e:
     print('object stitching failed:', e)
 
