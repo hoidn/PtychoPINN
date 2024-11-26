@@ -4,9 +4,9 @@ def stitch_patches(patches, *,
                   N: int,
                   gridsize: int,
                   offset: int,
-                  nimgs_test: int,
-                  outer_offset_test: int = None,
-                  norm_Y_I_test: float = 1.0,
+                  nimgs: int,
+                  outer_offset: int = None,
+                  norm_Y_I: float = 1.0,
                   norm: bool = True,
                   part: str = 'amp') -> np.ndarray:
     """
@@ -17,19 +17,15 @@ def stitch_patches(patches, *,
         N: Size of each square patch
         gridsize: Grid size for patch arrangement  
         offset: Spacing between patches
-        nimgs_test: Number of test images
-        outer_offset_test: Offset between outer patches
-        norm_Y_I_test: Normalization factor (default: 1.0)
+        nimgs: Number of images
+        outer_offset: Offset between patches
+        norm_Y_I: Normalization factor (default: 1.0)
         norm: Whether to apply normalization (default: True)
         part: Which part to extract - 'amp', 'phase', or 'complex' (default: 'amp')
         
     Returns:
         np.ndarray: Stitched image(s) with shape (batch, height, width, 1)
     """
-    # if the channel dimension exists, its size must be 1
-    if patches.shape[-1] != 1:
-        assert patches.shape[-1] == N
-
     def get_clip_sizes(outer_offset):
         """Calculate border sizes for clipping overlapping regions."""
         bordersize = (N - outer_offset / 2) / 2
@@ -44,9 +40,7 @@ def stitch_patches(patches, *,
     if hasattr(patches, 'numpy'):
         patches = patches.numpy()
     
-    # Handle optional parameters
-    nimgs = nimgs_test
-    outer_offset = outer_offset_test if outer_offset_test is not None else offset
+    outer_offset = outer_offset if outer_offset is not None else offset
     
     # Calculate number of segments using numpy's size
     nsegments = int(np.sqrt((patches.size / nimgs) / (N**2)))
@@ -63,7 +57,7 @@ def stitch_patches(patches, *,
     
     # Extract and normalize if requested
     if norm:
-        img_recon = np.reshape((norm_Y_I_test * getpart(patches)), 
+        img_recon = np.reshape((norm_Y_I * getpart(patches)), 
                               (-1, nsegments, nsegments, N, N, 1))
     else:
         img_recon = np.reshape(getpart(patches), 
@@ -79,15 +73,25 @@ def stitch_patches(patches, *,
     
     return stitched
 
-
-# Usage example
-#stitched = stitch_patches(ptycho_dataset.test_data.Y[:, :, :, :1],
-#              N=64,
-#              gridsize=2,
-#              offset=5,
-#              nimgs_test=1,
-#              outer_offset_test=20,
-#              norm_Y_I_test=ptycho_dataset.test_data.norm_Y_I,
-#              norm=True, 
-#              part='complex')
-#plt.imshow(np.abs(stitched[0, :, :, 0]))
+def reassemble_patches(patches, config, *, norm_Y_I=1., part='amp', norm=False):
+    """
+    High-level convenience function for stitching patches using config parameters.
+    
+    Args:
+        patches: Patches to reassemble
+        config: Configuration object containing patch parameters
+        norm_Y_I: Normalization factor (default: 1.0)
+        part: Which part to extract (default: 'amp')
+        norm: Whether to normalize (default: False)
+    """
+    return stitch_patches(
+        patches,
+        N=config.N,
+        gridsize=config.gridsize,
+        offset=config.offset,
+        nimgs=config.nimgs_test,  # Support legacy config naming
+        outer_offset=getattr(config, 'outer_offset_test', None),  # Support legacy config naming
+        norm_Y_I=norm_Y_I,
+        norm=norm,
+        part=part
+    )

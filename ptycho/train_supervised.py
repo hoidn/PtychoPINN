@@ -56,3 +56,17 @@ try:
     stitched_obj = reassemble(reconstructed_obj, part='complex')
 except (ValueError, TypeError) as e:
     print('object stitching failed:', e)
+
+# New alternative implementation 
+from ptycho.image import reassemble_patches as _reassemble_patches
+
+def stitch_reconstruction(reconstructed_obj, config, **kwargs):
+    """
+    Alternative implementation using new stitching module.
+    Preserves existing behavior while allowing transition to new API.
+    """
+    try:
+        return _reassemble_patches(reconstructed_obj, config, part='complex', **kwargs)
+    except (ValueError, TypeError) as e:
+        print('object stitching failed:', e)
+        return None
