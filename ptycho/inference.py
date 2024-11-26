@@ -47,3 +47,17 @@ def inference_flow(model_path: str, data_container: PtychoDataContainer) -> dict
 # model_path = 'path/to/model.h5'
 # data_container = PtychoDataContainer(...)
 # results = inference_flow(model_path, data_container)
+
+# New alternative implementation
+from ptycho.image import reassemble_patches as _reassemble_patches
+
+def reassemble_with_config(reconstructed_obj, config, **kwargs):
+    """
+    Alternative implementation using new stitching module.
+    Preserves existing behavior while allowing transition to new API.
+    """
+    try:
+        return _reassemble_patches(reconstructed_obj, config, **kwargs)
+    except (ValueError, TypeError) as e:
+        print('Object stitching failed:', e)
+        return None
