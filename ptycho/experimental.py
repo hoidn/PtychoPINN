@@ -62,6 +62,7 @@ def get_full_experimental(which):
     """
     inverted_patches_I = reconstruct_object(amp, offset_experimental)
     inverted_patches_phi = reconstruct_object(ph, offset_experimental)
+    print('GROUND TRUTH FULL SHAPE:', inverted_patches_I.shape)
     if which == 'train':
         YY_I = inverted_patches_I[:, :train_size, :train_size, :]
         YY_phi = inverted_patches_phi[:, :train_size, :train_size, :]
@@ -70,7 +71,6 @@ def get_full_experimental(which):
         YY_phi = inverted_patches_phi[:, -test_size:, -test_size:, :]
     else:
         raise ValueError
-    #pdb.set_trace()
     return YY_I, YY_phi
 
 
