@@ -48,7 +48,7 @@ class ModelManager:
                 hf.attrs['intensity_scale'] = intensity_scale
         
         except Exception as e:
-            print(f"Error saving model {model_name}: {str(e)}")
+            print(f"Error saving model to {model_dir}: {str(e)}")
             raise
 
     @staticmethod
@@ -94,7 +94,7 @@ class ModelManager:
             return tf.keras.models.load_model(model_dir, custom_objects=custom_objects)
         
         except Exception as e:
-            print(f"Error loading model {model_name}: {str(e)}")
+            print(f"Error loading model from {model_dir}: {str(e)}")
             raise
 
     @staticmethod
