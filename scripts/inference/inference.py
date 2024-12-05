@@ -104,11 +104,12 @@ def load_model(model_prefix: str) -> tuple:
         if not os.path.exists(full_path):
             raise FileNotFoundError(f"Model directory not found: {full_path}")
 
-        # Load the model
-        model = ModelManager.load_model(base_path, model_name)
+        # Load the model from the zip archive
+        models = ModelManager.load_multiple_models(base_path, [model_name])
+        model = models[model_name]
         config = params.cfg  # The ModelManager updates the global config when loading
 
-        print(f"Successfully loaded model from {full_path}")
+        print(f"Successfully loaded model from {base_path}.zip")
         print(f"Model configuration: {config}")
 
         return model, config
