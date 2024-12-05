@@ -3,24 +3,25 @@
 import os
 import h5py
 import dill
+import tempfile
+import zipfile
+import shutil
 import tensorflow as tf
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from ptycho import params
 
 class ModelManager:
     @staticmethod
-    def save_model(model: tf.keras.Model, model_path: str, custom_objects: Dict[str, Any], intensity_scale: float, model_name: str) -> None:
+    def save_model(model: tf.keras.Model, model_dir: str, custom_objects: Dict[str, Any], intensity_scale: float) -> None:
         """
         Save a single model along with its custom objects, parameters, and intensity scale.
 
         Args:
             model (tf.keras.Model): The model to save.
-            model_path (str): Base path for saving the model.
+            model_dir (str): Directory path for saving the model.
             custom_objects (Dict[str, Any]): Dictionary of custom objects used in the model.
             intensity_scale (float): The intensity scale used in the model.
-            model_name (str): Name of the model.
         """
-        model_dir = f"{model_path}_{model_name}"
         model_file = os.path.join(model_dir, "model.h5")
         custom_objects_path = os.path.join(model_dir, "custom_objects.dill")
         params_path = os.path.join(model_dir, "params.dill")
@@ -51,18 +52,16 @@ class ModelManager:
             raise
 
     @staticmethod
-    def load_model(model_path: str, model_name: str) -> tf.keras.Model:
+    def load_model(model_dir: str) -> tf.keras.Model:
         """
         Load a single model along with its custom objects, parameters, and intensity scale.
 
         Args:
-            model_path (str): Base path for loading the model.
-            model_name (str): Name of the model.
+            model_dir (str): Directory containing the model files.
 
         Returns:
             tf.keras.Model: The loaded model.
         """
-        model_dir = f"{model_path}_{model_name}"
         model_file = os.path.join(model_dir, "model.h5")
         custom_objects_path = os.path.join(model_dir, "custom_objects.dill")
         params_path = os.path.join(model_dir, "params.dill")
@@ -101,42 +100,90 @@ class ModelManager:
     @staticmethod
     def save_multiple_models(models_dict: Dict[str, tf.keras.Model], base_path: str, custom_objects: Dict[str, Any], intensity_scale: float) -> None:
         """
-        Save multiple models.
+        Save multiple models into a single zip archive.
 
         Args:
             models_dict (Dict[str, tf.keras.Model]): Dictionary of models to save.
-            base_path (str): Base path for saving the models.
+            base_path (str): Base path for saving the zip archive.
             custom_objects (Dict[str, Any]): Dictionary of custom objects used in the models.
             intensity_scale (float): The intensity scale used in the models.
         """
-        for model_name, model in models_dict.items():
-            ModelManager.save_model(model, base_path, custom_objects, intensity_scale, model_name)
+        zip_path = f"{base_path}.zip"
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Save manifest of included models
+            manifest = {'models': list(models_dict.keys()), 'version': '1.0'}
+            manifest_path = os.path.join(temp_dir, 'manifest.dill')
+            with open(manifest_path, 'wb') as f:
+                dill.dump(manifest, f)
+            
+            # Save each model to temp directory
+            for model_name, model in models_dict.items():
+                model_subdir = os.path.join(temp_dir, model_name)
+                os.makedirs(model_subdir, exist_ok=True)
+                ModelManager.save_model(model, model_subdir, custom_objects, intensity_scale)
+            
+            # Create zip archive
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for root, _, files in os.walk(temp_dir):
+                    for file in files:
+                        full_path = os.path.join(root, file)
+                        arc_path = os.path.relpath(full_path, temp_dir)
+                        zf.write(full_path, arc_path)
 
     @staticmethod
-    def load_multiple_models(base_path: str, model_names: List[str]) -> Dict[str, tf.keras.Model]:
+    def load_multiple_models(base_path: str, model_names: Optional[List[str]] = None) -> Dict[str, tf.keras.Model]:
         """
-        Load multiple models.
+        Load multiple models from a zip archive.
 
         Args:
-            base_path (str): Base path for loading the models.
-            model_names (List[str]): List of model names to load.
+            base_path (str): Base path of the zip archive.
+            model_names (Optional[List[str]]): List of model names to load. If None, loads all models.
 
         Returns:
             Dict[str, tf.keras.Model]: Dictionary of loaded models.
         """
-        loaded_models = {}
-        for model_name in model_names:
-            loaded_models[model_name] = ModelManager.load_model(base_path, model_name)
-        return loaded_models
+        zip_path = f"{base_path}.zip"
+        if not os.path.exists(zip_path):
+            raise FileNotFoundError(f"Model archive not found: {zip_path}")
+            
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Extract zip archive
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(temp_dir)
+            
+            # Load manifest
+            manifest_path = os.path.join(temp_dir, 'manifest.dill')
+            with open(manifest_path, 'rb') as f:
+                manifest = dill.load(f)
+            
+            # Determine which models to load
+            available_models = manifest['models']
+            if model_names is None:
+                model_names = available_models
+            else:
+                # Validate requested models exist
+                missing = set(model_names) - set(available_models)
+                if missing:
+                    raise ValueError(f"Requested models not found in archive: {missing}")
+            
+            # Load each requested model
+            loaded_models = {}
+            for model_name in model_names:
+                model_subdir = os.path.join(temp_dir, model_name)
+                loaded_models[model_name] = ModelManager.load_model(model_subdir)
+            
+            return loaded_models
 
 
-def save(out_prefix):
+def save(out_prefix: str) -> None:
+    """Save models to a zip archive."""
     from ptycho import model
     from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
     from ptycho.tf_helper import Translation
     from ptycho.tf_helper import realspace_loss as hh_realspace_loss
 
-    model_path = '{}/{}'.format(out_prefix, params.get('h5_path'))
+    model_path = os.path.join(out_prefix, params.get('h5_path'))
     custom_objects = {
         'ProbeIllumination': ProbeIllumination,
         'IntensityScaler': IntensityScaler,
