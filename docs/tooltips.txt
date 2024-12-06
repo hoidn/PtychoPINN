@@ -37,6 +37,7 @@ probe_scale: float = 4.0
     Scaling factor for the probe amplitude. 
 
 gaussian_smoothing_sigma: float = 0.0
-    Standard deviation for Gaussian smoothing of probe illumination. Increase from 0 
-    to reduce noise / artifacts at cost of resolution.
+    Standard deviation for Gaussian smoothing of probe illumination.
+    Increase from 0 to reduce noise / artifacts at cost of resolution.
+    Beware that abusing this can cause convergence issues.
 """
