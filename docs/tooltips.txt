@@ -14,8 +14,10 @@ object_big: bool = True
     left True.
 
 probe_mask: bool = False
-    Whether to apply circular mask to the probe function. Enable to suppress
-    rectangular edge artifacts. Should be used with probe_big = False.
+    Whether to apply circular mask to the probe function. If toggling
+    this changes the reconstruction, it's likely that there are edge /
+    real space truncation artifacts. Should be used with pad_object =
+    False.
 
 pad_object: bool = True
     Whether to reconstruct the full real space grid (True) or restrict
