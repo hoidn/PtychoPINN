@@ -20,8 +20,8 @@ probe_mask: bool = False
     False.
 
 pad_object: bool = True
-    Whether to reconstruct the full real space grid (True) or restrict
-    to N/2 x N/2 (False). True strictly enforces the necessary
+    Whether to reconstruct the full real space grid (False) or restrict
+    to N/2 x N/2 (True). True strictly enforces the necessary
     reciprocal space oversampling, but may cause truncation issues for
     probe amplitudes with long tails (this can be mitigated by setting
     probe_big). Typically left True.
