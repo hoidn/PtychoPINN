@@ -21,10 +21,12 @@ probe_mask: bool = False
 
 pad_object: bool = True
     Whether to reconstruct the full real space grid (False) or restrict
-    to N/2 x N/2 (True). True strictly enforces the necessary
-    reciprocal space oversampling, but may cause truncation issues for
-    probe amplitudes with long tails (this can be mitigated by setting
-    probe_big). Typically left True.
+    to N/2 x N/2 (True). True strictly enforces the necessary reciprocal
+    space oversampling, but may cause truncation issues for probe
+    amplitudes with long tails. This truncation can be mitigated by
+    setting probe_big, which uses a small number of CNN filters to
+    generate a low-resolution reconstruction of the outer region.
+    Typically left True.
 
 probe_big: bool = True
     if True, enables a low-resolution reconstruction of the outer
