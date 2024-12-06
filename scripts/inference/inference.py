@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
-# TODO only generate the comparison plot when ground truth object is provided
-# TODO save output to npz file, not just image
+# TODO needs to be updated to use the new-style config dataclasses
+# MAYBE only generate the comparison plot when ground truth object is provided
+# MAYBE save output to npz file, not just image
 
 """
 Inference script for ptychography reconstruction.
