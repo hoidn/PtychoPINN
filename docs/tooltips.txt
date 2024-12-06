@@ -25,8 +25,11 @@ pad_object: bool = True
     probe_big). Typically left True.
 
 probe_big: bool = True
-    if True, adds a low-resolution reconstruction of the outer region of the NxN real-space
-    grid. This technically violates the zero-padding / oversampling condition, but may be needed if the probe illumination has wide tails. Has no effect unless pad_object is True.
+    if True, enables a low-resolution reconstruction of the outer
+    region of the NxN real-space grid. This technically violates the
+    zero-padding / oversampling condition, but may be needed if the
+    probe illumination has wide tails. Has no effect unless pad_object
+    is True.
 
 probe_scale: float = 4.0
     Scaling factor for the probe amplitude. 
