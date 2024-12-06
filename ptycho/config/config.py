@@ -31,7 +31,7 @@ class TrainingConfig:
     realspace_mae_weight: float = 0.0
     realspace_weight: float = 0.0
     nphotons: float = 1e9
-    positions_provided: bool = True  # Added with correct default
+    positions_provided: bool = True  
     probe_trainable: bool = False
     intensity_scale_trainable: bool = True  # Changed default
     output_dir: Path = Path("training_outputs")
