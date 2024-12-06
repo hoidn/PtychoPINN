@@ -8,7 +8,7 @@ intensity_scale_trainable: bool = True
 
 object_big: bool = True
     Enables a separate real-space reconstruction for each input
-    diffraction image before the averaging / overlap constraint step. If
+    diffraction image and an averaging / overlap constraint step. If
     False, no explicit averaging is performed and the decoders return a
     single real space image instead of `gridsize**2` images. Typically
     left True.
