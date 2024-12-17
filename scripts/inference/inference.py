@@ -103,8 +103,17 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
 def load_model(model_path: Path) -> tuple:
     """Load the saved model and its configuration."""
     try:
-        # Load the model
-        model = ModelManager.load_model(str(model_path))
+        print(f"Attempting to load model from: {model_path}")
+        print(f"Current working directory: {os.getcwd()}")
+        
+        # Load multiple models
+        models_dict = ModelManager.load_multiple_models(str(model_path))
+        
+        # Get the diffraction_to_obj model which is what we need for inference
+        if 'diffraction_to_obj' not in models_dict:
+            raise ValueError("No diffraction_to_obj model found in saved models")
+            
+        model = models_dict['diffraction_to_obj']
         config = params.cfg  # ModelManager updates global config when loading
 
         print(f"Successfully loaded model from {model_path}")
