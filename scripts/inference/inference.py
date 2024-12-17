@@ -69,6 +69,8 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ptychography Inference Script")
     parser.add_argument("--model_path", type=str, required=True,
                        help="Path to the saved model")
+    parser.add_argument("--test_data", type=str, required=True,
+                       help="Path to the test data file")
     parser.add_argument("--config", type=str, required=False, default=None,
                        help="Optional path to YAML configuration file to override defaults")
     parser.add_argument("--output_dir", type=str, default='inference_outputs',
@@ -89,6 +91,7 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     inference_config = InferenceConfig(
         model=model_config,
         model_path=Path(args.model_path),
+        test_data_file=Path(args.test_data),
         debug=args.debug,
         output_dir=Path(args.output_dir)
     )
