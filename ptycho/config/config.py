@@ -41,6 +41,7 @@ class InferenceConfig:
     """Inference specific configuration."""
     model: ModelConfig
     model_path: Path
+    test_data_file: Path
     debug: bool = False
     output_dir: Path = Path("inference_outputs")
 
