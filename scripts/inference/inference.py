@@ -106,8 +106,13 @@ def load_model(model_path: Path) -> tuple:
         print(f"Attempting to load model from: {model_path}")
         print(f"Current working directory: {os.getcwd()}")
         
+        # Check if the path is a directory and contains wts.h5.zip
+        model_zip = os.path.join(model_path, "wts.h5")
+        if not os.path.exists(f"{model_zip}.zip"):
+            raise ValueError(f"Model archive not found at: {model_zip}.zip")
+            
         # Load multiple models
-        models_dict = ModelManager.load_multiple_models(str(model_path))
+        models_dict = ModelManager.load_multiple_models(model_zip)
         
         # Get the diffraction_to_obj model which is what we need for inference
         if 'diffraction_to_obj' not in models_dict:
