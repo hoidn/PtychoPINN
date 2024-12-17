@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ptychopinn"
+description = "PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI"
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+license = {file = "LICENSE"}
+dependencies = [
+    "Pillow",
+    "dill",
+    "imageio",
+    "ipywidgets",
+    "jupyter",
+    "matplotlib",
+    "numba",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "pandas-datareader",
+    "pathos",
+    "scikit-image",
+    "scikit-learn",
+    "scipy",
+    "tensorboard",
+    "tensorboard-data-server",
+    "tensorboard-plugin-wit",
+    "tensorflow",
+    "tensorflow-addons",
+    "tensorflow-datasets",
+    "tensorflow-estimator",
+    "tensorflow-hub",
+    "tensorflow-metadata",
+    "tensorflow-probability",
+    "tensorflow[and-cuda]",
+    "torchmetrics",
+    "torchvision",
+    "tqdm",
+    "ujson",
+]
+dynamic = ["version"]
+
+[project.scripts]
+ptycho_train = "ptycho.train"
+
+[tool.setuptools.package-data]
+datasets = ["*.npz"]
+
+[tool.setuptools.packages.find]
+where = ["ptycho"]
+
+[tool.setuptools_scm]
+
+[tool.ruff]
+target-version = "py310"
