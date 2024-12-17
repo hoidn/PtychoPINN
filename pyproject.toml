@@ -43,13 +43,13 @@ dependencies = [
 dynamic = ["version"]
 
 [project.scripts]
-ptycho_train = "ptycho.train"
+ptycho_train = "ptycho.train:main"
 
 [tool.setuptools.package-data]
 datasets = ["*.npz"]
 
 [tool.setuptools.packages.find]
-where = ["ptycho"]
+where = ["."]
 
 [tool.setuptools_scm]
 
