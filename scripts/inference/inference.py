@@ -38,7 +38,7 @@ from ptycho import probe, params, train_pinn
 from ptycho.model_manager import ModelManager
 from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
-from ptycho.config.config import InferenceConfig, validate_inference_config, update_legacy_dict
+from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
 
 # Set up logging
 logging.basicConfig(level=logging.INFO,
