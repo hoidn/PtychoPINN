@@ -338,6 +338,7 @@ if __name__ == "__main__":
 
         # Perform inference
         print("Performing inference...")
+        # TODO might want to reduce K
         reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
             model, test_data, params.cfg, K=7, nsamples=1)
 
