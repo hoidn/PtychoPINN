@@ -29,13 +29,15 @@ import os
 import sys
 import time
 import signal
+from pathlib import Path
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from ptycho import probe, params, train_pinn
 from ptycho.model_manager import ModelManager
 from ptycho.raw_data import RawData
-from ptycho.workflows.components import load_data
+from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
+from ptycho.config.config import InferenceConfig, validate_inference_config, update_legacy_dict
 
 # Set up logging
 logging.basicConfig(level=logging.INFO,
@@ -64,59 +66,46 @@ signal.signal(signal.SIGTERM, signal_handler)
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Ptychography Inference Script")
-    parser.add_argument("--model_prefix", type=str, required=True,
-                        help="Path prefix for the saved model and its configuration")
-    parser.add_argument("--test_data", type=str, required=True,
-                        help="Path to the .npz file containing test data")
-    parser.add_argument("--output_path", type=str, default='./',
-                        help="Path prefix for saving output files and images")
-    parser.add_argument("--visualize_probe", action="store_true",
-                        help="Generate and save probe visualization")
-    parser.add_argument("--K", type=int, default=7,
-                        help="Number of nearest neighbors for grouped data generation")
-    parser.add_argument("--nsamples", type=int, default=1,
-                        help="Number of samples for grouped data generation")
+    parser.add_argument("--model_path", type=str, required=True,
+                       help="Path to the saved model")
+    parser.add_argument("--config", type=str, required=True,
+                       help="Path to YAML configuration file")
+    parser.add_argument("--output_dir", type=str, default='inference_outputs',
+                       help="Directory for saving output files and images")
+    parser.add_argument("--debug", action="store_true",
+                       help="Enable debug mode")
     return parser.parse_args()
 
+def setup_inference_configuration(args: argparse.Namespace, yaml_path: str) -> InferenceConfig:
+    """Setup inference configuration from arguments and YAML file."""
+    base_config = setup_configuration(args, yaml_path)
+    
+    # Create InferenceConfig from base config and CLI args
+    inference_config = InferenceConfig(
+        model=base_config.model,
+        model_path=Path(args.model_path),
+        debug=args.debug,
+        output_dir=Path(args.output_dir)
+    )
+    
+    # Validate the configuration
+    validate_inference_config(inference_config)
+    
+    return inference_config
 
-def load_model(model_prefix: str) -> tuple:
-    """
-    Load the saved model and its configuration.
 
-    Args:
-        model_prefix (str): Path prefix for the saved model and its configuration.
-
-    Returns:
-        tuple: (tf.keras.Model, dict) - The loaded TensorFlow model and its configuration.
-
-    Raises:
-        FileNotFoundError: If the model files are not found.
-        ValueError: If there's an error loading the model.
-    """
+def load_model(model_path: Path) -> tuple:
+    """Load the saved model and its configuration."""
     try:
-        # Construct the base path
-        base_path = os.path.join(model_prefix, "wts.h5")
-        
-        # Define the model name
-        model_name = "diffraction_to_obj"
+        # Load the model
+        model = ModelManager.load_model(str(model_path))
+        config = params.cfg  # ModelManager updates global config when loading
 
-        # Check if the directory exists
-        full_path = f"{base_path}_{model_name}"
-        if not os.path.exists(full_path):
-            raise FileNotFoundError(f"Model directory not found: {full_path}")
-
-        # Load the model from the zip archive
-        models = ModelManager.load_multiple_models(base_path, [model_name])
-        model = models[model_name]
-        config = params.cfg  # The ModelManager updates the global config when loading
-
-        print(f"Successfully loaded model from {base_path}.zip")
+        print(f"Successfully loaded model from {model_path}")
         print(f"Model configuration: {config}")
 
         return model, config
 
-    except FileNotFoundError as e:
-        raise
     except Exception as e:
         raise ValueError(f"Failed to load model: {str(e)}")
 
@@ -334,9 +323,35 @@ if __name__ == "__main__":
     try:
         print("Starting ptychography inference script...")
         args = parse_arguments()
-        main(args.model_prefix + '/', args.test_data, args.output_path, args.visualize_probe, args.K, args.nsamples)
-        print("Script execution completed successfully.")
+        config = setup_inference_configuration(args, args.config)
+        
+        # Update global params with new-style config
+        update_legacy_dict(params.cfg, config)
+
+        # Load model
+        print("Loading model...")
+        model, _ = load_model(config.model_path)
+
+        # Load test data
+        print("Loading test data...")
+        test_data = load_data(args.test_data)
+
+        # Perform inference
+        print("Performing inference...")
+        reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
+            model, test_data, params.cfg, K=7, nsamples=1)
+
+        # Save comparison image
+        print("Saving comparison image...")
+        output_image_path = config.output_dir / "reconstruction_comparison.png"
+        save_comparison_image(reconstructed_amplitude, reconstructed_phase, 
+                            epie_amplitude, epie_phase, output_image_path)
+
+        print("Inference process completed successfully.")
         sys.exit(0)
     except Exception as e:
         print(f"Script execution failed: {str(e)}")
         sys.exit(1)
+    finally:
+        print("Cleaning up resources...")
+        tf.keras.backend.clear_session()
