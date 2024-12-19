@@ -339,7 +339,8 @@ def main(model_prefix: str, test_data_file: str, output_path: str, visualize_pro
     end_time = time.time()
     print(f"Total execution time: {end_time - start_time:.2f} seconds")
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the ptychography inference script."""
     try:
         print("Starting ptychography inference script...")
         args = parse_arguments()
@@ -376,3 +377,6 @@ if __name__ == "__main__":
     finally:
         print("Cleaning up resources...")
         tf.keras.backend.clear_session()
+
+if __name__ == "__main__":
+    main()
