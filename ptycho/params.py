@@ -13,7 +13,7 @@ cfg = {
     'default_probe_scale': 0.7, 'mae_weight': 0., 'nll_weight': 1., 'tv_weight': 0.,
     'realspace_mae_weight': 0., 'realspace_weight': 0., 'nphotons': 1e9,
     'nimgs_train': 9, 'nimgs_test': 3,
-    'data_source': 'lines', 'probe.trainable': False,
+    'data_source': 'generic', 'probe.trainable': False,
     'intensity_scale.trainable': False, 'positions.provided': False,
     'object.big': True, 'probe.big': False, 'probe_scale': 10., 'set_phi': False,
     'probe.mask': True, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392,
