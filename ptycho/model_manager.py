@@ -109,6 +109,7 @@ class ModelManager:
             intensity_scale (float): The intensity scale used in the models.
         """
         zip_path = f"{base_path}.zip"
+        os.makedirs(os.path.dirname(zip_path), exist_ok=True)
         
         with tempfile.TemporaryDirectory() as temp_dir:
             # Save manifest of included models
