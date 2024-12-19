@@ -11,7 +11,7 @@ license = {file = "LICENSE"}
 dependencies = [
     "Pillow",
     "dill",
-    "imageio",
+    "imageio", 
     "ipywidgets",
     "jupyter",
     "matplotlib",
@@ -24,17 +24,12 @@ dependencies = [
     "scikit-image",
     "scikit-learn",
     "scipy",
-    "tensorboard",
-    "tensorboard-data-server",
-    "tensorboard-plugin-wit",
-    "tensorflow",
-    "tensorflow-addons",
+    "tensorflow[and-cuda]>=2.13.0,<2.16.0",
+    "tensorflow-addons>=0.23.0",
     "tensorflow-datasets",
-    "tensorflow-estimator",
     "tensorflow-hub",
     "tensorflow-metadata",
-    "tensorflow-probability",
-    "tensorflow[and-cuda]",
+    "tensorflow-probability<0.23.0",  # This version works with TF 2.15
     "torchmetrics",
     "torchvision",
     "tqdm",
@@ -43,7 +38,8 @@ dependencies = [
 dynamic = ["version"]
 
 [project.scripts]
-ptycho_train = "ptycho.train:main"
+ptycho_train = "scripts.training.train:main"
+ptycho_inference = "scripts.inference.inference:main"
 
 [tool.setuptools.package-data]
 datasets = ["*.npz"]
