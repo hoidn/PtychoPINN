@@ -28,6 +28,7 @@ class Tanh_custom_act(nn.Module):
         return math.pi * torch.tanh(x)
 
 #Conv blocks
+#Conv blocks
 class ConvBaseBlock(nn.Module):
     '''
     Convolutional base block for Pooling and Upscaling
@@ -398,7 +399,7 @@ class ForwardModel(nn.Module):
         self.object_big = ModelConfig().get('object.big')
 
         #Patch operations
-
+        #Lambdalayer here doesn't work for lightning module
         self.reassemble_patches = LambdaLayer(hh.reassemble_patches_position_real)
 
         self.pad_patches = LambdaLayer(hh.pad_patches)
@@ -411,6 +412,7 @@ class ForwardModel(nn.Module):
         self.probe_illumination = ProbeIllumination()
 
         #Pad/diffract
+        
         self.pad_and_diffract = LambdaLayer(hh.pad_and_diffract)
 
         #Intensity scaling
