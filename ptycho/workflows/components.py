@@ -224,6 +224,13 @@ def create_ptycho_data_container(
 
     Returns:
         MultiPtychoDataContainer: The resulting data container.
+
+    Args:
+        data (Union[RawData, PtychoDataContainer, MultiPtychoDataContainer]): Input data.
+        config (TrainingConfig): Training configuration object.
+
+    Returns:
+        MultiPtychoDataContainer: The resulting data container.
     """
     if isinstance(data, MultiPtychoDataContainer):
         return data
@@ -290,7 +297,7 @@ def load_multi(
         PtychoDataContainer: The resulting PtychoDataContainer.
 
     Raises:
-        TypeError: If the input data is neither RawData nor PtychoDataContainer.
+        TypeError: If the input data is neither RawData, PtychoDataContainer, nor MultiPtychoDataContainer.
     """
     if isinstance(data, PtychoDataContainer):
         return data
