@@ -1,5 +1,6 @@
 """Generic loader for datasets with non-rectangular scan point patterns."""
 
+import warnings
 import numpy as np
 import tensorflow as tf
 from typing import Callable
@@ -12,7 +13,33 @@ from .raw_data import RawData, key_coords_offsets, key_coords_relative
 import numpy as np
 
 class PtychoDataset:
-    @debug
+    def __init__(self,
+                 X,
+                 Y_I,
+                 Y_phi,
+                 norm_Y_I,
+                 YY_full,
+                 coords_nominal,
+                 coords_true,
+                 nn_indices,
+                 global_offsets,
+                 local_offsets,
+                 probeGuess):
+        self.X = X
+        self.Y_I = Y_I
+        self.Y_phi = Y_phi
+        self.norm_Y_I = norm_Y_I
+        self.YY_full = YY_full
+        self.coords_nominal = coords_nominal
+        self.coords = coords_nominal
+        self.coords_true = coords_true
+        self.nn_indices = nn_indices
+        self.global_offsets = global_offsets
+        self.local_offsets = local_offsets
+        self.probe = probeGuess
+
+        from .tf_helper import combine_complex
+        self.Y = combine_complex(Y_I, Y_phi)
     def __init__(self, train_data, test_data):
         self.train_data = train_data
         self.test_data = test_data
