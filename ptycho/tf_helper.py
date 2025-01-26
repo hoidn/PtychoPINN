@@ -13,6 +13,17 @@ else:
 
 
 import tensorflow.compat.v2 as tf
+
+def validate_probe_indices(indices: tf.Tensor, num_probes: int) -> None:
+    tf.debugging.assert_less(
+        indices, num_probes, message="Probe index out of bounds."
+    )
+    tf.debugging.assert_non_negative(
+        indices, message="Probe index must be non-negative."
+    )
+
+def create_single_probe_fallback(batch_size: int) -> tf.Tensor:
+    return tf.zeros((batch_size,), dtype=tf.int64)
 tf.enable_v2_behavior()
 
 from tensorflow.keras import Model

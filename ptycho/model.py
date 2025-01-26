@@ -10,12 +10,15 @@ from datetime import datetime
 from tensorflow.keras import Input
 from tensorflow.keras import Model
 from tensorflow.keras.activations import relu, sigmoid, tanh, swish, softplus
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense
+from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense, Input
 from tensorflow.keras.layers import Layer
 from tensorflow.keras import layers
 import glob
 import math
 import numpy as np
+
+def get_default_probe_indices(num_samples: int) -> tf.Tensor:
+    return tf.zeros((num_samples,), dtype=tf.int64)
 import os
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
@@ -84,20 +87,37 @@ initial_probe_guess = tf.Variable(
 # TODO total variation loss
 # -probe smoothing scale(?)
 class ProbeIllumination(tf.keras.layers.Layer):
-    def __init__(self, name = None):
-        super(ProbeIllumination, self).__init__(name = name)
+    def __init__(self, probes, name=None):
+        super(ProbeIllumination, self).__init__(name=name)
         self.sigma = cfg.get('gaussian_smoothing_sigma')
-
-        # Initialize probes as a trainable variable
         self.probes = tf.Variable(
-            initial_value=tf.cast(initial_probe_guess, tf.complex64),
+            initial_value=tf.cast(probes, tf.complex64),
             trainable=params()['probe.trainable'],
         )
-        self.sigma = cfg.get('gaussian_smoothing_sigma')
 
     def call(self, inputs):
         x = inputs[0]           # x shape: (batch_size, N, N, gridsize**2)
-        probe_indices = inputs[1]  # probe_indices shape: (batch_size,)
+        probe_indices = inputs[1]  # Shape: (batch_size,)
+        
+        # Validate probe indices
+        num_probes = tf.shape(self.probes)[0]
+        tf.debugging.assert_less(
+            probe_indices, num_probes, message="Probe index out of bounds."
+        )
+        tf.debugging.assert_non_negative(
+            probe_indices, message="Probe index must be non-negative."
+        )
+        
+        # Select probes based on indices
+        batch_probes = tf.gather(self.probes, probe_indices)
+        
+        # Expand and tile probes to match `x`
+        batch_probes_expanded = tf.expand_dims(batch_probes, axis=1)
+        batch_probes_tiled = tf.tile(batch_probes_expanded, [1, x.shape[1], 1, 1, 1])
+        batch_probes_reshaped = tf.reshape(batch_probes_tiled, tf.shape(x))
+        
+        # Apply probe to the input `x`
+        illuminated = batch_probes_reshaped * x
 
         # Select probes using probe_indices
         batch_probes = tf.gather(self.probes, probe_indices)
@@ -124,7 +144,7 @@ class ProbeIllumination(tf.keras.layers.Layer):
         else:
             return illuminated, batch_probes
 
-probe_illumination = ProbeIllumination()
+probe_illumination = ProbeIllumination(probes=initial_probe_guess)
 
 nphotons = cfg.get('nphotons')
 
@@ -173,6 +193,7 @@ for file in files:
 lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
 input_img = Input(shape=(N, N, gridsize**2), name = 'input')
 input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
+input_probe_indices = Input(shape=(), dtype=tf.int64, name='input_probe_indices')
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -407,7 +428,10 @@ def negloglik(x, rv_x):
     return -rv_x.log_prob(x)
 fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
 
-autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
+autoencoder = Model(
+    [input_img, input_positions, input_probe_indices],
+    [trimmed_obj, pred_amp_scaled, pred_intensity_sampled]
+)
 
 autoencoder_no_nll = Model(inputs = [input_img, input_positions],
         outputs = [pred_amp_scaled])
@@ -438,9 +462,17 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
-def prepare_inputs(train_data: PtychoDataContainer):
-    """training inputs"""
-    return [train_data.X * cfg.get('intensity_scale'), train_data.coords]
+def prepare_inputs(train_data):
+    num_samples = train_data.X.shape[0]
+    if hasattr(train_data, 'probe_indices'):
+        probe_indices = train_data.probe_indices
+    else:
+        probe_indices = get_default_probe_indices(num_samples)
+    return [
+        train_data.X * cfg.get('intensity_scale'),
+        train_data.coords,
+        probe_indices,
+    ]
 
 def prepare_outputs(train_data: PtychoDataContainer):
     """training outputs"""
@@ -462,14 +494,13 @@ def train(epochs, trainset: PtychoDataContainer):
                             save_weights_only=False, mode='auto', period=1)
 
     batch_size = params()['batch_size']
-    history=autoencoder.fit(
-#        prepare_inputs(X_train, coords_train),
-#        prepare_outputs(Y_obj_train, coords_train, X_train),
+    history = autoencoder.fit(
         prepare_inputs(trainset),
         prepare_outputs(trainset),
         shuffle=True, batch_size=batch_size, verbose=1,
-        epochs=epochs, validation_split = 0.05,
-        callbacks=[reduce_lr, earlystop])
+        epochs=epochs, validation_split=0.05,
+        callbacks=[reduce_lr, earlystop]
+    )
         #callbacks=[reduce_lr, earlystop, tboard_callback])
     return history
 import numpy as np
