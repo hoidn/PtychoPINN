@@ -48,7 +48,33 @@ class PtychoDataContainer:
     """
     A class to contain ptycho data attributes for easy access and manipulation.
     """
-    @debug
+    def __init__(self,
+                 X,
+                 Y_I,
+                 Y_phi,
+                 norm_Y_I,
+                 YY_full,
+                 coords_nominal,
+                 coords_true,
+                 nn_indices,
+                 global_offsets,
+                 local_offsets,
+                 probeGuess):
+        self.X = X
+        self.Y_I = Y_I
+        self.Y_phi = Y_phi
+        self.norm_Y_I = norm_Y_I
+        self.YY_full = YY_full
+        self.coords_nominal = coords_nominal
+        self.coords = coords_nominal
+        self.coords_true = coords_true
+        self.nn_indices = nn_indices
+        self.global_offsets = global_offsets
+        self.local_offsets = local_offsets
+        self.probe = probeGuess
+
+        from .tf_helper import combine_complex
+        self.Y = combine_complex(Y_I, Y_phi)
     def probe(self):
         """
         Access the probe(s) associated with the data container.
