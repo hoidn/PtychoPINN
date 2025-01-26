@@ -41,15 +41,22 @@ def get_probe_mask(N):
     return tf.convert_to_tensor(probe_mask, tf.complex64)
 
 def set_probe(probe):
-    assert len(probe.shape) == 3 or len(probe.shape) == 4
-    assert probe.shape[0] == probe.shape[1]
-    assert probe.shape[-1] == 1
-    if len(probe.shape) == 4:
-        assert probe.shape[-2] == 1
-        probe = probe[:, :, :]
-        print('coercing probe shape to 3d')
+    # Ensure probe has shape [H, W, 1] or [1, H, W, 1]
+    if len(probe.shape) == 2:
+        probe = probe[..., tf.newaxis]
+    elif len(probe.shape) == 3 and probe.shape[-1] != 1:
+        probe = probe[..., tf.newaxis]
+    elif len(probe.shape) == 4:
+        if probe.shape[0] != 1:
+            probe = probe[0:1]  # Keep only first probe if multiple
+        probe = probe[0]  # Remove batch dimension
 
-    # This function still modifies global state
+    # Validate dimensions
+    assert len(probe.shape) == 3, f"Probe shape must be [H, W, 1], got {probe.shape}"
+    assert probe.shape[0] == probe.shape[1], "Probe must be square"
+    assert probe.shape[-1] == 1, "Last dimension must be 1"
+
+    # Apply mask and normalization
     mask = tf.cast(get_probe_mask(params.get('N')), probe.dtype)
     probe_scale = params.get('probe_scale')
     tamped_probe = mask * probe

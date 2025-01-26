@@ -78,10 +78,16 @@ elif len(tprobe.shape) == 4:
 else:
     raise ValueError
 
+# Ensure probe has correct shape [num_probes, H, W, 1]
+if len(initial_probe_guess.shape) == 3:
+    initial_probe_guess = initial_probe_guess[tf.newaxis, ...]
+elif len(initial_probe_guess.shape) == 2:
+    initial_probe_guess = initial_probe_guess[tf.newaxis, ..., tf.newaxis]
+
 initial_probe_guess = tf.Variable(
-            initial_value=tf.cast(initial_probe_guess, tf.complex64),
-            trainable=params()['probe.trainable'],
-        )
+    initial_value=tf.cast(initial_probe_guess, tf.complex64),
+    trainable=params()['probe.trainable'],
+)
 
 # TODO hyperparameters:
 # TODO total variation loss
