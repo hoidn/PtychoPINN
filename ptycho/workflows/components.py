@@ -19,6 +19,7 @@ from ptycho.loader import PtychoDataContainer
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import params
 from ptycho.image import reassemble_patches
+# TODO this might be the wrong import order. probe initialization issue.
 from ptycho.model import get_default_probe_indices
 
 # Set up logging
