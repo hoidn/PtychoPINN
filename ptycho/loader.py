@@ -8,7 +8,8 @@ from .params import params, get
 from .autotest.debug import debug
 from . import diffsim as datasets
 from . import tf_helper as hh
-from .raw_data import RawData, key_coords_offsets, key_coords_relative 
+from .raw_data import RawData, key_coords_offsets, key_coords_relative
+import numpy as np
 
 class PtychoDataset:
     @debug
@@ -108,7 +109,141 @@ class PtychoDataContainer:
             probe=self.probe.numpy() if tf.is_tensor(self.probe) else self.probe
         )
 
-    # TODO is this deprecated, given the above method to_npz()?
+class MultiPtychoDataContainer:
+    def __init__(
+        self,
+        X,
+        Y_I,
+        Y_phi,
+        norm_Y_I,
+        YY_full,
+        coords_nominal,
+        coords_true,
+        nn_indices,
+        global_offsets,
+        local_offsets,
+        probe_indices,
+        probes
+    ):
+        self.X = X
+        self.Y_I = Y_I
+        self.Y_phi = Y_phi
+        self.norm_Y_I = norm_Y_I
+        self.YY_full = YY_full
+        self.coords_nominal = coords_nominal
+        self.coords = coords_nominal
+        self.coords_true = coords_true
+        self.nn_indices = nn_indices
+        self.global_offsets = global_offsets
+        self.local_offsets = local_offsets
+        self.probe_indices = probe_indices
+        self.probes = probes
+
+        # Shape validation
+        num_samples = X.shape[0]
+        assert probe_indices.shape[0] == num_samples, "Probe indices should have the same number of samples as X"
+        assert len(probes.shape) == 4, "Probes should be a 4D tensor with shape [num_probes, H, W, 1]"
+
+    @classmethod
+    def from_containers(cls, containers, probes=None):
+        """
+        Merge multiple PtychoDataContainer instances into a MultiPtychoDataContainer.
+
+        Args:
+            containers (List[PtychoDataContainer]): List of containers to merge.
+            probes (Optional[np.ndarray]): Array of probes with shape [num_probes, H, W, 1].
+                If None, probes will be collected from the containers.
+
+        Returns:
+            MultiPtychoDataContainer: Merged data container.
+        """
+        X_list = []
+        Y_I_list = []
+        Y_phi_list = []
+        norm_Y_I_list = []
+        YY_full_list = []
+        coords_nominal_list = []
+        coords_true_list = []
+        nn_indices_list = []
+        global_offsets_list = []
+        local_offsets_list = []
+        probe_indices_list = []
+        probes_list = []
+
+        for idx, container in enumerate(containers):
+            num_samples = container.X.shape[0]
+            X_list.append(container.X)
+            Y_I_list.append(container.Y_I)
+            Y_phi_list.append(container.Y_phi)
+            norm_Y_I_list.append(container.norm_Y_I)
+            YY_full_list.append(container.YY_full)
+            coords_nominal_list.append(container.coords_nominal)
+            coords_true_list.append(container.coords_true)
+            nn_indices_list.append(container.nn_indices)
+            global_offsets_list.append(container.global_offsets)
+            local_offsets_list.append(container.local_offsets)
+            probe_indices_list.append(np.full(num_samples, idx, dtype=np.int64))
+
+            # Collect probes
+            probes_list.append(container.probe)
+
+        # Concatenate data
+        X = np.concatenate(X_list, axis=0)
+        Y_I = np.concatenate(Y_I_list, axis=0)
+        Y_phi = np.concatenate(Y_phi_list, axis=0)
+        norm_Y_I = np.concatenate(norm_Y_I_list, axis=0)
+        coords_nominal = np.concatenate(coords_nominal_list, axis=0)
+        coords_true = np.concatenate(coords_true_list, axis=0)
+        nn_indices = np.concatenate(nn_indices_list, axis=0)
+        global_offsets = np.concatenate(global_offsets_list, axis=0)
+        local_offsets = np.concatenate(local_offsets_list, axis=0)
+        probe_indices = np.concatenate(probe_indices_list, axis=0)
+        probes = np.stack(probes_list, axis=0)
+
+        return cls(
+            X,
+            Y_I,
+            Y_phi,
+            norm_Y_I,
+            YY_full=None,  # Handle as needed
+            coords_nominal=coords_nominal,
+            coords_true=coords_true,
+            nn_indices=nn_indices,
+            global_offsets=global_offsets,
+            local_offsets=local_offsets,
+            probe_indices=probe_indices,
+            probes=probes
+        )
+
+    @classmethod
+    def from_single_container(cls, container):
+        """
+        Create a MultiPtychoDataContainer from a single PtychoDataContainer.
+
+        Args:
+            container (PtychoDataContainer): The original data container.
+
+        Returns:
+            MultiPtychoDataContainer: Converted data container.
+        """
+        num_samples = container.X.shape[0]
+        probe_indices = np.zeros(num_samples, dtype=np.int64)
+        probes = container.probe[np.newaxis, ...]  # Shape: [1, H, W, 1]
+
+        return cls(
+            container.X,
+            container.Y_I,
+            container.Y_phi,
+            container.norm_Y_I,
+            container.YY_full,
+            container.coords_nominal,
+            container.coords_true,
+            container.nn_indices,
+            container.global_offsets,
+            container.local_offsets,
+            probe_indices,
+            probes
+        )
 
 @debug
 def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:

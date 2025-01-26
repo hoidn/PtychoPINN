@@ -86,32 +86,43 @@ initial_probe_guess = tf.Variable(
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
-        self.w = initial_probe_guess
+        self.sigma = cfg.get('gaussian_smoothing_sigma')
+
+        # Initialize probes as a trainable variable
+        self.probes = tf.Variable(
+            initial_value=tf.cast(initial_probe_guess, tf.complex64),
+            trainable=params()['probe.trainable'],
+        )
         self.sigma = cfg.get('gaussian_smoothing_sigma')
 
     def call(self, inputs):
-        # x is expected to have shape (batch_size, N, N, gridsize**2)
-        # where N is the size of each patch and gridsize**2 is the number of patches
-        x = inputs[0]
-        
-        # self.w has shape (1, N, N, 1) or (1, N, N, gridsize**2) if probe.big is True
-        # probe_mask has shape (N, N, 1)
-        
-        # Apply multiplication first
-        illuminated = self.w * x
-        
-        # Apply Gaussian smoothing only if sigma is not 0
+        x = inputs[0]           # x shape: (batch_size, N, N, gridsize**2)
+        probe_indices = inputs[1]  # probe_indices shape: (batch_size,)
+
+        # Select probes using probe_indices
+        batch_probes = tf.gather(self.probes, probe_indices)
+
+        # Expand dimensions if necessary to match x
+        batch_probes_expanded = tf.expand_dims(batch_probes, axis=1)  # shape: (batch_size, 1, H, W, 1)
+        batch_probes_expanded = tf.tile(batch_probes_expanded, [1, x.shape[1], 1, 1, 1])
+        batch_probes_expanded = tf.reshape(batch_probes_expanded, x.shape)
+
+        # Apply multiplication
+        illuminated = batch_probes_expanded * x
+
+        # Apply Gaussian smoothing if needed
         if self.sigma != 0:
-            smoothed = complex_gaussian_filter2d(illuminated, filter_shape=(3, 3), sigma=self.sigma)
-        else:
-            smoothed = illuminated
-        
+            illuminated = complex_gaussian_filter2d(
+                illuminated, filter_shape=(3, 3), sigma=self.sigma
+            )
+
         if cfg.get('probe.mask'):
-            # Output shape: (batch_size, N, N, gridsize**2)
-            return smoothed * tf.cast(probe_mask, tf.complex64), (self.w * tf.cast(probe_mask, tf.complex64))[None, ...]
+            return (
+                illuminated * tf.cast(probe_mask, tf.complex64),
+                batch_probes * tf.cast(probe_mask, tf.complex64),
+            )
         else:
-            # Output shape: (batch_size, N, N, gridsize**2)
-            return smoothed, (self.w)[None, ...]
+            return illuminated, batch_probes
 
 probe_illumination = ProbeIllumination()
 

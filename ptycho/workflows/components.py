@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from ptycho import params as p
 from ptycho import probe
-from ptycho.loader import RawData, PtychoDataContainer
+from ptycho.loader import RawData, PtychoDataContainer, MultiPtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple, Literal
@@ -211,7 +211,74 @@ def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
 from typing import Union
 from ptycho.loader import RawData, PtychoDataContainer
 
-def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], config: TrainingConfig) -> PtychoDataContainer:
+def create_ptycho_data_container(
+    data: Union[RawData, PtychoDataContainer, MultiPtychoDataContainer],
+    config: TrainingConfig
+) -> MultiPtychoDataContainer:
+    """
+    Factory function to create or return a MultiPtychoDataContainer.
+
+    Args:
+        data (Union[RawData, PtychoDataContainer, MultiPtychoDataContainer]): Input data.
+        config (TrainingConfig): Training configuration object.
+
+    Returns:
+        MultiPtychoDataContainer: The resulting data container.
+    """
+    if isinstance(data, MultiPtychoDataContainer):
+        return data
+    elif isinstance(data, PtychoDataContainer):
+        return MultiPtychoDataContainer.from_single_container(data)
+    elif isinstance(data, RawData):
+        dataset = data.generate_grouped_data(config.model.N, K=7, nsamples=1)
+        container = loader.load(
+            lambda: dataset, data.probeGuess, which=None, create_split=False
+        )
+        return MultiPtychoDataContainer.from_single_container(container)
+    else:
+        raise TypeError(
+            "data must be RawData, PtychoDataContainer, or MultiPtychoDataContainer"
+        )
+
+def load_multi(
+    file_paths,
+    n_images_list=None,
+    flip_x=False,
+    flip_y=False,
+    swap_xy=False,
+    n_samples=1,
+    coord_scale=1.0,
+    config=None
+):
+    """
+    Load multiple ptychography datasets and merge them into a MultiPtychoDataContainer.
+
+    Args:
+        file_paths (List[str]): List of data file paths.
+        n_images_list (List[int], optional): Number of images to load from each dataset.
+        flip_x, flip_y, swap_xy, n_samples, coord_scale: Same as in load_data().
+        config: TrainingConfig object.
+
+    Returns:
+        MultiPtychoDataContainer: Merged data container.
+    """
+    containers = []
+    for idx, file_path in enumerate(file_paths):
+        n_images = n_images_list[idx] if n_images_list else None
+        ptycho_data = load_data(
+            file_path,
+            n_images=n_images,
+            flip_x=flip_x,
+            flip_y=flip_y,
+            swap_xy=swap_xy,
+            n_samples=n_samples,
+            coord_scale=coord_scale
+        )
+        container = create_ptycho_data_container(ptycho_data, config)
+        containers.append(container)
+
+    multi_container = MultiPtychoDataContainer.from_containers(containers)
+    return multi_container
     """
     Factory function to create or return a PtychoDataContainer.
 
