@@ -642,6 +642,7 @@ pp = tfk.Sequential([
 def perceptual_loss(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
     """
     """
+    N = params()['N']
     target = pp(target)
     pred = pp(pred)
 

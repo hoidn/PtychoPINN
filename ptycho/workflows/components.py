@@ -19,6 +19,7 @@ from ptycho.loader import PtychoDataContainer
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import params
 from ptycho.image import reassemble_patches
+from ptycho.model import get_default_probe_indices
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -304,6 +305,9 @@ def train_cdi_model(
     """
     from ptycho.loader import PtychoDataset
     from ptycho import train_pinn
+    from ptycho.loader import PtychoDataset
+    from ptycho import train_pinn
+
     # Ensure train_data and test_data have probe_indices
     if not hasattr(train_data, 'probe_indices'):
         num_samples = train_data.X.shape[0]
@@ -311,6 +315,9 @@ def train_cdi_model(
     if test_data and not hasattr(test_data, 'probe_indices'):
         num_samples = test_data.X.shape[0]
         test_data.probe_indices = get_default_probe_indices(num_samples)
+
+    train_container = create_ptycho_data_container(train_data, config)
+    test_container = create_ptycho_data_container(test_data, config) if test_data else None
 
     # Initialize probe
     probe.set_probe_guess(None, train_container.probe)
