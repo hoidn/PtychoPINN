@@ -83,10 +83,6 @@ initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],
         )
-        N = cfg.get('N')
-        # Import probe_mask from probe module
-        self.probe_mask = tf.cast(probe.get_probe_mask(N), tf.complex64)  # Shape: (N, N, 1)
-        self.probe_mask = tf.expand_dims(self.probe_mask, axis=0)  # Shape: (1, N, N, 1)
 
 # TODO hyperparameters:
 # TODO total variation loss
