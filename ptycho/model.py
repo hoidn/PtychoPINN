@@ -25,6 +25,7 @@ import tensorflow_probability as tfp
 
 from .loader import PtychoDataContainer
 from . import tf_helper as hh
+from . import probe
 from . import params as cfg
 params = cfg.params
 
@@ -82,6 +83,10 @@ initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
             trainable=params()['probe.trainable'],
         )
+        N = cfg.get('N')
+        # Import probe_mask from probe module
+        self.probe_mask = tf.cast(probe.get_probe_mask(N), tf.complex64)  # Shape: (N, N, 1)
+        self.probe_mask = tf.expand_dims(self.probe_mask, axis=0)  # Shape: (1, N, N, 1)
 
 # TODO hyperparameters:
 # TODO total variation loss
@@ -111,24 +116,31 @@ class ProbeIllumination(tf.keras.layers.Layer):
         # Select probes based on indices
         batch_probes = tf.gather(self.probes, probe_indices)
         
-        # Expand and tile probes to match `x`
-        batch_probes_expanded = tf.expand_dims(batch_probes, axis=1)
-        batch_probes_tiled = tf.tile(batch_probes_expanded, [1, x.shape[1], 1, 1, 1])
-        batch_probes_reshaped = tf.reshape(batch_probes_tiled, tf.shape(x))
-        
-        # Apply probe to the input `x`
-        illuminated = batch_probes_reshaped * x
+    # Validate input shapes
+    tf.debugging.assert_rank(x, 4, message="Input x must be rank 4")
+    tf.debugging.assert_rank(probe_indices, 1, message="Probe indices must be rank 1")
+    tf.debugging.assert_equal(tf.shape(x)[0], tf.shape(probe_indices)[0], message="Batch size of x and probe_indices must match")
 
-        # Select probes using probe_indices
-        batch_probes = tf.gather(self.probes, probe_indices)
+    # Validate probe indices
+    num_probes = tf.shape(self.probes)[0]
+    tf.debugging.assert_less(
+        probe_indices, num_probes, message="Probe index out of bounds."
+    )
+    tf.debugging.assert_greater_equal(
+        probe_indices, 0, message="Probe indices must be non-negative."
+    )
 
-        # Expand dimensions if necessary to match x
-        batch_probes_expanded = tf.expand_dims(batch_probes, axis=1)  # shape: (batch_size, 1, H, W, 1)
-        batch_probes_expanded = tf.tile(batch_probes_expanded, [1, x.shape[1], 1, 1, 1])
-        batch_probes_expanded = tf.reshape(batch_probes_expanded, x.shape)
+    # Select probes based on indices
+    batch_probes = tf.gather(self.probes, probe_indices)  # Shape: (batch_size, N, N, 1)
 
-        # Apply multiplication
-        illuminated = batch_probes_expanded * x
+    # Expand and tile probes to match `x`
+    gridsize_squared = tf.shape(x)[-1]
+    batch_probes_expanded = tf.expand_dims(batch_probes, axis=-1)  # Shape: (batch_size, N, N, 1, 1)
+    batch_probes_tiled = tf.tile(batch_probes_expanded, [1, 1, 1, 1, gridsize_squared])  # Shape: (batch_size, N, N, 1, gridsize**2)
+    batch_probes_reshaped = tf.reshape(batch_probes_tiled, tf.shape(x))  # Shape: (batch_size, N, N, gridsize**2)
+
+    # Apply probe to the input `x`
+    illuminated = batch_probes_reshaped * x
 
         # Apply Gaussian smoothing if needed
         if self.sigma != 0:
@@ -136,13 +148,19 @@ class ProbeIllumination(tf.keras.layers.Layer):
                 illuminated, filter_shape=(3, 3), sigma=self.sigma
             )
 
-        if cfg.get('probe.mask'):
-            return (
-                illuminated * tf.cast(probe_mask, tf.complex64),
-                batch_probes * tf.cast(probe_mask, tf.complex64),
-            )
-        else:
-            return illuminated, batch_probes
+    if self.sigma != 0:
+        illuminated = complex_gaussian_filter2d(
+            illuminated, filter_shape=(3, 3), sigma=self.sigma
+        )
+
+    if cfg.get('probe.mask'):
+        # Ensure probe_mask is tiled to match `illuminated`
+        probe_mask_tiled = tf.tile(self.probe_mask, [tf.shape(x)[0], 1, 1, tf.shape(x)[-1] // self.probe_mask.shape[-1]])
+        illuminated = illuminated * probe_mask_tiled
+        batch_probes_masked = batch_probes * self.probe_mask
+        return illuminated, batch_probes_masked
+    else:
+        return illuminated, batch_probes
 
 probe_illumination = ProbeIllumination(probes=initial_probe_guess)
 
@@ -433,7 +451,7 @@ autoencoder = Model(
     [trimmed_obj, pred_amp_scaled, pred_intensity_sampled]
 )
 
-autoencoder_no_nll = Model(inputs = [input_img, input_positions],
+autoencoder_no_nll = Model(inputs = [input_img, input_positions, input_probe_indices],
         outputs = [pred_amp_scaled])
 
 #encode_obj_to_diffraction = tf.keras.Model(inputs=[obj, input_positions],
@@ -462,17 +480,24 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
-def prepare_inputs(train_data):
-    num_samples = train_data.X.shape[0]
-    if hasattr(train_data, 'probe_indices'):
-        probe_indices = train_data.probe_indices
+def prepare_model_inputs(data_container):
+    num_samples = data_container.X.shape[0]
+    if hasattr(data_container, 'probe_indices'):
+        probe_indices = data_container.probe_indices
     else:
         probe_indices = get_default_probe_indices(num_samples)
-    return [
-        train_data.X * cfg.get('intensity_scale'),
-        train_data.coords,
+
+    inputs = [
+        data_container.X * cfg.get('intensity_scale'),
+        data_container.coords,
         probe_indices,
     ]
+    outputs = [
+        hh.center_channels(data_container.Y_I, data_container.coords)[:, :, :, :1],
+        (cfg.get('intensity_scale') * data_container.X),
+        (cfg.get('intensity_scale') * data_container.X)**2
+    ]
+    return inputs, outputs
 
 def prepare_outputs(train_data: PtychoDataContainer):
     """training outputs"""
@@ -484,6 +509,7 @@ def prepare_outputs(train_data: PtychoDataContainer):
 def train(epochs, trainset: PtychoDataContainer):
     assert type(trainset) == PtychoDataContainer
     coords_train = trainset.coords
+    inputs, outputs = prepare_model_inputs(trainset)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
@@ -495,6 +521,8 @@ def train(epochs, trainset: PtychoDataContainer):
 
     batch_size = params()['batch_size']
     history = autoencoder.fit(
+        inputs,
+        outputs,
         prepare_inputs(trainset),
         prepare_outputs(trainset),
         shuffle=True, batch_size=batch_size, verbose=1,

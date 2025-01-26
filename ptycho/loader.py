@@ -22,7 +22,24 @@ class PtychoDataContainer:
     A class to contain ptycho data attributes for easy access and manipulation.
     """
     @debug
-    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
+    def probe(self):
+        """
+        Access the probe(s) associated with the data container.
+
+        Returns:
+            np.ndarray: The probe or probes.
+
+        Raises:
+            AttributeError: If no probe information is available.
+        """
+        if hasattr(self, 'probes'):
+            # Multi-probe mode
+            return self.probes
+        elif hasattr(self, 'probe'):
+            # Single probe mode
+            return self.probe
+        else:
+            raise AttributeError("No probe(s) found in the data container.")
         self.X = X
         self.Y_I = Y_I
         self.Y_phi = Y_phi
@@ -110,7 +127,22 @@ class PtychoDataContainer:
         )
 
 class MultiPtychoDataContainer:
-    def __init__(
+    def YY_full(self):
+        """
+        Access the YY_full attribute.
+
+        Returns:
+            np.ndarray: The YY_full data.
+
+        Raises:
+            AttributeError: If YY_full is not available.
+        """
+        if hasattr(self, 'YY_full') and self.YY_full is not None:
+            return self.YY_full
+        else:
+            # Provide a fallback or handle the absence appropriately
+            warnings.warn("YY_full is not available in multi-probe mode.")
+            return None
         self,
         X,
         Y_I,
@@ -140,6 +172,26 @@ class MultiPtychoDataContainer:
         self.probes = probes
 
         # Shape validation
+        num_samples = X.shape[0]
+        assert probe_indices.shape[0] == num_samples, "Probe indices should have the same number of samples as X"
+        assert probes.shape[0] > probe_indices.max(), "Probe indices exceed the number of provided probes"
+        assert len(probes.shape) == 4, "Probes should be a 4D tensor with shape [num_probes, H, W, 1]"
+        assert probes.shape[-1] == 1, "Probes should have shape [num_probes, H, W, 1]"
+
+        # Additional shape checks for other arrays
+        assert Y_I.shape[0] == num_samples, "Y_I should have the same number of samples as X"
+        assert Y_phi.shape[0] == num_samples, "Y_phi should have the same number of samples as X"
+        assert coords_nominal.shape[0] == num_samples, "coords_nominal should have the same number of samples as X"
+        assert coords_true.shape[0] == num_samples, "coords_true should have the same number of samples as X"
+        assert nn_indices.shape[0] == num_samples, "nn_indices should have the same number of samples as X"
+        assert global_offsets.shape[0] == num_samples, "global_offsets should have the same number of samples as X"
+        assert local_offsets.shape[0] == num_samples, "local_offsets should have the same number of samples as X"
+
+        # Validate probe indices bounds
+        max_probe_index = probe_indices.max()
+        min_probe_index = probe_indices.min()
+        assert max_probe_index < probes.shape[0], f"Probe index {max_probe_index} is out of bounds"
+        assert min_probe_index >= 0, f"Probe indices must be non-negative"
         num_samples = X.shape[0]
         assert probe_indices.shape[0] == num_samples, "Probe indices should have the same number of samples as X"
         assert len(probes.shape) == 4, "Probes should be a 4D tensor with shape [num_probes, H, W, 1]"
@@ -187,7 +239,11 @@ class MultiPtychoDataContainer:
             # Collect probes
             probes_list.append(container.probe)
 
-        # Concatenate data
+        # Handle YY_full appropriately
+        if all(y is not None for y in YY_full_list):
+            YY_full = np.concatenate(YY_full_list, axis=0)
+        else:
+            YY_full = None  # Or handle as needed
         X = np.concatenate(X_list, axis=0)
         Y_I = np.concatenate(Y_I_list, axis=0)
         Y_phi = np.concatenate(Y_phi_list, axis=0)
