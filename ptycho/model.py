@@ -16,11 +16,11 @@ from tensorflow.keras import layers
 import glob
 import math
 import numpy as np
+import tensorflow.compat.v2 as tf
 
 def get_default_probe_indices(num_samples: int) -> tf.Tensor:
     return tf.zeros((num_samples,), dtype=tf.int64)
 import os
-import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
 
 from .loader import PtychoDataContainer
