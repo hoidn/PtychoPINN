@@ -286,26 +286,6 @@ def load_multi(
 
     multi_container = MultiPtychoDataContainer.from_containers(containers)
     return multi_container
-    """
-    Factory function to create or return a PtychoDataContainer.
-
-    Args:
-        data (Union[RawData, PtychoDataContainer]): Input data, either RawData or PtychoDataContainer.
-        config (TrainingConfig): Training configuration object.
-
-    Returns:
-        PtychoDataContainer: The resulting PtychoDataContainer.
-
-    Raises:
-        TypeError: If the input data is neither RawData, PtychoDataContainer, nor MultiPtychoDataContainer.
-    """
-    if isinstance(data, PtychoDataContainer):
-        return data
-    elif isinstance(data, RawData):
-        dataset = data.generate_grouped_data(config.model.N, K=7, nsamples=1)
-        return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
-    else:
-        raise TypeError("data must be either RawData or PtychoDataContainer")
 
 def train_cdi_model(
     train_data: Union[RawData, PtychoDataContainer],
