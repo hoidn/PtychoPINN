@@ -294,7 +294,11 @@ class MultiPtychoDataContainer:
         """
         num_samples = container.X.shape[0]
         probe_indices = np.zeros(num_samples, dtype=np.int64)
-        probes = container.probe[np.newaxis, ...]  # Shape: [1, H, W, 1]
+        # Ensure probe has shape [1, H, W, 1]
+        probe = container.probe
+        if len(probe.shape) == 2:
+            probe = probe[..., np.newaxis]  # Add channel dimension
+        probes = probe[np.newaxis, ...]  # Add batch dimension
 
         return cls(
             container.X,
