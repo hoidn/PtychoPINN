@@ -308,16 +308,18 @@ def train_cdi_model(
     from ptycho.loader import PtychoDataset
     from ptycho import train_pinn
 
-    # Ensure train_data and test_data have probe_indices
-    if not hasattr(train_data, 'probe_indices'):
-        num_samples = train_data.X.shape[0]
-        train_data.probe_indices = get_default_probe_indices(num_samples)
-    if test_data and not hasattr(test_data, 'probe_indices'):
-        num_samples = test_data.X.shape[0]
-        test_data.probe_indices = get_default_probe_indices(num_samples)
-
+    # Create containers first before accessing .X attribute
     train_container = create_ptycho_data_container(train_data, config)
     test_container = create_ptycho_data_container(test_data, config) if test_data else None
+
+    # Now add probe indices after containers are created
+    if not hasattr(train_container, 'probe_indices'):
+        num_samples = train_container.X.shape[0]  # Safe now since train_container is a MultiPtychoDataContainer
+        train_container.probe_indices = get_default_probe_indices(num_samples)
+    
+    if test_container and not hasattr(test_container, 'probe_indices'):
+        num_samples = test_container.X.shape[0]
+        test_container.probe_indices = get_default_probe_indices(num_samples)
 
     # Initialize probe
     probe.set_probe_guess(None, train_container.probe)
