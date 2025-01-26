@@ -155,7 +155,8 @@ class MultiPtychoDataContainer:
         global_offsets,
         local_offsets,
         probe_indices,
-        probes):
+        probes
+    ):
         self.X = X
         self.Y_I = Y_I
         self.Y_phi = Y_phi

@@ -138,11 +138,11 @@ class ProbeIllumination(tf.keras.layers.Layer):
     # Apply probe to the input `x`
     illuminated = batch_probes_reshaped * x
 
-        # Apply Gaussian smoothing if needed
-        if self.sigma != 0:
-            illuminated = complex_gaussian_filter2d(
-                illuminated, filter_shape=(3, 3), sigma=self.sigma
-            )
+    # Apply Gaussian smoothing if needed
+    if self.sigma != 0:
+        illuminated = complex_gaussian_filter2d(
+            illuminated, filter_shape=(3, 3), sigma=self.sigma
+        )
 
     if self.sigma != 0:
         illuminated = complex_gaussian_filter2d(
