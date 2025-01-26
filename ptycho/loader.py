@@ -1,7 +1,6 @@
 """Generic loader for datasets with non-rectangular scan point patterns."""
 
 import warnings
-import numpy as np
 import tensorflow as tf
 from typing import Callable
 
@@ -13,33 +12,6 @@ from .raw_data import RawData, key_coords_offsets, key_coords_relative
 import numpy as np
 
 class PtychoDataset:
-    def __init__(self,
-                 X,
-                 Y_I,
-                 Y_phi,
-                 norm_Y_I,
-                 YY_full,
-                 coords_nominal,
-                 coords_true,
-                 nn_indices,
-                 global_offsets,
-                 local_offsets,
-                 probeGuess):
-        self.X = X
-        self.Y_I = Y_I
-        self.Y_phi = Y_phi
-        self.norm_Y_I = norm_Y_I
-        self.YY_full = YY_full
-        self.coords_nominal = coords_nominal
-        self.coords = coords_nominal
-        self.coords_true = coords_true
-        self.nn_indices = nn_indices
-        self.global_offsets = global_offsets
-        self.local_offsets = local_offsets
-        self.probe = probeGuess
-
-        from .tf_helper import combine_complex
-        self.Y = combine_complex(Y_I, Y_phi)
     def __init__(self, train_data, test_data):
         self.train_data = train_data
         self.test_data = test_data
@@ -48,33 +20,6 @@ class PtychoDataContainer:
     """
     A class to contain ptycho data attributes for easy access and manipulation.
     """
-    def __init__(self,
-                 X,
-                 Y_I,
-                 Y_phi,
-                 norm_Y_I,
-                 YY_full,
-                 coords_nominal,
-                 coords_true,
-                 nn_indices,
-                 global_offsets,
-                 local_offsets,
-                 probeGuess):
-        self.X = X
-        self.Y_I = Y_I
-        self.Y_phi = Y_phi
-        self.norm_Y_I = norm_Y_I
-        self.YY_full = YY_full
-        self.coords_nominal = coords_nominal
-        self.coords = coords_nominal
-        self.coords_true = coords_true
-        self.nn_indices = nn_indices
-        self.global_offsets = global_offsets
-        self.local_offsets = local_offsets
-        self.probe = probeGuess
-
-        from .tf_helper import combine_complex
-        self.Y = combine_complex(Y_I, Y_phi)
     def __init__(self,
                  X,
                  Y_I,
@@ -438,66 +383,6 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
-# TODO this should be a method of PtychoDataContainer
-#@debug
-def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
-    from . import params as cfg
-    from . import probe
-    if create_split:
-        dset, train_frac = cb()
-    else:
-        dset = cb()
-    gt_image = dset['objectGuess']
-    X_full = dset['X_full'] # normalized diffraction
-    global_offsets = dset[key_coords_offsets]
-    # Define coords_nominal and coords_true before calling split_data
-    coords_nominal = dset[key_coords_relative]
-    coords_true = dset[key_coords_relative]
-    if create_split:
-        global_offsets = split_tensor(global_offsets, train_frac, which)
-        X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
-    else:
-        X = X_full
-    norm_Y_I = datasets.scale_nphotons(X)
-    X = tf.convert_to_tensor(X)
-    coords_nominal = tf.convert_to_tensor(coords_nominal)
-    coords_true = tf.convert_to_tensor(coords_true)
-#    try:
-#        Y = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
-#    except:
-#        Y = tf.zeros_like(X)
-
-    norm_Y_I = datasets.scale_nphotons(X)
-
-    X = tf.convert_to_tensor(X)
-    coords_nominal = tf.convert_to_tensor(coords_nominal)
-    coords_true = tf.convert_to_tensor(coords_true)
-
-    # TODO we shouldn't be nuking the ground truth
-##    try:
-#    if dset['Y'] is None:
-#        Y = get_image_patches(gt_image,
-#            global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
-#        print("loader: generating ground truth patches from image and offsets")
-#    else:
-#        Y = dset['Y']
-#        print("loader: using provided ground truth patches")
-    if dset['Y'] is None:
-        Y = tf.ones_like(X)
-        print("loader: setting dummy Y ground truth")
-    else:
-        Y = dset['Y']
-        print("loader: using provided ground truth patches")
-    Y_I = tf.math.abs(Y)
-    Y_phi = tf.math.angle(Y)
-
-    # TODO get rid of?
-    YY_full = None
-    # TODO complex
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
-    print('INFO:', which)
-    print(container)
-    return container
 
 #@debug
 def normalize_data(dset: dict, N: int) -> np.ndarray:
