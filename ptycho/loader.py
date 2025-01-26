@@ -143,19 +143,19 @@ class MultiPtychoDataContainer:
             # Provide a fallback or handle the absence appropriately
             warnings.warn("YY_full is not available in multi-probe mode.")
             return None
-        self,
-        X,
-        Y_I,
-        Y_phi,
-        norm_Y_I,
-        YY_full,
-        coords_nominal,
-        coords_true,
-        nn_indices,
-        global_offsets,
-        local_offsets,
-        probe_indices,
-        probes):
+    def __init__(self,
+                 X,
+                 Y_I,
+                 Y_phi,
+                 norm_Y_I,
+                 YY_full,
+                 coords_nominal,
+                 coords_true,
+                 nn_indices,
+                 global_offsets,
+                 local_offsets,
+                 probe_indices,
+                 probes):
         self.X = X
         self.Y_I = Y_I
         self.Y_phi = Y_phi
