@@ -110,53 +110,46 @@ class ProbeIllumination(tf.keras.layers.Layer):
         )
         
         # Select probes based on indices
-        batch_probes = tf.gather(self.probes, probe_indices)
-        
-    # Validate input shapes
-    tf.debugging.assert_rank(x, 4, message="Input x must be rank 4")
-    tf.debugging.assert_rank(probe_indices, 1, message="Probe indices must be rank 1")
-    tf.debugging.assert_equal(tf.shape(x)[0], tf.shape(probe_indices)[0], message="Batch size of x and probe_indices must match")
+        # Validate input shapes
+        tf.debugging.assert_rank(x, 4, message="Input x must be rank 4")
+        tf.debugging.assert_rank(probe_indices, 1, message="Probe indices must be rank 1")
+        tf.debugging.assert_equal(tf.shape(x)[0], tf.shape(probe_indices)[0], message="Batch size of x and probe_indices must match")
 
-    # Validate probe indices
-    num_probes = tf.shape(self.probes)[0]
-    tf.debugging.assert_less(
-        probe_indices, num_probes, message="Probe index out of bounds."
-    )
-    tf.debugging.assert_greater_equal(
-        probe_indices, 0, message="Probe indices must be non-negative."
-    )
-
-    # Select probes based on indices
-    batch_probes = tf.gather(self.probes, probe_indices)  # Shape: (batch_size, N, N, 1)
-
-    # Expand and tile probes to match `x`
-    gridsize_squared = tf.shape(x)[-1]
-    batch_probes_expanded = tf.expand_dims(batch_probes, axis=-1)  # Shape: (batch_size, N, N, 1, 1)
-    batch_probes_tiled = tf.tile(batch_probes_expanded, [1, 1, 1, 1, gridsize_squared])  # Shape: (batch_size, N, N, 1, gridsize**2)
-    batch_probes_reshaped = tf.reshape(batch_probes_tiled, tf.shape(x))  # Shape: (batch_size, N, N, gridsize**2)
-
-    # Apply probe to the input `x`
-    illuminated = batch_probes_reshaped * x
-
-    # Apply Gaussian smoothing if needed
-    if self.sigma != 0:
-        illuminated = complex_gaussian_filter2d(
-            illuminated, filter_shape=(3, 3), sigma=self.sigma
+        # Validate probe indices
+        num_probes = tf.shape(self.probes)[0]
+        tf.debugging.assert_less(
+            probe_indices, num_probes, message="Probe index out of bounds."
+        )
+        tf.debugging.assert_greater_equal(
+            probe_indices, 0, message="Probe indices must be non-negative."
         )
 
-    if self.sigma != 0:
-        illuminated = complex_gaussian_filter2d(
-            illuminated, filter_shape=(3, 3), sigma=self.sigma
-        )
+        # Select probes based on indices
+        batch_probes = tf.gather(self.probes, probe_indices)  # Shape: (batch_size, N, N, 1)
 
-    if cfg.get('probe.mask'):
-        # Ensure probe_mask is tiled to match `illuminated`
-        probe_mask_tiled = tf.tile(self.probe_mask, [tf.shape(x)[0], 1, 1, tf.shape(x)[-1] // self.probe_mask.shape[-1]])
-        illuminated = illuminated * probe_mask_tiled
-        batch_probes_masked = batch_probes * self.probe_mask
-        return illuminated, batch_probes_masked
-    else:
-        return illuminated, batch_probes
+        # Expand and tile probes to match `x`
+        gridsize_squared = tf.shape(x)[-1]
+        batch_probes_expanded = tf.expand_dims(batch_probes, axis=-1)  # Shape: (batch_size, N, N, 1, 1)
+        batch_probes_tiled = tf.tile(batch_probes_expanded, [1, 1, 1, 1, gridsize_squared])  # Shape: (batch_size, N, N, 1, gridsize**2)
+        batch_probes_reshaped = tf.reshape(batch_probes_tiled, tf.shape(x))  # Shape: (batch_size, N, N, gridsize**2)
+
+        # Apply probe to the input `x`
+        illuminated = batch_probes_reshaped * x
+
+        # Apply Gaussian smoothing if needed
+        if self.sigma != 0:
+            illuminated = complex_gaussian_filter2d(
+                illuminated, filter_shape=(3, 3), sigma=self.sigma
+            )
+
+        if cfg.get('probe.mask'):
+            # Ensure probe_mask is tiled to match `illuminated`
+            probe_mask_tiled = tf.tile(self.probe_mask, [tf.shape(x)[0], 1, 1, tf.shape(x)[-1] // self.probe_mask.shape[-1]])
+            illuminated = illuminated * probe_mask_tiled
+            batch_probes_masked = batch_probes * self.probe_mask
+            return illuminated, batch_probes_masked
+        else:
+            return illuminated, batch_probes
 
 probe_illumination = ProbeIllumination(probes=initial_probe_guess)
 
@@ -519,7 +512,6 @@ def train(epochs, trainset: PtychoDataContainer):
     history = autoencoder.fit(
         inputs,
         outputs,
-        prepare_inputs(trainset),
         prepare_outputs(trainset),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split=0.05,
