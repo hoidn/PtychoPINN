@@ -23,6 +23,7 @@ import tensorflow_probability as tfp
 
 from .loader import PtychoDataContainer
 from . import tf_helper as hh
+from .tf_helper import get_default_probe_indices
 from . import probe
 from . import params as cfg
 params = cfg.params
