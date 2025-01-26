@@ -14,6 +14,17 @@ else:
 
 import tensorflow.compat.v2 as tf
 
+def get_default_probe_indices(num_samples: int) -> tf.Tensor:
+    """Return a tensor of zeros for default probe indices.
+    
+    Args:
+        num_samples: Number of samples to generate indices for
+        
+    Returns:
+        A tensor of zeros with shape (num_samples,) and dtype int64
+    """
+    return tf.zeros((num_samples,), dtype=tf.int64)
+
 def validate_probe_indices(indices: tf.Tensor, num_probes: int) -> None:
     tf.debugging.assert_less(
         indices, num_probes, message="Probe index out of bounds."

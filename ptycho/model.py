@@ -18,8 +18,6 @@ import math
 import numpy as np
 import tensorflow.compat.v2 as tf
 
-def get_default_probe_indices(num_samples: int) -> tf.Tensor:
-    return tf.zeros((num_samples,), dtype=tf.int64)
 import os
 import tensorflow_probability as tfp
 
