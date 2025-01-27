@@ -1,0 +1,31 @@
+Files Requiring Updates:
+  - path: "PtychoDataContainer.py"
+    Reason for modification: "This file currently handles the management of a single probe tensor for all samples. However, the new requirement is to handle multiple probes, one for each sample."
+    Spec: 
+      - "Create a new class e.g., MultiPtychoDataContainer, mirrored from PtychoDataContainer, that allows handling of multiple probes."
+      - "Include a method to initialize and handle an index for each sample to the respective probes."
+      - "Modification to existing methods to handle the tensor of probes rather than a single probe tensor."
+    Dependencies affected: "Possibly downstream components that use PtychoDataContainer will need to be adjusted to handle instances of the new class."
+
+  - path: "data_loader.py"
+    Reason for modification: "Data loader must be capable of loading multiple probes per dataset correctly based on the new indices and accommodating the interleaving of datasets for training."
+    Spec: 
+      - "Modify the data loading logic to fetch the correct probe for each sample using the newly created indices."
+      - "Implement logic for interleaving multiple datasets for training purposes."
+    Dependencies affected: "Training loop scripts that depend on the data loader outputs might need adjustments to handle interleaved data."
+
+  - path: "model.py"
+    Reason for modification: "The model input specification needs to be adjusted to handle a variable probe for each sample instead of a single global probe."
+    Spec: 
+      - "Adjust the model’s input layer to include an index for selecting the correct probe from a list of probes during each forward pass."
+    Dependencies affected: "Training and validation scripts need to acknowledge these changes in model inputs."
+
+Architectural Impact Assessment:
+- Introduction of a new data container type challenges the single probe assumption in currently existing frameworks, which will require significant refactoring of data handling and model input structures.
+- Testing won't require as significant changes as training due to non-requirement of interleaving, but consistency in handling probes across both modes must be maintained.
+- The handling of data (loading and shuffling) becomes more complex due to ensuring data from diverse datasets is presented to the model without biases in training.
+
+Questions for Clarification:
+- Will the changed architectural requirement need optimizations to manage potential overhead due to multiple probes being handled differently?
+- How should the application handle backward compatibility with datasets designed for the old single-probe architecture?
+- Is there a specified upper limit to the number of different probes per batch, considering computational resource constraints?
