@@ -143,18 +143,29 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
         spec_prompt
     )
 
-    # Run llm command and capture output
+    # Create temp file and run llm command
+    import tempfile
+    import os
+    
+    with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
+        tmp.write(full_prompt)
+        tmp_path = tmp.name
+
     try:
-        result = subprocess.run(
-            ["llm", "--model", "claude-3-5-sonnet-20241022", full_prompt],
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        with open(tmp_path, 'r') as input_file:
+            result = subprocess.run(
+                ["llm", "--model", "claude-3-5-sonnet-20241022"],
+                stdin=input_file,
+                capture_output=True,
+                text=True,
+                check=True
+            )
         response = result.stdout
     except subprocess.CalledProcessError as e:
         print(f"Error running llm command: {e}")
         return
+    finally:
+        os.unlink(tmp_path)
 
     # Write response to file
     output_file = "tochange.yaml"
