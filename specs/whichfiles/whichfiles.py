@@ -1,11 +1,10 @@
 from pathlib import Path
-from aider.coders import Coder
-from aider.models import Model
-from aider.io import InputOutput
 import sys
 import yaml
 from typing import Dict, Any, Optional
 import argparse
+import subprocess
+from datetime import datetime
 
 # TODO: instead of using aider, use the `llm` cli tool, see <ref>. After
 # running the tool, git commit the new file addition 
@@ -185,34 +184,31 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
 
 
 
-    # Initialize AI model
-    model = Model(
-        "claude-3-5-sonnet-20241022",
-        editor_edit_format="whole",
-    )
-    
-    # Initialize AI Coding Assistant
-    coder = Coder.create(
-        main_model=model,
-        edit_format="diff",
-        io=InputOutput(yes=True),
-        fnames=config["context_editable"],
-        read_only_fnames=config["context_read_only"],
-        auto_commits=True,
-        suggest_shell_commands=False,
-        dry_run=True
-    )
-    
-    # Get the proposed changes
-    response = coder.run(with_message=spec_prompt)
-    
-    # Now we can write the response ourselves
-    if response:
-        with open("tochange.yaml", "w") as f:
-            f.write(response)
-#
-#    # Run the code modification
-#    coder.run(with_message = spec_prompt)
+    # Run llm command and capture output
+    try:
+        result = subprocess.run(
+            ["llm", "--model", "gpt-4-turbo", spec_prompt],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        response = result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error running llm command: {e}")
+        return
+
+    # Write response to file
+    output_file = "tochange.yaml"
+    with open(output_file, "w") as f:
+        f.write(response)
+
+    # Git commit the new file
+    try:
+        subprocess.run(["git", "add", output_file], check=True)
+        commit_msg = f"Add AI-generated changes from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        subprocess.run(["git", "commit", "-m", commit_msg], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error during git operations: {e}")
 
 if __name__ == "__main__":
     parser = setup_argparse()
