@@ -134,13 +134,12 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     output_file = "tochange.yaml"
     
     # TODO extract the text in ```yaml ``` section instead of <output> xml tags 
-    # Extract content between <output> tags
-    import re
-    output_match = re.search(r'<output>(.*?)</output>', response, re.DOTALL)
-    if output_match:
-        yaml_content = output_match.group(1).strip()
+    # Extract content between ```yaml ``` markers
+    yaml_match = re.search(r'```yaml\s*(.*?)\s*```', response, re.DOTALL)
+    if yaml_match:
+        yaml_content = yaml_match.group(1).strip()
     else:
-        print("Error: Could not find <output> section in LLM response")
+        print("Error: Could not find ```yaml ``` section in LLM response")
         yaml_content = response
         
     with open(output_file, "w") as f:
