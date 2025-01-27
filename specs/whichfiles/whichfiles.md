@@ -71,3 +71,12 @@ Please structure your response as:
 2. Then trace dependencies through system interfaces
 3. Map out affected codebase and documentation sections
 </thought_process>
+
+## Low-Level Tasks
+> Ordered from start to finish
+
+1. Generate Change Analysis Document
+```aider
+CREATE tochange.yaml:
+```
+

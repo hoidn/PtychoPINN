@@ -117,14 +117,13 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     # Initialize AI model
     model = Model(
         "claude-3-5-sonnet-20241022",
-        editor_edit_format="diff",
+        editor_edit_format="whole",
     )
     
     # Initialize AI Coding Assistant
     coder = Coder.create(
         main_model=model,
         edit_format="diff",
-        max_reflections=1,
         io=InputOutput(yes=True),
         fnames=config["context_editable"],
         read_only_fnames=config["context_read_only"],
