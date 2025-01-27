@@ -1,0 +1,144 @@
+from pathlib import Path
+from aider.coders import Coder
+from aider.models import Model
+from aider.io import InputOutput
+import sys
+import yaml
+from typing import Dict, Any, Optional
+import argparse
+
+def load_config(yaml_path: str) -> Dict[str, Any]:
+    """
+    Load and validate yaml configuration file.
+    
+    Args:
+        yaml_path (str): Path to YAML configuration file
+        
+    Returns:
+        Dict[str, Any]: Configuration dictionary containing description, context_editable, 
+                       and context_read_only
+                       
+    Raises:
+        FileNotFoundError: If YAML file doesn't exist
+        ValueError: If required keys are missing or invalid
+    """
+    yaml_path = Path(yaml_path)
+    if not yaml_path.exists():
+        raise FileNotFoundError(
+            f"Configuration file {yaml_path} not found"
+        )
+        
+    with open(yaml_path, "r") as f:
+        config = yaml.safe_load(f)
+        
+    # Validate required keys
+    required_keys = {"description", "context_editable", "context_read_only"}
+    missing_keys = required_keys - set(config.keys())
+    if missing_keys:
+        raise ValueError(
+            f"Missing required keys in config: {', '.join(missing_keys)}"
+        )
+        
+    # Validate types
+    if not isinstance(config["description"], str):
+        raise ValueError("description must be a string")
+    if not isinstance(config["context_editable"], list):
+        raise ValueError("context_editable must be a list")
+    if not isinstance(config["context_read_only"], list):
+        raise ValueError("context_read_only must be a list")
+        
+    return config
+
+def process_template(template: str, config: Dict[str, Any]) -> str:
+    """
+    Replace all <key> placeholders in template with corresponding values from config.
+    
+    Args:
+        template (str): Template string containing <key> placeholders
+        config (Dict[str, Any]): Configuration dictionary with replacement values
+        
+    Returns:
+        str: Processed template with all replacements made
+    """
+    result = template
+    for key, value in config.items():
+        placeholder = f"<{key}>"
+        if isinstance(value, str) and placeholder in result:
+            result = result.replace(placeholder, value)
+    return result
+
+def setup_argparse() -> argparse.ArgumentParser:
+    """
+    Create and configure argument parser for CLI.
+    
+    Returns:
+        argparse.ArgumentParser: Configured argument parser
+    """
+    parser = argparse.ArgumentParser(
+        description="Process documentation changes based on YAML configuration"
+    )
+    parser.add_argument(
+        "config", 
+        help="Path to YAML configuration file"
+    )
+    parser.add_argument(
+        "--spec", 
+        help="Path to specification template (defaults to script_name.md)",
+        default=None
+    )
+    return parser
+
+def main(config_path: str, spec_path: Optional[str] = None):
+    """
+    Main function to process documentation changes.
+    
+    Args:
+        config_path (str): Path to YAML configuration file
+        spec_path (Optional[str]): Path to specification template file
+    """
+    # Load and validate configuration
+    config = load_config(config_path)
+    
+    # Determine spec path
+    if spec_path is None:
+        script_path = Path(sys.argv[0])
+        spec_path = script_path.with_suffix('.md')
+    else:
+        spec_path = Path(spec_path)
+        
+    if not spec_path.exists():
+        raise FileNotFoundError(
+            f"Specification template {spec_path} not found"
+        )
+        
+    # Read and process template
+    with open(spec_path, "r") as spec_file:
+        spec_content = spec_file.read()
+    
+    spec_prompt = process_template(spec_content, config)
+    
+    # Initialize AI model
+    model = Model(
+        "claude-3-5-sonnet-20241022",
+        editor_edit_format="diff",
+    )
+    
+    # Initialize AI Coding Assistant
+    coder = Coder.create(
+        main_model=model,
+        edit_format="diff",
+        max_reflections=1,
+        io=InputOutput(yes=True),
+        fnames=config["context_editable"],
+        read_only_fnames=config["context_read_only"],
+        auto_commits=True,
+        suggest_shell_commands=False,
+    )
+    
+    # Run the code modification
+    coder.run(spec_prompt)
+
+if __name__ == "__main__":
+    parser = setup_argparse()
+    args = parser.parse_args()
+    main(args.config, args.spec)

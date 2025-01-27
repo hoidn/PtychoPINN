@@ -1,0 +1,6 @@
+# Example configuration for whichfiles tool
+description: "Add support for new authentication method"
+context_editable:
+  - "tochange.yaml"
+context_read_only:
+  - "scripts/context"
