@@ -113,6 +113,7 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     with open(spec_file_path, "r") as spec_file:
         spec_content = spec_file.read()
     
+    # TODO: context files need to be passed into the model
     spec_prompt = process_template(spec_content, config)
 
 
@@ -120,7 +121,7 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     # Run llm command and capture output
     try:
         result = subprocess.run(
-            ["llm", "--model", "gpt-4-turbo", spec_prompt],
+            ["llm", "--model", "claude-3-5-sonnet-20241022", spec_prompt],
             capture_output=True,
             text=True,
             check=True
@@ -133,7 +134,6 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     # Write response to file
     output_file = "tochange.yaml"
     
-    # TODO extract the text in ```yaml ``` section instead of <output> xml tags 
     # Extract content between ```yaml ``` markers
     yaml_match = re.search(r'```yaml\s*(.*?)\s*```', response, re.DOTALL)
     if yaml_match:
