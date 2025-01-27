@@ -7,6 +7,75 @@ import yaml
 from typing import Dict, Any, Optional
 import argparse
 
+# TODO: instead of using aider, use the `llm` cli tool, see <ref>. After
+# running the tool, git commit the new file addition 
+# <ref>
+#(ptycho_test) ollie@ollie:~/Documents/scratch/ptycho/specs $ llm --help
+#Usage: llm [OPTIONS] COMMAND [ARGS]...
+#
+#  Access Large Language Models from the command-line
+#
+#  Documentation: https://llm.datasette.io/
+#
+#  LLM can run models from many different providers. Consult the plugin
+#  directory for a list of available models:
+#
+#  https://llm.datasette.io/en/stable/plugins/directory.html
+#
+#  To get started with OpenAI, obtain an API key from them and:
+#
+#      $ llm keys set openai
+#      Enter key: ...
+#
+#  Then execute a prompt like this:
+#
+#      llm 'Five outrageous names for a pet pelican'
+#
+#Options:
+#  --version  Show the version and exit.
+#  --help     Show this message and exit.
+#
+#Commands:
+#  prompt*       Execute a prompt
+#  aliases       Manage model aliases
+#  chat          Hold an ongoing chat with a model.
+#  collections   View and manage collections of embeddings
+#  embed         Embed text and store or return the result
+#  embed-models  Manage available embedding models
+#  embed-multi   Store embeddings for multiple strings at once
+#  install       Install packages from PyPI into the same environment as LLM
+#  keys          Manage stored API keys for different models
+#  logs          Tools for exploring logged prompts and responses
+#  models        Manage available models
+#  openai        Commands for working directly with the OpenAI API
+#  plugins       List installed plugins
+#  similar       Return top N similar IDs from a collection
+#  templates     Manage stored prompt templates
+#  uninstall     Uninstall Python packages from the LLM environment
+#(ptycho_test) ollie@ollie:~/Documents/scratch/ptycho/specs $ llm aliases
+#4o                  : gpt-4o
+#4o-mini             : gpt-4o-mini
+#3.5                 : gpt-3.5-turbo
+#chatgpt             : gpt-3.5-turbo
+#chatgpt-16k         : gpt-3.5-turbo-16k
+#3.5-16k             : gpt-3.5-turbo-16k
+#4                   : gpt-4
+#gpt4                : gpt-4
+#4-32k               : gpt-4-32k
+#gpt-4-turbo-preview : gpt-4-turbo
+#4-turbo             : gpt-4-turbo
+#4t                  : gpt-4-turbo
+#3.5-instruct        : gpt-3.5-turbo-instruct
+#chatgpt-instruct    : gpt-3.5-turbo-instruct
+#ada                 : text-embedding-ada-002 (embedding)
+#ada-002             : text-embedding-ada-002 (embedding)
+#3-small             : text-embedding-3-small (embedding)
+#3-large             : text-embedding-3-large (embedding)
+#3-small-512         : text-embedding-3-small-512 (embedding)
+#3-large-256         : text-embedding-3-large-256 (embedding)
+#3-large-1024        : text-embedding-3-large-1024 (embedding)
+#</ref>
+
 def load_config(yaml_path: str | Path) -> Dict[str, Any]:
     """
     Load and validate yaml configuration file.
@@ -113,7 +182,9 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
         spec_content = spec_file.read()
     
     spec_prompt = process_template(spec_content, config)
-    
+
+
+
     # Initialize AI model
     model = Model(
         "claude-3-5-sonnet-20241022",
@@ -129,10 +200,19 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
         read_only_fnames=config["context_read_only"],
         auto_commits=True,
         suggest_shell_commands=False,
+        dry_run=True
     )
     
-    # Run the code modification
-    coder.run(spec_prompt)
+    # Get the proposed changes
+    response = coder.run(with_message=spec_prompt)
+    
+    # Now we can write the response ourselves
+    if response:
+        with open("tochange.yaml", "w") as f:
+            f.write(response)
+#
+#    # Run the code modification
+#    coder.run(with_message = spec_prompt)
 
 if __name__ == "__main__":
     parser = setup_argparse()
