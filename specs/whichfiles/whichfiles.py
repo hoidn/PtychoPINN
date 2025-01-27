@@ -133,6 +133,7 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     # Write response to file
     output_file = "tochange.yaml"
     
+    # TODO extract the text in ```yaml ``` section instead of <output> xml tags 
     # Extract content between <output> tags
     import re
     output_match = re.search(r'<output>(.*?)</output>', response, re.DOTALL)
@@ -140,7 +141,7 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
         yaml_content = output_match.group(1).strip()
     else:
         print("Error: Could not find <output> section in LLM response")
-        return
+        yaml_content = response
         
     with open(output_file, "w") as f:
         f.write(yaml_content)
