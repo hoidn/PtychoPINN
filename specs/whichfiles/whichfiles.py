@@ -7,12 +7,12 @@ import yaml
 from typing import Dict, Any, Optional
 import argparse
 
-def load_config(yaml_path: str) -> Dict[str, Any]:
+def load_config(yaml_path: str | Path) -> Dict[str, Any]:
     """
     Load and validate yaml configuration file.
     
     Args:
-        yaml_path (str): Path to YAML configuration file
+        yaml_path (str | Path): Path to YAML configuration file
         
     Returns:
         Dict[str, Any]: Configuration dictionary containing description, context_editable, 
@@ -22,8 +22,8 @@ def load_config(yaml_path: str) -> Dict[str, Any]:
         FileNotFoundError: If YAML file doesn't exist
         ValueError: If required keys are missing or invalid
     """
-    yaml_path = Path(yaml_path)
-    if not yaml_path.exists():
+    path = Path(yaml_path)
+    if not path.exists():
         raise FileNotFoundError(
             f"Configuration file {yaml_path} not found"
         )
@@ -88,7 +88,7 @@ def setup_argparse() -> argparse.ArgumentParser:
     )
     return parser
 
-def main(config_path: str, spec_path: Optional[str] = None):
+def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     """
     Main function to process documentation changes.
     
@@ -100,19 +100,16 @@ def main(config_path: str, spec_path: Optional[str] = None):
     config = load_config(config_path)
     
     # Determine spec path
-    if spec_path is None:
-        script_path = Path(sys.argv[0])
-        spec_path = script_path.with_suffix('.md')
-    else:
-        spec_path = Path(spec_path)
-        
-    if not spec_path.exists():
+    # Convert paths
+    spec_file_path = Path(spec_path if spec_path is not None else Path(sys.argv[0]).with_suffix('.md'))
+    
+    if not spec_file_path.exists():
         raise FileNotFoundError(
-            f"Specification template {spec_path} not found"
+            f"Specification template {spec_file_path} not found"
         )
         
-    # Read and process template
-    with open(spec_path, "r") as spec_file:
+    # Read and process template  
+    with open(spec_file_path, "r") as spec_file:
         spec_content = spec_file.read()
     
     spec_prompt = process_template(spec_content, config)
