@@ -1,0 +1,68 @@
+files_requiring_updates:
+  - path: "./ptycho/loader.py"
+    reason: "Primary data container class needs to be modified to support per-sample probes"
+    changes_needed:
+      - "Create new MultiProbeDataContainer class extending PtychoDataContainer"
+      - "Add probe_list attribute to store multiple probe tensors"
+      - "Add probe_indices attribute mapping samples to probes"
+      - "Modify data loading to support multiple probes and their indices"
+      - "Add dataset merging functionality with proper shuffling for training"
+    dependencies:
+      - "ptycho.workflows.components"
+      - "ptycho.train_pinn"
+      - "ptycho.raw_data"
+
+  - path: "./ptycho/model.py"
+    reason: "Model architecture needs to handle probe as input rather than global variable"
+    changes_needed:
+      - "Remove global probe initialization"
+      - "Modify ProbeIllumination layer to accept probe tensor as input"
+      - "Update model architecture to take probe as additional input"
+      - "Adjust training loop to handle probe inputs"
+    dependencies:
+      - "ptycho.workflows.components"
+      - "ptycho.train_pinn"
+
+  - path: "./ptycho/train_pinn.py"
+    reason: "Training logic needs to handle per-sample probes"
+    changes_needed:
+      - "Update prepare_inputs() to include probe tensor"
+      - "Modify train() to handle MultiProbeDataContainer"
+      - "Adjust evaluation logic for multi-probe testing"
+    dependencies:
+      - "ptycho.workflows.components"
+      - "ptycho.evaluation"
+
+  - path: "./ptycho/workflows/components.py"
+    reason: "Data loading and preprocessing needs to support multiple probes"
+    changes_needed:
+      - "Update load_data() to handle multiple probe datasets"
+      - "Modify create_ptycho_data_container() to support MultiProbeDataContainer"
+      - "Update train_cdi_model() to handle multi-probe inputs"
+    dependencies:
+      - "ptycho.loader"
+      - "ptycho.train_pinn"
+
+architectural_impact_assessment:
+  data_flow_changes:
+    - "Probe tensor becomes dynamic input rather than static global state"
+    - "Data container hierarchy needs to support multiple datasets"
+    - "Training pipeline must handle dataset merging and shuffling"
+    - "Model architecture requires additional input tensor"
+  
+  performance_considerations:
+    - "Memory usage may increase due to storing multiple probe tensors"
+    - "Dataset merging and shuffling overhead during training"
+    - "Potential impact on batch processing efficiency"
+  
+  compatibility:
+    - "Existing PtychoDataContainer remains for single-probe use cases"
+    - "MultiProbeDataContainer provides superset of functionality"
+    - "Model changes maintain backward compatibility via wrapper"
+
+questions_for_clarification:
+  - "Should MultiProbeDataContainer provide methods to extract subset by probe index?"
+  - "Is there a maximum number of probes to support per container?"
+  - "Should probe tensors be validated for consistent shape/dtype on container creation?"
+  - "Are there specific shuffling requirements beyond random interleaving?"
+  - "Should probe indices be one-hot encoded for model input?"
