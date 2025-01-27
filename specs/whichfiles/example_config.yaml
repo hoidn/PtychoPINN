@@ -1,5 +1,5 @@
 description: |
-  Goal: adapt this codebase such that the probe tensor is a per-sample input
+  Changes: we want to adapt this codebase such that the probe tensor is a per-sample input
   to the model instead of a global variable. 
   Currently, the probe is stored in PtychoDataContainer. PtychoDataContainer contains
   a single probe tensor. The current assumption is that all samples share the same
