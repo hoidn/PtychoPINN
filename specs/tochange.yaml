@@ -1,0 +1,28 @@
+Files Requiring Updates:
+  - path: "/path/to/file/ptycho_data_container.py"
+    Reason for modification: "Current definition uses a single probe tensor for all samples. Needs to be updated to handle a list of probes and associated indices for each sample."
+    Spec of changes needed: 
+      - "Introduce a new class, possibly named `MultiSamplePtychoDataContainer`, with attributes for managing multiple probes and their indices."
+      - "Replace the single probe tensor with a list of probe tensors."
+      - "Add an attribute for probe indices, with its size matching the size of X and datatype int64."
+      - "Ensure all operations that currently utilize the global probe are adjusted to reference the respective sample probe."
+    Dependencies affected: 
+      - "All classes and functions that instantiate or utilize `PtychoDataContainer` will require adjustments to handle or interact with the new structure."
+  - path: "/path/to/module/data_handling.py"
+    Reason for modification: "Functions responsible for data shuffling, loading, and processing must now account for individual probes specific to each sample during training."
+    Spec of changes needed:
+      - "Update data loading functions to shuffle samples in `MultiSamplePtychoDataContainer` while preserving probe-sample associations."
+      - "Modify functions to selectively shuffle data only during training, not testing."
+    Dependencies affected:
+      - "Training and validation scripts that call data loading functions will need modifications to ensure they use the updated data handling logic."
+
+Architectural Impact Assessment:
+  - "Introduction of `MultiSamplePtychoDataContainer` will affect data loading and handling across the system."
+  - "The change increases complexity in data management, with potential impacts on performance due to handling multiple probes."
+  - "Training process logic must be more robust to ensure probe indices are correctly synced with the shuffled data."
+
+Questions for Clarification:
+  - "Will there be a need for backward compatibility with the old `PtychoDataContainer` system?"
+  - "Are there specific performance benchmarks that the updated system must meet?"
+  - "Should the new system provide methods for easy migration from single probe setups to multiple probes?"
+  - "Is there a preference or requirement for how probes should be handled in memory to optimize performance and resource usage?"
