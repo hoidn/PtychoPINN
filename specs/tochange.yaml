@@ -1,0 +1,70 @@
+# Change Analysis Document
+
+files_requiring_updates:
+  - location: ptycho/raw_data.py
+    reason: Core data structure implementation
+    key_changes:
+      - Move data validation logic from __init__ to _check_data_validity
+      - Add proper type hints to all methods
+      - Add validation for Y and norm_Y_I in constructor
+      - Clean up debug decorator usage
+    dependencies:
+      - ptycho/loader.py
+      - ptycho/params.py
+      - tensorflow
+      - numpy
+
+  - location: ptycho/loader.py
+    reason: Data loading and container management
+    key_changes:
+      - Remove duplicate load() function implementation
+      - Add proper error handling in PtychoDataContainer
+      - Consolidate debug decorator usage
+    dependencies:
+      - ptycho/raw_data.py
+      - ptycho/params.py
+
+  - location: ptycho/evaluation.py
+    reason: Evaluation and metrics calculation
+    key_changes:
+      - Add type hints to all functions
+      - Add error handling for edge cases
+      - Improve docstrings
+    dependencies:
+      - ptycho/params.py
+      - numpy
+      - tensorflow
+
+  - location: ptycho/workflows/visualize_results.py
+    reason: Visualization interface
+    key_changes:
+      - Add error handling for missing data
+      - Add output format configuration
+      - Improve type hints
+    dependencies:
+      - ptycho/evaluation.py
+      - ptycho/params.py
+
+architectural_impact:
+  core_changes:
+    - Data validation architecture
+    - Error handling strategy
+    - Type system improvements
+  risk_assessment:
+    - Medium risk: Enhanced validation could affect existing workflows
+    - Low risk: Type hints are backwards compatible
+    - Low risk: Error handling improvements are additive
+
+implementation_order:
+  1: Clean up duplicate code in loader.py
+  2: Improve data validation in raw_data.py
+  3: Add type hints across all files
+  4: Implement error handling improvements
+  5: Update documentation and docstrings
+
+clarifying_questions:
+  - Should we keep both implementations of load() but mark one as deprecated?
+  - What validation rules should be applied to Y and norm_Y_I?
+  - Should we add logging for validation failures?
+  - Do we need to maintain Python 3.7 compatibility for type hints?
+  - Should we standardize on a single debug decorator implementation?
