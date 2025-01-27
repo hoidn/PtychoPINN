@@ -1,0 +1,36 @@
+```yaml
+Files Requiring Updates:
+  - Location: models/ptycho_model.py
+    Reason for modification: Current model structure uses a global probe; needs adaptation for per-sample probes.
+    Key changes needed:
+      - Modify the model's data input handler to accept an indexable list of probes rather than a single global one.
+      - Update any inference or forward-pass functions to use the selected probe per each batch sample.
+    Dependencies affected: Dependent on data loading and preprocessing modules to align probe indices correctly with the batch data samples.
+
+  - Location: data_handlers/ptycho_data_container.py
+    Reason for modification: Refactor to handle multiple sets of probes for different samples.
+    Key changes needed:
+      - Integrate a list of probes in the data container, indexed by sample.
+      - Implement methods for manipulating and referencing these indexed probes during training and testing.
+    Dependencies affected: Model training and testing functions which rely on probe data supplied by this container.
+
+  - Location: data_preprocessing/data_merger.py
+    Reason for modification: Necessary for interleaving samples from multiple datasets during training.
+    Key changes needed:
+      - Develop functionality to interleave samples from different datasets, referencing new probe index attributes.
+      - Ensure shuffling logic accomodates the new structure without breaking batch consistency.
+    Dependencies affected: Direct dependency on how data is loaded and structured in new PtychoDataContainer-like classes.
+
+Architectural Impact Assessment:
+  - The introduction of per-sample probes necessitates a significant refactor in both data handling and model processing architecture.
+  - Changes will primarily affect how data is loaded, managed, and interfaced with the model; requiring extensive testing to ensure integrity of data throughout the model's execution path.
+  - There will likely be a substantial increase in the complexity of data preprocessing to manage multiple probes and their corresponding sample indices. 
+  - This feature addition could set precedent for further enhancements such as dynamically modifiable data attributes during runtime.
+
+Questions for Clarification:
+  - How should the model handle scenarios where probe data might be missing for certain samples during training or evaluation?
+  - Is there a preferred strategy or existing framework for interleaving dataset records, or should this be developed from scratch?
+  - How will the integrity of shuffled datasets be validated, especially concerning proper alignment of probe indices with sample data?
+``` 
+
+This YAML document outlines the necessary changes in the codebase to integrate per-sample probes into the model based on the provided high-level and mid-level objectives. It includes details on the files that need updates, descriptions of the required changes, and assessments of the architectural impacts. Additionally, several clarifying questions are presented to ensure a thorough understanding and smooth implementation of the changes.
