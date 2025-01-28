@@ -11,7 +11,7 @@ def run_taskspec(taskspec_path: str, summary_path: str, model_name: str = '4o-mi
 
     Args:
         taskspec_path (str): Path to task specification file (e.g. taskspec.md)
-        summary_path (str): Path to task summary file (tochange.yaml)
+        summary_path (str): Path to task summary file (tochange.yaml) # TODO deprecated
         model_name (str): Name of the model to use (default: '4o-mini')
     """
     # Read the task spec
@@ -45,6 +45,7 @@ def run_taskspec(taskspec_path: str, summary_path: str, model_name: str = '4o-mi
         line = line.strip().lstrip('- ').strip('`')
         if line:
             # Convert ./ptycho/ paths to ../ptycho/ since we're in specs directory
+            # TODO 1: parameterize this prefix 
             editable_files.append(line.replace("./", "../"))
 
     # Setup BIG THREE: context, prompt, and model
@@ -88,6 +89,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("taskspec", help="Path to task specification file (e.g. taskspec.md)")
     parser.add_argument("summary", help="Path to task summary file (tochange.yaml)")
+    # TODO 2: separate params for architect and editor
     parser.add_argument("--model", default="4o-mini", help="Model to use (default: 4o-mini)")
     args = parser.parse_args()
 
