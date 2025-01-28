@@ -12,6 +12,7 @@ Write a spec prompt according to the given description and Q&A clarifications.
 - Note dependencies and potential impacts
 - Evaluate whether the change, as described, is ambiguous. Review the q and a to see whether the ambiguity is addressed.
 - Draft the necessary structural changes and behavioral changes in the format of a spec prompt, as documented in the spec prompt guide
+- Include type hints, signatures in function declarations when possible
 
 ### Beginning Context
 
@@ -288,6 +289,7 @@ UPDATE src/process.py:
 </spec prompt guide>
 '
 </guide>
+
 
 
 <architectural_impact>
