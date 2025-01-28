@@ -110,6 +110,22 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     files_section = format_files_section(tochange_data["Files_Requiring_Updates"])
     arch_impact = tochange_data["Architectural_Impact_Assessment"]["description"]
 
+    def get_file_contents(file_paths):
+        """Read and format contents of the specified files."""
+        contents = []
+        for file_path in file_paths:
+            path = Path(file_path['path'])
+            # Remove leading ./ if present
+            if str(path).startswith('./'):
+                path = Path(str(path)[2:])
+            try:
+                with open(path, 'r') as f:
+                    content = f.read()
+                    contents.append(f"=== {path} ===\n{content}\n")
+            except FileNotFoundError:
+                print(f"Warning: File {path} not found")
+        return "\n".join(contents)
+
     # Construct the full prompt
     full_prompt = f"""
 {spec_prompt}
@@ -117,6 +133,10 @@ Dependencies: {', '.join(file['dependencies_affected'])}
 <architectural_impact>
 {arch_impact}
 </architectural_impact>
+
+<context_files>
+{get_file_contents(tochange_data["Files_Requiring_Updates"])}
+</context_files>
 
 <files_to_modify>
 {files_section}
