@@ -123,6 +123,8 @@ Dependencies: {', '.join(file['dependencies_affected'])}
 </files_to_modify>
 """
 
+    # TODO save the full_prompt to a file for debugging
+
     # Create temp file and run llm command
     with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
         tmp.write(full_prompt)
