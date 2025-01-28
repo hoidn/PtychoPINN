@@ -1,0 +1,342 @@
+
+<role>Software architect</role>
+## Context
+
+## High-Level Objective
+
+Write a spec prompt according to the given description and Q&A clarifications. 
+
+## Mid-Level Objective
+
+- Explain why each file needs modification
+- Note dependencies and potential impacts
+- Evaluate whether the change, as described, is ambiguous. Review the q and a to see whether the ambiguity is addressed.
+- Draft the necessary structural changes and behavioral changes in the format of a spec prompt, as documented in the spec prompt guide
+
+### Beginning Context
+
+- tochange.yaml, containing the files that need to be modified and other relevant information
+- Description of TODO / <high-level objective>: 'Changes: we want to adapt this codebase such that the probe tensor is a per-sample input
+to the model instead of a global variable. 
+Currently, the probe is stored in PtychoDataContainer. PtychoDataContainer contains
+a single probe tensor. The current assumption is that all samples share the same
+probe. I.e. one PtychoDataContainer instance corresponds to one dataset.
+We want to define a new data type that mirrors PtychoDataContainer, but
+contains multiple datasets and stores a list of probes. For each sample,
+it must contain an index into the list of probes specifying which probe
+to use for that sample.
+Merging multiple PtychoDataContainer instances for *training* (but not testing) 
+will require shuffling the samples so that the datasets are interleaved.
+---
+QA:
+For the probe indices:
+Should this be a new attribute like self.probe_indices matching batch size?
+A: It'll have the same size (first dimension) as self.X, self.Y_I, etc
+What dtype should probe indices be? (int32/int64?)
+A: int64
+For dataset merging:
+Should original dataset boundaries be preserved somehow?
+A: No
+Do we need a way to identify which original dataset a sample came from?
+A: Yes. The probe index keeps track of this
+For the probe list:
+Should it be a list of tf.Tensor or np.ndarray?
+A: tf.Tensor
+Do all probes need same shape/dtype?
+A: Yes
+For testing:
+Do we need a way to reconstruct original dataset groupings?
+A: No
+Should test set handling be completely separate?
+A: No. The only difference for test data is that the samples are not shuffled
+'
+- Questions and answers: ''
+- Spec prompt guide: '<spec prompt guide>
+<spec template>
+# Specification Template
+> Ingest the information from this file, implement the Low-Level Tasks, and generate the code that will satisfy the High and Mid-Level Objectives.
+
+## High-Level Objective
+
+- [High level goal goes here - what do you want to build?]
+
+## Mid-Level Objective
+
+- [List of mid-level objectives - what are the steps to achieve the high-level objective?]
+- [Each objective should be concrete and measurable]
+- [But not too detailed - save details for implementation notes]
+
+## Implementation Notes
+- [Important technical details - what are the important technical details?]
+- [Dependencies and requirements - what are the dependencies and requirements?]
+- [Coding standards to follow - what are the coding standards to follow?]
+- [Other technical guidance - what are other technical guidance?]
+
+## Context
+
+### Beginning context
+- [List of files that exist at start - what files exist at start?]
+
+### Ending context  
+- [List of files that will exist at end - what files will exist at end?]
+
+## Low-Level Tasks
+> Ordered from start to finish
+
+1. [First task - what is the first task?]
+```aider
+What prompt would you run to complete this task?
+What file do you want to CREATE or UPDATE?
+What function do you want to CREATE or UPDATE?
+What are details, including type hints / signatures, that you want to add to drive the code changes?
+```
+2. [Second task - what is the second task?]
+```aider
+What prompt would you run to complete this task?
+What file do you want to CREATE or UPDATE?
+What function do you want to CREATE or UPDATE?
+What are details you want to add to drive the code changes?
+```
+3. [Third task - what is the third task?]
+```aider
+What prompt would you run to complete this task?
+What file do you want to CREATE or UPDATE?
+What function do you want to CREATE or UPDATE?
+What are details you want to add to drive the code changes?
+```
+</spec template>
+
+<spec examples>
+<example 1>
+# Transcript Analytics - New Chart Type Specification
+> Ingest the information from this file, implement the Low-Level Tasks, and generate the code that will satisfy the High and Mid-Level Objectives.
+
+## High-Level Objective
+
+- Add a new chart type to the transcript analytics application.
+
+## Mid-Level Objective
+
+- Implement a new chart function in `chart.py` based on the provided description.
+- Update the CLI application to support generating the new chart type.
+- Ensure the new chart integrates smoothly with existing functionality.
+
+## Implementation Notes
+
+- Use only the dependencies listed in `pyproject.toml`.
+- Comment every function thoroughly.
+- Carefully review each low-level task for precise code changes.
+
+## Context
+
+### Beginning Context
+
+- `src/aider_has_a_secret/main.py`
+- `src/aider_has_a_secret/chart.py`
+- `pyproject.toml` (readonly)
+
+### Ending Context
+
+- `src/aider_has_a_secret/main.py` (updated)
+- `src/aider_has_a_secret/chart.py` (updated)
+- `pyproject.toml`
+
+## Low-Level Tasks
+> Ordered from start to finish
+
+1. Create a New Chart Function in `chart.py`
+
+```aider
+UPDATE src/aider_has_a_secret/chart.py:
+    ADD a new function `create_<chart_type>_chart(word_counts: WordCounts)` that implements the new chart type based on the following 
+    description: '<description>'
+```
+
+2. Update the CLI Application to Support the New Chart Type
+
+```aider
+UPDATE src/aider_has_a_secret/main.py:
+    UPDATE the analyze_transcript(...):
+        ADD new chart type in the `chart_type` parameter
+        Call the new chart function based on the new chart type
+```
+</example 1>
+
+<example 2>
+# GitHub Gist Creation Tool Specification
+> Ingest the information from this file, implement the Low-Level Tasks, and generate the code that will satisfy the High and Mid-Level Objectives.
+
+## High-Level Objective
+
+- Create a Python-based tool for programmatically creating GitHub Gists from local files
+
+## Mid-Level Objective
+
+- Implement secure GitHub API integration for Gist creation
+- Develop modular system for file handling and HTTP requests
+- Create type-safe data structures for Gist management
+- Support environment-based configuration for secure token handling
+
+## Implementation Notes
+- Use python-dotenv for environment variable management
+- Implement proper error handling for API and file operations
+- Use Pydantic (BaseModel) for type validation
+- Follow GitHub API v2022-11-28 specifications
+- Handle both single and multiple file Gist creation
+- Implement proper HTTP error handling and retries
+- Use type hints throughout the codebase
+
+## Context
+
+### Beginning context
+- No existing files (new project)
+- Required `.env` file with GITHUB_GIST_TOKEN
+
+### Ending context  
+- `/modules/http.py`
+- `/modules/data_types.py`
+- `/modules/files.py`
+- `/modules/gist.py`
+- `.env` (with GitHub token)
+
+## Low-Level Tasks
+> Ordered from start to finish
+
+1. Build module level support
+    ```aider
+    CREATE modules/http.py
+        CREATE def post(url, headers, body) -> dict or throw
+    
+    UPDATE modules/data_types.py
+        CREATE class GistFiles (BaseModel) to support the following structure:
+            {"files":
+                {"README.md": {"content": "Hello World"}}}
+        CREATE class Gist (BaseModel) to support the following structure:
+            {"description":"Example of a gist", "public": false, "files": Files}
+    
+    CREATE modules/files.py
+        CREATE def pull_files (directory_path) -> GistFiles [] or throw
+    ```
+
+2. Create gist support
+    ```aider
+    CREATE modules/gist.py
+        CREATE def create_gist(gist: Gist) -> dict or throw
+            call modules/http.post(url, headers, body) -> dict or throw
+            use env python-dotenv to get GITHUB_GIST_TOKEN
+            call dotenv load at top of file
+    
+    example code:
+        curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer <YOUR-TOKEN>" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/gists
+    ```
+</example 2>
+
+<example 3>
+Use type signatures when appropriate. For example:
+```python
+# Example Task with Type Hints
+
+1. Create Data Processing Function
+```aider
+UPDATE src/process.py:
+    CREATE process_batch(data: List[np.ndarray], config: Dict[str, Any]) -> Tuple[np.ndarray, float]:
+        Input types:
+        - data: List of numpy arrays containing raw sensor data
+        - config: Dictionary of processing parameters
+        
+        Return type:
+        - Tuple of processed array and quality metric
+        
+        Implementation:
+        ADD validation of input shapes and types
+        ADD processing pipeline
+        ADD quality calculation
+        RETURN (processed_data, quality_score)
+</example 3>
+
+</spec examples>
+</spec prompt guide>
+'
+
+### Ending Context
+
+- taskspec.yaml, containing a well-formed spec prompt documenting the changes necessary to implement <high-level objective>
+
+<output_format>
+1. First, summarize understanding:
+   - Key points from the Q&A discussion
+   - Implications for the implementation
+   - How this affects the requested changes
+
+2. Then draft a well-formed spec prompt instructing the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are, but it should not include implementation details. This spec prompt should be encloded in a ```md section.
+
+</output_format>
+
+
+
+<architectural_impact>
+Adapting the codebase to support per-sample probe tensors introduces increased flexibility and scalability, allowing the model to handle diverse probing conditions within a single dataset. The primary architectural change involves transitioning from a one-to-one relation between a PtychoDataContainer and a probe tensor to a one-to-many relationship where a single data container can reference multiple probes via probe indices. This necessitates modifications across data loading, preprocessing, and model architecture to ensure that each training sample is correctly associated with its corresponding probe tensor. The interleaving and shuffling of samples from multiple datasets during training introduce additional complexity in data handling pipelines, requiring robust indexing and mapping mechanisms. Overall, the changes enhance the system's capability to model varied probing scenarios but require careful coordination across multiple modules to maintain data integrity and model performance.
+
+</architectural_impact>
+
+<files_to_modify>
+
+File: ./ptycho/loader.py
+Reason: Manages the creation and handling of PtychoDataContainer instances, which currently store a single probe tensor. To support multiple probes, this file needs to be adapted to handle multiple probes and associate each sample with the correct probe index.
+Changes Needed:
+- Introduce a new data container class (e.g., MultiPtychoDataContainer) that includes a list of probe tensors.
+- Add a new attribute `probe_indices` to store the index of the probe associated with each sample, ensuring it matches the first dimension of `X`, `Y_I`, etc.
+- Modify data loading functions to assign appropriate probe indices to each sample based on the dataset.
+- Ensure that probe indices are of dtype `int64`.
+Dependencies: ./ptycho/raw_data.py, ./ptycho/workflows/components.py, ./ptycho/train_pinn.py
+
+
+File: ./ptycho/raw_data.py
+Reason: Generates PtychoDataContainer instances, currently assuming a single probe. Needs to support multiple probes by associating each sample with a probe index.
+Changes Needed:
+- Update data generation methods to accept and store multiple probe tensors.
+- Implement logic to assign probe indices to each sample during data creation.
+- Ensure compatibility with the new MultiPtychoDataContainer structure.
+Dependencies: ./ptycho/loader.py
+
+
+File: ./ptycho/workflows/components.py
+Reason: Creates PtychoDataContainer instances for training and testing, currently handling a single probe. Needs to handle multiple probes and associate each sample with the correct probe index.
+Changes Needed:
+- Modify the factory function to create instances of MultiPtychoDataContainer instead of PtychoDataContainer.
+- Implement logic to shuffle and interleave samples from multiple datasets during training.
+- Ensure that each sample includes a probe index referencing the correct probe in the probes list.
+Dependencies: ./ptycho/loader.py, ./ptycho/train_pinn.py
+
+
+File: ./ptycho/train_pinn.py
+Reason: Handles the training of the CDI model using data from PtychoDataContainer, which currently assumes a single probe. Needs to adapt to handle per-sample probes by utilizing probe indices.
+Changes Needed:
+- Modify training functions to accept probe indices as part of the input data.
+- Adjust the model input pipelines to fetch the correct probe tensor based on probe indices for each sample.
+- Ensure that the training process correctly associates each input sample with its corresponding probe.
+Dependencies: ./ptycho/workflows/components.py, ./ptycho/model.py
+
+
+File: ./ptycho/model.py
+Reason: Defines the model architecture which currently uses a global probe tensor. Needs to be adapted to handle per-sample probe tensors based on probe indices.
+Changes Needed:
+- Update the model inputs to include probe tensors for each sample.
+- Modify layers that apply the probe to utilize the per-sample probe tensors instead of a single global probe.
+- Ensure that the model architecture can dynamically handle varying probe tensors for each input sample.
+Dependencies: ./ptycho/tf_helper.py, ./ptycho/probe.py
+
+
+File: ./ptycho/tf_helper.py
+Reason: Contains helper functions related to probe operations within the model. Needs to support handling multiple probe tensors.
+Changes Needed:
+- Update probe-related helper functions to accept and process per-sample probe tensors.
+- Ensure compatibility with the updated model architecture supporting multiple probes.
+Dependencies: ./ptycho/model.py, ./ptycho/probe.py
+
+</files_to_modify>
