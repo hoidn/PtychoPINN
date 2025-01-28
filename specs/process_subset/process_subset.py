@@ -50,10 +50,15 @@ def process_subset(description: str, answers_file: str = None):
     # Load and format Q&A if provided
     questions_text = ""
     if answers_file:
-        # Load questions
-        # TODO get the questions from tochange.yaml instead 
-        with open("questions.json", "r") as qf:
-            questions = json.load(qf)["questions"]
+        # Load questions from tochange.yaml
+        yaml_path = Path.cwd() / "tochange.yaml"
+        if not yaml_path.exists():
+            raise FileNotFoundError(
+                "tochange.yaml not found in current directory - please make sure it exists"
+            )
+        with open(yaml_path, "r") as yaml_file:
+            tochange_data = yaml.safe_load(yaml_file)
+            questions = tochange_data["Questions_for_Clarification"]
         
         # Load answers
         with open(answers_file, "r") as af:
