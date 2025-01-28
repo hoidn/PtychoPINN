@@ -126,14 +126,11 @@ Dependencies: {', '.join(file['dependencies_affected'])}
         logging.debug(f"Processing files: {[f['path'] for f in file_paths]}")
         
         for file_path in file_paths:
-            path = Path(file_path['path'])
+            # Convert ./ptycho/ to ../ptycho/ since we're in specs directory
+            path = Path(file_path['path'].replace('./ptycho/', '../ptycho/'))
             print(f"Attempting to read: {path}")
             logging.debug(f"Attempting to read: {path}")
-            # Remove leading ./ if present
-            if str(path).startswith('./'):
-                path = Path(str(path)[2:])
-                print(f"Cleaned path: {path}")
-                logging.debug(f"Cleaned path: {path}")
+            
             try:
                 with open(path, 'r') as f:
                     content = f.read()
