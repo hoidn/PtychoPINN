@@ -2,7 +2,7 @@ Files_Requiring_Updates:
   - path: "./ptycho/loader.py"
     reason: "Manages the creation and handling of PtychoDataContainer instances, which currently store a single probe tensor. To support multiple probes, this file needs to be adapted to handle multiple probes and associate each sample with the correct probe index."
     spec_of_changes:
-      - "Introduce a new data container class (e.g., MultiPtychoDataContainer) that includes a list of probe tensors."
+      - "Introduce a new data container class `MultiPtychoDataContainer` that includes a list of probe tensors."
       - "Add a new attribute `probe_indices` to store the index of the probe associated with each sample, ensuring it matches the first dimension of `X`, `Y_I`, etc."
       - "Modify data loading functions to assign appropriate probe indices to each sample based on the dataset."
       - "Ensure that probe indices are of dtype `int64`."
@@ -10,20 +10,20 @@ Files_Requiring_Updates:
       - "./ptycho/raw_data.py"
       - "./ptycho/workflows/components.py"
       - "./ptycho/train_pinn.py"
-  
+
   - path: "./ptycho/raw_data.py"
     reason: "Generates PtychoDataContainer instances, currently assuming a single probe. Needs to support multiple probes by associating each sample with a probe index."
     spec_of_changes:
       - "Update data generation methods to accept and store multiple probe tensors."
       - "Implement logic to assign probe indices to each sample during data creation."
-      - "Ensure compatibility with the new MultiPtychoDataContainer structure."
+      - "Ensure compatibility with the new `MultiPtychoDataContainer` structure."
     dependencies_affected:
       - "./ptycho/loader.py"
 
   - path: "./ptycho/workflows/components.py"
     reason: "Creates PtychoDataContainer instances for training and testing, currently handling a single probe. Needs to handle multiple probes and associate each sample with the correct probe index."
     spec_of_changes:
-      - "Modify the factory function to create instances of MultiPtychoDataContainer instead of PtychoDataContainer."
+      - "Modify the factory function to create instances of `MultiPtychoDataContainer` instead of `PtychoDataContainer`."
       - "Implement logic to shuffle and interleave samples from multiple datasets during training."
       - "Ensure that each sample includes a probe index referencing the correct probe in the probes list."
     dependencies_affected:
@@ -54,16 +54,29 @@ Files_Requiring_Updates:
     reason: "Contains helper functions related to probe operations within the model. Needs to support handling multiple probe tensors."
     spec_of_changes:
       - "Update probe-related helper functions to accept and process per-sample probe tensors."
+      - "Modify translation and padding functions to accommodate per-sample probe handling."
       - "Ensure compatibility with the updated model architecture supporting multiple probes."
     dependencies_affected:
       - "./ptycho/model.py"
       - "./ptycho/probe.py"
 
+  - path: "./ptycho/probe.py"
+    reason: "Manages probe initialization and manipulation. Needs to support managing multiple probes and providing them to the model per sample."
+    spec_of_changes:
+      - "Adapt probe initialization functions to handle multiple probes."
+      - "Provide utilities for accessing probes based on probe indices."
+      - "Ensure that probe tensors are stored and accessed as per the new data structure."
+    dependencies_affected:
+      - "./ptycho/model.py"
+      - "./ptycho/loader.py"
+
 Architectural_Impact_Assessment:
   description: >
-    Adapting the codebase to support per-sample probe tensors introduces increased flexibility and scalability, allowing the model to handle diverse probing conditions within a single dataset. The primary architectural change involves transitioning from a one-to-one relation between a PtychoDataContainer and a probe tensor to a one-to-many relationship where a single data container can reference multiple probes via probe indices. This necessitates modifications across data loading, preprocessing, and model architecture to ensure that each training sample is correctly associated with its corresponding probe tensor. The interleaving and shuffling of samples from multiple datasets during training introduce additional complexity in data handling pipelines, requiring robust indexing and mapping mechanisms. Overall, the changes enhance the system's capability to model varied probing scenarios but require careful coordination across multiple modules to maintain data integrity and model performance.
+    Adapting the codebase to support per-sample probe tensors introduces increased flexibility and scalability, allowing the model to handle diverse probing conditions within a single dataset. The primary architectural change involves transitioning from a one-to-one relationship between a PtychoDataContainer and a probe tensor to a one-to-many relationship where a single data container can reference multiple probes via probe indices. This necessitates modifications across data loading, preprocessing, and model architecture to ensure that each training sample is correctly associated with its corresponding probe tensor. The interleaving and shuffling of samples from multiple datasets during training introduce additional complexity in data handling pipelines, requiring robust indexing and mapping mechanisms. The model must be adapted to dynamically select and apply the correct probe for each sample during training and inference. Overall, the changes enhance the system's capability to model varied probing scenarios but require careful coordination across multiple modules to maintain data integrity and model performance.
 
 Questions_for_Clarification:
   - "Are there any constraints on the maximum number of distinct probes the system should support?"
   - "Should probe tensors be mutable during training, or remain fixed once defined?"
   - "Is there a need for backward compatibility with existing single-probe datasets?"
+  - "How should the system handle cases where different probes have slightly different shapes or dimensions?"
+  - "Should the test data handling remain similar to training data, or are there specific differences in how probes are managed during testing?"
