@@ -16,7 +16,26 @@ Write a spec prompt according to the given description and Q&A clarifications.
 ### Beginning Context
 
 - tochange.yaml, containing the files that need to be modified and other relevant information
-- Description of TODO / <high-level objective>: 'Changes: we want to adapt this codebase such that the probe tensor is a per-sample input
+- Description of TODO / <high-level objective>: see <desc> 
+- Questions and answers: see <quest>
+- Spec prompt guide: see <guide>
+
+### Ending Context
+
+- taskspec.yaml, containing a well-formed spec prompt documenting the changes necessary to implement <high-level objective>
+
+<output_format>
+1. First, summarize understanding:
+   - Key points from the Q&A discussion
+   - Implications for the implementation
+   - How this affects the requested changes
+
+2. Then draft a well-formed spec prompt instructing the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are, but it should not include implementation details. This spec prompt should be encloded in a ```md section.
+
+</output_format>
+
+<desc>
+'Changes: we want to adapt this codebase such that the probe tensor is a per-sample input
 to the model instead of a global variable. 
 Currently, the probe is stored in PtychoDataContainer. PtychoDataContainer contains
 a single probe tensor. The current assumption is that all samples share the same
@@ -50,8 +69,14 @@ A: No
 Should test set handling be completely separate?
 A: No. The only difference for test data is that the samples are not shuffled
 '
-- Questions and answers: ''
-- Spec prompt guide: '<spec prompt guide>
+</desc>
+
+<quest>
+''
+</quest>
+
+<guide>
+'<spec prompt guide>
 <spec template>
 # Specification Template
 > Ingest the information from this file, implement the Low-Level Tasks, and generate the code that will satisfy the High and Mid-Level Objectives.
@@ -262,27 +287,34 @@ UPDATE src/process.py:
 </spec examples>
 </spec prompt guide>
 '
-
-### Ending Context
-
-- taskspec.yaml, containing a well-formed spec prompt documenting the changes necessary to implement <high-level objective>
-
-<output_format>
-1. First, summarize understanding:
-   - Key points from the Q&A discussion
-   - Implications for the implementation
-   - How this affects the requested changes
-
-2. Then draft a well-formed spec prompt instructing the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are, but it should not include implementation details. This spec prompt should be encloded in a ```md section.
-
-</output_format>
-
+</guide>
 
 
 <architectural_impact>
 Adapting the codebase to support per-sample probe tensors introduces increased flexibility and scalability, allowing the model to handle diverse probing conditions within a single dataset. The primary architectural change involves transitioning from a one-to-one relation between a PtychoDataContainer and a probe tensor to a one-to-many relationship where a single data container can reference multiple probes via probe indices. This necessitates modifications across data loading, preprocessing, and model architecture to ensure that each training sample is correctly associated with its corresponding probe tensor. The interleaving and shuffling of samples from multiple datasets during training introduce additional complexity in data handling pipelines, requiring robust indexing and mapping mechanisms. Overall, the changes enhance the system's capability to model varied probing scenarios but require careful coordination across multiple modules to maintain data integrity and model performance.
 
 </architectural_impact>
+
+<context_files>
+=== ptycho/loader.py ===
+
+
+=== ptycho/raw_data.py ===
+
+
+=== ptycho/workflows/components.py ===
+
+
+=== ptycho/train_pinn.py ===
+
+
+=== ptycho/model.py ===
+
+
+=== ptycho/tf_helper.py ===
+
+
+</context_files>
 
 <files_to_modify>
 

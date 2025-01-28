@@ -1,0 +1,71 @@
+# Specification for Adapting Probe Tensors to Per-Sample Inputs
+
+> Ingest the information from this file, implement the Low-Level Tasks, and generate the code that will satisfy the High and Mid-Level Objectives.
+
+## High-Level Objective
+
+- Modify the existing codebase to support per-sample probe tensors instead of a single global probe tensor. This includes updating data containers, data loading mechanisms, model architecture, and the training pipeline to handle multiple probes associated with individual samples.
+
+## Mid-Level Objectives
+
+- **Data Container Enhancement:**
+  - Introduce a new data container class that supports multiple probes.
+  - Add a `probe_indices` attribute to associate each sample with its corresponding probe.
+  
+- **Data Loading and Preprocessing:**
+  - Update data loading functions to handle multiple probes and assign appropriate probe indices to each sample.
+  - Ensure that `probe_indices` are of dtype `int64` and align with the batch size.
+
+- **Model Architecture Adjustments:**
+  - Modify the model to accept per-sample probe tensors based on `probe_indices`.
+  - Update relevant layers to utilize the correct probe for each input sample.
+
+- **Training Pipeline Modification:**
+  - Implement the interleaving and shuffling of samples from multiple datasets during training.
+  - Ensure that each training sample references the correct probe tensor via `probe_indices`.
+
+- **Testing Pipeline Consistency:**
+  - Maintain the current handling of test data without shuffling, while supporting per-sample probes.
+
+## Implementation Notes
+
+- **Technical Details:**
+  - All probes must be stored as `tf.Tensor` objects with consistent shape and data type.
+  - The `probe_indices` attribute should align with the first dimension of data tensors (`self.X`, `self.Y_I`, etc.) and use `int64` as its data type.
+  
+- **Dependencies and Requirements:**
+  - Ensure compatibility with existing modules: `ptycho/raw_data.py`, `ptycho/workflows/components.py`, `ptycho/train_pinn.py`, `ptycho/model.py`, and `ptycho/tf_helper.py`.
+  - Maintain data integrity during the interleaving and shuffling process in the training pipeline.
+
+- **Coding Standards:**
+  - Follow the project's existing coding conventions and style guides.
+  - Ensure thorough documentation and type annotations for all new and modified components.
+
+- **Other Technical Guidance:**
+  - Implement robust error handling to manage potential issues with probe indexing and data consistency.
+  - Ensure that the modifications do not adversely affect the performance and scalability of the existing system.
+
+## Context
+
+### Beginning Context
+
+- `./ptycho/loader.py`
+- `./ptycho/raw_data.py`
+- `./ptycho/workflows/components.py`
+- `./ptycho/train_pinn.py`
+- `./ptycho/model.py`
+- `./ptycho/tf_helper.py`
+
+### Ending Context
+
+- `./ptycho/loader.py` (updated)
+- `./ptycho/raw_data.py` (updated)
+- `./ptycho/workflows/components.py` (updated)
+- `./ptycho/train_pinn.py` (updated)
+- `./ptycho/model.py` (updated)
+- `./ptycho/tf_helper.py` (updated)
+
+## Low-Level Tasks
+> Ordered from start to finish
+
+1. **Create MultiPtychoDataContainer in `loader.py`**
