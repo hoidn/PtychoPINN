@@ -211,11 +211,12 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     
     # Extract content between ```md ``` markers
     import re
-    md_match = re.search(r'```md\s*(.*?)\s*```', response, re.DOTALL)
+    md_match = re.search(r'```md\s*([\s\S]*?)\s*```(?:\s*$|\n|$)', response, re.DOTALL)
     if md_match:
         md_content = md_match.group(1).strip()
     else:
         print("Error: Could not find ```md ``` section in LLM response")
+        print("Writing full response instead")
         md_content = response
 
     with open(output_file, "w") as f:
