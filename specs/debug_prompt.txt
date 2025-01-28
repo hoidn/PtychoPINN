@@ -6,13 +6,17 @@
 
 Write a spec prompt according to the given description and Q&A clarifications. 
 
-## Mid-Level Objective
+<instructions>
 
 - Explain why each file needs modification
 - Note dependencies and potential impacts
 - Evaluate whether the change, as described, is ambiguous. Review the q and a to see whether the ambiguity is addressed.
 - Draft the necessary structural changes and behavioral changes in the format of a spec prompt, as documented in the spec prompt guide
-- Include type hints, signatures when possible (type-driven development)
+- Include type hints when possible (type-driven development)
+  - BAD: 'CREATE a new function create_gist'
+  - GOOD: 'CREATE def create_gist(gist: Gist) -> dict or throw'
+
+</instructions>
 
 ### Beginning Context
 
