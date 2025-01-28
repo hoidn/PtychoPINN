@@ -1,12 +1,12 @@
 from pathlib import Path
-from aider.coders import Coder
-from aider.models import Model
-from aider.io import InputOutput
 import sys
 import json
 import yaml
 from typing import Dict, Any
-import yaml
+import subprocess
+import tempfile
+import os
+from datetime import datetime
 
 def load_config(config_path: str | Path) -> Dict[str, Any]:
     """
@@ -32,7 +32,7 @@ def load_config(config_path: str | Path) -> Dict[str, Any]:
 
 def process_subset(description: str, answers_file: str = None):
     """
-    Process files listed in edit_paths.json according to the description.
+    Process files according to the description using raw LLM access.
 
     Args:
         description (str): Description of the changes to make.
@@ -71,7 +71,7 @@ def process_subset(description: str, answers_file: str = None):
         questions_text = "\n".join(qa_pairs)
 
     # Read the spec prompt guide
-    guide_path = Path(__file__).parent.parent / "spec_prompt_guide.xml" 
+    guide_path = Path(__file__).parent.parent / "spec_prompt_guide.xml"
     if not guide_path.exists():
         raise FileNotFoundError(
             f"spec_prompt_guide.xml not found in {guide_path} - please make sure it exists"
@@ -84,7 +84,7 @@ def process_subset(description: str, answers_file: str = None):
     spec_prompt = spec_prompt.replace("<questions>", questions_text)
     spec_prompt = spec_prompt.replace("<spec_prompt_guide>", guide_content)
 
-    # Read the list of files to process from tochange.yaml
+    # Read tochange.yaml for files info
     yaml_path = Path.cwd() / "tochange.yaml"
     if not yaml_path.exists():
         raise FileNotFoundError(
@@ -92,7 +92,6 @@ def process_subset(description: str, answers_file: str = None):
         )
     with open(yaml_path, "r") as yaml_file:
         tochange_data = yaml.safe_load(yaml_file)
-        file_list = [item["path"] for item in tochange_data["Files_Requiring_Updates"]]
 
     def format_files_section(files_data):
         """Format the Files_Requiring_Updates section for the prompt."""
@@ -111,16 +110,8 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     files_section = format_files_section(tochange_data["Files_Requiring_Updates"])
     arch_impact = tochange_data["Architectural_Impact_Assessment"]["description"]
 
-    # Setup BIG THREE: context, prompt, and model
-
-    # Files to be edited - use the list from edit_paths.json
-    context_editable = file_list
-
-    # No read-only files needed
-    context_read_only = []
-
-    # Define the prompt for the AI model
-    prompt = f"""
+    # Construct the full prompt
+    full_prompt = f"""
 {spec_prompt}
 
 <architectural_impact>
@@ -132,30 +123,49 @@ Dependencies: {', '.join(file['dependencies_affected'])}
 </files_to_modify>
 """
 
-    # Initialize the AI model
-    model = Model(
-        "o1-preview",
-        editor_model="o1-preview",
-        editor_edit_format="diff",
-    )
+    # Create temp file and run llm command
+    with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
+        tmp.write(full_prompt)
+        tmp_path = tmp.name
 
-    # Initialize the AI Coding Assistant
-    coder = Coder.create(
-        main_model=model,
-        edit_format="architect",
-        io=InputOutput(yes=True),
-        fnames=context_editable,
-        read_only_fnames=context_read_only,
-        auto_commits=False,
-        suggest_shell_commands=False,
-    )
+    try:
+        with open(tmp_path, 'r') as input_file:
+            result = subprocess.run(
+                ["llm", "--model", "o1-mini"],
+                stdin=input_file,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        response = result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error running llm command: {e}")
+        return
+    finally:
+        os.unlink(tmp_path)
 
-    print("PROMPT:")
-    print(prompt)
-    print("END PROMPT")
+    # Write response to taskspec.yaml
+    output_file = "taskspec.yaml"
+    
+    # Extract content between ```md ``` markers
+    import re
+    md_match = re.search(r'```md\s*(.*?)\s*```', response, re.DOTALL)
+    if md_match:
+        md_content = md_match.group(1).strip()
+    else:
+        print("Error: Could not find ```md ``` section in LLM response")
+        md_content = response
 
-    # Run the code modification
-    coder.run(prompt)
+    with open(output_file, "w") as f:
+        f.write(md_content)
+
+    # Git commit the new file
+    try:
+        subprocess.run(["git", "add", output_file], check=True)
+        commit_msg = f"Add AI-generated task spec from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        subprocess.run(["git", "commit", "-m", commit_msg], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error during git operations: {e}")
 
 
 if __name__ == "__main__":
