@@ -1,40 +1,41 @@
-# Specification for Per-Sample Probe Adaptation
+# Specification to Adapt Codebase for Per-Sample Probe Tensors
 
 ## High-Level Objective
-
-- Adapt the codebase to support per-sample probe tensors within a new data structure while maintaining current functionality.
+- Adapt the codebase to support a per-sample input probe tensor structure, allowing the model to utilize different probes for each training instance.
 
 ## Mid-Level Objective
-
-- Implement a new data container class (`MultiPtychoDataContainer`) that manages lists of probe tensors.
-- Modify data loading mechanisms to support multiple probes and the association of probe indices with samples.
-- Update model and training workflows to dynamically utilize per-sample probe tensors.
+- Create a new data structure (`MultiPtychoDataContainer`) to hold multiple probe tensors and probe indices.
+- Modify data loading strategies to populate this new data structure while ensuring compatibility with existing datasets.
+- Adjust model architecture and training routines to process these new probes correctly during both training and inference.
+- Ensure that necessary metadata and attributes like `probe_indices` are maintained across the relevant components.
 
 ## Implementation Notes
-
-- Ensure the new `probe_indices` attribute is of dtype `int64` and aligned with other data attributes.
-- Solutions must maintain compatibility across multiple modules with robust testing procedures.
-- Adhere to consistent coding standards throughout all modifications.
+- Follow coding standards for Python, ensure type hints are used throughout the new and modified functions.
+- Maintain data integrity during training and evaluation, ensuring that all components correctly reference the new probe structure.
+- Dependencies on files: loader, raw_data, workflows/components, train_pinn, model, and tf_helper.
 
 ## Context
 
-### Beginning context
-- `./ptycho/loader.py`
-- `./ptycho/raw_data.py`
-- `./ptycho/workflows/components.py`
-- `./ptycho/train_pinn.py`
-- `./ptycho/model.py`
-- `./ptycho/tf_helper.py`
+### Beginning Context
+- Existing implementation relies on `PtychoDataContainer` with a single, shared probe tensor among samples.
+- Relevant existing files include:
+    - `./ptycho/loader.py`
+    - `./ptycho/raw_data.py`
+    - `./ptycho/workflows/components.py`
+    - `./ptycho/train_pinn.py`
+    - `./ptycho/model.py`
+    - `./ptycho/tf_helper.py`
 
-### Ending context  
-- `./ptycho/loader.py` (updated to use multi-probe containers)
-- `./ptycho/raw_data.py` (updated for multiple probes)
-- `./ptycho/workflows/components.py` (new logic for sample interleaving)
-- `./ptycho/train_pinn.py` (adapted for per-sample probes)
-- `./ptycho/model.py` (model architecture updated)
-- `./ptycho/tf_helper.py` (helper functions updated)
+### Ending Context  
+- New and/or updated files will be:
+    - `./ptycho/loader.py` (to create new data container structure)
+    - `./ptycho/raw_data.py` (to manage multiple probes)
+    - `./ptycho/workflows/components.py` (to create container instances)
+    - `./ptycho/train_pinn.py` (to handle training logic)
+    - `./ptycho/model.py` (to adapt model input layers)
+    - `./ptycho/tf_helper.py` (to revise probe-related helpers)
 
 ## Low-Level Tasks
 > Ordered from start to finish
 
-1. Create `MultiPtychoDataContainer` in `loader.py`
+1. **Create MultiPtychoDataContainer Class**
