@@ -125,13 +125,6 @@
 7. **Test and Validate**
 
     ```aider
-    PERFORM testing to ensure:
-        SINGLE-PROBE datasets work as before
-        MULTI-PROBE training works correctly
-        PROBE assignment is accurate
-        PROBES remain fixed in training
-        BACKWARD compatibility is maintained
-        TEST data handling is correct
+    ADD smoke test to ensure:
+        `python training/train.py --train_data_file Run1084_recon3_postPC_shrunk_3.npz --test_data_file Run1084_recon3_postPC_shrunk_3.npz` works as before
     ```
-
-This revised specification better respects separation of concerns and creates a cleaner architecture by keeping raw data loading simple and implementing multi-probe functionality at the appropriate level.

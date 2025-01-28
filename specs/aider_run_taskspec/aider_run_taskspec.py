@@ -90,9 +90,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("taskspec", help="Path to task specification file (e.g. taskspec.md)")
     parser.add_argument("summary", help="Path to task summary file (tochange.yaml)")
-    # TODO 2: separate params for architect and editor
-    parser.add_argument("--architect-model", default="4o-mini", help="Model to use for architecture decisions (default: 4o-mini)")
-    parser.add_argument("--editor-model", default="4o-mini", help="Model to use for code editing (default: 4o-mini)")
+    parser.add_argument("--architect-model", default="o1-mini", help="Model to use for architecture decisions (default: 4o-mini)")
+    parser.add_argument("--editor-model", default="claude-3-5-sonnet-20241022", help="Model to use for code editing (default: 4o-mini)")
     args = parser.parse_args()
 
     run_taskspec(args.taskspec, args.summary, args.architect_model, args.editor_model)
