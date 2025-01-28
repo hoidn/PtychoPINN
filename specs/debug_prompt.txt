@@ -12,7 +12,7 @@ Write a spec prompt according to the given description and Q&A clarifications.
 - Note dependencies and potential impacts
 - Evaluate whether the change, as described, is ambiguous. Review the q and a to see whether the ambiguity is addressed.
 - Draft the necessary structural changes and behavioral changes in the format of a spec prompt, as documented in the spec prompt guide
-- Include type hints, signatures in function declarations when possible
+- Include type hints, signatures when possible (type-driven development)
 
 ### Beginning Context
 
@@ -73,7 +73,12 @@ A: No. The only difference for test data is that the samples are not shuffled
 </desc>
 
 <quest>
-''
+'Q: Are there any constraints on the maximum number of distinct probes the system should support?
+A: 1. No, but you can assume it won't be a huge number (i.e. it'll  be < 10).
+Q: Should probe tensors be mutable during training, or remain fixed once defined?
+A: 2. Fixed once defined. The current single-probe setup allows the probe to be mutable, but for simplicity let's not support this in the multi probe setting.
+Q: Is there a need for backward compatibility with existing single-probe datasets?
+A: 3. Internally, no, but existing cli scripts (train.py, inference.py) should support existing run commands. This means that either they or the model api (components.py) need to be updated'
 </quest>
 
 <guide>
