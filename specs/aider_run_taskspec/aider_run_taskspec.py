@@ -5,14 +5,15 @@ from aider.io import InputOutput
 import yaml
 import sys
 
-def run_taskspec(taskspec_path: str, summary_path: str, model_name: str = '4o-mini'):
+def run_taskspec(taskspec_path: str, summary_path: str, architect_model: str = '4o-mini', editor_model: str = '4o-mini'):
     """
     Process files according to the task specification.
 
     Args:
         taskspec_path (str): Path to task specification file (e.g. taskspec.md)
         summary_path (str): Path to task summary file (tochange.yaml) # TODO deprecated
-        model_name (str): Name of the model to use (default: '4o-mini')
+        architect_model (str): Name of the model to use for architecture decisions (default: '4o-mini')
+        editor_model (str): Name of the model to use for code editing (default: '4o-mini')
     """
     # Read the task spec
     spec_path = Path(taskspec_path)
@@ -61,8 +62,8 @@ def run_taskspec(taskspec_path: str, summary_path: str, model_name: str = '4o-mi
 
     # Initialize the AI model
     model = Model(
-        model_name,
-        editor_model=model_name,
+        architect_model,
+        editor_model=editor_model,
         editor_edit_format="diff",
     )
 
@@ -90,7 +91,8 @@ if __name__ == "__main__":
     parser.add_argument("taskspec", help="Path to task specification file (e.g. taskspec.md)")
     parser.add_argument("summary", help="Path to task summary file (tochange.yaml)")
     # TODO 2: separate params for architect and editor
-    parser.add_argument("--model", default="4o-mini", help="Model to use (default: 4o-mini)")
+    parser.add_argument("--architect-model", default="4o-mini", help="Model to use for architecture decisions (default: 4o-mini)")
+    parser.add_argument("--editor-model", default="4o-mini", help="Model to use for code editing (default: 4o-mini)")
     args = parser.parse_args()
 
-    run_taskspec(args.taskspec, args.summary, args.model)
+    run_taskspec(args.taskspec, args.summary, args.architect_model, args.editor_model)
