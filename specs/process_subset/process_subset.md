@@ -16,12 +16,12 @@ Write a spec prompt according to the given description and Q&A clarifications.
 
 - tochange.yaml, containing the files that need to be modified and other relevant information
 - Description of TODO / <high-level objective>: see <desc> 
-- Questions and answers: see <questions>
-- Spec prompt guide: see <spec_prompt_guide>
+- Questions and answers: see <quest>
+- Spec prompt guide: see <guide>
 
 ### Ending Context
 
-- taskspec.yaml, containing a well-formed spec prompt documenting the changes necessary to implement <high-level objective>
+- taskspec.md, containing a well-formed spec prompt documenting the changes necessary to implement <high-level objective>
 
 <output_format>
 1. First, summarize understanding:
@@ -37,10 +37,10 @@ Write a spec prompt according to the given description and Q&A clarifications.
 '<description>'
 </desc>
 
-<questions>
+<quest>
 '<questions>'
-</questions>
+</quest>
 
-<spec_prompt_guide>
+<guide>
 '<spec_prompt_guide>'
-</spec_prompt_guide>
+</guide>
