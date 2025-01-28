@@ -124,6 +124,7 @@ Dependencies: {', '.join(file['dependencies_affected'])}
         contents = []
         logging.debug(f"Processing files: {[f['path'] for f in file_paths]}")
         
+        # TODO console print instead of logging
         for file_path in file_paths:
             path = Path(file_path['path'])
             logging.debug(f"Attempting to read: {path}")
@@ -188,7 +189,7 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "o1-mini"],
+                ["llm", "--model", "4o-mini"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,
