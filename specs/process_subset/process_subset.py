@@ -122,28 +122,34 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     def get_file_contents(file_paths):
         """Read and format contents of the specified files."""
         contents = []
+        print(f"\nProcessing files: {[f['path'] for f in file_paths]}")
         logging.debug(f"Processing files: {[f['path'] for f in file_paths]}")
         
-        # TODO console print instead of logging
         for file_path in file_paths:
             path = Path(file_path['path'])
+            print(f"Attempting to read: {path}")
             logging.debug(f"Attempting to read: {path}")
             # Remove leading ./ if present
             if str(path).startswith('./'):
                 path = Path(str(path)[2:])
+                print(f"Cleaned path: {path}")
                 logging.debug(f"Cleaned path: {path}")
             try:
                 with open(path, 'r') as f:
                     content = f.read()
                     formatted = f"=== {path} ===\n{content}\n"
                     contents.append(formatted)
+                    print(f"Successfully read {path} ({len(content)} bytes)")
                     logging.debug(f"Successfully read {path} ({len(content)} bytes)")
             except FileNotFoundError:
+                print(f"ERROR: File not found: {path}")
                 logging.error(f"File not found: {path}")
             except Exception as e:
+                print(f"ERROR: Error reading {path}: {str(e)}")
                 logging.error(f"Error reading {path}: {str(e)}")
         
         result = "\n".join(contents)
+        print(f"Total content length: {len(result)} bytes")
         logging.debug(f"Total content length: {len(result)} bytes")
         return result
 
