@@ -172,6 +172,8 @@ Dependencies: {', '.join(file['dependencies_affected'])}
 <files_to_modify>
 {files_section}
 </files_to_modify>
+
+Please provide your response with the task specification enclosed in <taskspec> tags instead of markdown code blocks.
 """
 
     # Save the full prompt to a debug file
@@ -209,18 +211,18 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     # Write response to taskspec.md
     output_file = "taskspec.md"
     
-    # Extract content between ```md ``` markers
+    # Extract content between <taskspec> </taskspec> markers
     import re
-    md_match = re.search(r'```md\s*([\s\S]*?)\s*```(?:\s*$|\n|$)', response, re.DOTALL)
-    if md_match:
-        md_content = md_match.group(1).strip()
+    spec_match = re.search(r'<taskspec>([\s\S]*?)</taskspec>', response, re.DOTALL)
+    if spec_match:
+        spec_content = spec_match.group(1).strip()
     else:
-        print("Error: Could not find ```md ``` section in LLM response")
+        print("Error: Could not find <taskspec> section in LLM response")
         print("Writing full response instead")
-        md_content = response
+        spec_content = response
 
     with open(output_file, "w") as f:
-        f.write(md_content)
+        f.write(spec_content)
 
     # Git commit the new file
     try:
