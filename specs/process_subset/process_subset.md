@@ -29,7 +29,7 @@ Write a spec prompt according to the given description and Q&A clarifications.
    - Implications for the implementation
    - How this affects the requested changes
 
-2. Then draft a well-formed spec prompt instructing the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are, but it should not include implementation details. This spec prompt should be encloded in a ```md section.
+2. Then draft a well-formed spec prompt instructing the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are, but it should not include implementation details. This spec prompt should be enclosed in <taskspec> tags.
 
 </output_format>
 
