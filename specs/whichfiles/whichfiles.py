@@ -154,7 +154,7 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "o1-mini"],
+                ["llm", "--model", "o1-preview"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,
