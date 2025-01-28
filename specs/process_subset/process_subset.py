@@ -7,6 +7,13 @@ import subprocess
 import tempfile
 import os
 from datetime import datetime
+import logging
+
+logging.basicConfig(
+    filename='process_subset.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 def load_config(config_path: str | Path) -> Dict[str, Any]:
     """
@@ -115,18 +122,35 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     def get_file_contents(file_paths):
         """Read and format contents of the specified files."""
         contents = []
+        logging.debug(f"Processing files: {[f['path'] for f in file_paths]}")
+        
         for file_path in file_paths:
             path = Path(file_path['path'])
+            logging.debug(f"Attempting to read: {path}")
             # Remove leading ./ if present
             if str(path).startswith('./'):
                 path = Path(str(path)[2:])
+                logging.debug(f"Cleaned path: {path}")
             try:
                 with open(path, 'r') as f:
                     content = f.read()
-                    contents.append(f"=== {path} ===\n{content}\n")
+                    formatted = f"=== {path} ===\n{content}\n"
+                    contents.append(formatted)
+                    logging.debug(f"Successfully read {path} ({len(content)} bytes)")
             except FileNotFoundError:
-                print(f"Warning: File {path} not found")
-        return "\n".join(contents)
+                logging.error(f"File not found: {path}")
+            except Exception as e:
+                logging.error(f"Error reading {path}: {str(e)}")
+        
+        result = "\n".join(contents)
+        logging.debug(f"Total content length: {len(result)} bytes")
+        return result
+
+    # Log section sizes before constructing prompt
+    logging.debug("Building full prompt with sections:")
+    logging.debug(f"Spec prompt length: {len(spec_prompt)}")
+    logging.debug(f"Arch impact length: {len(arch_impact)}")
+    logging.debug(f"Files section length: {len(files_section)}")
 
     # Construct the full prompt
     full_prompt = f"""
