@@ -127,6 +127,7 @@ Dependencies: {', '.join(file['dependencies_affected'])}
         
         for file_path in file_paths:
             # Convert ./ptycho/ to ../ptycho/ since we're in specs directory
+            # TODO: parameterize this prefix
             path = Path(file_path['path'].replace('./ptycho/', '../ptycho/'))
             print(f"Attempting to read: {path}")
             logging.debug(f"Attempting to read: {path}")
@@ -192,7 +193,7 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "4o-mini"],
+                ["llm", "--model", "o1-mini"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,
@@ -205,8 +206,8 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     finally:
         os.unlink(tmp_path)
 
-    # Write response to taskspec.yaml
-    output_file = "taskspec.yaml"
+    # Write response to taskspec.md
+    output_file = "taskspec.md"
     
     # Extract content between ```md ``` markers
     import re
