@@ -5,6 +5,30 @@ from aider.io import InputOutput
 import sys
 import json
 import yaml
+from typing import Dict, Any
+import yaml
+
+def load_config(config_path: str | Path) -> Dict[str, Any]:
+    """
+    Load and validate yaml configuration file.
+    
+    Args:
+        config_path: Path to YAML configuration file
+        
+    Returns:
+        Dict containing description and other config fields
+    """
+    path = Path(config_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Configuration file {config_path} not found")
+        
+    with open(path, "r") as f:
+        config = yaml.safe_load(f)
+        
+    if "description" not in config:
+        raise ValueError("Config file must contain a 'description' field")
+        
+    return config
 
 def process_subset(description: str, answers_file: str = None):
     """
@@ -122,8 +146,11 @@ Dependencies: {', '.join(file['dependencies_affected'])}
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("description", help="Description of the changes to make")
+    parser.add_argument("config_path", help="Path to YAML config file containing the description")
     parser.add_argument("--answers", help="Optional path to file containing answers to questions")
     args = parser.parse_args()
-
-    process_subset(args.description, args.answers)
+    
+    # Load config containing description
+    config = load_config(args.config_path)
+    
+    process_subset(config["description"], args.answers)
