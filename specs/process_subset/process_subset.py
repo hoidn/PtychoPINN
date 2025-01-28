@@ -198,7 +198,7 @@ Please provide your response with the task specification enclosed in <taskspec> 
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "o1-mini"],
+                ["llm", "--model", "o1-preview"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,
@@ -226,6 +226,7 @@ Please provide your response with the task specification enclosed in <taskspec> 
 
     with open(output_file, "w") as f:
         f.write(spec_content)
+    # TODO 3: also write the full response to a separate file
 
     # Git commit the new file
     try:
