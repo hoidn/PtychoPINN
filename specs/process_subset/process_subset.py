@@ -64,10 +64,19 @@ def process_subset(description: str, answers_file: str = None):
             qa_pairs.extend([f"Q: {q}", f"A: {a}"])
         questions_text = "\n".join(qa_pairs)
 
-    # TODO the prompt needs to also include the <spec_prompt_guide>
-    # Include both description and questions in the spec prompt
+    # Read the spec prompt guide
+    guide_path = Path(__file__).parent.parent / "spec_prompt_guide.xml" 
+    if not guide_path.exists():
+        raise FileNotFoundError(
+            f"spec_prompt_guide.xml not found in {guide_path} - please make sure it exists"
+        )
+    with open(guide_path, "r") as guide_file:
+        guide_content = guide_file.read()
+
+    # Include description, questions and spec prompt guide in the spec prompt
     spec_prompt = spec_content.replace("<description>", description)
     spec_prompt = spec_prompt.replace("<questions>", questions_text)
+    spec_prompt = spec_prompt.replace("<spec_prompt_guide>", guide_content)
 
     # Read the list of files to process from tochange.yaml
     yaml_path = Path.cwd() / "tochange.yaml"
