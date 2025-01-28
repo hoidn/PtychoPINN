@@ -15,8 +15,9 @@ Write a spec prompt according to the given description and Q&A clarifications.
 ### Beginning Context
 
 - tochange.yaml, containing the files that need to be modified and other relevant information
-- Description of TODO / <high-level objective>: '<description>'
+- Description of TODO / <high-level objective>: see <desc> 
 - Questions and answers: '<questions>'
+- Spec prompt guide: '<spec_prompt_guide>'
 
 ### Ending Context
 
@@ -32,3 +33,6 @@ Write a spec prompt according to the given description and Q&A clarifications.
 
 </output_format>
 
+<desc>
+'<description>'
+</desc>
