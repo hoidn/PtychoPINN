@@ -50,7 +50,7 @@ def process_subset(description: str, answers_file: str = None):
     # Load and format Q&A if provided
     questions_text = ""
     if answers_file:
-        # TODO get the changes from tochange.yaml instead 
+        # TODO get the questions from tochange.yaml instead 
         # Load questions
         with open("questions.json", "r") as qf:
             questions = json.load(qf)["questions"]
@@ -65,6 +65,7 @@ def process_subset(description: str, answers_file: str = None):
             qa_pairs.extend([f"Q: {q}", f"A: {a}"])
         questions_text = "\n".join(qa_pairs)
 
+    # TODO the prompt needs to also include the <spec_prompt_guide>
     # Include both description and questions in the spec prompt
     spec_prompt = spec_content.replace("<description>", description)
     spec_prompt = spec_prompt.replace("<questions>", questions_text)
