@@ -25,6 +25,7 @@ def process_subset(description: str, answers_file: str = None):
     # Load and format Q&A if provided
     questions_text = ""
     if answers_file:
+        # TODO get the changes from tochange.yaml instead 
         # Load questions
         with open("questions.json", "r") as qf:
             questions = json.load(qf)["questions"]
