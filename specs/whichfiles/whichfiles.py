@@ -143,6 +143,17 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
         spec_prompt
     )
 
+    # Save the full prompt to a debug file
+    debug_file = Path("whichfiles_prompt.txt")
+    with open(debug_file, "w") as f:
+        f.write(full_prompt)
+
+    # Optionally git add the debug file
+    try:
+        subprocess.run(["git", "add", debug_file], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Could not add debug file to git: {e}")
+
     # Create temp file and run llm command
     import tempfile
     import os
