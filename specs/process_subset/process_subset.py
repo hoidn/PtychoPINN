@@ -193,7 +193,7 @@ Dependencies: {', '.join(file['dependencies_affected'])}
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "o1-mini"],
+                ["llm", "--model", "4o-mini"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,
