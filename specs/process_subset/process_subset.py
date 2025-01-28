@@ -30,6 +30,8 @@ def load_config(config_path: str | Path) -> Dict[str, Any]:
         
     return config
 
+# TODO: this is either not returning the correct files or not getting incorporated
+# intot the full prompt. help me debug.
 def process_subset(description: str, answers_file: str = None):
     """
     Process files according to the description using raw LLM access.
