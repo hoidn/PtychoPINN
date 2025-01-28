@@ -51,6 +51,7 @@ def process_subset(description: str, answers_file: str = None):
     questions_text = ""
     if answers_file:
         # Load questions
+        # TODO get the questions from tochange.yaml instead 
         with open("questions.json", "r") as qf:
             questions = json.load(qf)["questions"]
         
