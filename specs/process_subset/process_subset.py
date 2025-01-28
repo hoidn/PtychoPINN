@@ -39,10 +39,10 @@ def process_subset(description: str, answers_file: str = None):
         answers_file (str, optional): Path to file containing answers to questions.
     """
     # Read the spec from process_subset.md
-    spec_path = Path.cwd() / "process_subset.md"
+    spec_path = Path(__file__).parent / "process_subset.md"
     if not spec_path.exists():
         raise FileNotFoundError(
-            "process_subset.md not found in current directory - please make sure it exists"
+            f"process_subset.md not found in {Path(__file__).parent} - please make sure it exists"
         )
     with open(spec_path, "r") as spec_file:
         spec_content = spec_file.read()
