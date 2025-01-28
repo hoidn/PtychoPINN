@@ -33,6 +33,7 @@ def run_taskspec(taskspec_path: str, summary_path: str, model_name: str = '4o-mi
         summary_data = yaml.safe_load(yaml_file)
 
     # Get list of files to edit from the summary
+    # TODO: parameterize this prefix
     editable_files = [file["path"].replace("./", "../") for file in summary_data["Files_Requiring_Updates"]]
 
     # Setup BIG THREE: context, prompt, and model
