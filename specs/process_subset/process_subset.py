@@ -4,6 +4,7 @@ from aider.models import Model
 from aider.io import InputOutput
 import sys
 import json
+import yaml
 
 def process_subset(description: str, answers_file: str = None):
     """
@@ -44,19 +45,32 @@ def process_subset(description: str, answers_file: str = None):
     spec_prompt = spec_content.replace("<description>", description)
     spec_prompt = spec_prompt.replace("<questions>", questions_text)
 
-    # Read the list of files to process from edit_paths.json
-    # TODO use tochange.yaml instead of edit_paths.json
-    json_path = Path.cwd() / "edit_paths.json"
-    if not json_path.exists():
+    # Read the list of files to process from tochange.yaml
+    yaml_path = Path.cwd() / "tochange.yaml"
+    if not yaml_path.exists():
         raise FileNotFoundError(
-            "edit_paths.json not found in current directory - please make sure it exists"
+            "tochange.yaml not found in current directory - please make sure it exists"
         )
-    with open(json_path, "r") as json_file:
-        file_list = json.load(json_file)["files"]
+    with open(yaml_path, "r") as yaml_file:
+        tochange_data = yaml.safe_load(yaml_file)
+        file_list = [item["path"] for item in tochange_data["Files_Requiring_Updates"]]
 
-    # TODO extract the Architectural_Impact_Assessment section from tochange.yaml
-    # also extrct the entire Files_Requiring_Updates section
-    # and include it in the prompt, surrounded by appropriate xml tags
+    def format_files_section(files_data):
+        """Format the Files_Requiring_Updates section for the prompt."""
+        sections = []
+        for file in files_data:
+            sections.append(f"""
+File: {file['path']}
+Reason: {file['reason']}
+Changes Needed:
+{chr(10).join('- ' + change for change in file['spec_of_changes'])}
+Dependencies: {', '.join(file['dependencies_affected'])}
+""")
+        return "\n".join(sections)
+
+    # Extract sections from tochange.yaml
+    files_section = format_files_section(tochange_data["Files_Requiring_Updates"])
+    arch_impact = tochange_data["Architectural_Impact_Assessment"]["description"]
 
     # Setup BIG THREE: context, prompt, and model
 
@@ -67,7 +81,17 @@ def process_subset(description: str, answers_file: str = None):
     context_read_only = []
 
     # Define the prompt for the AI model
-    prompt = spec_prompt
+    prompt = f"""
+{spec_prompt}
+
+<architectural_impact>
+{arch_impact}
+</architectural_impact>
+
+<files_to_modify>
+{files_section}
+</files_to_modify>
+"""
 
     # Initialize the AI model
     model = Model(
