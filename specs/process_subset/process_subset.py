@@ -226,9 +226,13 @@ Please provide your response with the task specification enclosed in <taskspec> 
 
     with open(output_file, "w") as f:
         f.write(spec_content)
-    # TODO 3: also write the full response to a separate file
 
-    # Git commit the new file
+    # Write full response to separate file
+    response_file = "llm_full_response.txt"
+    with open(response_file, "w") as f:
+        f.write(response)
+
+    # Git commit the new files
     try:
         subprocess.run(["git", "add", output_file], check=True)
         commit_msg = f"Add AI-generated task spec from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
