@@ -9,6 +9,9 @@ import os
 from datetime import datetime
 import logging
 
+
+# TODO in the .md file, add more instructions on the use of type hints / signatures in function declarations
+
 logging.basicConfig(
     filename='process_subset.log',
     level=logging.DEBUG,
@@ -195,7 +198,7 @@ Please provide your response with the task specification enclosed in <taskspec> 
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "4o-mini"],
+                ["llm", "--model", "o1-mini"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,

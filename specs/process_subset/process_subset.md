@@ -44,3 +44,4 @@ Write a spec prompt according to the given description and Q&A clarifications.
 <guide>
 '<spec_prompt_guide>'
 </guide>
+

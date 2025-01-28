@@ -154,7 +154,7 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "claude-3-5-sonnet-20241022"],
+                ["llm", "--model", "o1-mini"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,
