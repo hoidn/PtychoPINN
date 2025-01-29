@@ -114,7 +114,7 @@ class Director:
 
         return config
 
-    def _process_config_templates(self):
+    def _process_config_templates(self) -> None:
         """
         Process any templates in the config prompt.
         This runs after basic config validation but before the config is used.
@@ -126,23 +126,26 @@ class Director:
         if self.template_values:  # CLI values take precedence
             template_values.update(self.template_values)
 
-        # Always validate template syntax and attempt rendering,
-        # even if template_values is empty (StrictUndefined will raise for missing placeholders).
-        try:
-            self.validate_template(self.config.prompt)
-            rendered_prompt = self.process_template(self.config.prompt, template_values)
-            self.config.prompt = rendered_prompt
-        except TemplateError as e:
-            raise ValueError(f"Template processing failed: {str(e)}")
+        # Only process if we have template values
+        if template_values:
+            try:
+                # First validate template syntax
+                self._validate_template(self.config.prompt)
+                # Then render with values
+                rendered_prompt = self._render_template(self.config.prompt, template_values)
+                # Update config with rendered prompt
+                self.config.prompt = rendered_prompt
+            except TemplateError as e:
+                raise ValueError(f"Template processing failed: {str(e)}")
 
-    def validate_template(self, template_str: str) -> None:
+    def _validate_template(self, template_str: str) -> None:
         """Validate template syntax without rendering."""
         try:
             self._jinja_env.parse(template_str)
         except Exception as e:
             raise TemplateSyntaxError(f"Invalid template syntax: {str(e)}")
 
-    def process_template(self, template_str: str, values: Dict[str, Any]) -> str:
+    def _render_template(self, template_str: str, values: Dict[str, Any]) -> str:
         """Render a template with the given values."""
         try:
             template = self._jinja_env.from_string(template_str)
