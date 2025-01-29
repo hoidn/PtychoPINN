@@ -8971,7 +8971,7 @@ in a ```yaml section, CREATE tochange.yaml contents:
       - For each file:
         - path
         - Reason for modification
-        - Spec (not implementation details) of changes needed
+        - Spec (not implementation details) of changes needed (key spec_of_changes)
         - Dependencies affected
     - Architectural Impact Assessment
     - Questions for Clarification
