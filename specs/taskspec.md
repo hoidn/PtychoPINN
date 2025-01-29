@@ -1,109 +1,96 @@
-# Multi-Probe Support Implementation Specification
+# Multi-Probe Ptychography Support Specification
 
 ## High-Level Objective
-Adapt codebase to support per-sample probe tensors instead of a global probe variable
+- Adapt codebase to support per-sample probe tensors via probe list and index selection
 
-## Mid-Level Objective
-- Modify data containers to store multiple probes and probe indices
-- Update model to select appropriate probe per sample
-- Support merging datasets with probe handling
-- Maintain separate test data handling
+## Mid-Level Objectives
+- Convert PtychoDataContainer to support probe lists and indices
+- Update model to handle probe selection per sample
+- Modify data loading pipeline for probe index tracking
+- Add dataset merging with probe handling
 
 ## Implementation Notes
+- probe_list must be List[tf.Tensor]
+- probe_indices must be tf.Tensor(dtype=tf.int64)
+- All probes must have same shape/dtype
+- Training requires shuffling, testing preserves order
+- Dataset merging must track probe associations
 
-Dependencies:
-- tensorflow
-- numpy 
-- Existing ptycho modules
-
-Data Structure Changes:
-- probe_list: List[tf.Tensor] - Multiple probe tensors
-- probe_indices: tf.Tensor[int64] - Maps samples to probe indices
-
-Implementation Guidelines:
-- Maintain backward compatibility where possible
-- Preserve existing data normalization 
-- Follow existing type hints and docstring patterns
-
-## Context
-
-### Beginning context
+### Beginning Context
 - loader.py
-- model.py
-- components.py
+- model.py 
 - raw_data.py
 - train_pinn.py
+- workflows/components.py
 
-### Ending context
-Same files updated with multi-probe support
+### Ending Context
+Same files with probe list support added
 
 ## Low-Level Tasks
 
-1. Update RawData class in raw_data.py
-
-```aider
-UPDATE raw_data.py:
-    UPDATE class RawData:
-        ADD probe_index: int64 field to __init__ signature
-        UPDATE __init__ to store probe_index
-        UPDATE generate_grouped_data to preserve probe_index
-        UPDATE from_file and to_file to handle probe_index
-        UPDATE from_simulation to handle probe_index
-```
-
-2. Update PtychoDataContainer in loader.py
-
+1. Update PtychoDataContainer Constructor
 ```aider
 UPDATE loader.py:
     UPDATE class PtychoDataContainer:
-        MODIFY __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probe_list: List[tf.Tensor], probe_indices: tf.Tensor):
-            - Replace probe with probe_list and probe_indices parameters
-            - Add validation for probe shapes and dtypes
-            - Update repr to show probe list info
+        UPDATE __init__():
+            ADD probe_list: List[tf.Tensor] parameter
+            ADD probe_indices: tf.Tensor parameter
+            REPLACE self.probe with self.probe_list,self.probe_indices
+            ADD validation:
+                - All probes same shape/dtype
+                - probe_indices int64
+                - probe_indices matches batch size
+                - probe_indices in valid range
         
-        ADD merge_containers(containers: List[PtychoDataContainer], shuffle: bool = True) -> PtychoDataContainer:
-            Merge multiple containers preserving probe associations
-            For training data (shuffle=True): Interleave samples randomly
-            For test data (shuffle=False): Concatenate in order
-            Return new container with combined data and probes
+        ADD @property def probe():
+            Return probe_list[0] for backward compatibility
 ```
 
-3. Update model architecture in model.py
+2. Add Dataset Merging Support
+```aider
+UPDATE loader.py:
+    UPDATE class PtychoDataContainer:
+        CREATE @staticmethod merge_containers(containers: List[PtychoDataContainer], shuffle: bool = True) -> PtychoDataContainer:
+            - Concatenate X,Y_I etc
+            - Merge probe lists
+            - Update probe indices with offset
+            - Optional shuffling
+            - Return new container
+```
 
+3. Update Model Probe Handling
 ```aider
 UPDATE model.py:
     UPDATE class ProbeIllumination:
-        MODIFY call(self, inputs):
-            - Take probe_list and probe_indices as input
-            - Use tf.gather to select correct probe per sample
-            - Apply illumination using selected probes
-
-    UPDATE model input/output definitions:
-        ADD input_probe_list = Input(shape=(None, N, N, 1), dtype=tf.complex64)
-        ADD input_probe_indices = Input(shape=(), dtype=tf.int32) 
-        MODIFY model input list to include new probe inputs
+        ADD probe_indices input tensor to call()
+        MODIFY illumination logic to select probe by index
+        UPDATE output shape handling
 ```
 
-4. Update training workflow in train_pinn.py
+4. Update Data Loading Pipeline 
+```aider
+UPDATE raw_data.py:
+    UPDATE class RawData:
+        ADD probe_index field
+        UPDATE generate_grouped_data():
+            Preserve probe indices when grouping
+        UPDATE from_simulation():
+            Support probe_index parameter
 
+UPDATE workflows/components.py:
+    UPDATE create_ptycho_data_container():
+        Handle probe indices from RawData
+    UPDATE train_cdi_model():
+        Pass probe indices through training
+```
+
+5. Update Training Pipeline
 ```aider
 UPDATE train_pinn.py:
     UPDATE prepare_inputs():
-        MODIFY to include probe_list and probe_indices from container
-    
+        ADD probe_indices to model inputs
     UPDATE train():
-        MODIFY to handle datasets with multiple probes
-        Ensure probe indices are passed correctly to model
-```
-
-5. Update data preparation in components.py
-
-```aider
-UPDATE components.py:
-    UPDATE create_ptycho_data_container():
-        MODIFY to handle probe_list and probe_indices
-        Add validation for probe inputs
-    
-    UPDATE train_cdi_model():
-        MODIFY to pass probe information to training
+        Handle datasets with multiple probes
+    UPDATE eval():
+        Preserve probe associations
 ```
