@@ -260,7 +260,8 @@ class Director:
             Output from execution
         """
         result = subprocess.run(
-            self.config.execution_command.split(),
+            self.config.execution_command,
+            shell=True,
             capture_output=True,
             text=True,
         )
