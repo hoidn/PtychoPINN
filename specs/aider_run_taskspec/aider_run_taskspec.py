@@ -33,21 +33,12 @@ def run_taskspec(taskspec_path: str, summary_path: str, architect_model: str = '
     with open(yaml_path, "r") as yaml_file:
         summary_data = yaml.safe_load(yaml_file)
 
-    # Extract files from Beginning Context section in task spec
-    import re
-    context_match = re.search(r'### Beginning Context\n\n(.*?)\n\n', spec_content, re.DOTALL)
-    if not context_match:
-        raise ValueError("Could not find Beginning Context section in task spec")
-        
-    # Extract and clean up file paths
+    # Extract file paths from tochange.yaml
     editable_files = []
-    for line in context_match.group(1).split('\n'):
-        # Remove leading/trailing whitespace and bullet points if present
-        line = line.strip().lstrip('- ').strip('`')
-        if line:
-            # Convert ./ptycho/ paths to ../ptycho/ since we're in specs directory
-            # TODO 1: parameterize this prefix 
-            editable_files.append(line.replace("./", "../"))
+    for file_entry in summary_data['Files_Requiring_Updates']:
+        # Convert ./ptycho/ paths to ../ptycho/ since we're in specs directory
+        path = file_entry['path'].replace("./", "../")
+        editable_files.append(path)
 
     # Setup BIG THREE: context, prompt, and model
 
