@@ -2,9 +2,30 @@
 
 import numpy as np
 import tensorflow as tf
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Union
 
 from .params import params, get
+
+def validate_probe_tensors(probe_list: List[tf.Tensor]) -> None:
+    """Validate probe tensor compatibility.
+    
+    Args:
+        probe_list: List of probe tensors to validate
+        
+    Raises:
+        ValueError: If probes incompatible
+    """
+    if not probe_list:
+        raise ValueError("Empty probe list")
+        
+    shape = probe_list[0].shape
+    dtype = probe_list[0].dtype
+    
+    for i, probe in enumerate(probe_list[1:], 1):
+        if probe.shape != shape:
+            raise ValueError(f"Probe {i} shape {probe.shape} != {shape}")
+        if probe.dtype != dtype:
+            raise ValueError(f"Probe {i} dtype {probe.dtype} != {dtype}")
 from .autotest.debug import debug
 from . import diffsim as datasets
 from . import tf_helper as hh

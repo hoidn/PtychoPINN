@@ -373,8 +373,8 @@ def create_decoder_amp(input_tensor, n_filters_scale):
 
 normed_input = scale([input_img])
 
-# Ensure 'probe_list' is defined
-probe_illumination = ProbeIllumination(probe_list)
+# Create probe illumination layer with initial probe list
+probe_illumination = ProbeIllumination([initial_probe_guess])
 decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
     cfg.get('object.big'))
 
