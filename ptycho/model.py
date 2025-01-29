@@ -457,25 +457,20 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  histogram_freq=1,
                                                  profile_batch='500,520')
 
-def prepare_inputs(data: Union[PtychoDataContainer, MultiPtychoDataContainer]) -> List[tf.Tensor]:
-    """Prepare model inputs including probe indices.
+def prepare_outputs(data: Union[PtychoDataContainer, MultiPtychoDataContainer]) -> List[tf.Tensor]:
+    """Prepare model outputs for training.
     
     Args:
         data: Training data container
         
     Returns:
-        Model input tensors
+        List of output tensors for training
     """
-    inputs = [data.X * params.cfg.get('intensity_scale'), data.coords]
-    
-    # Add probe indices for multi-probe data
-    if isinstance(data, MultiPtychoDataContainer):
-        inputs.append(data.probe_indices)
-    else:
-        # For single probe, use zeros as probe indices
-        inputs.append(tf.zeros([tf.shape(data.X)[0]], dtype=tf.int64))
-        
-    return inputs
+    return [
+        data.Y,  # Ground truth object
+        data.X * params.cfg.get('intensity_scale'),  # Scaled diffraction
+        (data.X * params.cfg.get('intensity_scale'))**2  # Squared scaled diffraction
+    ]
 
 def prepare_inputs(data: Union[PtychoDataContainer, MultiPtychoDataContainer]) -> List[tf.Tensor]:
     """Prepare model inputs including probe indices.
