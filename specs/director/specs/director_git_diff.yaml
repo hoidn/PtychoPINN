@@ -4,66 +4,66 @@ prompt: |
   Note that <goal> describes the intended goal of the changes, and <diff> is the actual diff.
 
   <goal>
-# Summary of Changes: Adding Multi-Probe Support
-## High-Level Changes
-The changes primarily focus on adding support for multiple probes in the ptychographic reconstruction pipeline. This involves significant modifications to handle probe indexing, selection, and management across multiple data containers.
-
-## Key Components Modified
-
-### MultiPtychoDataContainer
-- Added new container class for handling multiple probes
-- Supports probe indices and multiple probe management
-- Includes methods for merging multiple single-probe containers
-- Provides validation for probe indices and shapes
-- Adds handling for YY_full data availability
-
-### ProbeIllumination Layer
-- Modified to support multiple probes
-- Added probe index input handling
-- Implements probe selection based on indices
-- Includes shape validation and error checking
-- Maintains support for Gaussian smoothing
-- Preserves probe masking functionality
-
-### Model Architecture
-- Added input_probe_indices to model inputs
-- Updated model compilation to handle probe indices
-- Modified prepare_model_inputs to handle probe selection
-- Enhanced data preparation pipeline for multi-probe support
-
-### Utility Functions
-- Added get_default_probe_indices for fallback behavior
-- Implemented probe validation functions
-- Added create_single_probe_fallback for compatibility
-- Enhanced probe shape handling
-
-### Data Loading and Processing
-- Updated data container creation
-- Enhanced probe initialization
-- Modified training data preparation
-- Added support for probe indices in data generation
-
-## Impact Areas
-1. Data Management:
-   - Enhanced data containers to support multiple probes
-   - Added probe indexing and validation
-   - Modified data preparation pipeline
-
-2. Model Architecture:
-   - Added probe index inputs
-   - Updated model layers for probe selection
-   - Enhanced probe illumination handling
-
-3. Training Pipeline:
-   - Modified data preparation
-   - Updated training procedures
-   - Enhanced probe management during training
-
-4. Utilities and Support:
-   - Added probe validation
-   - Enhanced shape checking
-   - Improved error handling
-
+  # Summary of Changes: Adding Multi-Probe Support
+  ## High-Level Changes
+  The changes primarily focus on adding support for multiple probes in the../../ptychographic reconstruction pipeline. This involves significant modifications to handle probe indexing, selection, and management across multiple data containers.
+  
+  ## Key Components Modified
+  
+  ### MultiPtychoDataContainer
+  - Added new container class for handling multiple probes
+  - Supports probe indices and multiple probe management
+  - Includes methods for merging multiple single-probe containers
+  - Provides validation for probe indices and shapes
+  - Adds handling for YY_full data availability
+  
+  ### ProbeIllumination Layer
+  - Modified to support multiple probes
+  - Added probe index input handling
+  - Implements probe selection based on indices
+  - Includes shape validation and error checking
+  - Maintains support for Gaussian smoothing
+  - Preserves probe masking functionality
+  
+  ### Model Architecture
+  - Added input_probe_indices to model inputs
+  - Updated model compilation to handle probe indices
+  - Modified prepare_model_inputs to handle probe selection
+  - Enhanced data preparation pipeline for multi-probe support
+  
+  ### Utility Functions
+  - Added get_default_probe_indices for fallback behavior
+  - Implemented probe validation functions
+  - Added create_single_probe_fallback for compatibility
+  - Enhanced probe shape handling
+  
+  ### Data Loading and Processing
+  - Updated data container creation
+  - Enhanced probe initialization
+  - Modified training data preparation
+  - Added support for probe indices in data generation
+  
+  ## Impact Areas
+  1. Data Management:
+     - Enhanced data containers to support multiple probes
+     - Added probe indexing and validation
+     - Modified data preparation pipeline
+  
+  2. Model Architecture:
+     - Added probe index inputs
+     - Updated model layers for probe selection
+     - Enhanced probe illumination handling
+  
+  3. Training Pipeline:
+     - Modified data preparation
+     - Updated training procedures
+     - Enhanced probe management during training
+  
+  4. Utilities and Support:
+     - Added probe validation
+     - Enhanced shape checking
+     - Improved error handling
+  
   </goal>
 
   <diff>
@@ -74,14 +74,15 @@ coder_model: claude-3-5-sonnet-20241022
 
 # List of files that can be modified by the AI
 context_editable:
-  - ptycho/loader.py
-  - ptycho/model.py
-  - ptycho/probe.py
-  - ptycho/tf_helper.py
-  - ptycho/workflows/components.py
+  - ../../ptycho/loader.py
+  - ../../ptycho/model.py
+  - ../../ptycho/probe.py
+  - ../../ptycho/tf_helper.py
+  - ../../ptycho/workflows/components.py
 
 # List of files that provide context but cannot be modified
 context_read_only:
+  - ../../ptycho/probe.py
 
 # Command to run tests/validation
 # Example: "pytest tests/" or "python -m unittest"
