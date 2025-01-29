@@ -190,8 +190,9 @@ class Director:
             message: Message to log
             print_message: Whether to also print to console
         """
-        print(f"Logging message to file: {message}")
+        if print_message:
             print(message)
+        print(f"Logging message to file: {message}")
         with open("director_log.txt", "a+") as f:
             f.write(message + "\n")
 
@@ -264,11 +265,12 @@ class Director:
 
         try:
             # Run the subprocess with logging
-            self.config.execution_command,
-            capture_output=True,
-            text=True,
-            shell=True,  # Add this line to execute the command in a shell
-        )
+            result = subprocess.run(
+                self.config.execution_command,
+                capture_output=True,
+                text=True,
+                shell=True,  # Ensure shell is True if using shell commands
+            )
             result = subprocess.run(
                 self.config.execution_command,
                 capture_output=True,
