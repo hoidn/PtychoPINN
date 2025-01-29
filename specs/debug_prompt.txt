@@ -351,17 +351,11 @@ class PtychoDataContainer:
 
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)
-        assert isinstance(self.probe_list, list) and all(isinstance(p, tf.Tensor) for p in self.probe_list), \
-            "probe_list must be a list of tf.Tensor"
-        assert isinstance(self.probe_indices, tf.Tensor) and self.probe_indices.dtype.is_integer, \
-            "probe_indices must be a tf.Tensor of integers"
-        assert self.probe_indices.shape[0] == self.X.shape[0], \
-            "probe_indices length must match number of samples"
 
     @debug
     def __repr__(self):
         repr_str = '<PtychoDataContainer'
-        for attr_name in ['X', 'Y_I', 'Y_phi', 'norm_Y_I', 'YY_full', 'coords_nominal', 'coords_true', 'nn_indices', 'global_offsets', 'local_offsets']:
+        for attr_name in ['X', 'Y_I', 'Y_phi', 'norm_Y_I', 'YY_full', 'coords_nominal', 'coords_true', 'nn_indices', 'global_offsets', 'local_offsets', 'probe']:
             attr = getattr(self, attr_name)
             if attr is not None:
                 if isinstance(attr, np.ndarray):
@@ -371,7 +365,6 @@ class PtychoDataContainer:
                         repr_str += f' {attr_name}={attr.shape} mean={attr.mean():.3f}'
                 else:
                     repr_str += f' {attr_name}={attr.shape}'
-        repr_str += f' probe_list_length={len(self.probe_list)}'
         repr_str += '>'
         return repr_str
 
@@ -637,50 +630,6 @@ def load_xpp_npz(file_path, train_size=512):
                                        scan_index[:train_size], objectGuess=objectGuess)
 
     return ptycho_data, ptycho_data_train, data
-    @staticmethod
-    def merge_containers(containers: List['PtychoDataContainer'], shuffle: bool = True) -> 'PtychoDataContainer':
-        # Merge data from containers
-        X = tf.concat([c.X for c in containers], axis=0)
-        Y_I = tf.concat([c.Y_I for c in containers], axis=0)
-        Y_phi = tf.concat([c.Y_phi for c in containers], axis=0)
-        norm_Y_I = tf.concat([c.norm_Y_I for c in containers], axis=0)
-        YY_full = None
-        coords_nominal = tf.concat([c.coords_nominal for c in containers], axis=0)
-        coords_true = tf.concat([c.coords_true for c in containers], axis=0)
-        nn_indices = tf.concat([c.nn_indices for c in containers], axis=0)
-        global_offsets = tf.concat([c.global_offsets for c in containers], axis=0)
-        local_offsets = tf.concat([c.local_offsets for c in containers], axis=0)
-
-        # Merge probe lists and update probe_indices
-        all_probes = []
-        probe_offset = 0
-        probe_indices_list = []
-        for c in containers:
-            all_probes.extend(c.probe_list)
-            probe_indices_list.append(c.probe_indices + probe_offset)
-            probe_offset += len(c.probe_list)
-        probe_indices = tf.concat(probe_indices_list, axis=0)
-        probe_list = all_probes
-
-        # Shuffle if required
-        if shuffle:
-            indices = tf.random.shuffle(tf.range(X.shape[0]))
-            X = tf.gather(X, indices)
-            Y_I = tf.gather(Y_I, indices)
-            Y_phi = tf.gather(Y_phi, indices)
-            norm_Y_I = tf.gather(norm_Y_I, indices)
-            coords_nominal = tf.gather(coords_nominal, indices)
-            coords_true = tf.gather(coords_true, indices)
-            nn_indices = tf.gather(nn_indices, indices)
-            global_offsets = tf.gather(global_offsets, indices)
-            local_offsets = tf.gather(local_offsets, indices)
-            probe_indices = tf.gather(probe_indices, indices)
-
-        # Create and return new PtychoDataContainer
-        return PtychoDataContainer(
-            X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices,
-            global_offsets, local_offsets, probe_list, probe_indices
-        )
 
 
 === ../ptycho/model.py ===
@@ -1621,11 +1570,10 @@ key_coords_relative = 'coords_start_relative'
 class RawData:
     #@debug
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-                 scan_index, objectGuess = None, Y = None, norm_Y_I = None, probe_index=None):
+             scan_index, objectGuess = None, Y = None, norm_Y_I = None):
         # Sanity checks
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
-                                  probeGuess, scan_index)
-        self.probe_index = probe_index
+                    probeGuess, scan_index)
 
         # TODO these should go in the data validation method
         assert len(xcoords.shape) == 1, f"Expected xcoords to be 1D, got shape {xcoords.shape}"
@@ -1687,7 +1635,7 @@ class RawData:
 
     @staticmethod
     def from_simulation(xcoords, ycoords, probeGuess,
-                 objectGuess, scan_index = None, probe_index=None):
+                 objectGuess, scan_index = None):
         """
         Create a RawData instance from simulation data.
 
@@ -1697,7 +1645,6 @@ class RawData:
             probeGuess (np.ndarray): initial guess of the probe function.
             objectGuess (np.ndarray): initial guess of the object.
             scan_index (np.ndarray, optional): array indicating the scan index for each diffraction pattern.
-            probe_index (np.ndarray, optional): array indicating the probe index for each diffraction pattern.
 
         Returns:
             RawData: An instance of the RawData class with simulated data.
@@ -1718,8 +1665,7 @@ class RawData:
         return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
                        probeGuess, scan_index, objectGuess,
                        Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
-                       norm_Y_I = norm_Y_I,
-                       probe_index=probe_index)
+                       norm_Y_I = norm_Y_I)
 
     #@debug
     def __str__(self):
@@ -1752,8 +1698,7 @@ class RawData:
                  diff3d=self.diff3d,
                  probeGuess=self.probeGuess,
                  objectGuess=self.objectGuess,
-                 scan_index=self.scan_index,
-                 probe_index=self.probe_index)
+                 scan_index=self.scan_index)
 
     @staticmethod
     #@debug
@@ -1777,8 +1722,7 @@ class RawData:
             diff3d=train_data['diff3d'],
             probeGuess=train_data['probeGuess'],
             objectGuess=train_data['objectGuess'],
-            scan_index=train_data['scan_index'],
-            probe_index=train_data['probe_index'] if 'probe_index' in train_data.files else None
+            scan_index=train_data['scan_index']
         )
         return train_raw_data
 
@@ -2059,8 +2003,6 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
         'nn_indices': nn_indices,
         'objectGuess': ptycho_data.objectGuess
     }
-    if ptycho_data.probe_index is not None:
-        dset['probe_index'] = ptycho_data.probe_index[ptycho_data.nn_indices]
     X_full = normalize_data(dset, N)
     dset['X_full'] = X_full
     print('neighbor-sampled diffraction shape', X_full.shape)
