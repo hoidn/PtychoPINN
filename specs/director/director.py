@@ -262,6 +262,7 @@ class Director:
             text=True,
             shell=True,  # Add this line to execute the command in a shell
         )
+        print(f"Execution output:\n{result.stdout + result.stderr}")  # Add this line for debugging
         self.file_log(
             f"Execution output: \n{result.stdout + result.stderr}",
             print_message=False,

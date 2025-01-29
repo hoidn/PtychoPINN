@@ -87,7 +87,7 @@ context_read_only:
 # Command to run tests/validation
 # Example: "pytest tests/" or "python -m unittest"
 #execution_command: uv run pytest src/let_the_code_write_itself/tests
-execution_command: bash -c "cd /home/ollie/Documents/scratch/ptycho/ && [ -d build/ ] && rm -r build/ && python -m pip install . && cd - && python ../../scripts/training/train.py --train_data_file ../../scripts/Run1084_recon3_postPC_shrunk_3.npz"
+execution_command: cd /home/ollie/Documents/scratch/ptycho/ && [ -d build/ ] && rm -r build/ && python -m pip install . && cd - && python ../../scripts/training/train.py --train_data_file ../../scripts/Run1084_recon3_postPC_shrunk_3.npz
 
 # Maximum number of attempts to generate correct code
 # Recommended range: 3-10
