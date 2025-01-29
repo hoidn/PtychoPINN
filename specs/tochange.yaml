@@ -21,7 +21,7 @@ Files_Requiring_Updates:
       - "train_pinn.py"
       - "evaluation.py"
 
-  - path: "./ptycho/components.py"
+  - path: "./ptycho/workflows/components.py"
     reason: "Data loading and preparation needs probe index support"
     spec_of_changes:
       - "Update create_ptycho_data_container() to handle probe indices"

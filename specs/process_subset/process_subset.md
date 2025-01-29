@@ -7,13 +7,15 @@ Write a spec prompt according to the given description and Q&A clarifications.
 
 <instructions>
 
-- Explain why each file needs modification
-- Note dependencies and potential impacts
-- Evaluate whether the change, as described, is ambiguous. Review the q and a to see whether the ambiguity is addressed.
-- Draft the necessary structural changes and behavioral changes in the format of a spec prompt, as documented in the spec prompt guide
-- Include type hints when possible (type-driven development)
-  - BAD: 'CREATE a new function create_gist'
-  - GOOD: 'CREATE def create_gist(gist: Gist) -> dict or throw'
+- in <thinking> tags, analyze the following:
+   - Review any open questions in the <high-level objective>. If there are any, address them 
+   - How this affects the requested changes
+   - Key points from the Q&A discussion
+   - approach for the <high-level objective>
+   - Which data types and structures need to be added, removed, modified
+   - Use <scratchpad> tags to quote relevant code sections and <brainstorm> tags to consider alternative approaches before commiting to a design choice
+- For each file we will modify, note dependencies and potential impacts
+- Then draft the necessary structural changes and behavioral changes in the format of a spec prompt, as documented in the <spec prompt guide>
 
 </instructions>
 
@@ -29,13 +31,11 @@ Write a spec prompt according to the given description and Q&A clarifications.
 - taskspec.md, containing a well-formed spec prompt documenting the changes necessary to implement <high-level objective>
 
 <output_format>
-1. First, summarize understanding:
-   - approach for the <high-level objective>
-   - Key points from the Q&A discussion
-   - Implications for the implementation
-   - How this affects the requested changes
-
-2. Then draft a well-formed spec prompt instructing the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are, but it should not include implementation details. This spec prompt should be enclosed in <taskspec> tags.
+- Include type hints when possible (type-driven development)
+  - BAD: 'CREATE a new function create_gist'
+  - GOOD: 'CREATE def create_gist(gist: Gist) -> dict or throw'
+  - the spec prompt should instruct the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are. 
+  - The spec prompt should be enclosed in <taskspec> tags.
 
 </output_format>
 

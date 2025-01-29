@@ -33,3 +33,5 @@ description: |
   A: No
   Should test set handling be completely separate?
   A: No. The only difference for test data is that the samples are not shuffled
+  Open questions:
+  Is it better to create a new MultiPtychoDataContainer class or to modify PtychoDataContainer, or to compose it?
