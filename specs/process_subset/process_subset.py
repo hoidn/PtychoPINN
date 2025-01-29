@@ -196,7 +196,7 @@ Please provide your response with the task specification enclosed in <taskspec> 
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "o1-preview"],
+                ["llm", "--model", "claude-3-5-sonnet-20241022"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,
