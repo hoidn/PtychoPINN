@@ -5,6 +5,8 @@ from aider.coders import Coder
 from aider.models import Model
 from aider.io import InputOutput
 import sys
+import os
+import pprint
 import yaml
 import argparse
 from openai import OpenAI
@@ -188,7 +190,7 @@ class Director:
             message: Message to log
             print_message: Whether to also print to console
         """
-        if print_message:
+        print(f"Logging message to file: {message}")
             print(message)
         with open("director_log.txt", "a+") as f:
             f.write(message + "\n")
@@ -256,13 +258,49 @@ class Director:
         Returns:
             Output from execution
         """
-        result = subprocess.run(
+        # Print the execution command and working directory
+        print(f"Executing command: {self.config.execution_command}")
+        print(f"Working directory: {os.getcwd()}")
+
+        try:
+            # Run the subprocess with logging
             self.config.execution_command,
             capture_output=True,
             text=True,
             shell=True,  # Add this line to execute the command in a shell
         )
-        print(f"Execution output:\n{result.stdout + result.stderr}")  # Add this line for debugging
+            result = subprocess.run(
+                self.config.execution_command,
+                capture_output=True,
+                text=True,
+                shell=True,  # Ensure shell is True if using shell commands
+            )
+
+            # Print the return code and outputs
+            print(f"Return code: {result.returncode}")
+            print(f"Standard Output:\n{result.stdout}")
+            print(f"Standard Error:\n{result.stderr}")
+
+            # Combine stdout and stderr
+            execution_output = result.stdout + result.stderr
+
+            # Log the execution output
+            self.file_log(
+                f"Execution output: \n{execution_output}",
+                print_message=False,
+            )
+
+            return execution_output
+
+        except Exception as e:
+            # Print and log any exceptions that occur during execution
+            print(f"An error occurred during execution: {e}")
+            execution_output = f"Execution failed with exception: {str(e)}"
+            self.file_log(
+                execution_output,
+                print_message=False,
+            )
+            return execution_output
         self.file_log(
             f"Execution output: \n{result.stdout + result.stderr}",
             print_message=False,
@@ -463,6 +501,9 @@ def main():
             
     try:
         director = Director(args.config, template_values)
+        # Log the loaded configuration
+        print(f"Loaded configuration: {director.config}")
+
         director.direct()
     except FileNotFoundError as e:
         print(f"File not found: {str(e)}")
