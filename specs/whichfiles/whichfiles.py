@@ -16,8 +16,6 @@ def load_config(yaml_path: str | Path) -> Dict[str, Any]:
         yaml_path (str | Path): Path to YAML configuration file
         
     Returns:
-        Dict[str, Any]: Configuration dictionary containing description, context_editable, 
-                       and context_read_only
                        
     Raises:
         FileNotFoundError: If YAML file doesn't exist
