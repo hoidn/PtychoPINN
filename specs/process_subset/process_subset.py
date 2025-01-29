@@ -209,7 +209,8 @@ Please provide your response with the task specification enclosed in <taskspec> 
         system_prompt = system
 
     # Modify the subprocess call
-    cmd = ["llm", "--model", "claude-3-5-sonnet-20241022"]
+    cmd = ["llm", "--model", "o1-preview"]
+    #cmd = ["llm", "--model", "claude-3-5-sonnet-20241022"]
     if system_prompt:
         cmd.extend(["-s", system_prompt])
 

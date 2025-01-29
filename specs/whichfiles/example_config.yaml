@@ -10,7 +10,8 @@ description: |
   to use for that sample.
   Merging multiple PtychoDataContainer instances for *training* (but not testing) 
   will require shuffling the samples so that the datasets are interleaved. Note that 
-  we can assume that each RawData instance corresponds to a single probe
+  we can assume that each RawData instance corresponds to a single probe.
+  We will create a new class called MultiPtychoDataContainer that will contain data corresponsing to one or more PtychoDataContainer instances. It will NOT subclass PtychoDataContainer.
   ---
   QA:
   For the probe indices:
