@@ -259,17 +259,21 @@ class Director:
         Returns:
             Output from execution
         """
-        result = subprocess.run(
-            self.config.execution_command,
-            shell=True,
-            capture_output=True,
-            text=True,
-        )
-        self.file_log(
-            f"Execution output: \n{result.stdout + result.stderr}",
-            print_message=False,
-        )
-        return result.stdout + result.stderr
+        try:
+            self.file_log(f"Executing command: {self.config.execution_command}", print_message=False)
+            result = subprocess.run(
+                self.config.execution_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
+            self.file_log(f"Execution return code: {result.returncode}", print_message=False)
+            self.file_log(f"Execution stdout:\n{result.stdout}", print_message=False)
+            self.file_log(f"Execution stderr:\n{result.stderr}", print_message=False)
+            return result.stdout + result.stderr
+        except Exception as e:
+            self.file_log(f"Error during execution: {e}", print_message=False)
+            return ""
 
     def evaluate(self, execution_output: str) -> EvaluationResult:
         """
