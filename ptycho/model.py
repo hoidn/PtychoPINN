@@ -121,10 +121,10 @@ class ProbeIllumination(tf.keras.layers.Layer):
         
         if cfg.get('probe.mask'):
             # Output shape: (batch_size, N, N, gridsize**2)
-            return smoothed * tf.cast(probe_mask, tf.complex64), (self.w * tf.cast(probe_mask, tf.complex64))[None, ...]
+            return smoothed * tf.cast(probe_mask, tf.complex64), (self.probe_list * tf.cast(probe_mask, tf.complex64))
         else:
             # Output shape: (batch_size, N, N, gridsize**2)
-            return smoothed, (self.w)[None, ...]
+            return smoothed, self.probe_list
 
 probe_illumination = ProbeIllumination()
 

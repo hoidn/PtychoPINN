@@ -2,7 +2,7 @@ from ptycho import params
 from .loader import PtychoDataContainer
 from .image import reassemble_patches
 
-def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None):
+def train(train_data: Union[PtychoDataContainer, MultiPtychoDataContainer], intensity_scale=None, model_instance=None):
     from . import params as p
     # Model requires intensity_scale to be defined to set the initial
     # value of the corresponding model parameter
@@ -42,7 +42,7 @@ def train_eval(ptycho_dataset):
 
 from tensorflow.keras.models import load_model
 # Enhance the existing eval function to optionally load a model for inference
-def eval(test_data, history=None, trained_model=None, model_path=None):
+def eval(test_data: Union[PtychoDataContainer, MultiPtychoDataContainer], history=None, trained_model=None, model_path=None):
     """
     Evaluate the model on test data. Optionally load a model if a path is provided.
 
@@ -84,7 +84,7 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
         'stitched_obj': stitched_obj
     }
 
-def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
+def calculate_intensity_scale(ptycho_data_container: Union[PtychoDataContainer, MultiPtychoDataContainer]) -> float:
     import tensorflow as tf
     import numpy as np
     from . import params as p
@@ -103,6 +103,26 @@ def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> flo
 
 # New alternative implementation
 from ptycho.image import reassemble_patches as _reassemble_patches
+
+def prepare_inputs(data: Union[PtychoDataContainer, MultiPtychoDataContainer]) -> List[tf.Tensor]:
+    """Prepare model inputs including probe indices.
+    
+    Args:
+        data: Training data container
+        
+    Returns:
+        Model input tensors
+    """
+    inputs = [data.X * params.cfg.get('intensity_scale'), data.coords]
+    
+    # Add probe indices for multi-probe data
+    if isinstance(data, MultiPtychoDataContainer):
+        inputs.append(data.probe_indices)
+    else:
+        # For single probe, use zeros as probe indices
+        inputs.append(tf.zeros([tf.shape(data.X)[0]], dtype=tf.int64))
+        
+    return inputs
 
 def stitch_eval_result(reconstructed_obj, config, **kwargs):
     """
