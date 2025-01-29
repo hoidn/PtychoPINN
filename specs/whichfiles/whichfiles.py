@@ -31,7 +31,7 @@ def load_config(yaml_path: str | Path) -> Dict[str, Any]:
         config = yaml.safe_load(f)
         
     # Validate required keys
-    required_keys = {"description"}
+    required_keys = {"description", "context"}
     missing_keys = required_keys - set(config.keys())
     if missing_keys:
         raise ValueError(
