@@ -15,6 +15,11 @@ Write a spec prompt according to the given description and Q&A clarifications.
 - Include type hints when possible (type-driven development)
   - BAD: 'CREATE a new function create_gist'
   - GOOD: 'CREATE def create_gist(gist: Gist) -> dict or throw'
+- in <thinking> tags, analyze the following:
+   - Key points from the Q&A discussion
+   - Implications for the implementation
+   - Which data types and structures need to be added, removed, modified
+   - Use <scratchpad> tags to quote relevant parts of the context and <brainstorm> tags to consider alternative approaches before commiting to a design choice
 
 </instructions>
 
@@ -32,9 +37,6 @@ Write a spec prompt according to the given description and Q&A clarifications.
 <output_format>
 1. First, summarize understanding:
    - approach for the <high-level objective>
-   - Key points from the Q&A discussion
-   - Implications for the implementation
-   - Which data types and structures need to be added, removed, modified
    - How this affects the requested changes
 
 2. Then draft a well-formed spec prompt instructing the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are, but it should not include implementation details. This spec prompt should be enclosed in <taskspec> tags.
