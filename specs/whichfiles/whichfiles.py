@@ -31,7 +31,7 @@ def load_config(yaml_path: str | Path) -> Dict[str, Any]:
         config = yaml.safe_load(f)
         
     # Validate required keys
-    required_keys = {"description", "context"}
+    required_keys = {"description"}
     missing_keys = required_keys - set(config.keys())
     if missing_keys:
         raise ValueError(
@@ -158,7 +158,7 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None, contex
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "o1-preview"],
+                ["llm", "--model", "claude-3-5-sonnet-20241022"],
                 stdin=input_file,
                 capture_output=True,
                 text=True,

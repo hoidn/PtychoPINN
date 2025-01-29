@@ -32,11 +32,11 @@ You will review the provided system to identify all files that would need modifi
 1. Generate Change Analysis Document
 in a ```yaml section, CREATE tochange.yaml contents:
     Format the file with the following sections:
-    - Files Requiring Updates
+    - Files Requiring Updates (key Files_Requiring_Updates)
       - For each file:
         - path
         - Reason for modification
-        - Spec (not implementation details) of changes needed
+        - Spec (not implementation details) of changes needed (key spec_of_changes)
         - Dependencies affected
     - Architectural Impact Assessment
     - Questions for Clarification

@@ -30,6 +30,7 @@ Write a spec prompt according to the given description and Q&A clarifications.
 
 <output_format>
 1. First, summarize understanding:
+   - approach for the <high-level objective>
    - Key points from the Q&A discussion
    - Implications for the implementation
    - How this affects the requested changes

@@ -9,7 +9,8 @@ description: |
   it must contain an index into the list of probes specifying which probe
   to use for that sample.
   Merging multiple PtychoDataContainer instances for *training* (but not testing) 
-  will require shuffling the samples so that the datasets are interleaved.
+  will require shuffling the samples so that the datasets are interleaved. Note that 
+  we can assume that each RawData instance corresponds to a single probe
   ---
   QA:
   For the probe indices:
@@ -32,7 +33,3 @@ description: |
   A: No
   Should test set handling be completely separate?
   A: No. The only difference for test data is that the samples are not shuffled
-context_editable:
-  - "tochange.yaml"
-context_read_only:
-  - "context"
