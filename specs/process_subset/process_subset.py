@@ -40,13 +40,15 @@ def load_config(config_path: str | Path) -> Dict[str, Any]:
         
     return config
 
-def process_subset(description: str, answers_file: str = None):
+def process_subset(description: str, answers_file: str = None, system: str = None, system_file: str = None):
     """
     Process files according to the description using raw LLM access.
 
     Args:
         description (str): Description of the changes to make.
         answers_file (str, optional): Path to file containing answers to questions.
+        system (str, optional): System prompt to use directly.
+        system_file (str, optional): Path to file containing system prompt.
     """
     # Read the spec from process_subset.md
     spec_path = Path(__file__).parent / "process_subset.md"
@@ -194,11 +196,27 @@ Please provide your response with the task specification enclosed in <taskspec> 
         tmp.write(full_prompt)
         tmp_path = tmp.name
 
+    # Handle system prompt
+    system_prompt = None
+    if system_file:
+        try:
+            with open(system_file, 'r') as f:
+                system_prompt = f.read().strip()
+        except Exception as e:
+            print(f"Error reading system prompt file: {e}")
+            return
+    elif system:
+        system_prompt = system
+
+    # Modify the subprocess call
+    cmd = ["llm", "--model", "claude-3-5-sonnet-20241022"]
+    if system_prompt:
+        cmd.extend(["-s", system_prompt])
+
     try:
         with open(tmp_path, 'r') as input_file:
             result = subprocess.run(
-                ["llm", "--model", "claude-3-5-sonnet-20241022"],
-                #["llm", "--model", "o1-preview"],
+                cmd,
                 stdin=input_file,
                 capture_output=True,
                 text=True,
@@ -246,9 +264,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("config_path", help="Path to YAML config file containing the description")
     parser.add_argument("--answers", help="Optional path to file containing answers to questions")
+    parser.add_argument("--system", help="System prompt to use")
+    parser.add_argument("--system-file", help="Path to file containing system prompt")
     args = parser.parse_args()
     
     # Load config containing description
     config = load_config(args.config_path)
     
-    process_subset(config["description"], args.answers)
+    process_subset(config["description"], args.answers, args.system, args.system_file)
