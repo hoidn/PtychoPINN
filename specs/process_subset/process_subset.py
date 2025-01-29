@@ -118,7 +118,8 @@ Dependencies: {', '.join(file['dependencies_affected'])}
 
     # Extract sections from tochange.yaml
     files_section = format_files_section(tochange_data["Files_Requiring_Updates"])
-    arch_impact = tochange_data["Architectural_Impact_Assessment"]["description"]
+    # Join list items with newlines for better formatting
+    arch_impact = "\n".join(tochange_data["Architectural_Impact_Assessment"])
 
     def get_file_contents(file_paths):
         """Read and format contents of the specified files."""
