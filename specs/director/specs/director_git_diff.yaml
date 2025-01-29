@@ -70,7 +70,7 @@ prompt: |
   {{ git_diff }}
   </diff>
 
-coder_model: claude-3-5-sonnet-20241022
+coder_model: claude-3-5-haiku-20241022
 
 # List of files that can be modified by the AI
 context_editable:
