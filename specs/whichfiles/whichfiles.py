@@ -33,7 +33,7 @@ def load_config(yaml_path: str | Path) -> Dict[str, Any]:
         config = yaml.safe_load(f)
         
     # Validate required keys
-    required_keys = {"description", "context_editable", "context_read_only"}
+    required_keys = {"description"}
     missing_keys = required_keys - set(config.keys())
     if missing_keys:
         raise ValueError(
@@ -43,10 +43,6 @@ def load_config(yaml_path: str | Path) -> Dict[str, Any]:
     # Validate types
     if not isinstance(config["description"], str):
         raise ValueError("description must be a string")
-    if not isinstance(config["context_editable"], list):
-        raise ValueError("context_editable must be a list")
-    if not isinstance(config["context_read_only"], list):
-        raise ValueError("context_read_only must be a list")
         
     return config
 
@@ -87,18 +83,37 @@ def setup_argparse() -> argparse.ArgumentParser:
         help="Path to specification template (defaults to script_name.md)",
         default=None
     )
+    parser.add_argument(
+        "--context",
+        help="Path to context file containing codebase information",
+        required=True
+    )
     return parser
 
-def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
+def main(config_path: str | Path, spec_path: Optional[str | Path] = None, context_path: Optional[str | Path] = None):
     """
     Main function to process documentation changes.
     
     Args:
         config_path (str): Path to YAML configuration file
         spec_path (Optional[str]): Path to specification template file
+        context_path (Optional[str]): Path to context file
     """
     # Load and validate configuration
     config = load_config(config_path)
+    
+    # Load context file
+    if context_path:
+        try:
+            with open(context_path, "r") as f:
+                context_content = f.read()
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Context file {context_path} not found")
+    else:
+        context_content = ""
+
+    # Add context to config for template processing
+    config["context"] = context_content
     
     # Determine spec path
     # Convert paths
@@ -115,30 +130,10 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
     
     spec_prompt = process_template(spec_content, config)
 
-    context = []
-    
-    # Load editable context files
-    for filepath in config["context_editable"]:
-        try:
-            with open(filepath, "r") as f:
-                content = f.read()
-                context.append(f"=== {filepath} ===\n{content}\n")
-        except FileNotFoundError:
-            print(f"Warning: Editable context file {filepath} not found")
-
-    # Load read-only context files 
-    for filepath in config["context_read_only"]:
-        try:
-            with open(filepath, "r") as f:
-                content = f.read()
-                context.append(f"=== {filepath} ===\n{content}\n")
-        except FileNotFoundError:
-            print(f"Warning: Read-only context file {filepath} not found")
-
     # Combine context with prompt
     full_prompt = (
         "Here are the relevant files from the codebase:\n\n" +
-        "\n".join(context) +
+        context_content +
         "\n\nSpecification:\n" +
         spec_prompt
     )
@@ -203,4 +198,4 @@ def main(config_path: str | Path, spec_path: Optional[str | Path] = None):
 if __name__ == "__main__":
     parser = setup_argparse()
     args = parser.parse_args()
-    main(args.config, args.spec)
+    main(args.config, args.spec, args.context)

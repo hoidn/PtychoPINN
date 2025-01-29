@@ -24,12 +24,7 @@ You will review the provided system to identify all files that would need modifi
 - Include clear justification for each identified file
 
 ## Context
-
-### Beginning context
-- read-only codebase context
-
-### Ending context  
-- `tochange.yaml` (contains analysis results)
+<context>
 
 ## Low-Level Tasks
 > Ordered from start to finish
