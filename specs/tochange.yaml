@@ -1,0 +1,108 @@
+Files_Requiring_Updates:
+  - path: "./ptycho/loader.py"
+    reason: "Define MultiPtychoDataContainer to handle multiple probes and update data loading functions."
+    spec_of_changes: >
+      - Create a new class `MultiPtychoDataContainer` that contains multiple `PtychoDataContainer` instances.
+      - Add a list to store multiple probe tensors.
+      - Include a probe index attribute for each sample to reference the appropriate probe from the list.
+      - Modify existing data loading functions to populate `MultiPtychoDataContainer` with associated probes and indices.
+    dependencies_affected: >
+      - `diffsim.py` (if data loading functions are utilized here)
+      - Any other modules that import `PtychoDataContainer`
+
+  - path: "./ptycho/workflows/components.py"
+    reason: "Update data loading and preparation to utilize MultiPtychoDataContainer instead of PtychoDataContainer."
+    spec_of_changes: >
+      - Replace instances of `PtychoDataContainer` with `MultiPtychoDataContainer`.
+      - Adjust data preprocessing pipelines to handle multiple probes and their corresponding indices.
+      - Ensure that data shuffling interleaves samples from different datasets appropriately.
+    dependencies_affected: >
+      - `loader.py` (as it now provides `MultiPtychoDataContainer`)
+      - `data_preprocessing.py`
+
+  - path: "./ptycho/data_preprocessing.py"
+    reason: "Adapt data preprocessing to accommodate multiple probes per sample."
+    spec_of_changes: >
+      - Modify functions to accept and process `MultiPtychoDataContainer`.
+      - Update data augmentation and normalization steps to handle probe-specific transformations.
+      - Ensure that the shuffling mechanism correctly interleaves samples from different datasets with their respective probes.
+    dependencies_affected: >
+      - `loader.py`
+      - `probe.py`
+
+  - path: "./ptycho/train_pinn.py"
+    reason: "Adapt the training process to handle per-sample probe inputs using MultiPtychoDataContainer."
+    spec_of_changes: >
+      - Update the training loop to pass probe indices alongside data samples to the model.
+      - Modify data batch preparation to include the corresponding probe tensors based on probe indices.
+      - Ensure that the model receives probe information as part of its input during training.
+    dependencies_affected: >
+      - `model.py` (as the model architecture changes to accept probe inputs)
+      - `loader.py`
+      - `data_preprocessing.py`
+
+  - path: "./ptycho/model.py"
+    reason: "Modify the model architecture to accept per-sample probe tensors instead of a global probe."
+    spec_of_changes: >
+      - Update the model's input layer to include probe tensors for each sample.
+      - Refactor layers that previously used the global probe to utilize the per-sample probe inputs.
+      - Ensure compatibility with `MultiPtychoDataContainer` by handling probe indices correctly within the model.
+    dependencies_affected: >
+      - `tf_helper.py` (if probe utilities are used within the model)
+      - `train_pinn.py`
+
+  - path: "./ptycho/tf_helper.py"
+    reason: "Update utility functions to handle per-sample probe inputs rather than accessing a global probe."
+    spec_of_changes: >
+      - Refactor functions that retrieve or manipulate the global probe to accept probe tensors as parameters.
+      - Ensure that complex operations involving the probe are compatible with per-sample processing.
+    dependencies_affected: >
+      - `model.py`
+      - `loader.py`
+      - `train_pinn.py`
+
+  - path: "./ptycho/params.py"
+    reason: "Update configuration management to support multiple probes."
+    spec_of_changes: >
+      - Add a new configuration parameter to store a list of probe tensors.
+      - Modify existing parameter getters and setters to handle multiple probes.
+      - Ensure that any default settings or validations account for the presence of multiple probes.
+    dependencies_affected: >
+      - All modules that access probe configurations via `params.py`
+
+  - path: "./ptycho/evaluation.py"
+    reason: "Adjust evaluation and visualization functions to handle per-sample probes."
+    spec_of_changes: >
+      - Modify functions to retrieve the correct probe tensor based on the probe index for each sample.
+      - Update visualization routines to reflect probe-specific reconstructions.
+      - Ensure that metrics calculations account for variations in probe configurations.
+    dependencies_affected: >
+      - `loader.py`
+      - `tf_helper.py`
+      - `visualize_results.py`
+
+  - path: "./ptycho/visualize_results.py"
+    reason: "Update result visualization to accommodate per-sample probe usage."
+    spec_of_changes: >
+      - Refactor the visualization function to fetch and apply the correct probe tensor for each sample based on probe indices.
+      - Ensure that heatmaps and other visual outputs accurately represent probe-specific alterations.
+      - Remove reliance on a global probe variable and replace it with per-sample probe references.
+    dependencies_affected: >
+      - `loader.py`
+      - `tf_helper.py`
+      - `evaluation.py`
+
+Architectural_Impact_Assessment: >
+  - Introducing `MultiPtychoDataContainer` increases the complexity of data management, requiring careful indexing and association between samples and their respective probes.
+  - The model architecture must evolve to accept probe tensors as part of its input, potentially affecting the input layer and subsequent processing layers.
+  - Several modules will now rely on the new data container structure, necessitating updates across the codebase to ensure seamless integration.
+  - The global configuration system (`params.py`) must be extended to manage multiple probes, impacting how configuration parameters are accessed and modified throughout the system.
+  - The training process will need to handle per-sample probe inputs, affecting data loading, batching, and model training loops.
+  - Evaluation metrics and visualization tools must be updated to account for variations in probe configurations, ensuring accurate and meaningful assessments of reconstructions.
+
+Questions_for_Clarification:
+  - "Should `MultiPtychoDataContainer` support dynamic probe additions post-initialization, or will all probes be predefined before data loading?"
+  - "Are there any constraints on the number of probes that `MultiPtychoDataContainer` should support?"
+  - "How should the system handle cases where a sample might require multiple probes, or is each sample limited to a single probe?"
+  - "Should the probe indices be stored as part of the sample data, or managed separately within the data container?"
+  - "Are there specific performance considerations or optimizations needed when handling multiple probes per sample in the training pipeline?"

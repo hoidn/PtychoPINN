@@ -1,0 +1,2 @@
+pyyaml>=6.0
+aider-chat>=0.12.0
