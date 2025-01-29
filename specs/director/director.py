@@ -264,13 +264,19 @@ class Director:
             result = subprocess.run(
                 self.config.execution_command,
                 shell=True,
-                capture_output=True,
+                executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
+                env=os.environ,
             )
             self.file_log(f"Execution return code: {result.returncode}", print_message=False)
-            self.file_log(f"Execution stdout:\n{result.stdout}", print_message=False)
-            self.file_log(f"Execution stderr:\n{result.stderr}", print_message=False)
-            return result.stdout + result.stderr
+            execution_output = result.stdout
+            if not execution_output.strip():
+                self.file_log("Execution output is empty.", print_message=True)
+            else:
+                self.file_log(f"Execution output:\n{execution_output}", print_message=True)
+            return execution_output
         except Exception as e:
             self.file_log(f"Error during execution: {e}", print_message=False)
             return ""
