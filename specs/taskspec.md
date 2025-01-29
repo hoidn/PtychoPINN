@@ -1,268 +1,250 @@
-# Modify Ptychography Codebase for Per-Sample Probes Specification
+# Multi-Probe Ptychography Analysis Support
 > Ingest the information from this file, implement the Low-Level Tasks, and generate the code that will satisfy the High and Mid-Level Objectives.
 
 ## High-Level Objective
 
-- Adapt the codebase to support per-sample probes instead of a single global probe by introducing a `MultiPtychoDataContainer` class and updating the data pipeline and model to handle per-sample probes.
+Enable ptychographic analysis of samples measured using different probe configurations, improving reconstruction quality by preserving probe-specific characteristics.
 
 ## Mid-Level Objectives
 
-- Create a `MultiPtychoDataContainer` class to handle multiple datasets and store a list of probes along with probe indices for each sample.
-- Update data loading and preparation code to handle multiple probes and assign correct probe indices to samples.
-- Modify the model to accept per-sample probe inputs and use probe indices to select the appropriate probe for each sample during training and inference.
-- Update the training workflow to handle datasets with multiple probes, including shuffling samples during training while preserving probe indices.
-- Ensure probe indices are correctly propagated through the data pipeline to the model.
+1. Support sample analysis across multiple probe configurations
+   - Merge datasets from different probe measurements
+   - Maintain probe-sample relationships
+   - Validate probe compatibility
+
+2. Enable efficient training on merged datasets
+   - Support sample shuffling during training
+   - Preserve probe associations
+   - Scale to multiple probes efficiently
+
+3. Provide clean interfaces for probe handling
+   - Abstract probe management from core processing
+   - Maintain backward compatibility 
+   - Support probe-specific analysis
 
 ## Implementation Notes
 
-- The `probe_indices` attribute should be added to data containers, matching the size of `self.X`, `self.Y_I`, etc.
-- `probe_indices` should be of dtype `int64`.
-- The `probe_list` should be a list of `tf.Tensor` objects.
-- All probes in `probe_list` must have the same shape and dtype.
-- For testing, samples are not shuffled, and probe indices should be handled appropriately.
-- Create a new `MultiPtychoDataContainer` class without subclassing `PtychoDataContainer`.
-- Ensure backward compatibility where possible and maintain coding standards throughout the codebase.
+### Core Dependencies
+- ptycho.loader.PtychoDataContainer: Base data container class
+- ptycho.model.ProbeIllumination: Core probe processing
+- tensorflow>=2.4: For tensor operations
+- numpy>=1.19: For array operations
+
+### Data Flow Requirements
+1. Data Loading:
+   - RawData loads individual probe datasets
+   - PtychoDataContainer processes single probe data
+   - MultiPtychoDataContainer merges probe datasets
+
+2. Model Processing:
+   - Input tensors include probe indices
+   - ProbeIllumination selects per-sample probes
+   - Output maintains probe associations
+
+3. Training Flow:
+   - Optional shuffling during training
+   - Fixed ordering during testing
+   - Probe selection via tf.gather
+
+### Technical Constraints
+- Probe tensors: Same shape and dtype
+- Probe indices: int64 dtype
+- Shuffling: Only during training
+- Backward compatibility: Single probe as special case
+- Memory efficiency: Use tf.gather for probe selection
 
 ## Context
 
 ### Beginning Context
+```python
+# loader.py
+class PtychoDataContainer:
+    def __init__(self, X, Y_I, Y_phi, probe, ...):
+        # Single probe handling
+        self.probe = probe
 
-- `./ptycho/loader.py`
-- `./ptycho/model.py`
-- `./ptycho/workflows/components.py`
-- `./ptycho/raw_data.py`
-- `./ptycho/train_pinn.py`
-
-**Note**: The code in these files is as provided in the initial context.
+# model.py
+class ProbeIllumination:
+    def call(self, inputs):
+        # Global probe usage
+        x = inputs[0]
+        return self.probe * x
+```
 
 ### Ending Context
+```python
+# loader.py
+class MultiPtychoDataContainer:
+    def __init__(self, X, Y_I, Y_phi, probe_list, probe_indices, ...):
+        # Multi-probe handling
+        self.probe_list = probe_list
+        self.probe_indices = probe_indices
 
-- `./ptycho/loader.py` (updated)
-- `./ptycho/model.py` (updated)
-- `./ptycho/workflows/components.py` (updated)
-- `./ptycho/raw_data.py` (updated)
-- `./ptycho/train_pinn.py` (updated)
+# model.py
+class ProbeIllumination:
+    def call(self, inputs):
+        # Per-sample probe selection
+        x, probe_indices = inputs
+        probes = tf.gather(self.probe_list, probe_indices)
+        return probes * x
+```
 
 ## Low-Level Tasks
 > Ordered from start to finish
 
-1. **Create `MultiPtychoDataContainer` Class in `loader.py`**
-
-```aider
-CREATE in `./ptycho/loader.py`:
+1. Create MultiPtychoDataContainer Base Structure
+```aider 
+CREATE in ./ptycho/loader.py:
+    def validate_probe_tensors(probe_list: List[tf.Tensor]) -> None:
+        """Validate probe tensor compatibility.
+        
+        Args:
+            probe_list: List of probe tensors to validate
+            
+        Raises:
+            ValueError: If probes incompatible
+        """
 
     class MultiPtychoDataContainer:
-        def __init__(
-            self,
+        def __init__(self,
             X: tf.Tensor,
-            Y_I: tf.Tensor,
+            Y_I: tf.Tensor, 
             Y_phi: tf.Tensor,
             norm_Y_I: tf.Tensor,
-            YY_full: Optional[tf.Tensor],
-            coords_nominal: tf.Tensor,
-            coords_true: tf.Tensor,
-            nn_indices: tf.Tensor,
-            global_offsets: tf.Tensor,
-            local_offsets: tf.Tensor,
+            coords: tf.Tensor,
             probe_list: List[tf.Tensor],
             probe_indices: tf.Tensor
-        ):
+        ) -> None:
+            """Initialize multi-probe container.
+            
+            Validates and stores probe tensors and indices.
             """
-            Initialize a container for multiple ptychography datasets with per-sample probes.
-
-            Args:
-                X: Diffraction patterns tensor.
-                Y_I: Intensity tensor.
-                Y_phi: Phase tensor.
-                norm_Y_I: Normalization factors for Y_I.
-                YY_full: Full field data (if available).
-                coords_nominal: Nominal coordinates.
-                coords_true: True coordinates.
-                nn_indices: Nearest neighbor indices.
-                global_offsets: Global offsets.
-                local_offsets: Local offsets.
-                probe_list: List of probe tensors.
-                probe_indices: Tensor of probe indices per sample (dtype int64).
-            """
-            self.X = X
-            self.Y_I = Y_I
-            self.Y_phi = Y_phi
-            self.norm_Y_I = norm_Y_I
-            self.YY_full = YY_full
-            self.coords_nominal = coords_nominal
-            self.coords_true = coords_true
-            self.nn_indices = nn_indices
-            self.global_offsets = global_offsets
-            self.local_offsets = local_offsets
-            self.probe_list = probe_list  # List of tf.Tensor probes
-            self.probe_indices = probe_indices  # Tensor of int64 indices matching self.X's first dimension
-
-        def __repr__(self):
-            # Implement a representation method similar to PtychoDataContainer
-            pass
-
-    # Implement methods for merging multiple PtychoDataContainer instances, shuffling samples, and assigning probe indices.
+            validate_probe_tensors(probe_list)
+            # Initialize attributes
 ```
 
-2. **Update Data Loading Functions to Utilize `MultiPtychoDataContainer`**
-
+2. Add Core MultiPtychoDataContainer Methods
 ```aider
-UPDATE `./ptycho/loader.py`:
+UPDATE ./ptycho/loader.py class MultiPtychoDataContainer:
+    def get_probe(self, index: int) -> tf.Tensor:
+        """Get probe tensor by index.
+        
+        Args:
+            index: Probe index to retrieve
+            
+        Returns:
+            Selected probe tensor
+            
+        Raises:
+            IndexError: If index invalid
+        """
 
-    ADD a function `merge_ptycho_data_containers` that takes a list of `PtychoDataContainer` instances and returns a `MultiPtychoDataContainer`.
+    def shuffle_samples(self) -> None:
+        """Shuffle samples while maintaining probe associations."""
+```
 
-    def merge_ptycho_data_containers(
-        data_containers: List[PtychoDataContainer],
+3. Create Dataset Merging Function
+```aider
+CREATE in ./ptycho/loader.py:
+    def merge_containers(
+        containers: List[PtychoDataContainer],
         shuffle: bool = True
     ) -> MultiPtychoDataContainer:
-        """
-        Merge multiple PtychoDataContainer instances into a MultiPtychoDataContainer.
-
+        """Merge containers preserving probe associations.
+        
         Args:
-            data_containers: List of PtychoDataContainer instances to merge.
-            shuffle: Whether to shuffle the samples after merging.
-
+            containers: List of containers to merge
+            shuffle: Whether to shuffle samples
+            
         Returns:
-            A MultiPtychoDataContainer instance containing merged data.
+            Merged container instance
         """
-        # Implement merging logic, combining datasets and creating probe_list and probe_indices.
 ```
 
-3. **Modify `ProbeIllumination` Layer in `model.py` to Use Per-Sample Probes**
-
+4. Update ProbeIllumination Input Handling
 ```aider
-UPDATE `./ptycho/model.py`:
-
-    class ProbeIllumination(tf.keras.layers.Layer):
-        def __init__(self, name=None):
-            super(ProbeIllumination, self).__init__(name=name)
-            self.probe_list = None  # List of probes
-            self.sigma = cfg.get('gaussian_smoothing_sigma')
-
-        def build(self, input_shape):
-            # Assuming probe_list is passed during model building
-            pass
-
-        def call(self, inputs):
-            x, probe_indices = inputs
-            # Select the appropriate probe for each sample using probe_indices
-            probes = tf.gather(self.probe_list, probe_indices)
-            # Apply probe to the input x
-            illuminated = probes * x
-            # Apply Gaussian smoothing if required
-            # Return the illuminated samples and any additional outputs as needed
+UPDATE ./ptycho/model.py class ProbeIllumination:
+    def call(
+        self,
+        inputs: Tuple[tf.Tensor, tf.Tensor],
+        training: Optional[bool] = None
+    ) -> tf.Tensor:
+        """Apply probe illumination.
+        
+        Args:
+            inputs: (samples, probe_indices)
+            training: Training mode flag
+            
+        Returns:
+            Illuminated samples
+        """
+        x, probe_indices = inputs
+        probes = tf.gather(self.probe_list, probe_indices)
+        return self._apply_probe(x, probes)
 ```
 
-4. **Update the Model to Accept `probe_indices` as Input**
-
+5. Add Model Input Layer
 ```aider
-UPDATE `./ptycho/model.py`:
-
-    # Modify model inputs to include probe_indices
-    input_img = Input(shape=(N, N, gridsize**2), name='input_img')
-    input_positions = Input(shape=(1, 2, gridsize**2), name='input_positions')
-    input_probe_indices = Input(shape=(), dtype=tf.int64, name='probe_indices')  # Scalar per sample
-
-    # Update data flow to pass probe_indices to ProbeIllumination layer
-    # Update the model's construction to include the new input
-```
-
-5. **Adjust the Data Preparation Functions to Include Probe Indices**
-
-```aider
-UPDATE `./ptycho/train_pinn.py`:
-
-    def prepare_inputs(train_data: MultiPtychoDataContainer):
-        """Prepare training inputs including probe indices."""
+UPDATE ./ptycho/model.py:
+    def create_model_inputs() -> List[tf.keras.layers.Input]:
+        """Create model input layers.
+        
+        Returns:
+            List of input layers including probe indices
+        """
         return [
-            train_data.X * cfg.get('intensity_scale'),
-            train_data.coords_nominal,
-            train_data.probe_indices  # Include probe indices in inputs
+            Input(shape=(N, N, gridsize**2), name='input'),
+            Input(shape=(1, 2, gridsize**2), name='positions'),
+            Input(shape=(), dtype=tf.int64, name='probe_indices')
         ]
-
-    # Update any other functions that rely on prepare_inputs
 ```
 
-6. **Modify Training Workflow to Handle `MultiPtychoDataContainer`**
-
+6. Update Data Container Creation
 ```aider
-UPDATE `./ptycho/train_pinn.py`:
-
-    def train(
-        train_data: MultiPtychoDataContainer,
-        intensity_scale=None,
-        model_instance=None
-    ):
-        # Adjust the function to handle MultiPtychoDataContainer
-        # Ensure probe_list is correctly passed to the model
-        # Update any references to probe handling
-```
-
-7. **Update Data Loading and Preparation in `components.py`**
-
-```aider
-UPDATE `./ptycho/workflows/components.py`:
-
-    def create_ptycho_data_container(
+UPDATE ./ptycho/workflows/components.py:
+    def create_container(
         data: Union[RawData, PtychoDataContainer],
         config: TrainingConfig
     ) -> Union[PtychoDataContainer, MultiPtychoDataContainer]:
+        """Create appropriate data container.
+        
+        Args:
+            data: Input data
+            config: Configuration settings
+            
+        Returns:
+            Container instance
         """
-        Update to handle RawData instances that may correspond to multiple probes.
-        Return MultiPtychoDataContainer when needed.
-        """
-        # Logic to check if data corresponds to multiple probes
-        # If multiple probes, generate a MultiPtychoDataContainer
-        # Else, return a standard PtychoDataContainer
-
-    def train_cdi_model(
-        train_data: Union[RawData, PtychoDataContainer, MultiPtychoDataContainer],
-        test_data: Optional[Union[RawData, PtychoDataContainer, MultiPtychoDataContainer]],
-        config: TrainingConfig
-    ) -> Dict[str, Any]:
-        """
-        Update to handle MultiPtychoDataContainer instances.
-        Ensure that probe indices and probe lists are passed throughout the training process.
-        """
-        # Adjust code to work with MultiPtychoDataContainer
 ```
 
-8. **Add `probe_indices` Handling in `raw_data.py`**
-
+7. Modify Training Input Preparation
 ```aider
-UPDATE `./ptycho/raw_data.py`:
-
-    class RawData:
-        # Add a new attribute for probe_index
-        def __init__(
-            self,
-            xcoords,
-            ycoords,
-            xcoords_start,
-            ycoords_start,
-            diff3d,
-            probeGuess,
-            scan_index,
-            objectGuess=None,
-            Y=None,
-            norm_Y_I=None,
-            probe_index: Optional[int] = None
-        ):
-            """
-            Initialize RawData with an optional probe_index attribute.
-            """
-            self.probe_index = probe_index  # Integer indicating probe index for the dataset
-
-    # Ensure that generate_grouped_data() propagates probe indices when processing data
+UPDATE ./ptycho/train_pinn.py:
+    def prepare_inputs(
+        data: Union[PtychoDataContainer, MultiPtychoDataContainer]
+    ) -> List[tf.Tensor]:
+        """Prepare model inputs including probe indices.
+        
+        Args:
+            data: Training data container
+            
+        Returns:
+            Model input tensors
+        """
 ```
 
-9. **Ensure Backward Compatibility and Update Tests**
-
+8. Add Raw Data Probe Support  
 ```aider
-UPDATE all modified files:
-
-    # Review and update any existing functions that may be affected by the changes
-    # Ensure that single-probe datasets are still supported without modification
-    # Update or add unit tests to cover new functionality with multiple probes
-    # Validate that the codebase maintains backward compatibility
+UPDATE ./ptycho/raw_data.py class RawData:
+    def __init__(
+        self,
+        probe_index: Optional[int] = None,
+        **kwargs
+    ) -> None:
+        """Initialize raw data with probe index.
+        
+        Args:
+            probe_index: Index for dataset's probe
+            **kwargs: Additional arguments
+        """
 ```
