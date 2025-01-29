@@ -203,18 +203,39 @@ UPDATE ./ptycho/model.py:
 ```aider
 UPDATE ./ptycho/workflows/components.py:
     def create_container(
-        data: Union[RawData, PtychoDataContainer],
+        data: Union[List[Union[RawData, PtychoDataContainer]], Union[RawData, PtychoDataContainer]],
         config: TrainingConfig
     ) -> Union[PtychoDataContainer, MultiPtychoDataContainer]:
         """Create appropriate data container.
-        
+    
         Args:
-            data: Input data
+            data: Input data or list of input data
             config: Configuration settings
-            
+        
         Returns:
             Container instance
         """
+        # Handle list of containers/raw data
+        if isinstance(data, list):
+            # Convert any RawData to PtychoDataContainer
+            containers = []
+            for i, d in enumerate(data):
+                if isinstance(d, RawData):
+                    dataset = d.generate_grouped_data(config.model.N, K=7, nsamples=1)
+                    container = loader.load(lambda: dataset, d.probeGuess, which=None, create_split=False)
+                else:
+                    container = d
+                containers.append(container)
+            
+            # Merge containers
+            return merge_containers(containers)
+        
+        # Handle single container/raw data
+        if isinstance(data, RawData):
+            dataset = data.generate_grouped_data(config.model.N, K=7, nsamples=1)
+            return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
+    
+        return data
 ```
 
 7. Modify Training Input Preparation

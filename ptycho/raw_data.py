@@ -15,7 +15,7 @@ key_coords_relative = 'coords_start_relative'
 class RawData:
     #@debug
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-             scan_index, objectGuess = None, Y = None, norm_Y_I = None):
+             scan_index, objectGuess = None, Y = None, norm_Y_I = None, probe_index: Optional[int] = None):
         # Sanity checks
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
@@ -56,6 +56,9 @@ class RawData:
         # TODO validity checks
         self.Y = Y
         self.norm_Y_I = norm_Y_I
+        
+        # Add probe index
+        self.probe_index = probe_index
         self.probe_index = probe_index
 
     @staticmethod

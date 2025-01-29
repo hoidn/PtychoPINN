@@ -256,6 +256,59 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
+def merge_containers(containers: List[PtychoDataContainer], shuffle: bool = True) -> MultiPtychoDataContainer:
+    """Merge containers preserving probe associations.
+    
+    Args:
+        containers: List of containers to merge
+        shuffle: Whether to shuffle samples
+        
+    Returns:
+        Merged container instance
+    """
+    # Validate containers
+    if not containers:
+        raise ValueError("No containers provided")
+        
+    # Concatenate data from all containers
+    X = tf.concat([c.X for c in containers], axis=0)
+    Y_I = tf.concat([c.Y_I for c in containers], axis=0)
+    Y_phi = tf.concat([c.Y_phi for c in containers], axis=0)
+    norm_Y_I = tf.concat([c.norm_Y_I for c in containers], axis=0)
+    YY_full = None if any(c.YY_full is None for c in containers) else tf.concat([c.YY_full for c in containers], axis=0)
+    coords_nominal = tf.concat([c.coords_nominal for c in containers], axis=0)
+    coords = tf.concat([c.coords for c in containers], axis=0)
+    coords_true = tf.concat([c.coords_true for c in containers], axis=0)
+    nn_indices = tf.concat([c.nn_indices for c in containers], axis=0)
+    global_offsets = tf.concat([c.global_offsets for c in containers], axis=0)
+    local_offsets = tf.concat([c.local_offsets for c in containers], axis=0)
+    
+    # Create probe indices tensor
+    probe_indices = tf.concat([tf.fill([tf.shape(c.X)[0]], i) for i, c in enumerate(containers)], axis=0)
+    
+    # Create merged container
+    merged = MultiPtychoDataContainer(
+        X=X,
+        Y_I=Y_I,
+        Y_phi=Y_phi,
+        norm_Y_I=norm_Y_I,
+        YY_full=YY_full,
+        coords_nominal=coords_nominal,
+        coords=coords,
+        coords_true=coords_true,
+        nn_indices=nn_indices,
+        global_offsets=global_offsets,
+        local_offsets=local_offsets,
+        probe_list=[c.probe for c in containers],
+        probe_indices=probe_indices
+    )
+    
+    # Optionally shuffle the merged data
+    if shuffle:
+        merged.shuffle_samples()
+        
+    return merged
+
 # TODO this should be a method of PtychoDataContainer
 #@debug
 def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
