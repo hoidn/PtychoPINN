@@ -31,8 +31,10 @@ Write a spec prompt according to the given description and Q&A clarifications.
 
 <output_format>
 1. First, summarize understanding:
+   - approach for the <high-level objective>
    - Key points from the Q&A discussion
    - Implications for the implementation
+   - Which data types and structures need to be added, removed, modified
    - How this affects the requested changes
 
 2. Then draft a well-formed spec prompt instructing the changes necessary to implement the <high-level objective>. It should specify which components need to be added, removed, modified, and what the behavioral changes are, but it should not include implementation details. This spec prompt should be enclosed in <taskspec> tags.
@@ -332,7 +334,7 @@ class PtychoDataContainer:
     A class to contain ptycho data attributes for easy access and manipulation.
     """
     @debug
-    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
+    def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probe_list, probe_indices):
         self.X = X
         self.Y_I = Y_I
         self.Y_phi = Y_phi
@@ -344,7 +346,8 @@ class PtychoDataContainer:
         self.nn_indices = nn_indices
         self.global_offsets = global_offsets
         self.local_offsets = local_offsets
-        self.probe = probeGuess
+        self.probe_list = probe_list
+        self.probe_indices = probe_indices
 
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)
@@ -452,7 +455,7 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     # TODO get rid of?
     YY_full = None
     # TODO complex
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probe_list, probe_indices)
     print('INFO:', which)
     print(container)
     return container
@@ -718,20 +721,18 @@ initial_probe_guess = tf.Variable(
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
-        self.w = initial_probe_guess
         self.sigma = cfg.get('gaussian_smoothing_sigma')
 
     def call(self, inputs):
-        # x is expected to have shape (batch_size, N, N, gridsize**2)
-        # where N is the size of each patch and gridsize**2 is the number of patches
-        x = inputs[0]
+        x, probe_list, probe_indices = inputs
+        probes = tf.gather(probe_list, probe_indices)
         
         # self.w has shape (1, N, N, 1) or (1, N, N, gridsize**2) if probe.big is True
         # probe_mask has shape (N, N, 1)
         
         # Apply multiplication first
-        illuminated = self.w * x
-        
+        illuminated = probes * x
+
         # Apply Gaussian smoothing only if sigma is not 0
         if self.sigma != 0:
             smoothed = complex_gaussian_filter2d(illuminated, filter_shape=(3, 3), sigma=self.sigma)
@@ -792,8 +793,10 @@ for file in files:
     os.remove(file)
 
 lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
-input_img = Input(shape=(N, N, gridsize**2), name = 'input')
-input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
+input_img = Input(shape=(N, N, gridsize**2), name='input')
+input_positions = Input(shape=(1, 2, gridsize**2), name='input_positions')
+input_probe_list = Input(shape=(None, N, N, 1), dtype=tf.complex64, name='probe_list')
+input_probe_indices = Input(shape=(), dtype=tf.int32, name='probe_indices')
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -1028,7 +1031,10 @@ def negloglik(x, rv_x):
     return -rv_x.log_prob(x)
 fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
 
-autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
+autoencoder = Model(
+    inputs=[input_img, input_positions, input_probe_list, input_probe_indices],
+    outputs=[trimmed_obj, pred_amp_scaled, pred_intensity_sampled]
+)
 
 autoencoder_no_nll = Model(inputs = [input_img, input_positions],
         outputs = [pred_amp_scaled])
@@ -1060,8 +1066,13 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  profile_batch='500,520')
 
 def prepare_inputs(train_data: PtychoDataContainer):
-    """training inputs"""
-    return [train_data.X * cfg.get('intensity_scale'), train_data.coords]
+    """Training inputs"""
+    return [
+        train_data.X * cfg.get('intensity_scale'),
+        train_data.coords,
+        train_data.probe_list,
+        train_data.probe_indices
+    ]
 
 def prepare_outputs(train_data: PtychoDataContainer):
     """training outputs"""
@@ -1190,6 +1201,7 @@ class RawData:
         self.probeGuess = probeGuess
         self.scan_index = scan_index
         self.objectGuess = objectGuess
+        self.probe_index = probe_index
         # TODO validity checks
         self.Y = Y
         self.norm_Y_I = norm_Y_I
@@ -1352,7 +1364,11 @@ class RawData:
             dict: Dictionary containing grouped data.
         """
         print('DEBUG:', 'nsamples:', nsamples)
-        return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
+        dset = get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
+        # Expand probe_index to match the number of samples
+        probe_indices = np.full((dset['diffraction'].shape[0],), self.probe_index, dtype=np.int64)
+        dset['probe_indices'] = probe_indices  # Add to the dataset
+        return dset
 
     #@debug
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
