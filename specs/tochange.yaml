@@ -1,14 +1,14 @@
-Files Requiring Updates:
+Files_Requiring_Updates:
   - path: ./ptycho/loader.py
     reason:
-      - The `PtychoDataContainer` currently assumes a single probe tensor shared among all samples.
-      - We need to define a new data structure that can handle multiple datasets and store a list of probes.
-      - We need to store per-sample probe indices that reference the list of probes.
-    changes:
-      - **Define a new data class** (e.g., `MultiProbePtychoDataContainer`) that:
-        - Inherits from `PtychoDataContainer` or mirrors its structure.
-        - Contains a list of probes (`List[tf.Tensor]`), ensuring all probes have the same shape and dtype.
-        - Includes an attribute `probe_indices` of type `np.ndarray` or `tf.Tensor` with dtype `int64`, matching the first dimension of `self.X`, `self.Y_I`, etc.
+      - "The PtychoDataContainer currently assumes a single probe tensor shared among all samples."
+      - "We need to define a new data structure that can handle multiple datasets and store a list of probes."
+      - "We need to store per-sample probe indices that reference the list of probes."
+    spec_of_changes:
+      - "Define a new data class (e.g., MultiProbePtychoDataContainer) that:"
+      - "- Inherits from PtychoDataContainer or mirrors its structure."
+      - "- Contains a list of probes (List[tf.Tensor]), ensuring all probes have the same shape and dtype."
+      - "- Includes an attribute probe_indices of type np.ndarray or tf.Tensor with dtype int64, matching the first dimension of self.X, self.Y_I, etc."
       - **Modify data loading functions** to:
         - Accept multiple datasets and merge them for training.
         - Shuffle the samples so that datasets are interleaved.
