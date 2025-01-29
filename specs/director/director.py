@@ -259,50 +259,11 @@ class Director:
         Returns:
             Output from execution
         """
-        # Print the execution command and working directory
-        print(f"Executing command: {self.config.execution_command}")
-        print(f"Working directory: {os.getcwd()}")
-
-        try:
-            # Run the subprocess with logging
-            result = subprocess.run(
-                self.config.execution_command,
-                capture_output=True,
-                text=True,
-                shell=True,  # Ensure shell is True if using shell commands
-            )
-            result = subprocess.run(
-                self.config.execution_command,
-                capture_output=True,
-                text=True,
-                shell=True,  # Ensure shell is True if using shell commands
-            )
-
-            # Print the return code and outputs
-            print(f"Return code: {result.returncode}")
-            print(f"Standard Output:\n{result.stdout}")
-            print(f"Standard Error:\n{result.stderr}")
-
-            # Combine stdout and stderr
-            execution_output = result.stdout + result.stderr
-
-            # Log the execution output
-            self.file_log(
-                f"Execution output: \n{execution_output}",
-                print_message=False,
-            )
-
-            return execution_output
-
-        except Exception as e:
-            # Print and log any exceptions that occur during execution
-            print(f"An error occurred during execution: {e}")
-            execution_output = f"Execution failed with exception: {str(e)}"
-            self.file_log(
-                execution_output,
-                print_message=False,
-            )
-            return execution_output
+        result = subprocess.run(
+            self.config.execution_command.split(),
+            capture_output=True,
+            text=True,
+        )
         self.file_log(
             f"Execution output: \n{result.stdout + result.stderr}",
             print_message=False,
