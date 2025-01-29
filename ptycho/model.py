@@ -477,11 +477,25 @@ def prepare_inputs(data: Union[PtychoDataContainer, MultiPtychoDataContainer]) -
         
     return inputs
 
-def prepare_outputs(train_data: PtychoDataContainer):
-    """training outputs"""
-    return [hh.center_channels(train_data.Y_I, train_data.coords)[:, :, :, :1],
-                (cfg.get('intensity_scale') * train_data.X),
-                (cfg.get('intensity_scale') * train_data.X)**2]
+def prepare_inputs(data: Union[PtychoDataContainer, MultiPtychoDataContainer]) -> List[tf.Tensor]:
+    """Prepare model inputs including probe indices.
+    
+    Args:
+        data: Training data container
+        
+    Returns:
+        Model input tensors
+    """
+    inputs = [data.X * params.cfg.get('intensity_scale'), data.coords]
+    
+    # Add probe indices for multi-probe data
+    if isinstance(data, MultiPtychoDataContainer):
+        inputs.append(data.probe_indices)
+    else:
+        # For single probe, use zeros as probe indices
+        inputs.append(tf.zeros([tf.shape(data.X)[0]], dtype=tf.int64))
+        
+    return inputs
 
 #def train(epochs, X_train, coords_train, Y_obj_train):
 def train(epochs, trainset: PtychoDataContainer):
