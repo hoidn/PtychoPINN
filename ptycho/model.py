@@ -19,6 +19,8 @@ import numpy as np
 import os
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
+from typing import List, Tuple, Optional, Union
+from ptycho.loader import PtychoDataContainer, MultiPtychoDataContainer
 
 from .loader import PtychoDataContainer
 from . import tf_helper as hh
