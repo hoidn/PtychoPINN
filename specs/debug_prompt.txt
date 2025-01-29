@@ -1131,6 +1131,9 @@ def print_model_diagnostics(model):
             print(f"{layer.name}: {layer.custom_objects}")
 
 
+=== ../ptycho/components.py ===
+
+
 === ../ptycho/raw_data.py ===
 import numpy as np
 import tensorflow as tf
