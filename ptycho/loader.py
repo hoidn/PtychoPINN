@@ -2,7 +2,7 @@
 
 import numpy as np
 import tensorflow as tf
-from typing import Callable
+from typing import Callable, List, Optional
 
 from .params import params, get
 from .autotest.debug import debug
@@ -37,6 +37,80 @@ class PtychoDataContainer:
 
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)
+
+class MultiPtychoDataContainer:
+    def __init__(
+        self,
+        X: tf.Tensor,
+        Y_I: tf.Tensor,
+        Y_phi: tf.Tensor,
+        norm_Y_I: tf.Tensor,
+        YY_full: Optional[tf.Tensor],
+        coords_nominal: tf.Tensor,
+        coords: tf.Tensor,
+        coords_true: tf.Tensor,
+        nn_indices: tf.Tensor,
+        global_offsets: tf.Tensor,
+        local_offsets: tf.Tensor,
+        probe_list: List[tf.Tensor],
+        probe_indices: tf.Tensor
+    ) -> None:
+        """Initialize multi-probe container.
+
+        Validates and stores probe tensors and indices.
+        """
+        validate_probe_tensors(probe_list)
+        self.X = X
+        self.Y_I = Y_I
+        self.Y_phi = Y_phi
+        self.norm_Y_I = norm_Y_I
+        self.YY_full = YY_full
+        self.coords_nominal = coords_nominal
+        self.coords = coords
+        self.coords_true = coords_true
+        self.nn_indices = nn_indices
+        self.global_offsets = global_offsets
+        self.local_offsets = local_offsets
+        self.probe_list = probe_list
+        self.probe_indices = probe_indices
+
+        # Combine magnitude and phase into complex tensor
+        self.Y = hh.combine_complex(Y_I, Y_phi)
+
+    def get_probe(self, index: int) -> tf.Tensor:
+        """Get probe tensor by index.
+
+        Args:
+            index: Probe index to retrieve
+
+        Returns:
+            Selected probe tensor
+
+        Raises:
+            IndexError: If index invalid
+        """
+        if index < 0 or index >= len(self.probe_list):
+            raise IndexError(f"Probe index {index} is out of range.")
+        return self.probe_list[index]
+
+    def shuffle_samples(self) -> None:
+        """Shuffle samples while maintaining probe associations."""
+        indices = tf.random.shuffle(tf.range(tf.shape(self.X)[0]))
+        self.X = tf.gather(self.X, indices)
+        self.Y_I = tf.gather(self.Y_I, indices)
+        self.Y_phi = tf.gather(self.Y_phi, indices)
+        self.norm_Y_I = tf.gather(self.norm_Y_I, indices)
+        if self.YY_full is not None:
+            self.YY_full = tf.gather(self.YY_full, indices)
+        self.coords_nominal = tf.gather(self.coords_nominal, indices)
+        self.coords = tf.gather(self.coords, indices)
+        self.coords_true = tf.gather(self.coords_true, indices)
+        self.nn_indices = tf.gather(self.nn_indices, indices)
+        self.global_offsets = tf.gather(self.global_offsets, indices)
+        self.local_offsets = tf.gather(self.local_offsets, indices)
+        self.probe_indices = tf.gather(self.probe_indices, indices)
+        # Update self.Y as well
+        self.Y = tf.gather(self.Y, indices)
 
     @debug
     def __repr__(self):

@@ -56,6 +56,7 @@ class RawData:
         # TODO validity checks
         self.Y = Y
         self.norm_Y_I = norm_Y_I
+        self.probe_index = probe_index
 
     @staticmethod
     #@debug

@@ -84,21 +84,32 @@ initial_probe_guess = tf.Variable(
 # TODO total variation loss
 # -probe smoothing scale(?)
 class ProbeIllumination(tf.keras.layers.Layer):
-    def __init__(self, name = None):
-        super(ProbeIllumination, self).__init__(name = name)
-        self.w = initial_probe_guess
+    def __init__(self, probe_list: List[tf.Tensor], name=None):
+        super(ProbeIllumination, self).__init__(name=name)
+        self.probe_list = tf.stack(probe_list)
         self.sigma = cfg.get('gaussian_smoothing_sigma')
 
-    def call(self, inputs):
-        # x is expected to have shape (batch_size, N, N, gridsize**2)
-        # where N is the size of each patch and gridsize**2 is the number of patches
-        x = inputs[0]
-        
-        # self.w has shape (1, N, N, 1) or (1, N, N, gridsize**2) if probe.big is True
-        # probe_mask has shape (N, N, 1)
-        
-        # Apply multiplication first
-        illuminated = self.w * x
+    def call(
+        self,
+        inputs: Tuple[tf.Tensor, tf.Tensor],
+        training: Optional[bool] = None
+    ) -> Tuple[tf.Tensor, tf.Tensor]:
+        """Apply probe illumination.
+
+        Args:
+            inputs: (samples, probe_indices)
+            training: Training mode flag
+
+        Returns:
+            Illuminated samples and current probes
+        """
+        x, probe_indices = inputs  # x: (batch_size, H, W, channels), probe_indices: (batch_size,)
+        probes = tf.gather(self.probe_list, probe_indices)  # probes: (batch_size, H, W, channels)
+        # Ensure probes and x have compatible shapes
+        # Expand dimensions if necessary
+        if len(probes.shape) < len(x.shape):
+            probes = tf.expand_dims(probes, axis=0)
+        illuminated = probes * x
         
         # Apply Gaussian smoothing only if sigma is not 0
         if self.sigma != 0:
@@ -160,8 +171,22 @@ for file in files:
     os.remove(file)
 
 lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
-input_img = Input(shape=(N, N, gridsize**2), name = 'input')
-input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
+def create_model_inputs() -> List[tf.keras.layers.Input]:
+    """Create model input layers.
+
+    Returns:
+        List of input layers including probe indices
+    """
+    N = cfg.get('N')
+    gridsize = cfg.get('gridsize')
+
+    input_img = Input(shape=(N, N, gridsize**2), name='input')
+    input_positions = Input(shape=(1, 2, gridsize**2), name='input_positions')
+    input_probe_indices = Input(shape=(), dtype=tf.int64, name='probe_indices')
+
+    return [input_img, input_positions, input_probe_indices]
+
+input_img, input_positions, input_probe_indices = create_model_inputs()
 
 def Conv_Pool_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last'):
     x0 = Conv2D(nfilters, (w1, w2), activation='relu', padding=padding, data_format=data_format)(x0)
@@ -347,6 +372,9 @@ def create_decoder_amp(input_tensor, n_filters_scale):
     return outputs
 
 normed_input = scale([input_img])
+
+# Ensure 'probe_list' is defined
+probe_illumination = ProbeIllumination(probe_list)
 decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
     cfg.get('object.big'))
 
@@ -370,7 +398,7 @@ padded_objs_with_offsets = Lambda(lambda x:
     name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
 
 # Apply the probe illumination
-padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
+padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets, input_probe_indices])
 flat_illuminated = padded_objs_with_offsets
 
 # Apply pad and diffract operation
