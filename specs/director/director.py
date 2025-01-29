@@ -257,9 +257,10 @@ class Director:
             Output from execution
         """
         result = subprocess.run(
-            self.config.execution_command.split(),
+            self.config.execution_command,
             capture_output=True,
             text=True,
+            shell=True,  # Add this line to execute the command in a shell
         )
         self.file_log(
             f"Execution output: \n{result.stdout + result.stderr}",
