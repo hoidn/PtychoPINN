@@ -4467,7 +4467,8 @@ contains multiple datasets and stores a list of probes. For each sample,
 it must contain an index into the list of probes specifying which probe
 to use for that sample.
 Merging multiple PtychoDataContainer instances for *training* (but not testing) 
-will require shuffling the samples so that the datasets are interleaved.
+will require shuffling the samples so that the datasets are interleaved. Note that 
+we can assume that each RawData instance corresponds to a single probe
 ---
 QA:
 For the probe indices:

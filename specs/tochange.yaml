@@ -1,126 +1,67 @@
-Files_Requiring_Updates:
-  - path: ./ptycho/loader.py
-    reason:
-      - "The PtychoDataContainer currently assumes a single probe tensor shared among all samples."
-      - "We need to define a new data structure that can handle multiple datasets and store a list of probes."
-      - "We need to store per-sample probe indices that reference the list of probes."
-    spec_of_changes:
-      - "Define a new data class (e.g., MultiProbePtychoDataContainer) that:"
-      - "- Inherits from PtychoDataContainer or mirrors its structure."
-      - "- Contains a list of probes (List[tf.Tensor]), ensuring all probes have the same shape and dtype."
-      - "- Includes an attribute probe_indices of type np.ndarray or tf.Tensor with dtype int64, matching the first dimension of self.X, self.Y_I, etc."
-      - **Modify data loading functions** to:
-        - Accept multiple datasets and merge them for training.
-        - Shuffle the samples so that datasets are interleaved.
-        - Assign correct `probe_indices` to each sample based on its origin dataset.
-      - **Update methods** that rely on `self.probe` to handle multiple probes using `self.probe_indices`.
+files_requiring_updates:
+  - path: "./ptycho/loader.py"
+    reason: "Core data container needs to be modified to support multiple probes"
+    changes_needed:
+      - "Create new MultiPtychoDataContainer class extending PtychoDataContainer"
+      - "Add probe_indices attribute to track probe assignments per sample"
+      - "Add probe_list attribute to store multiple probes"
+      - "Add method to merge multiple PtychoDataContainers with shuffling for training"
+      - "Modify load() function to handle probe indices"
     dependencies:
-      - Affects any code that instantiates or utilizes `PtychoDataContainer`, including:
-        - `train_pinn.py` for training data preparation.
-        - `model.py` where data container is used as input.
-        - Workflow scripts in `./ptycho/workflows/` that load or manipulate data.
-  - path: ./ptycho/model.py
-    reason:
-      - The model currently uses the probe as a global variable within the `ProbeIllumination` layer.
-      - We need to adapt the model to accept probes as per-sample inputs instead of using a global variable.
-    changes:
-      - **Modify the input layer** to accept an additional input for the probe tensor per sample:
-        - Adjust model inputs to `[input_img, input_positions, input_probe_indices]`.
-      - **Update the `ProbeIllumination` layer** to:
-        - Accept the probe tensor as an input rather than accessing a global variable.
-        - Retrieve the correct probe for each sample using the `probe_indices`.
-        - Apply the corresponding probe to each sample within the batch.
-      - **Ensure backward compatibility**:
-        - If a single probe is provided, replicate it to match batch size or adjust logic to handle this case.
-    dependencies:
-      - Relies on changes in:
-        - `loader.py` for the modified data container and data loading.
-        - `train_pinn.py` for passing the probe information during training.
-      - Affects any scripts or modules that build or modify the model architecture.
-  - path: ./ptycho/train_pinn.py
-    reason:
-      - The training script currently assumes a global probe and uses `probe.set_probe_guess()`.
-      - We need to modify the training pipeline to handle multiple probes and shuffle samples accordingly.
-    changes:
-      - **Update the `prepare_inputs()` function** to:
-        - Include `probe_indices` as part of the inputs returned.
-        - Ensure `probe_indices` are correctly aligned with the shuffled and batched samples.
-      - **Adjust training data batching and shuffling** to:
-        - Maintain the association between samples and their corresponding probe indices.
-      - **Remove or modify calls to `probe.set_probe_guess()`** since the model no longer relies on a global probe.
-      - **Pass the list of probes and probe indices** to the model during training.
-    dependencies:
-      - Depends on changes in `loader.py` and `model.py`.
-      - Affects the way data is passed to the model during training.
-  - path: ./ptycho/probe.py
-    reason:
-      - Functions in `probe.py` manipulate the global probe variable and assume a single shared probe.
-      - We need to remove the reliance on global state and adapt functions to handle probes per sample.
-    changes:
-      - **Refactor or remove functions** that set or get the global probe, such as `set_probe()`, `set_probe_guess()`.
-      - **Modify utility functions** to accept the probe as an input parameter rather than accessing global state.
-      - **Ensure compatibility** with code that may still rely on utility functions from `probe.py`.
-    dependencies:
-      - Affects any modules that use `probe.py`, including `model.py`, `train_pinn.py`, and possibly `tf_helper.py`.
-      - Requires updates in documentation to reflect the changes.
-  - path: ./ptycho/raw_data.py
-    reason:
-      - The `RawData` class and related functions may need to support multiple probes when generating or simulating data.
-    changes:
-      - **Update data generation methods** to:
-        - Allow association of different probes with different samples.
-        - Provide mechanisms to generate or assign `probe_indices` during data simulation.
-      - **Ensure that when creating datasets from `RawData`**, the probe information is correctly propagated.
-    dependencies:
-      - Affects data loading and preprocessing pipelines that use `RawData`.
-      - Interacts with `loader.py` for constructing the data container.
-  - path: ./ptycho/tf_helper.py
-    reason:
-      - Some helper functions might assume a global probe or need to handle probes differently.
-    changes:
-      - **Review all functions** for assumptions about a global probe.
-      - **Update functions** to accept probe tensors as arguments if they currently access global probe variables.
-      - **Ensure compatibility** with the modified model and data structures.
-    dependencies:
-      - Affects `model.py` and any other modules that use `tf_helper.py`.
-  - path: ./ptycho/workflows/components.py
-    reason:
-      - Workflow scripts may assume a global probe and may need updating to handle the new data structures.
-    changes:
-      - **Update data loading and preparation functions** to work with the new multi-probe data container.
-      - **Modify training and inference workflows** to pass probe indices and probes appropriately.
-      - **Ensure that testing workflows** handle probe indices correctly, even if shuffling is not required.
-    dependencies:
-      - Depends on changes in `loader.py` and `model.py`.
-      - Affects any scripts that invoke training, evaluation, or visualization.
+      - "data_preprocessing.py"
+      - "train_pinn.py"
+      - "components.py"
 
-Architectural Impact Assessment:
-  - **Data Handling**:
-    - The core data structure (`PtychoDataContainer`) changes to accommodate multiple probes.
-    - Data loading and preprocessing must handle merging datasets and aligning probe indices with samples.
-  - **Model Input**:
-    - The model's input signature changes to include per-sample probes or probe indices.
-    - Layers that previously accessed global probes need to be redesigned to use input probes.
-  - **State Management**:
-    - Removal of global probe variables reduces hidden dependencies but requires careful management of probes in the workflow.
-  - **Training Pipeline**:
-    - Shuffling and batching must ensure that probe assignments remain correct throughout training.
-    - Performance considerations for memory usage due to multiple probes and per-sample operations.
-  - **Testing and Validation**:
-    - Consistency in handling probes during testing must be maintained, even without shuffling.
+  - path: "./ptycho/model.py" 
+    reason: "Model needs to handle per-sample probe inputs"
+    changes_needed:
+      - "Modify ProbeIllumination layer to accept probe indices input"
+      - "Update model input structure to accept probe indices"
+      - "Change probe tensor handling from global variable to input-based"
+    dependencies:
+      - "tf_helper.py"
+      - "train_pinn.py"
 
-Questions for Clarification:
-  - **Probe Handling in Testing**:
-    - Should the test data also support multiple probes per sample, or can it assume a single shared probe?
-  - **Number of Probes**:
-    - Are there any constraints on the number of probes (e.g., maximum number) that need to be supported?
-  - **Probe Sizes**:
-    - Do all probes have the same shape and dimensions, or do we need to handle varying probe sizes?
-  - **Data Shuffling and Batching**:
-    - How should data shuffling and batching handle probe indices to ensure correct probe assignments during training?
-    - Is there a need to group samples by probe within batches, or can probes be mixed arbitrarily?
-  - **Data Augmentation**:
-    - Do we need to support any additional data augmentation or transformations that might affect probe assignments?
-  - **Backward Compatibility**:
-    - Should we maintain backward compatibility with existing scripts that assume a global probe?
-    - If so, should default behaviors be defined when only a single probe is provided?
+  - path: "./ptycho/data_preprocessing.py"
+    reason: "Data generation and preprocessing needs to handle multiple probes"
+    changes_needed:
+      - "Update create_ptycho_dataset() to handle multiple probes"
+      - "Modify data loading functions to track probe associations"
+      - "Add probe index tracking in shuffle_data()"
+    dependencies:
+      - "loader.py"
+      - "train_pinn.py"
+
+  - path: "./ptycho/train_pinn.py"
+    reason: "Training pipeline needs to handle datasets with multiple probes"
+    changes_needed:
+      - "Update train() to handle MultiPtychoDataContainer"
+      - "Modify prepare_inputs() to include probe indices"
+      - "Update train_eval() to handle multiple probe datasets"
+    dependencies:
+      - "model.py"
+      - "loader.py"
+
+architectural_impact:
+  data_flow:
+    - "Change from global probe tensor to per-sample probe tensors"
+    - "New data structure for managing multiple probe datasets"
+    - "Modified training pipeline to handle probe indices"
+  
+  api_changes:
+    - "New MultiPtychoDataContainer class API"
+    - "Modified model input interface"
+    - "Changes to data preparation functions"
+
+  performance_considerations:
+    - "Memory usage for storing multiple probes"
+    - "Impact of shuffling large datasets with probe tracking"
+    - "Potential batch processing modifications"
+
+questions_for_clarification:
+  - "Should MultiPtychoDataContainer inherit from PtychoDataContainer or be a separate class?"
+  - "How should probe switching be handled during batch processing?"
+  - "What metadata should be preserved about probe-dataset relationships?"
+  - "Should there be validation to ensure probe shapes match within a merged dataset?"
+  - "How should probe indices be initialized when merging datasets?"
+  - "Should there be a mechanism to track original dataset boundaries after merging?"
