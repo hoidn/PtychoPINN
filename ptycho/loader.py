@@ -206,7 +206,7 @@ class MultiPtychoDataContainer:
     # TODO is this deprecated, given the above method to_npz()?
 
 @debug
-def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
+def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool, probe_indices: Optional[tf.Tensor] = None) -> Union[PtychoDataContainer, MultiPtychoDataContainer]:
     from . import params as cfg
     from . import probe
     if create_split:
@@ -236,7 +236,39 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     # TODO get rid of?
     YY_full = None
     # TODO complex
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    # Create appropriate container type
+    if probe_indices is not None:
+        # Multi-probe case
+        container = MultiPtychoDataContainer(
+            X=X,
+            Y_I=Y_I,
+            Y_phi=Y_phi,
+            norm_Y_I=norm_Y_I,
+            YY_full=YY_full,
+            coords_nominal=coords_nominal,
+            coords=coords_true,
+            coords_true=coords_true,
+            nn_indices=dset['nn_indices'],
+            global_offsets=dset['coords_offsets'],
+            local_offsets=dset['coords_relative'],
+            probe_list=[probeGuess],
+            probe_indices=probe_indices
+        )
+    else:
+        # Single probe case
+        container = PtychoDataContainer(
+            X=X,
+            Y_I=Y_I,
+            Y_phi=Y_phi,
+            norm_Y_I=norm_Y_I,
+            YY_full=YY_full,
+            coords_nominal=coords_nominal,
+            coords_true=coords_true,
+            nn_indices=dset['nn_indices'],
+            global_offsets=dset['coords_offsets'],
+            local_offsets=dset['coords_relative'],
+            probe=probeGuess
+        )
     print('INFO:', which)
     print(container)
     return container

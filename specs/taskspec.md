@@ -202,40 +202,46 @@ UPDATE ./ptycho/model.py:
 6. Update Data Container Creation
 ```aider
 UPDATE ./ptycho/workflows/components.py:
-    def create_container(
-        data: Union[List[Union[RawData, PtychoDataContainer]], Union[RawData, PtychoDataContainer]],
-        config: TrainingConfig
-    ) -> Union[PtychoDataContainer, MultiPtychoDataContainer]:
-        """Create appropriate data container.
-    
-        Args:
-            data: Input data or list of input data
-            config: Configuration settings
-        
-        Returns:
-            Container instance
+    def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], config: TrainingConfig) -> Union[PtychoDataContainer, MultiPtychoDataContainer]:
         """
-        # Handle list of containers/raw data
-        if isinstance(data, list):
-            # Convert any RawData to PtychoDataContainer
-            containers = []
-            for i, d in enumerate(data):
-                if isinstance(d, RawData):
-                    dataset = d.generate_grouped_data(config.model.N, K=7, nsamples=1)
-                    container = loader.load(lambda: dataset, d.probeGuess, which=None, create_split=False)
-                else:
-                    container = d
-                containers.append(container)
-            
-            # Merge containers
-            return merge_containers(containers)
-        
-        # Handle single container/raw data
-        if isinstance(data, RawData):
+        Factory function to create or return a PtychoDataContainer.
+
+        Args:
+            data (Union[RawData, PtychoDataContainer]): Input data, either RawData or PtychoDataContainer.
+            config (TrainingConfig): Training configuration object.
+
+        Returns:
+            Union[PtychoDataContainer, MultiPtychoDataContainer]: The resulting container.
+
+        Raises:
+            TypeError: If the input data is neither RawData nor PtychoDataContainer.
+        """
+        if isinstance(data, (PtychoDataContainer, MultiPtychoDataContainer)):
+            return data
+        elif isinstance(data, RawData):
             dataset = data.generate_grouped_data(config.model.N, K=7, nsamples=1)
-            return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
+            # Pass probe_index if available
+            probe_indices = None if data.probe_index is None else tf.fill([tf.shape(dataset['X_full'])[0]], data.probe_index)
+            return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False, probe_indices=probe_indices)
+        else:
+            raise TypeError("data must be either RawData or PtychoDataContainer")
+
+    def create_multi_probe_container(data_list: List[Union[RawData, PtychoDataContainer]], config: TrainingConfig) -> MultiPtychoDataContainer:
+        """
+        Create a MultiPtychoDataContainer from multiple datasets.
+
+        Args:
+            data_list: List of RawData or PtychoDataContainer objects
+            config: Training configuration
+
+        Returns:
+            MultiPtychoDataContainer with merged data
+        """
+        # Convert each dataset to a container
+        containers = [create_ptycho_data_container(d, config) for d in data_list]
     
-        return data
+        # Merge containers
+        return loader.merge_containers(containers)
 ```
 
 7. Modify Training Input Preparation
