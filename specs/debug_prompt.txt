@@ -50,7 +50,8 @@ contains multiple datasets and stores a list of probes. For each sample,
 it must contain an index into the list of probes specifying which probe
 to use for that sample.
 Merging multiple PtychoDataContainer instances for *training* (but not testing) 
-will require shuffling the samples so that the datasets are interleaved.
+will require shuffling the samples so that the datasets are interleaved. Note that 
+we can assume that each RawData instance corresponds to a single probe
 ---
 QA:
 For the probe indices:
@@ -77,12 +78,7 @@ A: No. The only difference for test data is that the samples are not shuffled
 </desc>
 
 <quest>
-'Q: Are there any constraints on the maximum number of distinct probes the system should support?
-A: 1. No, but you can assume it won't be a huge number (i.e. it'll  be < 10).
-Q: Should probe tensors be mutable during training, or remain fixed once defined?
-A: 2. Fixed once defined. The current single-probe setup allows the probe to be mutable, but for simplicity let's not support this in the multi probe setting.
-Q: Is there a need for backward compatibility with existing single-probe datasets?
-A: 3. Internally, no, but existing cli scripts (train.py, inference.py) should support existing run commands. This means that either they or the model api (components.py) need to be updated'
+''
 </quest>
 
 <guide>
@@ -302,8 +298,13 @@ UPDATE src/process.py:
 
 
 <architectural_impact>
-Adapting the codebase to support per-sample probe tensors introduces increased flexibility and scalability, allowing the model to handle diverse probing conditions within a single dataset. The primary architectural change involves transitioning from a one-to-one relation between a PtychoDataContainer and a probe tensor to a one-to-many relationship where a single data container can reference multiple probes via probe indices. This necessitates modifications across data loading, preprocessing, and model architecture to ensure that each training sample is correctly associated with its corresponding probe tensor. The interleaving and shuffling of samples from multiple datasets during training introduce additional complexity in data handling pipelines, requiring robust indexing and mapping mechanisms. Overall, the changes enhance the system's capability to model varied probing scenarios but require careful coordination across multiple modules to maintain data integrity and model performance.
-
+Shifts probe handling from global parameter to per-sample attribute
+Requires changes to data loading pipeline to track probe associations
+Model architecture needs modification to select appropriate probe
+Training workflow needs to handle mixed probe datasets
+Evaluation metrics may need updates to handle per-probe analysis
+Data container merging requires new logic for probe handling
+Memory usage may increase due to storing multiple probes
 </architectural_impact>
 
 <context_files>
@@ -626,1020 +627,6 @@ def load_xpp_npz(file_path, train_size=512):
                                        scan_index[:train_size], objectGuess=objectGuess)
 
     return ptycho_data, ptycho_data_train, data
-
-
-=== ../ptycho/raw_data.py ===
-import numpy as np
-import tensorflow as tf
-from typing import Tuple, Optional
-from scipy.spatial import cKDTree
-from ptycho import params
-from ptycho.autotest.debug import debug
-from ptycho import diffsim as datasets
-from ptycho import tf_helper as hh
-
-# Constants, # TODO cleanup / refactor
-local_offset_sign = 1
-key_coords_offsets = 'coords_start_offsets'
-key_coords_relative = 'coords_start_relative'
-
-class RawData:
-    #@debug
-    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-             scan_index, objectGuess = None, Y = None, norm_Y_I = None):
-        # Sanity checks
-        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
-                    probeGuess, scan_index)
-
-        # TODO these should go in the data validation method
-        assert len(xcoords.shape) == 1, f"Expected xcoords to be 1D, got shape {xcoords.shape}"
-        assert len(ycoords.shape) == 1, f"Expected ycoords to be 1D, got shape {ycoords.shape}"
-        assert len(xcoords_start.shape) == 1, f"Expected xcoords_start to be 1D, got shape {xcoords_start.shape}"
-        assert len(ycoords_start.shape) == 1, f"Expected ycoords_start to be 1D, got shape {ycoords_start.shape}"
-        if diff3d is not None:
-            assert len(diff3d.shape) == 3, f"Expected diff3d to be 3D, got shape {diff3d.shape}"
-            print(f"diff3d shape: {diff3d.shape}")
-            assert diff3d.shape[1] == diff3d.shape[2]
-        if probeGuess is not None:
-            assert len(probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
-            print(f"probeGuess shape: {probeGuess.shape}")
-        if scan_index is not None:
-            assert len(scan_index.shape) == 1, f"Expected scan_index to be 1D, got shape {scan_index.shape}"
-            print(f"scan_index shape: {scan_index.shape}")
-        if objectGuess is not None:
-            print(f"objectGuess shape: {objectGuess.shape}")
-            assert len(objectGuess.shape) == 2
-
-        print(f"xcoords shape: {xcoords.shape}")
-        print(f"ycoords shape: {ycoords.shape}")
-        print(f"xcoords_start shape: {xcoords_start.shape}")
-        print(f"ycoords_start shape: {ycoords_start.shape}")
-
-        # Assigning values if checks pass
-        self.xcoords = xcoords
-        self.ycoords = ycoords
-        self.xcoords_start = xcoords_start
-        self.ycoords_start = ycoords_start
-        self.diff3d = diff3d
-        self.probeGuess = probeGuess
-        self.scan_index = scan_index
-        self.objectGuess = objectGuess
-        # TODO validity checks
-        self.Y = Y
-        self.norm_Y_I = norm_Y_I
-
-    @staticmethod
-    #@debug
-    def from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index,
-                               objectGuess=None):
-        """
-        Static method to create a RawData instance without separate start coordinates.
-        The start coordinates are set to be the same as the xcoords and ycoords.
-
-        Args:
-            xcoords (np.ndarray): x coordinates of the scan points.
-            ycoords (np.ndarray): y coordinates of the scan points.
-            diff3d (np.ndarray): diffraction patterns.
-            probeGuess (np.ndarray): initial guess of the probe function.
-            scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
-            objectGuess (np.ndarray, optional): initial guess of the object. Defaults to None.
-
-        Returns:
-            RawData: An instance of the RawData class.
-        """
-        return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
-
-    @staticmethod
-    def from_simulation(xcoords, ycoords, probeGuess,
-                 objectGuess, scan_index = None):
-        """
-        Create a RawData instance from simulation data.
-
-        Args:
-            xcoords (np.ndarray): x coordinates of the scan points.
-            ycoords (np.ndarray): y coordinates of the scan points.
-            probeGuess (np.ndarray): initial guess of the probe function.
-            objectGuess (np.ndarray): initial guess of the object.
-            scan_index (np.ndarray, optional): array indicating the scan index for each diffraction pattern.
-
-        Returns:
-            RawData: An instance of the RawData class with simulated data.
-        """
-        from ptycho.diffsim import illuminate_and_diffract
-        xcoords_start = xcoords
-        ycoords_start = ycoords
-        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-                    xcoords, ycoords)
-
-        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
-        Y_I = tf.math.abs(Y_obj)
-        Y_phi = tf.math.angle(Y_obj)
-        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
-        norm_Y_I = datasets.scale_nphotons(X)
-        assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
-        # TODO RawData should have a method for generating the illuminated ground truth object
-        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
-                       probeGuess, scan_index, objectGuess,
-                       Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
-                       norm_Y_I = norm_Y_I)
-
-    #@debug
-    def __str__(self):
-        parts = [
-            "RawData:",
-            f"  xcoords: {self.xcoords.shape if self.xcoords is not None else 'None'}",
-            f"  ycoords: {self.ycoords.shape if self.ycoords is not None else 'None'}",
-            f"  xcoords_start: {self.xcoords_start.shape if self.xcoords_start is not None else 'None'}",
-            f"  ycoords_start: {self.ycoords_start.shape if self.ycoords_start is not None else 'None'}",
-            f"  diff3d: {self.diff3d.shape if self.diff3d is not None else 'None'}",
-            f"  probeGuess: {self.probeGuess.shape if self.probeGuess is not None else 'None'}",
-            f"  scan_index: {self.scan_index.shape if self.scan_index is not None else 'None'}",
-            f"  objectGuess: {self.objectGuess.shape if self.objectGuess is not None else 'None'}"
-        ]
-        return "\n".join(parts)
-
-    #@debug
-    def to_file(self, file_path: str) -> None:
-        """
-        Method to write the RawData object to a file using numpy.savez.
-
-        Args:
-            file_path (str): Path to the file where the data will be saved.
-        """
-        np.savez(file_path,
-                 xcoords=self.xcoords,
-                 ycoords=self.ycoords,
-                 xcoords_start=self.xcoords_start,
-                 ycoords_start=self.ycoords_start,
-                 diff3d=self.diff3d,
-                 probeGuess=self.probeGuess,
-                 objectGuess=self.objectGuess,
-                 scan_index=self.scan_index)
-
-    @staticmethod
-    #@debug
-    def from_file(train_data_file_path: str) -> 'RawData':
-        """
-        Static method to create a RawData instance from a file.
-
-        Args:
-            train_data_file_path (str): Path to the file containing the data.
-
-        Returns:
-            RawData: An instance of the RawData class.
-        """
-        # Load training data
-        train_data = np.load(train_data_file_path)
-        train_raw_data = RawData(
-            xcoords=train_data['xcoords'],
-            ycoords=train_data['ycoords'],
-            xcoords_start=train_data['xcoords_start'],
-            ycoords_start=train_data['ycoords_start'],
-            diff3d=train_data['diff3d'],
-            probeGuess=train_data['probeGuess'],
-            objectGuess=train_data['objectGuess'],
-            scan_index=train_data['scan_index']
-        )
-        return train_raw_data
-
-    @staticmethod
-    #@debug
-    def from_files(train_data_file_path, test_data_file_path):
-        """
-        Static method to instantiate RawData objects from training and test data files.
-
-        The data files should be NumPy .npz files with the following keys:
-        - 'xcoords': x coordinates of the scan points
-        - 'ycoords': y coordinates of the scan points
-        - 'xcoords_start': starting x coordinates for the scan
-        - 'ycoords_start': starting y coordinates for the scan
-        - 'diff3d': diffraction patterns
-        - 'probeGuess': initial guess of the probe function
-        - 'scan_index': array indicating the scan index for each diffraction pattern
-
-        Args:
-            train_data_file_path (str): Path to the training data file.
-            test_data_file_path (str): Path to the test data file.
-
-        Returns:
-            tuple: A tuple containing the instantiated RawData objects for training and test data.
-        """
-        # Load training data
-        train_raw_data = RawData.from_file(train_data_file_path)
-
-        # Load test data
-        test_raw_data = RawData.from_file(test_data_file_path)
-
-        return train_raw_data, test_raw_data
-
-    #@debug
-    def generate_grouped_data(self, N, K = 7, nsamples = 1):
-        """
-        Generate nearest-neighbor solution region grouping.
-
-        Args:
-            N (int): Size of the solution region.
-            K (int, optional): Number of nearest neighbors. Defaults to 7.
-            nsamples (int, optional): Number of samples. Defaults to 1.
-
-        Returns:
-            dict: Dictionary containing grouped data.
-        """
-        print('DEBUG:', 'nsamples:', nsamples)
-        return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
-
-    #@debug
-    def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
-        """
-        Check if the input data is valid.
-
-        Args:
-            xcoords (np.ndarray): x coordinates of the scan points.
-            ycoords (np.ndarray): y coordinates of the scan points.
-            xcoords_start (np.ndarray): starting x coordinates for the scan.
-            ycoords_start (np.ndarray): starting y coordinates for the scan.
-            diff3d (np.ndarray): diffraction patterns.
-            probeGuess (np.ndarray): initial guess of the probe function.
-            scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
-
-        Raises:
-            ValueError: If coordinate arrays don't have matching shapes.
-        """
-        # Check if coordinate arrays have matching shapes
-        if not (xcoords.shape == ycoords.shape == xcoords_start.shape == ycoords_start.shape):
-            raise ValueError("Coordinate arrays must have matching shapes.")
-
-#@debug
-def calculate_relative_coords(xcoords, ycoords, K = 6, C = None, nsamples = 10):
-    """
-    Group scan indices and coordinates into solution regions, then
-    calculate coords_offsets (global solution region coordinates) and
-    coords_relative (local solution patch coords) from ptycho_data using
-    the provided index_grouping_cb callback function.
-
-    Args:
-        xcoords (np.ndarray): x coordinates of the scan points.
-        ycoords (np.ndarray): y coordinates of the scan points.
-        K (int, optional): Number of nearest neighbors. Defaults to 6.
-        C (int, optional): Number of coordinates per solution region. Defaults to None.
-        nsamples (int, optional): Number of samples. Defaults to 10.
-
-    Returns:
-        tuple: A tuple containing coords_offsets, coords_relative, and nn_indices.
-    """
-    nn_indices, coords_nn = group_coords(xcoords, ycoords, K = K, C = C, nsamples = nsamples)
-    coords_offsets, coords_relative = get_relative_coords(coords_nn)
-    return coords_offsets, coords_relative, nn_indices
-
-#@debug
-def get_image_patches(gt_image, global_offsets, local_offsets):
-    """
-    Generate and return image patches in channel format using a single canvas.
-
-    Args:
-        gt_image (tensor): Ground truth image tensor.
-        global_offsets (tensor): Global offset tensor.
-        local_offsets (tensor): Local offset tensor.
-
-    Returns:
-        tensor: Image patches in channel format.
-    """
-    # Get necessary parameters
-    gridsize = params.get('gridsize')
-    N = params.get('N')
-    B = global_offsets.shape[0]
-    c = gridsize**2
-
-    # Pad the ground truth image once
-    gt_padded = hh.pad(gt_image[None, ..., None], N // 2)
-
-    # Calculate the combined offsets by adding global and local offsets
-    offsets_c = tf.cast((global_offsets + local_offsets), tf.float32)
-    offsets_f = hh._channel_to_flat(offsets_c)
-
-    # Create a canvas to store the extracted patches
-    canvas = np.zeros((B, N, N, c))
-
-    # Iterate over the combined offsets and extract patches one by one
-    for i in range(B * c):
-        offset = -offsets_f[i, :, :, 0]
-        translated_patch = hh.translate(gt_padded, offset)
-        canvas[i // c, :, :, i % c] = np.array(translated_patch)[0, :N, :N, 0]
-
-    # Convert the canvas to a TensorFlow tensor and return it
-    return tf.convert_to_tensor(canvas)
-
-#@debug
-def group_coords(xcoords: np.ndarray, ycoords: np.ndarray, K: int, C: Optional[int], nsamples: int) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Assemble a flat dataset into solution regions using nearest-neighbor grouping.
-
-    Args:
-        xcoords (np.ndarray): x coordinates of the scan points.
-        ycoords (np.ndarray): y coordinates of the scan points.
-        K (int): Number of nearest neighbors to consider.
-        C (Optional[int]): Number of coordinates per solution region. If None, uses gridsize^2.
-        nsamples (int): Number of samples to generate.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: A tuple containing:
-            - nn_indices: shape (M, C)
-            - coords_nn: shape (M, 1, 2, C)
-    """
-    gridsize = params.get('gridsize')
-    if C is None:
-        C = gridsize**2
-    if C == 1:
-        nn_indices = get_neighbor_self_indices(xcoords, ycoords)
-    else:
-        nn_indices = get_neighbor_indices(xcoords, ycoords, K=K)
-        nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
-
-    coords_nn = np.transpose(np.array([xcoords[nn_indices],
-                            ycoords[nn_indices]]),
-                            [1, 0, 2])[:, None, :, :]
-    return nn_indices, coords_nn[:, :, :, :]
-
-#@debug
-def get_relative_coords(coords_nn):
-    """
-    Calculate the relative coordinates and offsets from the nearest neighbor coordinates.
-
-    Args:
-        coords_nn (np.ndarray): Array of nearest neighbor coordinates with shape (M, 1, 2, C).
-
-    Returns:
-        tuple: A tuple containing coords_offsets and coords_relative.
-    """
-    assert len(coords_nn.shape) == 4
-    coords_offsets = np.mean(coords_nn, axis=3)[..., None]
-    coords_relative = local_offset_sign * (coords_nn - coords_offsets)
-    return coords_offsets, coords_relative
-
-#@debug
-def get_neighbor_self_indices(xcoords, ycoords):
-    """
-    Assign each pattern index to itself.
-
-    Args:
-        xcoords (np.ndarray): x coordinates of the scan points.
-        ycoords (np.ndarray): y coordinates of the scan points.
-
-    Returns:
-        np.ndarray: Array of self-indices.
-    """
-    N = len(xcoords)
-    nn_indices = np.arange(N).reshape(N, 1) 
-    return nn_indices
-
-#@debug
-def get_neighbor_indices(xcoords, ycoords, K = 3):
-    """
-    Get K nearest neighbor indices for each point.
-
-    Args:
-        xcoords (np.ndarray): x coordinates of the scan points.
-        ycoords (np.ndarray): y coordinates of the scan points.
-        K (int, optional): Number of nearest neighbors to find. Defaults to 3.
-
-    Returns:
-        np.ndarray: Array of nearest neighbor indices.
-    """
-    # Combine x and y coordinates into a single array
-    points = np.column_stack((xcoords, ycoords))
-
-    # Create a KDTree
-    tree = cKDTree(points)
-
-    # Query for K nearest neighbors for each point
-    distances, nn_indices = tree.query(points, k=K+1)  # +1 because the point itself is included in the results
-    return nn_indices
-
-#@debug
-def sample_rows(indices, n, m):
-    """
-    Sample rows from the given indices.
-
-    Args:
-        indices (np.ndarray): Array of indices to sample from.
-        n (int): Number of samples per row.
-        m (int): Number of rows to generate.
-
-    Returns:
-        np.ndarray: Sampled indices array.
-    """
-    N = indices.shape[0]
-    result = np.zeros((N, m, n), dtype=int)
-    for i in range(N):
-        result[i] = np.array([np.random.choice(indices[i], size=n, replace=False) for _ in range(m)])
-    return result
-
-#@debug
-def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples=10):
-    """
-    Get neighbor diffraction patterns and positions.
-
-    Args:
-        ptycho_data (RawData): An instance of the RawData class.
-        N (int): Size of the solution region.
-        K (int, optional): Number of nearest neighbors. Defaults to 6.
-        C (int, optional): Number of coordinates per solution region. Defaults to None.
-        nsamples (int, optional): Number of samples. Defaults to 10.
-
-    Returns:
-        dict: A dictionary containing grouped data and metadata.
-    """
-    nn_indices, coords_nn = group_coords(ptycho_data.xcoords, ptycho_data.ycoords,
-                                         K = K, C = C, nsamples = nsamples)
-
-    diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
-    if ptycho_data.Y is not None:
-        Y4d_nn = np.transpose(ptycho_data.Y[nn_indices], [0, 2, 3, 1])
-    else:
-        Y4d_nn = None
-
-    coords_offsets, coords_relative = get_relative_coords(coords_nn)
-
-    if ptycho_data.xcoords_start is not None:
-        coords_start_nn = np.transpose(np.array([ptycho_data.xcoords_start[nn_indices], ptycho_data.ycoords_start[nn_indices]]),
-                                       [1, 0, 2])[:, None, :, :]
-        coords_start_offsets, coords_start_relative = get_relative_coords(coords_start_nn)
-    else:
-        coords_start_offsets = coords_start_relative = None
-
-    dset = {
-        'diffraction': diff4d_nn,
-        'Y': Y4d_nn,
-        'coords_offsets': coords_offsets,
-        'coords_relative': coords_relative,
-        'coords_start_offsets': coords_start_offsets,
-        'coords_start_relative': coords_start_relative,
-        'coords_nn': coords_nn,
-        'coords_start_nn': coords_start_nn,
-        'nn_indices': nn_indices,
-        'objectGuess': ptycho_data.objectGuess
-    }
-    X_full = normalize_data(dset, N)
-    dset['X_full'] = X_full
-    print('neighbor-sampled diffraction shape', X_full.shape)
-    return dset
-
-#@debug
-def normalize_data(dset: dict, N: int) -> np.ndarray:
-    """
-    Normalize the diffraction data.
-
-    Args:
-        dset (dict): Dictionary containing the dataset.
-        N (int): Size of the solution region.
-
-    Returns:
-        np.ndarray: Normalized diffraction data.
-    """
-    # Images are amplitude, not intensity
-    X_full = dset['diffraction']
-    X_full_norm = np.sqrt(
-            ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
-            )
-    return X_full_norm * X_full
-
-
-
-=== ../ptycho/workflows/components.py ===
-import argparse
-import yaml
-import os
-import numpy as np
-import tensorflow as tf
-from ptycho import params as p
-from ptycho import probe
-from ptycho.loader import RawData, PtychoDataContainer
-import logging
-import matplotlib.pyplot as plt
-from typing import Union, Optional, Dict, Any, Tuple, Literal
-from pathlib import Path
-from ptycho.config.config import TrainingConfig, ModelConfig, dataclass_to_legacy_dict
-from dataclasses import fields
-from ptycho import loader, probe
-from typing import Union, Optional, Tuple, Dict, Any
-from ptycho.raw_data import RawData
-from ptycho.loader import PtychoDataContainer
-from ptycho.config.config import TrainingConfig, update_legacy_dict
-from ptycho import params
-from ptycho.image import reassemble_patches
-
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-from dataclasses import fields
-from ptycho.config.config import ModelConfig, TrainingConfig
-
-def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
-    """
-    Load ptychography data from a file and return RawData objects.
-
-    Args:
-        file_path (str, optional): Path to the data file. Defaults to the package resource 'datasets/Run1084_recon3_postPC_shrunk_3.npz'.
-        n_images (int, optional): Number of data points to include in the training set. Defaults to 512.
-        flip_x (bool, optional): If True, flip the sign of x coordinates. Defaults to False.
-        flip_y (bool, optional): If True, flip the sign of y coordinates. Defaults to False.
-        swap_xy (bool, optional): If True, swap x and y coordinates. Defaults to False.
-        n_samples (int, optional): Number of samples to generate. Defaults to 1.
-        coord_scale (float, optional): Scale factor for x and y coordinates. Defaults to 1.0.
-
-    Returns:
-        RawData: RawData object containing the dataset.
-    """
-    # Load data from file
-    data = np.load(file_path)
-
-    # Extract required arrays from loaded data
-    xcoords = data['xcoords']
-    ycoords = data['ycoords']
-    xcoords_start = data['xcoords_start']
-    ycoords_start = data['ycoords_start']
-    diff3d = np.transpose(data['diffraction'], [2, 0, 1])
-    probeGuess = data['probeGuess']
-    objectGuess = data['objectGuess']
-
-    # Apply coordinate transformations
-    if flip_x:
-        xcoords = -xcoords
-        xcoords_start = -xcoords_start
-        #probeGuess = probeGuess[::-1, :]
-    if flip_y:
-        ycoords = -ycoords
-        ycoords_start = -ycoords_start
-        #probeGuess = probeGuess[:, ::-1]
-    if swap_xy:
-        xcoords, ycoords = ycoords, xcoords
-        xcoords_start, ycoords_start = ycoords_start, xcoords_start
-        #probeGuess = np.transpose(probeGuess)
-
-    # Apply coordinate scaling
-    xcoords *= coord_scale
-    ycoords *= coord_scale
-    xcoords_start *= coord_scale
-    ycoords_start *= coord_scale
-
-    # Create scan_index array
-    scan_index = np.zeros(diff3d.shape[0], dtype=int)
-
-    if n_images is None:
-        n_images = xcoords.shape[0]
-
-    # Create RawData object for the training subset
-    ptycho_data = RawData(xcoords[:n_images], ycoords[:n_images],
-                          xcoords_start[:n_images], ycoords_start[:n_images],
-                          diff3d[:n_images], probeGuess,
-                          scan_index[:n_images], objectGuess=objectGuess)
-
-    return ptycho_data
-
-def parse_arguments():
-    """Parse command-line arguments based on TrainingConfig fields."""
-    logger = logging.getLogger(__name__)
-    parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
-    parser.add_argument("--config", type=str, help="Path to YAML configuration file")
-    
-    # Add arguments based on TrainingConfig fields
-    for field in fields(TrainingConfig):
-        if field.name == 'model':
-            # Handle ModelConfig fields
-            for model_field in fields(ModelConfig):
-                # Special handling for Literal types
-                if hasattr(model_field.type, "__origin__") and model_field.type.__origin__ is Literal:
-                    choices = list(model_field.type.__args__)
-                    parser.add_argument(
-                        f"--{model_field.name}",
-                        type=str,
-                        choices=choices,
-                        default=model_field.default,
-                        help=f"Model parameter: {model_field.name}, choices: {choices}"
-                    )
-                else:
-                    parser.add_argument(
-                        f"--{model_field.name}",
-                        type=model_field.type,
-                        default=model_field.default,
-                        help=f"Model parameter: {model_field.name}"
-                    )
-        else:
-            # Handle path fields specially
-            if field.type == Path or str(field.type).startswith("typing.Optional[pathlib.Path"):
-                logger.debug(f"Field: {field.name}")
-                logger.debug(f"Field type: {field.type}")
-                logger.debug(f"Field default: {field.default}")
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=lambda x: (logger.debug(f"Converting path value: {x}"), Path(x) if x is not None else None)[1],
-                    default=None if field.default == None else str(field.default),
-                    help=f"Path for {field.name}"
-                )
-            else:
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=field.type,
-                    default=field.default,
-                    help=f"Training parameter: {field.name}"
-                )
-    
-    return parser.parse_args()
-
-def load_yaml_config(file_path: str) -> Dict[str, Any]:
-    """Load configuration from a YAML file."""
-    try:
-        with open(file_path, 'r') as file:
-            return yaml.safe_load(file)
-    except (yaml.YAMLError, IOError) as e:
-        logger.error(f"Error loading YAML config: {e}")
-        raise
-
-
-#def validate_config(config: Dict[str, Any]) -> None:
-#    """Validate the configuration."""
-#    if 'train_data_file_path' not in config or config['train_data_file_path'] is None:
-#        raise ValueError("train_data_file_path is a required parameter and must be provided")
-
-def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
-    """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
-    try:
-        yaml_config = load_yaml_config(yaml_path) if yaml_path else None
-        args_config = vars(args)
-        
-        # Convert string paths to Path objects
-        for key in ['train_data_file', 'test_data_file', 'output_dir']:
-            if key in args_config and args_config[key] is not None:
-                args_config[key] = Path(args_config[key])
-        
-        # Create ModelConfig from args
-        model_fields = {f.name for f in fields(ModelConfig)}
-        model_args = {k: v for k, v in args_config.items() if k in model_fields}
-        model_config = ModelConfig(**model_args)
-        
-        # Create TrainingConfig
-        training_fields = {f.name for f in fields(TrainingConfig)}
-        training_args = {k: v for k, v in args_config.items() 
-                        if k in training_fields and k != 'model'}
-        config = TrainingConfig(model=model_config, **training_args)
-        
-        # Update the global configuration
-        update_legacy_dict(params.cfg, config)
-        
-        logger.info("Configuration setup complete")
-        logger.info(f"Final configuration: {config}")
-        
-        return config
-    except (yaml.YAMLError, IOError, ValueError) as e:
-        logger.error(f"Error setting up configuration: {e}")
-        raise
-
-def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
-    """
-    Load and prepare the data from a single file path.
-
-    Args:
-        data_file_path (str): Path to the data file
-
-    Returns:
-        Tuple[RawData, RawData, Any]: A tuple containing the full dataset, training subset, and additional data
-    """
-    # TODO deprecated
-    from ptycho.loader import load_xpp_npz
-    if not os.path.exists(data_file_path):
-        raise FileNotFoundError(f"Data file not found: {data_file_path}")
-
-    try:
-        return load_xpp_npz(data_file_path)
-    except Exception as e:
-        logger.error(f"Error loading data from {data_file_path}: {str(e)}")
-        raise
-
-from typing import Union
-from ptycho.loader import RawData, PtychoDataContainer
-
-def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], config: TrainingConfig) -> PtychoDataContainer:
-    """
-    Factory function to create or return a PtychoDataContainer.
-
-    Args:
-        data (Union[RawData, PtychoDataContainer]): Input data, either RawData or PtychoDataContainer.
-        config (TrainingConfig): Training configuration object.
-
-    Returns:
-        PtychoDataContainer: The resulting PtychoDataContainer.
-
-    Raises:
-        TypeError: If the input data is neither RawData nor PtychoDataContainer.
-    """
-    if isinstance(data, PtychoDataContainer):
-        return data
-    elif isinstance(data, RawData):
-        dataset = data.generate_grouped_data(config.model.N, K=7, nsamples=1)
-        return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
-    else:
-        raise TypeError("data must be either RawData or PtychoDataContainer")
-
-def train_cdi_model(
-    train_data: Union[RawData, PtychoDataContainer],
-    test_data: Optional[Union[RawData, PtychoDataContainer]],
-    config: TrainingConfig
-) -> Dict[str, Any]:
-    """
-    Train the CDI model.
-
-    Args:
-        train_data (Union[RawData, PtychoDataContainer]): Training data.
-        config (Dict[str, Any]): Configuration dictionary.
-
-    Returns:
-        Dict[str, Any]: Results dictionary containing training history.
-    """
-    from ptycho.loader import PtychoDataset
-    from ptycho import train_pinn
-    # Convert input data to PtychoDataContainer
-    train_container = create_ptycho_data_container(train_data, config)
-    if test_data is not None:
-        test_container = create_ptycho_data_container(test_data, config)
-    else:
-        test_container = None
-
-    # Initialize probe
-    probe.set_probe_guess(None, train_container.probe)
-
-#    # Calculate intensity scale
-#    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
-
-    # Train the model
-    results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
-    results['train_container'] = train_container
-    results['test_container'] = test_container
-    #history = train_pinn.train(train_container)
-    
-    return results
-
-def reassemble_cdi_image(
-    test_data: Union[RawData, PtychoDataContainer],
-    config: TrainingConfig,
-    flip_x: bool = False,
-    flip_y: bool = False,
-    transpose: bool = False,
-    M: int = 20,
-    coord_scale: float = 1.0
-) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
-    """
-    Reassemble the CDI image using the trained model.
-
-    Args:
-        test_data (Union[RawData, PtychoDataContainer]): Test data.
-        config (Dict[str, Any]): Configuration dictionary.
-        flip_x (bool): Whether to flip the x coordinates. Default is False.
-        flip_y (bool): Whether to flip the y coordinates. Default is False.
-        transpose (bool): Whether to transpose the image by swapping the 1st and 2nd dimensions. Default is False.
-        M (int): Parameter for reassemble_position function. Default is 20.
-        coord_scale (float): Scale factor for x and y coordinates. Default is 1.0.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray, Dict[str, Any]]: 
-        Reconstructed amplitude, reconstructed phase, and results dictionary.
-    """
-    # TODO use train_pinn.eval to get reconstructed diffraction amplitude
-    test_container = create_ptycho_data_container(test_data, config)
-    
-    from ptycho import nbutils
-    obj_tensor_full, global_offsets = nbutils.reconstruct_image(test_container)
-    
-    # Log the shape of global_offsets
-    logger.info(f"Shape of global_offsets: {global_offsets.shape}")
-
-    # Assert that obj_tensor_full is a 4D tensor
-    assert obj_tensor_full.ndim == 4, f"Expected obj_tensor_full to be a 4D tensor, but got shape {obj_tensor_full.shape}"
-
-    # Transpose the image if requested
-    if transpose:
-        obj_tensor_full = np.transpose(obj_tensor_full, (0, 2, 1, 3))
-
-    # Flip coordinates if requested
-    if flip_x:
-        global_offsets[:, 0, 0, :] = -global_offsets[:, 0, 0, :]
-    if flip_y:
-        global_offsets[:, 0, 1, :] = -global_offsets[:, 0, 1, :]
-    
-    # Scale coordinates
-    global_offsets *= coord_scale
-    
-    from ptycho import tf_helper as hh
-    obj_image = hh.reassemble_position(obj_tensor_full, global_offsets, M=M)
-    
-    recon_amp = np.absolute(obj_image)
-    recon_phase = np.angle(obj_image)
-    
-    results = {
-        "obj_tensor_full": obj_tensor_full,
-        "global_offsets": global_offsets,
-        "recon_amp": recon_amp,
-        "recon_phase": recon_phase
-    }
-    
-    return recon_amp, recon_phase, results
-
-def run_cdi_example(
-    train_data: Union[RawData, PtychoDataContainer],
-    test_data: Optional[Union[RawData, PtychoDataContainer]],
-    config: TrainingConfig,
-    flip_x: bool = False,
-    flip_y: bool = False,
-    transpose: bool = False,
-    M: int = 20
-) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
-    """
-    Run the main CDI example execution flow.
-
-    Args:
-        train_data: Training data
-        test_data: Optional test data
-        config: Training configuration parameters
-        flip_x: Whether to flip the x coordinates
-        flip_y: Whether to flip the y coordinates
-        transpose: Whether to transpose the image by swapping dimensions
-        M: Parameter for reassemble_position function
-
-    Returns:
-        Tuple containing:
-        - reconstructed amplitude (or None)
-        - reconstructed phase (or None)
-        - results dictionary
-    """
-    # Update global params with new-style config at entry point
-    update_legacy_dict(params.cfg, config)
-    
-    # Train the model
-    train_results = train_cdi_model(train_data, test_data, config)
-    
-    recon_amp, recon_phase = None, None
-    
-    # Reassemble test image if test data is provided and reconstructed_obj is available
-    if test_data is not None and 'reconstructed_obj' in train_results:
-        recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(
-            test_data, config, flip_x, flip_y, transpose, M=M
-        )
-        train_results.update(reassemble_results)
-    
-    return recon_amp, recon_phase, train_results
-
-
-def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
-    """Save the generated images and results."""
-    os.makedirs(output_prefix, exist_ok=True)
-    
-    # TODO Save training history with tensorboard / mlflow
-    
-    # Save test results if available
-    if amplitude is not None and phase is not None:
-        logger.info(f"Amplitude array shape: {amplitude.shape}")
-        logger.info(f"Phase array shape: {phase.shape}")
-        
-        # Squeeze any extra dimensions
-        amplitude = np.squeeze(amplitude)
-        phase = np.squeeze(phase)
-        
-        logger.info(f"Squeezed amplitude shape: {amplitude.shape}")
-        logger.info(f"Squeezed phase shape: {phase.shape}")
-        
-        # Save as PNG files using plt.figure() to handle 2D arrays properly
-        plt.figure(figsize=(8,8))
-        plt.imshow(amplitude, cmap='gray')
-        plt.colorbar()
-        plt.savefig(os.path.join(output_prefix, "reconstructed_amplitude.png"))
-        plt.close()
-        
-        plt.figure(figsize=(8,8))
-        plt.imshow(phase, cmap='viridis')
-        plt.colorbar()
-        plt.savefig(os.path.join(output_prefix, "reconstructed_phase.png"))
-        plt.close()
-        
-    logger.info(f"Outputs saved to {output_prefix}")
-
-
-=== ../ptycho/train_pinn.py ===
-from ptycho import params
-from .loader import PtychoDataContainer
-from .image import reassemble_patches
-
-def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None):
-    from . import params as p
-    # Model requires intensity_scale to be defined to set the initial
-    # value of the corresponding model parameter
-    if intensity_scale is None:
-        intensity_scale = calculate_intensity_scale(train_data)
-    p.set('intensity_scale', intensity_scale)
-
-    from ptycho import probe
-    probe.set_probe_guess(None, train_data.probe)
-
-    from ptycho import model
-    if model_instance is None:
-        model_instance = model.autoencoder
-    nepochs = params.cfg['nepochs']
-    params.print_params()
-    return model_instance, model.train(nepochs, train_data)
-
-def train_eval(ptycho_dataset):
-    ## TODO reconstructed_obj -> pred_Y or something
-    model_instance, history = train(ptycho_dataset.train_data)
-    results = {
-        'history': history,
-        'model_instance': model_instance
-    }
-    if ptycho_dataset.test_data is not None:
-        eval_results = eval(ptycho_dataset.test_data, history, trained_model=model_instance)
-        # Get config from the dataset
-        config = ptycho_dataset.test_data.config if hasattr(ptycho_dataset.test_data, 'config') else params.cfg
-        stitched_obj = reassemble_patches(eval_results['reconstructed_obj'], config, part='complex')
-        results.update({
-            'reconstructed_obj': eval_results['reconstructed_obj'],
-            'pred_amp': eval_results['pred_amp'],
-            'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
-            'stitched_obj': stitched_obj,
-        })
-    return results
-
-from tensorflow.keras.models import load_model
-# Enhance the existing eval function to optionally load a model for inference
-def eval(test_data, history=None, trained_model=None, model_path=None):
-    """
-    Evaluate the model on test data. Optionally load a model if a path is provided.
-
-    Parameters:
-    - test_data: The test data for evaluation.
-    - history: Training history, if available.
-    - trained_model: An already trained model instance, if available.
-    - model_path: Path to a saved model, if loading is required.
-
-    Returns:
-    - Evaluation results including reconstructed objects and prediction amplitudes.
-    """
-    from ptycho.data_preprocessing import reassemble
-
-    from ptycho import probe
-    probe.set_probe_guess(None, test_data.probe)
-    # TODO enforce that the train and test probes are the same
-    print('INFO:', 'setting probe from test data container. It MUST be consistent with the training probe')
-
-    from ptycho import model
-    if model_path is not None:
-        print(f"Loading model from {model_path}")
-        trained_model = load_model(model_path)
-    elif trained_model is None:
-        raise ValueError("Either a trained model instance or a model path must be provided.")
-
-    reconstructed_obj, pred_amp, reconstructed_obj_cdi = trained_model.predict(
-        [test_data.X * model.params()['intensity_scale'], test_data.coords_nominal]
-    )
-    try:
-        stitched_obj = reassemble(reconstructed_obj, part='complex')
-    except (ValueError, TypeError) as e:
-        stitched_obj = None
-        print('Object stitching failed:', e)
-    return {
-        'reconstructed_obj': reconstructed_obj,
-        'pred_amp': pred_amp,
-        'reconstructed_obj_cdi': reconstructed_obj_cdi,
-        'stitched_obj': stitched_obj
-    }
-
-def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
-    import tensorflow as tf
-    import numpy as np
-    from . import params as p
-    def count_photons(obj):
-        pcount = np.mean(tf.math.reduce_sum(obj**2, (1, 2)))
-        return pcount
-
-    def scale_nphotons(X):
-        # TODO assumes X is already normalized. this should be enforced
-        return tf.math.sqrt(p.get('nphotons')) / (p.get('N') / 2)
-
-    # Calculate the intensity scale using the adapted scale_nphotons function
-    intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
-
-    return intensity_scale
-
-# New alternative implementation
-from ptycho.image import reassemble_patches as _reassemble_patches
-
-def stitch_eval_result(reconstructed_obj, config, **kwargs):
-    """
-    Alternative implementation using new stitching module.
-    Preserves existing behavior while allowing transition to new API.
-    """
-    try:
-        return _reassemble_patches(reconstructed_obj, config, part='complex', **kwargs)
-    except (ValueError, TypeError) as e:
-        print('Object stitching failed:', e)
-        return None
 
 
 === ../ptycho/model.py ===
@@ -2144,714 +1131,600 @@ def print_model_diagnostics(model):
             print(f"{layer.name}: {layer.custom_objects}")
 
 
-=== ../ptycho/tf_helper.py ===
-import os
+=== ../ptycho/raw_data.py ===
 import numpy as np
 import tensorflow as tf
-from typing import Tuple, Optional, Union, Callable, Any
+from typing import Tuple, Optional
+from scipy.spatial import cKDTree
+from ptycho import params
+from ptycho.autotest.debug import debug
+from ptycho import diffsim as datasets
+from ptycho import tf_helper as hh
 
-# Check if there are any GPUs available and set memory growth accordingly
-physical_devices = tf.config.list_physical_devices('GPU')
-if physical_devices:
-    os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
-else:
-    print("No GPU found, using CPU instead.")
+# Constants, # TODO cleanup / refactor
+local_offset_sign = 1
+key_coords_offsets = 'coords_start_offsets'
+key_coords_relative = 'coords_start_relative'
 
+class RawData:
+    #@debug
+    def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
+             scan_index, objectGuess = None, Y = None, norm_Y_I = None):
+        # Sanity checks
+        self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
+                    probeGuess, scan_index)
 
-import tensorflow.compat.v2 as tf
-tf.enable_v2_behavior()
+        # TODO these should go in the data validation method
+        assert len(xcoords.shape) == 1, f"Expected xcoords to be 1D, got shape {xcoords.shape}"
+        assert len(ycoords.shape) == 1, f"Expected ycoords to be 1D, got shape {ycoords.shape}"
+        assert len(xcoords_start.shape) == 1, f"Expected xcoords_start to be 1D, got shape {xcoords_start.shape}"
+        assert len(ycoords_start.shape) == 1, f"Expected ycoords_start to be 1D, got shape {ycoords_start.shape}"
+        if diff3d is not None:
+            assert len(diff3d.shape) == 3, f"Expected diff3d to be 3D, got shape {diff3d.shape}"
+            print(f"diff3d shape: {diff3d.shape}")
+            assert diff3d.shape[1] == diff3d.shape[2]
+        if probeGuess is not None:
+            assert len(probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
+            print(f"probeGuess shape: {probeGuess.shape}")
+        if scan_index is not None:
+            assert len(scan_index.shape) == 1, f"Expected scan_index to be 1D, got shape {scan_index.shape}"
+            print(f"scan_index shape: {scan_index.shape}")
+        if objectGuess is not None:
+            print(f"objectGuess shape: {objectGuess.shape}")
+            assert len(objectGuess.shape) == 2
 
-from tensorflow.keras import Model
-from tensorflow.keras.applications.vgg16 import VGG16
-from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
-from tensorflow.keras.layers import Lambda
-from tensorflow.signal import fft2d, fftshift
-import tensorflow_probability as tfp
+        print(f"xcoords shape: {xcoords.shape}")
+        print(f"ycoords shape: {ycoords.shape}")
+        print(f"xcoords_start shape: {xcoords_start.shape}")
+        print(f"ycoords_start shape: {ycoords_start.shape}")
 
-from .params import params, cfg, get, get_padded_size
-#from .logging import debug
-from .autotest.debug import debug
+        # Assigning values if checks pass
+        self.xcoords = xcoords
+        self.ycoords = ycoords
+        self.xcoords_start = xcoords_start
+        self.ycoords_start = ycoords_start
+        self.diff3d = diff3d
+        self.probeGuess = probeGuess
+        self.scan_index = scan_index
+        self.objectGuess = objectGuess
+        # TODO validity checks
+        self.Y = Y
+        self.norm_Y_I = norm_Y_I
 
-tfk = tf.keras
-tfkl = tf.keras.layers
-tfpl = tfp.layers
-tfd = tfp.distributions
+    @staticmethod
+    #@debug
+    def from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index,
+                               objectGuess=None):
+        """
+        Static method to create a RawData instance without separate start coordinates.
+        The start coordinates are set to be the same as the xcoords and ycoords.
 
-support_threshold = .0
+        Args:
+            xcoords (np.ndarray): x coordinates of the scan points.
+            ycoords (np.ndarray): y coordinates of the scan points.
+            diff3d (np.ndarray): diffraction patterns.
+            probeGuess (np.ndarray): initial guess of the probe function.
+            scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
+            objectGuess (np.ndarray, optional): initial guess of the object. Defaults to None.
+
+        Returns:
+            RawData: An instance of the RawData class.
+        """
+        return RawData(xcoords, ycoords, xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
+
+    @staticmethod
+    def from_simulation(xcoords, ycoords, probeGuess,
+                 objectGuess, scan_index = None):
+        """
+        Create a RawData instance from simulation data.
+
+        Args:
+            xcoords (np.ndarray): x coordinates of the scan points.
+            ycoords (np.ndarray): y coordinates of the scan points.
+            probeGuess (np.ndarray): initial guess of the probe function.
+            objectGuess (np.ndarray): initial guess of the object.
+            scan_index (np.ndarray, optional): array indicating the scan index for each diffraction pattern.
+
+        Returns:
+            RawData: An instance of the RawData class with simulated data.
+        """
+        from ptycho.diffsim import illuminate_and_diffract
+        xcoords_start = xcoords
+        ycoords_start = ycoords
+        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
+                    xcoords, ycoords)
+
+        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+        Y_I = tf.math.abs(Y_obj)
+        Y_phi = tf.math.angle(Y_obj)
+        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+        norm_Y_I = datasets.scale_nphotons(X)
+        assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
+        # TODO RawData should have a method for generating the illuminated ground truth object
+        return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
+                       probeGuess, scan_index, objectGuess,
+                       Y = tf.squeeze(hh.combine_complex( Y_I_xprobe, Y_phi_xprobe)).numpy(),
+                       norm_Y_I = norm_Y_I)
+
+    #@debug
+    def __str__(self):
+        parts = [
+            "RawData:",
+            f"  xcoords: {self.xcoords.shape if self.xcoords is not None else 'None'}",
+            f"  ycoords: {self.ycoords.shape if self.ycoords is not None else 'None'}",
+            f"  xcoords_start: {self.xcoords_start.shape if self.xcoords_start is not None else 'None'}",
+            f"  ycoords_start: {self.ycoords_start.shape if self.ycoords_start is not None else 'None'}",
+            f"  diff3d: {self.diff3d.shape if self.diff3d is not None else 'None'}",
+            f"  probeGuess: {self.probeGuess.shape if self.probeGuess is not None else 'None'}",
+            f"  scan_index: {self.scan_index.shape if self.scan_index is not None else 'None'}",
+            f"  objectGuess: {self.objectGuess.shape if self.objectGuess is not None else 'None'}"
+        ]
+        return "\n".join(parts)
+
+    #@debug
+    def to_file(self, file_path: str) -> None:
+        """
+        Method to write the RawData object to a file using numpy.savez.
+
+        Args:
+            file_path (str): Path to the file where the data will be saved.
+        """
+        np.savez(file_path,
+                 xcoords=self.xcoords,
+                 ycoords=self.ycoords,
+                 xcoords_start=self.xcoords_start,
+                 ycoords_start=self.ycoords_start,
+                 diff3d=self.diff3d,
+                 probeGuess=self.probeGuess,
+                 objectGuess=self.objectGuess,
+                 scan_index=self.scan_index)
+
+    @staticmethod
+    #@debug
+    def from_file(train_data_file_path: str) -> 'RawData':
+        """
+        Static method to create a RawData instance from a file.
+
+        Args:
+            train_data_file_path (str): Path to the file containing the data.
+
+        Returns:
+            RawData: An instance of the RawData class.
+        """
+        # Load training data
+        train_data = np.load(train_data_file_path)
+        train_raw_data = RawData(
+            xcoords=train_data['xcoords'],
+            ycoords=train_data['ycoords'],
+            xcoords_start=train_data['xcoords_start'],
+            ycoords_start=train_data['ycoords_start'],
+            diff3d=train_data['diff3d'],
+            probeGuess=train_data['probeGuess'],
+            objectGuess=train_data['objectGuess'],
+            scan_index=train_data['scan_index']
+        )
+        return train_raw_data
+
+    @staticmethod
+    #@debug
+    def from_files(train_data_file_path, test_data_file_path):
+        """
+        Static method to instantiate RawData objects from training and test data files.
+
+        The data files should be NumPy .npz files with the following keys:
+        - 'xcoords': x coordinates of the scan points
+        - 'ycoords': y coordinates of the scan points
+        - 'xcoords_start': starting x coordinates for the scan
+        - 'ycoords_start': starting y coordinates for the scan
+        - 'diff3d': diffraction patterns
+        - 'probeGuess': initial guess of the probe function
+        - 'scan_index': array indicating the scan index for each diffraction pattern
+
+        Args:
+            train_data_file_path (str): Path to the training data file.
+            test_data_file_path (str): Path to the test data file.
+
+        Returns:
+            tuple: A tuple containing the instantiated RawData objects for training and test data.
+        """
+        # Load training data
+        train_raw_data = RawData.from_file(train_data_file_path)
+
+        # Load test data
+        test_raw_data = RawData.from_file(test_data_file_path)
+
+        return train_raw_data, test_raw_data
+
+    #@debug
+    def generate_grouped_data(self, N, K = 7, nsamples = 1):
+        """
+        Generate nearest-neighbor solution region grouping.
+
+        Args:
+            N (int): Size of the solution region.
+            K (int, optional): Number of nearest neighbors. Defaults to 7.
+            nsamples (int, optional): Number of samples. Defaults to 1.
+
+        Returns:
+            dict: Dictionary containing grouped data.
+        """
+        print('DEBUG:', 'nsamples:', nsamples)
+        return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
+
+    #@debug
+    def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
+        """
+        Check if the input data is valid.
+
+        Args:
+            xcoords (np.ndarray): x coordinates of the scan points.
+            ycoords (np.ndarray): y coordinates of the scan points.
+            xcoords_start (np.ndarray): starting x coordinates for the scan.
+            ycoords_start (np.ndarray): starting y coordinates for the scan.
+            diff3d (np.ndarray): diffraction patterns.
+            probeGuess (np.ndarray): initial guess of the probe function.
+            scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
+
+        Raises:
+            ValueError: If coordinate arrays don't have matching shapes.
+        """
+        # Check if coordinate arrays have matching shapes
+        if not (xcoords.shape == ycoords.shape == xcoords_start.shape == ycoords_start.shape):
+            raise ValueError("Coordinate arrays must have matching shapes.")
+
 #@debug
-def get_mask(input: tf.Tensor, support_threshold: float) -> tf.Tensor:
-    mask = tf.where(input > support_threshold, tf.ones_like(input),
-                    tf.zeros_like(input))
-    return mask
-
-#@debug
-def combine_complex(amp: tf.Tensor, phi: tf.Tensor) -> tf.Tensor:
-    output = tf.cast(amp, tf.complex64) * tf.exp(
-        1j * tf.cast(phi, tf.complex64))
-    return output
-
-#@debug
-def pad_obj(input: tf.Tensor, h: int, w: int) -> tf.Tensor:
-    return tfkl.ZeroPadding2D((h // 4, w // 4), name = 'padded_obj')(input)
-
-#@debug
-def pad_and_diffract(input: tf.Tensor, h: int, w: int, pad: bool = True) -> Tuple[tf.Tensor, tf.Tensor]:
+def calculate_relative_coords(xcoords, ycoords, K = 6, C = None, nsamples = 10):
     """
-    zero-pad the real-space object and then calculate the far field
-    diffraction amplitude.
+    Group scan indices and coordinates into solution regions, then
+    calculate coords_offsets (global solution region coordinates) and
+    coords_relative (local solution patch coords) from ptycho_data using
+    the provided index_grouping_cb callback function.
 
-    Uses sysmmetric FT - L2 norm is conserved
+    Args:
+        xcoords (np.ndarray): x coordinates of the scan points.
+        ycoords (np.ndarray): y coordinates of the scan points.
+        K (int, optional): Number of nearest neighbors. Defaults to 6.
+        C (int, optional): Number of coordinates per solution region. Defaults to None.
+        nsamples (int, optional): Number of samples. Defaults to 10.
+
+    Returns:
+        tuple: A tuple containing coords_offsets, coords_relative, and nn_indices.
     """
-    input = tf.ensure_shape(input, (None, h, w, 1))
-    print('input shape', input.shape)
-    if pad:
-        input = pad_obj(input, h, w)
-    padded = input
-    assert input.shape[-1] == 1
-    input = (((fft2d(
-        (tf.cast((input), tf.complex64))[..., 0]
-        ))))
-    input = (( tf.math.real(tf.math.conj((input)) * input) / (h * w)))
-    input = (( tf.expand_dims(
-                              tf.math.sqrt(
-            fftshift(input, (-2, -1))), 3)
-        ))
-    return padded, input
+    nn_indices, coords_nn = group_coords(xcoords, ycoords, K = K, C = C, nsamples = nsamples)
+    coords_offsets, coords_relative = get_relative_coords(coords_nn)
+    return coords_offsets, coords_relative, nn_indices
 
 #@debug
-def _fromgrid(img: tf.Tensor) -> tf.Tensor:
+def get_image_patches(gt_image, global_offsets, local_offsets):
     """
-    Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, 1)
+    Generate and return image patches in channel format using a single canvas.
+
+    Args:
+        gt_image (tensor): Ground truth image tensor.
+        global_offsets (tensor): Global offset tensor.
+        local_offsets (tensor): Local offset tensor.
+
+    Returns:
+        tensor: Image patches in channel format.
     """
-    print("Debug: Entering _fromgrid function")
-    N = params()['N']
-    return tf.reshape(img, (-1, N, N, 1))
+    # Get necessary parameters
+    gridsize = params.get('gridsize')
+    N = params.get('N')
+    B = global_offsets.shape[0]
+    c = gridsize**2
+
+    # Pad the ground truth image once
+    gt_padded = hh.pad(gt_image[None, ..., None], N // 2)
+
+    # Calculate the combined offsets by adding global and local offsets
+    offsets_c = tf.cast((global_offsets + local_offsets), tf.float32)
+    offsets_f = hh._channel_to_flat(offsets_c)
+
+    # Create a canvas to store the extracted patches
+    canvas = np.zeros((B, N, N, c))
+
+    # Iterate over the combined offsets and extract patches one by one
+    for i in range(B * c):
+        offset = -offsets_f[i, :, :, 0]
+        translated_patch = hh.translate(gt_padded, offset)
+        canvas[i // c, :, :, i % c] = np.array(translated_patch)[0, :N, :N, 0]
+
+    # Convert the canvas to a TensorFlow tensor and return it
+    return tf.convert_to_tensor(canvas)
 
 #@debug
-def _togrid(img: tf.Tensor, gridsize: Optional[int] = None, N: Optional[int] = None) -> tf.Tensor:
+def group_coords(xcoords: np.ndarray, ycoords: np.ndarray, K: int, C: Optional[int], nsamples: int) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Reshape (b * gridsize * gridsize, N, N, 1) to (b, gridsize, gridsize, N, N, 1)
+    Assemble a flat dataset into solution regions using nearest-neighbor grouping.
 
-    i.e. from flat format to grid format
-    """
-    if gridsize is None:
-        gridsize = params()['gridsize']
-    if N is None:
-        N = params()['N']
-    return tf.reshape(img, (-1, gridsize, gridsize, N, N, 1))
+    Args:
+        xcoords (np.ndarray): x coordinates of the scan points.
+        ycoords (np.ndarray): y coordinates of the scan points.
+        K (int): Number of nearest neighbors to consider.
+        C (Optional[int]): Number of coordinates per solution region. If None, uses gridsize^2.
+        nsamples (int): Number of samples to generate.
 
-#@debug
-def togrid(*imgs: tf.Tensor) -> Tuple[tf.Tensor, ...]:
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: A tuple containing:
+            - nn_indices: shape (M, C)
+            - coords_nn: shape (M, 1, 2, C)
     """
-    Reshape (-1, N, N, 1) to (-1, gridsize, gridsize, N, N)
-    """
-    return [_togrid(img) for img in imgs]
+    gridsize = params.get('gridsize')
+    if C is None:
+        C = gridsize**2
+    if C == 1:
+        nn_indices = get_neighbor_self_indices(xcoords, ycoords)
+    else:
+        nn_indices = get_neighbor_indices(xcoords, ycoords, K=K)
+        nn_indices = sample_rows(nn_indices, C, nsamples).reshape(-1, C)
 
-#@debug
-def _grid_to_channel(grid: tf.Tensor) -> tf.Tensor:
-    """
-    Reshape (-1, gridsize, gridsize, N, N) to (-1, N, N, gridsize * gridsize)
-    """
-    gridsize = params()['gridsize']
-    img = tf.transpose(grid, [0, 3, 4, 1, 2, 5], conjugate=False)
-    _, ww, hh = img.shape[:3]
-    img = tf.reshape(img, (-1, ww, hh, gridsize**2))
-    return img
-
-#@debug
-def grid_to_channel(*grids: tf.Tensor) -> Tuple[tf.Tensor, ...]:
-    return [_grid_to_channel(g) for g in grids]
+    coords_nn = np.transpose(np.array([xcoords[nn_indices],
+                            ycoords[nn_indices]]),
+                            [1, 0, 2])[:, None, :, :]
+    return nn_indices, coords_nn[:, :, :, :]
 
 #@debug
-def _flat_to_channel(img: tf.Tensor, N: Optional[int] = None) -> tf.Tensor:
-    gridsize = params()['gridsize']
-    if N is None:
-        N = params()['N']
-    img = tf.reshape(img, (-1, gridsize**2, N, N))
-    img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
-    return img
-
-#@debug
-def _flat_to_channel_2(img: tf.Tensor) -> tf.Tensor:
-    gridsize = params()['gridsize']
-    _, N, M, _ = img.shape
-    img = tf.reshape(img, (-1, gridsize**2, N, M))
-    img = tf.transpose(img, [0, 2, 3, 1], conjugate=False)
-    return img
-
-#@debug
-def _channel_to_flat(img: tf.Tensor) -> tf.Tensor:
+def get_relative_coords(coords_nn):
     """
-    Reshape (b, N, N, c) to (b * c, N, N, 1)
+    Calculate the relative coordinates and offsets from the nearest neighbor coordinates.
+
+    Args:
+        coords_nn (np.ndarray): Array of nearest neighbor coordinates with shape (M, 1, 2, C).
+
+    Returns:
+        tuple: A tuple containing coords_offsets and coords_relative.
     """
-    shape = tf.shape(img)
-    b, h, w, c = shape[0], shape[1], shape[2], shape[3]
-    #_, h, w, c = img.shape
-    img = tf.transpose(img, [0, 3, 1, 2], conjugate=False)
-    img = tf.reshape(img, (-1, h, w, 1))
-    return img
+    assert len(coords_nn.shape) == 4
+    coords_offsets = np.mean(coords_nn, axis=3)[..., None]
+    coords_relative = local_offset_sign * (coords_nn - coords_offsets)
+    return coords_offsets, coords_relative
 
 #@debug
-def _channel_to_patches(channel: tf.Tensor) -> tf.Tensor:
+def get_neighbor_self_indices(xcoords, ycoords):
     """
-    reshape (-1, N, N, gridsize * gridsize) to (-1, gridsize, gridsize, N**2)
+    Assign each pattern index to itself.
+
+    Args:
+        xcoords (np.ndarray): x coordinates of the scan points.
+        ycoords (np.ndarray): y coordinates of the scan points.
+
+    Returns:
+        np.ndarray: Array of self-indices.
     """
-    gridsize = params()['gridsize']
-    N = params()['N']
-    img = tf.transpose(channel, [0, 3, 1, 2], conjugate=False)
-    img = tf.reshape(img, (-1, gridsize, gridsize, N**2))
-    return img
+    N = len(xcoords)
+    nn_indices = np.arange(N).reshape(N, 1) 
+    return nn_indices
 
 #@debug
-def channel_to_flat(*imgs: tf.Tensor) -> Tuple[tf.Tensor, ...]:
-    return [_channel_to_flat(g) for g in imgs]
+def get_neighbor_indices(xcoords, ycoords, K = 3):
+    """
+    Get K nearest neighbor indices for each point.
+
+    Args:
+        xcoords (np.ndarray): x coordinates of the scan points.
+        ycoords (np.ndarray): y coordinates of the scan points.
+        K (int, optional): Number of nearest neighbors to find. Defaults to 3.
+
+    Returns:
+        np.ndarray: Array of nearest neighbor indices.
+    """
+    # Combine x and y coordinates into a single array
+    points = np.column_stack((xcoords, ycoords))
+
+    # Create a KDTree
+    tree = cKDTree(points)
+
+    # Query for K nearest neighbors for each point
+    distances, nn_indices = tree.query(points, k=K+1)  # +1 because the point itself is included in the results
+    return nn_indices
 
 #@debug
-def extract_patches(x: tf.Tensor, N: int, offset: int) -> tf.Tensor:
-    return tf.image.extract_patches(
-        x,
-        [1, N, N, 1],
-        [1, offset,offset, 1],
-        [1, 1, 1, 1],
-        padding="VALID"
+def sample_rows(indices, n, m):
+    """
+    Sample rows from the given indices.
+
+    Args:
+        indices (np.ndarray): Array of indices to sample from.
+        n (int): Number of samples per row.
+        m (int): Number of rows to generate.
+
+    Returns:
+        np.ndarray: Sampled indices array.
+    """
+    N = indices.shape[0]
+    result = np.zeros((N, m, n), dtype=int)
+    for i in range(N):
+        result[i] = np.array([np.random.choice(indices[i], size=n, replace=False) for _ in range(m)])
+    return result
+
+#@debug
+def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples=10):
+    """
+    Get neighbor diffraction patterns and positions.
+
+    Args:
+        ptycho_data (RawData): An instance of the RawData class.
+        N (int): Size of the solution region.
+        K (int, optional): Number of nearest neighbors. Defaults to 6.
+        C (int, optional): Number of coordinates per solution region. Defaults to None.
+        nsamples (int, optional): Number of samples. Defaults to 10.
+
+    Returns:
+        dict: A dictionary containing grouped data and metadata.
+    """
+    nn_indices, coords_nn = group_coords(ptycho_data.xcoords, ptycho_data.ycoords,
+                                         K = K, C = C, nsamples = nsamples)
+
+    diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
+    if ptycho_data.Y is not None:
+        Y4d_nn = np.transpose(ptycho_data.Y[nn_indices], [0, 2, 3, 1])
+    else:
+        Y4d_nn = None
+
+    coords_offsets, coords_relative = get_relative_coords(coords_nn)
+
+    if ptycho_data.xcoords_start is not None:
+        coords_start_nn = np.transpose(np.array([ptycho_data.xcoords_start[nn_indices], ptycho_data.ycoords_start[nn_indices]]),
+                                       [1, 0, 2])[:, None, :, :]
+        coords_start_offsets, coords_start_relative = get_relative_coords(coords_start_nn)
+    else:
+        coords_start_offsets = coords_start_relative = None
+
+    dset = {
+        'diffraction': diff4d_nn,
+        'Y': Y4d_nn,
+        'coords_offsets': coords_offsets,
+        'coords_relative': coords_relative,
+        'coords_start_offsets': coords_start_offsets,
+        'coords_start_relative': coords_start_relative,
+        'coords_nn': coords_nn,
+        'coords_start_nn': coords_start_nn,
+        'nn_indices': nn_indices,
+        'objectGuess': ptycho_data.objectGuess
+    }
+    X_full = normalize_data(dset, N)
+    dset['X_full'] = X_full
+    print('neighbor-sampled diffraction shape', X_full.shape)
+    return dset
+
+#@debug
+def normalize_data(dset: dict, N: int) -> np.ndarray:
+    """
+    Normalize the diffraction data.
+
+    Args:
+        dset (dict): Dictionary containing the dataset.
+        N (int): Size of the solution region.
+
+    Returns:
+        np.ndarray: Normalized diffraction data.
+    """
+    # Images are amplitude, not intensity
+    X_full = dset['diffraction']
+    X_full_norm = np.sqrt(
+            ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
+            )
+    return X_full_norm * X_full
+
+
+
+=== ../ptycho/train_pinn.py ===
+from ptycho import params
+from .loader import PtychoDataContainer
+from .image import reassemble_patches
+
+def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=None):
+    from . import params as p
+    # Model requires intensity_scale to be defined to set the initial
+    # value of the corresponding model parameter
+    if intensity_scale is None:
+        intensity_scale = calculate_intensity_scale(train_data)
+    p.set('intensity_scale', intensity_scale)
+
+    from ptycho import probe
+    probe.set_probe_guess(None, train_data.probe)
+
+    from ptycho import model
+    if model_instance is None:
+        model_instance = model.autoencoder
+    nepochs = params.cfg['nepochs']
+    params.print_params()
+    return model_instance, model.train(nepochs, train_data)
+
+def train_eval(ptycho_dataset):
+    ## TODO reconstructed_obj -> pred_Y or something
+    model_instance, history = train(ptycho_dataset.train_data)
+    results = {
+        'history': history,
+        'model_instance': model_instance
+    }
+    if ptycho_dataset.test_data is not None:
+        eval_results = eval(ptycho_dataset.test_data, history, trained_model=model_instance)
+        # Get config from the dataset
+        config = ptycho_dataset.test_data.config if hasattr(ptycho_dataset.test_data, 'config') else params.cfg
+        stitched_obj = reassemble_patches(eval_results['reconstructed_obj'], config, part='complex')
+        results.update({
+            'reconstructed_obj': eval_results['reconstructed_obj'],
+            'pred_amp': eval_results['pred_amp'],
+            'reconstructed_obj_cdi': eval_results['reconstructed_obj_cdi'],
+            'stitched_obj': stitched_obj,
+        })
+    return results
+
+from tensorflow.keras.models import load_model
+# Enhance the existing eval function to optionally load a model for inference
+def eval(test_data, history=None, trained_model=None, model_path=None):
+    """
+    Evaluate the model on test data. Optionally load a model if a path is provided.
+
+    Parameters:
+    - test_data: The test data for evaluation.
+    - history: Training history, if available.
+    - trained_model: An already trained model instance, if available.
+    - model_path: Path to a saved model, if loading is required.
+
+    Returns:
+    - Evaluation results including reconstructed objects and prediction amplitudes.
+    """
+    from ptycho.data_preprocessing import reassemble
+
+    from ptycho import probe
+    probe.set_probe_guess(None, test_data.probe)
+    # TODO enforce that the train and test probes are the same
+    print('INFO:', 'setting probe from test data container. It MUST be consistent with the training probe')
+
+    from ptycho import model
+    if model_path is not None:
+        print(f"Loading model from {model_path}")
+        trained_model = load_model(model_path)
+    elif trained_model is None:
+        raise ValueError("Either a trained model instance or a model path must be provided.")
+
+    reconstructed_obj, pred_amp, reconstructed_obj_cdi = trained_model.predict(
+        [test_data.X * model.params()['intensity_scale'], test_data.coords_nominal]
     )
-
-#@debug
-def extract_outer(img: tf.Tensor, fmt: str = 'grid',
-        bigN: Optional[int] = None, outer_offset: Optional[int] = None) -> tf.Tensor:#,
-    """
-        Extract big patches (overlapping bigN x bigN regions over an
-        entire input img)
-    """
-    if bigN is None:
-        bigN = get('bigN')
-    assert img.shape[-1] == 1
-    grid = tf.reshape(
-        extract_patches(img, bigN, outer_offset // 2),
-        (-1, bigN, bigN, 1))
-    if fmt == 'flat':
-        return _fromgrid(grid)
-    elif fmt == 'grid':
-        return grid
-    elif fmt == 'channel':
-        return _grid_to_channel(grid)
-    else:
-        raise ValueError
-
-#@debug
-def extract_inner_grid(grid: tf.Tensor) -> tf.Tensor:
-    N = cfg['N']
-    offset = params()['offset']
-    return extract_patches(grid, N, offset)
-
-#@debug
-def extract_nested_patches(img: tf.Tensor, fmt: str = 'flat',
-        extract_inner_fn: Callable[[tf.Tensor], tf.Tensor] = extract_inner_grid,
-        **kwargs: Any) -> tf.Tensor:
-    """
-    Extract small patches (overlapping N x N regions on a gridsize x gridsize
-        grid) within big patches (overlapping bigN x bigN regions over the
-        entire input img)
-
-    fmt == 'channel': patches within a solution region go in the channel dimension
-    fmt == 'flat': patches within a solution go in the batch dimension; size of output
-        channel dimension is 1
-    fmt == 'grid': ...
-
-    This function and extract_outer are only used to extract nominal
-    coordinates, so it is not necessary for them to use jitter padding
-    """
-    N = cfg['N']
-    offset = params()['offset']
-    gridsize = params()['gridsize']
-    assert img.shape[-1] == 1
-    outer_grid = extract_outer(img, fmt = 'grid', **kwargs)
-    grid = tf.reshape(
-        extract_inner_fn(outer_grid),
-        (-1, gridsize, gridsize, N, N, 1))
-    if fmt == 'flat':
-        return _fromgrid(grid)
-    elif fmt == 'grid':
-        return grid
-    elif fmt == 'channel':
-        return _grid_to_channel(grid)#, outer_grid # TODO second output is for debugging
-    else:
-        raise ValueError
-
-#@debug
-def mk_extract_inner_position(offsets_xy: tf.Tensor) -> Callable[[tf.Tensor], Tuple[tf.Tensor]]:
-    #@debug
-    def inner(grid: tf.Tensor) -> Tuple[tf.Tensor]:
-        return extract_patches_position(grid, offsets_xy),
-    return inner
-
-#@debug
-def extract_nested_patches_position(img: tf.Tensor, offsets_xy: tf.Tensor, fmt: str = 'flat',
-        **kwargs: Any) -> tf.Tensor:
-    """
-    Extract small patches (overlapping N x N regions on a gridsize x gridsize
-        grid) within big patches (overlapping bigN x bigN regions over the
-        entire input img)
-
-    fmt == 'channel': patches within a solution region go in the channel dimension
-    fmt == 'flat': patches within a solution go in the batch dimension; size of output
-        channel dimension is 1
-    fmt == 'grid': ...
-    """
-    return extract_nested_patches(img, fmt = fmt,
-        extract_inner_fn = mk_extract_inner_position(offsets_xy),
-        **kwargs)
-
-@tf.function
-#@debug
-def extract_patches_inverse(y: tf.Tensor, N: int, average: bool, gridsize: Optional[int] = None, offset: Optional[int] = None) -> tf.Tensor:
-    if gridsize is None:
-        gridsize = params()['gridsize']
-    if offset is None:
-        offset = params()['offset']
-    target_size = N + (gridsize - 1) * offset
-    b = tf.shape(y)[0]
-
-    _x = tf.zeros((b, target_size, target_size, 1), dtype = y.dtype)
-    _y = extract_patches(_x, N, offset)
-    if average:
-        grad = tf.gradients(_y, _x)[0]
-        return tf.gradients(_y, _x, grad_ys=y)[0] / grad
-    else:
-        return tf.gradients(_y, _x, grad_ys=y)[0]
-
-#@debug
-def reassemble_patches_real(channels: tf.Tensor, average: bool = True, **kwargs: Any) -> tf.Tensor:
-    """
-    Given image patches (shaped such that the channel dimension indexes
-    patches within a single solution region), reassemble into an image
-    for the entire solution region. Overlaps between patches are
-    averaged.
-    """
-    real = _channel_to_patches(channels)
-    N = params()['N']
-    return extract_patches_inverse(real, N, average, **kwargs)
-
-#@debug
-def pad_patches(imgs: tf.Tensor, padded_size: Optional[int] = None) -> tf.Tensor:
-    N = params()['N']
-    if padded_size is None:
-        padded_size = get_padded_size()
-    return tfkl.ZeroPadding2D(((padded_size - N) // 2, (padded_size - N) // 2))(imgs)
-
-#@debug
-def pad(imgs: tf.Tensor, size: int) -> tf.Tensor:
-    return tfkl.ZeroPadding2D((size, size))(imgs)
-
-#@debug
-def trim_reconstruction(x: tf.Tensor, N: Optional[int] = None) -> tf.Tensor:
-    """
-    Trim from shape (_, M, M, _) to (_, N, N, _), where M >= N
-
-    When dealing with an input with a static shape, assume M = get_padded_size()
-    """
-    if N is None:
-        N = cfg['N']
-    shape = x.shape
-    if shape[1] is not None:
-        assert int(shape[1]) == int(shape[2])
     try:
-        clipsize = (int(shape[1]) - N) // 2
-    except TypeError:
-        clipsize = (get_padded_size() - N) // 2
-    return x[:, clipsize: -clipsize,
-            clipsize: -clipsize, :]
+        stitched_obj = reassemble(reconstructed_obj, part='complex')
+    except (ValueError, TypeError) as e:
+        stitched_obj = None
+        print('Object stitching failed:', e)
+    return {
+        'reconstructed_obj': reconstructed_obj,
+        'pred_amp': pred_amp,
+        'reconstructed_obj_cdi': reconstructed_obj_cdi,
+        'stitched_obj': stitched_obj
+    }
 
-#@debug
-def extract_patches_position(imgs: tf.Tensor, offsets_xy: tf.Tensor, jitter: float = 0.) -> tf.Tensor:
+def calculate_intensity_scale(ptycho_data_container: PtychoDataContainer) -> float:
+    import tensorflow as tf
+    import numpy as np
+    from . import params as p
+    def count_photons(obj):
+        pcount = np.mean(tf.math.reduce_sum(obj**2, (1, 2)))
+        return pcount
+
+    def scale_nphotons(X):
+        # TODO assumes X is already normalized. this should be enforced
+        return tf.math.sqrt(p.get('nphotons')) / (p.get('N') / 2)
+
+    # Calculate the intensity scale using the adapted scale_nphotons function
+    intensity_scale = scale_nphotons(ptycho_data_container.X).numpy()
+
+    return intensity_scale
+
+# New alternative implementation
+from ptycho.image import reassemble_patches as _reassemble_patches
+
+def stitch_eval_result(reconstructed_obj, config, **kwargs):
     """
-    Expects offsets_xy in channel format.
-
-    imgs must be in flat format with a single image per solution region, i.e.
-    (batch size, M, M, 1) where M = N + some padding size.
-
-    Returns shifted images in channel format, cropped symmetrically
-
-    no negative sign
+    Alternative implementation using new stitching module.
+    Preserves existing behavior while allowing transition to new API.
     """
-    if  imgs.get_shape()[0] is not None:
-        assert int(imgs.get_shape()[0]) == int(offsets_xy.get_shape()[0])
-    assert int(imgs.get_shape()[3]) == 1
-    assert int(offsets_xy.get_shape()[2]) == 2
-    assert int(imgs.get_shape()[3]) == 1
-    gridsize = params()['gridsize']
-    assert int(offsets_xy.get_shape()[3]) == gridsize**2
-    offsets_flat = flatten_offsets(offsets_xy)
-    stacked = tf.repeat(imgs, gridsize**2, axis = 3)
-    flat_padded = _channel_to_flat(stacked)
-    channels_translated = trim_reconstruction(
-        Translation()([flat_padded, offsets_flat, jitter]))
-    return channels_translated
-
-#@debug
-def center_channels(channels: tf.Tensor, offsets_xy: tf.Tensor) -> tf.Tensor:
-    """
-    Undo image patch offsets
-    """
-    ct = Translation()([_channel_to_flat(channels), flatten_offsets(-offsets_xy), 0.])
-    channels_centered = _flat_to_channel(ct)
-    return channels_centered
-
-#@debug
-def is_complex_tensor(tensor: tf.Tensor) -> bool:
-    """Check if the tensor is of complex dtype."""
-    return tensor.dtype in [tf.complex64, tf.complex128]
-
-#@debug
-def complexify_helper(separate: Callable[[tf.Tensor], Tuple[tf.Tensor, tf.Tensor]], combine: Callable[[tf.Tensor, tf.Tensor], tf.Tensor]) -> Callable:
-    """
-    Create a "complexify" function based on the provided separation and combination methods.
-    """
-    #@debug
-    def complexify(fn: Callable[..., tf.Tensor]) -> Callable[..., tf.Tensor]:
-        #@debug
-        def newf(*args: Any, **kwargs: Any) -> tf.Tensor:
-            channels = args[0]
-            if is_complex_tensor(channels):
-                part1, part2 = separate(channels)
-                assembled_part1 = fn(part1, *args[1:], **kwargs)
-                assembled_part2 = fn(part2, *args[1:], **kwargs)
-                return combine(assembled_part1, assembled_part2)
-            else:
-                return fn(*args, **kwargs)
-        return newf
-    return complexify
-
-#@debug
-def separate_real_imag(channels: Union[tf.Tensor, np.ndarray]) -> Tuple[Union[tf.Tensor, np.ndarray], Union[tf.Tensor, np.ndarray]]:
-    return tf.math.real(channels), tf.math.imag(channels)
-
-#@debug
-def combine_real_imag(real: Union[tf.Tensor, np.ndarray], imag: Union[tf.Tensor, np.ndarray]) -> Union[tf.Tensor, np.ndarray]:
-    return tf.cast(tf.dtypes.complex(real, imag), tf.complex64)
-
-#@debug
-def separate_amp_phase(channels: Union[tf.Tensor, np.ndarray]) -> Tuple[Union[tf.Tensor, np.ndarray], Union[tf.Tensor, np.ndarray]]:
-    return tf.math.abs(channels), tf.math.angle(channels)
-
-complexify_function = complexify_helper(separate_real_imag, combine_real_imag)
-complexify_amp_phase = complexify_helper(separate_amp_phase, combine_complex)
-complexify_sum_amp_phase = complexify_helper(separate_amp_phase, lambda a, b: a + b)
-complexify_sum_real_imag = complexify_helper(separate_real_imag, lambda a, b: a + b)
-
-
-from tensorflow_addons.image import translate as _translate
-
-#from ptycho.misc import debug
-@complexify_function
-#@debug
-def translate(imgs: tf.Tensor, offsets: tf.Tensor, **kwargs: Any) -> tf.Tensor:
-    # TODO assert dimensionality of translations is 2; i.e. B, 2
-    return _translate(imgs, offsets, **kwargs)
-
-# TODO consolidate this and translate()
-class Translation(tf.keras.layers.Layer):
-    def __init__(self) -> None:
-        super(Translation, self).__init__()
-    def call(self, inputs: Tuple[tf.Tensor, tf.Tensor, float]) -> tf.Tensor:
-        imgs, offsets, jitter = inputs
-        jitter = tf.random.normal(tf.shape(offsets), stddev = jitter)
-        return translate(imgs, offsets + jitter, interpolation = 'bilinear')
-
-#@debug
-def flatten_offsets(channels: tf.Tensor) -> tf.Tensor:
-    return _channel_to_flat(channels)[:, 0, :, 0]
-
-#@debug
-def pad_reconstruction(channels: tf.Tensor) -> tf.Tensor:
-    padded_size = get_padded_size()
-    imgs_flat = _channel_to_flat(channels)
-    return pad_patches(imgs_flat, padded_size)
-
-#@debug
-def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, agg: bool = True, padded_size: Optional[int] = None,
-        **kwargs: Any) -> tf.Tensor:
-    """
-    Pass this function as an argument to reassemble_patches by wrapping it, e.g.:
-        def reassemble_patches_position_real(imgs, **kwargs):
-            return _reassemble_patches_position_real(imgs, coords)
-    """
-    if padded_size is None:
-        padded_size = get_padded_size()
-    offsets_flat = flatten_offsets(offsets_xy)
-    imgs_flat = _channel_to_flat(imgs)
-    imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
-    imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat, 0.])
-    if agg:
-        imgs_merged = tf.reduce_sum(
-                _flat_to_channel(imgs_flat_bigN_translated, N = padded_size),
-                    axis = 3)[..., None]
-        return imgs_merged
-    else:
-        print('no aggregation in patch reassembly')
-        return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
-
-#@debug
-def mk_centermask(inputs: tf.Tensor, N: int, c: int, kind: str = 'center') -> tf.Tensor:
-    b = tf.shape(inputs)[0]
-#    if get('probe.big'):
-#        ones = tf.ones((b, N, N, c), dtype = inputs.dtype)
-#    else:
-#        ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
-#        ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
-    ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
-    ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
-    if kind == 'center':
-        return ones
-    elif kind == 'border':
-        return 1 - ones
-    else:
-        raise ValueError
-
-#@debug
-def mk_norm(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Tensor], tf.Tensor]) -> tf.Tensor:
-    N = params()['N']
-    gridsize = params()['gridsize']
-    # TODO if probe.big is True, shouldn't the ones fill the full N x N region?
-    ones = mk_centermask(channels, N, gridsize**2)
-    assembled_ones = fn_reassemble_real(ones, average = False)
-    norm = assembled_ones + .001
-    return norm
-
-#@debug
-def reassemble_patches(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Tensor], tf.Tensor] = reassemble_patches_real,
-        average: bool = False, **kwargs: Any) -> tf.Tensor:
-    """
-    Given image patches (shaped such that the channel dimension indexes
-    patches within a single solution region), reassemble into an image
-    for the entire solution region. Overlaps between patches are
-    averaged.
-    """
-    real = tf.math.real(channels)
-    imag = tf.math.imag(channels)
-    assembled_real = fn_reassemble_real(real, average = average, **kwargs) / mk_norm(real,
-        fn_reassemble_real)
-    assembled_imag = fn_reassemble_real(imag, average = average, **kwargs) / mk_norm(imag,
-        fn_reassemble_real)
-    return tf.dtypes.complex(assembled_real, assembled_imag)
-
-#@debug
-def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
-    from . import tf_helper as hh
-    assert len(obj_tensor.shape) == 4
-    assert obj_tensor.dtype == np.complex64
-    assert len(global_offsets.shape) == 4
-    assert global_offsets.dtype == np.float64
-    # Extract necessary parameters
-    N = params()['N']
-    # Select the central part of the object tensor
-    obj_tensor = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
-    # Calculate the center of mass of global_offsets
-    center_of_mass = tf.reduce_mean(tf.cast(global_offsets, tf.float32), axis=0)
-    # Adjust global_offsets by subtracting the center of mass
-    adjusted_offsets = tf.cast(global_offsets, tf.float32) - center_of_mass
-    # Calculate dynamic padding based on maximum adjusted offset
-    max_offset = tf.reduce_max(tf.abs(adjusted_offsets))
-    dynamic_pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
-    print('PADDING SIZE:', dynamic_pad)
-    
-    # Create a canvas to store the shifted and summed object tensors
-    result = tf.zeros_like(hh.pad(obj_tensor[0:1], dynamic_pad))
-    
-    # Iterate over the adjusted offsets and perform shift-and-sum
-    for i in range(len(adjusted_offsets)):
-        # Apply dynamic padding to the current object tensor
-        padded_obj_tensor = hh.pad(obj_tensor[i:i+1], dynamic_pad)
-        # Squeeze and cast adjusted offset to 2D float for translation
-        offset_2d = tf.cast(tf.squeeze(adjusted_offsets[i]), tf.float32)
-        # Translate the padded object tensor
-        translated_obj = hh.translate(padded_obj_tensor, offset_2d, interpolation='bilinear')
-        # Accumulate the translated object tensor
-        result += translated_obj[0]
-    
-    # TODO: how could we support multiple scans?
-    return result[0]
-
-#@debug
-def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 226, norm: bool = False) -> tf.Tensor:
-    """
-    patches: tensor of shape (B, N, N, gridsize**2) containing reconstruction patches
-
-    reassembles the NxN patches into a single size x size x 1 mage, given the
-        provided offsets
-
-    This function inverts the offsets, so it's not necessary to multiply by -1
-    """
-    img = tf.reduce_sum(
-        reassemble_patches(patches, fn_reassemble_real=mk_reassemble_position_real(
-        offsets, padded_size = size)),
-        axis = 0)
-    if norm:
-        return img / reassemble_whole_object(tf.ones_like(patches), offsets, size = size, norm = False)
-    return img
-
-def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
-    ones = tf.ones_like(obj_tensor)
-    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
-        (1e-9 + shift_and_sum(ones, global_offsets, M = M))
-
-#@debug
-def mk_reassemble_position_real(input_positions: tf.Tensor, **outer_kwargs: Any) -> Callable[[tf.Tensor], tf.Tensor]:
-    #@debug
-    def reassemble_patches_position_real(imgs: tf.Tensor, **kwargs: Any) -> tf.Tensor:
-        return _reassemble_patches_position_real(imgs, input_positions,
-            **outer_kwargs)
-    return reassemble_patches_position_real
-
-#@debug
-def preprocess_objects(Y_I: np.ndarray, Y_phi: Optional[np.ndarray] = None,
-        offsets_xy: Optional[tf.Tensor] = None, **kwargs: Any) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor]:
-    """
-    Extracts normalized object patches from full real-space images, using the
-    nested grid format.
-    """
-    _Y_I_full = Y_I
-    if Y_phi is None:
-        Y_phi = np.zeros_like(Y_I)
-
-    if offsets_xy is None or tf.math.reduce_all(offsets_xy == 0):
-        print('Sampling on regular grid')
-        Y_I, Y_phi = \
-            [extract_nested_patches(imgs, fmt= 'channel', **kwargs)
-                for imgs in [Y_I, Y_phi]]
-    else:
-        print('Using provided scan point offsets')
-        Y_I, Y_phi = \
-            [extract_nested_patches_position(imgs, offsets_xy, fmt= 'channel',
-                    **kwargs)
-                for imgs in [Y_I, Y_phi]]
-
-    assert Y_I.shape[-1] == get('gridsize')**2
-    norm_Y_I = tf.math.reduce_max(Y_I, axis = (1, 2, 3))[:, None, None, None]
-    norm_Y_I = tf.math.reduce_mean(norm_Y_I)
-    Y_I /= norm_Y_I
-
-    Y_I, Y_phi =\
-        channel_to_flat(Y_I, Y_phi)
-    return Y_I, Y_phi, _Y_I_full / norm_Y_I, norm_Y_I
-
-#@debug
-def reassemble_nested_average(output_tensor: tf.Tensor, cropN: Optional[int] = None, M: Optional[int] = None, n_imgs: int = 1,
-        offset: int = 4) -> tf.Tensor:
-    """
-    Stitch reconstruction patches from (first) model output into full
-    reconstructed images, averaging the overlaps
-    """
-    assert len(output_tensor.shape) == 4
-    bsize = int(output_tensor.shape[0] / n_imgs)
-    output_tensor = output_tensor[:bsize, ...]
-    if M is None:
-        M = int(np.sqrt(bsize))
-    if cropN is None:
-        cropN = params.params()['cropN']
-    patches = _togrid(trim_reconstruction(output_tensor, cropN), gridsize = M,
-        N = cropN)
-    patches = tf.reshape(patches, (-1, M, M, cropN**2))
-    obj_recon = complexify_function(extract_patches_inverse)(patches, cropN,
-        True, gridsize = M, offset = offset)
-    return obj_recon
-
-
-#@debug
-def gram_matrix(input_tensor: tf.Tensor) -> tf.Tensor:
-    result = tf.linalg.einsum('bijc,bijd->bcd', input_tensor, input_tensor)
-    input_shape = tf.shape(input_tensor)
-    num_locations = tf.cast(input_shape[1]*input_shape[2], tf.float32)
-    return result/(num_locations)
-
-#@debug
-def high_pass_x_y(image: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
-    x_var = image[:,:,1:,:] - image[:,:,:-1,:]
-    y_var = image[:,1:,:,:] - image[:,:-1,:,:]
-    return x_var, y_var
-
-pp = tfk.Sequential([
-    Lambda(lambda x: tf.image.grayscale_to_rgb(x)),
-])
-#@debug
-def perceptual_loss(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
-    """
-    """
-    target = pp(target)
-    pred = pp(pred)
-
-    vgg = VGG16(weights='imagenet', include_top=False, input_shape=(N, N, 3))
-    vgg.trainable = False
-
-    outputs = [vgg.get_layer('block2_conv2').output]
-    feat_model = Model(vgg.input, outputs)
-    activatedModelVal = feat_model(pred)
-    actualModelVal = feat_model(target)
-    return meanSquaredLoss(gram_matrix(actualModelVal),gram_matrix(activatedModelVal))
-
-#@debug
-def meanSquaredLoss(y_true: tf.Tensor, y_pred: tf.Tensor, center_target: bool = True) -> tf.Tensor:
-    return tf.reduce_mean(tf.keras.losses.MSE(y_true,y_pred))
-
-#@debug
-def masked_MAE_loss(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
-    """
-    bigN
-    """
-    mae = tf.keras.metrics.mean_absolute_error
-    mask = params()['probe_mask']
-    pred = trim_reconstruction(
-            reassemble_patches(mask * pred))
-    target = trim_reconstruction(
-            reassemble_patches(tf.math.abs(mask) * target))
-    return mae(target, pred)
-
-
-@complexify_sum_real_imag
-#@debug
-def total_variation_complex(obj: tf.Tensor) -> tf.Tensor:
-    """ calculate summed total variation of the real and imaginary components
-        of a tensor
-    """
-    x_deltas, y_deltas = high_pass_x_y(obj)
-    return tf.reduce_sum(x_deltas**2) + tf.reduce_sum(y_deltas**2)
-
-#@debug
-def total_variation(obj: tf.Tensor, amp_only: bool = False) -> tf.Tensor:
-    if amp_only:
-        obj = Lambda(lambda x: tf.math.abs(x))(obj)
-    return total_variation_complex(obj)
-
-@complexify_sum_amp_phase
-#@debug
-def complex_mae(target: tf.Tensor, pred: tf.Tensor) -> tf.Tensor:
-    mae = tf.keras.metrics.mean_absolute_error
-    return mae(target, pred)
-
-#@debug
-def masked_mae(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tensor:
-    N = params()['N']
-    mae = tf.keras.metrics.mean_absolute_error
-    pred = pred * mk_centermask(pred, N, 1, kind = 'center')
-    return mae(target, pred)
-
-#@debug
-def realspace_loss(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tensor:
-    N = params()['N']
-    if not get('probe.big'):
-        pred = pred * mk_centermask(pred, N, 1, kind = 'center')
-
-    if get('tv_weight') > 0:
-        tv_loss = total_variation(pred) * get('tv_weight')
-    else:
-        tv_loss = 0.
-
-    if get('realspace_mae_weight') > 0:
-        mae_loss = complex_mae(target, pred) * get('realspace_mae_weight')
-    else:
-        mae_loss = 0.
-    return tv_loss + mae_loss
+    try:
+        return _reassemble_patches(reconstructed_obj, config, part='complex', **kwargs)
+    except (ValueError, TypeError) as e:
+        print('Object stitching failed:', e)
+        return None
 
 
 </context_files>
@@ -2859,57 +1732,46 @@ def realspace_loss(target: tf.Tensor, pred: tf.Tensor, **kwargs: Any) -> tf.Tens
 <files_to_modify>
 
 File: ./ptycho/loader.py
-Reason: Manages the creation and handling of PtychoDataContainer instances, which currently store a single probe tensor. To support multiple probes, this file needs to be adapted to handle multiple probes and associate each sample with the correct probe index.
+Reason: Primary data container class needs to support multiple probes
 Changes Needed:
-- Introduce a new data container class (e.g., MultiPtychoDataContainer) that includes a list of probe tensors.
-- Add a new attribute `probe_indices` to store the index of the probe associated with each sample, ensuring it matches the first dimension of `X`, `Y_I`, etc.
-- Modify data loading functions to assign appropriate probe indices to each sample based on the dataset.
-- Ensure that probe indices are of dtype `int64`.
-Dependencies: ./ptycho/raw_data.py, ./ptycho/workflows/components.py, ./ptycho/train_pinn.py
-
-
-File: ./ptycho/raw_data.py
-Reason: Generates PtychoDataContainer instances, currently assuming a single probe. Needs to support multiple probes by associating each sample with a probe index.
-Changes Needed:
-- Update data generation methods to accept and store multiple probe tensors.
-- Implement logic to assign probe indices to each sample during data creation.
-- Ensure compatibility with the new MultiPtychoDataContainer structure.
-Dependencies: ./ptycho/loader.py
-
-
-File: ./ptycho/workflows/components.py
-Reason: Creates PtychoDataContainer instances for training and testing, currently handling a single probe. Needs to handle multiple probes and associate each sample with the correct probe index.
-Changes Needed:
-- Modify the factory function to create instances of MultiPtychoDataContainer instead of PtychoDataContainer.
-- Implement logic to shuffle and interleave samples from multiple datasets during training.
-- Ensure that each sample includes a probe index referencing the correct probe in the probes list.
-Dependencies: ./ptycho/loader.py, ./ptycho/train_pinn.py
-
-
-File: ./ptycho/train_pinn.py
-Reason: Handles the training of the CDI model using data from PtychoDataContainer, which currently assumes a single probe. Needs to adapt to handle per-sample probes by utilizing probe indices.
-Changes Needed:
-- Modify training functions to accept probe indices as part of the input data.
-- Adjust the model input pipelines to fetch the correct probe tensor based on probe indices for each sample.
-- Ensure that the training process correctly associates each input sample with its corresponding probe.
-Dependencies: ./ptycho/workflows/components.py, ./ptycho/model.py
+- Add probe_indices attribute to PtychoDataContainer to store probe index per sample
+- Modify PtychoDataContainer constructor to accept probe list and indices
+- Add methods for merging multiple PtychoDataContainers with probe handling
+- Update probe handling in load() method to support probe lists
+Dependencies: train_pinn.py, components.py, model.py
 
 
 File: ./ptycho/model.py
-Reason: Defines the model architecture which currently uses a global probe tensor. Needs to be adapted to handle per-sample probe tensors based on probe indices.
+Reason: Model needs to handle per-sample probe selection
 Changes Needed:
-- Update the model inputs to include probe tensors for each sample.
-- Modify layers that apply the probe to utilize the per-sample probe tensors instead of a single global probe.
-- Ensure that the model architecture can dynamically handle varying probe tensors for each input sample.
-Dependencies: ./ptycho/tf_helper.py, ./ptycho/probe.py
+- Modify ProbeIllumination layer to use probe indices
+- Add probe input tensor to model inputs
+- Update model training and inference logic for probe selection
+Dependencies: train_pinn.py, evaluation.py
 
 
-File: ./ptycho/tf_helper.py
-Reason: Contains helper functions related to probe operations within the model. Needs to support handling multiple probe tensors.
+File: ./ptycho/components.py
+Reason: Data loading and preparation needs probe index support
 Changes Needed:
-- Update probe-related helper functions to accept and process per-sample probe tensors.
-- Ensure compatibility with the updated model architecture supporting multiple probes.
-Dependencies: ./ptycho/model.py, ./ptycho/probe.py
+- Update create_ptycho_data_container() to handle probe indices
+- Modify train_cdi_model() to pass probe information
+Dependencies: visualize_results.py
+
+
+File: ./ptycho/raw_data.py
+Reason: Base data class needs probe index support
+Changes Needed:
+- Add probe_index field to RawData class
+- Update generate_grouped_data() to preserve probe indices
+Dependencies: loader.py, components.py
+
+
+File: ./ptycho/train_pinn.py
+Reason: Training workflow needs to handle multiple probes
+Changes Needed:
+- Update prepare_inputs() to include probe indices
+- Modify train() to handle datasets with multiple probes
+Dependencies: evaluation.py
 
 </files_to_modify>
 
