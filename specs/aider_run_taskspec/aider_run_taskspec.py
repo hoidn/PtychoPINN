@@ -5,6 +5,7 @@ from aider.io import InputOutput
 import yaml
 import sys
 
+# TODO CHANGE MODEL!!!
 def run_taskspec(taskspec_path: str, summary_path: str, architect_model: str = '4o-mini', editor_model: str = '4o-mini'):
     """
     Process files according to the task specification.

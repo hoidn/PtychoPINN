@@ -241,8 +241,23 @@ class Director:
         Args:
             prompt: The prompt to send to the AI coder
         """
-        model = Model(self.config.coder_model)
+        #model = Model(self.config.coder_model)
+        # TODO parameterize the editor model
+        model = Model(self.config.coder_model,
+                      editor_model = "claude-3-5-sonnet-20241022",
+                      editor_edit_format="diff")
+
+#        coder = Coder.create(
+#            main_model=model,
+#            io=InputOutput(yes=True),
+#            fnames=self.config.context_editable,
+#            read_only_fnames=self.config.context_read_only,
+#            auto_commits=False,
+#            suggest_shell_commands=False,
+#        )
+        # TODO: parameterize edit format
         coder = Coder.create(
+            edit_format="architect",
             main_model=model,
             io=InputOutput(yes=True),
             fnames=self.config.context_editable,

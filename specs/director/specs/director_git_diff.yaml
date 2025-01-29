@@ -70,7 +70,8 @@ prompt: |
   {{ git_diff }}
   </diff>
 
-coder_model: claude-3-5-sonnet-20241022
+  #coder_model: claude-3-5-sonnet-20241022
+coder_model: r1
 
 # List of files that can be modified by the AI
 context_editable:
@@ -91,7 +92,7 @@ execution_command: ./run_training.sh
 
 # Maximum number of attempts to generate correct code
 # Recommended range: 3-10
-max_iterations: 1
+max_iterations: 10
 
 # The model to use for code evaluation
 # Must be either "gpt-4o" or "gpt-4o-mini"
