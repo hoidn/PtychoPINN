@@ -1,5 +1,7 @@
+from typing import List, Union
+import tensorflow as tf
 from ptycho import params
-from .loader import PtychoDataContainer
+from .loader import PtychoDataContainer, MultiPtychoDataContainer
 from .image import reassemble_patches
 
 def train(train_data: Union[PtychoDataContainer, MultiPtychoDataContainer], intensity_scale=None, model_instance=None):
