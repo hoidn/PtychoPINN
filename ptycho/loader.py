@@ -31,7 +31,8 @@ class PtychoDataContainer:
                  nn_indices,
                  global_offsets,
                  local_offsets,
-                 probeGuess):
+                 probeGuess,
+                 probe_indices=None):
         self.X = X
         self.Y_I = Y_I
         self.Y_phi = Y_phi
@@ -408,7 +409,15 @@ def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) ->
     # TODO get rid of?
     YY_full = None
     # TODO complex
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    # Initialize probe indices if not present
+    if 'probe_indices' in dset:
+        probe_indices = tf.convert_to_tensor(dset['probe_indices'], dtype=tf.int64)
+    else:
+        probe_indices = tf.zeros((X.shape[0],), dtype=tf.int64)
+        
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, 
+                                  dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], 
+                                  probeGuess, probe_indices=probe_indices)
     print('INFO:', which)
     print(container)
     return container

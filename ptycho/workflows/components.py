@@ -321,8 +321,12 @@ def train_cdi_model(
         num_samples = test_container.X.shape[0]
         test_container.probe_indices = get_default_probe_indices(num_samples)
 
-    # Initialize probe
-    probe.set_probe_guess(None, train_container.probe)
+    # Initialize probes
+    if hasattr(train_container, 'probes'):
+        initial_probe = train_container.probes
+    else:
+        initial_probe = train_container.probe
+    probe.set_probe_guess(None, initial_probe)
 
 #    # Calculate intensity scale
 #    intensity_scale = train_pinn.calculate_intensity_scale(train_container)

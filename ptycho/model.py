@@ -21,9 +21,10 @@ import tensorflow.compat.v2 as tf
 import os
 import tensorflow_probability as tfp
 
-from .loader import PtychoDataContainer
+from .loader import PtychoDataContainer, MultiPtychoDataContainer
 from . import tf_helper as hh
 from .tf_helper import get_default_probe_indices
+from typing import Union
 from . import probe
 from . import params as cfg
 params = cfg.params
@@ -102,44 +103,36 @@ class ProbeIllumination(tf.keras.layers.Layer):
         )
 
     def call(self, inputs):
-        x = inputs[0]           # x shape: (batch_size, N, N, gridsize**2)
+        x = inputs[0]           # x shape: (batch_size, N, N, gridsize_squared)
         probe_indices = inputs[1]  # Shape: (batch_size,)
+
+        # Ensure probe indices are int64
+        probe_indices = tf.convert_to_tensor(probe_indices, dtype=tf.int64)
         
-        # Validate probe indices
-        num_probes = tf.shape(self.probes)[0]
-        tf.debugging.assert_less(
-            probe_indices, num_probes, message="Probe index out of bounds."
-        )
-        tf.debugging.assert_non_negative(
-            probe_indices, message="Probe index must be non-negative."
-        )
-        
-        # Select probes based on indices
-        # Validate input shapes
+        # Validate probe indices and shapes
+        probe_indices = tf.convert_to_tensor(probe_indices, dtype=tf.int64)
+        num_probes = tf.cast(tf.shape(self.probes)[0], dtype=tf.int64)
         tf.debugging.assert_rank(x, 4, message="Input x must be rank 4")
         tf.debugging.assert_rank(probe_indices, 1, message="Probe indices must be rank 1")
-        tf.debugging.assert_equal(tf.shape(x)[0], tf.shape(probe_indices)[0], message="Batch size of x and probe_indices must match")
-
-        # Validate probe indices
-        num_probes = tf.shape(self.probes)[0]
-        tf.debugging.assert_less(
-            probe_indices, num_probes, message="Probe index out of bounds."
-        )
-        tf.debugging.assert_greater_equal(
-            probe_indices, 0, message="Probe indices must be non-negative."
-        )
+        tf.debugging.assert_equal(tf.shape(x)[0], tf.shape(probe_indices)[0],
+                                 message="Batch size of x and probe_indices must match")
+        tf.debugging.assert_less(probe_indices, num_probes,
+                                message="Probe index out of bounds")
+        tf.debugging.assert_non_negative(probe_indices,
+                                        message="Probe indices must be non-negative")
+        
+        # Ensure probes have correct shape [num_probes, H, W, 1]
+        probes_shape = tf.shape(self.probes)
+        tf.debugging.assert_equal(len(self.probes.shape), 4,
+                                message="Probes must be 4D tensor [num_probes, H, W, 1]")
+        tf.debugging.assert_equal(probes_shape[-1], 1,
+                                message="Last dimension of probes must be 1")
 
         # Select probes based on indices
         batch_probes = tf.gather(self.probes, probe_indices)  # Shape: (batch_size, N, N, 1)
 
-        # Expand and tile probes to match `x`
-        gridsize_squared = tf.shape(x)[-1]
-        batch_probes_expanded = tf.expand_dims(batch_probes, axis=-1)  # Shape: (batch_size, N, N, 1, 1)
-        batch_probes_tiled = tf.tile(batch_probes_expanded, [1, 1, 1, 1, gridsize_squared])  # Shape: (batch_size, N, N, 1, gridsize**2)
-        batch_probes_reshaped = tf.reshape(batch_probes_tiled, tf.shape(x))  # Shape: (batch_size, N, N, gridsize**2)
-
-        # Apply probe to the input `x`
-        illuminated = batch_probes_reshaped * x
+        # Apply probe to the input `x` using broadcasting
+        illuminated = batch_probes * x  # Shape: (batch_size, N, N, gridsize_squared)
 
         # Apply Gaussian smoothing if needed
         if self.sigma != 0:
@@ -148,9 +141,8 @@ class ProbeIllumination(tf.keras.layers.Layer):
             )
 
         if cfg.get('probe.mask'):
-            # Ensure probe_mask is tiled to match `illuminated`
-            probe_mask_tiled = tf.tile(self.probe_mask, [tf.shape(x)[0], 1, 1, tf.shape(x)[-1] // self.probe_mask.shape[-1]])
-            illuminated = illuminated * probe_mask_tiled
+            # Assuming self.probe_mask has shape [1, N, N, 1] for broadcasting
+            illuminated = illuminated * self.probe_mask  # Broadcasting over batch and gridsize_squared
             batch_probes_masked = batch_probes * self.probe_mask
             return illuminated, batch_probes_masked
         else:
@@ -414,7 +406,7 @@ padded_objs_with_offsets = Lambda(lambda x:
     name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
 
 # Apply the probe illumination
-padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
+padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets, input_probe_indices])
 flat_illuminated = padded_objs_with_offsets
 
 # Apply pad and diffract operation
@@ -475,22 +467,47 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
                                                  profile_batch='500,520')
 
 def prepare_model_inputs(data_container):
+    """
+    Prepare model inputs and outputs, handling both single and multi-probe data.
+    
+    Args:
+        data_container: PtychoDataContainer or MultiPtychoDataContainer
+        
+    Returns:
+        tuple: (inputs, outputs) for model training
+    """
     num_samples = data_container.X.shape[0]
-    if hasattr(data_container, 'probe_indices'):
-        probe_indices = data_container.probe_indices
+    
+    # Handle probe indices for both single and multi-probe cases
+    if hasattr(data_container, 'probe_indices') and data_container.probe_indices is not None:
+        probe_indices = tf.convert_to_tensor(data_container.probe_indices, dtype=tf.int64)
     else:
         probe_indices = get_default_probe_indices(num_samples)
+    
+    # Validate probe indices
+    if hasattr(data_container, 'probes'):
+        num_probes = data_container.probes.shape[0]
+    else:
+        num_probes = 1
+    tf.debugging.assert_less(probe_indices, num_probes, 
+                           message="Probe index out of bounds")
+    tf.debugging.assert_non_negative(probe_indices,
+                                   message="Probe indices must be non-negative")
 
+    # Prepare inputs with validated probe indices
     inputs = [
         data_container.X * cfg.get('intensity_scale'),
         data_container.coords,
         probe_indices,
     ]
+    
+    # Prepare outputs
     outputs = [
         hh.center_channels(data_container.Y_I, data_container.coords)[:, :, :, :1],
         (cfg.get('intensity_scale') * data_container.X),
         (cfg.get('intensity_scale') * data_container.X)**2
     ]
+    
     return inputs, outputs
 
 def prepare_outputs(train_data: PtychoDataContainer):
@@ -501,7 +518,7 @@ def prepare_outputs(train_data: PtychoDataContainer):
 
 #def train(epochs, X_train, coords_train, Y_obj_train):
 def train(epochs, trainset: PtychoDataContainer):
-    assert type(trainset) == PtychoDataContainer
+    assert isinstance(trainset, (PtychoDataContainer, MultiPtychoDataContainer))
     coords_train = trainset.coords
     inputs, outputs = prepare_model_inputs(trainset)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
@@ -514,15 +531,19 @@ def train(epochs, trainset: PtychoDataContainer):
                             save_weights_only=False, mode='auto', period=1)
 
     batch_size = params()['batch_size']
+    # Prepare outputs once before fit
+    model_outputs = prepare_outputs(trainset)
+    
     history = autoencoder.fit(
         inputs,
-        outputs,
-        prepare_outputs(trainset),
-        shuffle=True, batch_size=batch_size, verbose=1,
-        epochs=epochs, validation_split=0.05,
+        model_outputs,
+        shuffle=True,
+        batch_size=batch_size,
+        verbose=1,
+        epochs=epochs,
+        validation_split=0.05,
         callbacks=[reduce_lr, earlystop]
     )
-        #callbacks=[reduce_lr, earlystop, tboard_callback])
     return history
 import numpy as np
 
