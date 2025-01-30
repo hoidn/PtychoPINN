@@ -85,9 +85,13 @@ def set_probe_guess(X_train=None, probe_guess=None):
     else:
         # Ensure probe_guess has shape [num_probes, H, W, 1]
         if isinstance(probe_guess, np.ndarray):
-            if probe_guess.ndim == 3:
-                # From [num_probes, H, W] to [num_probes, H, W, 1]
-                probe_guess = probe_guess[..., np.newaxis]
+            if probe_guess.ndim == 2:
+                # [H, W] -> [1, H, W, 1]
+                probe_guess = probe_guess[np.newaxis, ..., np.newaxis]
+            elif probe_guess.ndim == 3:
+                if probe_guess.shape[-1] != 1:
+                    # [num_probes, H, W] -> [num_probes, H, W, 1]
+                    probe_guess = probe_guess[..., np.newaxis]
             elif probe_guess.ndim == 4 and probe_guess.shape[-1] == 1:
                 # Shape is already correct
                 pass

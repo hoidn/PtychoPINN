@@ -248,8 +248,18 @@ class MultiPtychoDataContainer:
             # Ensure probe indices are int64
             probe_indices_list.append(np.full(num_samples, idx, dtype=np.int64))
 
-            # Collect probes
-            probes_list.append(container.probe)
+            # Ensure container.probe has shape [H, W, 1]
+            probe = container.probe
+            if len(probe.shape) == 2:
+                # [H, W] -> [H, W, 1]
+                probe = probe[..., np.newaxis]
+            elif len(probe.shape) == 3 and probe.shape[-1] == 1:
+                # Correct shape
+                pass
+            else:
+                raise ValueError("Invalid probe shape in container")
+
+            probes_list.append(probe)
 
         # Handle YY_full appropriately
         if all(y is not None for y in YY_full_list):

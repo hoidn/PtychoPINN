@@ -326,6 +326,20 @@ def train_cdi_model(
         initial_probe = train_container.probes
     else:
         initial_probe = train_container.probe
+
+    # Ensure initial_probe has shape [num_probes, H, W, 1]
+    if len(initial_probe.shape) == 3:
+        # [H, W, C] -> [1, H, W, C]
+        initial_probe = initial_probe[tf.newaxis, ...]
+    elif len(initial_probe.shape) == 2:
+        # [H, W] -> [1, H, W, 1]
+        initial_probe = initial_probe[tf.newaxis, ..., tf.newaxis]
+    elif len(initial_probe.shape) == 4 and initial_probe.shape[-1] == 1:
+        # Correct shape
+        pass
+    else:
+        raise ValueError("Invalid initial_probe shape")
+
     probe.set_probe_guess(None, initial_probe)
 
 #    # Calculate intensity scale

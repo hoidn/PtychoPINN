@@ -96,11 +96,12 @@ initial_probe_guess = tf.Variable(
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, probes, name=None):
         super(ProbeIllumination, self).__init__(name=name)
-        self.sigma = cfg.get('gaussian_smoothing_sigma')
+        self.sigma = cfg.get('gaussian_smoothing_sigma') or 0.0
         self.probes = tf.Variable(
             initial_value=tf.cast(probes, tf.complex64),
             trainable=params()['probe.trainable'],
         )
+        self.probe_mask = tf.cast(probe.get_probe_mask(cfg.get('N')), tf.complex64)
 
     def call(self, inputs):
         x = inputs[0]           # x shape: (batch_size, N, N, gridsize_squared)
