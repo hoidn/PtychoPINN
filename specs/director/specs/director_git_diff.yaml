@@ -1,4 +1,8 @@
 # The prompt that describes what changes need to be made to the codebase
+# TODO: this prompt won't be usable until the git diff param updates with every iteration.
+# right now we're passing it statically:
+# python director.py --config specs/director_git_diff.yaml --template-values "{\"git_diff\": $(git diff refactor -- ../../ptycho/ | python -c "import json,sys; print(json.dumps(sys.stdin.read()))")}"
+
 prompt: |
   <purpose>
   Analyze the codebase and identify any issues or issues.
@@ -102,7 +106,7 @@ max_iterations: 8
 
 # The model to use for code evaluation
 # Must be either "gpt-4o" or "gpt-4o-mini"
-evaluator_model: gpt-4o
+evaluator_model: o1-mini
 
 # Evaluator type to use
 # Currently only supports: "default" 

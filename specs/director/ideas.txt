@@ -1,1 +1,2 @@
 - have the evaluator output a list of files that need to be in context to iterate, then the director only loads those.
+- since there's a bunch of tf debugging output now, we should make sure this is being passed to the evaluator (and maybe allso the director?)
