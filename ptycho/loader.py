@@ -245,6 +245,7 @@ class MultiPtychoDataContainer:
             nn_indices_list.append(container.nn_indices)
             global_offsets_list.append(container.global_offsets)
             local_offsets_list.append(container.local_offsets)
+            # Ensure probe indices are int64
             probe_indices_list.append(np.full(num_samples, idx, dtype=np.int64))
 
             # Collect probes
@@ -264,7 +265,7 @@ class MultiPtychoDataContainer:
         nn_indices = np.concatenate(nn_indices_list, axis=0)
         global_offsets = np.concatenate(global_offsets_list, axis=0)
         local_offsets = np.concatenate(local_offsets_list, axis=0)
-        probe_indices = np.concatenate(probe_indices_list, axis=0)
+        probe_indices = np.concatenate(probe_indices_list, axis=0).astype(np.int64)
         probes = np.stack(probes_list, axis=0)
 
         return cls(

@@ -106,8 +106,8 @@ class ProbeIllumination(tf.keras.layers.Layer):
         x = inputs[0]           # x shape: (batch_size, N, N, gridsize_squared)
         probe_indices = inputs[1]  # Shape: (batch_size,)
 
-        # Ensure probe indices are int64
-        probe_indices = tf.convert_to_tensor(probe_indices, dtype=tf.int64)
+        # Ensure probe indices are int64 and validate shapes
+        probe_indices = tf.cast(probe_indices, dtype=tf.int64)
         
         # Validate probe indices and shapes
         probe_indices = tf.convert_to_tensor(probe_indices, dtype=tf.int64)
@@ -489,7 +489,9 @@ def prepare_model_inputs(data_container):
         num_probes = data_container.probes.shape[0]
     else:
         num_probes = 1
-    tf.debugging.assert_less(probe_indices, num_probes, 
+    # Cast num_probes to int64 to match probe_indices dtype
+    num_probes = tf.cast(num_probes, dtype=tf.int64)
+    tf.debugging.assert_less(probe_indices, num_probes,
                            message="Probe index out of bounds")
     tf.debugging.assert_non_negative(probe_indices,
                                    message="Probe indices must be non-negative")
