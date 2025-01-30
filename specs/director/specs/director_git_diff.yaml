@@ -1,7 +1,13 @@
 # The prompt that describes what changes need to be made to the codebase
 prompt: |
-  Analyze the git diff and identify any potential bugs, regressions, or issues.
-  Note that <goal> describes the intended goal of the changes, and <diff> is the actual diff.
+  <purpose>
+  Analyze the codebase and identify any issues or issues.
+  </purpose>
+  <instructions>
+  Note that <goal> describes the intended purpose of the changes, and <diff> is the actual diff.
+  Our purpose is twofold. first, to identify any regressions or bugs introduced by the changes, and second, to complete the <goal> and recover from failing tests.
+  Analyze the diff and codebase with the above in mind. Then, explain how to fix any issues that you discover.
+  </instructions>
 
   <goal>
   # Summary of Changes: Adding Multi-Probe Support
@@ -71,7 +77,7 @@ prompt: |
   </diff>
 
   #coder_model: claude-3-5-sonnet-20241022
-coder_model: r1
+coder_model: o1-preview
 
 # List of files that can be modified by the AI
 context_editable:
@@ -92,7 +98,7 @@ execution_command: ./run_training.sh
 
 # Maximum number of attempts to generate correct code
 # Recommended range: 3-10
-max_iterations: 10
+max_iterations: 8
 
 # The model to use for code evaluation
 # Must be either "gpt-4o" or "gpt-4o-mini"
