@@ -96,18 +96,19 @@ initial_probe_guess = tf.Variable(
 class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, probes, name=None):
         super(ProbeIllumination, self).__init__(name=name)
-        self.sigma = cfg.get('gaussian_smoothing_sigma')
+        self.sigma = cfg.get('gaussian_smoothing_sigma') or 0.0
         self.probes = tf.Variable(
             initial_value=tf.cast(probes, tf.complex64),
             trainable=params()['probe.trainable'],
         )
+        self.probe_mask = tf.cast(probe.get_probe_mask(cfg.get('N')), tf.complex64)
 
     def call(self, inputs):
         x = inputs[0]           # x shape: (batch_size, N, N, gridsize_squared)
         probe_indices = inputs[1]  # Shape: (batch_size,)
 
-        # Ensure probe indices are int64
-        probe_indices = tf.convert_to_tensor(probe_indices, dtype=tf.int64)
+        # Ensure probe indices are int64 and validate shapes
+        probe_indices = tf.cast(probe_indices, dtype=tf.int64)
         
         # Validate probe indices and shapes
         probe_indices = tf.convert_to_tensor(probe_indices, dtype=tf.int64)
@@ -489,7 +490,9 @@ def prepare_model_inputs(data_container):
         num_probes = data_container.probes.shape[0]
     else:
         num_probes = 1
-    tf.debugging.assert_less(probe_indices, num_probes, 
+    # Cast num_probes to int64 to match probe_indices dtype
+    num_probes = tf.cast(num_probes, dtype=tf.int64)
+    tf.debugging.assert_less(probe_indices, num_probes,
                            message="Probe index out of bounds")
     tf.debugging.assert_non_negative(probe_indices,
                                    message="Probe indices must be non-negative")

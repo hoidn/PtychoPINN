@@ -245,10 +245,21 @@ class MultiPtychoDataContainer:
             nn_indices_list.append(container.nn_indices)
             global_offsets_list.append(container.global_offsets)
             local_offsets_list.append(container.local_offsets)
+            # Ensure probe indices are int64
             probe_indices_list.append(np.full(num_samples, idx, dtype=np.int64))
 
-            # Collect probes
-            probes_list.append(container.probe)
+            # Ensure container.probe has shape [H, W, 1]
+            probe = container.probe
+            if len(probe.shape) == 2:
+                # [H, W] -> [H, W, 1]
+                probe = probe[..., np.newaxis]
+            elif len(probe.shape) == 3 and probe.shape[-1] == 1:
+                # Correct shape
+                pass
+            else:
+                raise ValueError("Invalid probe shape in container")
+
+            probes_list.append(probe)
 
         # Handle YY_full appropriately
         if all(y is not None for y in YY_full_list):
@@ -264,7 +275,7 @@ class MultiPtychoDataContainer:
         nn_indices = np.concatenate(nn_indices_list, axis=0)
         global_offsets = np.concatenate(global_offsets_list, axis=0)
         local_offsets = np.concatenate(local_offsets_list, axis=0)
-        probe_indices = np.concatenate(probe_indices_list, axis=0)
+        probe_indices = np.concatenate(probe_indices_list, axis=0).astype(np.int64)
         probes = np.stack(probes_list, axis=0)
 
         return cls(
