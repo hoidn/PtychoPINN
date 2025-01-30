@@ -11,7 +11,7 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
     p.set('intensity_scale', intensity_scale)
 
     from ptycho import probe
-    probe.set_probe_guess(None, train_data.probe)
+    probe.set_probe_guess(None, train_data.probes)
 
     from ptycho import model
     if model_instance is None:

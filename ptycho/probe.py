@@ -41,29 +41,36 @@ def get_probe_mask(N):
     return tf.convert_to_tensor(probe_mask, tf.complex64)
 
 def set_probe(probe):
-    # Ensure probe has shape [H, W, 1] or [1, H, W, 1]
+    # Ensure probe has shape [num_probes, H, W, 1]
     if len(probe.shape) == 2:
-        probe = probe[..., tf.newaxis]
-    elif len(probe.shape) == 3 and probe.shape[-1] != 1:
-        probe = probe[..., tf.newaxis]
+        # From [H, W] to [1, H, W, 1]
+        probe = probe[tf.newaxis, ..., tf.newaxis]
+    elif len(probe.shape) == 3:
+        if probe.shape[-1] != 1:
+            # From [H, W, C] to [1, H, W, C, 1]
+            probe = probe[..., tf.newaxis]
+        probe = probe[tf.newaxis, ...]  # Add batch dimension
     elif len(probe.shape) == 4:
-        if probe.shape[0] != 1:
-            probe = probe[0:1]  # Keep only first probe if multiple
-        probe = probe[0]  # Remove batch dimension
+        # Already in [num_probes, H, W, 1]
+        pass
+    else:
+        raise ValueError("Invalid probe shape")
 
     # Validate dimensions
-    assert len(probe.shape) == 3, f"Probe shape must be [H, W, 1], got {probe.shape}"
-    assert probe.shape[0] == probe.shape[1], "Probe must be square"
     assert probe.shape[-1] == 1, "Last dimension must be 1"
 
     # Apply mask and normalization
-    mask = tf.cast(get_probe_mask(params.get('N')), probe.dtype)
+    mask = tf.cast(get_probe_mask(params.get('N')), probe.dtype)  # Shape: [H, W, 1]
+    mask = tf.expand_dims(mask, axis=0)  # Shape: [1, H, W, 1]
+    mask = tf.tile(mask, [probe.shape[0], 1, 1, 1])  # Match probe's batch size
+
     probe_scale = params.get('probe_scale')
     tamped_probe = mask * probe
-    norm = float(probe_scale * tf.reduce_mean(tf.math.abs(tamped_probe)))
-    params.set('probe', probe / norm)
+    # Cast norm to match probe dtype
+    norm = probe_scale * tf.cast(tf.reduce_mean(tf.math.abs(tamped_probe)), probe.dtype)
+    params.set('probe', probe / tf.cast(norm, probe.dtype))
 
-def set_probe_guess(X_train = None, probe_guess = None):
+def set_probe_guess(X_train=None, probe_guess=None):
     N = params.get('N')
     if probe_guess is None:
         mu = 0.
@@ -77,15 +84,26 @@ def set_probe_guess(X_train = None, probe_guess = None):
             + 1e-9
         probe_guess *= get_probe_mask_real(N)
         probe_guess *= (np.sum(get_default_probe(N)) / np.sum(probe_guess))
-        t_probe_guess = tf.convert_to_tensor(probe_guess, tf.float32)
+        # Convert directly to complex64 and ensure [1, H, W, 1] shape
+        t_probe_guess = tf.convert_to_tensor(probe_guess, tf.complex64)
+        t_probe_guess = t_probe_guess[tf.newaxis, ..., tf.newaxis]  # Add batch and channel dimensions
     else:
-        if probe_guess.ndim not in [2, 3]:
-            raise ValueError("probe_guess must have 2 or 3 dimensions")
-        if probe_guess.ndim == 2:
-            probe_guess = probe_guess[..., None]
+        # Ensure probe_guess has shape [num_probes, H, W, 1]
+        if isinstance(probe_guess, np.ndarray):
+            if probe_guess.ndim == 2:
+                probe_guess = probe_guess[np.newaxis, ..., np.newaxis]
+            elif probe_guess.ndim == 3:
+                if probe_guess.shape[-1] != 1:
+                    probe_guess = probe_guess[..., np.newaxis]
+                probe_guess = probe_guess[np.newaxis, ...]
+            elif probe_guess.ndim == 4:
+                # Shape is already correct
+                pass
+            else:
+                raise ValueError("probe_guess must have 2, 3, or 4 dimensions")
+        
         t_probe_guess = tf.convert_to_tensor(probe_guess, tf.complex64)
 
-    #params.set('probe', t_probe_guess)
     set_probe(t_probe_guess)
     return t_probe_guess
 
