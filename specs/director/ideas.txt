@@ -1,0 +1,1 @@
+- have the evaluator output a list of files that need to be in context to iterate, then the director only loads those.
