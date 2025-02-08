@@ -1,0 +1,38 @@
+# The prompt that describes what changes need to be made to the codebase
+prompt: |
+  # Describe the changes needed here
+  # Example:
+  # UPDATE file1.py:
+  #     ADD new_function()
+  # UPDATE file2.py:
+  #     MODIFY existing_function()
+
+# The model to use for code generation
+# Supported models: claude-3-5-haiku-20241022, gpt-4, etc.
+coder_model: claude-3-5-haiku-20241022
+
+# List of files that can be modified by the AI
+context_editable:
+  - path/to/editable/file1.py
+  - path/to/editable/file2.py
+
+# List of files that provide context but cannot be modified
+context_read_only:
+  - path/to/readonly/file1.py
+  - path/to/readonly/file2.py
+
+# Command to run tests/validation
+# Example: "pytest tests/" or "python -m unittest"
+execution_command: uv run pytest src/let_the_code_write_itself/tests
+
+# Maximum number of attempts to generate correct code
+# Recommended range: 3-10
+max_iterations: 5
+
+# The model to use for code evaluation
+# Must be either "gpt-4o" or "gpt-4o-mini"
+evaluator_model: gpt-4o
+
+# Evaluator type to use
+# Currently only supports: "default" 
+evaluator: default

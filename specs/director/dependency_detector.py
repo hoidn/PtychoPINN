@@ -45,7 +45,7 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
     openai_client = OpenAI()
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",  # Adjust the model as needed.
+            model="o3-mini",  # Adjust the model as needed.
             messages=[
                 {"role": "user", "content": prompt},
             ]

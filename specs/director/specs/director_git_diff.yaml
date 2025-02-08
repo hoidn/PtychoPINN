@@ -1,0 +1,114 @@
+# The prompt that describes what changes need to be made to the codebase
+# TODO: this prompt won't be usable until the git diff param updates with every iteration.
+# right now we're passing it statically:
+# python director.py --config specs/director_git_diff.yaml --template-values "{\"git_diff\": $(git diff refactor -- ../../ptycho/ | python -c "import json,sys; print(json.dumps(sys.stdin.read()))")}"
+
+prompt: |
+  <purpose>
+  Analyze the codebase and identify any issues or issues.
+  </purpose>
+  <instructions>
+  Note that <goal> describes the intended purpose of the changes, and <diff> is the actual diff.
+  Our purpose is twofold. first, to identify any regressions or bugs introduced by the changes, and second, to complete the <goal> and recover from failing tests.
+  Analyze the diff and codebase with the above in mind. Then, explain how to fix any issues that you discover.
+  </instructions>
+
+  <goal>
+  # Summary of Changes: Adding Multi-Probe Support
+  ## High-Level Changes
+  The changes primarily focus on adding support for multiple probes in the../../ptychographic reconstruction pipeline. This involves significant modifications to handle probe indexing, selection, and management across multiple data containers.
+  
+  ## Key Components Modified
+  
+  ### MultiPtychoDataContainer
+  - Added new container class for handling multiple probes
+  - Supports probe indices and multiple probe management
+  - Includes methods for merging multiple single-probe containers
+  - Provides validation for probe indices and shapes
+  - Adds handling for YY_full data availability
+  
+  ### ProbeIllumination Layer
+  - Modified to support multiple probes
+  - Added probe index input handling
+  - Implements probe selection based on indices
+  - Includes shape validation and error checking
+  - Maintains support for Gaussian smoothing
+  - Preserves probe masking functionality
+  
+  ### Model Architecture
+  - Added input_probe_indices to model inputs
+  - Updated model compilation to handle probe indices
+  - Modified prepare_model_inputs to handle probe selection
+  - Enhanced data preparation pipeline for multi-probe support
+  
+  ### Utility Functions
+  - Added get_default_probe_indices for fallback behavior
+  - Implemented probe validation functions
+  - Added create_single_probe_fallback for compatibility
+  - Enhanced probe shape handling
+  
+  ### Data Loading and Processing
+  - Updated data container creation
+  - Enhanced probe initialization
+  - Modified training data preparation
+  - Added support for probe indices in data generation
+  
+  ## Impact Areas
+  1. Data Management:
+     - Enhanced data containers to support multiple probes
+     - Added probe indexing and validation
+     - Modified data preparation pipeline
+  
+  2. Model Architecture:
+     - Added probe index inputs
+     - Updated model layers for probe selection
+     - Enhanced probe illumination handling
+  
+  3. Training Pipeline:
+     - Modified data preparation
+     - Updated training procedures
+     - Enhanced probe management during training
+  
+  4. Utilities and Support:
+     - Added probe validation
+     - Enhanced shape checking
+     - Improved error handling
+  
+  </goal>
+
+  <diff>
+  {{ git_diff }}
+  </diff>
+
+  #coder_model: claude-3-5-sonnet-20241022
+coder_model: o1-preview
+
+# List of files that can be modified by the AI
+context_editable:
+  - ../../ptycho/loader.py
+  - ../../ptycho/model.py
+  - ../../ptycho/probe.py
+  - ../../ptycho/tf_helper.py
+  - ../../ptycho/workflows/components.py
+
+# List of files that provide context but cannot be modified
+context_read_only:
+  - ../../ptycho/probe.py
+
+# Command to run tests/validation
+# Example: "pytest tests/" or "python -m unittest"
+#execution_command: uv run pytest src/let_the_code_write_itself/tests
+execution_command: ./run_training.sh
+
+# Maximum number of attempts to generate correct code
+# Recommended range: 3-10
+max_iterations: 8
+
+# The model to use for code evaluation
+# Must be either "gpt-4o" or "gpt-4o-mini"
+evaluator_model: o1-mini
+
+# Evaluator type to use
+# Currently only supports: "default" 
+evaluator: default
+

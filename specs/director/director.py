@@ -32,7 +32,7 @@ class EvaluationResult(BaseModel):
 class DirectorConfig(BaseModel):
     prompt: str
     coder_model: str
-    evaluator_model: Literal["gpt-4o", "gpt-4o-mini", "o1-mini", "o1-preview"]
+    evaluator_model: Literal["gpt-4o", "gpt-4o-mini", "o1-mini", "o1-preview", "o3-mini"]
     max_iterations: int
     execution_command: str
     context_editable: List[str]
@@ -105,7 +105,7 @@ class Director:
         config = DirectorConfig(**config_dict)
 
         # Validate evaluator model
-        allowed_evaluator_models = {"gpt-4o", "gpt-4o-mini", "o1-mini", "o1-preview"}
+        allowed_evaluator_models = {"gpt-4o", "gpt-4o-mini", "o1-mini", "o1-preview", "o3-mini"}
         if config.evaluator_model not in allowed_evaluator_models:
             raise ValueError(
                 f"evaluator_model must be one of {allowed_evaluator_models}, "

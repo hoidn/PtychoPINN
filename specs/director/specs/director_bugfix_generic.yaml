@@ -34,7 +34,7 @@ max_iterations: 8
 
 # The model to use for code evaluation
 # Must be either "gpt-4o" or "gpt-4o-mini"
-evaluator_model: o1-mini
+evaluator_model: o3-mini
 
 # Evaluator type to use
 # Currently only supports: "default" 
