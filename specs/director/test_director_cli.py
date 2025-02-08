@@ -20,7 +20,7 @@ class TestDirectorCLI(unittest.TestCase):
         self.temp_editable.close()
 
         config_content = f"""
-prompt: "Task is: {{ task }}"
+prompt: "Task is: {{{{ task }}}}"
 coder_model: o3-mini
 evaluator_model: o3-mini
 max_iterations: 1
