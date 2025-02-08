@@ -1,0 +1,102 @@
+description: |
+  Changes: Here's a simplified Director-Evaluator flow plan that only retains the latest evaluator output. The evaluator will provide its output to the director as an object of the form:
+  
+  ```javascript
+  EvaluationResult(success: boolean, feedback: string | null)
+  ```
+  
+  1. Revised Context Management Protocol
+  
+  xml
+  Copy
+  <context_management>
+      <inherit_context>none</inherit_context>
+      <accumulate_data>false</accumulate_data>
+  </context_management>
+  Run HTML
+  2. New Environment Variable Definition
+  
+  typescript
+  Copy
+  // Single variable stores last evaluator output
+  interface DirectorEnv {
+      last_evaluator_output: string | null;
+      // Other vars cleared on continuation
+  }
+  3. Modified Continuation Flow
+  
+  Step	Component	Action
+  1	Director	Completes with CONTINUATION status and evaluation_request
+  2	System	Clears all environment vars except last_evaluator_output
+  3	Evaluator	Executes and writes output to env.last_evaluator_output
+  4	Director (resume)	Receives an EvaluationResult as input—`success` is true if evaluation succeeded, and `feedback` contains any error message (or null).
+  5	System	Clears last_evaluator_output after director consumes it
+  4. XML Schema Changes
+  
+  xml
+  Copy
+  <task type="director">
+      <output_slot>last_evaluator_output</output_slot>
+  </task>
+  
+  <task type="evaluator">
+      <input_source>last_evaluator_output</input_source>
+  </task>
+  Run HTML
+  5. Implementation Requirements
+  
+  a. Environment Manager
+  
+  typescript
+  Copy
+  function prepareContinuationEnv(currentEnv: Environment): Environment {
+      return new Environment({
+          last_evaluator_output: currentEnv.get('last_evaluator_output')
+      });
+  }
+  b. Evaluator Output Handler
+  
+  typescript
+  Copy
+  function storeEvaluatorResult(result: TaskResult, env: Environment) {
+      env.set('last_evaluator_output', result.content);
+      env.clearExcept(['last_evaluator_output']);
+  }
+  c. Director Input Binding
+  
+  xml
+  Copy
+  <input name="evaluation_data">
+      <task>
+          <description>Retrieve last evaluator output</description>
+          <source_var>last_evaluator_output</source_var>
+      </task>
+  </input>
+  Run HTML
+  6. Benefits
+  
+  Reduces context window usage by 60-80% (avg 5-step sequences)
+  
+  Eliminates historical output storage needs
+  
+  Simplifies error recovery (single output to validate)
+  
+  Maintains single source of truth for evaluation data
+  
+  7. Transition Plan
+  
+  Update XML schema first (backwards compatible)
+  
+  Modify environment management subsystem
+  
+  Update director/evaluator template definitions
+  
+  Phase out legacy accumulation logic
+  
+  Update documentation (errorspec.md and operators.md)
+  
+  This achieves minimal context carryover while maintaining essential feedback loop functionality.
+  ---
+  QA:
+  Open questions:
+
