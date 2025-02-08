@@ -24,8 +24,13 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
     """
     if prompt_template is None:
         prompt_template = (
-            "You are an expert developer. Based on the following context file content and task, determine what "
-            "file paths in the codebase will need to be present or modified to complete the task.\n\n"
+            "You are an expert developer. The provided context file content consists of multiple concatenated files. "
+            "Each file is delineated with XML-like tags in the following format:\n\n"
+            "<file path=\"FILE_PATH\" project=\"PROJECT_NAME\">\n"
+            "FILE CONTENTS\n"
+            "</file>\n\n"
+            "Based on the above context, and the task described below, determine what file paths in the codebase will need "
+            "to be present or modified to complete the task.\n\n"
             "== Context File ==\n"
             "{{ context_file }}\n\n"
             "== Task Description ==\n"
