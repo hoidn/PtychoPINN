@@ -18,10 +18,10 @@ prompt: |
 coder_model: o3-mini
 
 # List of files that can be modified by the AI
-context_editable:
+context_editable: []
 
 # List of files that provide context but cannot be modified
-context_read_only:
+context_read_only: []
 
 # Command to run tests/validation
 # Example: "pytest tests/" or "python -m unittest"
