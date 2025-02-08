@@ -1,0 +1,42 @@
+# run command:
+# python director.py --config specs/director_git_diff.yaml --template-values "{\"task\": $(git diff refactor -- ../../ptycho/ | python -c "import json,sys; print(json.dumps(sys.stdin.read()))")}"
+
+prompt: |
+  <purpose>
+  Analyze the codebase and identify any issues or issues.
+  </purpose>
+  <instructions>
+  <task> summarizes the problem that we are now trying to debug.
+  Analyze the codebase with the above in mind. Then, explain how to fix any issues that you discover.
+  </instructions>
+
+  <task>
+  {{ task }}
+  </task>
+
+  #coder_model: claude-3-5-sonnet-20241022
+coder_model: o3-mini
+
+# List of files that can be modified by the AI
+context_editable:
+
+# List of files that provide context but cannot be modified
+context_read_only:
+
+# Command to run tests/validation
+# Example: "pytest tests/" or "python -m unittest"
+#execution_command: uv run pytest src/let_the_code_write_itself/tests
+execution_command: ./run_training.sh
+
+# Maximum number of attempts to generate correct code
+# Recommended range: 3-10
+max_iterations: 8
+
+# The model to use for code evaluation
+# Must be either "gpt-4o" or "gpt-4o-mini"
+evaluator_model: o1-mini
+
+# Evaluator type to use
+# Currently only supports: "default" 
+evaluator: default
+
