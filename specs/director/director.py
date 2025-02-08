@@ -71,10 +71,14 @@ class Director:
         # 3. Initialize OpenAI client
         self.llm_client = OpenAI()
 
-    def _load_and_validate_config(self, config_path: Path) -> DirectorConfig:
+    def _load_and_validate_config(self, config_path: Path, override_context_editable: Optional[List[str]] = None) -> DirectorConfig:
         """
         Load and validate the basic config structure.
         No template processing - just YAML loading and validation.
+        
+        Args:
+            config_path: Path to config YAML file
+            override_context_editable: Optional list of file paths to override context_editable
         """
         # Validate file exists
         if not config_path.exists():
@@ -106,11 +110,24 @@ class Director:
                 f"got {config.evaluator_model}"
             )
 
-        # Validate file paths
-        if not config.context_editable:
+        # Use CLI override if provided; otherwise fall back to YAML-provided editable files
+        editable_files = override_context_editable if override_context_editable is not None else config.context_editable
+
+        # Enforce existence only if a value is provided
+        if not editable_files:
             raise ValueError("At least one editable context file must be specified")
 
-        for path in config.context_editable + config.context_read_only:
+        # Validate file paths for all files in the final list
+        for path in editable_files:
+            if not Path(path).exists():
+                raise FileNotFoundError(f"File not found: {path}")
+
+        # Override the YAML value if the CLI value was provided
+        if override_context_editable is not None:
+            config.context_editable = override_context_editable
+
+        # Validate read-only files
+        for path in config.context_read_only:
             if not Path(path).exists():
                 raise FileNotFoundError(f"File not found: {path}")
 
@@ -471,6 +488,11 @@ def main():
         type=str,
         help="JSON string of template values to substitute",
     )
+    parser.add_argument(
+        "--context-editable",
+        type=str,
+        help="Either a file path to a JSON file or a raw JSON string representing a list of file paths to override context_editable."
+    )
     
     args = parser.parse_args()
     
@@ -487,9 +509,26 @@ def main():
         except ValueError as e:
             print(str(e))
             sys.exit(1)
+
+    cli_context_editable = None
+    if args.context_editable:
+        import os
+        try:
+            # If the provided argument is a path to an existing file, read its content
+            if os.path.exists(args.context_editable):
+                with open(args.context_editable, "r") as f:
+                    content = f.read()
+            else:
+                content = args.context_editable
+            cli_context_editable = json.loads(content)
+            if not isinstance(cli_context_editable, list):
+                raise ValueError("CLI context_editable must be a JSON array (list)")
+        except Exception as e:
+            print(f"Error parsing context_editable: {str(e)}")
+            sys.exit(1)
             
     try:
-        director = Director(args.config, template_values)
+        director = Director(args.config, template_values, cli_context_editable=cli_context_editable)
         # Log the loaded configuration
         print(f"Loaded configuration: {director.config}")
 
