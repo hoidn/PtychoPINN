@@ -1,11 +1,6 @@
 import numpy as np
 
-def stitch_patches(patches, *, 
-                  N: int,
-                  gridsize: int,
-                  offset: int,
-                  nimgs: int,
-                  outer_offset: int = None,
+def stitch_patches(patches, config, *, 
                   norm_Y_I: float = 1.0,
                   norm: bool = True,
                   part: str = 'amp') -> np.ndarray:
@@ -14,11 +9,7 @@ def stitch_patches(patches, *,
     
     Args:
         patches: numpy array or tensorflow tensor of image patches to stitch
-        N: Size of each square patch
-        gridsize: Grid size for patch arrangement  
-        offset: Spacing between patches
-        nimgs: Number of images
-        outer_offset: Offset between patches
+        config: Configuration dictionary containing patch parameters
         norm_Y_I: Normalization factor (default: 1.0)
         norm: Whether to apply normalization (default: True)
         part: Which part to extract - 'amp', 'phase', or 'complex' (default: 'amp')
@@ -26,8 +17,13 @@ def stitch_patches(patches, *,
     Returns:
         np.ndarray: Stitched image(s) with shape (batch, height, width, 1)
     """
+    # Get N from config at the start
+    N = config['N']
     def get_clip_sizes(outer_offset):
         """Calculate border sizes for clipping overlapping regions."""
+        N = config['N']
+        gridsize = config['gridsize']
+        offset = config['offset']
         bordersize = (N - outer_offset / 2) / 2
         borderleft = int(np.ceil(bordersize))
         borderright = int(np.floor(bordersize))
@@ -40,10 +36,10 @@ def stitch_patches(patches, *,
     if hasattr(patches, 'numpy'):
         patches = patches.numpy()
     
-    outer_offset = outer_offset if outer_offset is not None else offset
+    outer_offset = config.get('outer_offset_test', config['offset'])
     
     # Calculate number of segments using numpy's size
-    nsegments = int(np.sqrt((patches.size / nimgs) / (N**2)))
+    nsegments = int(np.sqrt((patches.size / config['nimgs_test']) / (config['N']**2)))
     
     # Select extraction function
     if part == 'amp':
@@ -79,18 +75,14 @@ def reassemble_patches(patches, config, *, norm_Y_I=1., part='amp', norm=False):
     
     Args:
         patches: Patches to reassemble
-        config: Configuration object containing patch parameters
+        config: Configuration dictionary containing patch parameters
         norm_Y_I: Normalization factor (default: 1.0)
         part: Which part to extract (default: 'amp')
         norm: Whether to normalize (default: False)
     """
     return stitch_patches(
         patches,
-        N=config.N,
-        gridsize=config.gridsize,
-        offset=config.offset,
-        nimgs=config.nimgs_test,  # Support legacy config naming
-        outer_offset=getattr(config, 'outer_offset_test', None),  # Support legacy config naming
+        config,
         norm_Y_I=norm_Y_I,
         norm=norm,
         part=part
