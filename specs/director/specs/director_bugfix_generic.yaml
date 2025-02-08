@@ -2,9 +2,6 @@
 # python director.py --config specs/director_git_diff.yaml --template-values "{\"task\": $(git diff refactor -- ../../ptycho/ | python -c "import json,sys; print(json.dumps(sys.stdin.read()))")}"
 
 prompt: |
-  <purpose>
-  Analyze the codebase and identify any issues or issues.
-  </purpose>
   <instructions>
   <task> summarizes the problem that we are now trying to debug.
   Analyze the codebase with the above in mind. Then, explain how to fix any issues that you discover.
