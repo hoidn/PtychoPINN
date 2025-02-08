@@ -492,7 +492,7 @@ def main():
     parser.add_argument(
         "--template-values",
         type=str,
-        help="JSON string of template values to substitute",
+        help="YAML/JSON string of template values to substitute, or a file path to a YAML/JSON file",
     )
     parser.add_argument(
         "--context-editable",
@@ -504,16 +504,24 @@ def main():
     
     template_values = None
     if args.template_values:
-        import json
+        import yaml
+        # If the provided argument is a path to a file, read its contents.
+        if os.path.exists(args.template_values):
+            try:
+                with open(args.template_values, "r") as f:
+                    template_str = f.read()
+            except Exception as e:
+                print(f"Error reading template-values file: {str(e)}")
+                sys.exit(1)
+        else:
+            template_str = args.template_values
+
         try:
-            template_values = json.loads(args.template_values)
+            template_values = yaml.safe_load(template_str)
             if not isinstance(template_values, dict):
-                raise ValueError("Template values must be a JSON object")
-        except json.JSONDecodeError as e:
-            print(f"Error parsing template values JSON: {str(e)}")
-            sys.exit(1)
-        except ValueError as e:
-            print(str(e))
+                raise ValueError("Template values must be a YAML/JSON mapping (object)")
+        except Exception as e:
+            print(f"Error parsing template values: {str(e)}")
             sys.exit(1)
 
 
