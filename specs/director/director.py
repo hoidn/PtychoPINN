@@ -45,14 +45,16 @@ class Director:
     Self Directed AI Coding Assistant with template support
     """
 
-    def __init__(self, config_path: str, template_values: Optional[Dict[str, Any]] = None):
+    def __init__(self, config_path: str, template_values: Optional[Dict[str, Any]] = None, cli_context_editable: Optional[List[str]] = None):
         """
         Initialize Director with config file and optional template values.
         
         Args:
             config_path: Path to YAML config file
             template_values: Optional CLI-provided template values that override config values
+            cli_context_editable: Optional list of file paths to override context_editable from config
         """
+        self.cli_context_editable = cli_context_editable
         self.template_values = template_values or {}
         
         # Initialize Jinja2 environment early
