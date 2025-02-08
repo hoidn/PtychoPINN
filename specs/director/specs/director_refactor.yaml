@@ -3,7 +3,7 @@
 
 prompt: |
   <instructions>
-  Refactor director.py. Split it into multiple files, if needed. The goal is to make the code more readable and maintainable.
+  Review this codebase for code quality and refactor, if appropriate. The goal is for the code to be readable and maintainable. Preferably, no .py file should be longer than 300 lines. 
   </instructions>
 
   #coder_model: claude-3-5-sonnet-20241022

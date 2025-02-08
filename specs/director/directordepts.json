@@ -1,1 +1,1 @@
-["./director.py", "./test_context_editable_override.py", "./test_dependency_detector.py", "./test_director_cli.py"]
+["./director.py", "./test_context_editable_override.py", "./test_dependency_detector.py", "./test_director_cli.py", "./director_templates.py",  "./director_config.py"]
