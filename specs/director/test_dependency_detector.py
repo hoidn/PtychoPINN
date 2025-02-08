@@ -1,6 +1,6 @@
 import json
 import pytest
-from dependency_detector import generate_required_files, DependencyDetectorError
+from specs.director.dependency_detector import generate_required_files, DependencyDetectorError
 
 # Helper classes to simulate the LLM response
 class FakeMessage:
@@ -36,7 +36,7 @@ def test_generate_required_files_plain(monkeypatch):
     Test generate_required_files with a plain JSON response from the LLM.
     """
     fake_content = '["file1.py", "file2.py"]'
-    monkeypatch.setattr("dependency_detector.OpenAI", lambda: FakeLLMClient(fake_content))
+    monkeypatch.setattr("specs.director.dependency_detector.OpenAI", lambda: FakeLLMClient(fake_content))
     
     task = "Implement new feature X"
     context_file = "Some context file content for feature X."
@@ -50,7 +50,7 @@ def test_generate_required_files_markdown(monkeypatch):
     Test generate_required_files when the LLM response is wrapped in markdown formatting.
     """
     fake_content = "```json\n[\"moduleA.py\", \"moduleB.py\"]\n```"
-    monkeypatch.setattr("dependency_detector.OpenAI", lambda: FakeLLMClient(fake_content))
+    monkeypatch.setattr("specs.director.dependency_detector.OpenAI", lambda: FakeLLMClient(fake_content))
     
     task = "Fix bug in authentication module"
     context_file = "Relevant context details for the authentication bug."
@@ -64,7 +64,7 @@ def test_generate_required_files_invalid_json(monkeypatch):
     Test that DependencyDetectorError is raised when LLM returns non-JSON content.
     """
     fake_content = "This is not JSON"
-    monkeypatch.setattr("dependency_detector.OpenAI", lambda: FakeLLMClient(fake_content))
+    monkeypatch.setattr("specs.director.dependency_detector.OpenAI", lambda: FakeLLMClient(fake_content))
     
     task = "Test invalid JSON response"
     context_file = "Some context"
@@ -79,7 +79,7 @@ def test_generate_required_files_wrong_type(monkeypatch):
     but not a list.
     """
     fake_content = '{"key": "value"}'  # valid JSON but not a list
-    monkeypatch.setattr("dependency_detector.OpenAI", lambda: FakeLLMClient(fake_content))
+    monkeypatch.setattr("specs.director.dependency_detector.OpenAI", lambda: FakeLLMClient(fake_content))
     
     task = "Test wrong JSON type"
     context_file = "Another context content"

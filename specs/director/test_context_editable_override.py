@@ -2,7 +2,7 @@ import json
 import yaml
 from pathlib import Path
 import pytest
-from director import Director, main
+from specs.director.director import Director, main
 
 def create_temp_config(tmp_path, editable_list, readonly_list=None):
     if readonly_list is None:
