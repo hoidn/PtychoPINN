@@ -154,6 +154,8 @@ class Director:
                 self._validate_template(self.config.prompt)
                 # Then render with values
                 rendered_prompt = self._render_template(self.config.prompt, template_values)
+                # Log the populated prompt for debugging purposes
+                self.file_log(f"Populated prompt: {rendered_prompt}", print_message=True)
                 # Update config with rendered prompt
                 self.config.prompt = rendered_prompt
             except TemplateError as e:
