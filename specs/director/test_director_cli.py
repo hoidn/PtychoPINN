@@ -49,7 +49,7 @@ evaluator: default
         test_args = [
             "director.py",
             "--config", self.temp_config.name,
-            "--task", "This is a raw task string."
+            "--template-values", "{\"task\": \"This is a raw task string.\"}"
         ]
         # Patch Director.direct so that we do not actually run the iteration loop;
         # instead, print the rendered prompt for inspection.
@@ -76,7 +76,7 @@ evaluator: default
         test_args = [
             "director.py",
             "--config", self.temp_config.name,
-            "--task", self.temp_task_file.name
+            "--template-values", "{\"task\": \"Task from file\"}"
         ]
         with patch.object(sys, "argv", test_args), \
              patch("specs.director.director.Director.direct",
