@@ -499,6 +499,11 @@ def main():
         type=str,
         help="Either a file path to a JSON file or a raw JSON string representing a list of file paths to override context_editable."
     )
+    parser.add_argument(
+        "--task",
+        type=str,
+        help="Either a path to a file containing the task prompt or a raw task prompt string."
+    )
     
     args = parser.parse_args()
     
@@ -515,6 +520,22 @@ def main():
         except ValueError as e:
             print(str(e))
             sys.exit(1)
+
+    # Process the new --task parameter: if provided, override or add to template_values.
+    if args.task:
+        if os.path.exists(args.task):
+            try:
+                with open(args.task, "r") as f:
+                    task_value = f.read()
+            except Exception as e:
+                print(f"Error reading task file: {str(e)}")
+                sys.exit(1)
+        else:
+            task_value = args.task
+
+        if template_values is None:
+            template_values = {}
+        template_values["task"] = task_value
 
     cli_context_editable = None
     if args.context_editable:
