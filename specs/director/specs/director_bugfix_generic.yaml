@@ -1,5 +1,5 @@
-# run command:
-# python director.py --config specs/director_git_diff.yaml --template-values "{\"task\": $(git diff refactor -- ../../ptycho/ | python -c "import json,sys; print(json.dumps(sys.stdin.read()))")}"
+# run command example:
+# python director.py --config specs/director_bugfix_generic.yaml  --context-editable deps.json --template-values tprompt.yaml 
 
 prompt: |
   <instructions>
