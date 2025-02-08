@@ -52,7 +52,16 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
     
     if "```" in llm_output:
         # Strip markdown formatting if present.
-        llm_output = llm_output.split("```", 2)[1].strip()
+        content = llm_output.split("```", 2)[1].strip()
+        # Remove any language specifier (e.g., "json") at the beginning.
+        if content.lower().startswith("json"):
+            # Split into lines and remove the first line.
+            lines = content.splitlines()
+            if len(lines) > 1:
+                content = "\n".join(lines[1:]).strip()
+            else:
+                content = ""
+        llm_output = content
     
     try:
         file_list = json.loads(llm_output)
