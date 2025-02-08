@@ -65,7 +65,7 @@ class Director:
         )
         
         # 1. Load and validate basic config structure
-        self.config = self._load_and_validate_config(Path(config_path))
+        self.config = self._load_and_validate_config(Path(config_path), override_context_editable=self.cli_context_editable)
         
         # 2. Process templates if needed
         self._process_config_templates()
@@ -476,6 +476,8 @@ Return a structured JSON response with the following structure: {{
 
 def main():
     """Entry point for the director script."""
+    import json
+    import os
     parser = argparse.ArgumentParser(
         description="Run the AI Coding Director with a config file and optional template values"
     )
