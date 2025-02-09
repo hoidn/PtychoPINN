@@ -4,6 +4,7 @@
 prompt: |
   <instructions>
   Review this codebase for code quality and refactor, if appropriate. The goal is for the code to be readable and maintainable. Preferably, no .py file should be longer than 300 lines. 
+  fix the package structure of director.py et al, and make sure director.py is callable as a cli scipt
   </instructions>
 
   #coder_model: claude-3-5-sonnet-20241022
