@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Navigate to the ptycho directory
-cd /home/ollie/Documents/scratch/ptycho/ || exit 1
+cd /home/ollie/Documents/PtychoPINN/ || exit 1
 
 # Remove the build directory if it exists
 if [ -d build/ ]; then

@@ -1,3 +1,10 @@
+if __name__ == '__main__' and __package__ is None:
+    import sys
+    from pathlib import Path
+    # Insert the repository root (parent of 'specs') into sys.path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    __package__ = "specs.director"
+
 from pydantic import BaseModel
 from typing import Optional, List, Literal, Dict, Any
 from pathlib import Path
@@ -29,131 +36,36 @@ class EvaluationResult(BaseModel):
     success: bool
     feedback: Optional[str]
 
-class DirectorConfig(BaseModel):
-    prompt: str
-    coder_model: str
-    evaluator_model: Literal["gpt-4o", "gpt-4o-mini", "o1-mini", "o1-preview"]
-    max_iterations: int
-    execution_command: str
-    context_editable: List[str]
-    context_read_only: List[str]
-    evaluator: Literal["default"]
-    template_values: Optional[Dict[str, Any]] = None
 
 class Director:
     """
     Self Directed AI Coding Assistant with template support
     """
 
-    def __init__(self, config_path: str, template_values: Optional[Dict[str, Any]] = None):
+    def __init__(self, config_path: str, template_values: Optional[Dict[str, Any]] = None, cli_context_editable: Optional[List[str]] = None):
         """
         Initialize Director with config file and optional template values.
         
         Args:
             config_path: Path to YAML config file
             template_values: Optional CLI-provided template values that override config values
+            cli_context_editable: Optional list of file paths to override context_editable from config
         """
+        self.cli_context_editable = cli_context_editable
         self.template_values = template_values or {}
-        
-        # Initialize Jinja2 environment early
-        self._jinja_env = Environment(
-            loader=BaseLoader(),
-            undefined=StrictUndefined,  # Raise errors on undefined variables
-            autoescape=False  # Don't escape by default - prompts aren't HTML
-        )
-        
-        # 1. Load and validate basic config structure
-        self.config = self._load_and_validate_config(Path(config_path))
-        
-        # 2. Process templates if needed
-        self._process_config_templates()
-        
-        # 3. Initialize OpenAI client
+
+        from .director_config import load_and_validate_config
+        from .director_templates import process_config_templates
+
+        # Load and validate configuration using the new module
+        self.config = load_and_validate_config(Path(config_path), cli_context_editable=self.cli_context_editable)
+
+        # Process config templates using the new module
+        process_config_templates(self)
+
+        # Initialize OpenAI client
         self.llm_client = OpenAI()
 
-    def _load_and_validate_config(self, config_path: Path) -> DirectorConfig:
-        """
-        Load and validate the basic config structure.
-        No template processing - just YAML loading and validation.
-        """
-        # Validate file exists
-        if not config_path.exists():
-            raise FileNotFoundError(f"Config file not found: {config_path}")
-
-        # Load and parse YAML
-        try:
-            with open(config_path) as f:
-                config_dict = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML in config file: {str(e)}")
-
-        # Handle .md file references
-        if isinstance(config_dict.get("prompt"), str) and config_dict["prompt"].endswith(".md"):
-            prompt_path = Path(config_dict["prompt"])
-            if not prompt_path.exists():
-                raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
-            with open(prompt_path) as f:
-                config_dict["prompt"] = f.read()
-
-        # Create config object for basic validation
-        config = DirectorConfig(**config_dict)
-
-        # Validate evaluator model
-        allowed_evaluator_models = {"gpt-4o", "gpt-4o-mini", "o1-mini", "o1-preview"}
-        if config.evaluator_model not in allowed_evaluator_models:
-            raise ValueError(
-                f"evaluator_model must be one of {allowed_evaluator_models}, "
-                f"got {config.evaluator_model}"
-            )
-
-        # Validate file paths
-        if not config.context_editable:
-            raise ValueError("At least one editable context file must be specified")
-
-        for path in config.context_editable + config.context_read_only:
-            if not Path(path).exists():
-                raise FileNotFoundError(f"File not found: {path}")
-
-        return config
-
-    def _process_config_templates(self) -> None:
-        """
-        Process any templates in the config prompt.
-        This runs after basic config validation but before the config is used.
-        """
-        # Merge template values (CLI overrides config)
-        template_values = {}
-        if self.config.template_values:
-            template_values.update(self.config.template_values)
-        if self.template_values:  # CLI values take precedence
-            template_values.update(self.template_values)
-
-        # Only process if we have template values
-        if template_values:
-            try:
-                # First validate template syntax
-                self._validate_template(self.config.prompt)
-                # Then render with values
-                rendered_prompt = self._render_template(self.config.prompt, template_values)
-                # Update config with rendered prompt
-                self.config.prompt = rendered_prompt
-            except TemplateError as e:
-                raise ValueError(f"Template processing failed: {str(e)}")
-
-    def _validate_template(self, template_str: str) -> None:
-        """Validate template syntax without rendering."""
-        try:
-            self._jinja_env.parse(template_str)
-        except Exception as e:
-            raise TemplateSyntaxError(f"Invalid template syntax: {str(e)}")
-
-    def _render_template(self, template_str: str, values: Dict[str, Any]) -> str:
-        """Render a template with the given values."""
-        try:
-            template = self._jinja_env.from_string(template_str)
-            return template.render(**values)
-        except Exception as e:
-            raise TemplateValueError(f"Template rendering failed: {str(e)}")
 
     def parse_llm_json_response(self, response_str: str) -> str:
         """
@@ -457,6 +369,8 @@ Return a structured JSON response with the following structure: {{
 
 def main():
     """Entry point for the director script."""
+    import json
+    import os
     parser = argparse.ArgumentParser(
         description="Run the AI Coding Director with a config file and optional template values"
     )
@@ -469,27 +383,58 @@ def main():
     parser.add_argument(
         "--template-values",
         type=str,
-        help="JSON string of template values to substitute",
+        help="YAML/JSON string of template values to substitute, or a file path to a YAML/JSON file",
+    )
+    parser.add_argument(
+        "--context-editable",
+        type=str,
+        help="Either a file path to a JSON file or a raw JSON string representing a list of file paths to override context_editable."
     )
     
     args = parser.parse_args()
     
     template_values = None
     if args.template_values:
-        import json
+        import yaml
+        # If the provided argument is a path to a file, read its contents.
+        if os.path.exists(args.template_values):
+            try:
+                with open(args.template_values, "r") as f:
+                    template_str = f.read()
+            except Exception as e:
+                print(f"Error reading template-values file: {str(e)}")
+                sys.exit(1)
+        else:
+            template_str = args.template_values
+
         try:
-            template_values = json.loads(args.template_values)
+            template_values = yaml.safe_load(template_str)
             if not isinstance(template_values, dict):
-                raise ValueError("Template values must be a JSON object")
-        except json.JSONDecodeError as e:
-            print(f"Error parsing template values JSON: {str(e)}")
+                raise ValueError("Template values must be a YAML/JSON mapping (object)")
+        except Exception as e:
+            print(f"Error parsing template values: {str(e)}")
             sys.exit(1)
-        except ValueError as e:
-            print(str(e))
+
+
+    cli_context_editable = None
+    if args.context_editable:
+        import os
+        try:
+            # If the provided argument is a path to an existing file, read its content
+            if os.path.exists(args.context_editable):
+                with open(args.context_editable, "r") as f:
+                    content = f.read()
+            else:
+                content = args.context_editable
+            cli_context_editable = json.loads(content)
+            if not isinstance(cli_context_editable, list):
+                raise ValueError("CLI context_editable must be a JSON array (list)")
+        except Exception as e:
+            print(f"Error parsing context_editable: {str(e)}")
             sys.exit(1)
             
     try:
-        director = Director(args.config, template_values)
+        director = Director(args.config, template_values, cli_context_editable=cli_context_editable)
         # Log the loaded configuration
         print(f"Loaded configuration: {director.config}")
 

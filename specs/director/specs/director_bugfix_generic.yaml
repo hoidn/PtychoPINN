@@ -1,0 +1,40 @@
+# run command example:
+# python director.py --config specs/director_bugfix_generic.yaml  --context-editable deps.json --template-values tprompt.yaml 
+
+prompt: |
+  <instructions>
+  <issues> summarizes the problem that we are now trying to debug.
+  Analyze the codebase with the above in mind. Then, explain how to fix any issues that you discover.
+  </instructions>
+
+  <issues>
+  {{ task }}
+  </issues>
+
+  #coder_model: claude-3-5-sonnet-20241022
+coder_model: o3-mini
+
+# List of files that can be modified by the AI
+context_editable: []
+
+# List of files that provide context but cannot be modified
+context_read_only: []
+
+# Command to run tests/validation
+# Example: "pytest tests/" or "python -m unittest"
+#execution_command: uv run pytest src/let_the_code_write_itself/tests
+#execution_command: ./run_training.sh
+execution_command: ./run_tests.sh
+
+# Maximum number of attempts to generate correct code
+# Recommended range: 3-10
+max_iterations: 8
+
+# The model to use for code evaluation
+# Must be either "gpt-4o" or "gpt-4o-mini"
+evaluator_model: o3-mini
+
+# Evaluator type to use
+# Currently only supports: "default" 
+evaluator: default
+

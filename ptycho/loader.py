@@ -15,13 +15,16 @@ class PtychoDataset:
     def __init__(self, train_data, test_data):
         self.train_data = train_data
         self.test_data = test_data
+        # Use the provided norm_Y_I if available; otherwise compute a fallback
         if hasattr(train_data, 'norm_Y_I') and train_data.norm_Y_I is not None:
             self.norm_Y_I = train_data.norm_Y_I
         else:
             from . import diffsim as datasets
             import tensorflow as tf
-            # Fallback: calculate norm from the train data's X
-            self.norm_Y_I = datasets.scale_nphotons(tf.convert_to_tensor(train_data.X))
+            try:
+                self.norm_Y_I = datasets.scale_nphotons(tf.convert_to_tensor(train_data.X))
+            except Exception as err:
+                raise AttributeError("Train data is missing attribute 'X' or norm_Y_I cannot be computed") from err
 
 class PtychoDataContainer:
     """
@@ -51,8 +54,9 @@ class PtychoDataContainer:
         self.nn_indices = nn_indices
         self.global_offsets = global_offsets
         self.local_offsets = local_offsets
-        self._probe = probeGuess
         self.probe_indices = probe_indices
+        # Use the property setter so that probeGuess is validated and promoted if needed
+        self.probe = probeGuess
 
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)

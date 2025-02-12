@@ -1,0 +1,28 @@
+task: |
+  <prompt>
+  attempt to debug the <error>. Ignore tensorflow warnings. find and fix the root cause of the AttributeError.
+  </prompt>
+  
+  <error>
+    [ 0.01858319+1.01260366e-02j]
+    [ 0.01299333+1.25071136e-02j]]], shape=(64, 64, 1), dtype=complex64) in params
+  INFO: setting probe from test data container. It MUST be consistent with the training probe
+  input shape (None, 64, 64, 1)
+  34/34 [==============================] - 3s 26ms/step
+  Object stitching failed: cannot reshape array of size 4452352 into shape (19,19,64,64,1)
+  2025-02-07 20:13:33,524 - ERROR - An error occurred during execution: 'dict' object has no attribute 'N'
+  Traceback (most recent call last):
+    File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 62, in <module>
+      main()
+    File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 54, in main
+      recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config)
+    File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/workflows/components.py", line 370, in run_cdi_example
+      train_results = train_cdi_model(train_data, test_data, config)
+    File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/workflows/components.py", line 267, in train_cdi_model
+      results = train_pinn.train_eval(PtychoDataset(train_container, test_container))
+    File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/train_pinn.py", line 34, in train_eval
+      stitched_obj = reassemble_patches(eval_results['reconstructed_obj'], config, part='complex')
+    File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/image/stitching.py", line 89, in reassemble_patches
+      N=config.N,
+  AttributeError: 'dict' object has no attribute 'N'
+  </error>
