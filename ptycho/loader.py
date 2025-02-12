@@ -51,7 +51,7 @@ class PtychoDataContainer:
         self.nn_indices = nn_indices
         self.global_offsets = global_offsets
         self.local_offsets = local_offsets
-        self.probe = probeGuess
+        self._probe = probeGuess
 
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)

@@ -474,13 +474,25 @@ def create_multi_container_from_raw_data(
     Each RawData is converted into a PtychoDataContainer using the existing loader.load() 
     conversion, and all containers are merged into one MultiPtychoDataContainer.
     """
+    if not raw_data_list:
+        raise ValueError("The raw_data_list is empty.")
+
     containers = []
     for raw in raw_data_list:
-        dataset = raw.generate_grouped_data(config.model.N, K=7, nsamples=1)
-        # Using create_split=False to preserve full data; adjust if needed.
-        container = load(lambda: dataset, raw.probeGuess, which=None, create_split=False)
-        containers.append(container)
-    return MultiPtychoDataContainer.from_containers(containers)
+        try:
+            dataset = raw.generate_grouped_data(config.model.N, K=7, nsamples=1)
+            container = load(lambda: dataset, raw.probeGuess, which=None, create_split=False)
+            containers.append(container)
+        except Exception as e:
+            logger.error(f"Error processing RawData instance: {e}")
+            raise
+
+    try:
+        multi_container = MultiPtychoDataContainer.from_containers(containers)
+        return multi_container
+    except Exception as e:
+        logger.error(f"Error merging containers: {e}")
+        raise
 
 def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
     """Save the generated images and results."""
