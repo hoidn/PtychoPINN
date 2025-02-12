@@ -463,6 +463,24 @@ def run_cdi_example(
     return recon_amp, recon_phase, train_results
 
 
+def create_multi_container_from_raw_data(
+    raw_data_list: List[RawData],
+    config: TrainingConfig
+) -> MultiPtychoDataContainer:
+    """
+    Convert a list of RawData instances into a merged MultiPtychoDataContainer.
+    
+    Each RawData is converted into a PtychoDataContainer using the existing loader.load() 
+    conversion, and all containers are merged into one MultiPtychoDataContainer.
+    """
+    containers = []
+    for raw in raw_data_list:
+        dataset = raw.generate_grouped_data(config.model.N, K=7, nsamples=1)
+        # Using create_split=False to preserve full data; adjust if needed.
+        container = load(lambda: dataset, raw.probeGuess, which=None, create_split=False)
+        containers.append(container)
+    return MultiPtychoDataContainer.from_containers(containers)
+
 def save_outputs(amplitude: Optional[np.ndarray], phase: Optional[np.ndarray], results: Dict[str, Any], output_prefix: str) -> None:
     """Save the generated images and results."""
     os.makedirs(output_prefix, exist_ok=True)

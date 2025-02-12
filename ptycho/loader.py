@@ -15,6 +15,13 @@ class PtychoDataset:
     def __init__(self, train_data, test_data):
         self.train_data = train_data
         self.test_data = test_data
+        if hasattr(train_data, 'norm_Y_I') and train_data.norm_Y_I is not None:
+            self.norm_Y_I = train_data.norm_Y_I
+        else:
+            from . import diffsim as datasets
+            import tensorflow as tf
+            # Fallback: calculate norm from the train data's X
+            self.norm_Y_I = datasets.scale_nphotons(tf.convert_to_tensor(train_data.X))
 
 class PtychoDataContainer:
     """
@@ -49,24 +56,26 @@ class PtychoDataContainer:
         from .tf_helper import combine_complex
         self.Y = combine_complex(Y_I, Y_phi)
 
-    def probe(self):
-        """
-        Access the probe(s) associated with the data container.
+    @property
+    def probe(self) -> np.ndarray:
+        if self._probe is None:
+            raise AttributeError("No probe available in this container.")
+        return self._probe
 
-        Returns:
-            np.ndarray: The probe or probes.
-
-        Raises:
-            AttributeError: If no probe information is available.
-        """
-        if hasattr(self, 'probes'):
-            # Multi-probe mode
-            return self.probes
-        elif hasattr(self, 'probe'):
-            # Single probe mode
-            return self.probe
+    @probe.setter 
+    def probe(self, value: np.ndarray):
+        import numpy as np
+        if not isinstance(value, np.ndarray):
+            raise TypeError("Probe must be a numpy array.")
+        if value.ndim == 2:
+            # Promote 2D array to 3D with channel dimension.
+            value = value[..., np.newaxis]
+        elif value.ndim == 3:
+            if value.shape[-1] != 1:
+                raise ValueError("Invalid probe shape; expected last dimension to be 1.")
         else:
-            raise AttributeError("No probe(s) found in the data container.")
+            raise ValueError("Invalid probe shape; expected a 2D or 3D array.")
+        self._probe = value
 
     @debug
     def __repr__(self):
