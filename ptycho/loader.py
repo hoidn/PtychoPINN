@@ -248,7 +248,7 @@ class MultiPtychoDataContainer:
             X_list.append(container.X)
             Y_I_list.append(container.Y_I)
             Y_phi_list.append(container.Y_phi)
-            norm_Y_I_list.append(container.norm_Y_I)
+            norm_Y_I_list.append(np.full(num_samples, container.norm_Y_I))
             YY_full_list.append(container.YY_full)
             coords_nominal_list.append(container.coords_nominal)
             coords_true_list.append(container.coords_true)
