@@ -3,9 +3,10 @@ import yaml
 import os
 import numpy as np
 import tensorflow as tf
+from typing import List
 from ptycho import params as p
 from ptycho import probe
-from ptycho.loader import RawData, PtychoDataContainer, MultiPtychoDataContainer
+from ptycho.loader import RawData, PtychoDataContainer, MultiPtychoDataContainer, load
 import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple, Literal
