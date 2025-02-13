@@ -112,6 +112,12 @@ if __name__ == "__main__":
         type=str,
         help="Optional path to a file containing a custom Jinja2 prompt template."
     )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="dependencies.json",
+        help="Path to the output JSON file"
+    )
     
     args = parser.parse_args()
     
@@ -133,7 +139,12 @@ if __name__ == "__main__":
     
     try:
         file_dependencies = generate_required_files(args.task, context_content, custom_template)
-        print(json.dumps(file_dependencies))
+        with open(args.output, "w") as out_file:
+            json.dump(file_dependencies, out_file, indent=2)
+        print(f"Output successfully written to {args.output}")
     except DependencyDetectorError as e:
         print(f"Error: {e}")
+        exit(1)
+    except Exception as e:
+        print(f"Failed to write output file: {e}")
         exit(1)
