@@ -12,7 +12,7 @@ prompt: |
   </issues>
 
   #coder_model: claude-3-5-sonnet-20241022
-coder_model: o1-preview
+coder_model: o3-mini
 
 # List of files that can be modified by the AI
 context_editable: []

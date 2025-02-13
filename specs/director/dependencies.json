@@ -1,11 +1,11 @@
 {
   "editable": [
-    "./ptycho/workflows/components.py",
-    "./ptycho/probe.py",
-    "./ptycho/model.py",
-    "./ptycho/train_pinn.py",
-    "./ptycho/loader.py",
-    "./ptycho/tf_helper.py"
+    "../../ptycho/workflows/components.py",
+    "../../ptycho/probe.py",
+    "../../ptycho/model.py",
+    "../../ptycho/train_pinn.py",
+    "../../ptycho/loader.py",
+    "../../ptycho/tf_helper.py"
   ],
   "read_only": [],
   "explanation": "These files may need to be modified to address the AttributeError caused by the absence of 'probe' in 'MultiPtychoDataContainer' and to implement per-sample probes as described in the prior changes."
