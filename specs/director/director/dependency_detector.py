@@ -46,6 +46,13 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
     template = env.from_string(prompt_template)
     prompt = template.render(task=task, context_file=context_file)
     
+    # Log the generated prompt to a file for debugging purposes.
+    try:
+        with open("prompt.log", "w") as prompt_log:
+            prompt_log.write(prompt)
+    except Exception as err:
+        print(f"Warning: Unable to write prompt to file: {err}")
+    
     openai_client = OpenAI()
     try:
         response = openai_client.chat.completions.create(
