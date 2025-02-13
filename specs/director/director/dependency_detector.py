@@ -37,10 +37,28 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
             "<target task>\n\n"
             "{{ task }}\n\n"
             "</target task>\n\n"
-            "Return only a valid JSON object with two keys: \"editable\" and \"read_only\". "
-            "\"editable\" is an array of file paths (strings) that may need to be modified to compllete the <target task>, and \"read_only\" is an array of file paths (strings) that WILL NOT need to be modified to complete the <target task>. When in doubt, assume a file might need to be modified. "
+            "Return only a valid JSON object with 3 keys: \"editable\", \"read_only\", and \"explanation\". "
+            "\"editable\" is an array of file paths (strings) that may need to be modified to compllete the <target task>, and \"read_only\" is an array of file paths (strings) that WILL NOT need to be modified to complete the <target task>. When in doubt, assume a file might need to be modified."
             "Do not include any extra commentary."
         )
+#        prompt_template = (
+#            "You are an expert developer. The provided <context file> content consists of multiple concatenated files. "
+#            "Each file is delineated with XML-like tags in the following format:\n\n"
+#            "<file path=\"FILE_PATH\" project=\"PROJECT_NAME\">\n"
+#            "FILE CONTENTS\n"
+#            "</file>\n\n"
+#            "<context file>\n\n"
+#            "{{ context_file }}\n\n"
+#            "</context file>\n\n"
+#            "Based on the above context, and the <target task> below, determine which file paths in the codebase would be need to  "
+#            "to be present as context or as potentially requiring revision, in order to complete the <target task>.\n\n"
+#            "<target task>\n\n"
+#            "{{ task }}\n\n"
+#            "</target task>\n\n"
+#            "Return only a valid JSON object with two keys: \"editable\" and \"read_only\". "
+#            "\"editable\" is an array of file paths (strings) that may need to be modified to compllete the <target task>, and \"read_only\" is an array of file paths (strings) that WILL NOT need to be modified to complete the <target task>. When in doubt, assume a file might need to be modified. "
+#            "Do not include any extra commentary."
+#        )
     
     env = Environment(loader=BaseLoader(), undefined=StrictUndefined, autoescape=False)
     template = env.from_string(prompt_template)
