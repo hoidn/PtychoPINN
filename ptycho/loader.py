@@ -16,6 +16,7 @@ class PtychoDataset:
         self.train_data = train_data
         self.test_data = test_data
         # Use the provided norm_Y_I if available; otherwise compute a fallback
+        # TODO: WE SHOULD SURFACE A WARDNING THAT THE FALLBACK IS BEING USED
         if hasattr(train_data, 'norm_Y_I') and train_data.norm_Y_I is not None:
             self.norm_Y_I = train_data.norm_Y_I
         else:
