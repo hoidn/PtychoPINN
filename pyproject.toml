@@ -46,6 +46,7 @@ datasets = ["*.npz"]
 
 [tool.setuptools.packages.find]
 where = ["."]
+exclude = ["specs/director/ptycho"]
 
 [tool.setuptools_scm]
 
