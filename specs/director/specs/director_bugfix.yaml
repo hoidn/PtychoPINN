@@ -68,7 +68,7 @@ prompt: |
   
   </goal>
 
-coder_model: "o1-preview"
+coder_model: "o1-mini"
   #coder_model: claude-3-5-sonnet-20241022
   #coder_model: "r1"
 
@@ -86,7 +86,7 @@ execution_command: ./run_training.sh
 
 # Maximum number of attempts to generate correct code
 # Recommended range: 3-10
-max_iterations: 5
+max_iterations: 8
 
 # The model to use for code evaluation
 # Must be either "gpt-4o" or "gpt-4o-mini"

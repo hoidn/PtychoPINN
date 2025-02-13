@@ -12,7 +12,7 @@ prompt: |
   </issues>
 
   #coder_model: claude-3-5-sonnet-20241022
-coder_model: o3-mini
+coder_model: o1-preview
 
 # List of files that can be modified by the AI
 context_editable: []
@@ -24,7 +24,8 @@ context_read_only: []
 # Example: "pytest tests/" or "python -m unittest"
 #execution_command: uv run pytest src/let_the_code_write_itself/tests
 #execution_command: ./run_training.sh
-execution_command: ./run_tests.sh
+#execution_command: ./run_tests.sh
+execution_command: ./run_training.sh
 
 # Maximum number of attempts to generate correct code
 # Recommended range: 3-10

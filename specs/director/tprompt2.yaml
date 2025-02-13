@@ -1,181 +1,177 @@
 task: |
-  <work spec>
-  # Specification Template
-  > Ingest the information from this file, implement the Low-Level Tasks, and generate the code that will satisfy the High and Mid-Level Objectives.
-  
-  ## High-Level Objective
-  
-  - Improve the data container handling in the ptychography codebase to support consistent probe access, proper norm_Y_I attribution, and clean multi-container merging
-  
-  ## Mid-Level Objectives
-  
-  - Fix probe attribute/method duplication in PtychoDataContainer
-  - Ensure consistent norm_Y_I handling in PtychoDataset
-  - Add functionality to merge multiple RawData instances into a MultiPtychoDataContainer
-  - Clean up MultiPtychoDataContainer creation paths
-  - Add comprehensive test coverage for all changes
-  
-  ## Implementation Notes
-  - Use property decorator for clean probe access
-  - Keep existing functionality while fixing attribute issues
-  - Ensure type hints and docstrings are clear
-  - Validate all data shapes and types
-  - Tests should cover both success cases and error handling
-  
-  ## Context
-  
-  ### Beginning context
-  - ./ptycho/loader.py
-  - ./ptycho/workflows/components.py  
-  - ./ptycho/probe.py
-  - ./ptycho/raw_data.py
-  - ./ptycho/params.py
-  
-  ### Ending context  
-  - Updated loader.py with fixed containers
-  - New function in components.py for multi-RawData loading
-  - New and updated tests in tests/test_loader_multi.py and tests/test_components_multi.py
-  
-  ## Low-Level Tasks
-  > Ordered from start to finish
-  
-  1. Fix PtychoDataContainer probe handling
-  ```aider
-  UPDATE loader.py:
-      REFACTOR PtychoDataContainer:
-          REMOVE _probe attribute and probe method
-          ADD @property for probe that handles both getting and setting
-          UPDATE all references to use the property
-  ```
-  
-  2. Fix norm_Y_I assignment in PtychoDataset 
-  ```aider
-  UPDATE loader.py:
-      MODIFY PtychoDataset.__init__:
-          ADD proper norm_Y_I initialization from train_data
-          ADD validation for norm_Y_I presence
-          UPDATE fallback calculation
-  ```
-  
-  3. Create new multi-RawData loader
-  ```aider
-  UPDATE workflows/components.py:
-      CREATE create_multi_container_from_raw_data(raw_data_list: List[RawData], config: TrainingConfig) -> MultiPtychoDataContainer:
-          Takes list of RawData and config
-          Converts each RawData to PtychoDataContainer 
-          Merges containers into single MultiPtychoDataContainer
-          Returns merged container
-  ```
-  
-  4. Add tests for PtychoDataContainer probe property
-  ```aider
-  UPDATE tests/test_loader.py:
-      ADD test_probe_property():
-          Test getting/setting probe with different input types
-          Test callable probe handling
-          Test error cases for invalid probe shapes/types
-  ```
-  
-  5. Add tests for PtychoDataset norm_Y_I handling
-  ```aider
-  UPDATE tests/test_loader.py:
-      ADD test_dataset_norm_y_i():
-          Test norm_Y_I initialization from train_data
-          Test fallback calculation
-          Test error cases
-  ```
-  
-  6. Add tests for multi-RawData loader
-  ```aider
-  UPDATE tests/test_components.py:
-      ADD test_create_multi_container():
-          Test merging multiple RawData instances
-          Test shape validation
-          Test probe handling in merged container
-          Test error cases for invalid inputs
-  ```
-  
-  7. Add test fixtures and utilities
-  ```aider
-  UPDATE tests/conftest.py:
-      ADD fixtures for:
-          Sample RawData instances
-          Sample probe data
-          Sample configuration
-          Helper functions for test data generation
-  ```
-  </work spec>
-  
-  <issue>
-  test_loader.py FAILED. with the following (ptycho_test) ollie@ollie:~/Documents/PtychoPINN $ pytest tests/test_loader.py
-  =========================================================================================================================================================================== test session starts ============================================================================================================================================================================
-  platform linux -- Python 3.10.16, pytest-8.3.4, pluggy-1.5.0
-  rootdir: /home/ollie/Documents/PtychoPINN
-  configfile: pyproject.toml
-  plugins: cov-6.0.0, anyio-4.8.0, typeguard-2.13.3
-  collected 1 item
-  
-  tests/test_loader.py F                                                                                                                                                                                                                                                                                                                                               [100%]
-  
-  ================================================================================================================================================================================= FAILURES =================================================================================================================================================================================
-  __________________________________________________________________________________________________________________________________________________________________________ test_dataset_norm_y_i ___________________________________________________________________________________________________________________________________________________________________________
-  
-      def test_dataset_norm_y_i():
-          import numpy as np
-          import tensorflow as tf
-          from ptycho.loader import PtychoDataset
-  
-          # --- Test: norm_Y_I provided in train_data ---
-          class FakeData:
-              def __init__(self, X, norm_Y_I):
-                  self.X = X
-                  self.norm_Y_I = norm_Y_I
-  
-          X = np.ones((10, 64, 64))
-          provided_norm = 5.0
-          train_data = FakeData(X, provided_norm)
-          test_data = FakeData(X, provided_norm)
-          ds = PtychoDataset(train_data, test_data)
-          assert ds.norm_Y_I == provided_norm, "norm_Y_I should be taken directly from train_data when provided"
-  
-          # --- Test: Fallback calculation when norm_Y_I is None ---
-          train_data_no_norm = FakeData(X, None)
-          ds_fallback = PtychoDataset(train_data_no_norm, test_data)
-          # Check that fallback returns a numeric value (scale_nphotons returns a float/numeric tensor)
-          assert ds_fallback.norm_Y_I is not None, "norm_Y_I fallback should be computed when missing"
-  >       assert isinstance(ds_fallback.norm_Y_I, (float, np.floating, np.ndarray)), "Fallback norm_Y_I should be numeric"
-  E       AssertionError: Fallback norm_Y_I should be numeric
-  E       assert False
-  E        +  where False = isinstance(<tf.Tensor: shape=(), dtype=float64, numpy=494.10588440130925>, (<class 'float'>, <class 'numpy.floating'>, <class 'numpy.ndarray'>))
-  E        +    where <tf.Tensor: shape=(), dtype=float64, numpy=494.10588440130925> = <ptycho.loader.PtychoDataset object at 0x7c0589398a30>.norm_Y_I
-  
-  tests/test_loader.py:24: AssertionError
-  ============================================================================================================================================================================= warnings summary =============================================================================================================================================================================
-  ../../miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:57
-    /home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:57: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-      if (distutils.version.LooseVersion(tf.__version__) <
-  
-  ../../miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:58
-    /home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:58: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-      distutils.version.LooseVersion(required_tensorflow_version)):
-  
-  ../../miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23
-    /home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23: UserWarning:
-  
-    TensorFlow Addons (TFA) has ended development and introduction of new features.
-    TFA has entered a minimal maintenance and release mode until a planned end of life in May 2024.
-    Please modify downstream libraries to take dependencies from other repositories in our TensorFlow community (e.g. Keras, Keras-CV, and Keras-NLP).
-  
-    For more information see: https://github.com/tensorflow/addons/issues/2807
-  
-      warnings.warn(
-  
-  -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-  ========================================================================================================================================================================= short test summary info ==========================================================================================================================================================================
-  FAILED tests/test_loader.py::test_dataset_norm_y_i - AssertionError: Fallback norm_Y_I should be numeric
-  ====================================================================================================================================================================== 1 failed, 3 warnings in 0.51s
-  </issue>
-  
   <prompt>
-  We impleennted <work spec> but, the test is failing. maybe we broke something in the process of impl ing <work spec>, or maybe it was already broken. The priority is to fix the test, unless the underlying code is broken, in which case you should fix the impl.
+  attempt to debug the <test>. Note that the failing test is a regression introduced in 
+  the process of implementing the change described in <prior changes>. 
   </prompt>
+  
+  <test>
+  (ptycho_test) ollie@ollie:~/Documents/PtychoPINN/scripts $ python training/train.py --train_data_file
+   ...
+  2025-02-13 01:40:05,936 - INFO - Configuration setup complete
+  2025-02-13 01:40:05,936 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize
+  =1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, 
+  probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=Po
+  sixPath('Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('Run1084_recon3_postPC_shrunk
+  _3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realsp
+  ace_weight=0.0, nphotons=1000000000.0, positions_provided=True, probe_trainable=False, intensity_scal
+  e_trainable=True, output_dir=PosixPath('training_outputs'))
+  2025-02-13 01:40:05,936 - ERROR - An error occurred during execution: [Errno 2] No such file or direc tory: 'Run1084_recon3_postPC_shrunk_3.npz' Traceback (most recent call last):
+    File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 62, in <module>
+      main()
+    File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 48, in main
+      ptycho_data = load_data(str(config.train_data_file), n_images = 512)
+    File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/workflows/co
+  mponents.py", line 48, in load_data
+      data = np.load(file_path)
+    File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/numpy/lib/npyio.py"
+  , line 427, in load
+      fid = stack.enter_context(open(os_fspath(file), "rb")) FileNotFoundError: [Errno 2] No such file or directory: 'Run1084_recon3_postPC_shrunk_3.npz'
+  (ptycho_test) ollie@ollie:~/Documents/PtychoPINN/scripts $ ln -s ../datasets/Run1084_recon3_postPC_sh
+  runk_3.npz 
+  (ptycho_test) ollie@ollie:~/Documents/PtychoPINN/scripts $ git add Run1084_recon3_postPC_shrunk_3.npz
+   
+  (ptycho_test) ollie@ollie:~/Documents/PtychoPINN/scripts $ python training/train.py --train_data_file
+   Run1084_recon3_postPC_shrunk_3.npz --test_data_file Run1084_recon3_postPC_shrunk_3.npz
+  2025-02-13 01:40:37.376468: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to
+   register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been re
+  gistered
+  2025-02-13 01:40:37.376500: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to 
+  register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been reg
+  istered
+  2025-02-13 01:40:37.377552: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable t
+  o register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been
+   registered
+  2025-02-13 01:40:37.382252: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow bina
+  ry is optimized to use available CPU instructions in performance-critical operations.
+  To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appr
+  opriate compiler flags.
+  2025-02-13 01:40:37.875159: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: C
+  ould not find TensorRT
+  1 items had no tests:
+      __main__
+  0 tests in 1 items.
+  0 passed and 0 failed.
+  Test passed.
+  2025-02-13 01:40:38.881384: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  2025-02-13 01:40:38.913534: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  2025-02-13 01:40:38.913740: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  /home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_addons/utils/tfa
+  _eol_msg.py:23: UserWarning: 
+  
+  TensorFlow Addons (TFA) has ended development and introduction of new features.
+  TFA has entered a minimal maintenance and release mode until a planned end of life in May 2024.
+  Please modify downstream libraries to take dependencies from other repositories in our TensorFlow com
+  munity (e.g. Keras, Keras-CV, and Keras-NLP). 
+  
+  For more information see: https://github.com/tensorflow/addons/issues/2807 
+  
+    warnings.warn(
+  2025-02-13 01:40:39.075712: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  2025-02-13 01:40:39.075971: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  2025-02-13 01:40:39.076133: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  2025-02-13 01:40:39.143596: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  2025-02-13 01:40:39.143762: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  2025-02-13 01:40:39.143866: I tensorflow/core/common_runtime/gpu/gpu_process_state.cc:236] Using CUDA
+   malloc Async allocator for GPU: 0
+  2025-02-13 01:40:39.143994: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+  ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+   returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+  testing/sysfs-bus-pci#L344-L355
+  2025-02-13 01:40:39.144107: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1929] Created device /
+  job:localhost/replica:0/task:0/device:GPU:0 with 1128 MB memory:  -> device: 0, name: NVIDIA GeForce 
+  RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+  2025-02-13 01:40:39,169 - INFO - Configuration setup complete
+  2025-02-13 01:40:39,169 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize
+  =1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, 
+  probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=Po
+  sixPath('Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('Run1084_recon3_postPC_shrunk
+  _3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realsp
+  ace_weight=0.0, nphotons=1000000000.0, positions_provided=True, probe_trainable=False, intensity_scal
+  e_trainable=True, output_dir=PosixPath('training_outputs'))
+  diff3d shape: (512, 64, 64)
+  probeGuess shape: (64, 64)
+  scan_index shape: (512,)
+  objectGuess shape: (227, 226)
+  xcoords shape: (512,)
+  ycoords shape: (512,)
+  xcoords_start shape: (512,)
+  ycoords_start shape: (512,)
+  diff3d shape: (1087, 64, 64)
+  probeGuess shape: (64, 64)
+  scan_index shape: (1087,)
+  objectGuess shape: (227, 226)
+  xcoords shape: (1087,)
+  ycoords shape: (1087,)
+  xcoords_start shape: (1087,)
+  ycoords_start shape: (1087,)
+  DEBUG: nsamples: 1
+  neighbor-sampled diffraction shape (512, 64, 64, 1)
+  loader: setting dummy Y ground truth
+  INFO: None
+  <PtychoDataContainer X=(512, 64, 64, 1) Y_I=(512, 64, 64, 1) Y_phi=(512, 64, 64, 1) norm_Y_I=() coord
+  s_nominal=(512, 1, 2, 1) coords_true=(512, 1, 2, 1) nn_indices=(512, 1) mean=255.500 global_offsets=(
+  512, 1, 2, 1) mean=63.009 local_offsets=(512, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.322
+  >
+  DEBUG: nsamples: 1
+  neighbor-sampled diffraction shape (1087, 64, 64, 1)
+  loader: setting dummy Y ground truth
+  INFO: None
+  <PtychoDataContainer X=(1087, 64, 64, 1) Y_I=(1087, 64, 64, 1) Y_phi=(1087, 64, 64, 1) norm_Y_I=() co
+  ords_nominal=(1087, 1, 2, 1) coords_true=(1087, 1, 2, 1) nn_indices=(1087, 1) mean=543.000 global_off
+  sets=(1087, 1, 2, 1) mean=57.242 local_offsets=(1087, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitu
+  de=0.322>
+  2025-02-13 01:40:39,912 - ERROR - An error occurred during execution: 'MultiPtychoDataContainer' obje
+  ct has no attribute 'probe'
+  Traceback (most recent call last):
+    File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 62, in <module>
+      main()
+    File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 54, in main
+      recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config)
+    File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/workflows/co
+  mponents.py", line 434, in run_cdi_example
+      train_results = train_cdi_model(train_data, test_data, config)
+    File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/workflows/co
+  mponents.py", line 325, in train_cdi_model
+      probe.set_probe_guess(None, train_container.probe)
+  AttributeError: 'MultiPtychoDataContainer' object has no attribute 'probe'. Did you mean: 'probes'?
+  </test>
+  
+  <prior changes>
+  we want to adapt this codebase such that the probe tensor is a per-sample input
+  to the model instead of a global variable. 
+  Currently, the probe is stored in PtychoDataContainer. PtychoDataContainer contains
+  a single probe tensor. The current assumption is that all samples share the same
+  probe. I.e. one PtychoDataContainer instance corresponds to one dataset.
+  We want to define a new data type that mirrors PtychoDataContainer, but
+  contains multiple datasets and stores a list of probes. For each sample,
+  it must contain an index into the list of probes specifying which probe
+  to use for that sample.
+  Merging multiple PtychoDataContainer instances for *training* (but not testing) 
+  will require shuffling the samples so that the datasets are interleaved. Note that 
+  we can assume that each RawData instance corresponds to a single probe.
+  We will create a new class called MultiPtychoDataContainer that will contain data corresponsing to one or more PtychoDataContainer instances. It will NOT subclass PtychoDataContainer.
+  </prior changes>
