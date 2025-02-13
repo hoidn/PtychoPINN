@@ -44,10 +44,12 @@ ptycho_inference = "scripts.inference.inference:main"
 [tool.setuptools.package-data]
 datasets = ["*.npz"]
 
+[tool.setuptools]
+package-dir = {"" = "directory"}
+
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["ptycho*", "loaders*", "tests*", "scripts*"]
-exclude = ["specs*", "*.specs*"]  # Exclude specs directory and any specs.* packages
+where = ["directory"]
+exclude = ["tests*"]
 
 [tool.setuptools_scm]
 

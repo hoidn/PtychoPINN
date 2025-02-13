@@ -1,10 +1,3 @@
-if __name__ == '__main__' and __package__ is None:
-    import sys
-    from pathlib import Path
-    # Insert the repository root (parent of 'specs') into sys.path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-    __package__ = "specs.director"
-
 from pydantic import BaseModel
 from typing import Optional, List, Literal, Dict, Any
 from pathlib import Path
