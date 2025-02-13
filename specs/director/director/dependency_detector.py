@@ -29,13 +29,15 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
             "<file path=\"FILE_PATH\" project=\"PROJECT_NAME\">\n"
             "FILE CONTENTS\n"
             "</file>\n\n"
-            "Based on the above context, and the task described below, determine what file paths in the codebase will need "
+            "Based on the above context, and the task described below, determine which file paths in the codebase will need "
             "to be present or modified to complete the task.\n\n"
             "== Context File ==\n"
             "{{ context_file }}\n\n"
             "== Task Description ==\n"
             "{{ task }}\n\n"
-            "Return only a valid JSON array of file paths (strings), with no extra commentary."
+            "Return only a valid JSON object with two keys: \"editable\" and \"read_only\". "
+            "\"editable\" is an array of file paths (strings) that can be modified, and \"read_only\" is an array of file paths (strings) that cannot be modified. "
+            "Do not include any extra commentary."
         )
     
     env = Environment(loader=BaseLoader(), undefined=StrictUndefined, autoescape=False)
