@@ -1,0 +1,24 @@
+# run command example:
+# python director.py --config specs/director/specs/director_readonly_editable.yaml --context-editable directordeps.json --context-read-only directorreadonly.json
+
+prompt: |
+  <instructions>
+  Review this codebase for code quality and refactor, if appropriate. The goal is for the code to be readable and maintainable. Preferably, no .py file should be longer than 300 lines. 
+  fix the package structure of director.py et al, and make sure director.py is callable as a cli script
+  </instructions>
+
+coder_model: o3-mini
+
+# List of files that can be modified by the AI
+context_editable: []
+
+# List of files that provide context but cannot be modified
+context_read_only: []
+
+execution_command: ./run_director_tests.sh
+
+max_iterations: 8
+
+evaluator_model: o3-mini
+
+evaluator: default

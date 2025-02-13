@@ -35,7 +35,13 @@ class Director:
     Self Directed AI Coding Assistant with template support
     """
 
-    def __init__(self, config_path: str, template_values: Optional[Dict[str, Any]] = None, cli_context_editable: Optional[List[str]] = None):
+    def __init__(
+        self, 
+        config_path: str, 
+        template_values: Optional[Dict[str, Any]] = None, 
+        cli_context_editable: Optional[List[str]] = None,
+        cli_context_read_only: Optional[List[str]] = None
+    ):
         """
         Initialize Director with config file and optional template values.
         
@@ -43,15 +49,21 @@ class Director:
             config_path: Path to YAML config file
             template_values: Optional CLI-provided template values that override config values
             cli_context_editable: Optional list of file paths to override context_editable from config
+            cli_context_read_only: Optional list of file paths to override context_read_only from config
         """
         self.cli_context_editable = cli_context_editable
+        self.cli_context_read_only = cli_context_read_only
         self.template_values = template_values or {}
 
         from .director_config import load_and_validate_config
         from .director_templates import process_config_templates
 
         # Load and validate configuration using the new module
-        self.config = load_and_validate_config(Path(config_path), cli_context_editable=self.cli_context_editable)
+        self.config = load_and_validate_config(
+            Path(config_path),
+            cli_context_editable=self.cli_context_editable,
+            cli_context_read_only=self.cli_context_read_only
+        )
 
         # Process config templates using the new module
         process_config_templates(self)
@@ -383,6 +395,11 @@ def main():
         type=str,
         help="Either a file path to a JSON file or a raw JSON string representing a list of file paths to override context_editable."
     )
+    parser.add_argument(
+        "--context-read-only",
+        type=str,
+        help="Either a file path to a JSON file or a raw JSON string representing a list of file paths to override context_read_only."
+    )
     
     args = parser.parse_args()
     
@@ -425,9 +442,29 @@ def main():
         except Exception as e:
             print(f"Error parsing context_editable: {str(e)}")
             sys.exit(1)
+
+    cli_context_read_only = None
+    if args.context_read_only:
+        try:
+            if os.path.exists(args.context_read_only):
+                with open(args.context_read_only, "r") as f:
+                    content = f.read()
+            else:
+                content = args.context_read_only
+            cli_context_read_only = json.loads(content)
+            if not isinstance(cli_context_read_only, list):
+                raise ValueError("CLI context_read_only must be a JSON array (list)")
+        except Exception as e:
+            print(f"Error parsing context_read_only: {str(e)}")
+            sys.exit(1)
             
     try:
-        director = Director(args.config, template_values, cli_context_editable=cli_context_editable)
+        director = Director(
+            args.config,
+            template_values,
+            cli_context_editable=cli_context_editable,
+            cli_context_read_only=cli_context_read_only
+        )
         # Log the loaded configuration
         print(f"Loaded configuration: {director.config}")
 

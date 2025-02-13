@@ -14,7 +14,11 @@ class DirectorConfig(BaseModel):
     evaluator: Literal["default"]
     template_values: Optional[Dict[str, Any]] = None
 
-def load_and_validate_config(config_path: Path, cli_context_editable: Optional[List[str]] = None) -> DirectorConfig:
+def load_and_validate_config(
+    config_path: Path, 
+    cli_context_editable: Optional[List[str]] = None,
+    cli_context_read_only: Optional[List[str]] = None
+) -> DirectorConfig:
     # Validate file exists
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -54,6 +58,8 @@ def load_and_validate_config(config_path: Path, cli_context_editable: Optional[L
     # Override the YAML value if the CLI override was provided
     if cli_context_editable is not None:
         config.context_editable = cli_context_editable
+    if cli_context_read_only is not None:
+        config.context_read_only = cli_context_read_only
 
     for path in config.context_read_only:
         if not Path(path).exists():
