@@ -1,8 +1,206 @@
 <prompt>
-attempt to debug the <error>. 
+attempt to debug the <test>. 
 </prompt>
 
-<error>
+<test>
+(ptycho_test) ollie@ollie:~/Documents/PtychoPINN/scripts $ python training/train.py --train_data_file
+ Run1084_recon3_postPC_shrunk_3.npz --test_data_file Run1084_recon3_postPC_shrunk_3.npz
+2025-02-13 01:40:04.172585: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to
+ register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been re
+gistered
+2025-02-13 01:40:04.172618: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to 
+register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been reg
+istered
+2025-02-13 01:40:04.173667: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable t
+o register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been
+ registered
+2025-02-13 01:40:04.178348: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow bina
+ry is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appr
+opriate compiler flags.
+2025-02-13 01:40:04.669237: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: C
+ould not find TensorRT
+1 items had no tests:
+    __main__
+0 tests in 1 items.
+0 passed and 0 failed.
+Test passed.
+2025-02-13 01:40:05.660445: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:05.692104: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:05.692324: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_addons/utils/tfa
+_eol_msg.py:23: UserWarning: 
+
+TensorFlow Addons (TFA) has ended development and introduction of new features.
+TFA has entered a minimal maintenance and release mode until a planned end of life in May 2024.
+Please modify downstream libraries to take dependencies from other repositories in our TensorFlow com
+munity (e.g. Keras, Keras-CV, and Keras-NLP). 
+
+For more information see: https://github.com/tensorflow/addons/issues/2807 
+
+  warnings.warn(
+2025-02-13 01:40:05.849252: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:05.849519: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:05.849710: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:05.911187: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:05.911355: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:05.911458: I tensorflow/core/common_runtime/gpu/gpu_process_state.cc:236] Using CUDA
+ malloc Async allocator for GPU: 0
+2025-02-13 01:40:05.911593: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:05.911717: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1929] Created device /
+job:localhost/replica:0/task:0/device:GPU:0 with 1128 MB memory:  -> device: 0, name: NVIDIA GeForce 
+RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-02-13 01:40:05,936 - INFO - Configuration setup complete
+2025-02-13 01:40:05,936 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize
+=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, 
+probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=Po
+sixPath('Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('Run1084_recon3_postPC_shrunk
+_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realsp
+ace_weight=0.0, nphotons=1000000000.0, positions_provided=True, probe_trainable=False, intensity_scal
+e_trainable=True, output_dir=PosixPath('training_outputs'))
+2025-02-13 01:40:05,936 - ERROR - An error occurred during execution: [Errno 2] No such file or direc
+tory: 'Run1084_recon3_postPC_shrunk_3.npz'
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 62, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 48, in main
+    ptycho_data = load_data(str(config.train_data_file), n_images = 512)
+  File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/workflows/co
+mponents.py", line 48, in load_data
+    data = np.load(file_path)
+  File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/numpy/lib/npyio.py"
+, line 427, in load
+    fid = stack.enter_context(open(os_fspath(file), "rb"))
+FileNotFoundError: [Errno 2] No such file or directory: 'Run1084_recon3_postPC_shrunk_3.npz'
+(ptycho_test) ollie@ollie:~/Documents/PtychoPINN/scripts $ ln -s ../datasets/Run1084_recon3_postPC_sh
+runk_3.npz 
+(ptycho_test) ollie@ollie:~/Documents/PtychoPINN/scripts $ git add Run1084_recon3_postPC_shrunk_3.npz
+ 
+(ptycho_test) ollie@ollie:~/Documents/PtychoPINN/scripts $ python training/train.py --train_data_file
+ Run1084_recon3_postPC_shrunk_3.npz --test_data_file Run1084_recon3_postPC_shrunk_3.npz
+2025-02-13 01:40:37.376468: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to
+ register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been re
+gistered
+2025-02-13 01:40:37.376500: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to 
+register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been reg
+istered
+2025-02-13 01:40:37.377552: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable t
+o register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been
+ registered
+2025-02-13 01:40:37.382252: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow bina
+ry is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appr
+opriate compiler flags.
+2025-02-13 01:40:37.875159: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: C
+ould not find TensorRT
+1 items had no tests:
+    __main__
+0 tests in 1 items.
+0 passed and 0 failed.
+Test passed.
+2025-02-13 01:40:38.881384: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:38.913534: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:38.913740: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_addons/utils/tfa
+_eol_msg.py:23: UserWarning: 
+
+TensorFlow Addons (TFA) has ended development and introduction of new features.
+TFA has entered a minimal maintenance and release mode until a planned end of life in May 2024.
+Please modify downstream libraries to take dependencies from other repositories in our TensorFlow com
+munity (e.g. Keras, Keras-CV, and Keras-NLP). 
+
+For more information see: https://github.com/tensorflow/addons/issues/2807 
+
+  warnings.warn(
+2025-02-13 01:40:39.075712: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:39.075971: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:39.076133: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:39.143596: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:39.143762: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:39.143866: I tensorflow/core/common_runtime/gpu/gpu_process_state.cc:236] Using CUDA
+ malloc Async allocator for GPU: 0
+2025-02-13 01:40:39.143994: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] succe
+ssful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so
+ returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/
+testing/sysfs-bus-pci#L344-L355
+2025-02-13 01:40:39.144107: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1929] Created device /
+job:localhost/replica:0/task:0/device:GPU:0 with 1128 MB memory:  -> device: 0, name: NVIDIA GeForce 
+RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+2025-02-13 01:40:39,169 - INFO - Configuration setup complete
+2025-02-13 01:40:39,169 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize
+=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, 
+probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=Po
+sixPath('Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('Run1084_recon3_postPC_shrunk
+_3.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realsp
+ace_weight=0.0, nphotons=1000000000.0, positions_provided=True, probe_trainable=False, intensity_scal
+e_trainable=True, output_dir=PosixPath('training_outputs'))
+diff3d shape: (512, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (512,)
+objectGuess shape: (227, 226)
+xcoords shape: (512,)
+ycoords shape: (512,)
+xcoords_start shape: (512,)
+ycoords_start shape: (512,)
+diff3d shape: (1087, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (1087,)
+objectGuess shape: (227, 226)
+xcoords shape: (1087,)
+ycoords shape: (1087,)
+xcoords_start shape: (1087,)
+ycoords_start shape: (1087,)
 DEBUG: nsamples: 1
 neighbor-sampled diffraction shape (512, 64, 64, 1)
 loader: setting dummy Y ground truth
@@ -33,4 +231,4 @@ mponents.py", line 434, in run_cdi_example
 mponents.py", line 325, in train_cdi_model
     probe.set_probe_guess(None, train_container.probe)
 AttributeError: 'MultiPtychoDataContainer' object has no attribute 'probe'. Did you mean: 'probes'?
-</error>
+</test>

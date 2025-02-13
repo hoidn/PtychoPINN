@@ -84,7 +84,7 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
         tmp.write(prompt)
         tmp_path = tmp.name
 
-    cmd = ["llm", "--model", "o1-preview"]
+    cmd = ["llm", "--model", "claude-3-5-sonnet-20241022"]
     try:
         with open(tmp_path, "r") as input_file:
             result = subprocess.run(
