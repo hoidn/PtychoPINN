@@ -37,7 +37,7 @@ def test_end_to_end(tmp_path):
 
     # Run director.py via subprocess (it prints the loaded configuration on startup).
     # Adjust the path to director.py as needed relative to the current working directory.
-    director_py = str(Path("specs", "director", "director", "director.py"))
+    director_py = str(Path("director.py"))
 
     cmd = [
         sys.executable, director_py,
