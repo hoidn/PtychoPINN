@@ -46,7 +46,7 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
             "{{ task }}\n\n"
             "</target task>\n\n"
             "Return only a valid JSON object with 3 keys: \"editable\", \"read_only\", and \"explanation\". "
-            "\"editable\" is an array of file paths (strings) that may need to be modified to compllete the <target task>, and \"read_only\" is an array of file paths (strings) that WILL NOT need to be modified to complete the <target task>. When in doubt, assume a file might need to be modified."
+            "\"editable\" is an array of file paths (strings) that may need to be modified to compllete the <target task>, and \"read_only\" is an array of file paths (strings) that WILL NOT need to be modified to complete the <target task>. IF THERE IS ANY CHANCE A CONTEXT FILE MIGHT NEED TO BE MODIFIED TO SUCCESSFULLY COMPLETE <target task>, THEN INCLUDE IT IN \"editable\"."
             "Do not include any extra commentary."
         )
 #        prompt_template = (
@@ -82,7 +82,7 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
     openai_client = OpenAI()
     try:
         response = openai_client.chat.completions.create(
-            model="o3-mini",  # Adjust the model as needed.
+            model="claude-3-5-sonnet-20241022",  # Adjust the model as needed.
             messages=[
                 {"role": "user", "content": prompt},
             ]
