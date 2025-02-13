@@ -1,5 +1,6 @@
 <prompt>
-attempt to debug the <test>. 
+attempt to debug the <test>. Note that the failing test is a regression introduced in 
+the process of implementing the change described in <prior changes>. 
 </prompt>
 
 <test>
@@ -232,3 +233,19 @@ mponents.py", line 325, in train_cdi_model
     probe.set_probe_guess(None, train_container.probe)
 AttributeError: 'MultiPtychoDataContainer' object has no attribute 'probe'. Did you mean: 'probes'?
 </test>
+
+<prior changes>
+we want to adapt this codebase such that the probe tensor is a per-sample input
+to the model instead of a global variable. 
+Currently, the probe is stored in PtychoDataContainer. PtychoDataContainer contains
+a single probe tensor. The current assumption is that all samples share the same
+probe. I.e. one PtychoDataContainer instance corresponds to one dataset.
+We want to define a new data type that mirrors PtychoDataContainer, but
+contains multiple datasets and stores a list of probes. For each sample,
+it must contain an index into the list of probes specifying which probe
+to use for that sample.
+Merging multiple PtychoDataContainer instances for *training* (but not testing) 
+will require shuffling the samples so that the datasets are interleaved. Note that 
+we can assume that each RawData instance corresponds to a single probe.
+We will create a new class called MultiPtychoDataContainer that will contain data corresponsing to one or more PtychoDataContainer instances. It will NOT subclass PtychoDataContainer.
+</prior changes>

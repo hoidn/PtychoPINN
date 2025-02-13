@@ -41,8 +41,15 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
             "<context file>\n\n"
             "{{ context_file }}\n\n"
             "</context file>\n\n"
+            "<instructions>\n\n"
+            "<instruction>\n\n"
             "Based on the above context, and the <target task> below, determine which file paths in the codebase would be need to  "
             "to be present as context or as potentially requiring revision, in order to complete the <target task>.\n\n"
+            "</instruction>\n\n"
+            "<instruction>\n\n"
+            "Review the entire <context file> more broadly, looking for any functional issues in the code that might be related to the problem, even if not in an immediately obvious way.\n\n"
+            "</instruction>\n\n"
+            "</instructions>\n\n"
             "<target task>\n\n"
             "{{ task }}\n\n"
             "</target task>\n\n"
@@ -84,7 +91,7 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
         tmp.write(prompt)
         tmp_path = tmp.name
 
-    cmd = ["llm", "--model", "claude-3-5-sonnet-20241022"]
+    cmd = ["llm", "--model", "o1-preview"]
     try:
         with open(tmp_path, "r") as input_file:
             result = subprocess.run(
