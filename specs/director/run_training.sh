@@ -1,7 +1,12 @@
 #!/bin/bash
 
-# Navigate to the ptycho directory
-cd /home/ollie/Documents/PtychoPINN/ || exit 1
+# Determine repository root programmatically
+BASE_DIR=$(git rev-parse --show-toplevel)
+if [ -z "$BASE_DIR" ]; then
+    echo "Error: Could not determine repository root. Are you inside a Git repository?"
+    exit 1
+fi
+cd "$BASE_DIR" || exit 1
 
 # Remove the build directory if it exists
 if [ -d build/ ]; then
