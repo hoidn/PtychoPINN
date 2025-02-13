@@ -46,8 +46,9 @@ def run_taskspec(taskspec_path: str, summary_path: str, architect_model: str = '
     # Files to be edited - from summary yaml
     context_editable = editable_files
 
-    # No read-only files needed
-    context_read_only = []
+    # Extract read-only files if provided in the summary; otherwise, default to an empty list.
+    context_read_only = [file_entry['path'].replace("./", "../") 
+                       for file_entry in summary_data.get("Files_Read_Only", [])]
 
     # Use the task spec as the prompt
     prompt = spec_content
