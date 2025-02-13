@@ -391,14 +391,9 @@ def main():
         help="YAML/JSON string of template values to substitute, or a file path to a YAML/JSON file",
     )
     parser.add_argument(
-        "--context-editable",
+        "--dependencies",
         type=str,
-        help="Either a file path to a JSON file or a raw JSON string representing a list of file paths to override context_editable."
-    )
-    parser.add_argument(
-        "--context-read-only",
-        type=str,
-        help="Either a file path to a JSON file or a raw JSON string representing a list of file paths to override context_read_only."
+        help="Path to a JSON file with keys 'editable' and 'read_only' (and an optional 'explanation')"
     )
     
     args = parser.parse_args()
@@ -427,35 +422,19 @@ def main():
 
 
     cli_context_editable = None
-    if args.context_editable:
-        import os
-        try:
-            # If the provided argument is a path to an existing file, read its content
-            if os.path.exists(args.context_editable):
-                with open(args.context_editable, "r") as f:
-                    content = f.read()
-            else:
-                content = args.context_editable
-            cli_context_editable = json.loads(content)
-            if not isinstance(cli_context_editable, list):
-                raise ValueError("CLI context_editable must be a JSON array (list)")
-        except Exception as e:
-            print(f"Error parsing context_editable: {str(e)}")
-            sys.exit(1)
-
     cli_context_read_only = None
-    if args.context_read_only:
+    if args.dependencies:
         try:
-            if os.path.exists(args.context_read_only):
-                with open(args.context_read_only, "r") as f:
-                    content = f.read()
-            else:
-                content = args.context_read_only
-            cli_context_read_only = json.loads(content)
+            with open(args.dependencies, "r") as f:
+                deps = json.load(f)
+            cli_context_editable = deps.get("editable", [])
+            cli_context_read_only = deps.get("read_only", [])
+            if not isinstance(cli_context_editable, list):
+                raise ValueError("Dependencies 'editable' must be a JSON array")
             if not isinstance(cli_context_read_only, list):
-                raise ValueError("CLI context_read_only must be a JSON array (list)")
+                raise ValueError("Dependencies 'read_only' must be a JSON array")
         except Exception as e:
-            print(f"Error parsing context_read_only: {str(e)}")
+            print(f"Error parsing dependencies file: {str(e)}")
             sys.exit(1)
             
     try:
