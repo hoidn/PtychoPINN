@@ -22,7 +22,11 @@ class PtychoDataset:
             from . import diffsim as datasets
             import tensorflow as tf
             try:
-                self.norm_Y_I = datasets.scale_nphotons(tf.convert_to_tensor(train_data.X))
+                computed_norm = datasets.scale_nphotons(tf.convert_to_tensor(train_data.X))
+                # Convert tensor to a plain numeric type if possible
+                if hasattr(computed_norm, "numpy"):
+                    computed_norm = computed_norm.numpy().item()
+                self.norm_Y_I = computed_norm
             except Exception as err:
                 raise AttributeError("Train data is missing attribute 'X' or norm_Y_I cannot be computed") from err
 

@@ -46,6 +46,8 @@ datasets = ["*.npz"]
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["ptycho*", "loaders*", "tests*", "scripts*"]
+exclude = ["specs*", "*.specs*"]  # Exclude specs directory and any specs.* packages
 
 [tool.setuptools_scm]
 
