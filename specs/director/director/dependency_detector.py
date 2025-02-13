@@ -1,4 +1,5 @@
 import json
+import os
 from jinja2 import Environment, BaseLoader, StrictUndefined
 from openai import OpenAI
 
@@ -22,6 +23,13 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
     Raises:
         DependencyDetectorError: If the LLM call fails or the output cannot be parsed.
     """
+    if os.path.isfile(task):
+        try:
+            with open(task, "r") as task_file:
+                task = task_file.read()
+        except Exception as e:
+            raise DependencyDetectorError(f"Failed to read task file '{task}': {e}")
+
     if prompt_template is None:
         prompt_template = (
             "You are an expert developer. The provided <context file> content consists of multiple concatenated files. "
