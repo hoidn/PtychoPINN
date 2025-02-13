@@ -1,7 +1,8 @@
 import json
 import os
 from jinja2 import Environment, BaseLoader, StrictUndefined
-from openai import OpenAI
+import subprocess
+import tempfile
 
 class DependencyDetectorError(Exception):
     """Custom exception for dependency detector errors."""
@@ -79,18 +80,25 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
     except Exception as err:
         print(f"Warning: Unable to write prompt to file: {err}")
     
-    openai_client = OpenAI()
+    with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
+        tmp.write(prompt)
+        tmp_path = tmp.name
+
+    cmd = ["llm", "--model", "o1-preview"]
     try:
-        response = openai_client.chat.completions.create(
-            model="claude-3-5-sonnet-20241022",  # Adjust the model as needed.
-            messages=[
-                {"role": "user", "content": prompt},
-            ]
-        )
-    except Exception as e:
+        with open(tmp_path, "r") as input_file:
+            result = subprocess.run(
+                cmd,
+                stdin=input_file,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        llm_output = result.stdout.strip()
+    except subprocess.CalledProcessError as e:
         raise DependencyDetectorError(f"LLM call failed: {e}")
-    
-    llm_output = response.choices[0].message.content.strip()
+    finally:
+        os.unlink(tmp_path)
     
     if "```" in llm_output:
         # Strip markdown formatting if present.
