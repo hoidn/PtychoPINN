@@ -1,16 +1,8 @@
 # The prompt that describes what changes need to be made to the codebase
-# TODO: this prompt won't be usable until the git diff param updates with every iteration.
-# right now we're passing it statically:
-# python director.py --config specs/director_git_diff.yaml --template-values "{\"git_diff\": $(git diff refactor -- ../../ptycho/ | python -c "import json,sys; print(json.dumps(sys.stdin.read()))")}"
-
 prompt: |
-  <purpose>
-  Analyze the codebase and identify any issues or issues.
-  </purpose>
   <instructions>
-  Note that <goal> describes the intended purpose of the changes, and <diff> is the actual diff.
-  Our purpose is twofold. first, to identify any regressions or bugs introduced by the changes, and second, to complete the <goal> and recover from failing tests.
-  Analyze the diff and codebase with the above in mind. Then, explain how to fix any issues that you discover.
+  Ensure that the codebase handles probe tensors correctly, especially in the case of multi-probe data
+  Note that <goal> describes the intended goal of the changes that we are now trying to debug.
   </instructions>
 
   <goal>
@@ -76,12 +68,9 @@ prompt: |
   
   </goal>
 
-  <diff>
-  {{ git_diff }}
-  </diff>
-
+coder_model: "o1-preview"
   #coder_model: claude-3-5-sonnet-20241022
-coder_model: o1-preview
+  #coder_model: "r1"
 
 # List of files that can be modified by the AI
 context_editable:
@@ -98,11 +87,12 @@ context_read_only:
 # Command to run tests/validation
 # Example: "pytest tests/" or "python -m unittest"
 #execution_command: uv run pytest src/let_the_code_write_itself/tests
-execution_command: ./run_training.sh
+#execution_command: ./run_training.sh
+execution_command: ./run_inference.sh
 
 # Maximum number of attempts to generate correct code
 # Recommended range: 3-10
-max_iterations: 8
+max_iterations: 5
 
 # The model to use for code evaluation
 # Must be either "gpt-4o" or "gpt-4o-mini"

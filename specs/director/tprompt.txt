@@ -1,0 +1,36 @@
+<prompt>
+attempt to debug the <error>. 
+</prompt>
+
+<error>
+DEBUG: nsamples: 1
+neighbor-sampled diffraction shape (512, 64, 64, 1)
+loader: setting dummy Y ground truth
+INFO: None
+<PtychoDataContainer X=(512, 64, 64, 1) Y_I=(512, 64, 64, 1) Y_phi=(512, 64, 64, 1) norm_Y_I=() coord
+s_nominal=(512, 1, 2, 1) coords_true=(512, 1, 2, 1) nn_indices=(512, 1) mean=255.500 global_offsets=(
+512, 1, 2, 1) mean=63.009 local_offsets=(512, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.322
+>
+DEBUG: nsamples: 1
+neighbor-sampled diffraction shape (1087, 64, 64, 1)
+loader: setting dummy Y ground truth
+INFO: None
+<PtychoDataContainer X=(1087, 64, 64, 1) Y_I=(1087, 64, 64, 1) Y_phi=(1087, 64, 64, 1) norm_Y_I=() co
+ords_nominal=(1087, 1, 2, 1) coords_true=(1087, 1, 2, 1) nn_indices=(1087, 1) mean=543.000 global_off
+sets=(1087, 1, 2, 1) mean=57.242 local_offsets=(1087, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitu
+de=0.322>
+2025-02-13 01:40:39,912 - ERROR - An error occurred during execution: 'MultiPtychoDataContainer' obje
+ct has no attribute 'probe'
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 62, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/training/train.py", line 54, in main
+    recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config)
+  File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/workflows/co
+mponents.py", line 434, in run_cdi_example
+    train_results = train_cdi_model(train_data, test_data, config)
+  File "/home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/ptycho/workflows/co
+mponents.py", line 325, in train_cdi_model
+    probe.set_probe_guess(None, train_container.probe)
+AttributeError: 'MultiPtychoDataContainer' object has no attribute 'probe'. Did you mean: 'probes'?
+</error>

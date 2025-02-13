@@ -1,0 +1,35 @@
+# run command example:
+# python director.py --config specs/director_refactor.yaml  --context-editable directordeps.json 
+
+prompt: |
+  <instructions>
+  Review this codebase for code quality and refactor, if appropriate. The goal is for the code to be readable and maintainable. Preferably, no .py file should be longer than 300 lines. 
+  fix the package structure of director.py et al, and make sure director.py is callable as a cli scipt
+  </instructions>
+
+  #coder_model: claude-3-5-sonnet-20241022
+coder_model: o3-mini
+
+# List of files that can be modified by the AI
+context_editable: []
+
+# List of files that provide context but cannot be modified
+context_read_only: []
+
+# Command to run tests/validation
+# Example: "pytest tests/" or "python -m unittest"
+#execution_command: uv run pytest src/let_the_code_write_itself/tests
+execution_command: ./run_director_tests.sh
+
+# Maximum number of attempts to generate correct code
+# Recommended range: 3-10
+max_iterations: 8
+
+# The model to use for code evaluation
+# Must be either "gpt-4o" or "gpt-4o-mini"
+evaluator_model: o3-mini
+
+# Evaluator type to use
+# Currently only supports: "default" 
+evaluator: default
+

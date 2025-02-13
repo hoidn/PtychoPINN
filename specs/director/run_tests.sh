@@ -15,4 +15,5 @@ python -m pip install .
 cd - || exit 1
 
 # Run the training script with the specified data file
-python ../../scripts/training/train.py --train_data_file ../../scripts/Run1084_recon3_postPC_shrunk_3.npz
+pytest tests/test_loader.py
+

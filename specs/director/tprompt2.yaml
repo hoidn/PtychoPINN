@@ -1,0 +1,181 @@
+task: |
+  <work spec>
+  # Specification Template
+  > Ingest the information from this file, implement the Low-Level Tasks, and generate the code that will satisfy the High and Mid-Level Objectives.
+  
+  ## High-Level Objective
+  
+  - Improve the data container handling in the ptychography codebase to support consistent probe access, proper norm_Y_I attribution, and clean multi-container merging
+  
+  ## Mid-Level Objectives
+  
+  - Fix probe attribute/method duplication in PtychoDataContainer
+  - Ensure consistent norm_Y_I handling in PtychoDataset
+  - Add functionality to merge multiple RawData instances into a MultiPtychoDataContainer
+  - Clean up MultiPtychoDataContainer creation paths
+  - Add comprehensive test coverage for all changes
+  
+  ## Implementation Notes
+  - Use property decorator for clean probe access
+  - Keep existing functionality while fixing attribute issues
+  - Ensure type hints and docstrings are clear
+  - Validate all data shapes and types
+  - Tests should cover both success cases and error handling
+  
+  ## Context
+  
+  ### Beginning context
+  - ./ptycho/loader.py
+  - ./ptycho/workflows/components.py  
+  - ./ptycho/probe.py
+  - ./ptycho/raw_data.py
+  - ./ptycho/params.py
+  
+  ### Ending context  
+  - Updated loader.py with fixed containers
+  - New function in components.py for multi-RawData loading
+  - New and updated tests in tests/test_loader_multi.py and tests/test_components_multi.py
+  
+  ## Low-Level Tasks
+  > Ordered from start to finish
+  
+  1. Fix PtychoDataContainer probe handling
+  ```aider
+  UPDATE loader.py:
+      REFACTOR PtychoDataContainer:
+          REMOVE _probe attribute and probe method
+          ADD @property for probe that handles both getting and setting
+          UPDATE all references to use the property
+  ```
+  
+  2. Fix norm_Y_I assignment in PtychoDataset 
+  ```aider
+  UPDATE loader.py:
+      MODIFY PtychoDataset.__init__:
+          ADD proper norm_Y_I initialization from train_data
+          ADD validation for norm_Y_I presence
+          UPDATE fallback calculation
+  ```
+  
+  3. Create new multi-RawData loader
+  ```aider
+  UPDATE workflows/components.py:
+      CREATE create_multi_container_from_raw_data(raw_data_list: List[RawData], config: TrainingConfig) -> MultiPtychoDataContainer:
+          Takes list of RawData and config
+          Converts each RawData to PtychoDataContainer 
+          Merges containers into single MultiPtychoDataContainer
+          Returns merged container
+  ```
+  
+  4. Add tests for PtychoDataContainer probe property
+  ```aider
+  UPDATE tests/test_loader.py:
+      ADD test_probe_property():
+          Test getting/setting probe with different input types
+          Test callable probe handling
+          Test error cases for invalid probe shapes/types
+  ```
+  
+  5. Add tests for PtychoDataset norm_Y_I handling
+  ```aider
+  UPDATE tests/test_loader.py:
+      ADD test_dataset_norm_y_i():
+          Test norm_Y_I initialization from train_data
+          Test fallback calculation
+          Test error cases
+  ```
+  
+  6. Add tests for multi-RawData loader
+  ```aider
+  UPDATE tests/test_components.py:
+      ADD test_create_multi_container():
+          Test merging multiple RawData instances
+          Test shape validation
+          Test probe handling in merged container
+          Test error cases for invalid inputs
+  ```
+  
+  7. Add test fixtures and utilities
+  ```aider
+  UPDATE tests/conftest.py:
+      ADD fixtures for:
+          Sample RawData instances
+          Sample probe data
+          Sample configuration
+          Helper functions for test data generation
+  ```
+  </work spec>
+  
+  <issue>
+  test_loader.py FAILED. with the following (ptycho_test) ollie@ollie:~/Documents/PtychoPINN $ pytest tests/test_loader.py
+  =========================================================================================================================================================================== test session starts ============================================================================================================================================================================
+  platform linux -- Python 3.10.16, pytest-8.3.4, pluggy-1.5.0
+  rootdir: /home/ollie/Documents/PtychoPINN
+  configfile: pyproject.toml
+  plugins: cov-6.0.0, anyio-4.8.0, typeguard-2.13.3
+  collected 1 item
+  
+  tests/test_loader.py F                                                                                                                                                                                                                                                                                                                                               [100%]
+  
+  ================================================================================================================================================================================= FAILURES =================================================================================================================================================================================
+  __________________________________________________________________________________________________________________________________________________________________________ test_dataset_norm_y_i ___________________________________________________________________________________________________________________________________________________________________________
+  
+      def test_dataset_norm_y_i():
+          import numpy as np
+          import tensorflow as tf
+          from ptycho.loader import PtychoDataset
+  
+          # --- Test: norm_Y_I provided in train_data ---
+          class FakeData:
+              def __init__(self, X, norm_Y_I):
+                  self.X = X
+                  self.norm_Y_I = norm_Y_I
+  
+          X = np.ones((10, 64, 64))
+          provided_norm = 5.0
+          train_data = FakeData(X, provided_norm)
+          test_data = FakeData(X, provided_norm)
+          ds = PtychoDataset(train_data, test_data)
+          assert ds.norm_Y_I == provided_norm, "norm_Y_I should be taken directly from train_data when provided"
+  
+          # --- Test: Fallback calculation when norm_Y_I is None ---
+          train_data_no_norm = FakeData(X, None)
+          ds_fallback = PtychoDataset(train_data_no_norm, test_data)
+          # Check that fallback returns a numeric value (scale_nphotons returns a float/numeric tensor)
+          assert ds_fallback.norm_Y_I is not None, "norm_Y_I fallback should be computed when missing"
+  >       assert isinstance(ds_fallback.norm_Y_I, (float, np.floating, np.ndarray)), "Fallback norm_Y_I should be numeric"
+  E       AssertionError: Fallback norm_Y_I should be numeric
+  E       assert False
+  E        +  where False = isinstance(<tf.Tensor: shape=(), dtype=float64, numpy=494.10588440130925>, (<class 'float'>, <class 'numpy.floating'>, <class 'numpy.ndarray'>))
+  E        +    where <tf.Tensor: shape=(), dtype=float64, numpy=494.10588440130925> = <ptycho.loader.PtychoDataset object at 0x7c0589398a30>.norm_Y_I
+  
+  tests/test_loader.py:24: AssertionError
+  ============================================================================================================================================================================= warnings summary =============================================================================================================================================================================
+  ../../miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:57
+    /home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:57: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+      if (distutils.version.LooseVersion(tf.__version__) <
+  
+  ../../miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:58
+    /home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_probability/python/__init__.py:58: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+      distutils.version.LooseVersion(required_tensorflow_version)):
+  
+  ../../miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23
+    /home/ollie/miniconda3_test/envs/ptycho_test/lib/python3.10/site-packages/tensorflow_addons/utils/tfa_eol_msg.py:23: UserWarning:
+  
+    TensorFlow Addons (TFA) has ended development and introduction of new features.
+    TFA has entered a minimal maintenance and release mode until a planned end of life in May 2024.
+    Please modify downstream libraries to take dependencies from other repositories in our TensorFlow community (e.g. Keras, Keras-CV, and Keras-NLP).
+  
+    For more information see: https://github.com/tensorflow/addons/issues/2807
+  
+      warnings.warn(
+  
+  -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+  ========================================================================================================================================================================= short test summary info ==========================================================================================================================================================================
+  FAILED tests/test_loader.py::test_dataset_norm_y_i - AssertionError: Fallback norm_Y_I should be numeric
+  ====================================================================================================================================================================== 1 failed, 3 warnings in 0.51s
+  </issue>
+  
+  <prompt>
+  We impleennted <work spec> but, the test is failing. maybe we broke something in the process of impl ing <work spec>, or maybe it was already broken. The priority is to fix the test, unless the underlying code is broken, in which case you should fix the impl.
+  </prompt>
