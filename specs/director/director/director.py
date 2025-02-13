@@ -161,7 +161,7 @@ class Director:
         #model = Model(self.config.coder_model)
         # TODO parameterize the editor model
         model = Model(self.config.coder_model,
-                      editor_model = "claude-3-5-sonnet-20241022",
+                      editor_model = "o1-mini",
                       editor_edit_format="diff")
 
 #        coder = Coder.create(
