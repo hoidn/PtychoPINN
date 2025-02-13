@@ -47,8 +47,8 @@ class Director:
         self.cli_context_editable = cli_context_editable
         self.template_values = template_values or {}
 
-        from .director_config import load_and_validate_config
-        from .director_templates import process_config_templates
+        from director.director_config import load_and_validate_config
+        from director.director_templates import process_config_templates
 
         # Load and validate configuration using the new module
         self.config = load_and_validate_config(Path(config_path), cli_context_editable=self.cli_context_editable)
