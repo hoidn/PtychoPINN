@@ -71,14 +71,23 @@ def generate_required_files(task: str, context_file: str, prompt_template: str =
         llm_output = content
     
     try:
-        file_list = json.loads(llm_output)
+        files_config = json.loads(llm_output)
     except Exception as e:
         raise DependencyDetectorError(f"Failed to parse JSON from LLM output: {llm_output}. Error: {e}")
-    
-    if not isinstance(file_list, list):
-        raise DependencyDetectorError("Output JSON is not a list as expected.")
-    
-    return file_list
+
+    # For backward compatibility: if the response is a list, wrap it in a dict using an empty "read_only" list.
+    if isinstance(files_config, list):
+        files_config = {"editable": files_config, "read_only": []}
+    elif not isinstance(files_config, dict):
+        raise DependencyDetectorError("Output JSON is not an object with keys 'editable' and 'read_only' as expected.")
+
+    if "editable" not in files_config or "read_only" not in files_config:
+        raise DependencyDetectorError("JSON output must contain both 'editable' and 'read_only' keys.")
+
+    if not isinstance(files_config["editable"], list) or not isinstance(files_config["read_only"], list):
+        raise DependencyDetectorError("Values for 'editable' and 'read_only' must be lists.")
+
+    return files_config
 
 if __name__ == "__main__":
     import argparse
