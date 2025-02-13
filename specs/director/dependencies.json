@@ -1,0 +1,29 @@
+{
+  "editable": [
+    "./ptycho/workflows/components.py",
+    "./ptycho/loader.py",
+    "./ptycho/probe.py",
+    "./ptycho/train_pinn.py",
+    "./ptycho/model.py",
+    "./ptycho/raw_data.py",
+    "./ptycho/tf_helper.py"
+  ],
+  "read_only": [
+    "./ptycho/workflows/visualize_results.py",
+    "./ptycho/data_preprocessing.py",
+    "./ptycho/diffsim.py",
+    "./ptycho/params.py",
+    "./ptycho/misc.py",
+    "./ptycho/nbutils.py",
+    "./ptycho/generate_data.py",
+    "./ptycho/xpp.py",
+    "./ptycho/evaluation.py",
+    "./ptycho/nongrid_simulation.py",
+    "./ptycho/config/config.py",
+    "./tests/test_generic_loader.py",
+    "./tests/old_test_tf_helper.py",
+    "./tests/test_generate_data.py",
+    "./tests/test_tf_helper.py"
+  ],
+  "explanation": "The error arises because 'MultiPtychoDataContainer' objects do not have a 'probe' attribute; instead, they have 'probes' and 'probe_indices'. In './ptycho/workflows/components.py', the code attempts to access 'train_container.probe', which leads to the AttributeError. To fix this, the code in 'components.py' needs to be updated to handle the new 'MultiPtychoDataContainer' structure. Additionally, other files such as './ptycho/loader.py', './ptycho/probe.py', './ptycho/train_pinn.py', './ptycho/model.py', './ptycho/raw_data.py', and './ptycho/tf_helper.py' may require modifications to properly support per-sample probes and the updated data containers."
+}
