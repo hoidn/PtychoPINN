@@ -31,7 +31,12 @@ def train_eval(ptycho_dataset):
         eval_results = eval(ptycho_dataset.test_data, history, trained_model=model_instance)
         # Get config from the dataset
         config = ptycho_dataset.test_data.config if hasattr(ptycho_dataset.test_data, 'config') else params.cfg
-        stitched_obj = reassemble_patches(eval_results['reconstructed_obj'], config, part='complex')
+        try:
+            stitched_obj = reassemble_patches(eval_results['reconstructed_obj'], config, part='complex')
+        except ValueError as e:
+            print(e)
+            stitched_obj = None
+
         results.update({
             'reconstructed_obj': eval_results['reconstructed_obj'],
             'pred_amp': eval_results['pred_amp'],
