@@ -177,9 +177,11 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         reconstructed_amplitude = np.abs(obj_image)
         reconstructed_phase = np.angle(obj_image)
 
-        # Process ePIE results for comparison
-        epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(test_data.objectGuess), buffer=-20)
-        epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(test_data.objectGuess), buffer=-20)
+#        # Process ePIE results for comparison
+#        epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(test_data.objectGuess), buffer=-20)
+#        epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(test_data.objectGuess), buffer=-20)
+        epie_phase = np.angle(test_data.objectGuess)
+        epie_amplitude = np.abs(test_data.objectGuess)
 
         print(f"Reconstructed amplitude shape: {reconstructed_amplitude.shape}")
         print(f"Reconstructed phase shape: {reconstructed_phase.shape}")
