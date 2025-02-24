@@ -77,6 +77,8 @@ def parse_arguments() -> argparse.Namespace:
                        help="Directory for saving output files and images")
     parser.add_argument("--debug", action="store_true",
                        help="Enable debug mode")
+    parser.add_argument("--comparison_plot", action="store_true",
+                       help="Generate original comparison plot in addition to separate images")
     return parser.parse_args()
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
@@ -213,6 +215,71 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         print(f"Error during inference: {str(e)}")
         raise ValueError(f"Error during inference: {str(e)}")
 
+def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_dir):
+    """
+    Save a comparison plot of reconstructed and ground truth images.
+    
+    Args:
+        reconstructed_amplitude (np.ndarray): The reconstructed amplitude array
+        reconstructed_phase (np.ndarray): The reconstructed phase array
+        epie_amplitude (np.ndarray): The ground truth amplitude array or None
+        epie_phase (np.ndarray): The ground truth phase array or None
+        output_dir (str or Path): Directory to save the output images
+    """
+    try:
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Squeeze any extra dimensions
+        reconstructed_amplitude = np.squeeze(reconstructed_amplitude)
+        reconstructed_phase = np.squeeze(reconstructed_phase)
+        
+        # Create comparison plot
+        fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+        
+        # Plot reconstructed amplitude
+        im1 = axes[0, 0].imshow(reconstructed_amplitude, cmap='gray')
+        axes[0, 0].set_title('PtychoNN Amplitude')
+        plt.colorbar(im1, ax=axes[0, 0])
+        
+        # Plot reconstructed phase
+        im2 = axes[0, 1].imshow(reconstructed_phase, cmap='viridis')
+        axes[0, 1].set_title('PtychoNN Phase')
+        plt.colorbar(im2, ax=axes[0, 1])
+        
+        # Plot ground truth amplitude if available
+        if epie_amplitude is not None:
+            epie_amplitude = np.squeeze(epie_amplitude)
+            im3 = axes[1, 0].imshow(epie_amplitude, cmap='gray')
+            axes[1, 0].set_title('Ground Truth Amplitude')
+            plt.colorbar(im3, ax=axes[1, 0])
+        else:
+            axes[1, 0].text(0.5, 0.5, 'Ground Truth Not Available', 
+                           horizontalalignment='center', verticalalignment='center',
+                           transform=axes[1, 0].transAxes)
+        
+        # Plot ground truth phase if available
+        if epie_phase is not None:
+            epie_phase = np.squeeze(epie_phase)
+            im4 = axes[1, 1].imshow(epie_phase, cmap='viridis')
+            axes[1, 1].set_title('Ground Truth Phase')
+            plt.colorbar(im4, ax=axes[1, 1])
+        else:
+            axes[1, 1].text(0.5, 0.5, 'Ground Truth Not Available', 
+                           horizontalalignment='center', verticalalignment='center',
+                           transform=axes[1, 1].transAxes)
+        
+        # Save the figure
+        comparison_path = os.path.join(output_dir, "comparison_plot.png")
+        plt.tight_layout()
+        plt.savefig(comparison_path, dpi=300)
+        plt.close()
+        
+        print(f"Comparison plot saved to: {comparison_path}")
+        
+    except Exception as e:
+        print(f"Error saving comparison plot: {str(e)}")
+
 def save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_dir):
     """
     Save the reconstructed amplitude and phase as separate PNG files.
@@ -283,7 +350,7 @@ def save_probe_visualization(test_data: RawData, output_path: str):
     except OSError as e:
         raise OSError(f"Error saving probe visualization: {str(e)}")
 
-def main(model_prefix: str, test_data_file: str, output_path: str, visualize_probe: bool, K: int, nsamples: int) -> None:
+def main(model_prefix: str, test_data_file: str, output_path: str, visualize_probe: bool, K: int, nsamples: int, comparison_plot: bool = False) -> None:
     """
     Main function to orchestrate the inference process.
 
@@ -294,6 +361,7 @@ def main(model_prefix: str, test_data_file: str, output_path: str, visualize_pro
         visualize_probe (bool): Flag to generate and save probe visualization.
         K (int): Number of nearest neighbors for grouped data generation.
         nsamples (int): Number of samples for grouped data generation.
+        comparison_plot (bool): Flag to generate comparison plot.
 
     Raises:
         Exception: If any error occurs during the inference process.
@@ -327,6 +395,12 @@ def main(model_prefix: str, test_data_file: str, output_path: str, visualize_pro
         # Save separate reconstruction images
         print("Saving reconstruction images...")
         save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_path)
+        
+        # Generate comparison plot if requested
+        if comparison_plot:
+            print("Generating comparison plot...")
+            save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
+                                epie_amplitude, epie_phase, output_path)
 
         # Save probe visualization if requested
         if visualize_probe:
@@ -383,6 +457,12 @@ def main():
         # Save separate reconstruction images
         print("Saving reconstruction images...")
         save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir)
+        
+        # Generate comparison plot if requested
+        if args.comparison_plot:
+            print("Generating comparison plot...")
+            save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
+                                epie_amplitude, epie_phase, config.output_dir)
 
         print("Inference process completed successfully.")
         sys.exit(0)
