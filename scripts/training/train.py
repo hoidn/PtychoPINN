@@ -45,7 +45,7 @@ def main() -> None:
     try:
 
         #ptycho_data, ptycho_data_train, obj = load_and_prepare_data(config['train_data_file_path'])
-        ptycho_data = load_data(str(config.train_data_file), n_images = 5000)
+        ptycho_data = load_data(str(config.train_data_file), n_images=config.n_images)
         
         test_data = None
         if config.test_data_file:
