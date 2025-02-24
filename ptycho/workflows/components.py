@@ -131,13 +131,20 @@ def parse_arguments():
                     help=f"Path for {field.name}"
                 )
             else:
-                # Special handling for n_images to provide better help text
+                # Special handling for specific parameters to provide better help text
                 if field.name == 'n_images':
                     parser.add_argument(
                         f"--{field.name}",
                         type=field.type,
                         default=field.default,
                         help=f"Number of images to use from the dataset (default: {field.default})"
+                    )
+                elif field.name == 'do_stitching':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        action='store_true',
+                        default=field.default,
+                        help=f"Perform image stitching after training (default: {field.default})"
                     )
                 else:
                     parser.add_argument(
@@ -386,12 +393,15 @@ def run_cdi_example(
     
     recon_amp, recon_phase = None, None
     
-    # Reassemble test image if test data is provided and reconstructed_obj is available
-    if test_data is not None and 'reconstructed_obj' in train_results:
+    # Reassemble test image if stitching is enabled, test data is provided, and reconstructed_obj is available
+    if config.do_stitching and test_data is not None and 'reconstructed_obj' in train_results:
+        logger.info("Performing image stitching...")
         recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(
             test_data, config, flip_x, flip_y, transpose, M=M
         )
         train_results.update(reassemble_results)
+    else:
+        logger.info("Skipping image stitching (disabled or no test data available)")
     
     return recon_amp, recon_phase, train_results
 
