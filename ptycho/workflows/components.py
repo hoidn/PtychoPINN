@@ -43,6 +43,7 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     Returns:
         RawData: RawData object containing the dataset.
     """
+    logger.info(f"Loading data from {file_path} with n_images={n_images}")
     # Load data from file
     data = np.load(file_path)
 
@@ -130,12 +131,21 @@ def parse_arguments():
                     help=f"Path for {field.name}"
                 )
             else:
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=field.type,
-                    default=field.default,
-                    help=f"Training parameter: {field.name}"
-                )
+                # Special handling for n_images to provide better help text
+                if field.name == 'n_images':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type,
+                        default=field.default,
+                        help=f"Number of images to use from the dataset (default: {field.default})"
+                    )
+                else:
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type,
+                        default=field.default,
+                        help=f"Training parameter: {field.name}"
+                    )
     
     return parser.parse_args()
 
@@ -174,6 +184,11 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
         training_fields = {f.name for f in fields(TrainingConfig)}
         training_args = {k: v for k, v in args_config.items() 
                         if k in training_fields and k != 'model'}
+        
+        # Log the CLI arguments for debugging
+        logger.debug(f"CLI arguments: {args_config}")
+        logger.debug(f"Training arguments: {training_args}")
+        
         config = TrainingConfig(model=model_config, **training_args)
         
         # Update the global configuration
