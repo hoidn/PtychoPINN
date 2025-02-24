@@ -207,15 +207,19 @@ def save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, out
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
         
+        # Squeeze any extra dimensions
+        reconstructed_amplitude = np.squeeze(reconstructed_amplitude)
+        reconstructed_phase = np.squeeze(reconstructed_phase)
+        
+        print(f"Amplitude array shape: {reconstructed_amplitude.shape}")
+        print(f"Phase array shape: {reconstructed_phase.shape}")
+        
         # Save amplitude image
         amplitude_path = os.path.join(output_dir, "reconstructed_amplitude.png")
         plt.figure(figsize=(8, 8))
         plt.imshow(reconstructed_amplitude, cmap='gray')
         plt.colorbar()
-        plt.title('Reconstructed Amplitude')
-        plt.xticks([])
-        plt.yticks([])
-        plt.savefig(amplitude_path, dpi=300, bbox_inches='tight')
+        plt.savefig(amplitude_path)
         plt.close()
         
         # Save phase image
@@ -223,10 +227,7 @@ def save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, out
         plt.figure(figsize=(8, 8))
         plt.imshow(reconstructed_phase, cmap='viridis')
         plt.colorbar()
-        plt.title('Reconstructed Phase')
-        plt.xticks([])
-        plt.yticks([])
-        plt.savefig(phase_path, dpi=300, bbox_inches='tight')
+        plt.savefig(phase_path)
         plt.close()
         
         print(f"Reconstructed amplitude saved to: {amplitude_path}")
