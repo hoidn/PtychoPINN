@@ -181,6 +181,7 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         has_ground_truth = False
         if hasattr(test_data, 'objectGuess') and test_data.objectGuess is not None:
             # Check if the object is all zeros or very close to zero
+            print(test_data.objectGuess)
             if not np.allclose(test_data.objectGuess, 0, atol=1e-10):
                 has_ground_truth = True
                 epie_phase = np.angle(test_data.objectGuess)
