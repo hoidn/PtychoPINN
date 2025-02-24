@@ -233,46 +233,41 @@ def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_ampl
         # Squeeze any extra dimensions
         reconstructed_amplitude = np.squeeze(reconstructed_amplitude)
         reconstructed_phase = np.squeeze(reconstructed_phase)
+        epie_amplitude = np.squeeze(epie_amplitude)
+        epie_phase = np.squeeze(epie_phase)
         
-        # Create comparison plot
-        fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+        # Create the comparison figure with a smaller size
+        fig, axs = plt.subplots(2, 2, figsize=(4, 4))
         
-        # Plot reconstructed amplitude
-        im1 = axes[0, 0].imshow(reconstructed_amplitude, cmap='gray')
-        axes[0, 0].set_title('PtychoNN Amplitude')
-        plt.colorbar(im1, ax=axes[0, 0])
+        # PtychoPINN phase
+        im_pinn_phase = axs[0, 0].imshow(reconstructed_phase, cmap='gray')
+        axs[0, 0].set_title('PtychoPINN Phase')
+        fig.colorbar(im_pinn_phase, ax=axs[0, 0], fraction=0.046, pad=0.04)
         
-        # Plot reconstructed phase
-        im2 = axes[0, 1].imshow(reconstructed_phase, cmap='viridis')
-        axes[0, 1].set_title('PtychoNN Phase')
-        plt.colorbar(im2, ax=axes[0, 1])
+        # ePIE phase
+        im_epie_phase = axs[0, 1].imshow(epie_phase, cmap='gray')
+        axs[0, 1].set_title('ePIE Phase')
+        fig.colorbar(im_epie_phase, ax=axs[0, 1], fraction=0.046, pad=0.04)
         
-        # Plot ground truth amplitude if available
-        if epie_amplitude is not None:
-            epie_amplitude = np.squeeze(epie_amplitude)
-            im3 = axes[1, 0].imshow(epie_amplitude, cmap='gray')
-            axes[1, 0].set_title('Ground Truth Amplitude')
-            plt.colorbar(im3, ax=axes[1, 0])
-        else:
-            axes[1, 0].text(0.5, 0.5, 'Ground Truth Not Available', 
-                           horizontalalignment='center', verticalalignment='center',
-                           transform=axes[1, 0].transAxes)
+        # PtychoPINN amplitude
+        im_pinn_amp = axs[1, 0].imshow(reconstructed_amplitude, cmap='viridis')
+        axs[1, 0].set_title('PtychoPINN Amplitude')
+        fig.colorbar(im_pinn_amp, ax=axs[1, 0], fraction=0.046, pad=0.04)
         
-        # Plot ground truth phase if available
-        if epie_phase is not None:
-            epie_phase = np.squeeze(epie_phase)
-            im4 = axes[1, 1].imshow(epie_phase, cmap='viridis')
-            axes[1, 1].set_title('Ground Truth Phase')
-            plt.colorbar(im4, ax=axes[1, 1])
-        else:
-            axes[1, 1].text(0.5, 0.5, 'Ground Truth Not Available', 
-                           horizontalalignment='center', verticalalignment='center',
-                           transform=axes[1, 1].transAxes)
+        # ePIE amplitude
+        im_epie_amp = axs[1, 1].imshow(epie_amplitude, cmap='viridis')
+        axs[1, 1].set_title('ePIE Amplitude')
+        fig.colorbar(im_epie_amp, ax=axs[1, 1], fraction=0.046, pad=0.04)
+        
+        # Remove axis ticks
+        for ax in axs.flat:
+            ax.set_xticks([])
+            ax.set_yticks([])
         
         # Save the figure
         comparison_path = os.path.join(output_dir, "comparison_plot.png")
         plt.tight_layout()
-        plt.savefig(comparison_path, dpi=300)
+        plt.savefig(comparison_path, dpi=300, bbox_inches='tight')
         plt.close()
         
         print(f"Comparison plot saved to: {comparison_path}")
