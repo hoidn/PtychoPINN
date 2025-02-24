@@ -181,13 +181,20 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         has_ground_truth = False
         if hasattr(test_data, 'objectGuess') and test_data.objectGuess is not None:
             # Check if the object is all zeros or very close to zero
-            print(test_data.objectGuess)
             if not np.allclose(test_data.objectGuess, 0, atol=1e-10):
-                has_ground_truth = True
-                epie_phase = np.angle(test_data.objectGuess)
-                epie_amplitude = np.abs(test_data.objectGuess)
-                print(f"Ground truth available - ePIE amplitude shape: {epie_amplitude.shape}")
-                print(f"Ground truth available - ePIE phase shape: {epie_phase.shape}")
+                # Check if the object is uniform (all values are the same)
+                obj_complex = test_data.objectGuess
+                if not (np.allclose(obj_complex.real, obj_complex.real.flat[0], atol=1e-10) and 
+                        np.allclose(obj_complex.imag, obj_complex.imag.flat[0], atol=1e-10)):
+                    has_ground_truth = True
+                    epie_phase = np.angle(test_data.objectGuess)
+                    epie_amplitude = np.abs(test_data.objectGuess)
+                    print(f"Ground truth available - ePIE amplitude shape: {epie_amplitude.shape}")
+                    print(f"Ground truth available - ePIE phase shape: {epie_phase.shape}")
+                else:
+                    print("Ground truth object is uniform (all same value), skipping ground truth processing")
+                    epie_phase = None
+                    epie_amplitude = None
             else:
                 print("Ground truth object is all zeros, skipping ground truth processing")
                 epie_phase = None
