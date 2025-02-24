@@ -78,7 +78,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--debug", action="store_true",
                        help="Enable debug mode")
     parser.add_argument("--comparison_plot", action="store_true",
-                       help="Generate original comparison plot in addition to separate images")
+                       help="Generate original comparison plot (only if ground truth is available)")
     return parser.parse_args()
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
@@ -396,11 +396,13 @@ def main(model_prefix: str, test_data_file: str, output_path: str, visualize_pro
         print("Saving reconstruction images...")
         save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_path)
         
-        # Generate comparison plot if requested
-        if comparison_plot:
+        # Generate comparison plot if requested and ground truth is available
+        if comparison_plot and epie_amplitude is not None and epie_phase is not None:
             print("Generating comparison plot...")
             save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
                                 epie_amplitude, epie_phase, output_path)
+        elif comparison_plot:
+            print("Skipping comparison plot generation - ground truth not available")
 
         # Save probe visualization if requested
         if visualize_probe:
@@ -458,11 +460,13 @@ def main():
         print("Saving reconstruction images...")
         save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir)
         
-        # Generate comparison plot if requested
-        if args.comparison_plot:
+        # Generate comparison plot if requested and ground truth is available
+        if args.comparison_plot and epie_amplitude is not None and epie_phase is not None:
             print("Generating comparison plot...")
             save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
                                 epie_amplitude, epie_phase, config.output_dir)
+        elif args.comparison_plot:
+            print("Skipping comparison plot generation - ground truth not available")
 
         print("Inference process completed successfully.")
         sys.exit(0)
