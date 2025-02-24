@@ -194,50 +194,46 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         print(f"Error during inference: {str(e)}")
         raise ValueError(f"Error during inference: {str(e)}")
 
-def save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_path):
+def save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_dir):
+    """
+    Save the reconstructed amplitude and phase as separate PNG files.
+    
+    Args:
+        reconstructed_amplitude (np.ndarray): The reconstructed amplitude array
+        reconstructed_phase (np.ndarray): The reconstructed phase array
+        output_dir (str or Path): Directory to save the output images
+    """
     try:
         # Ensure output directory exists
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-        # Create the comparison figure with a smaller size
-        fig, axs = plt.subplots(2, 2, figsize=(4, 4))
+        os.makedirs(output_dir, exist_ok=True)
         
-        # PtychoPINN phase
-        im_pinn_phase = axs[0, 0].imshow(reconstructed_phase, cmap='gray')
-        axs[0, 0].set_title('PtychoPINN Phase')
-        fig.colorbar(im_pinn_phase, ax=axs[0, 0], fraction=0.046, pad=0.04)
+        # Save amplitude image
+        amplitude_path = os.path.join(output_dir, "reconstructed_amplitude.png")
+        plt.figure(figsize=(8, 8))
+        plt.imshow(reconstructed_amplitude, cmap='gray')
+        plt.colorbar()
+        plt.title('Reconstructed Amplitude')
+        plt.xticks([])
+        plt.yticks([])
+        plt.savefig(amplitude_path, dpi=300, bbox_inches='tight')
+        plt.close()
         
-        # ePIE phase
-        im_epie_phase = axs[0, 1].imshow(epie_phase, cmap='gray')
-        axs[0, 1].set_title('ePIE Phase')
-        fig.colorbar(im_epie_phase, ax=axs[0, 1], fraction=0.046, pad=0.04)
+        # Save phase image
+        phase_path = os.path.join(output_dir, "reconstructed_phase.png")
+        plt.figure(figsize=(8, 8))
+        plt.imshow(reconstructed_phase, cmap='viridis')
+        plt.colorbar()
+        plt.title('Reconstructed Phase')
+        plt.xticks([])
+        plt.yticks([])
+        plt.savefig(phase_path, dpi=300, bbox_inches='tight')
+        plt.close()
         
-        # PtychoPINN amplitude
-        im_pinn_amp = axs[1, 0].imshow(reconstructed_amplitude, cmap='viridis')
-        axs[1, 0].set_title('PtychoPINN Amplitude')
-        fig.colorbar(im_pinn_amp, ax=axs[1, 0], fraction=0.046, pad=0.04)
+        print(f"Reconstructed amplitude saved to: {amplitude_path}")
+        print(f"Reconstructed phase saved to: {phase_path}")
         
-        # ePIE amplitude
-        im_epie_amp = axs[1, 1].imshow(epie_amplitude, cmap='viridis')
-        axs[1, 1].set_title('ePIE Amplitude')
-        fig.colorbar(im_epie_amp, ax=axs[1, 1], fraction=0.046, pad=0.04)
-        
-        # Remove axis ticks
-        for ax in axs.flat:
-            ax.set_xticks([])
-            ax.set_yticks([])
-        
-        # Adjust layout with specific padding
-        plt.tight_layout(pad=1.5)
-        
-        # Save the figure with adjusted DPI and ensuring the entire figure is saved
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.5)
-        plt.close(fig)
-
-        print(f"Comparison image saved to: {output_path}")
-
     except Exception as e:
-        print(f"Error saving comparison image: {str(e)}")
+        print(f"Error saving reconstruction images: {str(e)}")
 
 def save_probe_visualization(test_data: RawData, output_path: str):
     """
@@ -308,10 +304,9 @@ def main(model_prefix: str, test_data_file: str, output_path: str, visualize_pro
             print("Shutdown requested. Stopping before saving results.")
             return
 
-        # Save comparison image
-        print("Saving comparison image...")
-        output_image_path = os.path.join(output_path, "reconstruction_comparison.png")
-        save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_image_path)
+        # Save separate reconstruction images
+        print("Saving reconstruction images...")
+        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_path)
 
         # Save probe visualization if requested
         if visualize_probe:
@@ -365,11 +360,9 @@ def main():
         reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
             model, test_data, params.cfg, K=7, nsamples=1)
 
-        # Save comparison image
-        print("Saving comparison image...")
-        output_image_path = config.output_dir / "reconstruction_comparison.png"
-        save_comparison_image(reconstructed_amplitude, reconstructed_phase, 
-                            epie_amplitude, epie_phase, output_image_path)
+        # Save separate reconstruction images
+        print("Saving reconstruction images...")
+        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir)
 
         print("Inference process completed successfully.")
         sys.exit(0)
