@@ -177,16 +177,27 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         reconstructed_amplitude = np.abs(obj_image)
         reconstructed_phase = np.angle(obj_image)
 
-#        # Process ePIE results for comparison
-#        epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(test_data.objectGuess), buffer=-20)
-#        epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(test_data.objectGuess), buffer=-20)
-        epie_phase = np.angle(test_data.objectGuess)
-        epie_amplitude = np.abs(test_data.objectGuess)
+        # Check if ground truth object is available and valid
+        has_ground_truth = False
+        if hasattr(test_data, 'objectGuess') and test_data.objectGuess is not None:
+            # Check if the object is all zeros or very close to zero
+            if not np.allclose(test_data.objectGuess, 0, atol=1e-10):
+                has_ground_truth = True
+                epie_phase = np.angle(test_data.objectGuess)
+                epie_amplitude = np.abs(test_data.objectGuess)
+                print(f"Ground truth available - ePIE amplitude shape: {epie_amplitude.shape}")
+                print(f"Ground truth available - ePIE phase shape: {epie_phase.shape}")
+            else:
+                print("Ground truth object is all zeros, skipping ground truth processing")
+                epie_phase = None
+                epie_amplitude = None
+        else:
+            print("No ground truth object available")
+            epie_phase = None
+            epie_amplitude = None
 
         print(f"Reconstructed amplitude shape: {reconstructed_amplitude.shape}")
         print(f"Reconstructed phase shape: {reconstructed_phase.shape}")
-        print(f"ePIE amplitude shape: {epie_amplitude.shape}")
-        print(f"ePIE phase shape: {epie_phase.shape}")
 
         return reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase
 
