@@ -95,6 +95,8 @@ def parse_arguments():
     logger = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
+    parser.add_argument("--do_stitching", action='store_true', default=False,
+                        help="Perform image stitching after training (default: False)")
     
     # Add arguments based on TrainingConfig fields
     for field in fields(TrainingConfig):
@@ -138,13 +140,6 @@ def parse_arguments():
                         type=field.type,
                         default=field.default,
                         help=f"Number of images to use from the dataset (default: {field.default})"
-                    )
-                elif field.name == 'do_stitching':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        action='store_true',
-                        default=field.default,
-                        help=f"Perform image stitching after training (default: {field.default})"
                     )
                 else:
                     parser.add_argument(
@@ -365,7 +360,8 @@ def run_cdi_example(
     flip_x: bool = False,
     flip_y: bool = False,
     transpose: bool = False,
-    M: int = 20
+    M: int = 20,
+    do_stitching: bool = False
 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
     """
     Run the main CDI example execution flow.
@@ -378,6 +374,7 @@ def run_cdi_example(
         flip_y: Whether to flip the y coordinates
         transpose: Whether to transpose the image by swapping dimensions
         M: Parameter for reassemble_position function
+        do_stitching: Whether to perform image stitching after training
 
     Returns:
         Tuple containing:
@@ -394,7 +391,7 @@ def run_cdi_example(
     recon_amp, recon_phase = None, None
     
     # Reassemble test image if stitching is enabled, test data is provided, and reconstructed_obj is available
-    if config.do_stitching and test_data is not None and 'reconstructed_obj' in train_results:
+    if do_stitching and test_data is not None and 'reconstructed_obj' in train_results:
         logger.info("Performing image stitching...")
         recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(
             test_data, config, flip_x, flip_y, transpose, M=M

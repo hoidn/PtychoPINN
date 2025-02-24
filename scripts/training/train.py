@@ -43,7 +43,7 @@ def main() -> None:
     update_legacy_dict(params.cfg, config)
     
     try:
-        logger.info(f"Starting training with n_images={config.n_images}, stitching={'enabled' if config.do_stitching else 'disabled'}")
+        logger.info(f"Starting training with n_images={config.n_images}, stitching={'enabled' if args.do_stitching else 'disabled'}")
 
         #ptycho_data, ptycho_data_train, obj = load_and_prepare_data(config['train_data_file_path'])
         ptycho_data = load_data(str(config.train_data_file), n_images=config.n_images)
@@ -53,7 +53,7 @@ def main() -> None:
             test_data = load_data(str(config.test_data_file))
             logger.info(f"Loaded test data from {config.test_data_file}")
 
-        recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config)
+        recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config, do_stitching=args.do_stitching)
         model_manager.save(str(config.output_dir))
         save_outputs(recon_amp, recon_phase, results, str(config.output_dir))
     except Exception as e:
