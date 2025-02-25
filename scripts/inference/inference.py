@@ -189,8 +189,10 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
                 if not (np.allclose(obj_complex.real, obj_complex.real.flat[0], atol=1e-10) and 
                         np.allclose(obj_complex.imag, obj_complex.imag.flat[0], atol=1e-10)):
                     has_ground_truth = True
-                    epie_phase = np.angle(test_data.objectGuess)
-                    epie_amplitude = np.abs(test_data.objectGuess)
+                    epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(test_data.objectGuess), buffer=-20)
+                    epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(test_data.objectGuess), buffer=-20)
+#                    epie_phase = np.angle(test_data.objectGuess)
+#                    epie_amplitude = np.abs(test_data.objectGuess)
                     print(f"Ground truth available - ePIE amplitude shape: {epie_amplitude.shape}")
                     print(f"Ground truth available - ePIE phase shape: {epie_phase.shape}")
                 else:
