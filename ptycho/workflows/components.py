@@ -52,7 +52,8 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     ycoords = data['ycoords']
     xcoords_start = data['xcoords_start']
     ycoords_start = data['ycoords_start']
-    diff3d = np.transpose(data['diffraction'], [2, 0, 1])
+    # diff3d = np.transpose(data['diffraction'], [2, 0, 1])
+    diff3d = data['diff3d']
     probeGuess = data['probeGuess']
     objectGuess = data['objectGuess']
 
@@ -108,7 +109,7 @@ def parse_arguments():
                     choices = list(model_field.type.__args__)
                     parser.add_argument(
                         f"--{model_field.name}",
-                        type=str,
+                        type=type(choices[0]),
                         choices=choices,
                         default=model_field.default,
                         help=f"Model parameter: {model_field.name}, choices: {choices}"
