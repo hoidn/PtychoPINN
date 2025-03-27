@@ -32,6 +32,7 @@ def scale_nphotons(padded_obj):
     """
     mean_photons = tf.math.reduce_mean(count_photons(padded_obj))
     norm = tf.math.sqrt(p.get('nphotons') / mean_photons)
+    print(f'Norm: {norm}')
     return norm
 
 def diffract_obj(sample, draw_poisson = True):
@@ -58,6 +59,11 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
         assert probe.shape[-1] == 1
     if intensity_scale is None:
         probe_amplitude = tf.cast(tf.abs(probe), Y_I.dtype)
+        print('testestestestest')
+        print(f'''Debug: Probe shape: {probe_amplitude.shape},
+                Probe dtype: {probe_amplitude.dtype},
+                Y_I shape: {Y_I.shape},
+                Y_I dtype: {Y_I.dtype}''')
         intensity_scale = scale_nphotons(Y_I * probe_amplitude[None, ...]).numpy()
     batch_size = p.get('batch_size')
     obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)

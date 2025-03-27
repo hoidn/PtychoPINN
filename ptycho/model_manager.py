@@ -91,7 +91,7 @@ class ModelManager:
             params.set('intensity_scale', intensity_scale)
 
             # Load and return the model
-            return tf.keras.models.load_model(model_dir, custom_objects=custom_objects)
+            return tf.keras.models.load_model(model_dir, custom_objects=custom_objects), custom_objects
         
         except Exception as e:
             print(f"Error loading model from {model_dir}: {str(e)}")
@@ -170,11 +170,12 @@ class ModelManager:
             
             # Load each requested model
             loaded_models = {}
+            custom_objects = {}
             for model_name in model_names:
                 model_subdir = os.path.join(temp_dir, model_name)
-                loaded_models[model_name] = ModelManager.load_model(model_subdir)
+                loaded_models[model_name], custom_objects[model_name] = ModelManager.load_model(model_subdir)
             
-            return loaded_models
+            return loaded_models, custom_objects
 
 
 def save(out_prefix: str) -> None:
@@ -183,6 +184,7 @@ def save(out_prefix: str) -> None:
     from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
     from ptycho.tf_helper import Translation
     from ptycho.tf_helper import realspace_loss as hh_realspace_loss
+    from ptycho.model import log_scale
 
     model_path = os.path.join(out_prefix, params.get('h5_path'))
     custom_objects = {
@@ -191,7 +193,8 @@ def save(out_prefix: str) -> None:
         'IntensityScaler_inv': IntensityScaler_inv,
         'Translation': Translation,
         'negloglik': negloglik,
-        'realspace_loss': hh_realspace_loss
+        'realspace_loss': hh_realspace_loss,
+        'log_scale': log_scale
     }
     
     models_to_save = {

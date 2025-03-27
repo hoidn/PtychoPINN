@@ -123,6 +123,7 @@ log_scale_guess = np.log(cfg.get('intensity_scale'))
 log_scale = tf.Variable(
             initial_value=tf.constant(float(log_scale_guess)),
             trainable = params()['intensity_scale.trainable'],
+            name = 'scale_layer/log_scale'
         )
 
 class IntensityScaler(tf.keras.layers.Layer):
@@ -443,7 +444,7 @@ def train(epochs, trainset: PtychoDataContainer):
     coords_train = trainset.coords
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
-    earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+    earlystop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
 
     checkpoints= tf.keras.callbacks.ModelCheckpoint(
                             '%s/weights.{epoch:02d}.h5' %wt_path,
@@ -458,8 +459,10 @@ def train(epochs, trainset: PtychoDataContainer):
         prepare_outputs(trainset),
         shuffle=True, batch_size=batch_size, verbose=1,
         epochs=epochs, validation_split = 0.05,
+        # callbacks = [reduce_lr])
         callbacks=[reduce_lr, earlystop])
         #callbacks=[reduce_lr, earlystop, tboard_callback])
+    print(f'Log scale is: {log_scale}')
     return history
 import numpy as np
 

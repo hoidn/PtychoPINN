@@ -25,7 +25,7 @@ class TrainingConfig:
     train_data_file: Path  # Added
     test_data_file: Optional[Path] = None  # Added
     batch_size: int = 16
-    nepochs: int = 50
+    nepochs: int = 30
     mae_weight: float = 0.0
     nll_weight: float = 1.0
     realspace_mae_weight: float = 0.0

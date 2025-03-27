@@ -7,6 +7,11 @@ from ptycho.autotest.debug import debug
 from ptycho import diffsim as datasets
 from ptycho import tf_helper as hh
 
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath('.'))
+
 # Constants, # TODO cleanup / refactor
 local_offset_sign = 1
 key_coords_offsets = 'coords_start_offsets'
@@ -147,7 +152,7 @@ class RawData:
 
     @staticmethod
     #@debug
-    def from_file(train_data_file_path: str) -> 'RawData':
+    def from_file(train_data_file_path: str, nimages) -> 'RawData':
         """
         Static method to create a RawData instance from a file.
 
@@ -160,14 +165,14 @@ class RawData:
         # Load training data
         train_data = np.load(train_data_file_path)
         train_raw_data = RawData(
-            xcoords=train_data['xcoords'],
-            ycoords=train_data['ycoords'],
-            xcoords_start=train_data['xcoords_start'],
-            ycoords_start=train_data['ycoords_start'],
-            diff3d=train_data['diff3d'],
+            xcoords=train_data['xcoords'][:nimages],
+            ycoords=train_data['ycoords'][:nimages],
+            xcoords_start=train_data['xcoords_start'][:nimages],
+            ycoords_start=train_data['ycoords_start'][:nimages],
+            diff3d=train_data['diff3d'][:nimages],
             probeGuess=train_data['probeGuess'],
             objectGuess=train_data['objectGuess'],
-            scan_index=train_data['scan_index']
+            scan_index=train_data['scan_index'][:nimages]
         )
         return train_raw_data
 
