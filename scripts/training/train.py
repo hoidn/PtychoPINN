@@ -3,6 +3,8 @@
 import logging
 import sys
 
+from ptycho.raw_data import RawData
+
 # Set up file handler for debug logging
 file_handler = logging.FileHandler('train_debug.log')
 file_handler.setLevel(logging.DEBUG)
@@ -46,11 +48,13 @@ def main() -> None:
         logger.info(f"Starting training with n_images={config.n_images}, stitching={'enabled' if args.do_stitching else 'disabled'}")
 
         #ptycho_data, ptycho_data_train, obj = load_and_prepare_data(config['train_data_file_path'])
-        ptycho_data = load_data(str(config.train_data_file), n_images=config.n_images)
-        
+        # ptycho_data = load_data(str(config.train_data_file), n_images=config.n_images)
+        ptycho_data = RawData.from_file(str(config.train_data_file),nimages = config.n_images)
+
         test_data = None
         if config.test_data_file:
-            test_data = load_data(str(config.test_data_file))
+            # test_data = load_data(str(config.test_data_file))
+            test_data = RawData.from_file(str(config.test_data_file),nimages = config.n_images)
             logger.info(f"Loaded test data from {config.test_data_file}")
 
         recon_amp, recon_phase, results = run_cdi_example(ptycho_data, test_data, config, do_stitching=args.do_stitching)

@@ -114,7 +114,7 @@ def load_model(model_path: Path) -> tuple:
             raise ValueError(f"Model archive not found at: {model_zip}.zip")
             
         # Load multiple models
-        models_dict = ModelManager.load_multiple_models(model_zip)
+        models_dict, custom_objects = ModelManager.load_multiple_models(model_zip)
         
         # Get the diffraction_to_obj model which is what we need for inference
         if 'diffraction_to_obj' not in models_dict:
@@ -126,7 +126,7 @@ def load_model(model_path: Path) -> tuple:
         print(f"Successfully loaded model from {model_path}")
         print(f"Model configuration: {config}")
 
-        return model, config
+        return model, config, custom_objects
 
     except Exception as e:
         raise ValueError(f"Failed to load model: {str(e)}")
@@ -441,7 +441,7 @@ def main():
 
         # Load model
         print("Loading model...")
-        model, _ = load_model(config.model_path)
+        model, _, _ = load_model(config.model_path)
 
         # Load test data
         print("Loading test data...")

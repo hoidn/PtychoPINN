@@ -18,6 +18,8 @@ def train(train_data: PtychoDataContainer, intensity_scale=None, model_instance=
         model_instance = model.autoencoder
     nepochs = params.cfg['nepochs']
     params.print_params()
+
+    print(f'Training input size: {train_data.X.shape}')
     return model_instance, model.train(nepochs, train_data)
 
 def train_eval(ptycho_dataset):
