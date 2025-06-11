@@ -292,28 +292,6 @@ def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act, name='phase')
     return outputs
 
-def create_decoder_amp(input_tensor, n_filters_scale):
-    conv1 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
-    conv2 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
-    act = Lambda(get_amp_activation(), name='amp')
-    
-    N = cfg.get('N')
-    
-    if N == 64:
-        filters = [n_filters_scale * 64, n_filters_scale * 32]
-    elif N == 128:
-        filters = [n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
-    elif N == 256:
-        filters = [n_filters_scale * 256, n_filters_scale * 128, n_filters_scale * 64, n_filters_scale * 32]
-    else:
-        raise ValueError(f"Unsupported input size: {N}")
-    
-    x = input_tensor
-    for num_filters in filters:
-        x = Conv_Up_block(x, num_filters)
-    
-    outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act, name='amp')
-    return outputs
 
 def create_autoencoder(input_tensor, n_filters_scale, gridsize, big):
     encoded = create_encoder(input_tensor, n_filters_scale)
