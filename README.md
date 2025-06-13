@@ -37,13 +37,6 @@ For an example of interactive (Jupyter) usage, see notebooks/nongrid_simulations
 
 non_grid_CDI_example.ipynb shows interactive usage using a dataset that is provided with the repo.
 
-### Checklist
-| Status | Task |
-|--------|------|
-| 🟢 | Reconstruction with non-grid scan patterns |
-| 🟢 | 128 x 128 resolution |
-| 🔴 | Position correction |
-| 🔴 | Stochastic probe model |
 
 <!-- 
 * subpixel convolution (Depth-to-space)
