@@ -17,6 +17,8 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
 
 
 ## Installation
+`conda create -n ptycho python=3.10`
+`conda activate ptycho`
 `pip install .`
 
 ## Usage
