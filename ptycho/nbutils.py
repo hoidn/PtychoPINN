@@ -166,6 +166,40 @@ def track_dict_changes(input_dict, callback):
     changed_or_added_keys = [key for key in input_dict if input_dict.get(key) != original_dict.get(key)]
     return changed_or_added_keys
 
+def mk_epie_comparison2x2(ptycho_pinn_phase, epie_phase, ptycho_pinn_amplitude,epie_amplitude):
+    # Create a 2x2 subplot
+    fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+
+    # PtychoPINN phase with color bar
+    ptycho_pinn_phase_img = axs[0, 0].imshow(ptycho_pinn_phase, cmap='gray')
+    axs[0, 0].set_title('PtychoPINN Phase')
+    axs[0, 0].axis('off')
+    fig.colorbar(ptycho_pinn_phase_img, ax=axs[0, 0], orientation='vertical')
+
+    # ePIE phase with color bar
+    epie_phase_img = axs[0, 1].imshow(epie_phase, cmap='gray')
+    axs[0, 1].set_title('ePIE Phase')
+    axs[0, 1].axis('off')
+    fig.colorbar(epie_phase_img, ax=axs[0, 1], orientation='vertical')
+
+    # PtychoPINN amplitude with color bar
+    ptycho_pinn_amplitude_img = axs[1, 0].imshow(ptycho_pinn_amplitude, cmap='gray')#,
+                                               # vmin = .2
+    axs[1, 0].set_title('PtychoPINN Amplitude')
+    axs[1, 0].axis('off')
+    fig.colorbar(ptycho_pinn_amplitude_img, ax=axs[1, 0], orientation='vertical')
+
+    # ePIE amplitude with color bar
+    epie_amplitude_img = axs[1, 1].imshow(epie_amplitude, cmap='gray')
+    axs[1, 1].set_title('ePIE Amplitude')
+    axs[1, 1].axis('off')
+    fig.colorbar(epie_amplitude_img, ax=axs[1, 1], orientation='vertical')
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout(pad=3.0)
+
+    plt.show()
+
 # object heatmaps
 ## Creating a figure and two subplots
 #fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
