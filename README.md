@@ -21,35 +21,11 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
 
 ## Usage
 ### Training
-`ptycho_train -h `
+python scripts/training/train.py --train_data_file <train_path.npz> --test_data_file <test_path.npz>
 
-```
-usage: ptycho_train [-h] [--config CONFIG] [--N {64,128,256}] [--gridsize GRIDSIZE] [--n_filters_scale N_FILTERS_SCALE] [--model_type {pinn,supervised}] [--amp_activation {sigmoid,swish,softplus,relu}]
-                    [--object_big OBJECT_BIG] [--probe_big PROBE_BIG] [--probe_mask PROBE_MASK] [--pad_object PAD_OBJECT] [--probe_scale PROBE_SCALE]
-                    [--gaussian_smoothing_sigma GAUSSIAN_SMOOTHING_SIGMA] [--train_data_file TRAIN_DATA_FILE] [--test_data_file TEST_DATA_FILE] [--batch_size BATCH_SIZE] [--nepochs NEPOCHS]
-                    [--mae_weight MAE_WEIGHT] [--nll_weight NLL_WEIGHT] [--realspace_mae_weight REALSPACE_MAE_WEIGHT] [--realspace_weight REALSPACE_WEIGHT] [--nphotons NPHOTONS]
-                    [--positions_provided POSITIONS_PROVIDED] [--probe_trainable PROBE_TRAINABLE] [--intensity_scale_trainable INTENSITY_SCALE_TRAINABLE] [--output_dir OUTPUT_DIR]
-```
 
 ### Inference 
-`ptycho_inference -h`
-
-```
-usage: ptycho_inference [-h] --model_path MODEL_PATH --test_data TEST_DATA [--config CONFIG] [--output_dir OUTPUT_DIR] [--debug]
-
-Ptychography Inference Script
-
-options:
-  -h, --help            show this help message and exit
-  --model_path MODEL_PATH
-                        Path to the saved model
-  --test_data TEST_DATA
-                        Path to the test data file
-  --config CONFIG       Optional path to YAML configuration file to override defaults
-  --output_dir OUTPUT_DIR
-                        Directory for saving output files and images
-  --debug               Enable debug mode 
-  ```
+python scripts/inference/inference.py --model_path <model artifact directory path> --test_data <test_path.npz>
 
 See examples and READMEs under scripts/.
 
