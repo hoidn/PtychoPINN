@@ -27,6 +27,46 @@ logger = logging.getLogger(__name__)
 from dataclasses import fields
 from ptycho.config.config import ModelConfig, TrainingConfig
 
+def update_config_from_dict(config_updates: dict):
+    """
+    Updates the application's configuration from a dictionary, ideal for notebook workflows.
+
+    Args:
+        config_updates (dict): A dictionary of parameters to update.
+    """
+    # 1. Create a mutable dictionary from the default dataclass values
+    model_defaults = {f.name: f.default for f in fields(ModelConfig)}
+    training_defaults = {f.name: f.default for f in fields(TrainingConfig) if f.name != 'model'}
+    
+    # Merge them
+    full_config_dict = {**model_defaults, **training_defaults}
+
+    # 2. Update with the user's dictionary
+    for key, value in config_updates.items():
+        if key in full_config_dict:
+            full_config_dict[key] = value
+        else:
+            # Optionally warn about unused keys
+            logger.warning(f"Configuration key '{key}' is not a recognized parameter.")
+
+    # 3. Re-construct the dataclasses
+    model_args = {k: v for k, v in full_config_dict.items() if k in model_defaults}
+    training_args = {k: v for k, v in full_config_dict.items() if k in training_defaults}
+
+    # Handle required Path objects if they are not set
+    if training_args.get('train_data_file') is None:
+        # Assign a dummy path or handle as an error if it's essential for all workflows
+        training_args['train_data_file'] = Path("dummy_path.npz")
+
+    final_model_config = ModelConfig(**model_args)
+    final_training_config = TrainingConfig(model=final_model_config, **training_args)
+    
+    # 4. Update the legacy global params dictionary
+    update_legacy_dict(params.cfg, final_training_config)
+    
+    logger.info("Configuration updated programmatically for interactive session.")
+    params.print_params()
+
 def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
     """
     Load ptychography data from a file and return RawData objects.
