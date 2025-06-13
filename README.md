@@ -23,11 +23,11 @@ PtychoPINN is an unsupervised physics-informed neural network reconstruction met
 
 ## Usage
 ### Training
-python scripts/training/train.py --train_data_file <train_path.npz> --test_data_file <test_path.npz>
+`python scripts/training/train.py --train_data_file <train_path.npz> --test_data_file <test_path.npz>`
 
 
 ### Inference 
-python scripts/inference/inference.py --model_path <model artifact directory path> --test_data <test_path.npz>
+`python scripts/inference/inference.py --model_path <model artifact directory path> --test_data <test_path.npz>`
 
 See examples and READMEs under scripts/.
 
