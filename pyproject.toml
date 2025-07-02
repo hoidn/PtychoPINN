@@ -30,8 +30,8 @@ dependencies = [
     "tensorflow-hub",
     "tensorflow-metadata",
     "tensorflow-probability<0.23.0",  # This version works with TF 2.15
-    "torchmetrics",
-    "torchvision",
+    #"torchmetrics",
+    #"torchvision",
     "tqdm",
     "ujson",
 ]
