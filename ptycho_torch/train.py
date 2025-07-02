@@ -226,8 +226,7 @@ if __name__ == '__main__':
     print(os.getcwd())
 
     try:
-        main('datasets/lines_no_overlap_diff',
-             'datasets/probes_lines')
+        main(ptycho_dir, probe_dir)
 
     except Exception as e:
         print(f"Training failed: {str(e)}")
