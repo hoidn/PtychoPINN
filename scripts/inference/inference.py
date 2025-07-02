@@ -77,6 +77,8 @@ def parse_arguments() -> argparse.Namespace:
                        help="Directory for saving output files and images")
     parser.add_argument("--debug", action="store_true",
                        help="Enable debug mode")
+    parser.add_argument("--comparison_plot", action="store_true",
+                       help="Generate original comparison plot (only if ground truth is available)")
     return parser.parse_args()
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
@@ -177,16 +179,37 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         reconstructed_amplitude = np.abs(obj_image)
         reconstructed_phase = np.angle(obj_image)
 
-#        # Process ePIE results for comparison
-#        epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(test_data.objectGuess), buffer=-20)
-#        epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(test_data.objectGuess), buffer=-20)
-        epie_phase = np.angle(test_data.objectGuess)
-        epie_amplitude = np.abs(test_data.objectGuess)
+        # Check if ground truth object is available and valid
+        has_ground_truth = False
+        if hasattr(test_data, 'objectGuess') and test_data.objectGuess is not None:
+            # Check if the object is all zeros or very close to zero
+            if not np.allclose(test_data.objectGuess, 0, atol=1e-10):
+                # Check if the object is uniform (all values are the same)
+                obj_complex = test_data.objectGuess
+                if not (np.allclose(obj_complex.real, obj_complex.real.flat[0], atol=1e-10) and 
+                        np.allclose(obj_complex.imag, obj_complex.imag.flat[0], atol=1e-10)):
+                    has_ground_truth = True
+                    epie_phase = crop_to_non_uniform_region_with_buffer(np.angle(test_data.objectGuess), buffer=-20)
+                    epie_amplitude = crop_to_non_uniform_region_with_buffer(np.abs(test_data.objectGuess), buffer=-20)
+#                    epie_phase = np.angle(test_data.objectGuess)
+#                    epie_amplitude = np.abs(test_data.objectGuess)
+                    print(f"Ground truth available - ePIE amplitude shape: {epie_amplitude.shape}")
+                    print(f"Ground truth available - ePIE phase shape: {epie_phase.shape}")
+                else:
+                    print("Ground truth object is uniform (all same value), skipping ground truth processing")
+                    epie_phase = None
+                    epie_amplitude = None
+            else:
+                print("Ground truth object is all zeros, skipping ground truth processing")
+                epie_phase = None
+                epie_amplitude = None
+        else:
+            print("No ground truth object available")
+            epie_phase = None
+            epie_amplitude = None
 
         print(f"Reconstructed amplitude shape: {reconstructed_amplitude.shape}")
         print(f"Reconstructed phase shape: {reconstructed_phase.shape}")
-        print(f"ePIE amplitude shape: {epie_amplitude.shape}")
-        print(f"ePIE phase shape: {epie_phase.shape}")
 
         return reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase
 
@@ -194,11 +217,27 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         print(f"Error during inference: {str(e)}")
         raise ValueError(f"Error during inference: {str(e)}")
 
-def save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_path):
+def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_dir):
+    """
+    Save a comparison plot of reconstructed and ground truth images.
+    
+    Args:
+        reconstructed_amplitude (np.ndarray): The reconstructed amplitude array
+        reconstructed_phase (np.ndarray): The reconstructed phase array
+        epie_amplitude (np.ndarray): The ground truth amplitude array or None
+        epie_phase (np.ndarray): The ground truth phase array or None
+        output_dir (str or Path): Directory to save the output images
+    """
     try:
         # Ensure output directory exists
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Squeeze any extra dimensions
+        reconstructed_amplitude = np.squeeze(reconstructed_amplitude)
+        reconstructed_phase = np.squeeze(reconstructed_phase)
+        epie_amplitude = np.squeeze(epie_amplitude)
+        epie_phase = np.squeeze(epie_phase)
+        
         # Create the comparison figure with a smaller size
         fig, axs = plt.subplots(2, 2, figsize=(4, 4))
         
@@ -227,17 +266,58 @@ def save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amp
             ax.set_xticks([])
             ax.set_yticks([])
         
-        # Adjust layout with specific padding
-        plt.tight_layout(pad=1.5)
+        # Save the figure
+        comparison_path = os.path.join(output_dir, "comparison_plot.png")
+        plt.tight_layout()
+        plt.savefig(comparison_path, dpi=300, bbox_inches='tight')
+        plt.close()
         
-        # Save the figure with adjusted DPI and ensuring the entire figure is saved
-        plt.savefig(output_path, dpi=300, bbox_inches='tight', pad_inches=0.5)
-        plt.close(fig)
-
-        print(f"Comparison image saved to: {output_path}")
-
+        print(f"Comparison plot saved to: {comparison_path}")
+        
     except Exception as e:
-        print(f"Error saving comparison image: {str(e)}")
+        print(f"Error saving comparison plot: {str(e)}")
+
+def save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_dir):
+    """
+    Save the reconstructed amplitude and phase as separate PNG files.
+    
+    Args:
+        reconstructed_amplitude (np.ndarray): The reconstructed amplitude array
+        reconstructed_phase (np.ndarray): The reconstructed phase array
+        output_dir (str or Path): Directory to save the output images
+    """
+    try:
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Squeeze any extra dimensions
+        reconstructed_amplitude = np.squeeze(reconstructed_amplitude)
+        reconstructed_phase = np.squeeze(reconstructed_phase)
+        
+        print(f"Amplitude array shape: {reconstructed_amplitude.shape}")
+        print(f"Phase array shape: {reconstructed_phase.shape}")
+        
+        # Save amplitude image
+        amplitude_path = os.path.join(output_dir, "reconstructed_amplitude.png")
+        plt.figure(figsize=(8, 8))
+        plt.imshow(reconstructed_amplitude, cmap='gray')
+        plt.colorbar()
+        plt.savefig(amplitude_path)
+        plt.close()
+        
+        # Save phase image
+        phase_path = os.path.join(output_dir, "reconstructed_phase.png")
+        plt.figure(figsize=(8, 8))
+        plt.imshow(reconstructed_phase, cmap='viridis')
+        plt.colorbar()
+        plt.savefig(phase_path)
+        plt.close()
+        
+        print(f"Reconstructed amplitude saved to: {amplitude_path}")
+        print(f"Reconstructed phase saved to: {phase_path}")
+        
+    except Exception as e:
+        print(f"Error saving reconstruction images: {str(e)}")
 
 def save_probe_visualization(test_data: RawData, output_path: str):
     """
@@ -267,7 +347,7 @@ def save_probe_visualization(test_data: RawData, output_path: str):
     except OSError as e:
         raise OSError(f"Error saving probe visualization: {str(e)}")
 
-def main(model_prefix: str, test_data_file: str, output_path: str, visualize_probe: bool, K: int, nsamples: int) -> None:
+def main(model_prefix: str, test_data_file: str, output_path: str, visualize_probe: bool, K: int, nsamples: int, comparison_plot: bool = False) -> None:
     """
     Main function to orchestrate the inference process.
 
@@ -278,6 +358,7 @@ def main(model_prefix: str, test_data_file: str, output_path: str, visualize_pro
         visualize_probe (bool): Flag to generate and save probe visualization.
         K (int): Number of nearest neighbors for grouped data generation.
         nsamples (int): Number of samples for grouped data generation.
+        comparison_plot (bool): Flag to generate comparison plot.
 
     Raises:
         Exception: If any error occurs during the inference process.
@@ -308,10 +389,17 @@ def main(model_prefix: str, test_data_file: str, output_path: str, visualize_pro
             print("Shutdown requested. Stopping before saving results.")
             return
 
-        # Save comparison image
-        print("Saving comparison image...")
-        output_image_path = os.path.join(output_path, "reconstruction_comparison.png")
-        save_comparison_image(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_image_path)
+        # Save separate reconstruction images
+        print("Saving reconstruction images...")
+        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_path)
+        
+        # Generate comparison plot if requested and ground truth is available
+        if comparison_plot and epie_amplitude is not None and epie_phase is not None:
+            print("Generating comparison plot...")
+            save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
+                                epie_amplitude, epie_phase, output_path)
+        elif comparison_plot:
+            print("Skipping comparison plot generation - ground truth not available")
 
         # Save probe visualization if requested
         if visualize_probe:
@@ -365,11 +453,17 @@ def main():
         reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
             model, test_data, params.cfg, K=7, nsamples=1)
 
-        # Save comparison image
-        print("Saving comparison image...")
-        output_image_path = config.output_dir / "reconstruction_comparison.png"
-        save_comparison_image(reconstructed_amplitude, reconstructed_phase, 
-                            epie_amplitude, epie_phase, output_image_path)
+        # Save separate reconstruction images
+        print("Saving reconstruction images...")
+        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir)
+        
+        # Generate comparison plot if requested and ground truth is available
+        if args.comparison_plot and epie_amplitude is not None and epie_phase is not None:
+            print("Generating comparison plot...")
+            save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
+                                epie_amplitude, epie_phase, config.output_dir)
+        elif args.comparison_plot:
+            print("Skipping comparison plot generation - ground truth not available")
 
         print("Inference process completed successfully.")
         sys.exit(0)
