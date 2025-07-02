@@ -31,6 +31,7 @@ class TrainingConfig:
     realspace_mae_weight: float = 0.0
     realspace_weight: float = 0.0
     nphotons: float = 1e9
+    n_images: int = 512  # Number of images to use from the dataset
     positions_provided: bool = True  
     probe_trainable: bool = False
     intensity_scale_trainable: bool = True  # Changed default
