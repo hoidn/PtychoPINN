@@ -83,6 +83,7 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     Returns:
         RawData: RawData object containing the dataset.
     """
+    logger.info(f"Loading data from {file_path} with n_images={n_images}")
     # Load data from file
     data = np.load(file_path)
 
@@ -134,6 +135,8 @@ def parse_arguments():
     logger = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
+    parser.add_argument("--do_stitching", action='store_true', default=False,
+                        help="Perform image stitching after training (default: False)")
     
     # Add arguments based on TrainingConfig fields
     for field in fields(TrainingConfig):
@@ -170,12 +173,21 @@ def parse_arguments():
                     help=f"Path for {field.name}"
                 )
             else:
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=field.type,
-                    default=field.default,
-                    help=f"Training parameter: {field.name}"
-                )
+                # Special handling for specific parameters to provide better help text
+                if field.name == 'n_images':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type,
+                        default=field.default,
+                        help=f"Number of images to use from the dataset (default: {field.default})"
+                    )
+                else:
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type,
+                        default=field.default,
+                        help=f"Training parameter: {field.name}"
+                    )
     
     return parser.parse_args()
 
@@ -214,6 +226,11 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
         training_fields = {f.name for f in fields(TrainingConfig)}
         training_args = {k: v for k, v in args_config.items() 
                         if k in training_fields and k != 'model'}
+        
+        # Log the CLI arguments for debugging
+        logger.debug(f"CLI arguments: {args_config}")
+        logger.debug(f"Training arguments: {training_args}")
+        
         config = TrainingConfig(model=model_config, **training_args)
         
         # Update the global configuration
@@ -383,7 +400,8 @@ def run_cdi_example(
     flip_x: bool = False,
     flip_y: bool = False,
     transpose: bool = False,
-    M: int = 20
+    M: int = 20,
+    do_stitching: bool = False
 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict[str, Any]]:
     """
     Run the main CDI example execution flow.
@@ -396,6 +414,7 @@ def run_cdi_example(
         flip_y: Whether to flip the y coordinates
         transpose: Whether to transpose the image by swapping dimensions
         M: Parameter for reassemble_position function
+        do_stitching: Whether to perform image stitching after training
 
     Returns:
         Tuple containing:
@@ -411,12 +430,15 @@ def run_cdi_example(
     
     recon_amp, recon_phase = None, None
     
-    # Reassemble test image if test data is provided and reconstructed_obj is available
-    if test_data is not None and 'reconstructed_obj' in train_results:
+    # Reassemble test image if stitching is enabled, test data is provided, and reconstructed_obj is available
+    if do_stitching and test_data is not None and 'reconstructed_obj' in train_results:
+        logger.info("Performing image stitching...")
         recon_amp, recon_phase, reassemble_results = reassemble_cdi_image(
             test_data, config, flip_x, flip_y, transpose, M=M
         )
         train_results.update(reassemble_results)
+    else:
+        logger.info("Skipping image stitching (disabled or no test data available)")
     
     return recon_amp, recon_phase, train_results
 
