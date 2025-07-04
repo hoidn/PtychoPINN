@@ -89,7 +89,9 @@ def simulate_and_save(
 
     # Set default buffer if not provided
     if buffer is None:
-        buffer = min(object_guess.shape) * 0.35
+        # Use a smaller buffer to allow more object coverage
+        # Buffer should be roughly probe_size/2 to avoid edge artifacts
+        buffer = max(probe_guess.shape) // 2
 
     # 2. Generate the simulated data in memory
     print(f"Simulating {nimages} diffraction patterns...")

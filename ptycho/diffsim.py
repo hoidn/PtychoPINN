@@ -56,6 +56,13 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
         probe = probe[..., None]
     elif len(probe.shape) == 3:
         assert probe.shape[-1] == 1
+    
+    # After the coercion logic above, the probe tensor is guaranteed to be 3D.
+    # This assertion makes that guarantee explicit and will immediately fail
+    # if any unexpected shape passes through the initial checks.
+    assert len(probe.shape) == 3 and probe.shape[-1] == 1, \
+        f"Internal error: Probe shape must be (H, W, 1) before use, but got {probe.shape}"
+    
     if intensity_scale is None:
         probe_amplitude = tf.cast(tf.abs(probe), Y_I.dtype)
         intensity_scale = scale_nphotons(Y_I * probe_amplitude[None, ...]).numpy()
