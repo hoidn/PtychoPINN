@@ -22,7 +22,7 @@ class ModelConfig:
 class TrainingConfig:
     """Training specific configuration."""
     model: ModelConfig
-    train_data_file: Path  # Added
+    train_data_file: Optional[Path] = None  # Made optional for simulation scripts
     test_data_file: Optional[Path] = None  # Added
     batch_size: int = 16
     nepochs: int = 50
