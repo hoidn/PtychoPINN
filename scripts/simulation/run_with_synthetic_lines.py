@@ -3,14 +3,14 @@
 
 """
 A runner script that first generates a synthetic object and probe,
-then executes the main simulation workflow (`simulation.py`) using
+then executes the main simulation workflow (`simulate_and_save.py`) using
 the generated data as input.
 
 This script automates the following steps:
 1. Creates a synthetic object of type 'lines'.
 2. Creates a default probe.
 3. Saves the object and probe to a temporary NPZ file.
-4. Calls `scripts/simulation/simulation.py` with the path to this
+4. Calls `scripts/simulation/simulate_and_save.py` with the path to this
    NPZ file, forwarding all other specified arguments.
 
 Example Usage:
@@ -18,11 +18,11 @@ Example Usage:
     python scripts/simulation/run_with_synthetic_lines.py \\
         --output-dir lines_report
 
-    # Run with more images and a specific object size
+    # Run with more images and a different probe size
     python scripts/simulation/run_with_synthetic_lines.py \\
         --output-dir lines_report_large \\
-        --object-size 512 \\
-        --nimages 4000
+        --probe-size 128 \\
+        --n-images 4000
 """
 
 import argparse
@@ -44,50 +44,39 @@ from ptycho.probe import get_default_probe
 
 def generate_and_save_synthetic_input(
     output_dir: Path,
-    object_size: int,
+    probe_size: int,
 ) -> Path:
     """
     Generates a synthetic 'lines' object and a default probe, saving them to an NPZ file.
-    Creates proper ptychography data structure: large object, smaller probe.
 
     Args:
         output_dir: The directory where the temporary input file will be saved.
-        object_size: The base size for the probe (object will be ~3x larger).
+        probe_size: The size for the probe (object will be ~3.5x larger).
 
     Returns:
         The path to the generated NPZ file.
     """
     print("--- Step 1: Generating Synthetic Input Data ---")
 
-    # Generate a default probe first (this determines the patch size)
-    probe_size = object_size  # Use the input as probe size
     print(f"Creating a default probe of size {probe_size}x{probe_size}...")
     p.set('N', probe_size)
     p.set('default_probe_scale', 0.7)
     default_probe = get_default_probe(N=probe_size, fmt='np').astype(np.complex64)
     
-    # Create a larger object (like real ptychography data)
-    # Real data: probe=64x64, object=232x232 (ratio ~3.6)
     object_scale_factor = 3.5
     full_object_size = int(probe_size * object_scale_factor)
     
     print(f"Creating a synthetic 'lines' object of size {full_object_size}x{full_object_size}...")
-    # Configure params for generating a 'lines' object  
     p.set('data_source', 'lines')
     p.set('size', full_object_size)
     
     synthetic_object = sim_object_image(size=full_object_size)
-    # The function returns a (N, N, 1) array, we need (N, N) complex
     synthetic_object = synthetic_object.squeeze().astype(np.complex64)
     
     print(f"Generated probe: {default_probe.shape}, object: {synthetic_object.shape}")
-    print(f"Object to probe ratio: {synthetic_object.shape[0] / default_probe.shape[0]:.1f}")
 
-    # Define the path for the temporary input file
     synthetic_input_path = output_dir / "synthetic_input.npz"
 
-    # Save the object and probe to the NPZ file
-    # The keys 'objectGuess' and 'probeGuess' are required by the simulation script
     print(f"Saving synthetic data to: {synthetic_input_path}")
     np.savez(
         synthetic_input_path,
@@ -113,31 +102,25 @@ def run_simulation_workflow(
     """
     print("--- Step 2: Running Simulation ---")
     
-    # Path to the target script
+    # Path to the target script is now the corrected one
     simulate_script_path = Path(__file__).parent / "simulate_and_save.py"
     
-    # Output path for simulated data
+    # Output path for the final simulated data
     output_file_path = output_dir / "simulated_data.npz"
 
     # Construct the command
     command = [
-        sys.executable,  # Use the same python interpreter
+        sys.executable,
         str(simulate_script_path),
         "--input-file", str(synthetic_input_path),
         "--output-file", str(output_file_path),
     ]
     
-    # Add any extra arguments forwarded from the command line
-    # Filter out arguments that aren't supported by simulate_and_save.py
-    supported_args = ["--nimages", "--buffer", "--seed"]
-    for i in range(0, len(extra_args), 2):
-        if i+1 < len(extra_args) and extra_args[i] in supported_args:
-            command.extend([extra_args[i], extra_args[i+1]])
+    # Add any extra arguments forwarded from the command line.
+    command.extend(extra_args)
 
     print(f"Executing command:\n{' '.join(command)}\n")
 
-    # Run the subprocess
-    # `check=True` will raise an exception if the script returns a non-zero exit code
     try:
         subprocess.run(command, check=True)
         print("\n--- Simulation Complete ---")
@@ -147,11 +130,11 @@ def run_simulation_workflow(
         sys.exit(e.returncode)
 
 
-def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments for this runner script."""
+def main():
+    """Main function to orchestrate the entire process."""
+    # Use parse_known_args to separate this script's args from the rest
     parser = argparse.ArgumentParser(
-        description="Runs the full ptychography simulation and evaluation workflow using a synthetically generated 'lines' object.",
-        # Help formatter to show default values
+        description="Runs the full ptychography simulation workflow using a synthetically generated 'lines' object.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
@@ -161,24 +144,14 @@ def parse_arguments() -> argparse.Namespace:
         help="Directory to save the final report and intermediate synthetic data."
     )
     parser.add_argument(
-        "--object-size",
+        "--probe-size",
         type=int,
-        default=256,
-        help="The size (N) of the synthetic square object to generate."
+        default=64,
+        help="The size (N) of the synthetic square probe to generate. The object will be scaled accordingly."
     )
-    # The 'REMAINDER' action collects all unrecognized arguments into a list.
-    # This is how we forward arguments to the underlying script.
-    parser.add_argument(
-        'extra_args',
-        nargs=argparse.REMAINDER,
-        help="Additional arguments to pass to the underlying simulation.py script (e.g., --nimages 500 --seed 42)."
-    )
-    return parser.parse_args()
-
-
-def main():
-    """Main function to orchestrate the entire process."""
-    args = parse_arguments()
+    
+    # This will parse the known arguments and leave the rest in `extra_args`
+    args, extra_args = parser.parse_known_args()
     
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -187,17 +160,17 @@ def main():
         # Step 1: Generate and save the synthetic object and probe
         synthetic_input_path = generate_and_save_synthetic_input(
             output_dir=output_dir,
-            object_size=args.object_size
+            probe_size=args.probe_size
         )
 
         # Step 2: Run the main simulation workflow with the generated file
         run_simulation_workflow(
             synthetic_input_path=synthetic_input_path,
             output_dir=output_dir,
-            extra_args=args.extra_args
+            extra_args=extra_args # Pass the collected extra arguments
         )
         
-        print(f"\nSuccess! The simulated data is available in: {output_dir}/simulated_data.npz")
+        print(f"\nSuccess! The final simulated data is available in: {output_dir}/simulated_data.npz")
 
     except Exception as e:
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
