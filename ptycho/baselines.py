@@ -14,9 +14,7 @@ tf.keras.backend.clear_session()
 np.random.seed(123)
 
 h,w=params.get('N'), params.get('N')
-nepochs=params.get('nepochs')
 wt_path = 'wts4' #Where to store network weights
-batch_size = 32
 
 n_filters_scale = params.params()['n_filters_scale']
 
@@ -81,6 +79,12 @@ def train(X_train, Y_I_train, Y_phi_train, autoencoder = None):
     print (autoencoder.summary())
     #plot_model(autoencoder, to_file='paper_data/str_model.png')
 
+    # Get current values from params (not the stale global variables)
+    current_nepochs = params.get('nepochs')
+    current_batch_size = params.get('batch_size')
+    
+    print(f"Training with {current_nepochs} epochs and batch size {current_batch_size}")
+
     earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                   patience=2, min_lr=0.0001, verbose=1)
@@ -88,6 +92,6 @@ def train(X_train, Y_I_train, Y_phi_train, autoencoder = None):
     #history=autoencoder.fit(X_train * params.params()['intensity_scale'],
     history=autoencoder.fit(X_train,
         [Y_I_train, Y_phi_train], shuffle=True,
-        batch_size=batch_size, verbose=1, epochs=nepochs,
+        batch_size=current_batch_size, verbose=1, epochs=current_nepochs,
         validation_split = 0.05, callbacks=[reduce_lr, earlystop])
     return autoencoder, history
