@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from ptycho.workflows.components import (
     setup_configuration,
     run_cdi_example,
-    update_params,
 )
 
 def save_plot_to_file(fig, filename):
@@ -190,8 +189,6 @@ def main():
         "nll_weight": args.nll_weight,
     }
     
-
-    update_params(params)
     config = setup_configuration(args, args.config)
 
     from ptycho import probe
