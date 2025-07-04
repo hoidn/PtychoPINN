@@ -119,7 +119,7 @@ Parameters are controlled via YAML files (see `configs/`) or command-line argume
 
 -   **`probeGuess`**: The scanning beam. A complex `(N, N)` array.
 -   **`objectGuess`**: The full sample being scanned. A complex `(M, M)` array, where `M` is typically 3-5 times `N`.
--   **`diffraction`**: The stack of measured diffraction patterns. A real `(n_images, N, N)` array.
+-   **`diffraction`**: The stack of measured diffraction patterns. This must be a real `(n_images, N, N)` array representing **amplitude** (i.e., the square root of the measured intensity). The model's Poisson noise layer will square this value internally to simulate photon counts.
 -   **`xcoords`, `ycoords`**: 1D arrays of scan positions, shape `(n_images,)`.
 
 **Reference Example (Known-Good Data):**
@@ -128,7 +128,7 @@ File: `datasets/fly/fly001_transposed.npz`
 - `objectGuess`: `(232, 232)`  *(Note: much larger than probe)*
 - `diffraction`: `(10304, 64, 64)`
 
-**Common Pitfall:** Creating a synthetic `objectGuess` that is the same size as the `probeGuess`. This leaves no room for the probe to scan across the object and will fail.
+**Common Pitfall:** Creating a synthetic `objectGuess` that is the same size as the `probeGuess`. This leaves no room for the probe to scan across the object and will fail. Another common issue is storing intensity instead of amplitude in the `diffraction` array.
 
 ## 5. High-Level Architecture
 
