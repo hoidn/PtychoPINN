@@ -91,7 +91,15 @@ def generate_simulated_data(objectGuess: np.ndarray, probeGuess: np.ndarray, nim
     scan_index = np.zeros(nimages, dtype=int)
 
     # Generate simulated data
-    return RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index, return_patches=return_patches)
+    raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)
+    
+    if return_patches:
+        # Extract ground truth patches if requested
+        # The patches are already computed inside from_simulation, we can access them via raw_data.Y
+        ground_truth_patches = raw_data.Y if hasattr(raw_data, 'Y') else None
+        return raw_data, ground_truth_patches
+    else:
+        return raw_data
 
 def simulate_from_npz(file_path: str, nimages: int, buffer: float = None, random_seed: int = None, return_patches: bool = True) -> Union[RawData, Tuple[RawData, np.ndarray]]:
     """
