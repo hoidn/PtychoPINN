@@ -25,7 +25,7 @@ from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
 from ptycho.tf_helper import reassemble_position
 from ptycho.evaluation import eval_reconstruction
-from ptycho.image.cropping import crop_to_scan_area
+from ptycho.image.cropping import align_for_evaluation
 
 # NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
 
@@ -221,11 +221,6 @@ def main():
     pinn_model = load_pinn_model(args.pinn_dir)
     baseline_model = load_baseline_model(args.baseline_dir)
 
-    # TODO: This import is delayed because ptycho.nbutils -> ptycho.model has
-    # import-time dependencies on global params.cfg keys ('probe', 'intensity_scale').
-    # Loading the models first populates these keys. A better long-term fix
-    # would be to refactor ptycho.model to remove module-level state access.
-    from ptycho.nbutils import crop_to_non_uniform_region_with_buffer
 
     # Run inference for PtychoPINN
     logger.info("Running inference with PtychoPINN...")
@@ -274,90 +269,51 @@ def main():
         gt_obj_squeezed = ground_truth_obj.squeeze()
         logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
         
-        # Extract scan coordinates from test container  
-        scan_coords_yx = None
-        if hasattr(test_container, 'global_offsets') and test_container.global_offsets is not None:
-            # global_offsets has shape (n_images, 1, 2, 1) with [x, y] coordinates
-            scan_coords_xy = np.squeeze(test_container.global_offsets)  # Remove singleton dimensions -> (n_images, 2)
-            # Convert from [x, y] to [y, x] format for cropping function
-            scan_coords_yx = scan_coords_xy[:, [1, 0]]  # Swap x and y columns
-        elif hasattr(test_container, 'coords_nominal') and test_container.coords_nominal is not None:
-            scan_coords_xy = test_container.coords_nominal
-            scan_coords_yx = scan_coords_xy[:, [1, 0]]  # Swap x and y columns
-        else:
-            logger.error("No scan coordinates found in test data - cannot perform coordinate-based alignment")
+        # --- REFACTORED ALIGNMENT LOGIC ---
         
-        if scan_coords_yx is not None:
-            # Use M=20 from reassemble_position to define effective bounds
-            M = 20  # Patch size used in reassemble_position
-            effective_radius = M // 2
-            
-            logger.info(f"Using {len(scan_coords_yx)} scan positions for coordinate-based cropping")
-            logger.info(f"Patch size M={M}, effective radius: {effective_radius} pixels")
-            logger.info(f"Scan coordinate range: y=[{scan_coords_yx[:, 0].min():.1f}, {scan_coords_yx[:, 0].max():.1f}], x=[{scan_coords_yx[:, 1].min():.1f}, {scan_coords_yx[:, 1].max():.1f}]")
-            
-            # Calculate the reconstruction bounds directly
-            min_y, min_x = scan_coords_yx.min(axis=0)
-            max_y, max_x = scan_coords_yx.max(axis=0)
-            
-            # The reconstruction bounds are determined by scan range + effective patch contribution
-            recon_start_row = max(0, int(min_y) - effective_radius)
-            recon_end_row = min(gt_obj_squeezed.shape[0], int(max_y) + effective_radius)
-            recon_start_col = max(0, int(min_x) - effective_radius)
-            recon_end_col = min(gt_obj_squeezed.shape[1], int(max_x) + effective_radius)
-            
-            # Crop ground truth to match reconstruction bounds
-            cropped_gt = gt_obj_squeezed[recon_start_row:recon_end_row, recon_start_col:recon_end_col]
-            logger.info(f"Cropped ground truth from {gt_obj_squeezed.shape} to {cropped_gt.shape}")
-            
-            # Crop reconstructions to same area (remove extra dimensions first)
-            pinn_recon_2d = np.squeeze(pinn_recon)  # Remove any extra dimensions
-            baseline_recon_2d = np.squeeze(baseline_recon)  # Remove any extra dimensions
-            
-            # The reconstructions should already be at the right size, but let's verify
-            logger.info(f"Reconstruction shapes before alignment: PINN {pinn_recon_2d.shape}, Baseline {baseline_recon_2d.shape}")
-            
-            # In most cases, reconstructions are already the correct size
-            # But we'll ensure they match the cropped ground truth exactly
-            pinn_recon_aligned = pinn_recon_2d
-            baseline_recon_aligned = baseline_recon_2d
-            
-            # Ensure all arrays have exactly the same shape by center-cropping to smallest
-            target_h = min(pinn_recon_aligned.shape[0], baseline_recon_aligned.shape[0], cropped_gt.shape[0])
-            target_w = min(pinn_recon_aligned.shape[1], baseline_recon_aligned.shape[1], cropped_gt.shape[1])
-            
-            def center_crop(img, target_h, target_w):
-                h, w = img.shape
-                start_h = (h - target_h) // 2
-                start_w = (w - target_w) // 2
-                return img[start_h:start_h + target_h, start_w:start_w + target_w]
-            
-            pinn_recon_aligned = center_crop(pinn_recon_aligned, target_h, target_w)
-            baseline_recon_aligned = center_crop(baseline_recon_aligned, target_h, target_w)
-            cropped_gt = center_crop(cropped_gt, target_h, target_w)
-            
-            logger.info(f"Final evaluation shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}, GT {cropped_gt.shape}")
-            
-            # Evaluate with aligned arrays (add back dimensions for eval function)
-            # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
-            pinn_metrics = eval_reconstruction(
-                pinn_recon_aligned[None, ..., None],  # (1, H, W, 1)
-                cropped_gt[..., None]                 # (H, W, 1) - no batch dimension!
-            )
-            baseline_metrics = eval_reconstruction(
-                baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
-                cropped_gt[..., None]                     # (H, W, 1) - no batch dimension!
-            )
-            
-            # Save metrics
-            metrics_path = args.output_dir / "comparison_metrics.csv"
-            save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path)
-        else:
-            # Coordinate extraction failed, set fallback values
-            logger.warning("Coordinate extraction failed - using uncropped reconstructions")
-            cropped_gt = None
-            pinn_recon_aligned = np.squeeze(pinn_recon)
-            baseline_recon_aligned = np.squeeze(baseline_recon)
+        # 1. Define the stitching parameter
+        M_STITCH_SIZE = 20
+
+        # 2. Extract scan coordinates in (y, x) format
+        global_offsets = test_container.global_offsets
+        scan_coords_xy = np.squeeze(global_offsets)
+        scan_coords_yx = scan_coords_xy[:, [1, 0]]
+
+        # 3. Align PINN reconstruction
+        pinn_recon_aligned, gt_aligned_for_pinn = align_for_evaluation(
+            reconstruction_image=pinn_recon,
+            ground_truth_image=ground_truth_obj,
+            scan_coords_yx=scan_coords_yx,
+            stitch_patch_size=M_STITCH_SIZE
+        )
+        
+        # 4. Align Baseline reconstruction
+        baseline_recon_aligned, gt_aligned_for_baseline = align_for_evaluation(
+            reconstruction_image=baseline_recon,
+            ground_truth_image=ground_truth_obj,
+            scan_coords_yx=scan_coords_yx,
+            stitch_patch_size=M_STITCH_SIZE
+        )
+        
+        # The ground truth should be aligned identically for both, so we can use one.
+        cropped_gt = gt_aligned_for_pinn
+        
+        logger.info(f"Final evaluation shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}, GT {cropped_gt.shape}")
+        
+        # Evaluate with aligned arrays (add back dimensions for eval function)
+        # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
+        pinn_metrics = eval_reconstruction(
+            pinn_recon_aligned[None, ..., None],  # (1, H, W, 1)
+            cropped_gt[..., None]                 # (H, W, 1) - no batch dimension!
+        )
+        baseline_metrics = eval_reconstruction(
+            baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
+            cropped_gt[..., None]                     # (H, W, 1) - no batch dimension!
+        )
+        
+        # Save metrics
+        metrics_path = args.output_dir / "comparison_metrics.csv"
+        save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path)
     else:
         logger.warning("No ground truth object found in test data. Skipping metric evaluation.")
         cropped_gt = None
