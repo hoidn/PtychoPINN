@@ -78,7 +78,22 @@ def downsample_npz(
         if key in data_dict:
             data_dict[key] *= coord_scale_factor
 
-    # --- 4. Save the new file ---
+    # --- 4. Process Ground Truth Patches (if present) ---
+    if 'ground_truth_patches' in data_dict:
+        original_patches = data_dict['ground_truth_patches']
+        print(f"Processing 'ground_truth_patches' with shape {original_patches.shape}...")
+        
+        # Bin each patch instead of cropping to preserve physical consistency
+        binned_patches = np.array([
+            bin_complex_array(patch, bin_factor) for patch in original_patches
+        ])
+        
+        # Rename to 'Y' for data loader compatibility
+        data_dict['Y'] = binned_patches
+        del data_dict['ground_truth_patches']  # Remove original key
+        print(f"  Binned and renamed to 'Y' with shape: {binned_patches.shape}")
+
+    # --- 5. Save the new file ---
     print(f"Saving downsampled data to: {output_path}")
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
     np.savez_compressed(output_path, **data_dict)
