@@ -44,6 +44,9 @@ mkdir -p "$BASELINE_DIR"
 # Path to shared config
 CONFIG_FILE="configs/comparison_config.yaml"
 
+# Configuration overrides
+GRIDSIZE_OVERRIDE=1  # Override gridsize for baseline training
+
 echo "=========================================="
 echo "Starting PtychoPINN vs Baseline Comparison"
 echo "=========================================="
@@ -75,7 +78,7 @@ python scripts/run_baseline.py \
     --train_data_file "$TRAIN_DATA" \
     --test_data_file "$TEST_DATA" \
     --output_dir "$BASELINE_DIR" \
-    --gridsize 1
+    --gridsize "$GRIDSIZE_OVERRIDE"
 
 echo ""
 echo "Baseline training complete!"

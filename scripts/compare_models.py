@@ -95,20 +95,32 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
     axes[0, 0].set_ylabel("Phase", fontsize=14)
     axes[1, 0].set_ylabel("Amplitude", fontsize=14)
 
+    # Calculate shared amplitude scale
+    amp_pinn = np.abs(pinn_obj)
+    amp_baseline = np.abs(baseline_obj)
+    
+    if ground_truth_obj is not None:
+        amp_gt = np.abs(ground_truth_obj.squeeze())
+        v_amp_min = min(np.min(amp_pinn), np.min(amp_baseline), np.min(amp_gt))
+        v_amp_max = max(np.max(amp_pinn), np.max(amp_baseline), np.max(amp_gt))
+    else:
+        v_amp_min = min(np.min(amp_pinn), np.min(amp_baseline))
+        v_amp_max = max(np.max(amp_pinn), np.max(amp_baseline))
+
     # Plot PtychoPINN
     im1 = axes[0, 0].imshow(np.angle(pinn_obj), cmap='twilight', vmin=-np.pi, vmax=np.pi)
-    im2 = axes[1, 0].imshow(np.abs(pinn_obj), cmap='gray')
+    im2 = axes[1, 0].imshow(amp_pinn, cmap='gray', vmin=v_amp_min, vmax=v_amp_max)
     
     # Plot Baseline
     im3 = axes[0, 1].imshow(np.angle(baseline_obj), cmap='twilight', vmin=-np.pi, vmax=np.pi)
-    im4 = axes[1, 1].imshow(np.abs(baseline_obj), cmap='gray')
+    im4 = axes[1, 1].imshow(amp_baseline, cmap='gray', vmin=v_amp_min, vmax=v_amp_max)
     
     # Plot Ground Truth
     if ground_truth_obj is not None:
         # Remove extra dimensions if present
         gt_obj = ground_truth_obj.squeeze()
         im5 = axes[0, 2].imshow(np.angle(gt_obj), cmap='twilight', vmin=-np.pi, vmax=np.pi)
-        im6 = axes[1, 2].imshow(np.abs(gt_obj), cmap='gray')
+        im6 = axes[1, 2].imshow(amp_gt, cmap='gray', vmin=v_amp_min, vmax=v_amp_max)
     else:
         for ax in [axes[0, 2], axes[1, 2]]:
             ax.text(0.5, 0.5, "No Ground Truth", ha='center', va='center', 
@@ -192,7 +204,7 @@ def main():
     dummy_config = TrainingConfig(
         model=ModelConfig(N=test_data_raw.probeGuess.shape[0]),
         train_data_file=Path("dummy.npz"),
-        n_images=test_data_raw.diffraction.shape[0]
+        n_images=test_data_raw.diff3d.shape[0]
     )
     update_legacy_dict(p.cfg, dummy_config)
     
