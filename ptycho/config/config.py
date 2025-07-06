@@ -113,7 +113,9 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
         'probe_trainable': 'probe.trainable',
         'intensity_scale_trainable': 'intensity_scale.trainable',
         'positions_provided': 'positions.provided',
-        'output_dir': 'output_prefix'
+        'output_dir': 'output_prefix',
+        'train_data_file': 'train_data_file_path',
+        'test_data_file': 'test_data_file_path'
     }
 
     # Convert dataclass to dict
@@ -124,12 +126,17 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
         model_dict = d.pop('model')
         d.update(model_dict)
 
-    # Apply key mappings
+    # Apply key mappings and convert Path objects to strings
     for old_key, new_key in KEY_MAPPINGS.items():
         if old_key in d:
-            d[new_key] = d.pop(old_key)
+            value = d.pop(old_key)
+            # Convert Path objects to strings
+            if isinstance(value, Path):
+                d[new_key] = str(value)
+            else:
+                d[new_key] = value
 
-    # Convert Path to string
+    # Convert Path to string (legacy fallback)
     if 'output_dir' in d:
         d['output_prefix'] = str(d.pop('output_dir'))
 

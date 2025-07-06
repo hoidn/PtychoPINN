@@ -1,6 +1,6 @@
 #!/bin/bash
 # run_comparison.sh - Master script to train and compare PtychoPINN vs Baseline models
-# Usage: ./scripts/run_comparison.sh <train_data.npz> <test_data.npz> <output_dir>
+# Usage: ./scripts/run_comparison.sh <train_data.npz> <test_data.npz> <output_dir> [pinn_phase_vmin] [pinn_phase_vmax] [baseline_phase_vmin] [baseline_phase_vmax]
 
 set -e  # Exit on error
 
@@ -12,15 +12,22 @@ PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 cd "$PROJECT_ROOT"
 
 # Parse command line arguments
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 <train_data.npz> <test_data.npz> <output_dir>"
+if [ "$#" -lt 3 ] || [ "$#" -gt 7 ]; then
+    echo "Usage: $0 <train_data.npz> <test_data.npz> <output_dir> [pinn_phase_vmin] [pinn_phase_vmax] [baseline_phase_vmin] [baseline_phase_vmax]"
     echo "Example: $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results"
+    echo "Example with phase control: $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results -3.14159 3.14159 -3.14159 3.14159"
     exit 1
 fi
 
 TRAIN_DATA="$1"
 TEST_DATA="$2"
 OUTPUT_DIR="$3"
+
+# Optional phase control parameters
+PINN_PHASE_VMIN="${4:-}"
+PINN_PHASE_VMAX="${5:-}"
+BASELINE_PHASE_VMIN="${6:-}"
+BASELINE_PHASE_VMAX="${7:-}"
 
 # Verify input files exist
 if [ ! -f "$TRAIN_DATA" ]; then
@@ -54,6 +61,9 @@ echo "Train data: $TRAIN_DATA"
 echo "Test data: $TEST_DATA"
 echo "Output directory: $OUTPUT_DIR"
 echo "Config file: $CONFIG_FILE"
+if [ -n "$PINN_PHASE_VMIN" ] || [ -n "$PINN_PHASE_VMAX" ] || [ -n "$BASELINE_PHASE_VMIN" ] || [ -n "$BASELINE_PHASE_VMAX" ]; then
+    echo "Phase control: PtychoPINN [$PINN_PHASE_VMIN, $PINN_PHASE_VMAX], Baseline [$BASELINE_PHASE_VMIN, $BASELINE_PHASE_VMAX]"
+fi
 echo ""
 
 # Step 1: Train PtychoPINN model
@@ -87,11 +97,30 @@ echo ""
 # Step 3: Run comparison analysis
 echo "Step 3/3: Running comparison analysis..."
 echo "---------------------------------------"
-python scripts/compare_models.py \
-    --pinn_dir "$PINN_DIR" \
-    --baseline_dir "$BASELINE_DIR" \
-    --test_data "$TEST_DATA" \
-    --output_dir "$OUTPUT_DIR"
+
+# Build the command with optional phase parameters
+COMPARE_CMD="python scripts/compare_models.py \
+    --pinn_dir \"$PINN_DIR\" \
+    --baseline_dir \"$BASELINE_DIR\" \
+    --test_data \"$TEST_DATA\" \
+    --output_dir \"$OUTPUT_DIR\""
+
+# Add phase control parameters if provided
+if [ -n "$PINN_PHASE_VMIN" ]; then
+    COMPARE_CMD="$COMPARE_CMD --pinn_phase_vmin $PINN_PHASE_VMIN"
+fi
+if [ -n "$PINN_PHASE_VMAX" ]; then
+    COMPARE_CMD="$COMPARE_CMD --pinn_phase_vmax $PINN_PHASE_VMAX"
+fi
+if [ -n "$BASELINE_PHASE_VMIN" ]; then
+    COMPARE_CMD="$COMPARE_CMD --baseline_phase_vmin $BASELINE_PHASE_VMIN"
+fi
+if [ -n "$BASELINE_PHASE_VMAX" ]; then
+    COMPARE_CMD="$COMPARE_CMD --baseline_phase_vmax $BASELINE_PHASE_VMAX"
+fi
+
+# Execute the comparison command
+eval $COMPARE_CMD
 
 echo ""
 echo "=========================================="

@@ -55,9 +55,24 @@ ptycho_inference --model_path <path/to/model_dir> --test_data <path/to/test.npz>
 ### Simulating a Dataset
 
 ```bash
-# Simulate data from an existing object/probe file
-# This is useful for creating training data with specific noise properties or scan patterns.
-ptycho_simulate --input-file <path/to/obj_probe.npz> --output-file <path/to/new_sim_data.npz> --nimages 2000 --gridsize 1
+# Direct simulation tool - simulate data from an existing object/probe file
+python scripts/simulation/simulate_and_save.py \
+    --input-file <path/to/obj_probe.npz> \
+    --output-file <path/to/new_sim_data.npz> \
+    --n-images 2000 \
+    --gridsize 1
+
+# Example with visualization
+python scripts/simulation/simulate_and_save.py \
+    --input-file datasets/fly/fly001_transposed.npz \
+    --output-file sim_outputs/fly_simulation.npz \
+    --n-images 1000 \
+    --visualize
+
+# High-level simulation workflow (recommended for complex scenarios)
+python scripts/simulation/run_with_synthetic_lines.py \
+    --output-dir simulation_outputs \
+    --n-images 2000
 ```
 
 ### Running Tests
@@ -99,8 +114,7 @@ Parameters are controlled via YAML files (see `configs/`) or command-line argume
 | `train_data_file`   | `Path`        | **Required.** Path to the training dataset (`.npz` file).                                                       |
 | `test_data_file`    | `Optional[Path]`| Path to the test dataset (`.npz` file).                                                                        |
 | `n_images`          | `int`         | The number of diffraction patterns to use from the dataset. Default: `512`.                                    |
-| `gridsize`          | `int`         | For *simulated gridded data*, this defines the grid of patches (e.g., 2 for 2x2). For non-grid data, use `1`. |
-| `offset`            | `int`         | For *simulated gridded data*, the pixel spacing between adjacent scan positions.                               |
+| `gridsize`          | `int`         | For PINN-style models, this defines the number of neighboring patches to process together (e.g., 1 for single-patch processing, 2 for 2x2 neighbors). For supervised models, it defines the input channel depth. |
 
 ### Physics & Loss Parameters
 
@@ -140,10 +154,12 @@ File: `datasets/fly/fly001_transposed.npz`
 
 ## 6. Comparing Models: PtychoPINN vs Baseline
 
-A unified workflow is available to train and compare both PtychoPINN and supervised baseline models:
+### Complete Training + Comparison Workflow
+
+Use the `run_comparison.sh` script to train both models and compare them in one workflow:
 
 ```bash
-# Run the comparison workflow
+# Complete workflow: train both models + compare
 ./scripts/run_comparison.sh <train_data.npz> <test_data.npz> <output_dir>
 
 # Example:
@@ -154,11 +170,37 @@ A unified workflow is available to train and compare both PtychoPINN and supervi
 ```
 
 This workflow:
-1. Trains both models with identical hyperparameters (from `configs/comparison_config.yaml`)
-2. Runs inference on the test set
-3. Generates comparison outputs:
-   - `comparison_metrics.csv` - Performance metrics (MAE, MSE, PSNR) for both models
-   - `comparison_plot.png` - Side-by-side visual comparison of reconstructions
+1. Trains PtychoPINN model with identical hyperparameters (from `configs/comparison_config.yaml`)
+2. Trains baseline model with the same configuration
+3. Runs comparison analysis using `compare_models.py`
+
+### Compare Pre-Trained Models Only
+
+If you already have trained models, use `compare_models.py` directly:
+
+```bash
+# Compare two existing trained models
+python scripts/compare_models.py \
+    --pinn_dir <path/to/pinn/model/dir> \
+    --baseline_dir <path/to/baseline/model/dir> \
+    --test_data <path/to/test.npz> \
+    --output_dir <comparison_output_dir>
+
+# Example:
+python scripts/compare_models.py \
+    --pinn_dir training_outputs/pinn_run \
+    --baseline_dir training_outputs/baseline_run \
+    --test_data datasets/fly/fly001_transposed.npz \
+    --output_dir comparison_results
+```
+
+**Requirements:**
+- Both model directories must contain trained models (`wts.h5.zip` for PtychoPINN, `baseline_model.h5` for baseline)
+- Test data must contain `objectGuess` for ground truth comparison
+
+**Outputs:**
+- `comparison_plot.png` - Side-by-side visual comparison showing PtychoPINN, Baseline, and Ground Truth
+- `comparison_metrics.csv` - Quantitative metrics (MAE, MSE, PSNR, FRC) for both models
 
 ## 7. Understanding the Output Directory
 
