@@ -287,7 +287,7 @@ def get_image_patches(gt_image, global_offsets, local_offsets):
     offsets_f = hh._channel_to_flat(offsets_c)
 
     # Create a canvas to store the extracted patches
-    canvas = np.zeros((B, N, N, c))
+    canvas = np.zeros((B, N, N, c), dtype=np.complex64)
 
     # Iterate over the combined offsets and extract patches one by one
     for i in range(B * c):
@@ -425,18 +425,22 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
     
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
 
-    # --- NEW LOGIC: Generate Y patches from objectGuess if available ---
+    # --- FINAL ROBUST LOGIC ---
     Y4d_nn = None
-    if ptycho_data.objectGuess is not None:
-        print("INFO: Found objectGuess. Generating ground truth Y patches.")
-        # We need to use the grouped coordinates to generate patches
-        Y4d_nn = get_image_patches(ptycho_data.objectGuess, coords_offsets, coords_relative)
-    elif ptycho_data.Y is not None:
-        # Fallback for data that might already have patches (e.g. from_simulation)
-        print("INFO: Using pre-existing Y patches.")
+    if ptycho_data.Y is not None:
+        # This is the only acceptable path for pre-prepared data.
+        print("INFO: Using pre-computed 'Y' array from the input file.")
+        # Convert (n_groups, n_neighbors, H, W) -> (n_groups, H, W, n_neighbors)
         Y4d_nn = np.transpose(ptycho_data.Y[nn_indices], [0, 2, 3, 1])
-    # If neither is available, Y4d_nn remains None, and the loader will create a placeholder.
-    # --- END NEW LOGIC ---
+    else:
+        # Fail loudly if the expected 'Y' array is not present.
+        raise ValueError(
+            "The input data file does not contain the required 'Y' array with "
+            "ground truth patches. This is a fatal error for supervised training. "
+            "Please ensure the data has been fully processed by the "
+            "`downsample_data_tool.py` script."
+        )
+    # --- END FINAL LOGIC ---
 
     if ptycho_data.xcoords_start is not None:
         coords_start_nn = np.transpose(np.array([ptycho_data.xcoords_start[nn_indices], ptycho_data.ycoords_start[nn_indices]]),

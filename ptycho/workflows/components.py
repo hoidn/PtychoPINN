@@ -92,9 +92,25 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     ycoords = data['ycoords']
     xcoords_start = data['xcoords_start']
     ycoords_start = data['ycoords_start']
-    diff3d = np.transpose(data['diffraction'], [2, 0, 1])
+    
+    # Handle flexible diffraction key and shape
+    diff_key = 'diff3d' if 'diff3d' in data else 'diffraction'
+    diff_data = data[diff_key]
+    
+    # Only transpose if the data is in (H, W, N) format, not if it's already (N, H, W)
+    if diff_data.shape[0] < diff_data.shape[2]:
+        # Data is in (H, W, N) format, transpose to (N, H, W)
+        diff3d = np.transpose(diff_data, [2, 0, 1])
+    else:
+        # Data is already in (N, H, W) format
+        diff3d = diff_data
+    
     probeGuess = data['probeGuess']
     objectGuess = data['objectGuess']
+    
+    # --- FIX: Load the 'Y' array if it exists ---
+    Y_patches = data['Y'] if 'Y' in data else None
+    # ---------------------------------------------
 
     # Apply coordinate transformations
     if flip_x:
@@ -126,7 +142,9 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     ptycho_data = RawData(xcoords[:n_images], ycoords[:n_images],
                           xcoords_start[:n_images], ycoords_start[:n_images],
                           diff3d[:n_images], probeGuess,
-                          scan_index[:n_images], objectGuess=objectGuess)
+                          scan_index[:n_images], objectGuess=objectGuess,
+                          # --- FIX: Pass the loaded Y array to the constructor ---
+                          Y=(Y_patches[:n_images] if Y_patches is not None else None))
 
     return ptycho_data
 

@@ -83,14 +83,32 @@ def downsample_npz(
         original_patches = data_dict['ground_truth_patches']
         print(f"Processing 'ground_truth_patches' with shape {original_patches.shape}...")
         
-        # Bin each patch instead of cropping to preserve physical consistency
-        binned_patches = np.array([
-            bin_complex_array(patch, bin_factor) for patch in original_patches
-        ])
+        # HARDENED: Only accept complex arrays, fail loud if real-valued
+        if not np.iscomplexobj(original_patches):
+            raise ValueError(
+                "FATAL ERROR: Ground truth patches are real-valued, but they must be complex. "
+                "This indicates a bug in the simulation pipeline (likely in get_image_patches). "
+                "Real-valued patches lose critical phase information and cannot be used for "
+                "supervised training. Please regenerate the simulation data after fixing "
+                "the root cause in ptycho/raw_data.py."
+            )
+        
+        # Correct case: complex patches
+        print("  Ground truth patches are complex-valued (correct).")
+        if original_patches.ndim == 4 and original_patches.shape[-1] == 1:
+            # Shape: (N, H, W, 1) - remove last dimension, bin, restore
+            binned_patches = np.array([
+                bin_complex_array(patch[..., 0], bin_factor)[..., None] for patch in original_patches
+            ])
+        else:
+            # Shape: (N, H, W) - bin directly
+            binned_patches = np.array([
+                bin_complex_array(patch, bin_factor) for patch in original_patches
+            ])
         
         # Rename to 'Y' for data loader compatibility
         data_dict['Y'] = binned_patches
-        del data_dict['ground_truth_patches']  # Remove original key
+        del data_dict['ground_truth_patches']
         print(f"  Binned and renamed to 'Y' with shape: {binned_patches.shape}")
 
     # --- 5. Save the new file ---
