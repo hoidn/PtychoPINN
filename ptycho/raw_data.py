@@ -422,12 +422,21 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
                                          K = K, C = C, nsamples = nsamples)
 
     diff4d_nn = np.transpose(ptycho_data.diff3d[nn_indices], [0, 2, 3, 1])
-    if ptycho_data.Y is not None:
-        Y4d_nn = np.transpose(ptycho_data.Y[nn_indices], [0, 2, 3, 1])
-    else:
-        Y4d_nn = None
-
+    
     coords_offsets, coords_relative = get_relative_coords(coords_nn)
+
+    # --- NEW LOGIC: Generate Y patches from objectGuess if available ---
+    Y4d_nn = None
+    if ptycho_data.objectGuess is not None:
+        print("INFO: Found objectGuess. Generating ground truth Y patches.")
+        # We need to use the grouped coordinates to generate patches
+        Y4d_nn = get_image_patches(ptycho_data.objectGuess, coords_offsets, coords_relative)
+    elif ptycho_data.Y is not None:
+        # Fallback for data that might already have patches (e.g. from_simulation)
+        print("INFO: Using pre-existing Y patches.")
+        Y4d_nn = np.transpose(ptycho_data.Y[nn_indices], [0, 2, 3, 1])
+    # If neither is available, Y4d_nn remains None, and the loader will create a placeholder.
+    # --- END NEW LOGIC ---
 
     if ptycho_data.xcoords_start is not None:
         coords_start_nn = np.transpose(np.array([ptycho_data.xcoords_start[nn_indices], ptycho_data.ycoords_start[nn_indices]]),
