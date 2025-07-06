@@ -298,7 +298,7 @@ def load_xpp_npz(file_path, train_size=512):
     ycoords = data['ycoords']
     xcoords_start = data['xcoords_start']
     ycoords_start = data['ycoords_start']
-    diff3d = np.transpose(data['diffraction'], [2, 0, 1])
+    diff3d = data['diffraction']#np.transpose(data['diffraction'], [2, 0, 1])
     probeGuess = data['probeGuess']
     objectGuess = data['objectGuess']
 
