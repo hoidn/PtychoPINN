@@ -25,6 +25,7 @@ from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
 from ptycho.tf_helper import reassemble_position
 from ptycho.evaluation import eval_reconstruction
+from ptycho.nbutils import crop_to_non_uniform_region_with_buffer
 
 
 def parse_args():
@@ -254,31 +255,60 @@ def main():
     # Evaluate reconstructions
     pinn_metrics = {}
     baseline_metrics = {}
+    cropped_gt = None
     
     if ground_truth_obj is not None:
         logger.info("Evaluating reconstructions against ground truth...")
         
-        # Evaluate PtychoPINN
-        pinn_metrics = eval_reconstruction(
-            pinn_recon[None, ...], 
-            ground_truth_obj
-        )
-        
-        # Evaluate Baseline
-        baseline_metrics = eval_reconstruction(
-            baseline_recon[None, ...], 
-            ground_truth_obj
-        )
-        
-        # Save metrics
-        metrics_path = args.output_dir / "comparison_metrics.csv"
-        save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path)
+        try:
+            # Separate the ground truth into amplitude and phase
+            gt_obj_squeezed = ground_truth_obj.squeeze()
+            gt_amplitude = np.abs(gt_obj_squeezed)
+            gt_phase = np.angle(gt_obj_squeezed)
+            
+            logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
+            
+            # Crop ground truth to non-uniform region with buffer=-20
+            gt_amplitude_cropped = crop_to_non_uniform_region_with_buffer(gt_amplitude, buffer=-20)
+            gt_phase_cropped = crop_to_non_uniform_region_with_buffer(gt_phase, buffer=-20)
+            
+            # Recombine into complex cropped_gt array
+            cropped_gt = gt_amplitude_cropped * np.exp(1j * gt_phase_cropped)
+            logger.info(f"Cropped ground truth from {gt_obj_squeezed.shape} to {cropped_gt.shape}")
+            
+            # Final alignment crop: slice reconstructions to exact shape of cropped ground truth
+            target_shape = gt_amplitude_cropped.shape
+            pinn_recon_aligned = pinn_recon[:target_shape[0], :target_shape[1]]
+            baseline_recon_aligned = baseline_recon[:target_shape[0], :target_shape[1]]
+            
+            logger.info(f"Aligned reconstruction shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}")
+            
+            # Evaluate PtychoPINN using cropped_gt
+            pinn_metrics = eval_reconstruction(
+                pinn_recon_aligned[None, ...], 
+                cropped_gt[None, ..., None]
+            )
+            
+            # Evaluate Baseline using cropped_gt
+            baseline_metrics = eval_reconstruction(
+                baseline_recon_aligned[None, ...], 
+                cropped_gt[None, ..., None]
+            )
+            
+            # Save metrics
+            metrics_path = args.output_dir / "comparison_metrics.csv"
+            save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path)
+            
+        except Exception as e:
+            logger.warning(f"Could not crop ground truth for evaluation: {e}")
+            logger.warning("Skipping metric evaluation.")
+            cropped_gt = None
     else:
         logger.warning("No ground truth object found in test data. Skipping metric evaluation.")
 
-    # Create comparison plot
+    # Create comparison plot using cropped_gt (can handle None)
     plot_path = args.output_dir / "comparison_plot.png"
-    create_comparison_plot(pinn_recon, baseline_recon, ground_truth_obj, plot_path)
+    create_comparison_plot(pinn_recon, baseline_recon, cropped_gt, plot_path)
     
     logger.info("\nComparison complete!")
     logger.info(f"Results saved to: {args.output_dir}")
