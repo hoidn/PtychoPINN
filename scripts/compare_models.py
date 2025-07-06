@@ -268,30 +268,57 @@ def main():
         logger.info("Evaluating reconstructions against ground truth...")
         
         try:
-            gt_amplitude_cropped = crop_to_non_uniform_region_with_buffer(np.abs(ground_truth_obj.squeeze()), buffer=-20)
-            gt_phase_cropped = crop_to_non_uniform_region_with_buffer(np.angle(ground_truth_obj.squeeze()), buffer=-20)
-            cropped_gt = (gt_amplitude_cropped * np.exp(1j * gt_phase_cropped))[None, ..., None]
+            # Separate the ground truth into amplitude and phase
+            gt_obj_squeezed = ground_truth_obj.squeeze()
+            gt_amplitude = np.abs(gt_obj_squeezed)
+            gt_phase = np.angle(gt_obj_squeezed)
             
-            # Align reconstructions to the cropped ground truth
-            pinn_recon_aligned = pinn_recon[:cropped_gt.shape[1], :cropped_gt.shape[2]]
-            baseline_recon_aligned = baseline_recon[:cropped_gt.shape[1], :cropped_gt.shape[2]]
-
-            pinn_metrics = eval_reconstruction(pinn_recon_aligned[None, ...], cropped_gt)
-            baseline_metrics = eval_reconstruction(baseline_recon_aligned[None, ...], cropped_gt)
+            logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
+            
+            # Crop ground truth to non-uniform region with buffer=-20
+            gt_amplitude_cropped = crop_to_non_uniform_region_with_buffer(gt_amplitude, buffer=-20)
+            gt_phase_cropped = crop_to_non_uniform_region_with_buffer(gt_phase, buffer=-20)
+            
+            # Recombine into complex cropped_gt array
+            cropped_gt = gt_amplitude_cropped * np.exp(1j * gt_phase_cropped)
+            logger.info(f"Cropped ground truth from {gt_obj_squeezed.shape} to {cropped_gt.shape}")
+            
+            # Simple alignment crop: slice reconstructions to match cropped ground truth
+            target_shape = cropped_gt.shape
+            pinn_recon_aligned = pinn_recon[:target_shape[0], :target_shape[1]]
+            baseline_recon_aligned = baseline_recon[:target_shape[0], :target_shape[1]]
+            
+            logger.info(f"Aligned reconstruction shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}")
+            
+            # Evaluate with aligned arrays (add back dimensions for eval function)
+            pinn_metrics = eval_reconstruction(
+                pinn_recon_aligned[None, ...], 
+                cropped_gt[None, ..., None]
+            )
+            baseline_metrics = eval_reconstruction(
+                baseline_recon_aligned[None, ...], 
+                cropped_gt[None, ..., None]
+            )
             
             # Save metrics
             metrics_path = args.output_dir / "comparison_metrics.csv"
             save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path)
             
-        except ValueError as e:
+        except Exception as e:
             logger.warning(f"Could not crop ground truth for evaluation: {e}")
+            logger.warning("Skipping metric evaluation.")
             cropped_gt = None
     else:
         logger.warning("No ground truth object found in test data. Skipping metric evaluation.")
 
     # Create comparison plot using cropped_gt (can handle None)
     plot_path = args.output_dir / "comparison_plot.png"
-    create_comparison_plot(pinn_recon, baseline_recon, cropped_gt, plot_path)
+    
+    # Use aligned reconstructions if they exist, otherwise use full reconstructions
+    if 'pinn_recon_aligned' in locals() and 'baseline_recon_aligned' in locals():
+        create_comparison_plot(pinn_recon_aligned, baseline_recon_aligned, cropped_gt, plot_path)
+    else:
+        create_comparison_plot(pinn_recon, baseline_recon, cropped_gt, plot_path)
     
     logger.info("\nComparison complete!")
     logger.info(f"Results saved to: {args.output_dir}")
