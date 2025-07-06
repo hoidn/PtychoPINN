@@ -31,7 +31,7 @@ pip install -e .
 ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_images 512 --output_dir verification_run
 ```
 
-If the verification run completes without errors, the environment is correct.
+If the verification run completes and creates files in the `verification_run/` directory, the environment is correct.
 
 ## 2. Key Workflows & Commands
 
@@ -137,3 +137,19 @@ File: `datasets/fly/fly001_transposed.npz`
 -   **Data Loading (`ptycho/loader.py`, `ptycho/raw_data.py`)**: Defines `RawData` (for raw files) and `PtychoDataContainer` (for model-ready data).
 -   **Model (`ptycho/model.py`)**: Defines the U-Net architecture and the custom Keras layers that incorporate the physics.
 -   **Simulation (`ptycho/diffsim.py`, `ptycho/nongrid_simulation.py`)**: Contains the functions for generating simulated diffraction data from an object and probe.
+
+## 6. Understanding the Output Directory
+
+After a successful training run using `ptycho_train --output_dir <my_run>`, the output directory will contain several key files:
+
+- **`wts.h5.zip`**: This is the primary output. It's a zip archive containing the trained model weights and architecture for both the main autoencoder and the inference-only `diffraction_to_obj` model. Use `ModelManager.load_multiple_models()` to load it.
+- **`history.dill`**: A Python pickle file (using dill) containing the training history dictionary. You can load it to plot loss curves:
+  ```python
+  import dill
+  with open('<my_run>/history.dill', 'rb') as f:
+      history = dill.load(f)
+  plt.plot(history['loss'])
+  ```
+- **`reconstructed_amplitude.png` / `reconstructed_phase.png`**: Visualizations of the final reconstructed object from the test set, if stitching was performed.
+- **`metrics.csv`**: If a ground truth object was available, this file contains quantitative image quality metrics (MAE, PSNR, FRC) comparing the reconstruction to the ground truth.
+- **`params.dill`**: A snapshot of the full configuration used for the run, for reproducibility.
