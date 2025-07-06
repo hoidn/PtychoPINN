@@ -152,8 +152,8 @@ def psnr(target, pred, normalize = True, shift = False):
     for phase inputs, assume that global shift has already been taken care off
     """
     import cv2
-    target = np.array(target)
-    pred = np.array(pred)
+    target = np.array(target, dtype=np.float32)
+    pred = np.array(pred, dtype=np.float32)
     if normalize:
         scale = np.mean(target) / np.mean(pred)
     else:

@@ -18,7 +18,7 @@ from ptycho.evaluation import save_metrics
 from ptycho.export import save_recons
 from ptycho.loader import PtychoDataset, PtychoDataContainer, RawData
 from ptycho.image import reassemble_patches
-from ptycho.image.cropping import crop_to_scan_area
+from ptycho.image.cropping import align_for_evaluation
 from ptycho import probe as probe_module
 from ptycho.tf_helper import reassemble_position
 
@@ -153,76 +153,23 @@ if stitched_obj is not None and YY_ground_truth is not None:
 
     logger.info("Aligning ground truth to match reconstruction bounds...")
     
-    # --- CORRECTED APPROACH: Let the reconstruction drive the cropping ---
-    # The reconstruction (188x188) comes from stitching with M=20 and defines the actual measured region
-    # We need to find what region of the ground truth corresponds to this reconstruction
+    # --- REFACTORED ALIGNMENT LOGIC ---
     
-    # Extract scan coordinates and parameters used in reconstruction
-    scan_coords_xy = np.squeeze(global_offsets)  # (n_images, 2) with [x, y] coordinates
-    scan_coords_yx = scan_coords_xy[:, [1, 0]]   # Convert to [y, x] format
-    M = 20  # Patch size used in reassemble_position (from line 131)
+    # 1. Define the stitching parameter
+    M_STITCH_SIZE = 20 
     
-    logger.info(f"Reconstruction shape: {recon_complex.shape}")
-    logger.info(f"Ground truth shape: {gt_complex.shape}")
-    logger.info(f"Using scan coordinates with M={M} patch size")
-    logger.info(f"Scan coordinate range: y=[{scan_coords_yx[:, 0].min():.1f}, {scan_coords_yx[:, 0].max():.1f}], x=[{scan_coords_yx[:, 1].min():.1f}, {scan_coords_yx[:, 1].max():.1f}]")
-    
-    # The reconstruction bounds are determined by:
-    # 1. The scan coordinate range 
-    # 2. The patch size M used in stitching
-    # We need to crop the ground truth to match these exact bounds
-    
-    # Calculate the effective region that the reconstruction covers
-    # Use M/2 as the effective radius since M=20 means each scan position contributes a 20x20 region
-    effective_radius = M // 2
-    
-    # Get the bounding box that matches what the reconstruction algorithm would produce
-    min_y, min_x = scan_coords_yx.min(axis=0)
-    max_y, max_x = scan_coords_yx.max(axis=0)
-    
-    # The reconstruction bounds are determined by scan range + effective patch contribution
-    recon_start_row = int(min_y) - effective_radius
-    recon_end_row = int(max_y) + effective_radius
-    recon_start_col = int(min_x) - effective_radius  
-    recon_end_col = int(max_x) + effective_radius
-    
-    # Clamp to ground truth bounds
-    recon_start_row = max(0, recon_start_row)
-    recon_end_row = min(gt_complex.shape[0], recon_end_row)
-    recon_start_col = max(0, recon_start_col)
-    recon_end_col = min(gt_complex.shape[1], recon_end_col)
-    
-    logger.info(f"Calculated reconstruction region: rows [{recon_start_row}:{recon_end_row}], cols [{recon_start_col}:{recon_end_col}]")
-    
-    # Crop the ground truth to match this region
-    gt_obj_cropped = gt_complex[recon_start_row:recon_end_row, recon_start_col:recon_end_col]
-    
-    # Now both images should be the same size, but if not, adjust to match exactly
-    if recon_complex.shape != gt_obj_cropped.shape:
-        logger.info(f"Fine-tuning size alignment: recon={recon_complex.shape}, gt_cropped={gt_obj_cropped.shape}")
-        
-        # Center-crop the larger image to match the smaller one
-        target_h = min(recon_complex.shape[0], gt_obj_cropped.shape[0])
-        target_w = min(recon_complex.shape[1], gt_obj_cropped.shape[1])
-        
-        # Crop reconstruction if needed
-        if recon_complex.shape[0] > target_h or recon_complex.shape[1] > target_w:
-            r_start = (recon_complex.shape[0] - target_h) // 2
-            c_start = (recon_complex.shape[1] - target_w) // 2
-            recon_obj_cropped = recon_complex[r_start:r_start + target_h, c_start:c_start + target_w]
-        else:
-            recon_obj_cropped = recon_complex
-            
-        # Crop ground truth if needed  
-        if gt_obj_cropped.shape[0] > target_h or gt_obj_cropped.shape[1] > target_w:
-            r_start = (gt_obj_cropped.shape[0] - target_h) // 2
-            c_start = (gt_obj_cropped.shape[1] - target_w) // 2
-            gt_obj_cropped = gt_obj_cropped[r_start:r_start + target_h, c_start:c_start + target_w]
-            
-        logger.info(f"Final aligned shapes: recon={recon_obj_cropped.shape}, gt={gt_obj_cropped.shape}")
-    else:
-        recon_obj_cropped = recon_complex
-        logger.info(f"Perfect size match achieved: {recon_obj_cropped.shape}")
+    # 2. Extract scan coordinates in (y, x) format
+    global_offsets = ptycho_dataset.test_data.global_offsets
+    scan_coords_xy = np.squeeze(global_offsets)
+    scan_coords_yx = scan_coords_xy[:, [1, 0]] # Convert to (y, x)
+
+    # 3. Call the centralized alignment function
+    recon_obj_cropped, gt_obj_cropped = align_for_evaluation(
+        reconstruction_image=recon_complex,
+        ground_truth_image=gt_complex,
+        scan_coords_yx=scan_coords_yx,
+        stitch_patch_size=M_STITCH_SIZE
+    )
     
     # Add back dimensions required by the evaluation function
     # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
