@@ -25,7 +25,8 @@ from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
 from ptycho.tf_helper import reassemble_position
 from ptycho.evaluation import eval_reconstruction
-from ptycho.nbutils import crop_to_non_uniform_region_with_buffer
+
+# NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
 
 
 def parse_args():
@@ -219,6 +220,12 @@ def main():
     pinn_model = load_pinn_model(args.pinn_dir)
     baseline_model = load_baseline_model(args.baseline_dir)
 
+    # TODO: This import is delayed because ptycho.nbutils -> ptycho.model has
+    # import-time dependencies on global params.cfg keys ('probe', 'intensity_scale').
+    # Loading the models first populates these keys. A better long-term fix
+    # would be to refactor ptycho.model to remove module-level state access.
+    from ptycho.nbutils import crop_to_non_uniform_region_with_buffer
+
     # Run inference for PtychoPINN
     logger.info("Running inference with PtychoPINN...")
     # PtychoPINN model requires both diffraction patterns and position coordinates
@@ -261,47 +268,23 @@ def main():
         logger.info("Evaluating reconstructions against ground truth...")
         
         try:
-            # Separate the ground truth into amplitude and phase
-            gt_obj_squeezed = ground_truth_obj.squeeze()
-            gt_amplitude = np.abs(gt_obj_squeezed)
-            gt_phase = np.angle(gt_obj_squeezed)
+            gt_amplitude_cropped = crop_to_non_uniform_region_with_buffer(np.abs(ground_truth_obj.squeeze()), buffer=-20)
+            gt_phase_cropped = crop_to_non_uniform_region_with_buffer(np.angle(ground_truth_obj.squeeze()), buffer=-20)
+            cropped_gt = (gt_amplitude_cropped * np.exp(1j * gt_phase_cropped))[None, ..., None]
             
-            logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
-            
-            # Crop ground truth to non-uniform region with buffer=-20
-            gt_amplitude_cropped = crop_to_non_uniform_region_with_buffer(gt_amplitude, buffer=-20)
-            gt_phase_cropped = crop_to_non_uniform_region_with_buffer(gt_phase, buffer=-20)
-            
-            # Recombine into complex cropped_gt array
-            cropped_gt = gt_amplitude_cropped * np.exp(1j * gt_phase_cropped)
-            logger.info(f"Cropped ground truth from {gt_obj_squeezed.shape} to {cropped_gt.shape}")
-            
-            # Final alignment crop: slice reconstructions to exact shape of cropped ground truth
-            target_shape = gt_amplitude_cropped.shape
-            pinn_recon_aligned = pinn_recon[:target_shape[0], :target_shape[1]]
-            baseline_recon_aligned = baseline_recon[:target_shape[0], :target_shape[1]]
-            
-            logger.info(f"Aligned reconstruction shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}")
-            
-            # Evaluate PtychoPINN using cropped_gt
-            pinn_metrics = eval_reconstruction(
-                pinn_recon_aligned[None, ...], 
-                cropped_gt[None, ..., None]
-            )
-            
-            # Evaluate Baseline using cropped_gt
-            baseline_metrics = eval_reconstruction(
-                baseline_recon_aligned[None, ...], 
-                cropped_gt[None, ..., None]
-            )
+            # Align reconstructions to the cropped ground truth
+            pinn_recon_aligned = pinn_recon[:cropped_gt.shape[1], :cropped_gt.shape[2]]
+            baseline_recon_aligned = baseline_recon[:cropped_gt.shape[1], :cropped_gt.shape[2]]
+
+            pinn_metrics = eval_reconstruction(pinn_recon_aligned[None, ...], cropped_gt)
+            baseline_metrics = eval_reconstruction(baseline_recon_aligned[None, ...], cropped_gt)
             
             # Save metrics
             metrics_path = args.output_dir / "comparison_metrics.csv"
             save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path)
             
-        except Exception as e:
+        except ValueError as e:
             logger.warning(f"Could not crop ground truth for evaluation: {e}")
-            logger.warning("Skipping metric evaluation.")
             cropped_gt = None
     else:
         logger.warning("No ground truth object found in test data. Skipping metric evaluation.")
