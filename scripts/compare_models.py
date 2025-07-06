@@ -25,6 +25,7 @@ from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
 from ptycho.tf_helper import reassemble_position
 from ptycho.evaluation import eval_reconstruction
+from ptycho.image.cropping import crop_to_scan_area
 
 # NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
 
@@ -229,8 +230,9 @@ def main():
     # Run inference for PtychoPINN
     logger.info("Running inference with PtychoPINN...")
     # PtychoPINN model requires both diffraction patterns and position coordinates
+    # Scale the input data by intensity_scale to match training normalization
     pinn_patches = pinn_model.predict(
-        [test_container.X, test_container.coords_nominal],
+        [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
         batch_size=32,
         verbose=1
     )
@@ -264,61 +266,107 @@ def main():
     baseline_metrics = {}
     cropped_gt = None
     
+    # Coordinate-based ground truth alignment and evaluation
     if ground_truth_obj is not None:
-        logger.info("Evaluating reconstructions against ground truth...")
+        logger.info("Performing coordinate-based alignment of ground truth...")
         
-        try:
-            # Separate the ground truth into amplitude and phase
-            gt_obj_squeezed = ground_truth_obj.squeeze()
-            gt_amplitude = np.abs(gt_obj_squeezed)
-            gt_phase = np.angle(gt_obj_squeezed)
+        # Squeeze ground truth to 2D
+        gt_obj_squeezed = ground_truth_obj.squeeze()
+        logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
+        
+        # Extract scan coordinates from test container  
+        scan_coords_yx = None
+        if hasattr(test_container, 'global_offsets') and test_container.global_offsets is not None:
+            # global_offsets has shape (n_images, 1, 2, 1) with [x, y] coordinates
+            scan_coords_xy = np.squeeze(test_container.global_offsets)  # Remove singleton dimensions -> (n_images, 2)
+            # Convert from [x, y] to [y, x] format for cropping function
+            scan_coords_yx = scan_coords_xy[:, [1, 0]]  # Swap x and y columns
+        elif hasattr(test_container, 'coords_nominal') and test_container.coords_nominal is not None:
+            scan_coords_xy = test_container.coords_nominal
+            scan_coords_yx = scan_coords_xy[:, [1, 0]]  # Swap x and y columns
+        else:
+            logger.error("No scan coordinates found in test data - cannot perform coordinate-based alignment")
+        
+        if scan_coords_yx is not None:
+            # Use M=20 from reassemble_position to define effective bounds
+            M = 20  # Patch size used in reassemble_position
+            effective_radius = M // 2
             
-            logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
+            logger.info(f"Using {len(scan_coords_yx)} scan positions for coordinate-based cropping")
+            logger.info(f"Patch size M={M}, effective radius: {effective_radius} pixels")
+            logger.info(f"Scan coordinate range: y=[{scan_coords_yx[:, 0].min():.1f}, {scan_coords_yx[:, 0].max():.1f}], x=[{scan_coords_yx[:, 1].min():.1f}, {scan_coords_yx[:, 1].max():.1f}]")
             
-            # Crop ground truth to non-uniform region with buffer=-20
-            gt_amplitude_cropped = crop_to_non_uniform_region_with_buffer(gt_amplitude, buffer=-20)
-            gt_phase_cropped = crop_to_non_uniform_region_with_buffer(gt_phase, buffer=-20)
+            # Calculate the reconstruction bounds directly
+            min_y, min_x = scan_coords_yx.min(axis=0)
+            max_y, max_x = scan_coords_yx.max(axis=0)
             
-            # Recombine into complex cropped_gt array
-            cropped_gt = gt_amplitude_cropped * np.exp(1j * gt_phase_cropped)
+            # The reconstruction bounds are determined by scan range + effective patch contribution
+            recon_start_row = max(0, int(min_y) - effective_radius)
+            recon_end_row = min(gt_obj_squeezed.shape[0], int(max_y) + effective_radius)
+            recon_start_col = max(0, int(min_x) - effective_radius)
+            recon_end_col = min(gt_obj_squeezed.shape[1], int(max_x) + effective_radius)
+            
+            # Crop ground truth to match reconstruction bounds
+            cropped_gt = gt_obj_squeezed[recon_start_row:recon_end_row, recon_start_col:recon_end_col]
             logger.info(f"Cropped ground truth from {gt_obj_squeezed.shape} to {cropped_gt.shape}")
             
-            # Simple alignment crop: slice reconstructions to match cropped ground truth
-            target_shape = cropped_gt.shape
-            pinn_recon_aligned = pinn_recon[:target_shape[0], :target_shape[1]]
-            baseline_recon_aligned = baseline_recon[:target_shape[0], :target_shape[1]]
+            # Crop reconstructions to same area (remove extra dimensions first)
+            pinn_recon_2d = np.squeeze(pinn_recon)  # Remove any extra dimensions
+            baseline_recon_2d = np.squeeze(baseline_recon)  # Remove any extra dimensions
             
-            logger.info(f"Aligned reconstruction shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}")
+            # The reconstructions should already be at the right size, but let's verify
+            logger.info(f"Reconstruction shapes before alignment: PINN {pinn_recon_2d.shape}, Baseline {baseline_recon_2d.shape}")
+            
+            # In most cases, reconstructions are already the correct size
+            # But we'll ensure they match the cropped ground truth exactly
+            pinn_recon_aligned = pinn_recon_2d
+            baseline_recon_aligned = baseline_recon_2d
+            
+            # Ensure all arrays have exactly the same shape by center-cropping to smallest
+            target_h = min(pinn_recon_aligned.shape[0], baseline_recon_aligned.shape[0], cropped_gt.shape[0])
+            target_w = min(pinn_recon_aligned.shape[1], baseline_recon_aligned.shape[1], cropped_gt.shape[1])
+            
+            def center_crop(img, target_h, target_w):
+                h, w = img.shape
+                start_h = (h - target_h) // 2
+                start_w = (w - target_w) // 2
+                return img[start_h:start_h + target_h, start_w:start_w + target_w]
+            
+            pinn_recon_aligned = center_crop(pinn_recon_aligned, target_h, target_w)
+            baseline_recon_aligned = center_crop(baseline_recon_aligned, target_h, target_w)
+            cropped_gt = center_crop(cropped_gt, target_h, target_w)
+            
+            logger.info(f"Final evaluation shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}, GT {cropped_gt.shape}")
             
             # Evaluate with aligned arrays (add back dimensions for eval function)
+            # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
             pinn_metrics = eval_reconstruction(
-                pinn_recon_aligned[None, ...], 
-                cropped_gt[None, ..., None]
+                pinn_recon_aligned[None, ..., None],  # (1, H, W, 1)
+                cropped_gt[..., None]                 # (H, W, 1) - no batch dimension!
             )
             baseline_metrics = eval_reconstruction(
-                baseline_recon_aligned[None, ...], 
-                cropped_gt[None, ..., None]
+                baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
+                cropped_gt[..., None]                     # (H, W, 1) - no batch dimension!
             )
             
             # Save metrics
             metrics_path = args.output_dir / "comparison_metrics.csv"
             save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path)
-            
-        except Exception as e:
-            logger.warning(f"Could not crop ground truth for evaluation: {e}")
-            logger.warning("Skipping metric evaluation.")
+        else:
+            # Coordinate extraction failed, set fallback values
+            logger.warning("Coordinate extraction failed - using uncropped reconstructions")
             cropped_gt = None
+            pinn_recon_aligned = np.squeeze(pinn_recon)
+            baseline_recon_aligned = np.squeeze(baseline_recon)
     else:
         logger.warning("No ground truth object found in test data. Skipping metric evaluation.")
+        cropped_gt = None
+        pinn_recon_aligned = np.squeeze(pinn_recon)
+        baseline_recon_aligned = np.squeeze(baseline_recon)
 
-    # Create comparison plot using cropped_gt (can handle None)
+    # Create comparison plot
     plot_path = args.output_dir / "comparison_plot.png"
-    
-    # Use aligned reconstructions if they exist, otherwise use full reconstructions
-    if 'pinn_recon_aligned' in locals() and 'baseline_recon_aligned' in locals():
-        create_comparison_plot(pinn_recon_aligned, baseline_recon_aligned, cropped_gt, plot_path)
-    else:
-        create_comparison_plot(pinn_recon, baseline_recon, cropped_gt, plot_path)
+    create_comparison_plot(pinn_recon_aligned, baseline_recon_aligned, cropped_gt, plot_path)
     
     logger.info("\nComparison complete!")
     logger.info(f"Results saved to: {args.output_dir}")

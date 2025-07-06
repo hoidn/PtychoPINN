@@ -206,7 +206,7 @@ def frc50(target, pred, sigma = 1):
         raise ValueError
     if np.max(target) == np.min(target) == 0:
         return None, np.nan
-    from FRC import fourier_ring_corr as frc
+    from ptycho.FRC import fourier_ring_corr as frc
     shellcorr = frc.FSC(np.array(target), np.array(pred))
     shellcorr = gf(shellcorr, sigma)
     return shellcorr, np.where(shellcorr < .5)[0][0]
