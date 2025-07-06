@@ -261,15 +261,13 @@ def main():
         # Evaluate PtychoPINN
         pinn_metrics = eval_reconstruction(
             pinn_recon[None, ...], 
-            ground_truth_obj,
-            cropzone=20
+            ground_truth_obj
         )
         
         # Evaluate Baseline
         baseline_metrics = eval_reconstruction(
             baseline_recon[None, ...], 
-            ground_truth_obj,
-            cropzone=20
+            ground_truth_obj
         )
         
         # Save metrics
