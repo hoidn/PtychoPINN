@@ -182,16 +182,24 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         ax.set_xticks([])
         ax.set_yticks([])
 
-    # Add colorbars
-    cbar1 = plt.colorbar(im1, ax=axes[0, :], fraction=0.046, pad=0.04)
-    cbar1.set_label('Phase (radians)', rotation=270, labelpad=20)
+    # Add individual colorbars for phase plots (top row)
+    cbar_pinn_phase = plt.colorbar(im1, ax=axes[0, 0], fraction=0.046, pad=0.04)
+    cbar_pinn_phase.set_label('Phase (rad)', rotation=270, labelpad=15)
+    
+    cbar_baseline_phase = plt.colorbar(im3, ax=axes[0, 1], fraction=0.046, pad=0.04)
+    cbar_baseline_phase.set_label('Phase (rad)', rotation=270, labelpad=15)
     
     if ground_truth_obj is not None:
-        cbar2 = plt.colorbar(im6, ax=axes[1, :], fraction=0.046, pad=0.04)
-        cbar2.set_label('Amplitude', rotation=270, labelpad=20)
+        cbar_gt_phase = plt.colorbar(im5, ax=axes[0, 2], fraction=0.046, pad=0.04)
+        cbar_gt_phase.set_label('Phase (rad)', rotation=270, labelpad=15)
+    
+    # Add shared colorbar for amplitude plots (bottom row)
+    if ground_truth_obj is not None:
+        cbar_amp = plt.colorbar(im6, ax=axes[1, :], fraction=0.046, pad=0.04)
+        cbar_amp.set_label('Amplitude', rotation=270, labelpad=20)
     else:
-        cbar2 = plt.colorbar(im4, ax=axes[1, :], fraction=0.046, pad=0.04)
-        cbar2.set_label('Amplitude', rotation=270, labelpad=20)
+        cbar_amp = plt.colorbar(im4, ax=axes[1, :], fraction=0.046, pad=0.04)
+        cbar_amp.set_label('Amplitude', rotation=270, labelpad=20)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
