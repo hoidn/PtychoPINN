@@ -186,10 +186,16 @@ if stitched_obj is not None and YY_ground_truth is not None:
     logger.info(f"  PSNR: {metrics['psnr']}")
     
     save_metrics(recon_obj_final, gt_obj_final, label=p.get('label'))
-    save_recons(model_type='supervised', stitched_obj=recon_obj_final)
+    save_recons(model_type='supervised', stitched_obj=recon_obj_final, ground_truth_obj=gt_obj_final)
     logger.info("Metrics and reconstruction images saved.")
 else:
     logger.warning("Skipping evaluation: stitched object or ground truth was not available.")
+    # Still save reconstruction images even without ground truth
+    if stitched_obj is not None:
+        # Add back dimensions required by save_recons function  
+        recon_obj_final = np.squeeze(stitched_obj)[None, ..., None]  # (1, H, W, 1)
+        save_recons(model_type='supervised', stitched_obj=recon_obj_final, ground_truth_obj=None)
+        logger.info("Reconstruction images saved (no ground truth available).")
 
 logger.info("\n--- Baseline script finished successfully. ---")
 
