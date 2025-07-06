@@ -88,5 +88,5 @@ class Serializer:
             return pickle.loads(serialized_data)
         except (pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError):
             raise ValueError("Could not deserialize the binary data")
-doctest.testmod(verbose=True)
+# doctest.testmod(verbose=True)  # Commented out - should not run at import time
 
