@@ -3,8 +3,7 @@
 
 """
 Generates a simulated ptychography dataset and saves it to an NPZ file.
-Optionally, it can also generate a rich PNG visualization of the simulation,
-including comparisons to original data if available.
+Optionally, it can also generate a rich PNG visualization of the simulation.
 
 Example:
     # Run simulation and also create a summary plot with comparisons
@@ -69,7 +68,6 @@ def simulate_and_save(
     p.print_params()
     print("------------------------------------------\n")
     
-    # Load just the object and probe for the simulation itself
     object_guess, probe_guess, _ = load_data_for_sim(str(input_file_path), load_all=False)
     print(f"Loading object and probe from: {input_file_path}")
     print(f"  - Object shape: {object_guess.shape}")
@@ -94,6 +92,13 @@ def simulate_and_save(
     
     output_dir = Path(output_file_path).parent
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # --- KEY CHANGE: Add objectGuess to the output ---
+    # The raw_data_instance from the simulation doesn't contain the ground truth
+    # object it was created from. We explicitly add it here before saving.
+    raw_data_instance.objectGuess = object_guess
+    print("Added source 'objectGuess' to the output dataset for ground truth.")
+    # -------------------------------------------------
     
     print(f"Saving simulated data to: {output_file_path}")
     raw_data_instance.to_file(str(output_file_path))
