@@ -18,7 +18,9 @@ from ptycho.evaluation import save_metrics
 from ptycho.export import save_recons
 from ptycho.loader import PtychoDataset, PtychoDataContainer, RawData
 from ptycho.image import reassemble_patches
+from ptycho.image.cropping import crop_to_scan_area
 from ptycho import probe as probe_module
+from ptycho.tf_helper import reassemble_position
 
 # Import the modern configuration and data loading components
 from ptycho.workflows.components import (
@@ -29,6 +31,9 @@ from ptycho.workflows.components import (
     logger
 )
 from ptycho.config.config import TrainingConfig, update_legacy_dict
+
+
+
 
 #def main():
 #    """
@@ -68,12 +73,22 @@ if config.train_data_file and config.test_data_file:
     
     ptycho_dataset = PtychoDataset(train_container, test_container)
     YY_ground_truth = test_data_raw.objectGuess[None, ..., None] if test_data_raw.objectGuess is not None else None
+
+    # --- FIX: Set the calculated intensity_scale globally ---
+    # The model.py module requires this to be set before it can be imported.
+    p.set('intensity_scale', ptycho_dataset.train_data.norm_Y_I)
+    logger.info(f"Globally set intensity_scale to: {p.get('intensity_scale')}")
 else:
     logger.info(f"Generating simulated data...")
     # Fallback to generating data on the fly using the simulation pipeline
     from ptycho import generate_data
     ptycho_dataset = generate_data.ptycho_dataset
     YY_ground_truth = generate_data.YY_ground_truth
+
+    # --- FIX: Set the calculated intensity_scale globally ---
+    # The model.py module requires this to be set before it can be imported.
+    p.set('intensity_scale', ptycho_dataset.train_data.norm_Y_I)
+    logger.info(f"Globally set intensity_scale to: {p.get('intensity_scale')}")
 
 # 3. --- Shape Data for Baseline Model ---
 logger.info("\n[3/6] Shaping data for the baseline model...")
@@ -107,23 +122,124 @@ pred_I_patches, pred_phi_patches = model.predict(X_test_in)
 reconstructed_patches_complex = tf.cast(pred_I_patches, tf.complex64) * tf.exp(1j * tf.cast(pred_phi_patches, tf.complex64))
 
 try:
-    # Use the new stitching module with the configuration dictionary
-    stitched_obj = reassemble_patches(reconstructed_patches_complex, p.cfg, part='complex')
+    # Use coordinate-based reassembly for non-grid data.
+    # First, get the global scan coordinates from the test data container.
+    global_offsets = ptycho_dataset.test_data.global_offsets
+    
+    # Reassemble the image using the physical scan positions.
+    # The 'M' parameter defines the size of the central region of each patch to use.
+    stitched_obj = reassemble_position(reconstructed_patches_complex, global_offsets, M=20)
+    
+    # The evaluation function expects a 4D tensor (batch, H, W, channels).
+    # Add the necessary dimensions to the stitched object.
+    stitched_obj = stitched_obj[None, ..., None]
+    
     logger.info(f"Stitched object shape: {stitched_obj.shape}")
-except (ValueError, TypeError) as e:
+    
+except Exception as e:
     stitched_obj = None
-    logger.error(f"Object stitching failed: {e}")
+    logger.error(f"Object stitching failed: {e}", exc_info=True)
 
 # 6. --- Save Results and Metrics ---
 logger.info("\n[6/6] Evaluating reconstruction and saving results...")
 if stitched_obj is not None and YY_ground_truth is not None:
-    from ptycho.evaluation import eval_reconstruction
-    metrics = eval_reconstruction(stitched_obj, YY_ground_truth)
+    # Local import to avoid premature execution
+    from ptycho.evaluation import eval_reconstruction, save_metrics
+    from ptycho.export import save_recons
+
+    # Squeeze dimensions to 2D for processing
+    recon_complex = np.squeeze(stitched_obj)
+    gt_complex = np.squeeze(YY_ground_truth)
+
+    logger.info("Aligning ground truth to match reconstruction bounds...")
+    
+    # --- CORRECTED APPROACH: Let the reconstruction drive the cropping ---
+    # The reconstruction (188x188) comes from stitching with M=20 and defines the actual measured region
+    # We need to find what region of the ground truth corresponds to this reconstruction
+    
+    # Extract scan coordinates and parameters used in reconstruction
+    scan_coords_xy = np.squeeze(global_offsets)  # (n_images, 2) with [x, y] coordinates
+    scan_coords_yx = scan_coords_xy[:, [1, 0]]   # Convert to [y, x] format
+    M = 20  # Patch size used in reassemble_position (from line 131)
+    
+    logger.info(f"Reconstruction shape: {recon_complex.shape}")
+    logger.info(f"Ground truth shape: {gt_complex.shape}")
+    logger.info(f"Using scan coordinates with M={M} patch size")
+    logger.info(f"Scan coordinate range: y=[{scan_coords_yx[:, 0].min():.1f}, {scan_coords_yx[:, 0].max():.1f}], x=[{scan_coords_yx[:, 1].min():.1f}, {scan_coords_yx[:, 1].max():.1f}]")
+    
+    # The reconstruction bounds are determined by:
+    # 1. The scan coordinate range 
+    # 2. The patch size M used in stitching
+    # We need to crop the ground truth to match these exact bounds
+    
+    # Calculate the effective region that the reconstruction covers
+    # Use M/2 as the effective radius since M=20 means each scan position contributes a 20x20 region
+    effective_radius = M // 2
+    
+    # Get the bounding box that matches what the reconstruction algorithm would produce
+    min_y, min_x = scan_coords_yx.min(axis=0)
+    max_y, max_x = scan_coords_yx.max(axis=0)
+    
+    # The reconstruction bounds are determined by scan range + effective patch contribution
+    recon_start_row = int(min_y) - effective_radius
+    recon_end_row = int(max_y) + effective_radius
+    recon_start_col = int(min_x) - effective_radius  
+    recon_end_col = int(max_x) + effective_radius
+    
+    # Clamp to ground truth bounds
+    recon_start_row = max(0, recon_start_row)
+    recon_end_row = min(gt_complex.shape[0], recon_end_row)
+    recon_start_col = max(0, recon_start_col)
+    recon_end_col = min(gt_complex.shape[1], recon_end_col)
+    
+    logger.info(f"Calculated reconstruction region: rows [{recon_start_row}:{recon_end_row}], cols [{recon_start_col}:{recon_end_col}]")
+    
+    # Crop the ground truth to match this region
+    gt_obj_cropped = gt_complex[recon_start_row:recon_end_row, recon_start_col:recon_end_col]
+    
+    # Now both images should be the same size, but if not, adjust to match exactly
+    if recon_complex.shape != gt_obj_cropped.shape:
+        logger.info(f"Fine-tuning size alignment: recon={recon_complex.shape}, gt_cropped={gt_obj_cropped.shape}")
+        
+        # Center-crop the larger image to match the smaller one
+        target_h = min(recon_complex.shape[0], gt_obj_cropped.shape[0])
+        target_w = min(recon_complex.shape[1], gt_obj_cropped.shape[1])
+        
+        # Crop reconstruction if needed
+        if recon_complex.shape[0] > target_h or recon_complex.shape[1] > target_w:
+            r_start = (recon_complex.shape[0] - target_h) // 2
+            c_start = (recon_complex.shape[1] - target_w) // 2
+            recon_obj_cropped = recon_complex[r_start:r_start + target_h, c_start:c_start + target_w]
+        else:
+            recon_obj_cropped = recon_complex
+            
+        # Crop ground truth if needed  
+        if gt_obj_cropped.shape[0] > target_h or gt_obj_cropped.shape[1] > target_w:
+            r_start = (gt_obj_cropped.shape[0] - target_h) // 2
+            c_start = (gt_obj_cropped.shape[1] - target_w) // 2
+            gt_obj_cropped = gt_obj_cropped[r_start:r_start + target_h, c_start:c_start + target_w]
+            
+        logger.info(f"Final aligned shapes: recon={recon_obj_cropped.shape}, gt={gt_obj_cropped.shape}")
+    else:
+        recon_obj_cropped = recon_complex
+        logger.info(f"Perfect size match achieved: {recon_obj_cropped.shape}")
+    
+    # Add back dimensions required by the evaluation function
+    # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
+    recon_obj_final = recon_obj_cropped[None, ..., None]  # (1, H, W, 1)
+    gt_obj_final = gt_obj_cropped[..., None]             # (H, W, 1) - no batch dimension!
+
+    logger.info(f"Final evaluation shapes: Reconstruction={recon_obj_final.shape}, Ground Truth={gt_obj_final.shape}")
+
+    # Now, evaluate with arrays guaranteed to be the same size
+    metrics = eval_reconstruction(recon_obj_final, gt_obj_final)
+    
     logger.info("Evaluation Metrics (Amplitude, Phase):")
     logger.info(f"  MAE:  {metrics['mae']}")
     logger.info(f"  PSNR: {metrics['psnr']}")
-    save_metrics(stitched_obj, YY_ground_truth, label=p.get('label'))
-    save_recons(model_type='supervised', stitched_obj=stitched_obj)
+    
+    save_metrics(recon_obj_final, gt_obj_final, label=p.get('label'))
+    save_recons(model_type='supervised', stitched_obj=recon_obj_final)
     logger.info("Metrics and reconstruction images saved.")
 else:
     logger.warning("Skipping evaluation: stitched object or ground truth was not available.")
