@@ -101,7 +101,21 @@ def simulate_and_save(
     # -------------------------------------------------
     
     print(f"Saving simulated data to: {output_file_path}")
-    raw_data_instance.to_file(str(output_file_path))
+    
+    # Create comprehensive data dictionary including ground truth patches
+    data_dict = {
+        'xcoords': raw_data_instance.xcoords,
+        'ycoords': raw_data_instance.ycoords,
+        'xcoords_start': raw_data_instance.xcoords_start,
+        'ycoords_start': raw_data_instance.ycoords_start,
+        'diff3d': raw_data_instance.diff3d,
+        'probeGuess': raw_data_instance.probeGuess,
+        'objectGuess': raw_data_instance.objectGuess,
+        'scan_index': raw_data_instance.scan_index,
+        'ground_truth_patches': ground_truth_patches
+    }
+    
+    np.savez_compressed(output_file_path, **data_dict)
     print("File saved successfully.")
 
     if visualize:
