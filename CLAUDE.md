@@ -138,7 +138,29 @@ File: `datasets/fly/fly001_transposed.npz`
 -   **Model (`ptycho/model.py`)**: Defines the U-Net architecture and the custom Keras layers that incorporate the physics.
 -   **Simulation (`ptycho/diffsim.py`, `ptycho/nongrid_simulation.py`)**: Contains the functions for generating simulated diffraction data from an object and probe.
 
-## 6. Understanding the Output Directory
+## 6. Comparing Models: PtychoPINN vs Baseline
+
+A unified workflow is available to train and compare both PtychoPINN and supervised baseline models:
+
+```bash
+# Run the comparison workflow
+./scripts/run_comparison.sh <train_data.npz> <test_data.npz> <output_dir>
+
+# Example:
+./scripts/run_comparison.sh \
+    datasets/fly/fly001_transposed.npz \
+    datasets/fly/fly001_transposed.npz \
+    comparison_results
+```
+
+This workflow:
+1. Trains both models with identical hyperparameters (from `configs/comparison_config.yaml`)
+2. Runs inference on the test set
+3. Generates comparison outputs:
+   - `comparison_metrics.csv` - Performance metrics (MAE, MSE, PSNR) for both models
+   - `comparison_plot.png` - Side-by-side visual comparison of reconstructions
+
+## 7. Understanding the Output Directory
 
 After a successful training run using `ptycho_train --output_dir <my_run>`, the output directory will contain several key files:
 
