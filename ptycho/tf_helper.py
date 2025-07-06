@@ -507,6 +507,10 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
     # Calculate dynamic padding based on maximum adjusted offset
     max_offset = tf.reduce_max(tf.abs(adjusted_offsets))
     dynamic_pad = int(tf.cast(tf.math.ceil(max_offset), tf.int32))
+    
+    # --- FIX: Ensure padding is always even to avoid off-by-one errors ---
+    if dynamic_pad % 2 != 0:
+        dynamic_pad += 1
     print('PADDING SIZE:', dynamic_pad)
     
     # Create a canvas to store the shifted and summed object tensors
