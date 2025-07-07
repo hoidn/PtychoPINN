@@ -432,6 +432,57 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
         print("INFO: Using pre-computed 'Y' array from the input file.")
         # Convert (n_groups, n_neighbors, H, W) -> (n_groups, H, W, n_neighbors)
         Y4d_nn = np.transpose(ptycho_data.Y[nn_indices], [0, 2, 3, 1])
+    elif ptycho_data.objectGuess is not None:
+        """
+        ### TODO: Re-enable and Verify `objectGuess` Fallback for Ground Truth Patch Generation
+
+        **Context & Goal:**
+
+        The data loader in `ptycho/raw_data.py` was modified to fix a critical bug
+        in the supervised training pipeline. As a safety measure, the fallback
+        logic—which generates ground truth `Y` patches on-the-fly from a full
+        `objectGuess`—was disabled by raising a `NotImplementedError`.
+
+        The goal of this task is to safely re-enable this fallback path. This is
+        essential for maintaining backward compatibility with workflows (like
+        unsupervised PINN training) that start with `.npz` files containing only
+        `objectGuess` and not a pre-computed `Y` array.
+
+        **Implementation Steps:**
+
+        1.  **Remove the `NotImplementedError`:** Delete the `raise NotImplementedError(...)`
+            line below.
+        2.  **Implement the Fallback Logic:** Add the following line in its place:
+            
+            ```python
+            print("INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
+            Y4d_nn = get_image_patches(ptycho_data.objectGuess, coords_offsets, coords_relative)
+            ```
+
+        **Verification Plan:**
+
+        After re-enabling the logic, you must verify that both the fallback and primary
+        paths work correctly.
+
+        1.  **Test Fallback Path:**
+            -   Find or create an `.npz` file with `objectGuess` but no `Y` array.
+            -   Run a PINN training workflow with this file.
+            -   **Expected:** The script must run without error and log the message:
+                "INFO: ...Generating ground truth patches... as a fallback."
+
+        2.  **Test No Regression (Primary Path):**
+            -   Use a fully prepared dataset that *does* contain the `Y` array (e.g.,
+              `datasets/fly/fly001_prepared_64.npz`).
+            -   Run the supervised baseline training script.
+            -   **Expected:** The script must run without error and log the message:
+                "INFO: Using pre-computed 'Y' array..." It must *not* log the
+                "fallback" message.
+        """
+        raise NotImplementedError(
+            "The fallback path to generate Y patches from 'objectGuess' is temporarily "
+            "disabled pending testing. See the TODO block in this function for instructions "
+            "on how to re-enable and verify it."
+        )
     else:
         # Fail loudly if the expected 'Y' array is not present.
         raise ValueError(

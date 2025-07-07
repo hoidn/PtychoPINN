@@ -41,10 +41,10 @@ def parse_args():
                         help="Path to the test data NPZ file.")
     parser.add_argument("--output_dir", type=Path, required=True,
                         help="Directory to save comparison results.")
-    parser.add_argument("--p_min", type=float, default=20.0,
-                        help="Lower percentile for color scale (default: 20.0).")
-    parser.add_argument("--p_max", type=float, default=80.0,
-                        help="Upper percentile for color scale (default: 80.0).")
+    parser.add_argument("--p_min", type=float, default=10.0,
+                        help="Lower percentile for color scale (default: 10.0).")
+    parser.add_argument("--p_max", type=float, default=90.0,
+                        help="Upper percentile for color scale (default: 90.0).")
     parser.add_argument("--pinn_phase_vmin", type=float, default=None,
                         help="PtychoPINN phase vmin (default: auto from percentiles).")
     parser.add_argument("--pinn_phase_vmax", type=float, default=None,
@@ -97,7 +97,7 @@ def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
 
 
 def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path, 
-                          p_min=20.0, p_max=80.0, 
+                          p_min=10.0, p_max=90.0, 
                           pinn_phase_vmin=None, pinn_phase_vmax=None,
                           baseline_phase_vmin=None, baseline_phase_vmax=None):
     """Create a 2x3 subplot comparing reconstructions.
@@ -107,8 +107,8 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         baseline_obj: Baseline reconstruction  
         ground_truth_obj: Ground truth object (optional)
         output_path: Path to save the plot
-        p_min: Lower percentile for color scale (default: 20.0)
-        p_max: Upper percentile for color scale (default: 80.0)
+        p_min: Lower percentile for color scale (default: 10.0)
+        p_max: Upper percentile for color scale (default: 90.0)
         pinn_phase_vmin: PtychoPINN phase vmin (default: auto from percentiles)
         pinn_phase_vmax: PtychoPINN phase vmax (default: auto from percentiles)
         baseline_phase_vmin: Baseline phase vmin (default: auto from percentiles)
@@ -128,49 +128,58 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
 
     # --- Percentile-based color scaling ---
     
-    # Gather all valid objects for scaling calculations
-    all_objs = [pinn_obj, baseline_obj]
-    if ground_truth_obj is not None:
-        all_objs.append(ground_truth_obj.squeeze())
+    # Calculate per-panel amplitude limits
+    pinn_amps = np.abs(pinn_obj).ravel()
+    pinn_v_amp_min, pinn_v_amp_max = np.percentile(pinn_amps, [p_min, p_max])
+    logger.info(f"PtychoPINN amplitude color scale (vmin, vmax) set to: ({pinn_v_amp_min:.3f}, {pinn_v_amp_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
     
-    # Create combined arrays of all amplitude and phase data
-    all_amps = np.concatenate([np.abs(obj).ravel() for obj in all_objs])
-    all_phases = np.concatenate([np.angle(obj).ravel() for obj in all_objs])
-    
-    # Calculate percentile-based limits for amplitude
-    v_amp_min, v_amp_max = np.percentile(all_amps, [p_min, p_max])
-    logger.info(f"Amplitude color scale (vmin, vmax) set to: ({v_amp_min:.3f}, {v_amp_max:.3f}) using {p_min}/{p_max} percentiles.")
+    baseline_amps = np.abs(baseline_obj).ravel()
+    baseline_v_amp_min, baseline_v_amp_max = np.percentile(baseline_amps, [p_min, p_max])
+    logger.info(f"Baseline amplitude color scale (vmin, vmax) set to: ({baseline_v_amp_min:.3f}, {baseline_v_amp_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
     
     # Determine phase limits for PtychoPINN
     if pinn_phase_vmin is not None and pinn_phase_vmax is not None:
         pinn_v_phase_min, pinn_v_phase_max = pinn_phase_vmin, pinn_phase_vmax
         logger.info(f"PtychoPINN phase color scale (vmin, vmax) set to: ({pinn_v_phase_min:.3f}, {pinn_v_phase_max:.3f}) [manual].")
     else:
-        pinn_v_phase_min, pinn_v_phase_max = np.percentile(all_phases, [p_min, p_max])
-        logger.info(f"PtychoPINN phase color scale (vmin, vmax) set to: ({pinn_v_phase_min:.3f}, {pinn_v_phase_max:.3f}) using {p_min}/{p_max} percentiles.")
+        pinn_phases = np.angle(pinn_obj).ravel()
+        pinn_v_phase_min, pinn_v_phase_max = np.percentile(pinn_phases, [p_min, p_max])
+        logger.info(f"PtychoPINN phase color scale (vmin, vmax) set to: ({pinn_v_phase_min:.3f}, {pinn_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
     
     # Determine phase limits for Baseline
     if baseline_phase_vmin is not None and baseline_phase_vmax is not None:
         baseline_v_phase_min, baseline_v_phase_max = baseline_phase_vmin, baseline_phase_vmax
         logger.info(f"Baseline phase color scale (vmin, vmax) set to: ({baseline_v_phase_min:.3f}, {baseline_v_phase_max:.3f}) [manual].")
     else:
-        baseline_v_phase_min, baseline_v_phase_max = np.percentile(all_phases, [p_min, p_max])
-        logger.info(f"Baseline phase color scale (vmin, vmax) set to: ({baseline_v_phase_min:.3f}, {baseline_v_phase_max:.3f}) using {p_min}/{p_max} percentiles.")
+        baseline_phases = np.angle(baseline_obj).ravel()
+        baseline_v_phase_min, baseline_v_phase_max = np.percentile(baseline_phases, [p_min, p_max])
+        logger.info(f"Baseline phase color scale (vmin, vmax) set to: ({baseline_v_phase_min:.3f}, {baseline_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
 
     # Plot PtychoPINN
     im1 = axes[0, 0].imshow(np.angle(pinn_obj), vmin=pinn_v_phase_min, vmax=pinn_v_phase_max)
-    im2 = axes[1, 0].imshow(np.abs(pinn_obj), cmap='gray', vmin=v_amp_min, vmax=v_amp_max)
+    im2 = axes[1, 0].imshow(np.abs(pinn_obj), cmap='gray', vmin=pinn_v_amp_min, vmax=pinn_v_amp_max)
     
     # Plot Baseline
     im3 = axes[0, 1].imshow(np.angle(baseline_obj), vmin=baseline_v_phase_min, vmax=baseline_v_phase_max)
-    im4 = axes[1, 1].imshow(np.abs(baseline_obj), cmap='gray', vmin=v_amp_min, vmax=v_amp_max)
+    im4 = axes[1, 1].imshow(np.abs(baseline_obj), cmap='gray', vmin=baseline_v_amp_min, vmax=baseline_v_amp_max)
     
-    # Plot Ground Truth (use baseline phase scale for consistency)
+    # Plot Ground Truth (use its own phase and amplitude scales when auto-scaling)
     if ground_truth_obj is not None:
         # Remove extra dimensions if present
         gt_obj = ground_truth_obj.squeeze()
-        im5 = axes[0, 2].imshow(np.angle(gt_obj), vmin=baseline_v_phase_min, vmax=baseline_v_phase_max)
-        im6 = axes[1, 2].imshow(np.abs(gt_obj), cmap='gray', vmin=v_amp_min, vmax=v_amp_max)
+        
+        # Calculate ground truth amplitude limits
+        gt_amps = np.abs(gt_obj).ravel()
+        gt_v_amp_min, gt_v_amp_max = np.percentile(gt_amps, [p_min, p_max])
+        logger.info(f"Ground Truth amplitude color scale (vmin, vmax) set to: ({gt_v_amp_min:.3f}, {gt_v_amp_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
+        
+        # Calculate ground truth phase limits
+        gt_phases = np.angle(gt_obj).ravel()
+        gt_v_phase_min, gt_v_phase_max = np.percentile(gt_phases, [p_min, p_max])
+        logger.info(f"Ground Truth phase color scale (vmin, vmax) set to: ({gt_v_phase_min:.3f}, {gt_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
+        
+        im5 = axes[0, 2].imshow(np.angle(gt_obj), vmin=gt_v_phase_min, vmax=gt_v_phase_max)
+        im6 = axes[1, 2].imshow(np.abs(gt_obj), cmap='gray', vmin=gt_v_amp_min, vmax=gt_v_amp_max)
     else:
         for ax in [axes[0, 2], axes[1, 2]]:
             ax.text(0.5, 0.5, "No Ground Truth", ha='center', va='center', 
@@ -193,13 +202,16 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         cbar_gt_phase = plt.colorbar(im5, ax=axes[0, 2], fraction=0.046, pad=0.04)
         cbar_gt_phase.set_label('Phase (rad)', rotation=270, labelpad=15)
     
-    # Add shared colorbar for amplitude plots (bottom row)
+    # Add individual colorbars for amplitude plots (bottom row)
+    cbar_pinn_amp = plt.colorbar(im2, ax=axes[1, 0], fraction=0.046, pad=0.04)
+    cbar_pinn_amp.set_label('Amplitude', rotation=270, labelpad=15)
+    
+    cbar_baseline_amp = plt.colorbar(im4, ax=axes[1, 1], fraction=0.046, pad=0.04)
+    cbar_baseline_amp.set_label('Amplitude', rotation=270, labelpad=15)
+    
     if ground_truth_obj is not None:
-        cbar_amp = plt.colorbar(im6, ax=axes[1, :], fraction=0.046, pad=0.04)
-        cbar_amp.set_label('Amplitude', rotation=270, labelpad=20)
-    else:
-        cbar_amp = plt.colorbar(im4, ax=axes[1, :], fraction=0.046, pad=0.04)
-        cbar_amp.set_label('Amplitude', rotation=270, labelpad=20)
+        cbar_gt_amp = plt.colorbar(im6, ax=axes[1, 2], fraction=0.046, pad=0.04)
+        cbar_gt_amp.set_label('Amplitude', rotation=270, labelpad=15)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
