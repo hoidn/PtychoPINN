@@ -134,6 +134,12 @@ Parameters are controlled via YAML files (see `configs/`) or command-line argume
 -   **`probeGuess`**: The scanning beam. A complex `(N, N)` array.
 -   **`objectGuess`**: The full sample being scanned. A complex `(M, M)` array, where `M` is typically 3-5 times `N`.
 -   **`diffraction`**: The stack of measured diffraction patterns. This must be a real `(n_images, N, N)` array representing **amplitude** (i.e., the square root of the measured intensity). The model's Poisson noise layer will square this value internally to simulate photon counts.
+
+```python
+# Example: Convert measured intensity to required amplitude format
+measured_intensity = ... # Your (n_images, N, N) intensity data
+diffraction_amplitude = np.sqrt(measured_intensity)
+```
 -   **`xcoords`, `ycoords`**: 1D arrays of scan positions, shape `(n_images,)`.
 
 **Reference Example (Known-Good Data):**
@@ -151,6 +157,9 @@ File: `datasets/fly/fly001_transposed.npz`
 -   **Data Loading (`ptycho/loader.py`, `ptycho/raw_data.py`)**: Defines `RawData` (for raw files) and `PtychoDataContainer` (for model-ready data).
 -   **Model (`ptycho/model.py`)**: Defines the U-Net architecture and the custom Keras layers that incorporate the physics.
 -   **Simulation (`ptycho/diffsim.py`, `ptycho/nongrid_simulation.py`)**: Contains the functions for generating simulated diffraction data from an object and probe.
+-   **Image Processing (`ptycho/image/`)**: The modern, authoritative location for image processing tasks.
+    -   `stitching.py`: Contains functions for grid-based patch reassembly.
+    -   `cropping.py`: Contains the crucial `align_for_evaluation` function for robustly aligning a reconstruction with its ground truth for metric calculation.
 
 ## 6. Comparing Models: PtychoPINN vs Baseline
 
@@ -217,3 +226,27 @@ After a successful training run using `ptycho_train --output_dir <my_run>`, the 
 - **`reconstructed_amplitude.png` / `reconstructed_phase.png`**: Visualizations of the final reconstructed object from the test set, if stitching was performed.
 - **`metrics.csv`**: If a ground truth object was available, this file contains quantitative image quality metrics (MAE, PSNR, FRC) comparing the reconstruction to the ground truth.
 - **`params.dill`**: A snapshot of the full configuration used for the run, for reproducibility.
+
+## 8. Advanced & Undocumented Features
+
+### 8.1. Caching Decorators (`ptycho/misc.py`)
+
+- **`@memoize_disk_and_memory`**: Caches the results of expensive functions to disk to speed up subsequent runs with the same parameters.
+- **`@memoize_simulated_data`**: Specifically designed for caching simulated data generation, avoiding redundant computation.
+
+### 8.2. Data Utility Tools (`scripts/tools/`)
+
+- **`downsample_data_tool.py`**: For cropping k-space and binning real-space arrays to maintain physical consistency.
+- **`prepare_data_tool.py`**: For apodizing, smoothing, or interpolating probes/objects before simulation.
+- **`update_tool.py`**: For updating an NPZ file with a new reconstruction result.
+- **`visualize_dataset.py`**: For generating a comprehensive visualization plot of an NPZ dataset.
+
+### 8.3. Automated Testing Framework (`ptycho/autotest/`)
+
+- This internal framework provides testing utilities for the project.
+- The `@debug` decorator (imported from `ptycho.autotest.debug`) is used to serialize function inputs and outputs during development for creating regression tests.
+- This is a developer-facing feature primarily used for debugging and test creation.
+
+## 9. Legacy Code & Deprecation Warnings
+
+- **Legacy Training Script (`ptycho/train.py`):** The file `ptycho/train.py` is a legacy script that uses an older configuration system. **Do not use it.** Always use the `ptycho_train` command-line tool (which points to `scripts/training/train.py`) for all training workflows, as it uses the modern, correct configuration system.
