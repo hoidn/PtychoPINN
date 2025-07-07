@@ -5,6 +5,10 @@ This repository contains the codebase for the methods presented in the paper "[P
 ## Overview
 PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI designed to improve upon the speed of conventional reconstruction methods without sacrificing image quality. Compared to prior NN approaches, the main source of improvements in image quality are its combination of the diffraction forward map with real-space overlap constraints.
 
+## For Developers
+
+Developers looking to contribute to the codebase or understand its deeper architectural principles should first read the **[Unified Developer Guide](./docs/DEVELOPER_GUIDE.md)**. It contains critical information on the project's design, data pipeline, and best practices.
+
 ## Features
 - **Unsupervised / self-supervised learning**: There is no need for extensive labeled training data, making the model more practical to train.
 - **Resolution**: PtychoPINN outperforms existing deep learning models for ptychographic reconstruction in terms of image quality, with a 10 dB PSNR increase and a 3- to 6-fold gain in linear resolution. Generalizability and robustness are also improved.
