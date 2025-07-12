@@ -12,6 +12,13 @@
 #
 set -e # Exit immediately if any command fails
 
+# Get the directory of this script
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+# Change to project root directory
+cd "$PROJECT_ROOT"
+
 # --- FILE PATHS ---
 
 # The starting point: can now have odd or even dimensions.
