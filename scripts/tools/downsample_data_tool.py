@@ -96,9 +96,9 @@ def downsample_npz(
         # Correct case: complex patches
         print("  Ground truth patches are complex-valued (correct).")
         if original_patches.ndim == 4 and original_patches.shape[-1] == 1:
-            # Shape: (N, H, W, 1) - remove last dimension, bin, restore
+            # Shape: (N, H, W, 1) - remove last dimension, bin, keep as 3D for compatibility
             binned_patches = np.array([
-                bin_complex_array(patch[..., 0], bin_factor)[..., None] for patch in original_patches
+                bin_complex_array(patch[..., 0], bin_factor) for patch in original_patches
             ])
         else:
             # Shape: (N, H, W) - bin directly
