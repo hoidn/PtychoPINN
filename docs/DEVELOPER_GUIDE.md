@@ -70,6 +70,8 @@ Until the codebase is fully refactored, all modern scripts must follow this orde
 
 A data pipeline's file formats and loading logic constitute a public API. Its behavior must be explicit and robust.
 
+**The Canonical Data Format:** All tools that produce or consume ptychography datasets for training or evaluation **MUST** adhere to the format defined in the official **[Data Contracts Document](./data_contracts.md)**. This document is the single source of truth for array shapes, key names, and data types.
+
 ### 3.1. Lesson: Implicit `dtype` is a Time Bomb (The Deepest Bug)
 
 **The Symptom:** The supervised model received real-valued `Y` patches (`float64`) when it expected complex data, causing it to train on amplitude only.

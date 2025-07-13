@@ -131,6 +131,8 @@ Parameters are controlled via YAML files (see `configs/`) or command-line argume
 
 **This is the most common source of errors.** A mismatch here will cause low-level TensorFlow errors that are hard to debug.
 
+**Authoritative Source:** For all tasks involving the creation or modification of `.npz` datasets, you **MUST** consult and adhere to the specifications in the **[Data Contracts Document](./docs/data_contracts.md)**. This file defines the required key names, array shapes, and data types.
+
 -   **`probeGuess`**: The scanning beam. A complex `(N, N)` array.
 -   **`objectGuess`**: The full sample being scanned. A complex `(M, M)` array, where `M` is typically 3-5 times `N`.
 -   **`diffraction`**: The stack of measured diffraction patterns. This must be a real `(n_images, N, N)` array representing **amplitude** (i.e., the square root of the measured intensity). The model's Poisson noise layer will square this value internally to simulate photon counts.
