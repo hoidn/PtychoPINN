@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 import tensorflow as tf
+from skimage.metrics import structural_similarity
 
 from ptycho import params
 from ptycho import misc
@@ -201,7 +202,48 @@ def lowpass2d(aphi, n = 2):
     im1 = fp.ifft2(fftpack.ifftshift(F2)).real
     return im1
 
-def frc50(target, pred, sigma = 1):
+def fit_and_remove_plane(phase_img, reference_phase=None):
+    """
+    Fit and remove a plane from phase image to enable fair phase comparison.
+    
+    Args:
+        phase_img: 2D array of phase values
+        reference_phase: Optional reference phase for alignment (default: fit to zero plane)
+    
+    Returns:
+        phase_aligned: Phase image with plane removed
+    """
+    h, w = phase_img.shape
+    
+    # Create coordinate grids
+    y_coords, x_coords = np.meshgrid(np.arange(h), np.arange(w), indexing='ij')
+    
+    # Flatten for linear system
+    x_flat = x_coords.flatten()
+    y_flat = y_coords.flatten()
+    phase_flat = phase_img.flatten()
+    
+    # Set up linear system A * coeffs = phase for plane z = a*x + b*y + c
+    A = np.column_stack([x_flat, y_flat, np.ones(len(x_flat))])
+    
+    # Solve for plane coefficients
+    coeffs, _, _, _ = np.linalg.lstsq(A, phase_flat, rcond=None)
+    
+    # Compute fitted plane
+    fitted_plane = coeffs[0] * x_coords + coeffs[1] * y_coords + coeffs[2]
+    
+    # Remove the fitted plane
+    phase_aligned = phase_img - fitted_plane
+    
+    # If reference is provided, align to it instead
+    if reference_phase is not None:
+        ref_coeffs, _, _, _ = np.linalg.lstsq(A, reference_phase.flatten(), rcond=None)
+        ref_plane = ref_coeffs[0] * x_coords + ref_coeffs[1] * y_coords + ref_coeffs[2]
+        phase_aligned = phase_img - fitted_plane + ref_plane
+    
+    return phase_aligned
+
+def frc50(target, pred, frc_sigma = 0):
     if np.isnan(pred).all():
         raise ValueError
     if np.max(target) == np.min(target) == 0:
@@ -221,13 +263,45 @@ def frc50(target, pred, sigma = 1):
     
     from ptycho.FRC import fourier_ring_corr as frc
     shellcorr = frc.FSC(target, pred)
-    shellcorr = gf(shellcorr, sigma)
-    return shellcorr, np.where(shellcorr < .5)[0][0]
+    if frc_sigma > 0:
+        shellcorr = gf(shellcorr, frc_sigma)
+    
+    # Find where FRC drops below 0.5
+    below_half = np.where(shellcorr < .5)[0]
+    if len(below_half) > 0:
+        frc50_value = below_half[0]
+    else:
+        # If FRC never drops below 0.5, use the length (indicates excellent reconstruction)
+        frc50_value = len(shellcorr)
+    
+    return shellcorr, frc50_value
 
 
 
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
-        label = ''):
+        label = '', phase_align_method='plane', frc_sigma=0):
+    """
+    Evaluate reconstruction quality against ground truth using multiple metrics.
+    
+    Args:
+        stitched_obj: Reconstructed complex object (3D or 4D array)
+        ground_truth_obj: Ground truth complex object (3D array)
+        lowpass_n: Legacy parameter (deprecated, kept for compatibility)
+        label: Label for debug logging
+        phase_align_method: Method for phase alignment ('plane' or 'mean')
+                          - 'plane': Fit and remove planes from phase images (default)
+                          - 'mean': Subtract mean from phase images
+        frc_sigma: Gaussian smoothing sigma for FRC calculation (0 = no smoothing)
+    
+    Returns:
+        dict: Dictionary containing evaluation metrics with keys:
+            - 'mae': (amplitude_mae, phase_mae) - Mean Absolute Error
+            - 'mse': (amplitude_mse, phase_mse) - Mean Squared Error  
+            - 'psnr': (amplitude_psnr, phase_psnr) - Peak Signal-to-Noise Ratio
+            - 'ssim': (amplitude_ssim, phase_ssim) - Structural Similarity Index
+            - 'frc50': (amplitude_frc50, phase_frc50) - FRC at 0.5 threshold
+            - 'frc': (amplitude_frc_curve, phase_frc_curve) - Full FRC curves
+    """
     # Handle shape consistency: convert 4D reconstruction to 3D before assertions
     assert np.ndim(ground_truth_obj) == 3
     assert int(np.ndim(stitched_obj)) in [3, 4]
@@ -240,16 +314,21 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     YY_ground_truth = np.absolute(ground_truth_obj)
     YY_phi_ground_truth = np.angle(ground_truth_obj)
 
-    phi_pred = trim(
-        highpass2d(
-            np.squeeze(np.angle(stitched_obj)), n = lowpass_n
-        )
-    )
-    phi_target = trim(
-        highpass2d(
-            np.squeeze(YY_phi_ground_truth), n = lowpass_n
-        )
-    )
+    # Extract raw phase data
+    phi_pred_raw = trim(np.squeeze(np.angle(stitched_obj)))
+    phi_target_raw = trim(np.squeeze(YY_phi_ground_truth))
+    
+    # Apply configurable phase alignment
+    if phase_align_method == 'plane':
+        # Use plane fitting alignment - align predicted phase to target
+        phi_pred = fit_and_remove_plane(phi_pred_raw, phi_target_raw)
+        phi_target = fit_and_remove_plane(phi_target_raw)
+    elif phase_align_method == 'mean':
+        # Use mean subtraction alignment
+        phi_pred = phi_pred_raw - np.mean(phi_pred_raw)
+        phi_target = phi_target_raw - np.mean(phi_target_raw)
+    else:
+        raise ValueError(f"Unknown phase_align_method: {phase_align_method}. Use 'plane' or 'mean'.")
     amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
     amp_pred = trim(np.absolute(stitched_obj))
 
@@ -259,22 +338,37 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0], normalize = True,
         shift = False)
     
+    # Calculate SSIM for amplitude (convert TF tensors to numpy)
+    amp_target_np = np.array(amp_target[:, :, 0])
+    amp_pred_np = np.array(amp_pred[:, :, 0])
+    amp_data_range = float(np.max(amp_target_np) - np.min(amp_target_np))
+    ssim_amp = structural_similarity(amp_target_np, amp_pred_np, 
+                                   data_range=amp_data_range)
+    
     # Debug logging for FRC inputs
     print(f"DEBUG eval_reconstruction [{label}]: amp_target stats: mean={np.mean(amp_target):.6f}, std={np.std(amp_target):.6f}, shape={amp_target.shape}")
     print(f"DEBUG eval_reconstruction [{label}]: amp_pred stats: mean={np.mean(amp_pred):.6f}, std={np.std(amp_pred):.6f}, shape={amp_pred.shape}")
     print(f"DEBUG eval_reconstruction [{label}]: phi_target stats: mean={np.mean(phi_target):.6f}, std={np.std(phi_target):.6f}, shape={phi_target.shape}")
     print(f"DEBUG eval_reconstruction [{label}]: phi_pred stats: mean={np.mean(phi_pred):.6f}, std={np.std(phi_pred):.6f}, shape={phi_pred.shape}")
     
-    frc_amp, frc50_amp = frc50(amp_target[:, :, 0], amp_pred[:, :, 0])
+    frc_amp, frc50_amp = frc50(amp_target_np, amp_pred_np, frc_sigma=frc_sigma)
 
     mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
     mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
     psnr_phi = psnr(phi_target, phi_pred, normalize = False, shift = True)
-    frc_phi, frc50_phi = frc50(phi_target, phi_pred)
+    
+    # Calculate SSIM for phase (scale from [-π,π] to [0,1])
+    phi_target_scaled = (phi_target + np.pi) / (2 * np.pi)
+    phi_pred_scaled = (phi_pred + np.pi) / (2 * np.pi)
+    ssim_phi = structural_similarity(phi_target_scaled, phi_pred_scaled, 
+                                   data_range=1.0)
+    
+    frc_phi, frc50_phi = frc50(phi_target, phi_pred, frc_sigma=frc_sigma)
 
     return {'mae': (mae_amp, mae_phi),
         'mse': (mse_amp, mse_phi),
         'psnr': (psnr_amp, psnr_phi),
+        'ssim': (ssim_amp, ssim_phi),
         'frc50': (frc50_amp, frc50_phi),
         'frc': (frc_amp, frc_phi)}
 
@@ -296,3 +390,37 @@ def save_metrics(stitched_obj, YY_ground_truth,  label = ''):
     df = pd.DataFrame({k: d[k] for k in ['mae', 'mse', 'psnr', 'frc50']})
     df.to_csv(out_prefix + '/metrics.csv')
     return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc']}
+
+
+# Unit Tests for Phase 1 Enhancements
+# Uncomment and run these to verify functionality:
+
+# def test_ssim_self_comparison():
+#     """Test that SSIM self-comparison returns 1.0"""
+#     test_img = np.random.rand(64, 64)
+#     ssim_val = structural_similarity(test_img, test_img, data_range=1.0)
+#     assert np.isclose(ssim_val, 1.0), f"SSIM self-comparison failed: {ssim_val}"
+#     print("✓ SSIM self-comparison test passed")
+
+# def test_plane_fitting():
+#     """Test that plane fitting removes known planes"""
+#     h, w = 32, 32
+#     y, x = np.meshgrid(np.arange(h), np.arange(w), indexing='ij')
+#     # Create known plane: z = 0.1*x + 0.2*y + 0.5
+#     known_plane = 0.1 * x + 0.2 * y + 0.5
+#     aligned = fit_and_remove_plane(known_plane)
+#     # After removing the plane, should be near zero
+#     assert np.allclose(aligned, 0, atol=1e-10), f"Plane fitting failed: max residual = {np.max(np.abs(aligned))}"
+#     print("✓ Plane fitting test passed")
+
+# def test_frc_self_comparison():
+#     """Test that FRC self-comparison returns all 1s"""
+#     test_img = np.random.rand(64, 64)
+#     frc_curve, frc50_val = frc50(test_img, test_img, frc_sigma=0)
+#     assert np.allclose(frc_curve, 1.0, rtol=1e-10), f"FRC self-comparison failed: min FRC = {np.min(frc_curve)}"
+#     print("✓ FRC self-comparison test passed")
+
+# To run tests:
+# test_ssim_self_comparison()
+# test_plane_fitting() 
+# test_frc_self_comparison()
