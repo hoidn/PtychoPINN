@@ -26,8 +26,26 @@ def transpose_rename_convert(
     flipx: bool = False,
     flipy: bool = False,
 ) -> None:
-    """
-    Loads, processes, and saves a ptychography NPZ file to a canonical format.
+    """Loads, processes, and saves a ptychography NPZ file to a canonical format.
+
+    This function standardizes a ptychography dataset to conform to the project's
+    Data Contracts specification. It performs key renaming, data type conversion,
+    array reshaping, and optional coordinate transformations.
+
+    Args:
+        in_file: Path to the source .npz file to be processed.
+        out_file: Path where the canonicalized .npz file will be saved.
+        flipx: If True, flips the sign of all x-coordinates (default: False).
+        flipy: If True, flips the sign of all y-coordinates (default: False).
+
+    Raises:
+        FileNotFoundError: If the input file does not exist.
+        
+    Operations performed:
+        - Renames 'diff3d' key to 'diffraction'
+        - Squeezes 4D 'Y' arrays to 3D by removing singleton last dimension
+        - Converts uint16 arrays to float32 for numerical stability
+        - Optionally flips coordinate signs for coordinate system alignment
     """
     in_path = Path(in_file)
     if not in_path.exists():

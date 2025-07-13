@@ -206,8 +206,21 @@ def frc50(target, pred, sigma = 1):
         raise ValueError
     if np.max(target) == np.min(target) == 0:
         return None, np.nan
+    
+    # Ensure images are square for FRC calculation
+    target = np.array(target)
+    pred = np.array(pred)
+    
+    if target.shape[0] != target.shape[1]:
+        # Center crop to the smaller dimension to make square
+        min_dim = min(target.shape[0], target.shape[1])
+        h_start = (target.shape[0] - min_dim) // 2
+        w_start = (target.shape[1] - min_dim) // 2
+        target = target[h_start:h_start + min_dim, w_start:w_start + min_dim]
+        pred = pred[h_start:h_start + min_dim, w_start:w_start + min_dim]
+    
     from ptycho.FRC import fourier_ring_corr as frc
-    shellcorr = frc.FSC(np.array(target), np.array(pred))
+    shellcorr = frc.FSC(target, pred)
     shellcorr = gf(shellcorr, sigma)
     return shellcorr, np.where(shellcorr < .5)[0][0]
 
@@ -215,12 +228,15 @@ def frc50(target, pred, sigma = 1):
 
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         label = ''):
-    # TODO consistent shapes
-    assert stitched_obj.shape[1] == ground_truth_obj.shape[1]
+    # Handle shape consistency: convert 4D reconstruction to 3D before assertions
     assert np.ndim(ground_truth_obj) == 3
     assert int(np.ndim(stitched_obj)) in [3, 4]
     if np.ndim(stitched_obj) == 4:
         stitched_obj = stitched_obj[0]
+    
+    # Now both arrays should be 3D and have consistent shapes
+    assert stitched_obj.shape[0] == ground_truth_obj.shape[0]  # height
+    assert stitched_obj.shape[1] == ground_truth_obj.shape[1]  # width
     YY_ground_truth = np.absolute(ground_truth_obj)
     YY_phi_ground_truth = np.angle(ground_truth_obj)
 
@@ -242,6 +258,13 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     mse_amp = mse(amp_target, amp_pred) # PINN
     psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0], normalize = True,
         shift = False)
+    
+    # Debug logging for FRC inputs
+    print(f"DEBUG eval_reconstruction [{label}]: amp_target stats: mean={np.mean(amp_target):.6f}, std={np.std(amp_target):.6f}, shape={amp_target.shape}")
+    print(f"DEBUG eval_reconstruction [{label}]: amp_pred stats: mean={np.mean(amp_pred):.6f}, std={np.std(amp_pred):.6f}, shape={amp_pred.shape}")
+    print(f"DEBUG eval_reconstruction [{label}]: phi_target stats: mean={np.mean(phi_target):.6f}, std={np.std(phi_target):.6f}, shape={phi_target.shape}")
+    print(f"DEBUG eval_reconstruction [{label}]: phi_pred stats: mean={np.mean(phi_pred):.6f}, std={np.std(phi_pred):.6f}, shape={phi_pred.shape}")
+    
     frc_amp, frc50_amp = frc50(amp_target[:, :, 0], amp_pred[:, :, 0])
 
     mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
