@@ -56,6 +56,18 @@ def parse_args():
                         help="Baseline phase vmax (default: auto from percentiles).")
     parser.add_argument("--skip-registration", action="store_true",
                         help="Skip automatic registration before evaluation (for debugging).")
+    parser.add_argument("--save-npz", action="store_true", default=True,
+                        help="Save NPZ files containing amplitude and phase data for all reconstructions and ground truth (default: enabled).")
+    parser.add_argument("--no-save-npz", action="store_true",
+                        help="Disable NPZ file export to save disk space.")
+    parser.add_argument("--save-npz-aligned", action="store_true", default=True,
+                        help="Save post-registration aligned NPZ files (default: enabled).")
+    parser.add_argument("--no-save-npz-aligned", action="store_true",
+                        help="Disable aligned NPZ file export to save disk space.")
+    parser.add_argument("--phase-align-method", choices=['plane', 'mean'], default='plane',
+                        help="Method for phase alignment: 'plane' (fit and remove planes, default) or 'mean' (subtract mean).")
+    parser.add_argument("--frc-sigma", type=float, default=0.0,
+                        help="Gaussian smoothing sigma for FRC calculation (0 = no smoothing, default: 0.0).")
     return parser.parse_args()
 
 
@@ -233,6 +245,37 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
     logger.info(f"Visual comparison saved to {output_path}")
 
 
+def save_frc_curves(frc_tuple, output_path, model_name):
+    """
+    Save raw FRC curves to a CSV file for detailed analysis.
+    
+    Args:
+        frc_tuple: Tuple of (amplitude_frc_curve, phase_frc_curve) 
+        output_path: Path to save the CSV file
+        model_name: Name of the model for labeling
+    """
+    amp_frc, phase_frc = frc_tuple
+    
+    # Create data for CSV
+    data = []
+    max_length = max(len(amp_frc) if amp_frc is not None else 0, 
+                     len(phase_frc) if phase_frc is not None else 0)
+    
+    for i in range(max_length):
+        row = {
+            'model': model_name,
+            'frequency_bin': i,
+            'amplitude_frc': amp_frc[i] if amp_frc is not None and i < len(amp_frc) else np.nan,
+            'phase_frc': phase_frc[i] if phase_frc is not None and i < len(phase_frc) else np.nan
+        }
+        data.append(row)
+    
+    # Save to CSV
+    df = pd.DataFrame(data)
+    df.to_csv(output_path, index=False, float_format='%.6f')
+    logger.info(f"FRC curves saved to {output_path}")
+
+
 def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=None, baseline_offset=None):
     """Save metrics to a CSV file in a tidy format."""
     data = []
@@ -299,6 +342,173 @@ def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=No
     print(df.to_string(index=False))
 
 
+def save_reconstruction_npz(pinn_recon, baseline_recon, ground_truth_obj, output_dir):
+    """
+    Save a single unified NPZ file containing amplitude, phase, and complex data for all reconstructions
+    before any registration correction is applied.
+    
+    Args:
+        pinn_recon: PtychoPINN reconstruction (complex array)
+        baseline_recon: Baseline reconstruction (complex array)  
+        ground_truth_obj: Ground truth object (complex array, can be None)
+        output_dir: Directory to save NPZ files
+    """
+    output_dir = Path(output_dir)
+    
+    def extract_amp_phase_complex(complex_array):
+        """Extract amplitude, phase, and complex from complex array."""
+        if complex_array is None:
+            return None, None, None
+        # Squeeze to remove batch/channel dimensions
+        squeezed = np.squeeze(complex_array)
+        amplitude = np.abs(squeezed)
+        phase = np.angle(squeezed)
+        return amplitude, phase, squeezed
+    
+    # Extract amplitude, phase, and complex for each reconstruction
+    pinn_amp, pinn_phase, pinn_complex = extract_amp_phase_complex(pinn_recon)
+    baseline_amp, baseline_phase, baseline_complex = extract_amp_phase_complex(baseline_recon)
+    gt_amp, gt_phase, gt_complex = extract_amp_phase_complex(ground_truth_obj)
+    
+    # Create unified data dictionary
+    unified_data = {
+        'ptychopinn_amplitude': pinn_amp,
+        'ptychopinn_phase': pinn_phase,
+        'ptychopinn_complex': pinn_complex,
+        'baseline_amplitude': baseline_amp,
+        'baseline_phase': baseline_phase,
+        'baseline_complex': baseline_complex,
+    }
+    
+    # Add ground truth if available
+    if ground_truth_obj is not None:
+        unified_data.update({
+            'ground_truth_amplitude': gt_amp,
+            'ground_truth_phase': gt_phase,
+            'ground_truth_complex': gt_complex
+        })
+    
+    # Save single unified file
+    unified_path = output_dir / "reconstructions.npz"
+    np.savez_compressed(unified_path, **unified_data)
+    logger.info(f"Unified reconstructions saved to {unified_path}")
+    
+    # Also create a metadata file describing the contents
+    metadata_path = output_dir / "reconstructions_metadata.txt"
+    with open(metadata_path, 'w') as f:
+        f.write("NPZ File Contents:\n")
+        f.write("==================\n\n")
+        f.write("Arrays saved in reconstructions.npz:\n")
+        for key in unified_data.keys():
+            if unified_data[key] is not None:
+                shape = unified_data[key].shape
+                dtype = unified_data[key].dtype
+                f.write(f"- {key}: {shape} {dtype}\n")
+            else:
+                f.write(f"- {key}: None (not available)\n")
+        f.write("\nDescription:\n")
+        f.write("- *_amplitude: Real-valued amplitude data\n")
+        f.write("- *_phase: Real-valued phase data in radians\n")
+        f.write("- *_complex: Complex-valued reconstruction data\n")
+        f.write("- Data saved BEFORE registration correction\n")
+    
+    logger.info(f"Metadata saved to {metadata_path}")
+    logger.info("Unified NPZ reconstruction file saved successfully!")
+    
+    return {
+        'unified_path': unified_path,
+        'metadata_path': metadata_path
+    }
+
+
+def save_aligned_reconstruction_npz(pinn_aligned, baseline_aligned, gt_aligned, pinn_offset, baseline_offset, output_dir):
+    """
+    Save a single unified NPZ file containing amplitude, phase, and complex data for aligned reconstructions
+    after registration correction has been applied.
+    
+    Args:
+        pinn_aligned: Aligned PtychoPINN reconstruction (complex array)
+        baseline_aligned: Aligned Baseline reconstruction (complex array)  
+        gt_aligned: Aligned ground truth object (complex array, can be None)
+        pinn_offset: Detected offset for PtychoPINN as (dy, dx) tuple
+        baseline_offset: Detected offset for Baseline as (dy, dx) tuple
+        output_dir: Directory to save NPZ files
+    """
+    output_dir = Path(output_dir)
+    
+    def extract_amp_phase_complex(complex_array):
+        """Extract amplitude, phase, and complex from complex array."""
+        if complex_array is None:
+            return None, None, None
+        # No squeezing needed as these are already 2D from alignment
+        amplitude = np.abs(complex_array)
+        phase = np.angle(complex_array)
+        return amplitude, phase, complex_array
+    
+    # Extract amplitude, phase, and complex for each aligned reconstruction
+    pinn_amp, pinn_phase, pinn_complex = extract_amp_phase_complex(pinn_aligned)
+    baseline_amp, baseline_phase, baseline_complex = extract_amp_phase_complex(baseline_aligned)
+    gt_amp, gt_phase, gt_complex = extract_amp_phase_complex(gt_aligned)
+    
+    # Create unified aligned data dictionary
+    unified_data = {
+        'ptychopinn_amplitude': pinn_amp,
+        'ptychopinn_phase': pinn_phase,
+        'ptychopinn_complex': pinn_complex,
+        'baseline_amplitude': baseline_amp,
+        'baseline_phase': baseline_phase,
+        'baseline_complex': baseline_complex,
+        'pinn_offset_dy': float(pinn_offset[0]) if pinn_offset is not None else None,
+        'pinn_offset_dx': float(pinn_offset[1]) if pinn_offset is not None else None,
+        'baseline_offset_dy': float(baseline_offset[0]) if baseline_offset is not None else None,
+        'baseline_offset_dx': float(baseline_offset[1]) if baseline_offset is not None else None,
+    }
+    
+    # Add aligned ground truth if available
+    if gt_aligned is not None:
+        unified_data.update({
+            'ground_truth_amplitude': gt_amp,
+            'ground_truth_phase': gt_phase,
+            'ground_truth_complex': gt_complex
+        })
+    
+    # Save single unified aligned file
+    unified_path = output_dir / "reconstructions_aligned.npz"
+    np.savez_compressed(unified_path, **unified_data)
+    logger.info(f"Unified aligned reconstructions saved to {unified_path}")
+    
+    # Also create a metadata file describing the contents
+    metadata_path = output_dir / "reconstructions_aligned_metadata.txt"
+    with open(metadata_path, 'w') as f:
+        f.write("Aligned NPZ File Contents:\n")
+        f.write("==========================\n\n")
+        f.write("Arrays saved in reconstructions_aligned.npz:\n")
+        for key in unified_data.keys():
+            if unified_data[key] is not None:
+                if isinstance(unified_data[key], (int, float)):
+                    f.write(f"- {key}: {unified_data[key]} (scalar)\n")
+                else:
+                    shape = unified_data[key].shape
+                    dtype = unified_data[key].dtype
+                    f.write(f"- {key}: {shape} {dtype}\n")
+            else:
+                f.write(f"- {key}: None (not available)\n")
+        f.write("\nDescription:\n")
+        f.write("- *_amplitude: Real-valued amplitude data\n")
+        f.write("- *_phase: Real-valued phase data in radians\n")
+        f.write("- *_complex: Complex-valued reconstruction data\n")
+        f.write("- *_offset_dy, *_offset_dx: Registration offsets in pixels\n")
+        f.write("- Data saved AFTER registration correction and alignment\n")
+    
+    logger.info(f"Aligned metadata saved to {metadata_path}")
+    logger.info("Unified aligned NPZ reconstruction file saved successfully!")
+    
+    return {
+        'unified_path': unified_path,
+        'metadata_path': metadata_path
+    }
+
+
 def main():
     """
     Main comparison workflow with automatic registration.
@@ -316,6 +526,17 @@ def main():
     """
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Handle NPZ flag combinations
+    if args.no_save_npz:
+        args.save_npz = False
+    if args.no_save_npz_aligned:
+        args.save_npz_aligned = False
+    
+    # Log configuration
+    logger.info(f"Configuration: phase_align_method='{args.phase_align_method}', frc_sigma={args.frc_sigma}")
+    logger.info(f"Registration: {'disabled' if args.skip_registration else 'enabled'}")
+    logger.info(f"NPZ output: raw={'enabled' if args.save_npz else 'disabled'}, aligned={'enabled' if args.save_npz_aligned else 'disabled'}")
 
     # Load test data
     logger.info(f"Loading test data from {args.test_data}...")
@@ -374,6 +595,14 @@ def main():
     # Reassemble patches
     logger.info("Reassembling baseline patches...")
     baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=20)
+
+    # Save NPZ files of reconstructions (before any alignment/registration) if requested
+    if args.save_npz:
+        logger.info("Saving NPZ files of raw reconstructions...")
+        npz_paths = save_reconstruction_npz(pinn_recon, baseline_recon, ground_truth_obj, args.output_dir)
+    else:
+        logger.info("Raw NPZ export disabled (use --save-npz to enable)")
+        npz_paths = None
 
     # Evaluate reconstructions
     pinn_metrics = {}
@@ -461,25 +690,80 @@ def main():
         
         # Evaluate with aligned arrays (add back dimensions for eval function)
         # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
-        pinn_metrics = eval_reconstruction(
-            pinn_recon_aligned[None, ..., None],  # (1, H, W, 1)
-            cropped_gt[..., None],                 # (H, W, 1) - no batch dimension!
-            label="PtychoPINN"
-        )
-        baseline_metrics = eval_reconstruction(
-            baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
-            cropped_gt[..., None],                     # (H, W, 1) - no batch dimension!
-            label="Baseline"
-        )
+        try:
+            pinn_metrics = eval_reconstruction(
+                pinn_recon_aligned[None, ..., None],  # (1, H, W, 1)
+                cropped_gt[..., None],                 # (H, W, 1) - no batch dimension!
+                label="PtychoPINN",
+                phase_align_method=args.phase_align_method,
+                frc_sigma=args.frc_sigma
+            )
+            logger.info(f"PtychoPINN evaluation complete. SSIM: amp={pinn_metrics['ssim'][0]:.3f}, phase={pinn_metrics['ssim'][1]:.3f}")
+        except Exception as e:
+            logger.error(f"PtychoPINN evaluation failed: {e}")
+            # Create dummy metrics with NaN values to allow comparison to continue
+            pinn_metrics = {
+                'mae': (np.nan, np.nan), 'mse': (np.nan, np.nan), 
+                'psnr': (np.nan, np.nan), 'ssim': (np.nan, np.nan),
+                'frc50': (np.nan, np.nan), 'frc': (None, None)
+            }
         
-        # Save metrics
+        try:
+            baseline_metrics = eval_reconstruction(
+                baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
+                cropped_gt[..., None],                     # (H, W, 1) - no batch dimension!
+                label="Baseline",
+                phase_align_method=args.phase_align_method,
+                frc_sigma=args.frc_sigma
+            )
+            logger.info(f"Baseline evaluation complete. SSIM: amp={baseline_metrics['ssim'][0]:.3f}, phase={baseline_metrics['ssim'][1]:.3f}")
+        except Exception as e:
+            logger.error(f"Baseline evaluation failed: {e}")
+            # Create dummy metrics with NaN values to allow comparison to continue
+            baseline_metrics = {
+                'mae': (np.nan, np.nan), 'mse': (np.nan, np.nan), 
+                'psnr': (np.nan, np.nan), 'ssim': (np.nan, np.nan),
+                'frc50': (np.nan, np.nan), 'frc': (None, None)
+            }
+        
+        # Save scalar metrics to CSV
         metrics_path = args.output_dir / "comparison_metrics.csv"
         save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path, pinn_offset, baseline_offset)
+        
+        # Save raw FRC curves as separate files for detailed analysis
+        if pinn_metrics['frc'][0] is not None:
+            pinn_frc_path = args.output_dir / "pinn_frc_curves.csv"
+            save_frc_curves(pinn_metrics['frc'], pinn_frc_path, "PtychoPINN")
+        
+        if baseline_metrics['frc'][0] is not None:
+            baseline_frc_path = args.output_dir / "baseline_frc_curves.csv"
+            save_frc_curves(baseline_metrics['frc'], baseline_frc_path, "Baseline")
+        
+        # Save aligned NPZ files if requested
+        if args.save_npz_aligned:
+            logger.info("Saving NPZ files of aligned reconstructions...")
+            aligned_npz_paths = save_aligned_reconstruction_npz(
+                pinn_recon_aligned, baseline_recon_aligned, cropped_gt, 
+                pinn_offset, baseline_offset, args.output_dir
+            )
+        else:
+            logger.info("Aligned NPZ export disabled (use --save-npz-aligned to enable)")
+            aligned_npz_paths = None
     else:
         logger.warning("No ground truth object found in test data. Skipping metric evaluation.")
         cropped_gt = None
         pinn_recon_aligned = np.squeeze(pinn_recon)
         baseline_recon_aligned = np.squeeze(baseline_recon)
+        
+        # For cases without ground truth, we can still save aligned reconstructions if registration was performed
+        if args.save_npz_aligned and not args.skip_registration:
+            logger.info("Saving NPZ files of aligned reconstructions (no ground truth available)...")
+            aligned_npz_paths = save_aligned_reconstruction_npz(
+                pinn_recon_aligned, baseline_recon_aligned, None, 
+                pinn_offset, baseline_offset, args.output_dir
+            )
+        else:
+            aligned_npz_paths = None
 
     # Create comparison plot
     plot_path = args.output_dir / "comparison_plot.png"
