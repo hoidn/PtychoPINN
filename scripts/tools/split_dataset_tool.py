@@ -18,7 +18,23 @@ def split_dataset(
     split_fraction: float,
     split_axis: str,
 ):
-    """Loads an NPZ, splits it, and saves two new NPZ files."""
+    """Loads an NPZ, splits it spatially, and saves two new NPZ files.
+
+    This function divides a dataset into training and testing sets based on
+    the scan coordinates. All per-scan arrays (e.g., 'xcoords', 'diffraction')
+    are split, while global arrays (e.g., 'objectGuess') are copied to both
+    output files.
+
+    Args:
+        input_path: Path to the source .npz file.
+        output_dir: Directory where the '_train.npz' and '_test.npz' files will be saved.
+        split_fraction: The fraction of the data to allocate to the training set.
+        split_axis: The coordinate axis ('x' or 'y') along which to perform the split.
+
+    Raises:
+        FileNotFoundError: If the input file does not exist.
+        KeyError: If the required coordinate key is not found in the NPZ file.
+    """
     if not input_path.exists():
         raise FileNotFoundError(f"Input file not found: {input_path}")
     
