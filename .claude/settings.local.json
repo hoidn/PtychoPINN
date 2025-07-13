@@ -152,7 +152,16 @@
       "Bash(--pinn_dir large_generalization_study_results/train_512/pinn_run )",
       "Bash(--baseline_dir large_generalization_study_results/train_512/baseline_run )",
       "Bash(--test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz )",
-      "Bash(--output_dir test_phase2_backwards_compat)"
+      "Bash(--output_dir test_phase2_backwards_compat)",
+      "Bash(--pinn_dir large_generalization_study_tike_test/train_1024/pinn_run )",
+      "Bash(--baseline_dir large_generalization_study_tike_test/train_1024/baseline_run )",
+      "Bash(--test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz )",
+      "Bash(--output_dir test_phase3_integration )",
+      "Bash(--save-debug-images)",
+      "Bash(--pinn_dir large_generalization_study_tike_test/train_1024/pinn_run )",
+      "Bash(--baseline_dir large_generalization_study_tike_test/train_1024/baseline_run )",
+      "Bash(--test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz )",
+      "Bash(--output_dir test_phase3_color_scaling )"
     ],
     "deny": []
   }
