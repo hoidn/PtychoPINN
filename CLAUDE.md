@@ -4,10 +4,11 @@ This file provides guidance to Claude when working with the PtychoPINN repositor
 
 ## ⚠️ Core Project Directives
 
-1.  **The Physics Model is Correct**: The core ptychography physics simulation and the TensorFlow model architecture are considered stable and correct. **Do not modify the core logic in `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` unless explicitly asked.**
-2.  **Data Format is Paramount**: Most errors in this project stem from incorrect input data formats, not bugs in the model code. Before debugging the model, **always verify the input data structure first.**
-3.  **Use Existing Workflows**: The `scripts/` directory contains high-level, tested workflows. Use these as entry points for tasks like training and simulation. Prefer using these scripts over writing new, low-level logic.
-4.  **Configuration over Code**: Changes to experimental parameters (e.g., learning rate, image size) should be made via configuration files (`.yaml`) or command-line arguments, not by hardcoding values in the Python source.
+1.  **Check Project Status First**: Before starting any new task, you **MUST** first read `docs/PROJECT_STATUS.md` to understand the project's current state and active initiative.
+2.  **The Physics Model is Correct**: The core ptychography physics simulation and the TensorFlow model architecture are considered stable and correct. **Do not modify the core logic in `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` unless explicitly asked.**
+3.  **Data Format is Paramount**: Most errors in this project stem from incorrect input data formats, not bugs in the model code. Before debugging the model, **always verify the input data structure first.**
+4.  **Use Existing Workflows**: The `scripts/` directory contains high-level, tested workflows. Use these as entry points for tasks like training and simulation. Prefer using these scripts over writing new, low-level logic.
+5.  **Configuration over Code**: Changes to experimental parameters (e.g., learning rate, image size) should be made via configuration files (`.yaml`) or command-line arguments, not by hardcoding values in the Python source.
 
 ## Project Overview
 
@@ -212,6 +213,114 @@ python scripts/compare_models.py \
 **Outputs:**
 - `comparison_plot.png` - Side-by-side visual comparison showing PtychoPINN, Baseline, and Ground Truth
 - `comparison_metrics.csv` - Quantitative metrics (MAE, MSE, PSNR, FRC) for both models
+- **Unified NPZ files** (enabled by default):
+  - `reconstructions.npz` - Single file with all raw reconstructions (amplitude, phase, complex for all models, before registration)
+  - `reconstructions_aligned.npz` - Single file with all aligned reconstructions (amplitude, phase, complex, and offsets, after registration)
+  - `reconstructions_metadata.txt` - Description of arrays in raw reconstructions NPZ
+  - `reconstructions_aligned_metadata.txt` - Description of arrays in aligned reconstructions NPZ
+
+### Automatic Image Registration
+
+**IMPORTANT:** Model comparisons now include automatic image registration to ensure fair evaluation.
+
+**What it does:**
+- Automatically detects and corrects translational misalignments between reconstructions and ground truth
+- Uses sub-pixel precision phase cross-correlation for accurate alignment
+- Prevents spurious metric differences caused by small shifts in reconstruction position
+
+**Key Features:**
+- **Automatic activation**: Registration is applied by default in all `compare_models.py` runs
+- **Sub-pixel precision**: Detects offsets with ~0.1 pixel accuracy using upsampled FFT correlation
+- **Logged results**: Detected offsets are logged and saved to the metrics CSV
+- **Physical correctness**: Direction verification ensures offsets are applied correctly
+
+**Understanding the output:**
+```bash
+# Example log output:
+INFO - PtychoPINN detected offset: (-1.060, -0.280)
+INFO - Baseline detected offset: (47.000, -1.980)
+```
+
+This means:
+- PtychoPINN reconstruction needed a 1.06 pixel correction (excellent alignment)
+- Baseline reconstruction had a 47 pixel misalignment (significant shift)
+
+**Output format in CSV:**
+```csv
+PtychoPINN,registration_offset_dy,,,-1.060000
+PtychoPINN,registration_offset_dx,,,-0.280000
+Baseline,registration_offset_dy,,,47.000000
+Baseline,registration_offset_dx,,,-1.980000
+```
+
+**Control options:**
+```bash
+# Normal operation (registration and NPZ exports both enabled by default)
+python scripts/compare_models.py [other args]
+
+# Disable registration for debugging/comparison
+python scripts/compare_models.py --skip-registration [other args]
+
+# Disable NPZ exports to save disk space
+python scripts/compare_models.py --no-save-npz --no-save-npz-aligned [other args]
+
+# Disable only raw NPZ export (keep aligned NPZ files)
+python scripts/compare_models.py --no-save-npz [other args]
+
+# Disable only aligned NPZ export (keep raw NPZ files)
+python scripts/compare_models.py --no-save-npz-aligned [other args]
+
+# Legacy explicit enable flags (redundant since now default)
+python scripts/compare_models.py --save-npz --save-npz-aligned [other args]
+```
+
+**When to use --skip-registration:**
+- Debugging registration behavior
+- Comparing results with/without alignment correction
+- Working with datasets where misalignment is intentional
+- Performance testing (registration adds ~1-2 seconds per comparison)
+
+**When to disable NPZ exports (--no-save-npz / --no-save-npz-aligned):**
+- Limited disk space (unified NPZ files are typically 20-100MB each)
+- Only need visual comparison and CSV metrics
+- Batch processing many comparisons where raw data isn't needed
+- Quick performance testing or debugging runs
+
+**Unified NPZ file contents:**
+
+*reconstructions.npz (raw data):*
+- `ptychopinn_amplitude`, `ptychopinn_phase`, `ptychopinn_complex`: PtychoPINN reconstruction data
+- `baseline_amplitude`, `baseline_phase`, `baseline_complex`: Baseline reconstruction data  
+- `ground_truth_amplitude`, `ground_truth_phase`, `ground_truth_complex`: Ground truth data (if available)
+
+*reconstructions_aligned.npz (aligned data):*
+- Same amplitude, phase, complex arrays but after registration correction applied
+- `pinn_offset_dy`, `pinn_offset_dx`: PtychoPINN registration offsets in pixels (float values)
+- `baseline_offset_dy`, `baseline_offset_dx`: Baseline registration offsets in pixels (float values)
+
+**Important notes about unified NPZ data:**
+- **Single file convenience**: All reconstruction data for a comparison is in one unified NPZ file
+- **Raw NPZ**: Data saved BEFORE registration correction (full resolution ~192x192 for models, ~232x232 for ground truth)
+- **Aligned NPZ**: Data saved AFTER registration correction and coordinate cropping (smaller, aligned size ~179x179)
+- **Metadata files**: Text files describe all arrays and their purposes for easy reference
+- **Complex data precision**: All complex-valued data preserves full precision for downstream analysis
+- **Easy loading**: `data = np.load('reconstructions.npz'); pinn_amp = data['ptychopinn_amplitude']`
+
+**Troubleshooting registration:**
+
+*Large offsets (>20 pixels):*
+- Usually indicates genuine misalignment between models
+- Check training convergence and reconstruction quality
+- Verify ground truth alignment is correct
+
+*Very small offsets (<0.5 pixels):*
+- Indicates excellent alignment, registration working correctly
+- Models are already well-positioned relative to ground truth
+
+*Registration failures:*
+- Check that reconstructions contain sufficient feature content
+- Verify images are not all zeros or uniform values
+- Ensure complex-valued images have reasonable amplitude variation
 
 ## 7. Understanding the Output Directory
 
