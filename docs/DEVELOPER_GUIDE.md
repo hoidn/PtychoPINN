@@ -163,3 +163,52 @@ To ensure fair and consistent model comparison, the project must use single, aut
         """
     ```
 *   **The Rule:** Any script that calculates metrics (e.g., `run_baseline.py`, `compare_models.py`) **must** use this function to prepare its inputs for `eval_reconstruction`. This guarantees that the comparison is fair and physically meaningful.
+
+---
+
+## 6. Testing Conventions
+
+**The Principle:** All tests for the PtychoPINN project must follow a standardized, conventional structure to ensure maintainability, discoverability, and consistency.
+
+### 6.1. Test Directory Structure
+
+**The Rule:** All tests for the `ptycho` library code must reside in the top-level `tests/` directory, with a structure that mirrors the `ptycho/` package organization.
+
+**Directory Structure:**
+```
+tests/
+├── __init__.py
+├── test_model_manager.py      # Tests for ptycho/model_manager.py
+├── test_misc.py               # Tests for ptycho/misc.py  
+├── image/
+│   ├── __init__.py
+│   ├── test_cropping.py       # Tests for ptycho/image/cropping.py
+│   └── test_registration.py   # Tests for ptycho/image/registration.py
+└── workflows/
+    ├── __init__.py
+    └── test_components.py     # Tests for ptycho/workflows/components.py
+```
+
+**Example:** A test for `ptycho/image/cropping.py` must be located at `tests/image/test_cropping.py`.
+
+### 6.2. Running Tests
+
+**The Command:** To run all tests, use the standard unittest discovery from the project root:
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+This command will discover and execute all test files following the `test_*.py` naming pattern within the `tests/` directory structure.
+
+### 6.3. Script-Level Tests
+
+**Exception:** Tests for standalone scripts in the `scripts/` directory can be co-located with the script itself (e.g., `scripts/tools/test_update_tool.py`). This exception applies only to command-line scripts, not library modules.
+
+### 6.4. Test File Naming
+
+**The Convention:** All test files must follow the naming pattern `test_<module_name>.py`, where `<module_name>` corresponds to the module being tested.
+
+**Examples:**
+- Tests for `ptycho/model.py` → `tests/test_model.py`
+- Tests for `ptycho/evaluation.py` → `tests/test_evaluation.py`
+- Tests for `ptycho/image/stitching.py` → `tests/image/test_stitching.py`
