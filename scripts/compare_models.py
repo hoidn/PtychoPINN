@@ -26,6 +26,7 @@ from ptycho import params as p
 from ptycho.tf_helper import reassemble_position
 from ptycho.evaluation import eval_reconstruction
 from ptycho.image.cropping import align_for_evaluation
+from ptycho.image.registration import find_translation_offset, apply_shift_and_crop, register_and_align
 
 # NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
 
@@ -53,6 +54,8 @@ def parse_args():
                         help="Baseline phase vmin (default: auto from percentiles).")
     parser.add_argument("--baseline_phase_vmax", type=float, default=None,
                         help="Baseline phase vmax (default: auto from percentiles).")
+    parser.add_argument("--skip-registration", action="store_true",
+                        help="Skip automatic registration before evaluation (for debugging).")
     return parser.parse_args()
 
 
@@ -99,7 +102,8 @@ def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
 def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path, 
                           p_min=10.0, p_max=90.0, 
                           pinn_phase_vmin=None, pinn_phase_vmax=None,
-                          baseline_phase_vmin=None, baseline_phase_vmax=None):
+                          baseline_phase_vmin=None, baseline_phase_vmax=None,
+                          pinn_offset=None, baseline_offset=None):
     """Create a 2x3 subplot comparing reconstructions.
     
     Args:
@@ -113,13 +117,23 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         pinn_phase_vmax: PtychoPINN phase vmax (default: auto from percentiles)
         baseline_phase_vmin: Baseline phase vmin (default: auto from percentiles)
         baseline_phase_vmax: Baseline phase vmax (default: auto from percentiles)
+        pinn_offset: Translation offset detected for PtychoPINN (dy, dx)
+        baseline_offset: Translation offset detected for Baseline (dy, dx)
     """
     fig, axes = plt.subplots(2, 3, figsize=(15, 10), sharex=True, sharey=True)
     fig.suptitle("PtychoPINN vs. Baseline Reconstruction", fontsize=16)
 
-    # Set titles
-    axes[0, 0].set_title("PtychoPINN")
-    axes[0, 1].set_title("Baseline")
+    # Set titles with offset information
+    pinn_title = "PtychoPINN"
+    if pinn_offset is not None:
+        pinn_title += f"\n(offset: ({pinn_offset[0]:.2f}, {pinn_offset[1]:.2f}))"
+    axes[0, 0].set_title(pinn_title)
+    
+    baseline_title = "Baseline"
+    if baseline_offset is not None:
+        baseline_title += f"\n(offset: ({baseline_offset[0]:.2f}, {baseline_offset[1]:.2f}))"
+    axes[0, 1].set_title(baseline_title)
+    
     axes[0, 2].set_title("Ground Truth")
     
     # Set row labels
@@ -219,7 +233,7 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
     logger.info(f"Visual comparison saved to {output_path}")
 
 
-def save_metrics_csv(pinn_metrics, baseline_metrics, output_path):
+def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=None, baseline_offset=None):
     """Save metrics to a CSV file in a tidy format."""
     data = []
     
@@ -250,6 +264,31 @@ def save_metrics_csv(pinn_metrics, baseline_metrics, output_path):
     if baseline_metrics:
         add_metrics('Baseline', baseline_metrics)
     
+    # Add registration offset information
+    if pinn_offset is not None:
+        data.append({
+            'model': 'PtychoPINN',
+            'metric': 'registration_offset_dy',
+            'value': float(pinn_offset[0])
+        })
+        data.append({
+            'model': 'PtychoPINN',
+            'metric': 'registration_offset_dx',
+            'value': float(pinn_offset[1])
+        })
+    
+    if baseline_offset is not None:
+        data.append({
+            'model': 'Baseline',
+            'metric': 'registration_offset_dy',
+            'value': float(baseline_offset[0])
+        })
+        data.append({
+            'model': 'Baseline',
+            'metric': 'registration_offset_dx',
+            'value': float(baseline_offset[1])
+        })
+    
     # Create DataFrame and save
     df = pd.DataFrame(data)
     df.to_csv(output_path, index=False, float_format='%.6f')
@@ -261,7 +300,20 @@ def save_metrics_csv(pinn_metrics, baseline_metrics, output_path):
 
 
 def main():
-    """Main comparison workflow."""
+    """
+    Main comparison workflow with automatic registration.
+    
+    This function loads trained PtychoPINN and baseline models, runs inference on test data,
+    performs automatic image registration to align reconstructions before evaluation,
+    and generates comparison metrics and visualizations.
+    
+    The alignment process consists of two stages:
+    1. Coordinate-based alignment: Crops images to the scanned region based on scan coordinates
+    2. Fine-scale registration: Detects and corrects pixel-level misalignments using cross-correlation
+    
+    Registration can be disabled using the --skip-registration flag for debugging purposes.
+    Detected translation offsets are logged and included in both the CSV output and plot annotations.
+    """
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -328,6 +380,10 @@ def main():
     baseline_metrics = {}
     cropped_gt = None
     
+    # Track registration offsets for visualization
+    pinn_offset = None
+    baseline_offset = None
+    
     # Coordinate-based ground truth alignment and evaluation
     if ground_truth_obj is not None:
         logger.info("Performing coordinate-based alignment of ground truth...")
@@ -336,7 +392,7 @@ def main():
         gt_obj_squeezed = ground_truth_obj.squeeze()
         logger.info(f"Ground truth original shape: {gt_obj_squeezed.shape}")
         
-        # --- REFACTORED ALIGNMENT LOGIC ---
+        # --- COORDINATE-BASED ALIGNMENT + REGISTRATION WORKFLOW ---
         
         # 1. Define the stitching parameter
         M_STITCH_SIZE = 20
@@ -346,24 +402,60 @@ def main():
         scan_coords_xy = np.squeeze(global_offsets)
         scan_coords_yx = scan_coords_xy[:, [1, 0]]
 
-        # 3. Align PINN reconstruction
-        pinn_recon_aligned, gt_aligned_for_pinn = align_for_evaluation(
+        # 3. First stage: Coordinate-based alignment (crop to scanned region)
+        pinn_recon_cropped, gt_cropped_for_pinn = align_for_evaluation(
             reconstruction_image=pinn_recon,
             ground_truth_image=ground_truth_obj,
             scan_coords_yx=scan_coords_yx,
             stitch_patch_size=M_STITCH_SIZE
         )
         
-        # 4. Align Baseline reconstruction
-        baseline_recon_aligned, gt_aligned_for_baseline = align_for_evaluation(
+        baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation(
             reconstruction_image=baseline_recon,
             ground_truth_image=ground_truth_obj,
             scan_coords_yx=scan_coords_yx,
             stitch_patch_size=M_STITCH_SIZE
         )
         
-        # The ground truth should be aligned identically for both, so we can use one.
-        cropped_gt = gt_aligned_for_pinn
+        # Use the first cropped GT (should be identical for both)
+        cropped_gt = gt_cropped_for_pinn
+        
+        # 4. Second stage: Fine-scale registration (correct pixel-level shifts)
+        if not args.skip_registration:
+            logger.info("Performing fine-scale registration to correct pixel-level misalignments...")
+            
+            try:
+                # Register PINN reconstruction against ground truth  
+                pinn_offset = find_translation_offset(pinn_recon_cropped, cropped_gt, upsample_factor=50)
+                logger.info(f"PtychoPINN detected offset: ({pinn_offset[0]:.3f}, {pinn_offset[1]:.3f})")
+                pinn_recon_aligned, gt_aligned_for_pinn = apply_shift_and_crop(
+                    pinn_recon_cropped, cropped_gt, pinn_offset, border_crop=2
+                )
+                
+                # Register Baseline reconstruction against ground truth
+                baseline_offset = find_translation_offset(baseline_recon_cropped, cropped_gt, upsample_factor=50)
+                logger.info(f"Baseline detected offset: ({baseline_offset[0]:.3f}, {baseline_offset[1]:.3f})")
+                baseline_recon_aligned, gt_aligned_for_baseline = apply_shift_and_crop(
+                    baseline_recon_cropped, cropped_gt, baseline_offset, border_crop=2
+                )
+                
+                # Use the GT aligned with PINN (both should be nearly identical)
+                cropped_gt = gt_aligned_for_pinn
+                
+                # Log registration results
+                logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}, Baseline offset: {baseline_offset}")
+                logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, Baseline: {baseline_recon_aligned.shape}, GT: {cropped_gt.shape}")
+                
+            except Exception as e:
+                logger.warning(f"Registration failed: {e}. Continuing with coordinate-aligned images.")
+                pinn_recon_aligned = pinn_recon_cropped
+                baseline_recon_aligned = baseline_recon_cropped
+                # cropped_gt already set above
+        else:
+            logger.info("Skipping registration (--skip-registration specified)")
+            pinn_recon_aligned = pinn_recon_cropped
+            baseline_recon_aligned = baseline_recon_cropped
+            # cropped_gt already set above
         
         logger.info(f"Final evaluation shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}, GT {cropped_gt.shape}")
         
@@ -382,7 +474,7 @@ def main():
         
         # Save metrics
         metrics_path = args.output_dir / "comparison_metrics.csv"
-        save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path)
+        save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path, pinn_offset, baseline_offset)
     else:
         logger.warning("No ground truth object found in test data. Skipping metric evaluation.")
         cropped_gt = None
@@ -394,7 +486,8 @@ def main():
     create_comparison_plot(pinn_recon_aligned, baseline_recon_aligned, cropped_gt, plot_path, 
                           p_min=args.p_min, p_max=args.p_max,
                           pinn_phase_vmin=args.pinn_phase_vmin, pinn_phase_vmax=args.pinn_phase_vmax,
-                          baseline_phase_vmin=args.baseline_phase_vmin, baseline_phase_vmax=args.baseline_phase_vmax)
+                          baseline_phase_vmin=args.baseline_phase_vmin, baseline_phase_vmax=args.baseline_phase_vmax,
+                          pinn_offset=pinn_offset, baseline_offset=baseline_offset)
     
     logger.info("\nComparison complete!")
     logger.info(f"Results saved to: {args.output_dir}")
