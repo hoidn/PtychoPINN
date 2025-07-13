@@ -371,11 +371,13 @@ def main():
         # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
         pinn_metrics = eval_reconstruction(
             pinn_recon_aligned[None, ..., None],  # (1, H, W, 1)
-            cropped_gt[..., None]                 # (H, W, 1) - no batch dimension!
+            cropped_gt[..., None],                 # (H, W, 1) - no batch dimension!
+            label="PtychoPINN"
         )
         baseline_metrics = eval_reconstruction(
             baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
-            cropped_gt[..., None]                     # (H, W, 1) - no batch dimension!
+            cropped_gt[..., None],                     # (H, W, 1) - no batch dimension!
+            label="Baseline"
         )
         
         # Save metrics
