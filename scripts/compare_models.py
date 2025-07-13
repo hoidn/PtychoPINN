@@ -68,6 +68,10 @@ def parse_args():
                         help="Method for phase alignment: 'plane' (fit and remove planes, default) or 'mean' (subtract mean).")
     parser.add_argument("--frc-sigma", type=float, default=0.0,
                         help="Gaussian smoothing sigma for FRC calculation (0 = no smoothing, default: 0.0).")
+    parser.add_argument("--save-debug-images", action="store_true",
+                        help="Save debug images for MS-SSIM and FRC preprocessing visualization.")
+    parser.add_argument("--ms-ssim-sigma", type=float, default=1.0,
+                        help="Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0).")
     return parser.parse_args()
 
 
@@ -696,15 +700,18 @@ def main():
                 cropped_gt[..., None],                 # (H, W, 1) - no batch dimension!
                 label="PtychoPINN",
                 phase_align_method=args.phase_align_method,
-                frc_sigma=args.frc_sigma
+                frc_sigma=args.frc_sigma,
+                debug_save_images=args.save_debug_images,
+                ms_ssim_sigma=args.ms_ssim_sigma
             )
-            logger.info(f"PtychoPINN evaluation complete. SSIM: amp={pinn_metrics['ssim'][0]:.3f}, phase={pinn_metrics['ssim'][1]:.3f}")
+            logger.info(f"PtychoPINN evaluation complete. SSIM: amp={pinn_metrics['ssim'][0]:.3f}, phase={pinn_metrics['ssim'][1]:.3f}, MS-SSIM: amp={pinn_metrics['ms_ssim'][0]:.3f}, phase={pinn_metrics['ms_ssim'][1]:.3f}")
         except Exception as e:
             logger.error(f"PtychoPINN evaluation failed: {e}")
             # Create dummy metrics with NaN values to allow comparison to continue
             pinn_metrics = {
                 'mae': (np.nan, np.nan), 'mse': (np.nan, np.nan), 
                 'psnr': (np.nan, np.nan), 'ssim': (np.nan, np.nan),
+                'ms_ssim': (np.nan, np.nan),
                 'frc50': (np.nan, np.nan), 'frc': (None, None)
             }
         
@@ -714,15 +721,18 @@ def main():
                 cropped_gt[..., None],                     # (H, W, 1) - no batch dimension!
                 label="Baseline",
                 phase_align_method=args.phase_align_method,
-                frc_sigma=args.frc_sigma
+                frc_sigma=args.frc_sigma,
+                debug_save_images=args.save_debug_images,
+                ms_ssim_sigma=args.ms_ssim_sigma
             )
-            logger.info(f"Baseline evaluation complete. SSIM: amp={baseline_metrics['ssim'][0]:.3f}, phase={baseline_metrics['ssim'][1]:.3f}")
+            logger.info(f"Baseline evaluation complete. SSIM: amp={baseline_metrics['ssim'][0]:.3f}, phase={baseline_metrics['ssim'][1]:.3f}, MS-SSIM: amp={baseline_metrics['ms_ssim'][0]:.3f}, phase={baseline_metrics['ms_ssim'][1]:.3f}")
         except Exception as e:
             logger.error(f"Baseline evaluation failed: {e}")
             # Create dummy metrics with NaN values to allow comparison to continue
             baseline_metrics = {
                 'mae': (np.nan, np.nan), 'mse': (np.nan, np.nan), 
                 'psnr': (np.nan, np.nan), 'ssim': (np.nan, np.nan),
+                'ms_ssim': (np.nan, np.nan),
                 'frc50': (np.nan, np.nan), 'frc': (None, None)
             }
         

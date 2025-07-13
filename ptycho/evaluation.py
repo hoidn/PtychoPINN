@@ -3,9 +3,96 @@ import matplotlib.pyplot as plt
 import matplotlib
 import tensorflow as tf
 from skimage.metrics import structural_similarity
+from pathlib import Path
 
 from ptycho import params
 from ptycho import misc
+
+def _save_debug_image(image_data, filename_suffix, output_dir, vmin=None, vmax=None):
+    """
+    Private helper function to save debug images using matplotlib.
+    
+    Args:
+        image_data: 2D numpy array to save as image
+        filename_suffix: String suffix for the filename (e.g., 'pinn_phase_for_ms-ssim')
+        output_dir: Directory to save the image (will be created if needed)
+        vmin: Minimum value for color scaling (optional)
+        vmax: Maximum value for color scaling (optional)
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    filename = f"{filename_suffix}.png"
+    filepath = output_dir / filename
+    
+    # Detect if this is a phase image (typically in [-π, π] or [0, 1] range)
+    is_phase = 'phase' in filename_suffix.lower()
+    
+    # Choose appropriate colormap
+    cmap = 'hsv' if is_phase else 'gray'
+    
+    # Use matplotlib to save the image with proper scaling
+    plt.imsave(filepath, image_data, cmap=cmap, vmin=vmin, vmax=vmax)
+
+def ms_ssim(img1, img2, levels=5, sigma=0.0):
+    """
+    Multi-Scale Structural Similarity (MS-SSIM) metric.
+    
+    This function implements MS-SSIM by iteratively downsampling the images
+    and calculating SSIM at each level using standard weights.
+    
+    Args:
+        img1: First image (2D numpy array)
+        img2: Second image (2D numpy array)  
+        levels: Number of scale levels (default: 5)
+        sigma: Gaussian smoothing sigma before MS-SSIM calculation (default: 0.0, no smoothing)
+        
+    Returns:
+        MS-SSIM value (float)
+    """
+    # Apply Gaussian smoothing if sigma > 0
+    if sigma > 0:
+        from scipy.ndimage import gaussian_filter as gf
+        img1 = gf(img1, sigma)
+        img2 = gf(img2, sigma)
+    
+    # Standard MS-SSIM weights from the literature
+    weights = np.array([0.0448, 0.2856, 0.3001, 0.2363, 0.1333])
+    
+    # Ensure we don't exceed the weights array
+    levels = min(levels, len(weights))
+    
+    # Calculate data range for SSIM
+    data_range = max(img1.max() - img1.min(), img2.max() - img2.min())
+    
+    ms_ssim_val = 1.0
+    
+    for level in range(levels):
+        # Calculate SSIM at current scale
+        if level == levels - 1:
+            # Use full SSIM for the final level
+            ssim_val = structural_similarity(img1, img2, data_range=data_range)
+        else:
+            # Use only luminance component for intermediate levels
+            ssim_val, ssim_map = structural_similarity(img1, img2, data_range=data_range, full=True)
+            # For MS-SSIM, we typically use the mean of the contrast and structure components
+            # This is a simplified implementation - the full MS-SSIM separates these components
+            
+        # Apply the weight for this level
+        ms_ssim_val *= (ssim_val ** weights[level])
+        
+        # Downsample for next level (except on last iteration)
+        if level < levels - 1:
+            # Simple downsampling by factor of 2
+            img1 = img1[::2, ::2]
+            img2 = img2[::2, ::2]
+            
+            # Ensure images are large enough for next level
+            if min(img1.shape) < 7 or min(img2.shape) < 7:
+                # Not enough resolution for more levels
+                break
+    
+    return ms_ssim_val
 
 def recon_patches(patches):
     """
@@ -243,7 +330,7 @@ def fit_and_remove_plane(phase_img, reference_phase=None):
     
     return phase_aligned
 
-def frc50(target, pred, frc_sigma = 0):
+def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, label=""):
     if np.isnan(pred).all():
         raise ValueError
     if np.max(target) == np.min(target) == 0:
@@ -260,6 +347,15 @@ def frc50(target, pred, frc_sigma = 0):
         w_start = (target.shape[1] - min_dim) // 2
         target = target[h_start:h_start + min_dim, w_start:w_start + min_dim]
         pred = pred[h_start:h_start + min_dim, w_start:w_start + min_dim]
+    
+    # Save debug images if requested
+    if debug_save_images and debug_dir:
+        # Calculate consistent color scales for FRC images
+        frc_vmin = min(target.min(), pred.min())
+        frc_vmax = max(target.max(), pred.max())
+        
+        _save_debug_image(target, f"{label}_target_for_frc" if label else "target_for_frc", debug_dir, vmin=frc_vmin, vmax=frc_vmax)
+        _save_debug_image(pred, f"{label}_pred_for_frc" if label else "pred_for_frc", debug_dir, vmin=frc_vmin, vmax=frc_vmax)
     
     from ptycho.FRC import fourier_ring_corr as frc
     shellcorr = frc.FSC(target, pred)
@@ -279,7 +375,7 @@ def frc50(target, pred, frc_sigma = 0):
 
 
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
-        label = '', phase_align_method='plane', frc_sigma=0):
+        label = '', phase_align_method='plane', frc_sigma=0, debug_save_images=False, ms_ssim_sigma=1.0):
     """
     Evaluate reconstruction quality against ground truth using multiple metrics.
     
@@ -292,6 +388,8 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
                           - 'plane': Fit and remove planes from phase images (default)
                           - 'mean': Subtract mean from phase images
         frc_sigma: Gaussian smoothing sigma for FRC calculation (0 = no smoothing)
+        debug_save_images: If True, save debug images for MS-SSIM and FRC preprocessing
+        ms_ssim_sigma: Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0)
     
     Returns:
         dict: Dictionary containing evaluation metrics with keys:
@@ -299,6 +397,7 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
             - 'mse': (amplitude_mse, phase_mse) - Mean Squared Error  
             - 'psnr': (amplitude_psnr, phase_psnr) - Peak Signal-to-Noise Ratio
             - 'ssim': (amplitude_ssim, phase_ssim) - Structural Similarity Index
+            - 'ms_ssim': (amplitude_ms_ssim, phase_ms_ssim) - Multi-Scale SSIM
             - 'frc50': (amplitude_frc50, phase_frc50) - FRC at 0.5 threshold
             - 'frc': (amplitude_frc_curve, phase_frc_curve) - Full FRC curves
     """
@@ -332,18 +431,30 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
     amp_pred = trim(np.absolute(stitched_obj))
 
-    # TODO complex FRC?
-    mae_amp = mae(amp_target, amp_pred) # PINN
-    mse_amp = mse(amp_target, amp_pred) # PINN
-    psnr_amp = psnr(amp_target[:, :, 0], amp_pred[:, :, 0], normalize = True,
-        shift = False)
-    
-    # Calculate SSIM for amplitude (convert TF tensors to numpy)
+    # Convert to numpy for consistent processing
     amp_target_np = np.array(amp_target[:, :, 0])
     amp_pred_np = np.array(amp_pred[:, :, 0])
+    
+    # ===== EXPLICIT AMPLITUDE NORMALIZATION =====
+    # Calculate scale factor to normalize predicted amplitude to match ground truth mean
+    scale_factor = np.mean(amp_target_np) / np.mean(amp_pred_np)
+    amp_pred_normalized = amp_pred_np * scale_factor
+    print(f'Amplitude normalization scale factor: {scale_factor:.6f}')
+    # ============================================
+    
+    # Now all metrics use the same normalized amplitude data
+    mae_amp = mae(amp_target_np, amp_pred_normalized, normalize=False)
+    mse_amp = mse(amp_target_np, amp_pred_normalized, normalize=False)
+    psnr_amp = psnr(amp_target_np, amp_pred_normalized, normalize=False, shift=False)
+    # Calculate SSIM for amplitude using normalized prediction
     amp_data_range = float(np.max(amp_target_np) - np.min(amp_target_np))
-    ssim_amp = structural_similarity(amp_target_np, amp_pred_np, 
+    ssim_amp = structural_similarity(amp_target_np, amp_pred_normalized, 
                                    data_range=amp_data_range)
+    
+    # Prepare debug directory path
+    import os
+    cwd = os.getcwd()
+    debug_dir = os.path.join(cwd, f"debug_images_{label}" if label else "debug_images") if debug_save_images else None
     
     # Debug logging for FRC inputs
     print(f"DEBUG eval_reconstruction [{label}]: amp_target stats: mean={np.mean(amp_target):.6f}, std={np.std(amp_target):.6f}, shape={amp_target.shape}")
@@ -351,24 +462,53 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     print(f"DEBUG eval_reconstruction [{label}]: phi_target stats: mean={np.mean(phi_target):.6f}, std={np.std(phi_target):.6f}, shape={phi_target.shape}")
     print(f"DEBUG eval_reconstruction [{label}]: phi_pred stats: mean={np.mean(phi_pred):.6f}, std={np.std(phi_pred):.6f}, shape={phi_pred.shape}")
     
-    frc_amp, frc50_amp = frc50(amp_target_np, amp_pred_np, frc_sigma=frc_sigma)
+    frc_amp, frc50_amp = frc50(amp_target_np, amp_pred_normalized, frc_sigma=frc_sigma, 
+                               debug_save_images=debug_save_images, 
+                               debug_dir=debug_dir,
+                               label=f"{label}_amp" if label else "amp")
 
     mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
     mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
-    psnr_phi = psnr(phi_target, phi_pred, normalize = False, shift = True)
+    psnr_phi = psnr(phi_target, phi_pred, normalize=False, shift=False)  # No hidden shift - use consistent alignment
     
-    # Calculate SSIM for phase (scale from [-π,π] to [0,1])
+    # Calculate SSIM for phase (scale from [-π,π] to [0,1] after plane alignment)
     phi_target_scaled = (phi_target + np.pi) / (2 * np.pi)
     phi_pred_scaled = (phi_pred + np.pi) / (2 * np.pi)
+    print(f'Phase preprocessing: plane-fitted range [{phi_target.min():.3f}, {phi_target.max():.3f}] -> scaled range [{phi_target_scaled.min():.3f}, {phi_target_scaled.max():.3f}]')
     ssim_phi = structural_similarity(phi_target_scaled, phi_pred_scaled, 
                                    data_range=1.0)
     
-    frc_phi, frc50_phi = frc50(phi_target, phi_pred, frc_sigma=frc_sigma)
+    # Calculate MS-SSIM for amplitude and phase using the same preprocessing
+    ms_ssim_amp = ms_ssim(amp_target_np, amp_pred_normalized, sigma=ms_ssim_sigma)
+    ms_ssim_phi = ms_ssim(phi_target_scaled, phi_pred_scaled)
+    
+    # Save debug images if requested
+    if debug_save_images:
+        
+        # Calculate consistent color scales for phase images (scaled phase: [0, 1])
+        phase_vmin = min(phi_pred_scaled.min(), phi_target_scaled.min())
+        phase_vmax = max(phi_pred_scaled.max(), phi_target_scaled.max())
+        
+        # Calculate consistent color scales for amplitude images (using normalized amplitude)
+        amp_vmin = min(amp_pred_normalized.min(), amp_target_np.min())
+        amp_vmax = max(amp_pred_normalized.max(), amp_target_np.max())
+        
+        # Save MS-SSIM preprocessing images with consistent color scaling
+        _save_debug_image(phi_pred_scaled, f"{label}_phase_pred_for_ms-ssim" if label else "phase_pred_for_ms-ssim", debug_dir, vmin=phase_vmin, vmax=phase_vmax)
+        _save_debug_image(phi_target_scaled, f"{label}_phase_target_for_ms-ssim" if label else "phase_target_for_ms-ssim", debug_dir, vmin=phase_vmin, vmax=phase_vmax)
+        _save_debug_image(amp_pred_normalized, f"{label}_amp_pred_for_ms-ssim" if label else "amp_pred_for_ms-ssim", debug_dir, vmin=amp_vmin, vmax=amp_vmax)
+        _save_debug_image(amp_target_np, f"{label}_amp_target_for_ms-ssim" if label else "amp_target_for_ms-ssim", debug_dir, vmin=amp_vmin, vmax=amp_vmax)
+    
+    frc_phi, frc50_phi = frc50(phi_target, phi_pred, frc_sigma=frc_sigma,
+                               debug_save_images=debug_save_images,
+                               debug_dir=debug_dir, 
+                               label=f"{label}_phi" if label else "phi")
 
     return {'mae': (mae_amp, mae_phi),
         'mse': (mse_amp, mse_phi),
         'psnr': (psnr_amp, psnr_phi),
         'ssim': (ssim_amp, ssim_phi),
+        'ms_ssim': (ms_ssim_amp, ms_ssim_phi),
         'frc50': (frc50_amp, frc50_phi),
         'frc': (frc_amp, frc_phi)}
 

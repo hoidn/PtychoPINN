@@ -322,6 +322,152 @@ python scripts/compare_models.py --save-npz --save-npz-aligned [other args]
 - Verify images are not all zeros or uniform values
 - Ensure complex-valued images have reasonable amplitude variation
 
+### Standard Model Comparison Examples
+
+For common evaluation workflows, use these tested command patterns:
+
+```bash
+# Compare models from generalization study (recommended test setup)
+python scripts/compare_models.py \
+    --pinn_dir large_generalization_study_tike_test/train_1024/pinn_run \
+    --baseline_dir large_generalization_study_tike_test/train_1024/baseline_run \
+    --test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz \
+    --output_dir comparison_results
+
+# With debug images and custom MS-SSIM parameters
+python scripts/compare_models.py \
+    --pinn_dir <pinn_model_dir> \
+    --baseline_dir <baseline_model_dir> \
+    --test_data <test_data.npz> \
+    --output_dir <output_dir> \
+    --save-debug-images \
+    --ms-ssim-sigma 2.0 \
+    --phase-align-method plane
+```
+
+### Standard Test Datasets
+
+**Primary test data:** `tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz`
+- Large-scale, high-quality test dataset
+- Used in generalization studies
+- Contains ground truth for all metrics
+
+**Training data:** `datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz`
+- Corresponding training dataset
+- Use for training models that will be tested on the above
+
+### Generalization Study Model Structure
+
+```
+large_generalization_study_tike_test/
+├── train_512/
+│   ├── pinn_run/wts.h5.zip                              # PtychoPINN model (512 training images)
+│   └── baseline_run/07-XX-XXXX-XX.XX.XX_baseline_gs1/baseline_model.h5  # Baseline model
+├── train_1024/                                         # Models trained on 1024 images
+├── train_2048/                                         # Models trained on 2048 images
+└── train_4096/                                         # Models trained on 4096 images
+```
+
+## 6.1. Debug Image Workflow
+
+### Generating Fresh Debug Images
+
+Debug images show the exact preprocessing applied before metric calculations. Always regenerate for accurate analysis:
+
+```bash
+# Clean old debug images and generate fresh ones
+rm -rf debug_images_*
+python scripts/compare_models.py \
+    --pinn_dir <model_dir> \
+    --baseline_dir <baseline_dir> \
+    --test_data <test_data> \
+    --output_dir <output> \
+    --save-debug-images
+```
+
+### Debug Image Output Structure
+
+- **PtychoPINN debug images:** `debug_images_PtychoPINN/`
+- **Baseline debug images:** `debug_images_Baseline/`
+
+**Image types generated:**
+- `*_amp_pred_for_ms-ssim.png`: Normalized amplitude prediction used in MS-SSIM
+- `*_amp_target_for_ms-ssim.png`: Ground truth amplitude used in MS-SSIM
+- `*_phase_pred_for_ms-ssim.png`: Scaled phase prediction ([0,1]) used in MS-SSIM
+- `*_phase_target_for_ms-ssim.png`: Scaled phase ground truth used in MS-SSIM
+- `*_amp_*_for_frc.png`: Same normalized amplitudes used in FRC calculation
+- `*_phi_*_for_frc.png`: Plane-aligned phase data used in FRC calculation
+
+**Key verification points:**
+- Target images should be identical between PtychoPINN and Baseline (same ground truth)
+- Prediction images show model-specific reconstructions after consistent preprocessing
+- Color scaling (vmin/vmax) is consistent between pred/target pairs for fair comparison
+
+## 6.2. compare_models.py Complete Reference
+
+### Essential Command-Line Flags
+
+**Debugging & Analysis:**
+- `--save-debug-images`: Generate preprocessing visualization images
+- `--ms-ssim-sigma N`: Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0)
+- `--phase-align-method {plane,mean}`: Phase alignment method (default: plane)
+- `--frc-sigma N`: Gaussian smoothing for FRC calculation (default: 0.0)
+
+**Registration Control:**
+- `--skip-registration`: Disable automatic image registration alignment
+- Default: Registration enabled for fair comparison
+
+**Output Control:**
+- `--save-npz` / `--no-save-npz`: Control raw reconstruction NPZ export (default: enabled)
+- `--save-npz-aligned` / `--no-save-npz-aligned`: Control aligned NPZ export (default: enabled)
+
+### Complete Output Files
+
+**Essential outputs:**
+- `comparison_metrics.csv`: Quantitative metrics (MAE, MSE, PSNR, SSIM, MS-SSIM, FRC50)
+- `comparison_plot.png`: Side-by-side visual comparison
+- `*_frc_curves.csv`: Full FRC curves for detailed analysis
+
+**Optional outputs (controlled by flags):**
+- `reconstructions.npz`: Raw reconstruction data before alignment
+- `reconstructions_aligned.npz`: Aligned reconstruction data after registration
+- `reconstructions*_metadata.txt`: Human-readable descriptions of NPZ contents
+- `debug_images_*/`: Preprocessing visualization images
+
+### Metric Interpretation Guide
+
+**Amplitude Metrics** (higher = better, except MAE/MSE):
+- **SSIM/MS-SSIM**: Structural similarity, range [0,1], >0.8 = good
+- **PSNR**: Peak signal-to-noise ratio, >80dB = excellent
+- **FRC50**: Spatial resolution in pixels, higher = better resolution
+
+**Phase Metrics** (higher = better, except MAE/MSE):
+- **SSIM/MS-SSIM**: After plane fitting and [0,1] scaling
+- **MAE**: Mean absolute error in radians, <0.1 = good
+- **PSNR**: After plane fitting, >65dB = good
+
+**Registration Offsets** (smaller = better alignment):
+- Values <2.0 pixels indicate excellent model-to-ground-truth alignment
+- Values >20 pixels suggest significant misalignment issues
+
+## 6.3. Advanced Evaluation Features
+
+For detailed information on evaluation methodology and debugging:
+
+**Current evaluation status:** `docs/refactor/eval_enhancements/implementation_eval_enhancements.md`
+- Tracks evaluation pipeline enhancements (SSIM, MS-SSIM, etc.)
+- Phase-by-phase implementation status
+- Technical specifications for new metrics
+
+**Phase implementation checklists:** `docs/refactor/eval_enhancements/phase_*_checklist.md`
+- Detailed task breakdowns for evaluation improvements
+- Implementation guidance for specific features
+
+**Generalization studies:** `docs/studies/GENERALIZATION_STUDY_GUIDE.md`
+- Complete guide for running training size studies
+- Performance scaling analysis workflows
+- Publication-ready result generation
+
 ## 7. Understanding the Output Directory
 
 After a successful training run using `ptycho_train --output_dir <my_run>`, the output directory will contain several key files:
