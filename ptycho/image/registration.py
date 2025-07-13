@@ -1,162 +1,111 @@
-"""
-ptycho_registration.py
-======================
+"""Image registration module for ptychographic reconstruction alignment.
 
-Image-registration helpers for ptychographic reconstructions
------------------------------------------------------------
+This module provides robust image registration functionality using phase cross-correlation
+to detect and correct translational misalignments between reconstructions and ground truth.
+The implementation uses scikit-image's phase_cross_correlation for sub-pixel precision.
 
-Public API
-----------
-find_translation_offset(image, reference, upsample_factor=50) → (dy, dx)
-apply_shift_and_crop(image, reference, offset, border_crop=2) → (img_crop, ref_crop)
-register_and_align(image, reference, upsample_factor=50, border_crop=2)
+Key features:
+- Sub-pixel precision registration using upsampled FFT
+- Complex-valued image support via magnitude extraction
+- Fourier-domain shifting for exact sub-pixel alignment
+- Border cropping to eliminate wrap-around artifacts
 
-Conventions
------------
-* Arrays are 2-D NumPy ndarrays (real or complex), shape (H, W).
-* Returned offsets are floats (dy, dx) **in pixels**.  
-  Positive dy ⇒ `image` is lower than `reference`.  
-  Positive dx ⇒ `image` is to the right of `reference`.
-* A fixed `border_crop=2` (default) trims 2 px from every edge after shifting
-  to eliminate Fourier wrap-around artefacts.
-
-Dependencies
-------------
-* Mandatory: NumPy, SciPy
-* Optional : scikit-image (for `phase_cross_correlation`)
+Typical workflow:
+1. Use find_translation_offset() to detect misalignment
+2. Apply apply_shift_and_crop() to correct and clean the alignment
+3. Or use register_and_align() for one-step convenience
 """
 
 from __future__ import annotations
-
-import logging
-from typing import Tuple
-
 import numpy as np
 from numpy.fft import fft2, ifft2, fftfreq
-
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
-
-
-# -----------------------------------------------------------------------------#
-# Internal helpers
-# -----------------------------------------------------------------------------#
-def _tukey_window(shape: Tuple[int, int], alpha: float = 0.25) -> np.ndarray:
-    """Return a 2-D Tukey window as float32."""
-    from scipy.signal.windows import tukey
-    wy = tukey(shape[0], alpha, sym=False)
-    wx = tukey(shape[1], alpha, sym=False)
-    return np.outer(wy, wx).astype(np.float32)
+from typing import Tuple
+from skimage.registration import phase_cross_correlation
 
 
-def _magnitude(arr: np.ndarray) -> np.ndarray:
-    """Return magnitude for complex input, passthrough for real."""
-    return np.abs(arr) if np.iscomplexobj(arr) else arr
-
-
-def _prep_for_corr(arr: np.ndarray) -> np.ndarray:
-    """Magnitude → mean-remove → Tukey taper."""
-    arr_f = _magnitude(arr).astype(np.float32, copy=False)
-    arr_f -= arr_f.mean(dtype=np.float64)
-    return arr_f * _tukey_window(arr_f.shape)
+def _mag(a: np.ndarray) -> np.ndarray:
+    """Extract magnitude from complex or real arrays.
+    
+    Args:
+        a: Input array (real or complex)
+        
+    Returns:
+        Magnitude array (real-valued)
+    """
+    return np.abs(a) if np.iscomplexobj(a) else a
 
 
 def _fourier_shift(img: np.ndarray, shift: Tuple[float, float]) -> np.ndarray:
-    """Exact sub-pixel circular shift using the Fourier shift theorem."""
+    """Apply sub-pixel translation using Fourier-domain phase multiplication.
+    
+    This function performs exact sub-pixel shifting by multiplying the Fourier
+    transform with a linear phase ramp. Preserves the input data type (real/complex).
+    
+    Args:
+        img: Input 2D image array (real or complex)
+        shift: Translation as (dy, dx) in pixels
+        
+    Returns:
+        Shifted image with same dtype as input
+        
+    Note:
+        Positive shifts move the image content in the positive direction.
+        For example, shift=(1, 0) moves content down by 1 pixel.
+    """
     dy, dx = shift
     ny, nx = img.shape
     ky = fftfreq(ny).reshape(-1, 1)
     kx = fftfreq(nx).reshape(1, -1)
     phase = np.exp(-2j * np.pi * (dy * ky + dx * kx))
-    shifted = ifft2(fft2(img) * phase)
-    return shifted.real if np.isrealobj(img) else shifted
+    out = ifft2(fft2(img) * phase)
+    return out.real if np.isrealobj(img) else out
 
 
-# -------------------- FFT phase-correlation fallback ------------------------- #
-def _phase_corr_fft(a: np.ndarray, b: np.ndarray, upsample: int = 50) -> Tuple[float, float]:
+def find_translation_offset(
+    image: np.ndarray,
+    reference: np.ndarray,
+    upsample_factor: int = 50,
+) -> Tuple[float, float]:
+    """Find translational offset between two images using phase cross-correlation.
+    
+    This function detects the translational misalignment between an image and reference
+    using scikit-image's phase_cross_correlation with sub-pixel precision. Both real
+    and complex images are supported via magnitude extraction.
+    
+    Args:
+        image: Moving image to be aligned (2D array, real or complex)
+        reference: Fixed reference image (2D array, real or complex)
+        upsample_factor: Upsampling factor for sub-pixel precision (default: 50)
+                        Higher values give better precision but cost more computation
+    
+    Returns:
+        Translation offset as (dy, dx) tuple in pixels.
+        Apply this offset TO the `image` to align it with `reference`.
+        
+    Raises:
+        ValueError: If inputs are not 2D or have mismatched shapes
+        
+    Example:
+        >>> offset = find_translation_offset(reconstruction, ground_truth)
+        >>> print(f"Reconstruction is offset by {offset} pixels")
+        >>> # offset = (-1.2, 0.8) means reconstruction is 1.2 pixels up, 0.8 pixels right
+    
+    Note:
+        - Positive dy means image content should move down to align
+        - Positive dx means image content should move right to align
+        - Sub-pixel precision achieved through upsampled FFT correlation
     """
-    Pure-NumPy phase correlation.
+    if image.ndim != 2 or reference.ndim != 2:
+        raise ValueError("Both inputs must be 2-D.")
+    if image.shape != reference.shape:
+        raise ValueError(f"Shape mismatch: {image.shape} vs {reference.shape}")
 
-    Returns the sub-pixel (dy, dx) to apply to *b* so it matches *a*.
-    """
-    Fa, Fb = fft2(a), fft2(b)
-    R = Fa * Fb.conj()
-    R /= np.abs(R, where=(R != 0), out=np.ones_like(R))
-    r = ifft2(R)
-    peak = np.unravel_index(np.argmax(np.abs(r)), r.shape)
-
-    # Coarse integer estimate
-    mid = np.array(a.shape) // 2
-    shift = np.array(peak, dtype=float)
-    shift[shift > mid] -= np.array(a.shape)[shift > mid]
-
-    if upsample <= 1:
-        return float(shift[0]), float(shift[1])
-
-    # Sub-pixel refinement: quadratic fit on 3×3 neighbourhood
-    y0, x0 = peak
-    nbr = []
-    for dy in (-1, 0, 1):
-        for dx in (-1, 0, 1):
-            yy = (y0 + dy) % a.shape[0]
-            xx = (x0 + dx) % a.shape[1]
-            nbr.append(((dy, dx), np.abs(r[yy, xx])))
-    # Fit simple 2-D paraboloid
-    dz = np.array([v for (_, v) in nbr])
-    A = np.array([[1, dx, dy, dx*dx, dx*dy, dy*dy] for ((dy, dx), _) in nbr])
-    coeff, *_ = np.linalg.lstsq(A, dz, rcond=None)
-    a0, a1, a2, a3, a4, a5 = coeff
-    denom = 4*a3*a5 - a4**2
-    if denom != 0:
-        sub_dx = (a4*a2 - 2*a5*a1) / denom
-        sub_dy = (a4*a1 - 2*a3*a2) / denom
-        shift += np.array([sub_dy, sub_dx])
+    shift, _, _ = phase_cross_correlation(
+        _mag(reference).astype(np.float32),
+        _mag(image).astype(np.float32),
+        upsample_factor=upsample_factor,
+    )
     return float(shift[0]), float(shift[1])
-
-
-# -----------------------------------------------------------------------------#
-# Public API
-# -----------------------------------------------------------------------------#
-try:
-    from skimage.registration import phase_cross_correlation
-
-    def find_translation_offset(
-        image: np.ndarray,
-        reference: np.ndarray,
-        upsample_factor: int = 50,
-    ) -> Tuple[float, float]:
-        """
-        Detect sub-pixel translation between `image` and `reference`.
-
-        Returns the shift (dy, dx) that must be **applied to `image`** to
-        align it with `reference`.
-        """
-        if image.ndim != 2 or reference.ndim != 2:
-            raise ValueError("Both inputs must be 2-D.")
-        if image.shape != reference.shape:
-            raise ValueError(f"Shape mismatch: {image.shape} vs {reference.shape}")
-
-        shift, _, _ = phase_cross_correlation(
-            _prep_for_corr(reference),
-            _prep_for_corr(image),
-            upsample_factor=upsample_factor,
-        )
-        return float(shift[0]), float(shift[1])
-
-except ModuleNotFoundError:  # Fallback to NumPy implementation
-    def find_translation_offset(
-        image: np.ndarray,
-        reference: np.ndarray,
-        upsample_factor: int = 50,
-    ) -> Tuple[float, float]:
-        if image.ndim != 2 or reference.ndim != 2:
-            raise ValueError("Both inputs must be 2-D.")
-        if image.shape != reference.shape:
-            raise ValueError(f"Shape mismatch: {image.shape} vs {reference.shape}")
-
-        return _phase_corr_fft(
-            _prep_for_corr(reference), _prep_for_corr(image), upsample=upsample_factor
-        )
 
 
 def apply_shift_and_crop(
@@ -165,18 +114,42 @@ def apply_shift_and_crop(
     offset: Tuple[float, float],
     border_crop: int = 2,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Shift `image` by `offset` (sub-pixel, circular) and return both arrays
-    cropped by `border_crop` pixels on each edge.
+    """Apply translation offset and crop borders to eliminate wrap-around artifacts.
+    
+    This function applies the detected offset to align the image with the reference,
+    then crops both images equally to remove Fourier wrap-around artifacts that can
+    occur at image borders during sub-pixel shifting.
+    
+    Args:
+        image: Image to be shifted and cropped (2D array, real or complex)
+        reference: Reference image to be cropped identically (2D array, real or complex)
+        offset: Translation offset as (dy, dx) in pixels
+        border_crop: Number of pixels to crop from each edge (default: 2)
+                    Helps eliminate wrap-around artifacts from Fourier shifting
+    
+    Returns:
+        Tuple of (shifted_cropped_image, cropped_reference) with identical shapes
+        
+    Raises:
+        ValueError: If border_crop is negative or too large for the image size
+        
+    Example:
+        >>> offset = find_translation_offset(recon, gt)
+        >>> aligned_recon, aligned_gt = apply_shift_and_crop(recon, gt, offset)
+        >>> # Now both images are aligned and ready for metric calculation
+        
+    Note:
+        The border cropping is essential when using Fourier-domain shifting as it
+        eliminates periodic boundary artifacts that would contaminate evaluation metrics.
     """
     if border_crop < 0:
-        raise ValueError("border_crop must be non-negative.")
+        raise ValueError("border_crop must be non-negative")
 
     shifted = _fourier_shift(image, offset)
     y0, y1 = border_crop, image.shape[0] - border_crop
     x0, x1 = border_crop, image.shape[1] - border_crop
     if y0 >= y1 or x0 >= x1:
-        raise ValueError("border_crop too large for image size.")
+        raise ValueError("border_crop too large")
 
     return shifted[y0:y1, x0:x1], reference[y0:y1, x0:x1]
 
@@ -187,12 +160,32 @@ def register_and_align(
     upsample_factor: int = 50,
     border_crop: int = 2,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Convenience wrapper → returns **aligned, identically-sized crops**.
-
-    Example
-    -------
-    >>> img_aligned, ref_crop = register_and_align(img, gt)
+    """Complete registration workflow: detect offset, apply shift, and crop borders.
+    
+    This convenience function combines offset detection and alignment correction in a
+    single call. It's the recommended entry point for most registration tasks.
+    
+    Args:
+        image: Moving image to be aligned (2D array, real or complex)
+        reference: Fixed reference image (2D array, real or complex)  
+        upsample_factor: Upsampling factor for sub-pixel precision (default: 50)
+        border_crop: Border pixels to crop after shifting (default: 2)
+    
+    Returns:
+        Tuple of (aligned_image, cropped_reference) ready for metric evaluation
+        
+    Example:
+        >>> # Complete registration in one step
+        >>> aligned_recon, aligned_gt = register_and_align(reconstruction, ground_truth)
+        >>> mae = np.mean(np.abs(aligned_recon - aligned_gt))
+        >>> print(f"Aligned MAE: {mae:.6f}")
+        
+    Note:
+        This function is equivalent to:
+        ```python
+        offset = find_translation_offset(image, reference, upsample_factor)
+        return apply_shift_and_crop(image, reference, offset, border_crop)
+        ```
     """
     offset = find_translation_offset(image, reference, upsample_factor)
     return apply_shift_and_crop(image, reference, offset, border_crop)
