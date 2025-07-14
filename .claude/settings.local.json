@@ -161,7 +161,8 @@
       "Bash(--pinn_dir large_generalization_study_tike_test/train_1024/pinn_run )",
       "Bash(--baseline_dir large_generalization_study_tike_test/train_1024/baseline_run )",
       "Bash(--test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz )",
-      "Bash(--output_dir test_phase3_color_scaling )"
+      "Bash(--output_dir test_phase3_color_scaling )",
+      "Bash(../scripts/studies/run_complete_generalization_study.sh:*)"
     ],
     "deny": []
   }

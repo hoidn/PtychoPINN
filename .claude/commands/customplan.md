@@ -1,4 +1,4 @@
-### **Research & Development Plan Template (for Scientific Computing)**
+### **Spec document template**
 
 *Create a focused plan for the next development cycle. Answer the essentials to define the scope, guide implementation, and verify the outcome.*
 
