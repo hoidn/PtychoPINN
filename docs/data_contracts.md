@@ -1,0 +1,23 @@
+# Data Contracts for the PtychoPINN Pipeline
+
+This document defines the official format for key data artifacts used in this project. All tools that generate or consume these files MUST adhere to these contracts.
+
+---
+
+## 1. Canonical Ptychography Dataset (`.npz` format)
+
+This contract applies to any dataset that is considered "ready for training" or is the final output of a preparation pipeline (e.g., from `prepare.sh`).
+
+**File Naming Convention:** `*_train.npz`, `*_test.npz`, `*_prepared.npz`
+
+| Key Name      | Shape                 | Data Type      | Description                                                              | Notes                                                              |
+| :------------ | :-------------------- | :------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------------- |
+| `diffraction` | `(n_images, H, W)`    | `float32`      | The stack of measured diffraction patterns (amplitude, not intensity).   | **Required.** Formerly `diff3d`. Must be 3D.                       |
+| `Y`           | `(n_images, H, W)`    | `complex64`    | The stack of ground truth real-space object patches.                     | **Required for supervised training.** **MUST be 3D.** Squeeze any channel dimension. |
+| `objectGuess` | `(M, M)`              | `complex64`    | The full, un-patched ground truth object.                                | **Required.**                                                      |
+| `probeGuess`  | `(H, W)`              | `complex64`    | The ground truth probe.                                                  | **Required.**                                                      |
+| `xcoords`     | `(n_images,)`         | `float64`      | The x-coordinates of each scan position.                                 | **Required.**                                                      |
+| `ycoords`     | `(n_images,)`         | `float64`      | The y-coordinates of each scan position.                                 | **Required.**                                                      |
+| `scan_index`  | `(n_images,)`         | `int`          | The index of the scan point for each diffraction pattern.                | Optional, but recommended.                                         |
+
+---
