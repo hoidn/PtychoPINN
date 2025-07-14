@@ -1,73 +1,89 @@
-# PtychoPINN Simulation Script
+# PtychoPINN Simulation Workflow
 
-This script simulates ptychography data, generates visualizations, and performs a comparison between PtychoPINN and baseline reconstructions.
+This directory contains tools for generating simulated ptychography datasets. The workflow is designed to be modular, allowing for flexible creation of various types of objects and probes.
 
-## Prerequisites
+## The Two-Stage Simulation Architecture
 
-- PtychoPINN package
+The simulation process is divided into two distinct stages:
 
-## Usage
+### Stage 1: Input Generation
+The first step is to create an `.npz` file containing the ground truth `objectGuess` and `probeGuess`. This file serves as the input for the main simulation. You can obtain this file in several ways:
+- Using data from a real experiment.
+- Using the output from a previous reconstruction (e.g., from tike).
+- Generating a synthetic object and probe programmatically.
 
-python simulation.py <input_file> <output_dir> [options]
+### Stage 2: Diffraction Simulation
+The core script `simulate_and_save.py` takes the `.npz` file from Stage 1 as input. It simulates the ptychographic scanning process by generating thousands of diffraction patterns and saves the complete, model-ready dataset to a new `.npz` file.
 
-## Arguments
+This modular design allows you to simulate diffraction for any object you can create, not just the built-in synthetic types.
 
-- `input_file`: (Required) Path to the input .npz file containing probe and object guesses.
-- `output_dir`: (Required) Directory to save output visualizations.
+## Key Scripts
 
-## Options
+| Script | Purpose |
+|--------|---------|
+| `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. |
+| `run_with_synthetic_lines.py` | **Convenience Wrapper.** A high-level script that automates both Stage 1 and Stage 2 for the specific 'lines' object type. Ideal for quick tests. |
 
-- `--nimages`: Number of images to simulate. Default is 2000.
-- `--seed`: Random seed for reproducibility.
-- `--nepochs`: Number of epochs for training. Default is 50.
-- `--output_prefix`: Prefix for output files. Default is "tmp".
-- `--intensity_scale_trainable`: Make intensity scale trainable. Default is False.
-- `--positions_provided`: Positions are provided. Default is True.
-- `--probe_big`: Use big probe. Default is True.
-- `--probe_mask`: Use probe mask. Default is False.
-- `--data_source`: Data source type. Default is "generic".
-- `--gridsize`: Grid size. Default is 1.
-- `--train_data_file_path`: Path to train data file.
-- `--test_data_file_path`: Path to test data file.
-- `--N`: Size of the simulation grid. Default is 128.
-- `--probe_scale`: Probe scale factor. Default is 4.
-- `--nphotons`: Number of photons. Default is 1e9.
-- `--mae_weight`: Weight for MAE loss. Default is 1.
-- `--nll_weight`: Weight for NLL loss. Default is 0.
-- `--config`: Path to YAML configuration file.
+## Workflow Examples
 
-## Example
+### Simple Workflow: Automated 'Lines' Simulation
 
-python simulation.py input_data.npz output_results/ --nimages 1000 --seed 42 --nepochs 100 --N 256 
+For a quick test or a standard 'lines' object simulation, use the `run_with_synthetic_lines.py` wrapper. It handles everything in one command.
 
-## Input Data Format
+```bash
+# This command will internally generate a 'lines' object and probe,
+# then feed them into the simulation engine.
+python scripts/simulation/run_with_synthetic_lines.py \
+    --output-dir simulation_lines_output \
+    --probe-size 64 \
+    --n-images 2000
+```
 
-The script expects the input data to be in .npz format with the following arrays:
+### Advanced Workflow: Simulating a Custom Object (e.g., GRF)
 
-- `probeGuess`: Initial guess of the probe function
-- `objectGuess`: Initial guess of the object
+To simulate an object type other than 'lines', you must perform the two stages separately.
 
-## Output
+**Stage 1: Create the input .npz file programmatically.**
 
-The script generates the following outputs in the specified output directory:
+You can do this in a simple Python script. This example generates a Gaussian Random Field (GRF) object.
 
-1. Simulated data visualization
-2. Random groups visualizations (3 sets)
-3. Reconstruction comparison image
-4. HTML report (`report.html`) containing:
-   - Embedded visualizations
-   - Launch command
-   - Model parameters
+```python
+# File: create_grf_input.py
+import numpy as np
+from ptycho.diffsim import sim_object_image
+from ptycho.probe import get_default_probe
+from ptycho import params
 
-## Process
+# Configure parameters for object and probe generation
+params.set('data_source', 'grf')
+params.set('N', 64)  # Probe size
 
-1. The script simulates ptychography data based on the input file and specified parameters.
-2. It generates visualizations of the simulated data and random groups.
-3. The script then runs a CDI example using PtychoPINN and compares it with a baseline reconstruction.
-4. Finally, it generates an HTML report with all visualizations and parameters.
+# Generate the synthetic object and probe
+grf_object = sim_object_image(size=256, which='train')
+probe = get_default_probe(N=64, fmt='np')
 
-## Notes
+# Save to an .npz file, which will be the input for Stage 2
+np.savez(
+    'grf_input.npz',
+    objectGuess=grf_object.squeeze().astype(np.complex64),
+    probeGuess=probe.astype(np.complex64)
+)
+print("Created grf_input.npz successfully.")
+```
 
-- The script uses logging to provide information about the process. Check the console output for details.
-- The HTML report provides a comprehensive overview of the simulation results and parameters used.
-- Adjust the simulation parameters to experiment with different scenarios and data characteristics.
+**Stage 2: Run the core simulation script with the generated input.**
+
+After running `python create_grf_input.py`, you can use the output as input for `simulate_and_save.py`.
+
+```bash
+# Now, run the main simulation tool with the custom input file
+python scripts/simulation/simulate_and_save.py \
+    --input-file grf_input.npz \
+    --output-file simulation_grf_output/grf_simulated_data.npz \
+    --n-images 2000 \
+    --visualize
+```
+
+## Output Data Format
+
+The final output of the simulation workflow is an `.npz` file that conforms to the project's data standard. For full details on the required keys and array shapes, see the [Data Contracts Document](../../docs/data_contracts.md).
