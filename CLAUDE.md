@@ -322,6 +322,91 @@ python scripts/compare_models.py --save-npz --save-npz-aligned [other args]
 - Verify images are not all zeros or uniform values
 - Ensure complex-valued images have reasonable amplitude variation
 
+### Enhanced Evaluation Metrics
+
+**New Metrics Available:**
+
+The evaluation pipeline now includes advanced perceptual metrics beyond traditional MAE/MSE/PSNR:
+
+1. **SSIM (Structural Similarity Index)**
+   - Measures structural similarity between images
+   - Range: [0, 1] where 1 = perfect match
+   - More aligned with human perception than pixel-wise metrics
+   - Calculated for both amplitude and phase
+
+2. **MS-SSIM (Multi-Scale SSIM)**
+   - Evaluates structural similarity at multiple scales
+   - Range: [0, 1] where 1 = perfect match
+   - Better captures features at different resolutions
+   - Configurable sigma parameter for Gaussian weighting
+
+**Phase Preprocessing Options:**
+
+Phase comparison now supports two alignment methods:
+
+```bash
+# Plane fitting (default) - removes linear phase ramps
+python scripts/compare_models.py --phase-align-method plane [other args]
+
+# Mean subtraction - simpler centering approach
+python scripts/compare_models.py --phase-align-method mean [other args]
+```
+
+**Debug Visualization:**
+
+Generate preprocessing visualization images to verify metric calculations:
+
+```bash
+# Enable debug image generation
+python scripts/compare_models.py --save-debug-images [other args]
+
+# This creates debug directories with:
+# - *_amp_*_for_ms-ssim.png   - Amplitude after preprocessing
+# - *_phase_*_for_ms-ssim.png - Phase after preprocessing  
+# - *_for_frc.png             - Images used for FRC calculation
+```
+
+**Advanced FRC Options:**
+
+Enhanced Fourier Ring Correlation with smoothing:
+
+```bash
+# Default (no smoothing)
+python scripts/compare_models.py --frc-sigma 0.0 [other args]
+
+# Smooth FRC curves (reduces noise)
+python scripts/compare_models.py --frc-sigma 2.0 [other args]
+```
+
+**MS-SSIM Configuration:**
+
+Control multi-scale behavior:
+
+```bash
+# Custom sigma for MS-SSIM Gaussian weights
+python scripts/compare_models.py --ms-ssim-sigma 1.5 [other args]
+```
+
+**CSV Output Format:**
+
+The `comparison_metrics.csv` now includes:
+- `mae` - Mean Absolute Error (amplitude, phase)
+- `mse` - Mean Squared Error (amplitude, phase)
+- `psnr` - Peak Signal-to-Noise Ratio (amplitude, phase)
+- `ssim` - Structural Similarity (amplitude, phase) **[NEW]**
+- `ms_ssim` - Multi-Scale SSIM (amplitude, phase) **[NEW]**
+- `frc50` - Fourier Ring Correlation at 0.5 threshold
+- Registration offsets (if applicable)
+
+**Phase Preprocessing Transparency:**
+
+When running comparisons, phase preprocessing steps are now logged:
+```
+Phase preprocessing: plane-fitted range [-3.142, 3.142] -> scaled range [0.000, 1.000]
+```
+
+This shows the exact transformations applied before metric calculation, ensuring transparency and reproducibility.
+
 ### Standard Model Comparison Examples
 
 For common evaluation workflows, use these tested command patterns:
