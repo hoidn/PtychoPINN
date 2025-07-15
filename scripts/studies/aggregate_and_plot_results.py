@@ -8,6 +8,10 @@ dataset sizes and generates publication-ready plots showing model performance cu
 ENHANCED FOR MULTI-TRIAL STUDIES: Automatically detects and handles multi-trial data,
 computing robust statistics (median, percentiles) and generating plots with uncertainty bands.
 
+NEW FEATURES:
+    - NaN Handling: Failed metric calculations are properly excluded from statistics
+    - MS-SSIM Filtering: Option to exclude poor-quality trials based on phase MS-SSIM threshold
+
 Usage:
     python scripts/studies/aggregate_and_plot_results.py <study_output_dir> [options]
 
@@ -18,8 +22,11 @@ Examples:
     # FRC amplitude comparison with multi-trial data
     python scripts/studies/aggregate_and_plot_results.py study_output --metric frc50 --part amp
 
-    # Custom output filename
-    python scripts/studies/aggregate_and_plot_results.py study_output --output custom_plot.png
+    # Filter out trials with poor phase quality
+    python scripts/studies/aggregate_and_plot_results.py study_output --ms-ssim-phase-threshold 0.25
+
+    # Disable MS-SSIM filtering (include all trials)
+    python scripts/studies/aggregate_and_plot_results.py study_output --ms-ssim-phase-threshold 0
 
 Arguments:
     study_output_dir    Directory containing subdirectories with comparison results
@@ -34,20 +41,29 @@ Options:
     --output FILENAME                Output plot filename (default: generalization_plot.png)
     --title TITLE                    Custom plot title (default: auto-generated)
     --verbose                        Enable verbose logging
+    --ms-ssim-phase-threshold FLOAT  Exclude trials where MS-SSIM (phase) is below this value.
+                                    Set to 0 to disable filtering. Default: 0.3
 
 Output Files:
     - results.csv                    Aggregated data from all runs
-                                    For multi-trial: includes median, p25, p75 columns
+                                    For multi-trial: includes mean, p25, p75 columns
                                     For single-trial: legacy format with individual values
     - generalization_plot.png        Publication-ready comparison plot (or custom filename)
-                                    For multi-trial: shows median lines with percentile bands
+                                    For multi-trial: shows mean lines with percentile bands
                                     For single-trial: shows individual data points
 
 Multi-Trial Features:
-    - Robust Statistics: Uses median instead of mean for central tendency
+    - Central Tendency: Uses mean for primary statistical measure
     - Uncertainty Quantification: 25th-75th percentile bands (interquartile range)
     - Failure Handling: Automatically handles NaN values and missing files
+    - Outlier Filtering: MS-SSIM phase threshold excludes failed reconstructions
     - Backward Compatibility: Seamlessly works with existing single-trial data
+
+NaN Handling:
+    - Failed metrics (empty fields in CSV) are preserved as NaN
+    - Out-of-range values are converted to NaN (e.g., negative PSNR, SSIM > 1)
+    - NaN values are automatically excluded from statistical calculations
+    - Logging reports how many NaN values were excluded for each metric
 
 Data Requirements:
     Each trial subdirectory should contain:
@@ -207,31 +223,22 @@ def discover_comparison_files(study_dir: Path) -> List[Tuple[int, int, Path]]:
 
 def handle_missing_or_failed_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Handle NaN values and out-of-range metrics by replacing with failure values.
+    Handle out-of-range metrics by replacing with NaN values.
+    
+    NaN values are preserved to ensure they are properly excluded from statistical
+    calculations downstream.
     
     Args:
         df: DataFrame with metrics data
         
     Returns:
-        DataFrame with NaN and invalid values replaced with appropriate failure values
+        DataFrame with out-of-range values replaced with NaN
     """
     logger = logging.getLogger(__name__)
     
     df = df.copy()
     replacements_made = 0
-    
-    # Define failure replacement values for different metric types
-    failure_values = {
-        # Metrics where higher is better -> use 0 for failure
-        'psnr': 0.0,
-        'ssim': 0.0,
-        'ms_ssim': 0.0,
-        'frc50': 0.0,
-        
-        # Metrics where lower is better -> use inf for failure
-        'mae': np.inf,
-        'mse': np.inf
-    }
+    nan_count_initial = df.isna().sum().sum()
     
     # Define valid ranges for metrics
     valid_ranges = {
@@ -249,7 +256,7 @@ def handle_missing_or_failed_metrics(df: pd.DataFrame) -> pd.DataFrame:
             
         # Extract metric name from column (e.g., 'psnr' from 'psnr_phase')
         metric_base = None
-        for metric in failure_values.keys():
+        for metric in valid_ranges.keys():
             if col.startswith(metric + '_'):
                 metric_base = metric
                 break
@@ -257,31 +264,32 @@ def handle_missing_or_failed_metrics(df: pd.DataFrame) -> pd.DataFrame:
         if metric_base is None:
             continue
             
-        # Handle NaN values
+        # Count existing NaN values
         nan_mask = pd.isna(df[col])
         if nan_mask.any():
-            replacement_val = failure_values[metric_base]
-            df.loc[nan_mask, col] = replacement_val
             nan_count = nan_mask.sum()
-            replacements_made += nan_count
-            logger.warning(f"Replaced {nan_count} NaN values in {col} with {replacement_val}")
+            logger.debug(f"Found {nan_count} NaN values in {col} (preserved)")
         
-        # Handle out-of-range values
+        # Handle out-of-range values by replacing with NaN
         if metric_base in valid_ranges:
             min_val, max_val = valid_ranges[metric_base]
             out_of_range_mask = (df[col] < min_val) | (df[col] > max_val)
             
             if out_of_range_mask.any():
-                replacement_val = failure_values[metric_base]
                 invalid_values = df.loc[out_of_range_mask, col].tolist()
-                df.loc[out_of_range_mask, col] = replacement_val
+                df.loc[out_of_range_mask, col] = np.nan
                 count = out_of_range_mask.sum()
                 replacements_made += count
-                logger.warning(f"Replaced {count} out-of-range values in {col} with {replacement_val}. "
+                logger.warning(f"Replaced {count} out-of-range values in {col} with NaN. "
                              f"Invalid values: {invalid_values[:5]}{'...' if len(invalid_values) > 5 else ''}")
     
+    nan_count_final = df.isna().sum().sum()
+    new_nans = nan_count_final - nan_count_initial
+    
     if replacements_made > 0:
-        logger.info(f"Made {replacements_made} total replacements for failed/invalid metrics")
+        logger.info(f"Made {replacements_made} out-of-range replacements with NaN")
+    if nan_count_final > 0:
+        logger.info(f"Total NaN values in data: {nan_count_final} ({new_nans} new, {nan_count_initial} preserved)")
     
     return df
 
@@ -355,24 +363,27 @@ def parse_comparison_csv(csv_path: Path) -> pd.DataFrame:
 
 def create_failure_dataframe() -> pd.DataFrame:
     """
-    Create a DataFrame with failure values for both model types.
+    Create a DataFrame with NaN values for both model types.
+    
+    Used when a CSV file is missing or cannot be read, to ensure
+    the trial is properly excluded from statistics.
     
     Returns:
-        DataFrame with failure values for common metrics
+        DataFrame with NaN values for common metrics
     """
     failure_data = []
     
     for model_type in ['pinn', 'baseline']:
         row = {'model_type': model_type}
         
-        # Add failure values for common metrics
+        # Add NaN values for all metrics to ensure proper exclusion
         metrics = {
-            'psnr_phase': 0.0, 'psnr_amp': 0.0,
-            'ssim_phase': 0.0, 'ssim_amp': 0.0,
-            'ms_ssim_phase': 0.0, 'ms_ssim_amp': 0.0,
-            'frc50_phase': 0.0, 'frc50_amp': 0.0,
-            'mae_phase': np.inf, 'mae_amp': np.inf,
-            'mse_phase': np.inf, 'mse_amp': np.inf,
+            'psnr_phase': np.nan, 'psnr_amp': np.nan,
+            'ssim_phase': np.nan, 'ssim_amp': np.nan,
+            'ms_ssim_phase': np.nan, 'ms_ssim_amp': np.nan,
+            'frc50_phase': np.nan, 'frc50_amp': np.nan,
+            'mae_phase': np.nan, 'mae_amp': np.nan,
+            'mse_phase': np.nan, 'mse_amp': np.nan,
         }
         
         row.update(metrics)
@@ -425,18 +436,22 @@ def convert_tidy_to_wide_format(df: pd.DataFrame) -> pd.DataFrame:
     return wide_df
 
 
-def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]]) -> pd.DataFrame:
+def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]], 
+                                ms_ssim_phase_threshold: float = 0.0) -> pd.DataFrame:
     """
     Aggregate results from all comparison files with statistical analysis.
     
     This function handles multi-trial data and computes median and percentiles
-    for robust statistical aggregation.
+    for robust statistical aggregation. Optionally filters out trials based on
+    MS-SSIM phase threshold.
     
     Args:
         comparison_files: List of (training_size, trial_number, csv_path) tuples
+        ms_ssim_phase_threshold: Minimum MS-SSIM phase value to include trial.
+                                Set to 0 to disable filtering.
         
     Returns:
-        DataFrame with columns: train_size, model_type, metric_median, metric_p25, metric_p75
+        DataFrame with columns: train_size, model_type, metric_mean, metric_p25, metric_p75
         for all available metrics
         
     Raises:
@@ -469,11 +484,51 @@ def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]])
     trials_df = pd.DataFrame(all_trial_data)
     logger.info(f"Loaded {len(trials_df)} trial records")
     
+    # Apply MS-SSIM phase threshold filtering if requested
+    if ms_ssim_phase_threshold > 0:
+        initial_rows = len(trials_df)
+        
+        # Check if ms_ssim_phase column exists
+        if 'ms_ssim_phase' not in trials_df.columns:
+            logger.warning("MS-SSIM phase threshold specified but 'ms_ssim_phase' column not found. "
+                         "Filtering disabled.")
+        else:
+            # Filter out trials with MS-SSIM phase below threshold
+            # Note: NaN values will be excluded by this comparison
+            mask = trials_df['ms_ssim_phase'] >= ms_ssim_phase_threshold
+            trials_df = trials_df[mask]
+            
+            filtered_count = initial_rows - len(trials_df)
+            if filtered_count > 0:
+                logger.info(f"Filtered out {filtered_count} trial records with MS-SSIM (phase) < {ms_ssim_phase_threshold}")
+                
+                # Log details about filtered trials by train_size and model_type
+                filtered_summary = {}
+                for (train_size, model_type), group in trials_df.groupby(['train_size', 'model_type']):
+                    original_count = len([row for row in all_trial_data 
+                                        if row['train_size'] == train_size and row['model_type'] == model_type])
+                    current_count = len(group)
+                    if original_count > current_count:
+                        filtered_summary[(train_size, model_type)] = {
+                            'filtered': original_count - current_count,
+                            'remaining': current_count
+                        }
+                
+                if filtered_summary:
+                    logger.info("Filtering details by configuration:")
+                    for (train_size, model_type), counts in filtered_summary.items():
+                        logger.info(f"  train_size={train_size}, model={model_type}: "
+                                   f"{counts['filtered']} filtered, {counts['remaining']} remaining")
+    
     # Identify metric columns (exclude metadata)
     metadata_cols = {'model_type', 'train_size', 'trial_number'}
     metric_cols = [col for col in trials_df.columns if col not in metadata_cols]
     
     logger.debug(f"Found metric columns: {metric_cols}")
+    
+    # Log final data before aggregation
+    logger.info(f"Proceeding to aggregation with {len(trials_df)} trial records "
+               f"(after any filtering applied)")
     
     # Group by train_size and model_type, then compute statistics
     statistical_results = []
@@ -495,18 +550,33 @@ def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]])
         for metric_col in metric_cols:
             values = group[metric_col].values
             
-            # Handle special case of single trial
-            if n_trials == 1:
-                median = p25 = p75 = values[0]
+            # Remove NaN values for statistical calculations
+            valid_values = values[~np.isnan(values)]
+            n_valid = len(valid_values)
+            n_nan = len(values) - n_valid
+            
+            if n_nan > 0:
+                logger.debug(f"Excluding {n_nan} NaN values from {metric_col} for "
+                           f"train_size={train_size}, model={model_type}")
+            
+            if n_valid == 0:
+                # All values are NaN
+                mean = p25 = p75 = np.nan
+                logger.warning(f"All {n_trials} trials have NaN for {metric_col} "
+                             f"(train_size={train_size}, model={model_type})")
+            elif n_valid == 1:
+                # Single valid value
+                mean = p25 = p75 = valid_values[0]
             else:
-                # Compute percentiles
-                percentiles = np.percentile(values, [25, 50, 75])
-                p25, median, p75 = percentiles
+                # Compute mean and percentiles from valid values
+                mean = np.mean(valid_values)
+                p25, p75 = np.percentile(valid_values, [25, 75])
             
             # Store with standardized column names
-            result_row[f"{metric_col}_median"] = median
+            result_row[f"{metric_col}_mean"] = mean
             result_row[f"{metric_col}_p25"] = p25
             result_row[f"{metric_col}_p75"] = p75
+            result_row[f"{metric_col}_n_valid"] = n_valid
         
         statistical_results.append(result_row)
     
@@ -519,11 +589,29 @@ def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]])
         logger.info(f"Train size {train_size}: {stats['min']}-{stats['max']} trials "
                    f"(avg: {stats['mean']:.1f})")
     
+    # Log summary of NaN exclusions
+    nan_summary = {}
+    for col in metric_cols:
+        n_valid_col = f"{col}_n_valid"
+        if n_valid_col in result_df.columns:
+            total_trials = result_df['n_trials'].sum()
+            total_valid = result_df[n_valid_col].sum()
+            total_nan = total_trials - total_valid
+            if total_nan > 0:
+                nan_summary[col] = {'total_nan': total_nan, 'total_trials': total_trials}
+    
+    if nan_summary:
+        logger.info("NaN exclusion summary:")
+        for metric, stats in nan_summary.items():
+            percentage = (stats['total_nan'] / stats['total_trials']) * 100
+            logger.info(f"  {metric}: {stats['total_nan']} NaN values excluded "
+                       f"({percentage:.1f}% of {stats['total_trials']} total trials)")
+    
     return result_df
 
 
 def aggregate_results(comparison_files: List[Tuple[int, int, Path]], 
-                     metric: str, part: str) -> pd.DataFrame:
+                     metric: str, part: str, ms_ssim_phase_threshold: float = 0.0) -> pd.DataFrame:
     """
     Aggregate results for a specific metric/part combination (legacy interface).
     
@@ -534,9 +622,10 @@ def aggregate_results(comparison_files: List[Tuple[int, int, Path]],
         comparison_files: List of (training_size, trial_number, csv_path) tuples
         metric: Metric to extract (psnr, frc50, mae, mse, ssim, ms_ssim)
         part: Data component (phase, amp)
+        ms_ssim_phase_threshold: Minimum MS-SSIM phase value to include trial
         
     Returns:
-        DataFrame with columns: train_size, model_type, metric_value (using median)
+        DataFrame with columns: train_size, model_type, metric_value (using mean)
         
     Raises:
         ValueError: If metric/part combination is not available in data
@@ -544,14 +633,14 @@ def aggregate_results(comparison_files: List[Tuple[int, int, Path]],
     logger = logging.getLogger(__name__)
     
     # Use the new statistical aggregation
-    stats_df = aggregate_results_statistical(comparison_files)
+    stats_df = aggregate_results_statistical(comparison_files, ms_ssim_phase_threshold)
     
     # Extract the specific metric requested
     metric_col = f"{metric}_{part}"
-    median_col = f"{metric_col}_median"
+    mean_col = f"{metric_col}_mean"
     
-    if median_col not in stats_df.columns:
-        available_metrics = [col.replace('_median', '') for col in stats_df.columns if col.endswith('_median')]
+    if mean_col not in stats_df.columns:
+        available_metrics = [col.replace('_mean', '') for col in stats_df.columns if col.endswith('_mean')]
         raise ValueError(f"Metric {metric_col} not found. Available metrics: {available_metrics}")
     
     # Create legacy format DataFrame
@@ -560,11 +649,11 @@ def aggregate_results(comparison_files: List[Tuple[int, int, Path]],
         result_data.append({
             'train_size': row['train_size'],
             'model_type': row['model_type'],
-            'metric_value': row[median_col]
+            'metric_value': row[mean_col]
         })
     
     result_df = pd.DataFrame(result_data)
-    logger.info(f"Extracted {len(result_df)} data points for {metric_col} (using median)")
+    logger.info(f"Extracted {len(result_df)} data points for {metric_col} (using mean)")
     
     return result_df
 
@@ -633,7 +722,7 @@ def create_generalization_plot_with_percentiles(stats_df: pd.DataFrame, metric: 
     logger = logging.getLogger(__name__)
     
     # Set up the plot
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(6, 4))
     
     # Define colors and markers for each model
     model_styles = {
@@ -642,12 +731,12 @@ def create_generalization_plot_with_percentiles(stats_df: pd.DataFrame, metric: 
     }
     
     metric_col = f"{metric}_{part}"
-    median_col = f"{metric_col}_median"
+    mean_col = f"{metric_col}_mean"
     p25_col = f"{metric_col}_p25"
     p75_col = f"{metric_col}_p75"
     
     # Check if required columns exist
-    required_cols = [median_col, p25_col, p75_col]
+    required_cols = [mean_col, p25_col, p75_col]
     missing_cols = [col for col in required_cols if col not in stats_df.columns]
     if missing_cols:
         raise ValueError(f"Missing required columns for {metric_col}: {missing_cols}")
@@ -662,7 +751,7 @@ def create_generalization_plot_with_percentiles(stats_df: pd.DataFrame, metric: 
         style = model_styles.get(model_type, {'color': 'gray', 'marker': 'x', 'label': model_type})
         
         train_sizes = model_data['train_size'].values
-        medians = model_data[median_col].values
+        means = model_data[mean_col].values
         p25_values = model_data[p25_col].values
         p75_values = model_data[p75_col].values
         n_trials = model_data['n_trials'].values
@@ -676,9 +765,9 @@ def create_generalization_plot_with_percentiles(stats_df: pd.DataFrame, metric: 
                            color=style['color'], alpha=0.3, 
                            label=f"{style['label']} (IQR)" if len(stats_df['model_type'].unique()) == 1 else None)
         
-        # Plot median line
+        # Plot mean line
         line_style = '-' if has_bands else '--'
-        plt.plot(train_sizes, medians,
+        plt.plot(train_sizes, means,
                 marker=style['marker'], color=style['color'], 
                 label=style['label'], linewidth=2, markersize=8,
                 markerfacecolor='white', markeredgewidth=2,
@@ -687,7 +776,7 @@ def create_generalization_plot_with_percentiles(stats_df: pd.DataFrame, metric: 
         # Add annotation for limited trial data if needed
         for i, (train_size, n_trial) in enumerate(zip(train_sizes, n_trials)):
             if n_trial == 1:
-                plt.annotate('1 trial', (train_size, medians[i]), 
+                plt.annotate('1 trial', (train_size, means[i]), 
                            xytext=(5, 5), textcoords='offset points',
                            fontsize=8, alpha=0.7)
     
@@ -707,22 +796,22 @@ def create_generalization_plot_with_percentiles(stats_df: pd.DataFrame, metric: 
     plt.xlabel('Training Set Size (images)', fontsize=12)
     ylabel = metric_labels.get(metric, metric.upper())
     if has_bands:
-        ylabel += ' (Median ± IQR)'
+        ylabel += ' (Mean ± IQR)'
     plt.ylabel(ylabel, fontsize=12)
     
     # Set title
     if title is None:
         part_label = part.capitalize()
         metric_label = metric.upper()
-        stat_label = 'Median Performance' if has_bands else 'Performance'
+        stat_label = 'Mean Performance' if has_bands else 'Performance'
         title = f'{metric_label} ({part_label}) {stat_label} vs. Training Set Size'
     
     plt.title(title, fontsize=14, fontweight='bold')
     
     # Set Y-axis limits for metrics with known ranges
     if metric in ['ssim', 'ms_ssim']:
-        # SSIM and MS-SSIM are bounded between 0 and 1
-        plt.ylim(0, 1)
+        # SSIM and MS-SSIM have max value of 1, but autoscale the minimum
+        plt.ylim(top=1)
         
     # Configure grid and legend
     plt.grid(True, alpha=0.3)
@@ -780,11 +869,11 @@ def create_generalization_plot(df: pd.DataFrame, metric: str, part: str,
     """
     logger = logging.getLogger(__name__)
     
-    # Check if this is statistical format (has median/percentile columns)
+    # Check if this is statistical format (has mean/percentile columns)
     metric_col = f"{metric}_{part}"
-    median_col = f"{metric_col}_median"
+    mean_col = f"{metric_col}_mean"
     
-    if median_col in df.columns:
+    if mean_col in df.columns:
         # Use new percentile plotting
         logger.debug("Using percentile-based plotting")
         return create_generalization_plot_with_percentiles(df, metric, part, title, output_path)
@@ -793,7 +882,7 @@ def create_generalization_plot(df: pd.DataFrame, metric: str, part: str,
         logger.debug("Using legacy single-value plotting")
         
         # Set up the plot
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(6, 4))
         
         # Define colors and markers for each model
         model_styles = {
@@ -841,8 +930,8 @@ def create_generalization_plot(df: pd.DataFrame, metric: str, part: str,
         
         # Set Y-axis limits for metrics with known ranges
         if metric in ['ssim', 'ms_ssim']:
-            # SSIM and MS-SSIM are bounded between 0 and 1
-            plt.ylim(0, 1)
+            # SSIM and MS-SSIM have max value of 1, but autoscale the minimum
+            plt.ylim(top=1)
             
         # Configure grid and legend
         plt.grid(True, alpha=0.3)
@@ -901,13 +990,13 @@ def export_statistical_results(stats_df: pd.DataFrame, output_path: Path) -> Non
     metric_cols_sorted = []
     base_metrics = set()
     for col in metric_cols:
-        if col.endswith('_median'):
-            base_metric = col.replace('_median', '')
+        if col.endswith('_mean'):
+            base_metric = col.replace('_mean', '')
             base_metrics.add(base_metric)
     
-    # Add columns in groups: median, p25, p75 for each metric
+    # Add columns in groups: mean, p25, p75 for each metric
     for base_metric in sorted(base_metrics):
-        for suffix in ['_median', '_p25', '_p75']:
+        for suffix in ['_mean', '_p25', '_p75']:
             col = base_metric + suffix
             if col in metric_cols:
                 metric_cols_sorted.append(col)
@@ -944,7 +1033,7 @@ def export_aggregated_results(df: pd.DataFrame, output_path: Path,
     logger = logging.getLogger(__name__)
     
     # Check if this is statistical format
-    has_statistical_cols = any(col.endswith('_median') for col in df.columns)
+    has_statistical_cols = any(col.endswith('_mean') for col in df.columns)
     
     if has_statistical_cols:
         # Use new statistical export
@@ -974,7 +1063,8 @@ def export_aggregated_results(df: pd.DataFrame, output_path: Path,
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description='Aggregate and visualize model generalization study results',
+        description='Aggregate and visualize model generalization study results with '
+                    'robust NaN handling and optional MS-SSIM phase filtering',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__
     )
@@ -997,6 +1087,10 @@ def parse_arguments() -> argparse.Namespace:
     
     parser.add_argument('--verbose', action='store_true',
                        help='Enable verbose logging')
+    
+    parser.add_argument('--ms-ssim-phase-threshold', type=float, default=0.3,
+                       help='Exclude trials where the MS-SSIM (phase) is below this value. '
+                            'Set to 0 to disable filtering. Default: 0.3')
     
     return parser.parse_args()
 
@@ -1032,10 +1126,10 @@ def main():
             logger.info("Multi-trial data detected - using statistical aggregation")
             
             # Use statistical aggregation for multi-trial data
-            stats_df = aggregate_results_statistical(comparison_files)
+            stats_df = aggregate_results_statistical(comparison_files, args.ms_ssim_phase_threshold)
             
             # Validate data quality using legacy interface (on specific metric)
-            legacy_df = aggregate_results(comparison_files, args.metric, args.part)
+            legacy_df = aggregate_results(comparison_files, args.metric, args.part, args.ms_ssim_phase_threshold)
             validate_aggregated_data(legacy_df)
             
             # Create plot with percentiles
@@ -1069,7 +1163,7 @@ def main():
             logger.info("Single-trial data detected - using legacy aggregation")
             
             # Use legacy workflow for single-trial data
-            df = aggregate_results(comparison_files, args.metric, args.part)
+            df = aggregate_results(comparison_files, args.metric, args.part, args.ms_ssim_phase_threshold)
             
             # Step 3: Validate data quality
             validate_aggregated_data(df)
