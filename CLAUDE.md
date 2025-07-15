@@ -78,7 +78,9 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Training:** See <doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>
 - **Inference:** See <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
 - **Simulation:** See <doc-ref type="workflow-guide">scripts/simulation/README.md</doc-ref>
+- **Data Preprocessing Tools:** See <doc-ref type="workflow-guide">scripts/tools/README.md</doc-ref>
 - **Model Comparison & Studies:** See <doc-ref type="workflow-guide">scripts/studies/README.md</doc-ref> and <doc-ref type="workflow-guide">scripts/studies/QUICK_REFERENCE.md</doc-ref>
+- **Experimental Datasets:** See <doc-ref type="guide">docs/FLY64_DATASET_GUIDE.md</doc-ref>
 
 ## 2. Key Workflows & Commands
 
@@ -210,7 +212,49 @@ File: `datasets/fly/fly001_transposed.npz`
     -   `stitching.py`: Contains functions for grid-based patch reassembly.
     -   `cropping.py`: Contains the crucial `<code-ref type="function">align_for_evaluation</code-ref>` function for robustly aligning a reconstruction with its ground truth for metric calculation.
 
-## 6. Comparing Models: PtychoPINN vs Baseline
+## 6. Tool Selection Guidance
+
+Understanding which tool to use for different workflows is critical for efficient development:
+
+### Workflow Tool Hierarchy
+
+**For comprehensive model evaluation studies:**
+- **Primary**: `scripts/studies/run_complete_generalization_study.sh` 
+- **Controls**: Training sizes, number of trials, datasets, full pipeline
+- **Use when**: Running complete studies, need statistical robustness, control over training parameters
+
+**For comparing existing trained models:**
+- **Primary**: `scripts/compare_models.py`
+- **Controls**: Post-training comparison only, uses full test dataset
+- **Use when**: Models already exist, quick comparisons, metric calculation
+
+**For visualization of study results:**
+- **Primary**: `scripts/studies/aggregate_and_plot_results.py`
+- **Controls**: Plot generation, metric selection, statistical aggregation
+- **Use when**: Generating publication plots, analyzing completed studies
+
+### Common Tool Selection Mistakes
+
+❌ **Wrong**: Using `compare_models.py` with training size parameters (not supported)
+✅ **Correct**: Use `run_complete_generalization_study.sh --train-sizes "512 1024"`
+
+❌ **Wrong**: Trying to control number of training images in comparison scripts
+✅ **Correct**: Control training size in the generalization study script, then use comparison for analysis
+
+❌ **Wrong**: Manual training then manual comparison for multiple sizes/trials
+✅ **Correct**: Use the complete generalization study script for automated workflows
+
+### Decision Matrix
+
+| Need | Tool | Key Parameters |
+|------|------|----------------|
+| **Train models with specific sizes** | `run_complete_generalization_study.sh` | `--train-sizes`, `--num-trials` |
+| **Compare existing models** | `compare_models.py` | `--pinn_dir`, `--baseline_dir` |
+| **Visualize study results** | `aggregate_and_plot_results.py` | `--metric`, `--part` |
+| **Debug dataset issues** | `scripts/tools/visualize_dataset.py` | Input dataset path |
+| **Prepare datasets** | `scripts/tools/split_dataset_tool.py` | `--split-fraction` |
+
+## 7. Comparing Models: PtychoPINN vs Baseline
 
 ### Complete Training + Comparison Workflow
 
