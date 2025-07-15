@@ -53,6 +53,14 @@ python aggregate_and_plot_results.py study_dir/ \
     --metric psnr --part phase \
     --output psnr_generalization.png
 
+# Filter out failed trials with poor phase quality
+python aggregate_and_plot_results.py study_dir/ \
+    --ms-ssim-phase-threshold 0.25
+
+# Disable MS-SSIM filtering to include all trials
+python aggregate_and_plot_results.py study_dir/ \
+    --ms-ssim-phase-threshold 0
+
 # Compare specific models
 python ../compare_models.py \
     --pinn_dir pinn_model_dir \
@@ -81,10 +89,10 @@ study_output/
 ├── train_1024/          # Results for 1024 training images  
 │   ├── trial_1/
 │   └── trial_N/
-├── psnr_phase_generalization.png    # 📊 Main result plot (median ± percentiles)
-├── frc50_amp_generalization.png     # 📊 FRC analysis (median ± percentiles)
-├── mae_amp_generalization.png       # 📊 Error trends (median ± percentiles)
-├── results.csv                      # 📋 Statistical aggregation (median, p25, p75)
+├── psnr_phase_generalization.png    # 📊 Main result plot (mean ± percentiles)
+├── frc50_amp_generalization.png     # 📊 FRC analysis (mean ± percentiles)
+├── mae_amp_generalization.png       # 📊 Error trends (mean ± percentiles)
+├── results.csv                      # 📋 Statistical aggregation (mean, p25, p75)
 └── STUDY_SUMMARY.md                 # 📄 Summary report
 ```
 
@@ -105,15 +113,43 @@ The `--num-trials` flag enables robust statistical analysis by training multiple
 # Single trial (legacy mode) - shows mean performance
 ./run_complete_generalization_study.sh --train-sizes "512 1024"
 
-# Multi-trial mode - shows median ± percentiles for robust statistics  
+# Multi-trial mode - shows mean ± percentiles for robust statistics  
 ./run_complete_generalization_study.sh --train-sizes "512 1024" --num-trials 3
 ```
 
 **Benefits of Multi-Trial Analysis:**
-- **Robust Statistics**: Median and percentiles instead of single-point estimates
+- **Robust Statistics**: Mean and percentiles instead of single-point estimates
 - **Uncertainty Quantification**: Shows performance variability across training runs
 - **Outlier Resistance**: Less sensitive to random initialization effects
 - **Publication Quality**: Professional plots with uncertainty bands
+
+## Enhanced NaN Handling & MS-SSIM Filtering
+
+The aggregation script now includes robust handling of failed trials and quality-based filtering:
+
+### NaN Handling
+- **Automatic Exclusion**: Failed metrics (NaN values) are automatically excluded from statistics
+- **Preservation**: NaN values are preserved in data, not replaced with zeros/inf
+- **Logging**: Reports how many NaN trials were excluded for each metric
+
+### MS-SSIM Phase Filtering
+Use `--ms-ssim-phase-threshold` to exclude poor-quality trials:
+
+```bash
+# Default: Exclude trials with MS-SSIM (phase) < 0.3
+python aggregate_and_plot_results.py study_dir/
+
+# Custom threshold: Stricter quality requirement
+python aggregate_and_plot_results.py study_dir/ --ms-ssim-phase-threshold 0.5
+
+# Include all trials (no filtering)
+python aggregate_and_plot_results.py study_dir/ --ms-ssim-phase-threshold 0
+```
+
+**Use Cases:**
+- **Failed Reconstructions**: Automatically exclude trials that completely failed
+- **Quality Control**: Filter out trials with poor perceptual quality
+- **Robust Statistics**: Ensure aggregated results represent successful runs only
 
 ## Common Workflows
 
@@ -138,7 +174,7 @@ open validation_study/psnr_phase_generalization.png
     --num-trials 5 \
     --output-dir paper_results_$(date +%Y%m%d)
 
-# Generate all key plots (automatically shows median ± percentiles)
+# Generate all key plots (automatically shows mean ± percentiles)
 cd paper_results_*/
 python ../aggregate_and_plot_results.py . --metric psnr --part phase
 python ../aggregate_and_plot_results.py . --metric frc50 --part amp  
@@ -172,6 +208,14 @@ python aggregate_and_plot_results.py existing_results/ \
     --metric mse --part phase \
     --output custom_analysis.png
 ```
+
+## Tool Capabilities & Limitations
+
+| Tool | Controls Training Size | Controls Test Size | Use Case |
+|------|----------------------|-------------------|----------|
+| `run_complete_generalization_study.sh` | ✅ `--train-sizes` | ✅ (via dataset) | Full studies |
+| `compare_models.py` | ❌ (post-training) | ❌ (uses full dataset) | Existing models |
+| `aggregate_and_plot_results.py` | N/A | N/A | Result visualization |
 
 ## Troubleshooting
 

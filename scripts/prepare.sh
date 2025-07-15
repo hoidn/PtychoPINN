@@ -58,8 +58,8 @@ FINAL_DATA_DIR="datasets/${BASE_NAME}_prepared"
 
 
 # --- SIMULATION PARAMETERS (for Step 5) ---
-# Generate 20,000 images total (will be split into 10,000 train + 10,000 test)
-SIM_IMAGES=20000
+# Generate 35,000 images total (will be split into 17,500 train + 17,500 test)
+SIM_IMAGES=35000
 SIM_PHOTONS=1e9
 SIM_SEED=42
 

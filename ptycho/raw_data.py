@@ -261,7 +261,7 @@ def calculate_relative_coords(xcoords, ycoords, K = 6, C = None, nsamples = 10):
     return coords_offsets, coords_relative, nn_indices
 
 #@debug
-def get_image_patches(gt_image, global_offsets, local_offsets):
+def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=None):
     """
     Generate and return image patches in channel format using a single canvas.
 
@@ -269,13 +269,16 @@ def get_image_patches(gt_image, global_offsets, local_offsets):
         gt_image (tensor): Ground truth image tensor.
         global_offsets (tensor): Global offset tensor.
         local_offsets (tensor): Local offset tensor.
+        N (int, optional): Patch size. If None, uses params.get('N').
+        gridsize (int, optional): Grid size. If None, uses params.get('gridsize').
 
     Returns:
         tensor: Image patches in channel format.
     """
-    # Get necessary parameters
-    gridsize = params.get('gridsize')
-    N = params.get('N')
+    # Use explicit parameters if provided, otherwise fall back to global params
+    # This follows the project's hybrid modernization pattern
+    N = N if N is not None else params.get('N')
+    gridsize = gridsize if gridsize is not None else params.get('gridsize')
     B = global_offsets.shape[0]
     c = gridsize**2
 
@@ -478,11 +481,13 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
                 "INFO: Using pre-computed 'Y' array..." It must *not* log the
                 "fallback" message.
         """
-        raise NotImplementedError(
-            "The fallback path to generate Y patches from 'objectGuess' is temporarily "
-            "disabled pending testing. See the TODO block in this function for instructions "
-            "on how to re-enable and verify it."
-        )
+        print("INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
+        # For PINN training, use gridsize=1 to generate 3D patches (n_scans, H, W)
+        # rather than 4D patches (n_scans, H, W, channels)
+        gridsize = 1  # Default for PINN compatibility
+        Y_patches = get_image_patches(ptycho_data.objectGuess, coords_offsets, coords_relative, N=N, gridsize=gridsize)
+        # Squeeze out channel dimension for gridsize=1 to get (n_scans, H, W) shape
+        Y4d_nn = np.squeeze(Y_patches, axis=-1) if gridsize == 1 else Y_patches
     else:
         # Fail loudly if the expected 'Y' array is not present.
         raise ValueError(
