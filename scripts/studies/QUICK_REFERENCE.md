@@ -12,6 +12,12 @@ This directory contains tools for conducting comprehensive model generalization 
 # Quick test study (1-2 hours) 
 ./run_complete_generalization_study.sh --train-sizes "256 512"
 
+# Statistical multi-trial study (robust results with uncertainty)
+./run_complete_generalization_study.sh \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir robust_study
+
 # Custom study with parallel training
 ./run_complete_generalization_study.sh \
     --train-sizes "512 1024 2048 4096" \
@@ -69,23 +75,45 @@ python ../compare_models.py \
 ```
 study_output/
 ├── train_512/           # Results for 512 training images
+│   ├── trial_1/         # First training run
+│   ├── trial_2/         # Second training run (if --num-trials > 1)
+│   └── trial_N/         # Nth training run
 ├── train_1024/          # Results for 1024 training images  
-├── train_2048/          # Results for 2048 training images
-├── train_4096/          # Results for 4096 training images
-├── psnr_phase_generalization.png    # 📊 Main result plot
-├── frc50_amp_generalization.png     # 📊 FRC analysis
-├── mae_amp_generalization.png       # 📊 Error trends
-├── results.csv                      # 📋 Aggregated data
+│   ├── trial_1/
+│   └── trial_N/
+├── psnr_phase_generalization.png    # 📊 Main result plot (median ± percentiles)
+├── frc50_amp_generalization.png     # 📊 FRC analysis (median ± percentiles)
+├── mae_amp_generalization.png       # 📊 Error trends (median ± percentiles)
+├── results.csv                      # 📋 Statistical aggregation (median, p25, p75)
 └── STUDY_SUMMARY.md                 # 📄 Summary report
 ```
 
 ## Study Configurations
 
-| Configuration | Training Sizes | Runtime | Disk Space | Use Case |
-|---------------|----------------|---------|------------|----------|
-| **Quick Test** | 256, 512 | 1-2 hours | ~20GB | Testing, validation |
-| **Standard** | 512, 1024, 2048, 4096 | 4-6 hours | ~50GB | Publication results |
-| **Extended** | 256, 512, 1024, 2048, 4096, 8192 | 8-12 hours | ~75GB | Comprehensive research |
+| Configuration | Training Sizes | Trials | Runtime | Disk Space | Use Case |
+|---------------|----------------|--------|---------|------------|----------|
+| **Quick Test** | 512 | 2 | 1-2 hours | ~15GB | Testing, validation |
+| **Standard** | 512, 1024, 2048 | 3 | 4-6 hours | ~60GB | Publication results |
+| **Extended** | 512, 1024, 2048, 4096 | 5 | 8-12 hours | ~100GB | Comprehensive research |
+| **Legacy Single** | 512, 1024, 2048, 4096 | 1 | 4-6 hours | ~50GB | Backward compatibility |
+
+## Multi-Trial Statistical Analysis
+
+The `--num-trials` flag enables robust statistical analysis by training multiple models per configuration:
+
+```bash
+# Single trial (legacy mode) - shows mean performance
+./run_complete_generalization_study.sh --train-sizes "512 1024"
+
+# Multi-trial mode - shows median ± percentiles for robust statistics  
+./run_complete_generalization_study.sh --train-sizes "512 1024" --num-trials 3
+```
+
+**Benefits of Multi-Trial Analysis:**
+- **Robust Statistics**: Median and percentiles instead of single-point estimates
+- **Uncertainty Quantification**: Shows performance variability across training runs
+- **Outlier Resistance**: Less sensitive to random initialization effects
+- **Publication Quality**: Professional plots with uncertainty bands
 
 ## Common Workflows
 
@@ -93,7 +121,8 @@ study_output/
 ```bash
 # Run a quick test to validate setup
 ./run_complete_generalization_study.sh \
-    --train-sizes "256 512" \
+    --train-sizes "512" \
+    --num-trials 2 \
     --output-dir validation_study
 
 # Check results
@@ -103,12 +132,13 @@ open validation_study/psnr_phase_generalization.png
 
 ### 📊 Research Publication  
 ```bash
-# Full study for paper
+# Full study for paper with statistical robustness
 ./run_complete_generalization_study.sh \
     --train-sizes "512 1024 2048 4096" \
+    --num-trials 5 \
     --output-dir paper_results_$(date +%Y%m%d)
 
-# Generate all key plots
+# Generate all key plots (automatically shows median ± percentiles)
 cd paper_results_*/
 python ../aggregate_and_plot_results.py . --metric psnr --part phase
 python ../aggregate_and_plot_results.py . --metric frc50 --part amp  

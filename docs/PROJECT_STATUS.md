@@ -1,6 +1,6 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-01-13
+**Last Updated:** 2025-01-14
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
 
@@ -32,7 +32,7 @@ This document provides a high-level overview of the major development initiative
 
 ### **Initiative: Evaluation Enhancements**
 *   **Status:** ✅ Complete
-*   **Goal:** To enhance the model evaluation pipeline by adding the SSIM metric and implementing a fairer, more robust pre-processing method for phase comparison.
+*   **Goal:** To enhance the model evaluation pipeline by adding the SSIM metric and implementing a fairer, more robust pre-preprocessing method for phase comparison.
 *   **Key Deliverables:**
     *   SSIM and MS-SSIM metrics integrated into `ptycho/evaluation.py`
     *   Configurable phase alignment methods (plane-fitting and mean subtraction)
@@ -44,6 +44,20 @@ This document provides a high-level overview of the major development initiative
 
 ---
 *(Add more completed initiatives here as they are finished)*
+---
+
+### **Initiative: Statistical Generalization Study**
+*   **Status:** ✅ Complete
+*   **Goal:** To enhance the generalization study workflow to support multiple training trials per configuration, enabling robust statistical analysis (median, percentiles) of model performance.
+*   **Key Deliverables:**
+    *   Enhanced `run_complete_generalization_study.sh` with `--num-trials` argument
+    *   Multi-trial directory structure (`train_SIZE/trial_N/`)
+    *   Statistical aggregation in `aggregate_and_plot_results.py` with median/percentiles
+    *   Updated documentation with multi-trial examples
+*   **Planning Documents:**
+    *   **R&D Plan:** `docs/studies/multirun/plan_statistical_generalization.md`
+    *   **Implementation Plan:** `docs/studies/multirun/implementation_statistical_generalization.md`
+
 ---
 
 ## 🚀 **Current Active Initiative**
