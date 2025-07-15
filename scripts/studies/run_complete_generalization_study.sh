@@ -14,6 +14,7 @@
 # Options:
 #   --train-sizes "512 1024 2048 4096"    Training set sizes to test (default: "512 1024 2048 4096")
 #   --output-dir DIRECTORY                 Output directory (default: complete_generalization_study_TIMESTAMP)
+#   --train-data PATH                      Path to training dataset (default: auto-generated)
 #   --test-data PATH                       Path to test dataset (default: auto-generated)
 #   --skip-data-prep                       Skip dataset preparation step
 #   --skip-training                        Skip model training (use existing models)
@@ -64,6 +65,7 @@ OPTIONS:
     --train-sizes SIZES        Space-separated training set sizes (default: "$DEFAULT_TRAIN_SIZES")
     --num-trials N            Number of trials per training size (default: $DEFAULT_NUM_TRIALS)
     --output-dir DIRECTORY     Output directory (default: timestamped directory)
+    --train-data PATH         Path to training dataset (default: auto-generated)
     --test-data PATH          Path to test dataset (default: auto-generated)
     --skip-data-prep          Skip dataset preparation step
     --skip-training           Skip model training (use existing models)
@@ -135,6 +137,7 @@ EOF
 # Initialize variables
 TRAIN_SIZES="$DEFAULT_TRAIN_SIZES"
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
+TRAIN_DATA=""
 TEST_DATA=""
 PARALLEL_JOBS="$DEFAULT_PARALLEL_JOBS"
 NUM_TRIALS="$DEFAULT_NUM_TRIALS"
@@ -152,6 +155,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --output-dir)
             OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        --train-data)
+            TRAIN_DATA="$2"
             shift 2
             ;;
         --test-data)
@@ -274,6 +281,7 @@ PARALLEL_JOBS=$PARALLEL_JOBS
 
 # Paths
 OUTPUT_DIR=$OUTPUT_DIR
+TRAIN_DATA=$TRAIN_DATA
 TEST_DATA=$TEST_DATA
 
 # Workflow Flags
@@ -301,6 +309,18 @@ EOF
 prepare_datasets() {
     if [ "$SKIP_DATA_PREP" = true ]; then
         log "Skipping dataset preparation (--skip-data-prep)"
+        
+        # Validate that train data is specified when skipping data prep
+        if [ -z "$TRAIN_DATA" ]; then
+            log "ERROR: --train-data must be specified when using --skip-data-prep"
+            exit 1
+        fi
+        
+        # Validate train data path
+        if [ ! -f "$TRAIN_DATA" ]; then
+            log "ERROR: Specified train data file not found: $TRAIN_DATA"
+            exit 1
+        fi
         
         # Validate test data path
         if [ -n "$TEST_DATA" ] && [ ! -f "$TEST_DATA" ]; then
@@ -349,10 +369,10 @@ train_models() {
     
     log "=== STEP 2: Model Training ==="
     
-    local train_data="datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz"
+    local train_data_path=${TRAIN_DATA:-"datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz"}
     
-    if [ ! -f "$train_data" ]; then
-        log "ERROR: Training data not found: $train_data"
+    if [ ! -f "$train_data_path" ]; then
+        log "ERROR: Training data not found: $train_data_path"
         exit 1
     fi
     
@@ -366,7 +386,7 @@ train_models() {
         
         # Train PtychoPINN
         local pinn_cmd="python scripts/training/train.py \\
-            --train_data_file '$train_data' \\
+            --train_data_file '$train_data_path' \\
             --test_data_file '$TEST_DATA' \\
             --n_images $train_size \\
             --output_dir '$trial_output_dir/pinn_run' \\
@@ -376,7 +396,7 @@ train_models() {
         
         # Train Baseline
         local baseline_cmd="python scripts/run_baseline.py \\
-            --train_data '$train_data' \\
+            --train_data_file '$train_data_path' \\
             --test_data '$TEST_DATA' \\
             --n_images $train_size \\
             --output_dir '$trial_output_dir/baseline_run' \\
