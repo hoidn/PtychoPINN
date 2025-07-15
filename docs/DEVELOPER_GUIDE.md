@@ -70,13 +70,13 @@ Until the codebase is fully refactored, all modern scripts must follow this orde
 
 A data pipeline's file formats and loading logic constitute a public API. Its behavior must be explicit and robust.
 
-**The Canonical Data Format:** All tools that produce or consume ptychography datasets for training or evaluation **MUST** adhere to the format defined in the official **[Data Contracts Document](./data_contracts.md)**. This document is the single source of truth for array shapes, key names, and data types.
+**The Canonical Data Format:** All tools that produce or consume ptychography datasets for training or evaluation **MUST** adhere to the format defined in the official **<doc-ref type="contract">Data Contracts Document (docs/data_contracts.md)</doc-ref>**. This document is the single source of truth for array shapes, key names, and data types.
 
 ### 3.1. Lesson: Implicit `dtype` is a Time Bomb (The Deepest Bug)
 
 **The Symptom:** The supervised model received real-valued `Y` patches (`float64`) when it expected complex data, causing it to train on amplitude only.
 
-**The Root Cause:** In `ptycho/raw_data.py`, a "canvas" array for assembling complex patches was initialized with `np.zeros(...)` without an explicit `dtype`. NumPy defaults to `float64`, causing the imaginary part of every patch to be silently discarded upon assignment.
+**The Root Cause:** In `<code-ref type="module">ptycho/raw_data.py</code-ref>`, a "canvas" array for assembling complex patches was initialized with `np.zeros(...)` without an explicit `dtype`. NumPy defaults to `float64`, causing the imaginary part of every patch to be silently discarded upon assignment.
 
 **File:** `ptycho/raw_data.py`
 ```python
@@ -139,7 +139,7 @@ To ensure fair and consistent model comparison, the project must use single, aut
 
 **The Principle:** Both the PINN and baseline models, when operating on non-grid data, must use the same function for reassembly.
 
-**The Correct Function:** `ptycho.tf_helper.reassemble_position`
+**The Correct Function:** `<code-ref type="function">ptycho.tf_helper.reassemble_position</code-ref>`
 *   **What it does:** Places a small central region of each patch onto a large canvas according to its specific, real-valued scan coordinates (`global_offsets`). It correctly handles normalization of overlapping regions.
 *   **When to use it:** This is the correct method for visualizing the final output of any model that predicts patches for non-grid scan positions.
 
@@ -147,7 +147,7 @@ To ensure fair and consistent model comparison, the project must use single, aut
 
 **The Principle:** The logic for aligning a reconstruction with its ground truth for metric calculation must be centralized.
 
-**The Correct Function:** `ptycho.image.cropping.align_for_evaluation`
+**The Correct Function:** `<code-ref type="function">ptycho.image.cropping.align_for_evaluation</code-ref>`
 *   **Interface Documentation:**
     ```python
     def align_for_evaluation(

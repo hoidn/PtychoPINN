@@ -4,15 +4,52 @@ This file provides guidance to Claude when working with the PtychoPINN repositor
 
 ## ⚠️ Core Project Directives
 
-1.  **Check Project Status First**: Before starting any new task, you **MUST** first read `docs/PROJECT_STATUS.md` to understand the project's current state and active initiative.
-2.  **The Physics Model is Correct**: The core ptychography physics simulation and the TensorFlow model architecture are considered stable and correct. **Do not modify the core logic in `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` unless explicitly asked.**
-3.  **Data Format is Paramount**: Most errors in this project stem from incorrect input data formats, not bugs in the model code. Before debugging the model, **always verify the input data structure first.**
-4.  **Use Existing Workflows**: The `scripts/` directory contains high-level, tested workflows. Use these as entry points for tasks like training and simulation. Prefer using these scripts over writing new, low-level logic.
-5.  **Configuration over Code**: Changes to experimental parameters (e.g., learning rate, image size) should be made via configuration files (`.yaml`) or command-line arguments, not by hardcoding values in the Python source.
+<directive level="critical" purpose="Understand current project focus">
+  Before starting any new task, you **MUST** first read the project status tracker: 
+  <doc-ref type="status">docs/PROJECT_STATUS.md</doc-ref>.
+</directive>
+
+<directive level="important" purpose="Avoid modifying stable core logic">
+  The core ptychography physics simulation and the TensorFlow model architecture are considered stable and correct. **Do not modify the core logic in `<code-ref type="module">ptycho/model.py</code-ref>`, `<code-ref type="module">ptycho/diffsim.py</code-ref>`, or `<code-ref type="module">ptycho/tf_helper.py</code-ref>` unless explicitly asked.**
+</directive>
+
+<directive level="important" purpose="Prioritize data validation over model debugging">
+  Most errors in this project stem from incorrect input data formats, not bugs in the model code. Before debugging the model, **always verify the input data structure first.**
+</directive>
+
+<directive level="guidance" purpose="Use established workflows">
+  The `scripts/` directory contains high-level, tested workflows. Use these as entry points for tasks like training and simulation. Prefer using these scripts over writing new, low-level logic.
+</directive>
+
+<directive level="guidance" purpose="Use configuration for parameter changes">
+  Changes to experimental parameters (e.g., learning rate, image size) should be made via configuration files (`.yaml`) or command-line arguments, not by hardcoding values in the Python source.
+</directive>
+
+<directive level="critical" purpose="Ensure all new documentation is discoverable">
+  When you create any new documentation file (`.md`), you **MUST** ensure it is discoverable by linking to it from at least one existing, high-level document. This is not optional. Follow these rules to determine where to add the link:
+
+  1.  **Identify the Document Type:**
+      *   Is it a new high-level **R&D Plan** or **Implementation Plan**?
+      *   Is it a user-facing **Workflow Guide** (like a `README.md` for a script)?
+      *   Is it a core **Architectural Guide** (like `DEVELOPER_GUIDE.md`)?
+      *   Does it modify a **Data Contract**?
+
+  2.  **Add a Link Based on Type:**
+      *   **For R&D/Implementation Plans:** The primary link **MUST** be added to `<doc-ref type="status">docs/PROJECT_STATUS.md</doc-ref>` under the relevant initiative.
+      *   **For Workflow Guides:** A link **MUST** be added to the "Key Workflows & Scripts" section in `<doc-ref type="guide">CLAUDE.md</doc-ref>`.
+      *   **For Core Architectural Guides:** A link **MUST** be added to either `<doc-ref type="guide">CLAUDE.md</doc-ref>` or `<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>`, whichever is more contextually appropriate.
+      *   **For Data Contract Changes:** You **MUST** update `<doc-ref type="contract">docs/data_contracts.md</doc-ref>`.
+
+  3.  **Use XML Tags for Links:** All new links that you add for discoverability **MUST** use the `<doc-ref>` or `<code-ref>` XML tagging system to ensure they are machine-parsable.
+</directive>
 
 ## Project Overview
 
 PtychoPINN is a TensorFlow-based implementation of physics-informed neural networks (PINNs) for ptychographic reconstruction. It combines a U-Net-like deep learning model with a differentiable physics layer to achieve rapid, high-resolution reconstruction from scanning coherent diffraction data.
+
+### For Developers
+
+Developers looking to contribute to the codebase or understand its deeper architectural principles should first read the **<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>**. It contains critical information on the project's design, data pipeline, and best practices.
 
 ## 1. Getting Started: Environment & Verification
 
@@ -33,6 +70,15 @@ ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_images 512
 ```
 
 If the verification run completes and creates files in the `verification_run/` directory, the environment is correct.
+
+## 2. Key Workflows & Scripts
+
+This project provides several high-level scripts to automate common tasks. For detailed usage, see the documentation in each script's directory.
+
+- **Training:** See <doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>
+- **Inference:** See <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
+- **Simulation:** See <doc-ref type="workflow-guide">scripts/simulation/README.md</doc-ref>
+- **Model Comparison & Studies:** See <doc-ref type="workflow-guide">scripts/studies/README.md</doc-ref> and <doc-ref type="workflow-guide">scripts/studies/QUICK_REFERENCE.md</doc-ref>
 
 ## 2. Key Workflows & Commands
 
@@ -132,7 +178,7 @@ Parameters are controlled via YAML files (see `configs/`) or command-line argume
 
 **This is the most common source of errors.** A mismatch here will cause low-level TensorFlow errors that are hard to debug.
 
-**Authoritative Source:** For all tasks involving the creation or modification of `.npz` datasets, you **MUST** consult and adhere to the specifications in the **[Data Contracts Document](./docs/data_contracts.md)**. This file defines the required key names, array shapes, and data types.
+**Authoritative Source:** For all tasks involving the creation or modification of `.npz` datasets, you **MUST** consult and adhere to the specifications in the **<doc-ref type="contract">docs/data_contracts.md</doc-ref>**. This file defines the required key names, array shapes, and data types.
 
 -   **`probeGuess`**: The scanning beam. A complex `(N, N)` array.
 -   **`objectGuess`**: The full sample being scanned. A complex `(M, M)` array, where `M` is typically 3-5 times `N`.
@@ -155,20 +201,20 @@ File: `datasets/fly/fly001_transposed.npz`
 
 ## 5. High-Level Architecture
 
--   **Configuration (`ptycho/config/`)**: Dataclass-based system (`ModelConfig`, `TrainingConfig`). This is the modern way to control the model. A legacy `params.cfg` dictionary is still used for backward compatibility. **Crucially, this is a one-way street:** at the start of a workflow, the modern `TrainingConfig` object is used to update the legacy `params.cfg` dictionary. This allows older modules that still use `params.get('key')` to receive the correct values from a single, modern source of truth. New code should always accept a configuration dataclass as an argument and avoid using the legacy `params.get()` function.
+-   **Configuration (`ptycho/config/`)**: Dataclass-based system (`ModelConfig`, `TrainingConfig`). This is the modern way to control the model. The source of truth is <code-ref type="config">ptycho/config/config.py</code-ref>. A legacy `params.cfg` dictionary is still used for backward compatibility. **Crucially, this is a one-way street:** at the start of a workflow, the modern `TrainingConfig` object is used to update the legacy `params.cfg` dictionary. This allows older modules that still use `params.get('key')` to receive the correct values from a single, modern source of truth. New code should always accept a configuration dataclass as an argument and avoid using the legacy `params.get()` function.
 -   **Workflows (`ptycho/workflows/`)**: High-level functions that orchestrate common tasks (e.g., `run_cdi_example`). The `scripts/` call these functions.
 -   **Data Loading (`ptycho/loader.py`, `ptycho/raw_data.py`)**: Defines `RawData` (for raw files) and `PtychoDataContainer` (for model-ready data).
 -   **Model (`ptycho/model.py`)**: Defines the U-Net architecture and the custom Keras layers that incorporate the physics.
 -   **Simulation (`ptycho/diffsim.py`, `ptycho/nongrid_simulation.py`)**: Contains the functions for generating simulated diffraction data from an object and probe.
 -   **Image Processing (`ptycho/image/`)**: The modern, authoritative location for image processing tasks.
     -   `stitching.py`: Contains functions for grid-based patch reassembly.
-    -   `cropping.py`: Contains the crucial `align_for_evaluation` function for robustly aligning a reconstruction with its ground truth for metric calculation.
+    -   `cropping.py`: Contains the crucial `<code-ref type="function">align_for_evaluation</code-ref>` function for robustly aligning a reconstruction with its ground truth for metric calculation.
 
 ## 6. Comparing Models: PtychoPINN vs Baseline
 
 ### Complete Training + Comparison Workflow
 
-Use the `run_comparison.sh` script to train both models and compare them in one workflow:
+Use the `<workflow-entrypoint>scripts/run_comparison.sh</workflow-entrypoint>` script to train both models and compare them in one workflow:
 
 ```bash
 # Complete workflow: train both models + compare
@@ -188,7 +234,7 @@ This workflow:
 
 ### Compare Pre-Trained Models Only
 
-If you already have trained models, use `compare_models.py` directly:
+If you already have trained models, use `<code-ref type="script">scripts/compare_models.py</code-ref>` directly:
 
 ```bash
 # Compare two existing trained models
