@@ -16,8 +16,8 @@ This document provides a high-level overview of the major development initiative
     *   `scripts/studies/run_generalization_study.sh` for orchestrating multi-run experiments.
     *   `scripts/studies/aggregate_and_plot_results.py` for visualizing results.
 *   **Planning Documents:**
-    *   **R&D Plan:** `docs/studies/plan_model_generalization.md`
-    *   **Implementation Plan:** `docs/studies/implementation_model_generalization.md`
+    *   **R&D Plan:** <doc-ref type="plan">docs/studies/plan_model_generalization.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">docs/studies/implementation_model_generalization.md</doc-ref>
 
 ### **Initiative: Image Registration System**
 *   **Status:** ✅ Complete
@@ -27,8 +27,8 @@ This document provides a high-level overview of the major development initiative
     *   Integration into `scripts/compare_models.py` with `--skip-registration` flag
     *   Unified NPZ file format for reconstruction data
 *   **Planning Documents:**
-    *   **Context Document:** `docs/refactor/context_priming_registration.md`
-    *   **Implementation Plan:** `docs/refactor/plan_registration.md`
+    *   **Context Document:** <doc-ref type="plan">docs/refactor/context_priming_registration.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">docs/refactor/plan_registration.md</doc-ref>
 
 ### **Initiative: Evaluation Enhancements**
 *   **Status:** ✅ Complete
@@ -39,8 +39,8 @@ This document provides a high-level overview of the major development initiative
     *   Debug visualization capabilities with `--save-debug-images` flag
     *   Enhanced FRC with configurable smoothing
 *   **Planning Documents:**
-    *   **R&D Plan:** `docs/refactor/eval_enhancements/plan_eval_enhancements.md`
-    *   **Implementation Plan:** `docs/refactor/eval_enhancements/implementation_eval_enhancements.md`
+    *   **R&D Plan:** <doc-ref type="plan">docs/refactor/eval_enhancements/plan_eval_enhancements.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">docs/refactor/eval_enhancements/implementation_eval_enhancements.md</doc-ref>
 
 ---
 *(Add more completed initiatives here as they are finished)*
