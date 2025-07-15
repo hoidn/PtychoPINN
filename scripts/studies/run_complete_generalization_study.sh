@@ -43,6 +43,7 @@ cd "$PROJECT_ROOT"
 DEFAULT_TRAIN_SIZES="512 1024 2048 4096"
 DEFAULT_OUTPUT_DIR="complete_generalization_study_$(date +%Y%m%d_%H%M%S)"
 DEFAULT_PARALLEL_JOBS=1
+DEFAULT_NUM_TRIALS=5
 SKIP_DATA_PREP=false
 SKIP_TRAINING=false
 SKIP_COMPARISON=false
@@ -61,6 +62,7 @@ USAGE:
 
 OPTIONS:
     --train-sizes SIZES        Space-separated training set sizes (default: "$DEFAULT_TRAIN_SIZES")
+    --num-trials N            Number of trials per training size (default: $DEFAULT_NUM_TRIALS)
     --output-dir DIRECTORY     Output directory (default: timestamped directory)
     --test-data PATH          Path to test dataset (default: auto-generated)
     --skip-data-prep          Skip dataset preparation step
@@ -71,11 +73,11 @@ OPTIONS:
     --help                    Show this help message
 
 EXAMPLES:
-    # Full study with default settings
+    # Full study with default settings (5 trials per training size)
     $0
 
-    # Custom training sizes with parallel execution
-    $0 --train-sizes "256 512 1024" --parallel-jobs 2
+    # Custom training sizes with fewer trials
+    $0 --train-sizes "256 512 1024" --num-trials 3
 
     # Skip data preparation (use existing dataset)
     $0 --skip-data-prep --test-data datasets/my_prepared_data.npz
@@ -135,12 +137,17 @@ TRAIN_SIZES="$DEFAULT_TRAIN_SIZES"
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
 TEST_DATA=""
 PARALLEL_JOBS="$DEFAULT_PARALLEL_JOBS"
+NUM_TRIALS="$DEFAULT_NUM_TRIALS"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --train-sizes)
             TRAIN_SIZES="$2"
+            shift 2
+            ;;
+        --num-trials)
+            NUM_TRIALS="$2"
             shift 2
             ;;
         --output-dir)
@@ -182,6 +189,12 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Validate arguments
+if ! [[ "$NUM_TRIALS" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: --num-trials must be a positive integer, got: '$NUM_TRIALS'"
+    exit 1
+fi
 
 # Logging setup
 LOG_FILE="$OUTPUT_DIR/study_log.txt"
@@ -343,77 +356,49 @@ train_models() {
         exit 1
     fi
     
-    # Training function for a single size
-    train_single_size() {
+    # Training function for a single size and trial
+    train_single_trial() {
         local train_size=$1
-        local size_output_dir="$OUTPUT_DIR/train_$train_size"
+        local trial=$2
+        local trial_output_dir="$OUTPUT_DIR/train_$train_size/trial_$trial"
         
-        log "Training models for train_size=$train_size"
+        log "Training models for train_size=$train_size (Trial $trial/$NUM_TRIALS)"
         
         # Train PtychoPINN
         local pinn_cmd="python scripts/training/train.py \\
             --train_data_file '$train_data' \\
             --test_data_file '$TEST_DATA' \\
             --n_images $train_size \\
-            --output_dir '$size_output_dir/pinn_run' \\
+            --output_dir '$trial_output_dir/pinn_run' \\
             --nepochs 50"
             
-        run_cmd "$pinn_cmd" "PtychoPINN training (n_images=$train_size)"
+        run_cmd "$pinn_cmd" "PtychoPINN training (n_images=$train_size, trial=$trial)"
         
         # Train Baseline
         local baseline_cmd="python scripts/run_baseline.py \\
             --train_data '$train_data' \\
             --test_data '$TEST_DATA' \\
             --n_images $train_size \\
-            --output_dir '$size_output_dir/baseline_run' \\
-            --epochs 50"
+            --output_dir '$trial_output_dir/baseline_run' \\
+            --nepochs 50"
             
-        run_cmd "$baseline_cmd" "Baseline training (n_images=$train_size)"
+        run_cmd "$baseline_cmd" "Baseline training (n_images=$train_size, trial=$trial)"
         
-        log "Completed training for train_size=$train_size"
+        log "Completed training for train_size=$train_size (Trial $trial/$NUM_TRIALS)"
     }
     
-    # Handle parallel vs sequential training
-    if [ "$PARALLEL_JOBS" -gt 1 ]; then
-        log "Training models in parallel (max_jobs=$PARALLEL_JOBS)"
+    # Run training sequentially with multiple trials per training size
+    log "Training models sequentially with $NUM_TRIALS trials per training size"
+    
+    for train_size in $TRAIN_SIZES; do
+        log "Starting training for train_size=$train_size ($NUM_TRIALS trials)"
         
-        # Convert space-separated sizes to array
-        read -ra size_array <<< "$TRAIN_SIZES"
-        
-        # Launch parallel jobs
-        local pids=()
-        local job_count=0
-        
-        for train_size in "${size_array[@]}"; do
-            if [ $job_count -ge $PARALLEL_JOBS ]; then
-                # Wait for a job to complete
-                wait "${pids[0]}"
-                pids=("${pids[@]:1}")  # Remove first PID
-                ((job_count--))
-            fi
-            
-            # Launch background job
-            (train_single_size "$train_size") &
-            pids+=($!)
-            ((job_count++))
-            
-            log "Launched training job for train_size=$train_size (PID: ${pids[-1]})"
+        for trial in $(seq 1 "$NUM_TRIALS"); do
+            train_single_trial "$train_size" "$trial"
         done
         
-        # Wait for all remaining jobs
-        for pid in "${pids[@]}"; do
-            wait "$pid"
-        done
-        
-        log "All parallel training jobs completed"
-        
-    else
-        log "Training models sequentially"
-        
-        for train_size in $TRAIN_SIZES; do
-            train_single_size "$train_size"
-        done
-    fi
+        log "Completed all trials for train_size=$train_size"
+    done
     
     log "Model training phase completed"
 }
@@ -428,28 +413,42 @@ compare_models() {
     log "=== STEP 3: Model Comparison ==="
     
     for train_size in $TRAIN_SIZES; do
-        local size_output_dir="$OUTPUT_DIR/train_$train_size"
-        local pinn_dir="$size_output_dir/pinn_run"
-        local baseline_dir="$size_output_dir/baseline_run"
+        log "Running comparisons for train_size=$train_size ($NUM_TRIALS trials)"
         
-        # Check if models exist
-        if [ ! -f "$pinn_dir/wts.h5.zip" ]; then
-            log "WARNING: PtychoPINN model not found for train_size=$train_size: $pinn_dir/wts.h5.zip"
-            continue
-        fi
-        
-        if [ ! -f "$baseline_dir/baseline_model.h5" ]; then
-            log "WARNING: Baseline model not found for train_size=$train_size: $baseline_dir/baseline_model.h5"
-            continue
-        fi
-        
-        local compare_cmd="python scripts/compare_models.py \\
-            --pinn_dir '$pinn_dir' \\
-            --baseline_dir '$baseline_dir' \\
-            --test_data '$TEST_DATA' \\
-            --output_dir '$size_output_dir'"
+        for trial in $(seq 1 "$NUM_TRIALS"); do
+            local trial_output_dir="$OUTPUT_DIR/train_$train_size/trial_$trial"
+            local pinn_dir="$trial_output_dir/pinn_run"
+            local baseline_dir="$trial_output_dir/baseline_run"
             
-        run_cmd "$compare_cmd" "Model comparison (train_size=$train_size)"
+            # Check if models exist
+            if [ ! -f "$pinn_dir/wts.h5.zip" ]; then
+                log "WARNING: PtychoPINN model not found for train_size=$train_size trial=$trial: $pinn_dir/wts.h5.zip"
+                continue
+            fi
+            
+            # Find baseline model (may be in timestamped subdirectory)
+            baseline_model_path="$baseline_dir/baseline_model.h5"
+            if [ ! -f "$baseline_model_path" ]; then
+                # Look for model in timestamped subdirectory
+                baseline_model_path=$(find "$baseline_dir" -name "baseline_model.h5" -type f 2>/dev/null | head -1)
+                if [ -z "$baseline_model_path" ]; then
+                    log "WARNING: Baseline model not found for train_size=$train_size trial=$trial in $baseline_dir"
+                    continue
+                fi
+                # Update baseline_dir to point to the directory containing the model
+                baseline_dir=$(dirname "$baseline_model_path")
+            fi
+            
+            local compare_cmd="python scripts/compare_models.py \\
+                --pinn_dir '$pinn_dir' \\
+                --baseline_dir '$baseline_dir' \\
+                --test_data '$TEST_DATA' \\
+                --output_dir '$trial_output_dir'"
+                
+            run_cmd "$compare_cmd" "Model comparison (train_size=$train_size, trial=$trial)"
+        done
+        
+        log "Completed comparisons for train_size=$train_size"
     done
     
     log "Model comparison phase completed"
@@ -486,6 +485,42 @@ aggregate_results() {
         
     run_cmd "$mae_cmd" "MAE amplitude generalization plot"
     
+    # Generate SSIM amplitude plot
+    local ssim_amp_cmd="python scripts/studies/aggregate_and_plot_results.py \\
+        '$OUTPUT_DIR' \\
+        --metric ssim \\
+        --part amp \\
+        --output ssim_amp_generalization.png"
+        
+    run_cmd "$ssim_amp_cmd" "SSIM amplitude generalization plot"
+    
+    # Generate SSIM phase plot
+    local ssim_phase_cmd="python scripts/studies/aggregate_and_plot_results.py \\
+        '$OUTPUT_DIR' \\
+        --metric ssim \\
+        --part phase \\
+        --output ssim_phase_generalization.png"
+        
+    run_cmd "$ssim_phase_cmd" "SSIM phase generalization plot"
+    
+    # Generate MS-SSIM amplitude plot
+    local ms_ssim_amp_cmd="python scripts/studies/aggregate_and_plot_results.py \\
+        '$OUTPUT_DIR' \\
+        --metric ms_ssim \\
+        --part amp \\
+        --output ms_ssim_amp_generalization.png"
+        
+    run_cmd "$ms_ssim_amp_cmd" "MS-SSIM amplitude generalization plot"
+    
+    # Generate MS-SSIM phase plot
+    local ms_ssim_phase_cmd="python scripts/studies/aggregate_and_plot_results.py \\
+        '$OUTPUT_DIR' \\
+        --metric ms_ssim \\
+        --part phase \\
+        --output ms_ssim_phase_generalization.png"
+        
+    run_cmd "$ms_ssim_phase_cmd" "MS-SSIM phase generalization plot"
+    
     log "Results aggregation completed"
 }
 
@@ -501,9 +536,10 @@ generate_summary() {
 **Generated:** $(date)
 **Study Directory:** $OUTPUT_DIR
 **Training Sizes:** $TRAIN_SIZES
+**Trials per Size:** $NUM_TRIALS
 
 ## Study Configuration
-- **Parallel Jobs:** $PARALLEL_JOBS
+- **Total Trials:** $(($(echo $TRAIN_SIZES | wc -w) * NUM_TRIALS))
 - **Test Dataset:** $TEST_DATA
 - **Total Runtime:** $(date -d@$(($(date +%s) - start_time)) -u +%H:%M:%S)
 
@@ -520,6 +556,10 @@ The study compared PtychoPINN and baseline model performance across different tr
 - \`psnr_phase_generalization.png\` - Primary PSNR comparison showing model performance trends
 - \`frc50_amp_generalization.png\` - Fourier Ring Correlation analysis 
 - \`mae_amp_generalization.png\` - Mean Absolute Error convergence trends
+- \`ssim_amp_generalization.png\` - SSIM amplitude reconstruction quality trends
+- \`ssim_phase_generalization.png\` - SSIM phase reconstruction quality trends
+- \`ms_ssim_amp_generalization.png\` - Multi-Scale SSIM amplitude analysis
+- \`ms_ssim_phase_generalization.png\` - Multi-Scale SSIM phase analysis
 
 ### Data Files
 - \`results.csv\` - Complete aggregated metrics data
@@ -530,11 +570,14 @@ The study compared PtychoPINN and baseline model performance across different tr
 \`\`\`
 $OUTPUT_DIR/
 ├── train_512/           # Results for 512 training images
+│   ├── trial_1/         # Trial 1: pinn_run/, baseline_run/, comparison_metrics.csv
+│   ├── trial_2/         # Trial 2: pinn_run/, baseline_run/, comparison_metrics.csv
+│   └── ...             # Additional trials
 ├── train_1024/          # Results for 1024 training images  
-├── train_2048/          # Results for 2048 training images
-├── train_4096/          # Results for 4096 training images
-├── *.png               # Generalization plots
-├── results.csv         # Aggregated data
+│   ├── trial_1/         # Trial 1: pinn_run/, baseline_run/, comparison_metrics.csv
+│   └── ...             # Additional trials
+├── *.png               # Generalization plots with median and percentile bands
+├── results.csv         # Aggregated median and percentile statistics
 └── study_log.txt       # Execution log
 \`\`\`
 
@@ -563,8 +606,13 @@ main() {
     
     log "=== Starting Complete Generalization Study ==="
     log "Training sizes: $TRAIN_SIZES"
+    log "Number of trials per size: $NUM_TRIALS"
     log "Output directory: $OUTPUT_DIR"
-    log "Parallel jobs: $PARALLEL_JOBS"
+    
+    # Calculate total number of runs
+    read -ra sizes_array <<< "$TRAIN_SIZES"
+    local total_runs=$((${#sizes_array[@]} * NUM_TRIALS * 2))  # 2 models per trial
+    log "Total training runs planned: $total_runs"
     
     validate_environment
     save_config
@@ -580,6 +628,9 @@ main() {
     local duration=$((end_time - start_time))
     
     log "=== Study Completed Successfully ==="
+    log "Training sizes tested: $(echo $TRAIN_SIZES | wc -w)"
+    log "Trials per size: $NUM_TRIALS"
+    log "Total trials completed: $(($(echo $TRAIN_SIZES | wc -w) * NUM_TRIALS))"
     log "Total runtime: $(date -d@$duration -u +%H:%M:%S)"
     log "Results directory: $OUTPUT_DIR"
     log "Summary report: $OUTPUT_DIR/STUDY_SUMMARY.md"
@@ -591,6 +642,10 @@ main() {
     echo "   - $OUTPUT_DIR/psnr_phase_generalization.png"
     echo "   - $OUTPUT_DIR/frc50_amp_generalization.png"
     echo "   - $OUTPUT_DIR/mae_amp_generalization.png"
+    echo "   - $OUTPUT_DIR/ssim_amp_generalization.png"
+    echo "   - $OUTPUT_DIR/ssim_phase_generalization.png"
+    echo "   - $OUTPUT_DIR/ms_ssim_amp_generalization.png"
+    echo "   - $OUTPUT_DIR/ms_ssim_phase_generalization.png"
     echo "📋 Summary: $OUTPUT_DIR/STUDY_SUMMARY.md"
 }
 
