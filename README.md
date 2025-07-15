@@ -41,6 +41,19 @@ For an example of interactive (Jupyter) usage, see notebooks/nongrid_simulations
 
 non_grid_CDI_example.ipynb shows interactive usage using a dataset that is provided with the repo.
 
+### Model Evaluation & Generalization Studies
+
+Run comprehensive generalization studies with statistical robustness:
+```bash
+# Multi-trial study with uncertainty quantification
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir robust_study
+```
+
+See `scripts/studies/QUICK_REFERENCE.md` for detailed usage and options.
+
 
 <!-- 
 * subpixel convolution (Depth-to-space)
