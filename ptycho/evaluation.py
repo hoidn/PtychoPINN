@@ -419,8 +419,8 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     
     # Apply configurable phase alignment
     if phase_align_method == 'plane':
-        # Use plane fitting alignment - align predicted phase to target
-        phi_pred = fit_and_remove_plane(phi_pred_raw, phi_target_raw)
+        # Use plane fitting alignment - align both images to remove linear phase trends
+        phi_pred = fit_and_remove_plane(phi_pred_raw)
         phi_target = fit_and_remove_plane(phi_target_raw)
     elif phase_align_method == 'mean':
         # Use mean subtraction alignment
