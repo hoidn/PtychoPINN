@@ -486,8 +486,8 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
         # rather than 4D patches (n_scans, H, W, channels)
         gridsize = 1  # Default for PINN compatibility
         Y_patches = get_image_patches(ptycho_data.objectGuess, coords_offsets, coords_relative, N=N, gridsize=gridsize)
-        # Squeeze out channel dimension for gridsize=1 to get (n_scans, H, W) shape
-        Y4d_nn = np.squeeze(Y_patches, axis=-1) if gridsize == 1 else Y_patches
+        # Always keep 4D shape for consistent tensor dimensions downstream
+        Y4d_nn = Y_patches
     else:
         # Fail loudly if the expected 'Y' array is not present.
         raise ValueError(

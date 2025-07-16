@@ -62,6 +62,17 @@ This document provides a high-level overview of the major development initiative
 
 ## 🚀 **Current Active Initiative**
 
-None - Awaiting new R&D plan.
+### **Initiative: Spatially-Biased Randomized Sampling Study**
+*   **Status:** 🚀 Active (Final Phase)
+*   **Goal:** To enable generalization studies on random samples from specific spatial regions of datasets, rather than just the first N data points.
+*   **Key Deliverables:**
+    *   `scripts/tools/shuffle_dataset_tool.py` for randomizing dataset order ✅
+    *   Updated documentation in `scripts/tools/README.md` and `scripts/studies/QUICK_REFERENCE.md`
+    *   Complete generalization study on top half of fly64 dataset
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">docs/sampling/plan_sampling_study.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">docs/sampling/implementation_sampling_study.md</doc-ref>
+    *   **Final Phase Checklist:** <doc-ref type="checklist">docs/sampling/final_phase_validation_checklist.md</doc-ref>
+*   **Current Phase:** Final Phase: Validation & Documentation
 
 ---
