@@ -446,6 +446,111 @@ def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, ag
         return _flat_to_channel(imgs_flat_bigN_translated, N = padded_size)
 
 #@debug
+def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_size: int, batch_size: int = 64, agg: bool = True, average: bool = False, **kwargs) -> tf.Tensor:
+    """
+    Memory-efficient batched version of patch reassembly.
+    
+    This function processes patches in small batches to avoid out-of-memory (OOM) errors
+    when working with large datasets. It provides the same functionality as the original
+    reassembly functions but with controlled memory usage.
+    
+    Args:
+        imgs: Input patches in channel format (B, N, N, C)
+        offsets_xy: Position offsets in channel format (B, N, N, 2)
+        padded_size: Size of the final canvas
+        batch_size: Number of patches to process per batch. Smaller values use less
+                   GPU memory but may be slower. Default: 64
+        agg: Whether to aggregate overlapping patches (default: True)
+        average: Whether to average overlapping regions (for compatibility)
+        **kwargs: Additional keyword arguments for compatibility
+    
+    Returns:
+        Assembled image tensor with shape (1, padded_size, padded_size, 1)
+        
+    Note:
+        When batch_size is larger than the number of patches, the function
+        automatically falls back to the original non-batched approach for efficiency.
+    """
+    offsets_flat = flatten_offsets(offsets_xy)
+    imgs_flat = _channel_to_flat(imgs)
+    
+    # Get the number of patches
+    num_patches = tf.shape(imgs_flat)[0]
+    
+    # If we have very few patches, just use the original method
+    if batch_size <= 0:
+        batch_size = 64
+    
+    # Use original approach if fewer patches than batch size
+    def original_approach():
+        imgs_flat_padded = pad_patches(imgs_flat, padded_size)
+        imgs_translated = Translation()([imgs_flat_padded, -offsets_flat, 0.])
+        channels = _flat_to_channel(imgs_translated, N=padded_size)
+        return tf.reduce_sum(channels, axis=3, keepdims=True)
+    
+    def batched_approach():
+        # Initialize the canvas with zeros
+        final_canvas = tf.zeros((1, padded_size, padded_size, 1), dtype=imgs_flat.dtype)
+        
+        # Use tf.while_loop for batching
+        i = tf.constant(0)
+        
+        def condition(i, canvas):
+            return tf.less(i, num_patches)
+        
+        def body(i, canvas):
+            # Calculate batch boundaries
+            start_idx = i
+            end_idx = tf.minimum(i + batch_size, num_patches)
+            
+            # Extract batch - handle case where batch might be smaller than batch_size
+            batch_imgs = imgs_flat[start_idx:end_idx]
+            batch_offsets = offsets_flat[start_idx:end_idx]
+            
+            # Ensure offsets have the right shape: (batch_size, 2)
+            batch_offsets = tf.ensure_shape(batch_offsets, [None, 2])
+            
+            # Only process if we have images in the batch
+            def process_batch():
+                batch_imgs_padded = pad_patches(batch_imgs, padded_size)
+                batch_translated = Translation()([batch_imgs_padded, -batch_offsets, 0.])
+                batch_channels = _flat_to_channel(batch_translated, N=padded_size)
+                return tf.reduce_sum(batch_channels, axis=3, keepdims=True)
+            
+            def skip_batch():
+                return tf.zeros_like(canvas)
+            
+            # Only process if we have a non-empty batch
+            batch_result = tf.cond(
+                tf.greater(end_idx, start_idx),
+                process_batch,
+                skip_batch
+            )
+            
+            return end_idx, canvas + batch_result
+        
+        _, final_canvas = tf.while_loop(
+            condition,
+            body,
+            loop_vars=[i, final_canvas],
+            shape_invariants=[
+                i.get_shape(),
+                tf.TensorShape([1, padded_size, padded_size, 1])
+            ],
+            parallel_iterations=1,
+            back_prop=True
+        )
+        
+        return final_canvas
+    
+    # Use different approaches based on number of patches
+    return tf.cond(
+        tf.less(num_patches, batch_size),
+        original_approach,
+        batched_approach
+    )
+
+#@debug
 def mk_centermask(inputs: tf.Tensor, N: int, c: int, kind: str = 'center') -> tf.Tensor:
     b = tf.shape(inputs)[0]
 #    if get('probe.big'):
@@ -474,12 +579,20 @@ def mk_norm(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Tensor], tf.Te
 
 #@debug
 def reassemble_patches(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Tensor], tf.Tensor] = reassemble_patches_real,
-        average: bool = False, **kwargs: Any) -> tf.Tensor:
+        average: bool = False, batch_size: Optional[int] = None, **kwargs: Any) -> tf.Tensor:
     """
     Given image patches (shaped such that the channel dimension indexes
     patches within a single solution region), reassemble into an image
     for the entire solution region. Overlaps between patches are
     averaged.
+    
+    Args:
+        channels: Input patches tensor
+        fn_reassemble_real: Function to use for reassembly
+        average: Whether to average overlapping patches
+        batch_size: Number of patches to process per batch to manage GPU memory usage.
+                   Smaller values reduce memory at the cost of speed.
+        **kwargs: Additional keyword arguments
     """
     real = tf.math.real(channels)
     imag = tf.math.imag(channels)
@@ -531,7 +644,7 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
     return result[0]
 
 #@debug
-def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 226, norm: bool = False) -> tf.Tensor:
+def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 226, norm: bool = False, batch_size: Optional[int] = None) -> tf.Tensor:
     """
     patches: tensor of shape (B, N, N, gridsize**2) containing reconstruction patches
 
@@ -539,13 +652,26 @@ def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 
         provided offsets
 
     This function inverts the offsets, so it's not necessary to multiply by -1
+    
+    Args:
+        patches: Input patches tensor
+        offsets: Position offsets
+        size: Output canvas size
+        norm: Whether to normalize by overlap counts
+        batch_size: Number of patches to process per batch to manage GPU memory usage.
+                   Smaller values reduce memory at the cost of speed.
     """
+    # Use batched reassembly by default, fallback to original if batch_size not specified
+    if batch_size is not None:
+        reassemble_fn = mk_reassemble_position_batched_real(offsets, batch_size=batch_size, padded_size=size)
+    else:
+        reassemble_fn = mk_reassemble_position_real(offsets, padded_size=size)
+    
     img = tf.reduce_sum(
-        reassemble_patches(patches, fn_reassemble_real=mk_reassemble_position_real(
-        offsets, padded_size = size)),
+        reassemble_patches(patches, fn_reassemble_real=reassemble_fn),
         axis = 0)
     if norm:
-        return img / reassemble_whole_object(tf.ones_like(patches), offsets, size = size, norm = False)
+        return img / reassemble_whole_object(tf.ones_like(patches), offsets, size = size, norm = False, batch_size = batch_size)
     return img
 
 def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
@@ -560,6 +686,31 @@ def mk_reassemble_position_real(input_positions: tf.Tensor, **outer_kwargs: Any)
         return _reassemble_patches_position_real(imgs, input_positions,
             **outer_kwargs)
     return reassemble_patches_position_real
+
+#@debug
+def mk_reassemble_position_batched_real(input_positions: tf.Tensor, batch_size: int = 64, **outer_kwargs: Any) -> Callable[[tf.Tensor], tf.Tensor]:
+    """
+    Factory function for batched position-based patch reassembly with complex tensor support.
+    
+    Args:
+        input_positions: Position offsets tensor
+        batch_size: Number of patches to process per batch for memory efficiency
+        **outer_kwargs: Additional arguments passed to the reassembly function
+    
+    Returns:
+        Function that can handle both real and complex tensors using batched processing
+    """
+    @complexify_function
+    #@debug
+    def reassemble_patches_position_batched_real(imgs: tf.Tensor, **kwargs: Any) -> tf.Tensor:
+        if 'padded_size' not in outer_kwargs and 'padded_size' not in kwargs:
+            padded_size = get_padded_size()
+        else:
+            padded_size = outer_kwargs.get('padded_size', kwargs.get('padded_size'))
+        
+        return _reassemble_position_batched(imgs, input_positions, padded_size, batch_size, **kwargs)
+    
+    return reassemble_patches_position_batched_real
 
 #@debug
 def preprocess_objects(Y_I: np.ndarray, Y_phi: Optional[np.ndarray] = None,
