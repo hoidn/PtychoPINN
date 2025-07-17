@@ -7,6 +7,8 @@ This file provides guidance to Claude when working with the PtychoPINN repositor
 <directive level="critical" purpose="Understand current project focus">
   Before starting any new task, you **MUST** first read the project status tracker: 
   <doc-ref type="status">docs/PROJECT_STATUS.md</doc-ref>.
+  When reading or modifying files in a subdir of the project root, if a CLAUDE.md file exists 
+  in that subdir, you **MUST** read that CLAUDE.md.
 </directive>
 
 <directive level="important" purpose="Avoid modifying stable core logic">
