@@ -81,6 +81,11 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Data Preprocessing Tools:** See <doc-ref type="workflow-guide">scripts/tools/README.md</doc-ref>
 - **Model Comparison & Studies:** See <doc-ref type="workflow-guide">scripts/studies/README.md</doc-ref> and <doc-ref type="workflow-guide">scripts/studies/QUICK_REFERENCE.md</doc-ref>
 - **Experimental Datasets:** See <doc-ref type="guide">docs/FLY64_DATASET_GUIDE.md</doc-ref>
+- **Configuration Guide:** See <doc-ref type="guide">docs/CONFIGURATION_GUIDE.md</doc-ref>
+- **Tool Selection Guide:** See <doc-ref type="guide">docs/TOOL_SELECTION_GUIDE.md</doc-ref>
+- **Model Comparison Guide:** See <doc-ref type="guide">docs/MODEL_COMPARISON_GUIDE.md</doc-ref>
+- **Project Organization Guide:** See <doc-ref type="guide">docs/PROJECT_ORGANIZATION_GUIDE.md</doc-ref>
+- **Initiative Workflow Guide:** See <doc-ref type="workflow-guide">docs/INITIATIVE_WORKFLOW_GUIDE.md</doc-ref>
 
 ## 2. Key Workflows & Commands
 
@@ -133,48 +138,15 @@ python -m unittest discover -s ptycho -p "test_*.py"
 
 ## 3. Configuration Parameters
 
-Parameters are controlled via YAML files (see `configs/`) or command-line arguments. The system uses modern `dataclasses` for configuration, which are defined in `ptycho/config/config.py`.
+Parameters are controlled via YAML files (see `configs/`) or command-line arguments. The system uses modern `dataclasses` for configuration.
 
-### Model Architecture
+**For complete configuration details, see <doc-ref type="guide">docs/CONFIGURATION_GUIDE.md</doc-ref>**
 
-| Parameter           | Type                            | Description                                                                                             |
-| ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `N`                 | `Literal[64, 128, 256]`         | The dimension of the input diffraction patterns (e.g., 64x64 pixels). Critical for network shape.         |
-| `n_filters_scale`   | `int`                           | A multiplier for the number of filters in convolutional layers. `> 0`. Default: `2`.                      |
-| `model_type`        | `Literal['pinn', 'supervised']` | The type of model to use. `pinn` is the main physics-informed model.                                    |
-| `amp_activation`    | `str`                           | The activation function for the amplitude output layer (e.g., 'sigmoid', 'relu').                       |
-| `object_big`        | `bool`                          | If `true`, the model reconstructs a large area by stitching patches. If `false`, it reconstructs a single NxN patch. |
-| `probe_big`         | `bool`                          | If `true`, the probe representation can vary across the solution region.                                  |
-| `probe_mask`        | `bool`                          | If `true`, applies a circular mask to the probe to enforce a finite support.                            |
-| `gaussian_smoothing_sigma` | `float` | Standard deviation for the Gaussian filter applied to the probe. `0.0` means no smoothing. |
-
-### Training Parameters
-
-| Parameter      | Type   | Description                                                              |
-| -------------- | ------ | ------------------------------------------------------------------------ |
-| `nepochs`      | `int`  | Number of training epochs. `> 0`. Default: `50`.                         |
-| `batch_size`   | `int`  | The number of samples per batch. Must be a power of 2. Default: `16`.    |
-| `output_dir`   | `Path` | The directory where training outputs (model, logs, images) will be saved. |
-
-### Data & Simulation Parameters
-
-| Parameter           | Type          | Description                                                                                                    |
-| ------------------- | ------------- | -------------------------------------------------------------------------------------------------------------- |
-| `train_data_file`   | `Path`        | **Required.** Path to the training dataset (`.npz` file).                                                       |
-| `test_data_file`    | `Optional[Path]`| Path to the test dataset (`.npz` file).                                                                        |
-| `n_images`          | `int`         | The number of diffraction patterns to use from the dataset. Default: `512`.                                    |
-| `gridsize`          | `int`         | For PINN-style models, this defines the number of neighboring patches to process together (e.g., 1 for single-patch processing, 2 for 2x2 neighbors). For supervised models, it defines the input channel depth. |
-
-### Physics & Loss Parameters
-
-| Parameter                   | Type    | Description                                                                                                     |
-| --------------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
-| `nphotons`                  | `float` | The target average number of photons per diffraction pattern, used for the Poisson noise model. `> 0`.             |
-| `nll_weight`                | `float` | Weight for the Negative Log-Likelihood (Poisson) loss. Recommended: `1.0`. Range: `[0, 1]`.                      |
-| `mae_weight`                | `float` | Weight for the Mean Absolute Error loss in diffraction space. Typically `0.0`. Range: `[0, 1]`.                  |
-| `probe_scale`               | `float` | A normalization factor for the probe's amplitude. `> 0`.                                                        |
-| `probe_trainable`           | `bool`  | If `true`, allows the model to learn and update the probe function during training.                               |
-| `intensity_scale_trainable` | `bool`  | If `true`, allows the model to learn the global intensity scaling factor.                                       |
+### Quick Reference
+- **Model Architecture**: `N` (diffraction pattern size), `model_type` (pinn/supervised), `object_big` (patch stitching)
+- **Training**: `nepochs`, `batch_size`, `output_dir`  
+- **Data**: `train_data_file`, `test_data_file`, `n_images`
+- **Physics**: `nphotons`, `nll_weight`, `probe_trainable`
 
 ## 4. Critical: Data Format Requirements
 
@@ -214,436 +186,42 @@ File: `datasets/fly/fly001_transposed.npz`
 
 ## 6. Tool Selection Guidance
 
-Understanding which tool to use for different workflows is critical for efficient development:
+Understanding which tool to use for different workflows is critical for efficient development.
 
-### Workflow Tool Hierarchy
+**For complete tool selection guidance, see <doc-ref type="guide">docs/TOOL_SELECTION_GUIDE.md</doc-ref>**
 
-**For comprehensive model evaluation studies:**
-- **Primary**: `scripts/studies/run_complete_generalization_study.sh` 
-- **Controls**: Training sizes, number of trials, datasets, full pipeline
-- **Use when**: Running complete studies, need statistical robustness, control over training parameters
-
-**For comparing existing trained models:**
-- **Primary**: `scripts/compare_models.py`
-- **Controls**: Post-training comparison only, uses full test dataset
-- **Use when**: Models already exist, quick comparisons, metric calculation
-
-**For visualization of study results:**
-- **Primary**: `scripts/studies/aggregate_and_plot_results.py`
-- **Controls**: Plot generation, metric selection, statistical aggregation
-- **Use when**: Generating publication plots, analyzing completed studies
-
-### Common Tool Selection Mistakes
-
-❌ **Wrong**: Using `compare_models.py` with training size parameters (not supported)
-✅ **Correct**: Use `run_complete_generalization_study.sh --train-sizes "512 1024"`
-
-❌ **Wrong**: Trying to control number of training images in comparison scripts
-✅ **Correct**: Control training size in the generalization study script, then use comparison for analysis
-
-❌ **Wrong**: Manual training then manual comparison for multiple sizes/trials
-✅ **Correct**: Use the complete generalization study script for automated workflows
-
-### Decision Matrix
-
-| Need | Tool | Key Parameters |
-|------|------|----------------|
-| **Train models with specific sizes** | `run_complete_generalization_study.sh` | `--train-sizes`, `--num-trials` |
-| **Compare existing models** | `compare_models.py` | `--pinn_dir`, `--baseline_dir` |
-| **Visualize study results** | `aggregate_and_plot_results.py` | `--metric`, `--part` |
-| **Debug dataset issues** | `scripts/tools/visualize_dataset.py` | Input dataset path |
-| **Prepare datasets** | `scripts/tools/split_dataset_tool.py` | `--split-fraction` |
+### Quick Reference
+- **Complete studies**: `run_complete_generalization_study.sh` 
+- **Model comparison**: `compare_models.py`
+- **Result visualization**: `aggregate_and_plot_results.py`
+- **Dataset debugging**: `scripts/tools/visualize_dataset.py`
+- **Data preparation**: `scripts/tools/split_dataset_tool.py`
 
 ## 7. Comparing Models: PtychoPINN vs Baseline
 
-### Complete Training + Comparison Workflow
+**For complete model comparison documentation, see <doc-ref type="guide">docs/MODEL_COMPARISON_GUIDE.md</doc-ref>**
 
-Use the `<workflow-entrypoint>scripts/run_comparison.sh</workflow-entrypoint>` script to train both models and compare them in one workflow:
+### Quick Start
 
 ```bash
 # Complete workflow: train both models + compare
 ./scripts/run_comparison.sh <train_data.npz> <test_data.npz> <output_dir>
 
-# Example:
-./scripts/run_comparison.sh \
-    datasets/fly/fly001_transposed.npz \
-    datasets/fly/fly001_transposed.npz \
-    comparison_results
-```
-
-This workflow:
-1. Trains PtychoPINN model with identical hyperparameters (from `configs/comparison_config.yaml`)
-2. Trains baseline model with the same configuration
-3. Runs comparison analysis using `compare_models.py`
-
-### Compare Pre-Trained Models Only
-
-If you already have trained models, use `<code-ref type="script">scripts/compare_models.py</code-ref>` directly:
-
-```bash
-# Compare two existing trained models
-python scripts/compare_models.py \
-    --pinn_dir <path/to/pinn/model/dir> \
-    --baseline_dir <path/to/baseline/model/dir> \
-    --test_data <path/to/test.npz> \
-    --output_dir <comparison_output_dir>
-
-# Example:
-python scripts/compare_models.py \
-    --pinn_dir training_outputs/pinn_run \
-    --baseline_dir training_outputs/baseline_run \
-    --test_data datasets/fly/fly001_transposed.npz \
-    --output_dir comparison_results
-```
-
-**Requirements:**
-- Both model directories must contain trained models (`wts.h5.zip` for PtychoPINN, `baseline_model.h5` for baseline)
-- Test data must contain `objectGuess` for ground truth comparison
-
-**Outputs:**
-- `comparison_plot.png` - Side-by-side visual comparison showing PtychoPINN, Baseline, and Ground Truth
-- `comparison_metrics.csv` - Quantitative metrics (MAE, MSE, PSNR, FRC) for both models
-- **Unified NPZ files** (enabled by default):
-  - `reconstructions.npz` - Single file with all raw reconstructions (amplitude, phase, complex for all models, before registration)
-  - `reconstructions_aligned.npz` - Single file with all aligned reconstructions (amplitude, phase, complex, and offsets, after registration)
-  - `reconstructions_metadata.txt` - Description of arrays in raw reconstructions NPZ
-  - `reconstructions_aligned_metadata.txt` - Description of arrays in aligned reconstructions NPZ
-
-### Automatic Image Registration
-
-**IMPORTANT:** Model comparisons now include automatic image registration to ensure fair evaluation.
-
-**What it does:**
-- Automatically detects and corrects translational misalignments between reconstructions and ground truth
-- Uses sub-pixel precision phase cross-correlation for accurate alignment
-- Prevents spurious metric differences caused by small shifts in reconstruction position
-
-**Key Features:**
-- **Automatic activation**: Registration is applied by default in all `compare_models.py` runs
-- **Sub-pixel precision**: Detects offsets with ~0.1 pixel accuracy using upsampled FFT correlation
-- **Logged results**: Detected offsets are logged and saved to the metrics CSV
-- **Physical correctness**: Direction verification ensures offsets are applied correctly
-
-**Understanding the output:**
-```bash
-# Example log output:
-INFO - PtychoPINN detected offset: (-1.060, -0.280)
-INFO - Baseline detected offset: (47.000, -1.980)
-```
-
-This means:
-- PtychoPINN reconstruction needed a 1.06 pixel correction (excellent alignment)
-- Baseline reconstruction had a 47 pixel misalignment (significant shift)
-
-**Output format in CSV:**
-```csv
-PtychoPINN,registration_offset_dy,,,-1.060000
-PtychoPINN,registration_offset_dx,,,-0.280000
-Baseline,registration_offset_dy,,,47.000000
-Baseline,registration_offset_dx,,,-1.980000
-```
-
-**Control options:**
-```bash
-# Normal operation (registration and NPZ exports both enabled by default)
-python scripts/compare_models.py [other args]
-
-# Disable registration for debugging/comparison
-python scripts/compare_models.py --skip-registration [other args]
-
-# Disable NPZ exports to save disk space
-python scripts/compare_models.py --no-save-npz --no-save-npz-aligned [other args]
-
-# Disable only raw NPZ export (keep aligned NPZ files)
-python scripts/compare_models.py --no-save-npz [other args]
-
-# Disable only aligned NPZ export (keep raw NPZ files)
-python scripts/compare_models.py --no-save-npz-aligned [other args]
-
-# Legacy explicit enable flags (redundant since now default)
-python scripts/compare_models.py --save-npz --save-npz-aligned [other args]
-```
-
-**When to use --skip-registration:**
-- Debugging registration behavior
-- Comparing results with/without alignment correction
-- Working with datasets where misalignment is intentional
-- Performance testing (registration adds ~1-2 seconds per comparison)
-
-**When to disable NPZ exports (--no-save-npz / --no-save-npz-aligned):**
-- Limited disk space (unified NPZ files are typically 20-100MB each)
-- Only need visual comparison and CSV metrics
-- Batch processing many comparisons where raw data isn't needed
-- Quick performance testing or debugging runs
-
-**Unified NPZ file contents:**
-
-*reconstructions.npz (raw data):*
-- `ptychopinn_amplitude`, `ptychopinn_phase`, `ptychopinn_complex`: PtychoPINN reconstruction data
-- `baseline_amplitude`, `baseline_phase`, `baseline_complex`: Baseline reconstruction data  
-- `ground_truth_amplitude`, `ground_truth_phase`, `ground_truth_complex`: Ground truth data (if available)
-
-*reconstructions_aligned.npz (aligned data):*
-- Same amplitude, phase, complex arrays but after registration correction applied
-- `pinn_offset_dy`, `pinn_offset_dx`: PtychoPINN registration offsets in pixels (float values)
-- `baseline_offset_dy`, `baseline_offset_dx`: Baseline registration offsets in pixels (float values)
-
-**Important notes about unified NPZ data:**
-- **Single file convenience**: All reconstruction data for a comparison is in one unified NPZ file
-- **Raw NPZ**: Data saved BEFORE registration correction (full resolution ~192x192 for models, ~232x232 for ground truth)
-- **Aligned NPZ**: Data saved AFTER registration correction and coordinate cropping (smaller, aligned size ~179x179)
-- **Metadata files**: Text files describe all arrays and their purposes for easy reference
-- **Complex data precision**: All complex-valued data preserves full precision for downstream analysis
-- **Easy loading**: `data = np.load('reconstructions.npz'); pinn_amp = data['ptychopinn_amplitude']`
-
-**Troubleshooting registration:**
-
-*Large offsets (>20 pixels):*
-- Usually indicates genuine misalignment between models
-- Check training convergence and reconstruction quality
-- Verify ground truth alignment is correct
-
-*Very small offsets (<0.5 pixels):*
-- Indicates excellent alignment, registration working correctly
-- Models are already well-positioned relative to ground truth
-
-*Registration failures:*
-- Check that reconstructions contain sufficient feature content
-- Verify images are not all zeros or uniform values
-- Ensure complex-valued images have reasonable amplitude variation
-
-### Enhanced Evaluation Metrics
-
-**New Metrics Available:**
-
-The evaluation pipeline now includes advanced perceptual metrics beyond traditional MAE/MSE/PSNR:
-
-1. **SSIM (Structural Similarity Index)**
-   - Measures structural similarity between images
-   - Range: [0, 1] where 1 = perfect match
-   - More aligned with human perception than pixel-wise metrics
-   - Calculated for both amplitude and phase
-
-2. **MS-SSIM (Multi-Scale SSIM)**
-   - Evaluates structural similarity at multiple scales
-   - Range: [0, 1] where 1 = perfect match
-   - Better captures features at different resolutions
-   - Configurable sigma parameter for Gaussian weighting
-
-**Phase Preprocessing Options:**
-
-Phase comparison now supports two alignment methods:
-
-```bash
-# Plane fitting (default) - removes linear phase ramps
-python scripts/compare_models.py --phase-align-method plane [other args]
-
-# Mean subtraction - simpler centering approach
-python scripts/compare_models.py --phase-align-method mean [other args]
-```
-
-**Debug Visualization:**
-
-Generate preprocessing visualization images to verify metric calculations:
-
-```bash
-# Enable debug image generation
-python scripts/compare_models.py --save-debug-images [other args]
-
-# This creates debug directories with:
-# - *_amp_*_for_ms-ssim.png   - Amplitude after preprocessing
-# - *_phase_*_for_ms-ssim.png - Phase after preprocessing  
-# - *_for_frc.png             - Images used for FRC calculation
-```
-
-**Advanced FRC Options:**
-
-Enhanced Fourier Ring Correlation with smoothing:
-
-```bash
-# Default (no smoothing)
-python scripts/compare_models.py --frc-sigma 0.0 [other args]
-
-# Smooth FRC curves (reduces noise)
-python scripts/compare_models.py --frc-sigma 2.0 [other args]
-```
-
-**MS-SSIM Configuration:**
-
-Control multi-scale behavior:
-
-```bash
-# Custom sigma for MS-SSIM Gaussian weights
-python scripts/compare_models.py --ms-ssim-sigma 1.5 [other args]
-```
-
-**CSV Output Format:**
-
-The `comparison_metrics.csv` now includes:
-- `mae` - Mean Absolute Error (amplitude, phase)
-- `mse` - Mean Squared Error (amplitude, phase)
-- `psnr` - Peak Signal-to-Noise Ratio (amplitude, phase)
-- `ssim` - Structural Similarity (amplitude, phase) **[NEW]**
-- `ms_ssim` - Multi-Scale SSIM (amplitude, phase) **[NEW]**
-- `frc50` - Fourier Ring Correlation at 0.5 threshold
-- Registration offsets (if applicable)
-
-**Phase Preprocessing Transparency:**
-
-When running comparisons, phase preprocessing steps are now logged:
-```
-Phase preprocessing: plane-fitted range [-3.142, 3.142] -> scaled range [0.000, 1.000]
-```
-
-This shows the exact transformations applied before metric calculation, ensuring transparency and reproducibility.
-
-### Standard Model Comparison Examples
-
-For common evaluation workflows, use these tested command patterns:
-
-```bash
-# Compare models from generalization study (recommended test setup)
-python scripts/compare_models.py \
-    --pinn_dir large_generalization_study_tike_test/train_1024/pinn_run \
-    --baseline_dir large_generalization_study_tike_test/train_1024/baseline_run \
-    --test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz \
-    --output_dir comparison_results
-
-# With debug images and custom MS-SSIM parameters
+# Compare existing trained models
 python scripts/compare_models.py \
     --pinn_dir <pinn_model_dir> \
     --baseline_dir <baseline_model_dir> \
     --test_data <test_data.npz> \
-    --output_dir <output_dir> \
-    --save-debug-images \
-    --ms-ssim-sigma 2.0 \
-    --phase-align-method plane
+    --output_dir <comparison_output>
 ```
 
-### Standard Test Datasets
+### Key Features
+- **Automatic image registration** for fair comparison
+- **Advanced metrics** (SSIM, MS-SSIM, FRC)
+- **Debug visualization** with `--save-debug-images`
+- **Unified NPZ exports** for downstream analysis
 
-**Primary test data:** `tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz`
-- Large-scale, high-quality test dataset
-- Used in generalization studies
-- Contains ground truth for all metrics
-
-**Training data:** `datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz`
-- Corresponding training dataset
-- Use for training models that will be tested on the above
-
-### Generalization Study Model Structure
-
-```
-large_generalization_study_tike_test/
-├── train_512/
-│   ├── pinn_run/wts.h5.zip                              # PtychoPINN model (512 training images)
-│   └── baseline_run/07-XX-XXXX-XX.XX.XX_baseline_gs1/baseline_model.h5  # Baseline model
-├── train_1024/                                         # Models trained on 1024 images
-├── train_2048/                                         # Models trained on 2048 images
-└── train_4096/                                         # Models trained on 4096 images
-```
-
-## 6.1. Debug Image Workflow
-
-### Generating Fresh Debug Images
-
-Debug images show the exact preprocessing applied before metric calculations. Always regenerate for accurate analysis:
-
-```bash
-# Clean old debug images and generate fresh ones
-rm -rf debug_images_*
-python scripts/compare_models.py \
-    --pinn_dir <model_dir> \
-    --baseline_dir <baseline_dir> \
-    --test_data <test_data> \
-    --output_dir <output> \
-    --save-debug-images
-```
-
-### Debug Image Output Structure
-
-- **PtychoPINN debug images:** `debug_images_PtychoPINN/`
-- **Baseline debug images:** `debug_images_Baseline/`
-
-**Image types generated:**
-- `*_amp_pred_for_ms-ssim.png`: Normalized amplitude prediction used in MS-SSIM
-- `*_amp_target_for_ms-ssim.png`: Ground truth amplitude used in MS-SSIM
-- `*_phase_pred_for_ms-ssim.png`: Scaled phase prediction ([0,1]) used in MS-SSIM
-- `*_phase_target_for_ms-ssim.png`: Scaled phase ground truth used in MS-SSIM
-- `*_amp_*_for_frc.png`: Same normalized amplitudes used in FRC calculation
-- `*_phi_*_for_frc.png`: Plane-aligned phase data used in FRC calculation
-
-**Key verification points:**
-- Target images should be identical between PtychoPINN and Baseline (same ground truth)
-- Prediction images show model-specific reconstructions after consistent preprocessing
-- Color scaling (vmin/vmax) is consistent between pred/target pairs for fair comparison
-
-## 6.2. compare_models.py Complete Reference
-
-### Essential Command-Line Flags
-
-**Debugging & Analysis:**
-- `--save-debug-images`: Generate preprocessing visualization images
-- `--ms-ssim-sigma N`: Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0)
-- `--phase-align-method {plane,mean}`: Phase alignment method (default: plane)
-- `--frc-sigma N`: Gaussian smoothing for FRC calculation (default: 0.0)
-
-**Registration Control:**
-- `--skip-registration`: Disable automatic image registration alignment
-- Default: Registration enabled for fair comparison
-
-**Output Control:**
-- `--save-npz` / `--no-save-npz`: Control raw reconstruction NPZ export (default: enabled)
-- `--save-npz-aligned` / `--no-save-npz-aligned`: Control aligned NPZ export (default: enabled)
-
-### Complete Output Files
-
-**Essential outputs:**
-- `comparison_metrics.csv`: Quantitative metrics (MAE, MSE, PSNR, SSIM, MS-SSIM, FRC50)
-- `comparison_plot.png`: Side-by-side visual comparison
-- `*_frc_curves.csv`: Full FRC curves for detailed analysis
-
-**Optional outputs (controlled by flags):**
-- `reconstructions.npz`: Raw reconstruction data before alignment
-- `reconstructions_aligned.npz`: Aligned reconstruction data after registration
-- `reconstructions*_metadata.txt`: Human-readable descriptions of NPZ contents
-- `debug_images_*/`: Preprocessing visualization images
-
-### Metric Interpretation Guide
-
-**Amplitude Metrics** (higher = better, except MAE/MSE):
-- **SSIM/MS-SSIM**: Structural similarity, range [0,1], >0.8 = good
-- **PSNR**: Peak signal-to-noise ratio, >80dB = excellent
-- **FRC50**: Spatial resolution in pixels, higher = better resolution
-
-**Phase Metrics** (higher = better, except MAE/MSE):
-- **SSIM/MS-SSIM**: After plane fitting and [0,1] scaling
-- **MAE**: Mean absolute error in radians, <0.1 = good
-- **PSNR**: After plane fitting, >65dB = good
-
-**Registration Offsets** (smaller = better alignment):
-- Values <2.0 pixels indicate excellent model-to-ground-truth alignment
-- Values >20 pixels suggest significant misalignment issues
-
-## 6.3. Advanced Evaluation Features
-
-For detailed information on evaluation methodology and debugging:
-
-**Current evaluation status:** `docs/refactor/eval_enhancements/implementation_eval_enhancements.md`
-- Tracks evaluation pipeline enhancements (SSIM, MS-SSIM, etc.)
-- Phase-by-phase implementation status
-- Technical specifications for new metrics
-
-**Phase implementation checklists:** `docs/refactor/eval_enhancements/phase_*_checklist.md`
-- Detailed task breakdowns for evaluation improvements
-- Implementation guidance for specific features
-
-**Generalization studies:** `docs/studies/GENERALIZATION_STUDY_GUIDE.md`
-- Complete guide for running training size studies
-- Performance scaling analysis workflows
-- Publication-ready result generation
-
-## 7. Understanding the Output Directory
+## 8. Understanding the Output Directory
 
 After a successful training run using `ptycho_train --output_dir <my_run>`, the output directory will contain several key files:
 
@@ -683,174 +261,82 @@ After a successful training run using `ptycho_train --output_dir <my_run>`, the 
 
 - **Legacy Training Script (`ptycho/train.py`):** The file `ptycho/train.py` is a legacy script that uses an older configuration system. **Do not use it.** Always use the `ptycho_train` command-line tool (which points to `scripts/training/train.py`) for all training workflows, as it uses the modern, correct configuration system.
 
- # Using Gemini CLI for Large Codebase Analysis
+## 11. Using Gemini CLI for Large Codebase Analysis
 
-  When analyzing large codebases or multiple files that might exceed context limits, use the Gemini CLI with its massive
-  context window. Use `gemini -p` to leverage Google Gemini's large context capacity.
+When analyzing large codebases or multiple files that might exceed context limits, use the Gemini CLI with its massive context window. Use `gemini -p` to leverage Google Gemini's large context capacity.
 
-  ## File and Directory Inclusion Syntax
+### File and Directory Inclusion Syntax
 
-  Use the `@` syntax to include files and directories in your Gemini prompts. The paths should be relative to WHERE you run the
-   gemini command:
+Use the `@` syntax to include files and directories in your Gemini prompts. The paths should be relative to WHERE you run the gemini command:
 
-  ### Examples:
+**Examples:**
 
-  **Single file analysis:**
-  ```bash
-  gemini -p "@src/main.py Explain this file's purpose and structure"
+```bash
+# Single file analysis
+gemini -p "@src/main.py Explain this file's purpose and structure"
 
-  Multiple files:
-  gemini -p "@package.json @src/index.js Analyze the dependencies used in the code"
+# Multiple files
+gemini -p "@package.json @src/index.js Analyze the dependencies used in the code"
 
-  Entire directory:
-  gemini -p "@src/ Summarize the architecture of this codebase"
+# Entire directory
+gemini -p "@src/ Summarize the architecture of this codebase"
 
-  Multiple directories:
-  gemini -p "@src/ @tests/ Analyze test coverage for the source code"
+# Multiple directories
+gemini -p "@src/ @tests/ Analyze test coverage for the source code"
 
-  Current directory and subdirectories:
-  gemini -p "@./ Give me an overview of this entire project"
+# Current directory and subdirectories
+gemini -p "@./ Give me an overview of this entire project"
+# Or use --all_files flag:
+gemini --all_files -p "Analyze the project structure and dependencies"
+```
 
-#
- Or use --all_files flag:
-  gemini --all_files -p "Analyze the project structure and dependencies"
+### Implementation Verification Examples
 
-  Implementation Verification Examples
+```bash
+# Check if a feature is implemented
+gemini -p "@src/ @lib/ Has dark mode been implemented in this codebase? Show me the relevant files and functions"
 
-  Check if a feature is implemented:
-  gemini -p "@src/ @lib/ Has dark mode been implemented in this codebase? Show me the relevant files and functions"
+# Verify authentication implementation
+gemini -p "@src/ @middleware/ Is JWT authentication implemented? List all auth-related endpoints and middleware"
 
-  Verify authentication implementation:
-  gemini -p "@src/ @middleware/ Is JWT authentication implemented? List all auth-related endpoints and middleware"
+# Check for specific patterns
+gemini -p "@src/ Are there any React hooks that handle WebSocket connections? List them with file paths"
 
-  Check for specific patterns:
-  gemini -p "@src/ Are there any React hooks that handle WebSocket connections? List them with file paths"
+# Verify error handling
+gemini -p "@src/ @api/ Is proper error handling implemented for all API endpoints? Show examples of try-catch blocks"
 
-  Verify error handling:
-  gemini -p "@src/ @api/ Is proper error handling implemented for all API endpoints? Show examples of try-catch blocks"
+# Check for rate limiting
+gemini -p "@backend/ @middleware/ Is rate limiting implemented for the API? Show the implementation details"
 
-  Check for rate limiting:
-  gemini -p "@backend/ @middleware/ Is rate limiting implemented for the API? Show the implementation details"
+# Verify caching strategy
+gemini -p "@src/ @lib/ @services/ Is Redis caching implemented? List all cache-related functions and their usage"
 
-  Verify caching strategy:
-  gemini -p "@src/ @lib/ @services/ Is Redis caching implemented? List all cache-related functions and their usage"
+# Check for specific security measures
+gemini -p "@src/ @api/ Are SQL injection protections implemented? Show how user inputs are sanitized"
 
-  Check for specific security measures:
-  gemini -p "@src/ @api/ Are SQL injection protections implemented? Show how user inputs are sanitized"
+# Verify test coverage for features
+gemini -p "@src/payment/ @tests/ Is the payment processing module fully tested? List all test cases"
+```
 
-  Verify test coverage for features:
-  gemini -p "@src/payment/ @tests/ Is the payment processing module fully tested? List all test cases"
+### When to Use Gemini CLI
 
-  When to Use Gemini CLI
+Use `gemini -p` when:
+- Analyzing entire codebases or large directories
+- Comparing multiple large files
+- Need to understand project-wide patterns or architecture
+- Current context window is insufficient for the task
+- Working with files totaling more than 100KB
+- Verifying if specific features, patterns, or security measures are implemented
+- Checking for the presence of certain coding patterns across the entire codebase
 
-  Use gemini -p when:
-  - Analyzing entire codebases or large directories
-  - Comparing multiple large files
-  - Need to understand project-wide patterns or architecture
-  - Current context window is insufficient for the task
-  - Working with files totaling more than 100KB
-  - Verifying if specific features, patterns, or security measures are implemented
-  - Checking for the presence of certain coding patterns across the entire codebase
+### Important Notes
 
-  Important Notes
+- Paths in @ syntax are relative to your current working directory when invoking gemini
+- The CLI will include file contents directly in the context
+- No need for --yolo flag for read-only analysis
+- Gemini's context window can handle entire codebases that would overflow Claude's context
+- When checking implementations, be specific about what you're looking for to get accurate results
 
-  - Paths in @ syntax are relative to your current working directory when invoking gemini
-  - The CLI will include file contents directly in the context
-  - No need for --yolo flag for read-only analysis
-  - Gemini's context window can handle entire codebases that would overflow Claude's context
-  - When checking implementations, be specific about what you're looking for to get accurate results # Using Gemini CLI for Large Codebase Analysis
+## 12. Project Organization
 
-
-  When analyzing large codebases or multiple files that might exceed context limits, use the Gemini CLI with its massive
-  context window. Use `gemini -p` to leverage Google Gemini's large context capacity.
-
-
-  ## File and Directory Inclusion Syntax
-
-
-  Use the `@` syntax to include files and directories in your Gemini prompts. The paths should be relative to WHERE you run the
-   gemini command:
-
-
-  ### Examples:
-
-
-  **Single file analysis:**
-  ```bash
-  gemini -p "@src/main.py Explain this file's purpose and structure"
-
-
-  Multiple files:
-  gemini -p "@package.json @src/index.js Analyze the dependencies used in the code"
-
-
-  Entire directory:
-  gemini -p "@src/ Summarize the architecture of this codebase"
-
-
-  Multiple directories:
-  gemini -p "@src/ @tests/ Analyze test coverage for the source code"
-
-
-  Current directory and subdirectories:
-  gemini -p "@./ Give me an overview of this entire project"
-  # Or use --all_files flag:
-  gemini --all_files -p "Analyze the project structure and dependencies"
-
-
-  Implementation Verification Examples
-
-
-  Check if a feature is implemented:
-  gemini -p "@src/ @lib/ Has dark mode been implemented in this codebase? Show me the relevant files and functions"
-
-
-  Verify authentication implementation:
-  gemini -p "@src/ @middleware/ Is JWT authentication implemented? List all auth-related endpoints and middleware"
-
-
-  Check for specific patterns:
-  gemini -p "@src/ Are there any React hooks that handle WebSocket connections? List them with file paths"
-
-
-  Verify error handling:
-  gemini -p "@src/ @api/ Is proper error handling implemented for all API endpoints? Show examples of try-catch blocks"
-
-
-  Check for rate limiting:
-  gemini -p "@backend/ @middleware/ Is rate limiting implemented for the API? Show the implementation details"
-
-
-  Verify caching strategy:
-  gemini -p "@src/ @lib/ @services/ Is Redis caching implemented? List all cache-related functions and their usage"
-
-
-  Check for specific security measures:
-  gemini -p "@src/ @api/ Are SQL injection protections implemented? Show how user inputs are sanitized"
-
-
-  Verify test coverage for features:
-  gemini -p "@src/payment/ @tests/ Is the payment processing module fully tested? List all test cases"
-
-
-  When to Use Gemini CLI
-
-
-  Use gemini -p when:
-  - Analyzing entire codebases or large directories
-  - Comparing multiple large files
-  - Need to understand project-wide patterns or architecture
-  - Current context window is insufficient for the task
-  - Working with files totaling more than 100KB
-  - Verifying if specific features, patterns, or security measures are implemented
-  - Checking for the presence of certain coding patterns across the entire codebase
-
-
-  Important Notes
-
-
-  - Paths in @ syntax are relative to your current working directory when invoking gemini
-  - The CLI will include file contents directly in the context
-  - No need for --yolo flag for read-only analysis
-  - Gemini's context window can handle entire codebases that would overflow Claude's context
-  - When checking implementations, be specific about what you're looking for to get accurate results
+For detailed information on project file organization, initiative planning, and document structure conventions, see <doc-ref type="guide">docs/PROJECT_ORGANIZATION_GUIDE.md</doc-ref>.
