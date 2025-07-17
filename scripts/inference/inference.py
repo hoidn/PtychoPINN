@@ -31,6 +31,7 @@ import sys
 import time
 import signal
 from pathlib import Path
+from dataclasses import fields
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -82,16 +83,32 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
-    """Setup inference configuration from arguments and YAML file."""
-    if yaml_path:
-        base_config = setup_configuration(args, yaml_path)
-        model_config = base_config.model
-    else:
-        # Use default ModelConfig when no YAML provided
-        model_config = ModelConfig()
+    """
+    Correctly sets up inference configuration by prioritizing YAML file settings.
+    """
+    from ptycho.config.config import load_yaml_config
+
+    # Start with default ModelConfig values
+    model_defaults = {f.name: f.default for f in fields(ModelConfig)}
     
+    # Load and merge YAML config if provided
+    if yaml_path:
+        print(f"Loading configuration from YAML: {yaml_path}")
+        yaml_data = load_yaml_config(Path(yaml_path))
+        
+        # The YAML might have a nested 'model' structure
+        model_yaml_config = yaml_data.get('model', {})
+        
+        # Update defaults with YAML values
+        model_defaults.update(model_yaml_config)
+        print(f"Loaded gridsize={model_defaults.get('gridsize')} from config.")
+
+    # Create the final ModelConfig object
+    final_model_config = ModelConfig(**model_defaults)
+
+    # Create the InferenceConfig object
     inference_config = InferenceConfig(
-        model=model_config,
+        model=final_model_config,
         model_path=Path(args.model_path),
         test_data_file=Path(args.test_data),
         debug=args.debug,
@@ -99,6 +116,7 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     )
     
     validate_inference_config(inference_config)
+    print(f"Final inference config - gridsize: {inference_config.model.gridsize}")
     return inference_config
 
 
@@ -159,11 +177,21 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         np.random.seed(45)
 
         # Generate grouped data
+        print(f"DEBUG: Using gridsize={config.get('gridsize', 'NOT_SET')} for data generation")
         test_dataset = test_data.generate_grouped_data(config['N'], K=K, nsamples=nsamples)
+        
+        # Debug: check the shape of the generated data
+        if 'diffraction' in test_dataset:
+            print(f"DEBUG: Generated diffraction data shape: {test_dataset['diffraction'].shape}")
+        if 'Y' in test_dataset and test_dataset['Y'] is not None:
+            print(f"DEBUG: Generated Y data shape: {test_dataset['Y'].shape}")
         
         # Create PtychoDataContainer
         from ptycho import loader
         test_data_container = loader.load(lambda: test_dataset, test_data.probeGuess, which=None, create_split=False)
+        
+        # Debug: check the data container
+        print(f"DEBUG: PtychoDataContainer shapes - diffraction: {test_data_container.diffraction.shape}, Y: {test_data_container.Y.shape if test_data_container.Y is not None else 'None'}")
         
         # Perform reconstruction
         start_time = time.time()

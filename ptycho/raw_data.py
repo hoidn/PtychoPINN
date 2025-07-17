@@ -482,9 +482,7 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
                 "fallback" message.
         """
         print("INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
-        # For PINN training, use gridsize=1 to generate 3D patches (n_scans, H, W)
-        # rather than 4D patches (n_scans, H, W, channels)
-        gridsize = 1  # Default for PINN compatibility
+        gridsize = params.get('gridsize')
         Y_patches = get_image_patches(ptycho_data.objectGuess, coords_offsets, coords_relative, N=N, gridsize=gridsize)
         # Always keep 4D shape for consistent tensor dimensions downstream
         Y4d_nn = Y_patches
