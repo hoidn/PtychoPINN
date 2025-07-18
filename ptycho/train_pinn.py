@@ -75,7 +75,7 @@ def eval(test_data, history=None, trained_model=None, model_path=None):
         raise ValueError("Either a trained model instance or a model path must be provided.")
 
     reconstructed_obj, pred_amp, reconstructed_obj_cdi = trained_model.predict(
-        [test_data.X * model.params()['intensity_scale'], test_data.coords_nominal]
+        [test_data.X * params.get('intensity_scale'), test_data.coords_nominal]
     )
     try:
         stitched_obj = reassemble(reconstructed_obj, part='complex')

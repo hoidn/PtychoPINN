@@ -142,7 +142,8 @@
       "Bash(--train-data \"datasets/fly64/fly001_64_train_converted.npz\" )",
       "Bash(--test-data \"datasets/fly64/fly001_64_train_converted.npz\" )",
       "Bash(--output-dir \"fly64_converted_test_512\" )",
-      "Bash(gemini:*)"
+      "Bash(gemini:*)",
+      "Bash(ptycho_inference:*)"
     ],
     "deny": []
   }
