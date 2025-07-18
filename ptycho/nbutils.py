@@ -113,14 +113,14 @@ def compare(obj_tensor_full, global_offsets, objectGuess, ptychonn_tensor=None):
 
 # TODO type annotation
 def reconstruct_image(test_data, diffraction_to_obj = None):
-    from ptycho import model  # Import delayed to avoid early model graph construction
+    from ptycho import model, params # Import delayed to avoid early model graph construction
     global_offsets = test_data.global_offsets
     local_offsets = test_data.local_offsets
 
     if diffraction_to_obj is None:
         diffraction_to_obj = model.diffraction_to_obj
     obj_tensor_full = diffraction_to_obj.predict(
-                    [test_data.X * model.params()['intensity_scale'],
+                    [test_data.X * params.params()['intensity_scale'],
                     local_offsets])
     return obj_tensor_full, global_offsets
 
