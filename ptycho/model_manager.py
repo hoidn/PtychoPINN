@@ -55,6 +55,7 @@ class ModelManager:
     def load_model(model_dir: str) -> tf.keras.Model:
         """
         Load a single model along with its custom objects, parameters, and intensity scale.
+        Uses architecture-aware loading to avoid gridsize mismatch issues.
 
         Args:
             model_dir (str): Directory containing the model files.
@@ -62,19 +63,23 @@ class ModelManager:
         Returns:
             tf.keras.Model: The loaded model.
         """
-        model_file = os.path.join(model_dir, "model.h5")
         custom_objects_path = os.path.join(model_dir, "custom_objects.dill")
         params_path = os.path.join(model_dir, "params.dill")
         
         try:
-            
             # Load parameters
             with open(params_path, 'rb') as f:
                 loaded_params = dill.load(f)
             
             # Check version and handle any necessary migrations
             version = loaded_params.pop('_version', '1.0')
-            # Here you could add logic to handle different versions if needed
+            
+            # Extract gridsize and N from loaded parameters
+            gridsize = loaded_params.get('gridsize')
+            N = loaded_params.get('N')
+            
+            if gridsize is None or N is None:
+                raise ValueError(f"Required parameters missing: gridsize={gridsize}, N={N}")
             
             # Update params.cfg with loaded parameters
             params.cfg.update(loaded_params)
@@ -83,15 +88,32 @@ class ModelManager:
             with open(custom_objects_path, 'rb') as f:
                 custom_objects = dill.load(f)
             
-            # Load intensity scale
-            with h5py.File(model_file, 'r') as hf:
-                intensity_scale = hf.attrs['intensity_scale']
+            # Import model factory after parameters are loaded
+            from ptycho.model import create_model_with_gridsize
             
-            # Set intensity scale in params
-            params.set('intensity_scale', intensity_scale)
-
-            # Load and return the model
-            return tf.keras.models.load_model(model_dir, custom_objects=custom_objects)
+            # Create blank models with correct architecture
+            autoencoder, diffraction_to_obj = create_model_with_gridsize(gridsize, N)
+            
+            # Create dictionary mapping model names to blank models
+            models_dict = {
+                'autoencoder': autoencoder,
+                'diffraction_to_obj': diffraction_to_obj
+            }
+            
+            # Determine current model name from model_dir path
+            model_name = os.path.basename(model_dir)
+            
+            # Select the correct blank model
+            if model_name in models_dict:
+                model = models_dict[model_name]
+            else:
+                # Default to autoencoder for backward compatibility
+                model = autoencoder
+            
+            # Load weights into the blank model
+            model.load_weights(model_dir)
+            
+            return model
         
         except Exception as e:
             print(f"Error loading model from {model_dir}: {str(e)}")
