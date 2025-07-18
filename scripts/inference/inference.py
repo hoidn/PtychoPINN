@@ -191,7 +191,7 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         test_data_container = loader.load(lambda: test_dataset, test_data.probeGuess, which=None, create_split=False)
         
         # Debug: check the data container
-        print(f"DEBUG: PtychoDataContainer shapes - diffraction: {test_data_container.diffraction.shape}, Y: {test_data_container.Y.shape if test_data_container.Y is not None else 'None'}")
+        print(f"DEBUG: PtychoDataContainer shapes - X (diffraction): {test_data_container.X.shape}, Y: {test_data_container.Y.shape if test_data_container.Y is not None else 'None'}")
         
         # Perform reconstruction
         start_time = time.time()

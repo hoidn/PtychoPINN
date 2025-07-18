@@ -22,8 +22,7 @@ import tensorflow_probability as tfp
 
 from .loader import PtychoDataContainer
 from . import tf_helper as hh
-from . import params as cfg
-params = cfg.params
+from . import params as p
 
 import tensorflow_addons as tfa
 gaussian_filter2d = tfa.image.gaussian_filter2d
@@ -56,13 +55,13 @@ tfd = tfp.distributions
 wt_path = 'wts4.1'
 # sets the number of convolutional filters
 
-n_filters_scale =  cfg.get('n_filters_scale')
-N = cfg.get('N')
-gridsize = cfg.get('gridsize')
-offset = cfg.get('offset')
+n_filters_scale =  p.get('n_filters_scale')
+N = p.get('N')
+gridsize = p.get('gridsize')
+offset = p.get('offset')
 
 from . import probe
-tprobe = params()['probe']
+tprobe = p.params()['probe']
 
 probe_mask = probe.get_probe_mask(N)
 #probe_mask = cfg.get('probe_mask')[:, :, :, 0]
@@ -77,7 +76,7 @@ else:
 
 initial_probe_guess = tf.Variable(
             initial_value=tf.cast(initial_probe_guess, tf.complex64),
-            trainable=params()['probe.trainable'],
+            trainable=p.params()['probe.trainable'],
         )
 
 # TODO hyperparameters:
@@ -87,7 +86,7 @@ class ProbeIllumination(tf.keras.layers.Layer):
     def __init__(self, name = None):
         super(ProbeIllumination, self).__init__(name = name)
         self.w = initial_probe_guess
-        self.sigma = cfg.get('gaussian_smoothing_sigma')
+        self.sigma = p.get('gaussian_smoothing_sigma')
 
     def call(self, inputs):
         # x is expected to have shape (batch_size, N, N, gridsize**2)
@@ -106,7 +105,7 @@ class ProbeIllumination(tf.keras.layers.Layer):
         else:
             smoothed = illuminated
         
-        if cfg.get('probe.mask'):
+        if p.get('probe.mask'):
             # Output shape: (batch_size, N, N, gridsize**2)
             return smoothed * tf.cast(probe_mask, tf.complex64), (self.w * tf.cast(probe_mask, tf.complex64))[None, ...]
         else:
@@ -115,14 +114,14 @@ class ProbeIllumination(tf.keras.layers.Layer):
 
 probe_illumination = ProbeIllumination()
 
-nphotons = cfg.get('nphotons')
+nphotons = p.get('nphotons')
 
 # TODO scaling could be done on a shot-by-shot basis, but IIRC I tried this
 # and there were issues
-log_scale_guess = np.log(cfg.get('intensity_scale'))
+log_scale_guess = np.log(p.get('intensity_scale'))
 log_scale = tf.Variable(
             initial_value=tf.constant(float(log_scale_guess)),
-            trainable = params()['intensity_scale.trainable'],
+            trainable = p.params()['intensity_scale.trainable'],
         )
 
 class IntensityScaler(tf.keras.layers.Layer):
@@ -177,7 +176,7 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
     return x0
 
 def create_encoder(input_tensor, n_filters_scale):
-    N = cfg.get('N')
+    N = p.get('N')
     
     if N == 64:
         filters = [n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
@@ -195,7 +194,7 @@ def create_encoder(input_tensor, n_filters_scale):
     return x
 
 def create_decoder_base(input_tensor, n_filters_scale):
-    N = cfg.get('N')
+    N = p.get('N')
     
     if N == 64:
         filters = [n_filters_scale * 64, n_filters_scale * 32]
@@ -237,17 +236,17 @@ def get_resolution_scale_factor(N):
     return 2048 // N
 
 def create_decoder_last(input_tensor, n_filters_scale, conv1, conv2, act=tf.keras.activations.sigmoid, name=''):
-    N = cfg.get('N')
-    gridsize = cfg.get('gridsize')
+    N = p.get('N')
+    gridsize = p.get('gridsize')
 
     scale_factor = get_resolution_scale_factor(N)
-    if cfg.get('pad_object'):
+    if p.get('pad_object'):
         c_outer = 4
         x1 = conv1(input_tensor[..., :-c_outer])
         x1 = act(x1)
         x1 = tf.keras.layers.ZeroPadding2D(((N // 4), (N // 4)), name=name + '_padded')(x1)
         
-        if not cfg.get('probe.big'):
+        if not p.get('probe.big'):
             return x1
         
         x2 = Conv_Up_block(input_tensor[..., -c_outer:], n_filters_scale * scale_factor)
@@ -274,7 +273,7 @@ def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     conv2 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     act = tf.keras.layers.Lambda(lambda x: math.pi * tf.keras.activations.tanh(x), name='phi')
     
-    N = cfg.get('N')
+    N = p.get('N')
     
     if N == 64:
         filters = [n_filters_scale * 64, n_filters_scale * 32]
@@ -302,13 +301,13 @@ def create_autoencoder(input_tensor, n_filters_scale, gridsize, big):
 
 
 def get_amp_activation():
-    if cfg.get('amp_activation') == 'sigmoid':
+    if p.get('amp_activation') == 'sigmoid':
         return lambda x: sigmoid(x)
-    elif cfg.get('amp_activation') == 'swish':
+    elif p.get('amp_activation') == 'swish':
         return lambda x: swish(x)
-    elif cfg.get('amp_activation') == 'softplus':
+    elif p.get('amp_activation') == 'softplus':
         return lambda x: softplus(x)
-    elif cfg.get('amp_activation') == 'relu':
+    elif p.get('amp_activation') == 'relu':
         return lambda x: relu(x)
     else:
         return ValueError
@@ -326,12 +325,12 @@ def create_decoder_amp(input_tensor, n_filters_scale):
 
 normed_input = scale([input_img])
 decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
-    cfg.get('object.big'))
+    p.get('object.big'))
 
 # Combine the two decoded outputs
 obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
 
-if cfg.get('object.big'):
+if p.get('object.big'):
     # If 'object.big' is true, reassemble the patches
     padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name = 'padded_obj_2')([obj, input_positions])
 else:
@@ -384,10 +383,10 @@ autoencoder_no_nll = Model(inputs = [input_img, input_positions],
 diffraction_to_obj = tf.keras.Model(inputs=[input_img, input_positions],
                            outputs=[trimmed_obj])
 
-mae_weight = cfg.get('mae_weight') # should normally be 0
-nll_weight = cfg.get('nll_weight') # should normally be 1
+mae_weight = p.get('mae_weight') # should normally be 0
+nll_weight = p.get('nll_weight') # should normally be 1
 # Total variation regularization on real space amplitude
-realspace_weight = cfg.get('realspace_weight')#1e2
+realspace_weight = p.get('realspace_weight')#1e2
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
 autoencoder.compile(optimizer= optimizer,
@@ -407,13 +406,13 @@ tboard_callback = tf.keras.callbacks.TensorBoard(log_dir=logs,
 
 def prepare_inputs(train_data: PtychoDataContainer):
     """training inputs"""
-    return [train_data.X * cfg.get('intensity_scale'), train_data.coords]
+    return [train_data.X * p.get('intensity_scale'), train_data.coords]
 
 def prepare_outputs(train_data: PtychoDataContainer):
     """training outputs"""
     return [hh.center_channels(train_data.Y_I, train_data.coords)[:, :, :, :1],
-                (cfg.get('intensity_scale') * train_data.X),
-                (cfg.get('intensity_scale') * train_data.X)**2]
+                (p.get('intensity_scale') * train_data.X),
+                (p.get('intensity_scale') * train_data.X)**2]
 
 #def train(epochs, X_train, coords_train, Y_obj_train):
 def train(epochs, trainset: PtychoDataContainer):
@@ -428,7 +427,7 @@ def train(epochs, trainset: PtychoDataContainer):
                             monitor='val_loss', verbose=1, save_best_only=True,
                             save_weights_only=False, mode='auto', period=1)
 
-    batch_size = params()['batch_size']
+    batch_size = p.params()['batch_size']
     history=autoencoder.fit(
 #        prepare_inputs(X_train, coords_train),
 #        prepare_outputs(Y_obj_train, coords_train, X_train),
@@ -489,14 +488,14 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         Tuple of (autoencoder, diffraction_to_obj) models
     """
     # Store current global state for restoration
-    original_gridsize = cfg.get('gridsize')
-    original_N = cfg.get('N')
+    original_gridsize = p.get('gridsize')
+    original_N = p.get('N')
     
     try:
         # Temporarily update global state for model construction
-        cfg.params.cfg.update({'gridsize': gridsize, 'N': N})
+        p.cfg.update({'gridsize': gridsize, 'N': N})
         for key, value in kwargs.items():
-            cfg.params.cfg.update({key: value})
+            p.cfg.update({key: value})
         
         # Create input layers with explicit parameters
         input_img = Input(shape=(N, N, gridsize**2), name='input')
@@ -504,12 +503,12 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         
         # Create model components using explicit parameters
         normed_input = scale([input_img])
-        decoded1, decoded2 = create_autoencoder(normed_input, cfg.get('n_filters_scale'), gridsize, cfg.get('object.big'))
+        decoded1, decoded2 = create_autoencoder(normed_input, p.get('n_filters_scale'), gridsize, p.get('object.big'))
         
         # Combine the decoded outputs
         obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
         
-        if cfg.get('object.big'):
+        if p.get('object.big'):
             # If 'object.big' is true, reassemble the patches
             padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name='padded_obj_2')([obj, input_positions])
         else:
@@ -554,10 +553,10 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         
     finally:
         # Restore original global state
-        cfg.params.cfg.update({'gridsize': original_gridsize, 'N': original_N})
+        p.cfg.update({'gridsize': original_gridsize, 'N': original_N})
 
 def _create_models_from_global_config():
     """Create models using global configuration (for backward compatibility)."""
-    gridsize = cfg.get('gridsize')
-    N = cfg.get('N')
+    gridsize = p.get('gridsize')
+    N = p.get('N')
     return create_model_with_gridsize(gridsize, N)
