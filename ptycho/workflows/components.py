@@ -106,7 +106,7 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
         diff3d = diff_data
     
     probeGuess = data['probeGuess']
-    objectGuess = data['objectGuess']
+    objectGuess = data.get('objectGuess', None)
     
     # --- FIX: Load the 'Y' array if it exists ---
     Y_patches = data['Y'] if 'Y' in data else None
