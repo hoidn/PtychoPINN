@@ -35,7 +35,7 @@ from dataclasses import fields
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-from ptycho import probe, params, train_pinn
+from ptycho import probe, params
 from ptycho.model_manager import ModelManager
 from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data, setup_configuration, parse_arguments

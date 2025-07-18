@@ -90,6 +90,7 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Initiative Workflow Guide:** See <doc-ref type="workflow-guide">docs/INITIATIVE_WORKFLOW_GUIDE.md</doc-ref>
 - **Documentation Navigation:** See <doc-ref type="workflow-guide">docs/CLAUDE.md</doc-ref>
 - **Core Library Development:** See <doc-ref type="workflow-guide">ptycho/CLAUDE.md</doc-ref>
+- **GridSize Inference Troubleshooting:** See <doc-ref type="troubleshooting">docs/GRIDSIZE_INFERENCE_GOTCHAS.md</doc-ref>
 
 ## 2. Key Workflows & Commands
 

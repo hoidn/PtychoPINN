@@ -212,3 +212,13 @@ This command will discover and execute all test files following the `test_*.py` 
 - Tests for `ptycho/model.py` → `tests/test_model.py`
 - Tests for `ptycho/evaluation.py` → `tests/test_evaluation.py`
 - Tests for `ptycho/image/stitching.py` → `tests/image/test_stitching.py`
+
+---
+
+## 7. Troubleshooting References
+
+### 7.1. Common Gotchas and Solutions
+
+For detailed documentation of critical issues and solutions discovered during development:
+
+- **GridSize Inference Issues**: <doc-ref type="troubleshooting">docs/GRIDSIZE_INFERENCE_GOTCHAS.md</doc-ref> - Comprehensive guide to configuration loading, initialization order, and multi-channel data handling issues encountered when implementing gridsize>1 inference support.

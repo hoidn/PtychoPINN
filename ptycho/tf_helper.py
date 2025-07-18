@@ -117,8 +117,9 @@ def grid_to_channel(*grids: tf.Tensor) -> Tuple[tf.Tensor, ...]:
     return [_grid_to_channel(g) for g in grids]
 
 #@debug
-def _flat_to_channel(img: tf.Tensor, N: Optional[int] = None) -> tf.Tensor:
-    gridsize = params()['gridsize']
+def _flat_to_channel(img: tf.Tensor, N: Optional[int] = None, gridsize: Optional[int] = None) -> tf.Tensor:
+    if gridsize is None:
+        gridsize = params()['gridsize']  # Fallback for backward compatibility
     if N is None:
         N = params()['N']
     img = tf.reshape(img, (-1, gridsize**2, N, N))
