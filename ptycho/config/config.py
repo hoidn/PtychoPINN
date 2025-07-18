@@ -74,8 +74,24 @@ def validate_training_config(config: TrainingConfig) -> None:
 def validate_inference_config(config: InferenceConfig) -> None:
     """Validate inference configuration."""
     validate_model_config(config.model)
-    if not config.model_path.exists():
-        raise ValueError(f"model_path does not exist: {config.model_path}")
+    # Check if model_path is a directory containing wts.h5.zip
+    if config.model_path.is_dir():
+        expected_model_file = config.model_path / "wts.h5.zip"
+        if not expected_model_file.exists():
+            raise ValueError(f"Model archive not found: {expected_model_file}")
+    else:
+        # Check if the path itself exists (could be a zip file)
+        if not config.model_path.exists():
+            # Try with .zip extension  
+            zip_path = config.model_path.with_suffix('.zip')
+            if not zip_path.exists():
+                # Special case: check if this looks like a wts.h5 path and try wts.h5.zip
+                if config.model_path.name == "wts.h5":
+                    alt_path = config.model_path.with_suffix('.h5.zip')
+                    if not alt_path.exists():
+                        raise ValueError(f"model_path does not exist: {config.model_path} (also checked {zip_path} and {alt_path})")
+                else:
+                    raise ValueError(f"model_path does not exist: {config.model_path} (also checked {zip_path})")
 
 def load_yaml_config(path: Path) -> Dict[str, Any]:
     """Load YAML configuration file.

@@ -110,41 +110,6 @@ class PtychoDataContainer:
 
     # TODO is this deprecated, given the above method to_npz()?
 
-@debug
-def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
-    from . import params as cfg
-    from . import probe
-    if create_split:
-        dset, train_frac = cb()
-    else:
-        dset = cb()
-    gt_image = dset['objectGuess']
-    X_full = dset['X_full'] # normalized diffraction
-    global_offsets = dset['coords_offsets']
-    # Define coords_nominal and coords_true before calling split_data
-    coords_nominal = dset['coords_relative']
-    coords_true = dset['coords_relative']
-    if create_split:
-        global_offsets = split_tensor(global_offsets, train_frac, which)
-        X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
-    else:
-        X = X_full
-    norm_Y_I = datasets.scale_nphotons(X)
-    X = tf.convert_to_tensor(X)
-    coords_nominal = tf.convert_to_tensor(coords_nominal)
-    coords_true = tf.convert_to_tensor(coords_true)
-
-    Y = tf.ones_like(X)
-    Y_I = tf.math.abs(Y)
-    Y_phi = tf.math.angle(Y)
-
-    # TODO get rid of?
-    YY_full = None
-    # TODO complex
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
-    print('INFO:', which)
-    print(container)
-    return container
 
 @debug
 def split_data(X_full, coords_nominal, coords_true, train_frac, which):
@@ -182,63 +147,68 @@ def split_tensor(tensor, frac, which='test'):
     n_train = int(len(tensor) * frac)
     return tensor[:n_train] if which == 'train' else tensor[n_train:]
 
-# TODO this should be a method of PtychoDataContainer
-#@debug
+@debug
 def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
+    """
+    Load data into a PtychoDataContainer, preserving multi-channel dimensions for gridsize > 1.
+    """
     from . import params as cfg
     from . import probe
+    
     if create_split:
         dset, train_frac = cb()
     else:
         dset = cb()
+        
     gt_image = dset['objectGuess']
-    X_full = dset['X_full'] # normalized diffraction
+    X_full = dset['X_full']  # This is already in the correct multi-channel format.
     global_offsets = dset[key_coords_offsets]
-    # Define coords_nominal and coords_true before calling split_data
+    
     coords_nominal = dset[key_coords_relative]
     coords_true = dset[key_coords_relative]
+    
+    # Correctly handle splitting for both X and Y
     if create_split:
         global_offsets = split_tensor(global_offsets, train_frac, which)
-        X, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
+        X_full_split, coords_nominal, coords_true = split_data(X_full, coords_nominal, coords_true, train_frac, which)
     else:
-        X = X_full
-    norm_Y_I = datasets.scale_nphotons(X)
-    X = tf.convert_to_tensor(X)
-    coords_nominal = tf.convert_to_tensor(coords_nominal)
-    coords_true = tf.convert_to_tensor(coords_true)
-#    try:
-#        Y = get_image_patches(gt_image, global_offsets, coords_true) * cfg.get('probe_mask')[..., 0]
-#    except:
-#        Y = tf.zeros_like(X)
+        X_full_split = X_full
 
-    norm_Y_I = datasets.scale_nphotons(X)
+    # Convert X to a tensor, preserving its multi-channel shape
+    X = tf.convert_to_tensor(X_full_split, dtype=tf.float32)
+    coords_nominal = tf.convert_to_tensor(coords_nominal, dtype=tf.float32)
+    coords_true = tf.convert_to_tensor(coords_true, dtype=tf.float32)
 
-    X = tf.convert_to_tensor(X)
-    coords_nominal = tf.convert_to_tensor(coords_nominal)
-    coords_true = tf.convert_to_tensor(coords_true)
-
-    # TODO we shouldn't be nuking the ground truth
-##    try:
-#    if dset['Y'] is None:
-#        Y = get_image_patches(gt_image,
-#            global_offsets, coords_true) * probe.get_probe_mask_real(cfg.get('N'))
-#        print("loader: generating ground truth patches from image and offsets")
-#    else:
-#        Y = dset['Y']
-#        print("loader: using provided ground truth patches")
+    # Handle the Y array (ground truth patches)
     if dset['Y'] is None:
-        Y = tf.ones_like(X)
-        print("loader: setting dummy Y ground truth")
+        # If Y is missing, create a placeholder with the same multi-channel shape as X.
+        Y = tf.ones_like(X, dtype=tf.complex64)
+        print("loader: setting dummy Y ground truth with correct channel shape.")
     else:
-        Y = dset['Y']
-        print("loader: using provided ground truth patches")
+        Y_full = dset['Y']
+        # CRITICAL: Apply the same split to Y as was applied to X
+        if create_split:
+            Y_split, _, _ = split_data(Y_full, coords_nominal, coords_true, train_frac, which)
+        else:
+            Y_split = Y_full
+        Y = tf.convert_to_tensor(Y_split, dtype=tf.complex64)
+        print("loader: using provided ground truth patches.")
+
+    # Final validation check
+    if X.shape[-1] != Y.shape[-1]:
+        raise ValueError(f"Channel mismatch between X ({X.shape[-1]}) and Y ({Y.shape[-1]})")
+
+    # Extract amplitude and phase, which will also have the correct multi-channel shape
     Y_I = tf.math.abs(Y)
     Y_phi = tf.math.angle(Y)
 
-    # TODO get rid of?
-    YY_full = None
-    # TODO complex
-    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
+    norm_Y_I = datasets.scale_nphotons(X)
+
+    YY_full = None # This is a placeholder
+    
+    # Create the container with correctly shaped tensors
+    container = PtychoDataContainer(X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, 
+                                  dset['nn_indices'], dset['coords_offsets'], dset['coords_relative'], probeGuess)
     print('INFO:', which)
     print(container)
     return container
