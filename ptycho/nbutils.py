@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-from ptycho import model
 import numpy as np
 
 def crop_to_non_uniform_region_with_buffer(img_array, buffer=0):
@@ -114,6 +113,7 @@ def compare(obj_tensor_full, global_offsets, objectGuess, ptychonn_tensor=None):
 
 # TODO type annotation
 def reconstruct_image(test_data, diffraction_to_obj = None):
+    from ptycho import model  # Import delayed to avoid early model graph construction
     global_offsets = test_data.global_offsets
     local_offsets = test_data.local_offsets
 

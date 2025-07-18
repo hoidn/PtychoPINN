@@ -355,7 +355,7 @@ flat_illuminated = padded_objs_with_offsets
 padded_objs_with_offsets, pred_diff = Lambda(lambda x: hh.pad_and_diffract(x, N, N, pad=False), name = 'pred_amplitude')(padded_objs_with_offsets)
 
 # Reshape
-pred_diff = Lambda(lambda x: hh._flat_to_channel(x), name = 'pred_diff_channels')(pred_diff)
+pred_diff = Lambda(lambda x: hh._flat_to_channel(x, N=N, gridsize=gridsize), name = 'pred_diff_channels')(pred_diff)
 
 # Scale the amplitude
 pred_amp_scaled = inv_scale([pred_diff])
@@ -475,3 +475,89 @@ def print_model_diagnostics(model):
     for layer in model.layers:
         if hasattr(layer, 'custom_objects'):
             print(f"{layer.name}: {layer.custom_objects}")
+
+def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
+    """
+    Create model with explicit gridsize parameter to eliminate global state dependency.
+    
+    Args:
+        gridsize: Grid size for neighbor patch processing
+        N: Image size parameter
+        **kwargs: Other model configuration parameters
+    
+    Returns:
+        Tuple of (autoencoder, diffraction_to_obj) models
+    """
+    # Store current global state for restoration
+    original_gridsize = cfg.get('gridsize')
+    original_N = cfg.get('N')
+    
+    try:
+        # Temporarily update global state for model construction
+        cfg.params.cfg.update({'gridsize': gridsize, 'N': N})
+        for key, value in kwargs.items():
+            cfg.params.cfg.update({key: value})
+        
+        # Create input layers with explicit parameters
+        input_img = Input(shape=(N, N, gridsize**2), name='input')
+        input_positions = Input(shape=(1, 2, gridsize**2), name='input_positions')
+        
+        # Create model components using explicit parameters
+        normed_input = scale([input_img])
+        decoded1, decoded2 = create_autoencoder(normed_input, cfg.get('n_filters_scale'), gridsize, cfg.get('object.big'))
+        
+        # Combine the decoded outputs
+        obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
+        
+        if cfg.get('object.big'):
+            # If 'object.big' is true, reassemble the patches
+            padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name='padded_obj_2')([obj, input_positions])
+        else:
+            # If 'object.big' is not true, pad the reconstruction
+            padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x), name='padded_obj_2')(obj)
+        
+        # Trim the object reconstruction to N x N
+        trimmed_obj = Lambda(hh.trim_reconstruction, name='trimmed_obj')(padded_obj_2)
+        
+        # Extract overlapping regions of the object
+        padded_objs_with_offsets = Lambda(lambda x:
+            hh.extract_patches_position(x[0], x[1], 0.),
+            name='padded_objs_with_offsets')([padded_obj_2, input_positions])
+        
+        # Apply the probe illumination
+        padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
+        flat_illuminated = padded_objs_with_offsets
+        
+        # Apply pad and diffract operation
+        padded_objs_with_offsets, pred_diff = Lambda(lambda x: hh.pad_and_diffract(x, N, N, pad=False), name='pred_amplitude')(padded_objs_with_offsets)
+        
+        # Reshape with explicit parameters
+        pred_diff = Lambda(lambda x: hh._flat_to_channel(x, N=N, gridsize=gridsize), name='pred_diff_channels')(pred_diff)
+        
+        # Scale the amplitude
+        pred_amp_scaled = inv_scale([pred_diff])
+        
+        # Create Poisson noise layer
+        from tensorflow_probability import layers as tfpl
+        from tensorflow_probability import distributions as tfd
+        dist_poisson_intensity = tfpl.DistributionLambda(lambda amplitude:
+                                           (tfd.Independent(
+                                               tfd.Poisson(
+                                                   (amplitude**2)))))
+        pred_intensity_sampled = dist_poisson_intensity(pred_amp_scaled)
+        
+        # Create models
+        autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
+        diffraction_to_obj = Model(inputs=[input_img, input_positions], outputs=[trimmed_obj])
+        
+        return autoencoder, diffraction_to_obj
+        
+    finally:
+        # Restore original global state
+        cfg.params.cfg.update({'gridsize': original_gridsize, 'N': original_N})
+
+def _create_models_from_global_config():
+    """Create models using global configuration (for backward compatibility)."""
+    gridsize = cfg.get('gridsize')
+    N = cfg.get('N')
+    return create_model_with_gridsize(gridsize, N)
