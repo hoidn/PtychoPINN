@@ -8,7 +8,7 @@ from ptycho import diffsim as datasets
 from ptycho import tf_helper as hh
 
 # Constants, # TODO cleanup / refactor
-local_offset_sign = 1
+local_offset_sign = -1
 key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
 
@@ -202,7 +202,7 @@ class RawData:
         return train_raw_data, test_raw_data
 
     #@debug
-    def generate_grouped_data(self, N, K = 7, nsamples = 1):
+    def generate_grouped_data(self, N, K = 4, nsamples = 1):
         """
         Generate nearest-neighbor solution region grouping.
 
@@ -239,7 +239,7 @@ class RawData:
             raise ValueError("Coordinate arrays must have matching shapes.")
 
 #@debug
-def calculate_relative_coords(xcoords, ycoords, K = 6, C = None, nsamples = 10):
+def calculate_relative_coords(xcoords, ycoords, K = 4, C = None, nsamples = 10):
     """
     Group scan indices and coordinates into solution regions, then
     calculate coords_offsets (global solution region coordinates) and
@@ -487,13 +487,10 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
         # Always keep 4D shape for consistent tensor dimensions downstream
         Y4d_nn = Y_patches
     else:
-        # Fail loudly if the expected 'Y' array is not present.
-        raise ValueError(
-            "The input data file does not contain the required 'Y' array with "
-            "ground truth patches. This is a fatal error for supervised training. "
-            "Please ensure the data has been fully processed by the "
-            "`downsample_data_tool.py` script."
-        )
+        # For PINN training, we don't need ground truth patches
+        print("INFO: No ground truth data ('Y' array or 'objectGuess') found.")
+        print("INFO: This is expected for PINN training which doesn't require ground truth.")
+        Y4d_nn = None
     # --- END FINAL LOGIC ---
 
     if ptycho_data.xcoords_start is not None:
