@@ -16,8 +16,8 @@ This document provides a high-level overview of the major development initiative
     *   `scripts/studies/run_generalization_study.sh` for orchestrating multi-run experiments.
     *   `scripts/studies/aggregate_and_plot_results.py` for visualizing results.
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">docs/studies/plan_model_generalization.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">docs/studies/implementation_model_generalization.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-model-generalization/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-model-generalization/implementation.md</doc-ref>
 
 ### **Initiative: Image Registration System**
 *   **Status:** ✅ Complete
@@ -27,8 +27,9 @@ This document provides a high-level overview of the major development initiative
     *   Integration into `scripts/compare_models.py` with `--skip-registration` flag
     *   Unified NPZ file format for reconstruction data
 *   **Planning Documents:**
-    *   **Context Document:** <doc-ref type="plan">docs/refactor/context_priming_registration.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">docs/refactor/plan_registration.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/implementation.md</doc-ref>
+    *   **Context Document:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/context_priming_registration.md</doc-ref>
 
 ### **Initiative: Evaluation Enhancements**
 *   **Status:** ✅ Complete
@@ -39,8 +40,8 @@ This document provides a high-level overview of the major development initiative
     *   Debug visualization capabilities with `--save-debug-images` flag
     *   Enhanced FRC with configurable smoothing
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">docs/refactor/eval_enhancements/plan_eval_enhancements.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">docs/refactor/eval_enhancements/implementation_eval_enhancements.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-evaluation-enhancements/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-evaluation-enhancements/implementation.md</doc-ref>
 
 ---
 *(Add more completed initiatives here as they are finished)*
@@ -55,30 +56,31 @@ This document provides a high-level overview of the major development initiative
     *   Statistical aggregation in `aggregate_and_plot_results.py` with median/percentiles
     *   Updated documentation with multi-trial examples
 *   **Planning Documents:**
-    *   **R&D Plan:** `docs/studies/multirun/plan_statistical_generalization.md`
-    *   **Implementation Plan:** `docs/studies/multirun/implementation_statistical_generalization.md`
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-statistical-generalization/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-statistical-generalization/implementation.md</doc-ref>
 
 ---
 
 ## 🚀 **Current Active Initiative**
 
-### **Initiative: Smart Subsampling for Overlap-Based Training**
-*   **Status:** 🚀 Active (Phase 1)
-*   **Goal:** To replace the spatially biased sequential subsampling with a "group-then-sample" strategy that ensures both physical coherence and spatial representativeness for overlap-based training (`gridsize > 1`).
-*   **Key Deliverables:**
-    *   Enhanced data loading pipeline in `ptycho/raw_data.py` with group-first sampling strategy
-    *   Automated caching mechanism for expensive neighbor-finding operations
-    *   Unified `--n-images` command-line argument with intelligent interpretation based on `gridsize`
-    *   Updated documentation explaining the new robust sampling behavior
-*   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">docs/initiatives/smart-subsampling/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">docs/initiatives/smart-subsampling/implementation.md</doc-ref>
-    *   **Phase 1 Checklist:** <doc-ref type="checklist">docs/initiatives/smart-subsampling/phase_1_checklist.md</doc-ref>
-*   **Current Phase:** Phase 1: Core Data Structure Refactoring
+**No active initiative** - Project is ready for new development planning.
 
 ---
 
 ## 📋 **Recently Completed Initiatives**
+
+### **Initiative: Grouping-Aware Subsampling for Overlap-Based Training**
+*   **Status:** ✅ Complete
+*   **Goal:** To replace the spatially biased sequential subsampling with a "group-then-sample" strategy that ensures both physical coherence and spatial representativeness for overlap-based training (`gridsize > 1`).
+*   **Key Deliverables:**
+    *   Enhanced data loading pipeline in `ptycho/raw_data.py` with group-first sampling strategy ✅
+    *   Automated caching mechanism for expensive neighbor-finding operations ✅
+    *   Unified `--n-images` command-line argument with intelligent interpretation based on `gridsize` ✅
+    *   Updated documentation explaining the new robust sampling behavior ✅
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">docs/initiatives/smart-subsampling/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">docs/initiatives/smart-subsampling/implementation.md</doc-ref>
+    *   **Final Phase Checklist:** <doc-ref type="checklist">docs/initiatives/smart-subsampling/final_phase_checklist.md</doc-ref>
 
 ### **Initiative: Spatially-Biased Randomized Sampling Study**
 *   **Status:** ✅ Complete
@@ -88,8 +90,14 @@ This document provides a high-level overview of the major development initiative
     *   Updated documentation in `scripts/tools/README.md` and `scripts/studies/QUICK_REFERENCE.md`
     *   Complete generalization study on top half of fly64 dataset
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">docs/sampling/plan_sampling_study.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">docs/sampling/implementation_sampling_study.md</doc-ref>
-    *   **Final Phase Checklist:** <doc-ref type="checklist">docs/sampling/final_phase_validation_checklist.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-sampling-study/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-sampling-study/implementation.md</doc-ref>
+
+### **Initiative: MS-SSIM Correction**
+*   **Status:** ✅ Complete (Migrated)
+*   **Goal:** To correct and enhance the MS-SSIM metric implementation for ptychographic reconstruction evaluation.
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-ms-ssim-correction/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-ms-ssim-correction/implementation.md</doc-ref>
 
 ---

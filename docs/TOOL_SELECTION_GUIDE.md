@@ -2,6 +2,8 @@
 
 This guide helps you choose the right tools and scripts for different PtychoPINN workflows. Understanding which tool to use is critical for efficient development and avoiding common mistakes.
 
+**📚 Companion Guide:** For specific command syntax and examples, see the **<doc-ref type="guide">docs/COMMANDS_REFERENCE.md</doc-ref>**
+
 ## Workflow Tool Hierarchy
 
 ### For comprehensive model evaluation studies:
