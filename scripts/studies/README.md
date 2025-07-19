@@ -2,6 +2,14 @@
 
 This directory contains tools and workflows for conducting systematic studies of model generalization across different training set sizes and evaluation conditions.
 
+> **⚠️ Important Limitation for `gridsize > 1` Studies**
+>
+> The current data loading pipeline selects training images **sequentially**. When using a `gridsize` greater than 1, this means the model is trained on a small, spatially localized (and therefore biased) region of the object.
+>
+> - **Do not** shuffle the dataset before subsampling, as this will create physically meaningless neighbor groups.
+> - For rigorous results with `gridsize > 1`, it is strongly recommended to prepare separate, smaller, but complete datasets for each training size, rather than relying on the `--n-train-images` flag.
+> - Results from studies using this flag with `gridsize > 1` should be interpreted as measuring performance on a localized subset, not general performance across the entire object.
+
 ## Overview
 
 The generalization study workflow enables researchers to:
