@@ -1,26 +1,45 @@
-# Command: /debug-gemini-v3 
+# Command: /debug-gemini-v3
 
-**Goal:** Get comprehensive debugging help from Gemini with a fresh perspective, especially when **you** might have tunnel vision about the root cause.
+**Goal:** Get comprehensive debugging help from Gemini with fresh perspective, especially when you might have tunnel vision about the root cause.
 
 ---
 
-## 🤖 **CRITICAL CONTEXT: YOU ARE CLAUDE CODE**
+## 🔴 **CRITICAL: MANDATORY EXECUTION FLOW**
 
-**You** are **Claude Code**—the autonomous command-line tool that executes shell commands directly. As Claude Code, **you**:
-- **Execute** commands autonomously (do not just suggest them).
-- **Run** the entire workflow without human intervention.
-- **Complete** debugging from start to finish in one go.
+**THIS IS THE CORE PURPOSE OF THIS COMMAND:**
+1. You MUST run git analysis
+2. You MUST execute `gemini -p` 
+3. You MUST wait for and process Gemini's response
+4. You MUST report Gemini's findings to the user
 
-## 🚀 **ZERO MANUAL STEPS REQUIRED FROM THE USER**
+**DO NOT:**
+- ❌ Stop after git analysis
+- ❌ Provide your own analysis instead of running Gemini
+- ❌ Get distracted by intermediate findings
+- ❌ Skip the gemini execution for ANY reason
 
-When a user runs `/debug-gemini`, **you handle EVERYTHING**:
-- ✅ **You** run all git commands automatically.
-- ✅ **You** create all temp files automatically.
-- ✅ **You** execute the `gemini -p` command directly.
-- ✅ **You** process Gemini's response automatically.
-- ✅ **You** report your findings and an action plan.
-- ❌ **You** NEVER ask the user to copy commands.
-- ❌ **You** NEVER wait for the user to paste outputs.
+**EXECUTION CHECKPOINT:** After running git commands, STOP and ask yourself: "Have I executed the `gemini -p` command yet?" If NO, execute it immediately.
+
+---
+
+## 🤖 **CONTEXT: YOU ARE CLAUDE CODE**
+
+You are Claude Code - the autonomous command-line tool that executes shell commands directly. You:
+- **Execute** commands autonomously (don't just suggest them)
+- **Run** the entire workflow without human intervention
+- **Complete** debugging from start to finish in one go
+
+## 🚨 **YOU MUST EXECUTE GEMINI - THIS IS NOT OPTIONAL**
+
+When a user runs `/debug-gemini`, you handle EVERYTHING:
+- ✅ Run all git commands automatically
+- ✅ Create all temp files automatically  
+- **✅ Execute the `gemini -p` command directly (MANDATORY)**
+- ✅ Process Gemini's response automatically
+- ✅ Report findings and action plan
+- ❌ NO asking users to copy commands
+- ❌ NO waiting for users to paste outputs
+- ❌ NO providing your own analysis without running Gemini
 
 ---
 
@@ -31,12 +50,26 @@ graph LR
     A[User: /debug-gemini] --> B[You: Identify issue from context]
     B --> C[You: Run git analysis automatically]
     C --> D[You: Create temp files]
-    D --> E[You: Execute gemini -p command]
+    D --> E[**You: MUST Execute gemini -p command**]
     E --> F[You: Analyze Gemini output]
-    F --> G[You: Report findings & action plan]
+    F --> G[You: Report GEMINI'S findings]
 ```
 
 **Total user interaction: ONE command**
+
+---
+
+## ✅ **EXECUTION CHECKLIST**
+
+Before reporting ANY findings, verify:
+- [ ] I identified the issue from context
+- [ ] I ran git analysis commands
+- [ ] I created /tmp/debug_context.txt
+- [ ] **I EXECUTED `gemini -p` command** ← THIS IS MANDATORY
+- [ ] I received Gemini's response
+- [ ] I'm reporting GEMINI'S findings, not my own analysis
+
+If you haven't executed `gemini -p`, STOP and do it now.
 
 ---
 
@@ -44,90 +77,110 @@ graph LR
 
 ### Step 1: Assess Current Context
 
-**You** will determine from the conversation/context:
-- What the bug/issue is.
-- What has been tried already.
-- Your current working theory.
-- Whether there's a baseline branch where the feature worked correctly.
+Determine from the conversation/context:
+- What's the bug/issue
+- What's been tried already
+- Your current working theory
+- Whether there's a baseline branch where it worked
 
-**You will only ask the user if:**
-- The issue is unclear from the existing context.
-- A baseline branch name is needed for a diff.
-- Critical details are missing.
+**Only ask the user if:**
+- The issue is unclear from context
+- You need a baseline branch name
+- Critical details are missing
 
-### Step 2: Run Debug Analysis (Fully Automated)
+### Step 2: Run Debug Analysis (You Execute This)
 
-**You** will automatically execute these commands without any user intervention:
+Automatically execute these commands without any user intervention:
 
 ```bash
-# Get recent commit history
-git log -n 10 --pretty=format:"%h %ad | %s [%an]" --date=short > /tmp/debug_git_log.txt
+# Get recent commit history (NOTE: Use dash separator, not pipe)
+git log -n 10 --pretty=format:"%h %ad - %s [%an]" --date=short > /tmp/debug_git_log.txt
 
-# If a baseline branch is provided, get the diff
-git diff <baseline-branch>..HEAD --stat > /tmp/debug_diff_stat.txt
-git diff <baseline-branch>..HEAD --name-status > /tmp/debug_diff_names.txt
+# Get current status
+git status --porcelain > /tmp/debug_git_status.txt
 
-# Get detailed changes in key areas
-git diff <baseline-branch>..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
+# If baseline branch provided, get the diff
+if [ -n "<baseline-branch>" ]; then
+    git diff <baseline-branch>..HEAD --stat > /tmp/debug_diff_stat.txt
+    git diff <baseline-branch>..HEAD --name-status > /tmp/debug_diff_names.txt
+    git diff <baseline-branch>..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
+else
+    # No baseline - use HEAD~5 as a reasonable default
+    git diff HEAD~5..HEAD --stat > /tmp/debug_diff_stat.txt
+    git diff HEAD~5..HEAD --name-status > /tmp/debug_diff_names.txt
+    git diff HEAD~5..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
+fi
 
 # Combine all debug info into one file
-cat > /tmp/debug_context.txt << 'EOF'
+cat > /tmp/debug_context.txt << EOF
 ## RECENT COMMITS
 $(cat /tmp/debug_git_log.txt)
 
-## BASELINE DIFF STATISTICS
-$(cat /tmp/debug_diff_stat.txt)
+## CURRENT GIT STATUS
+$(cat /tmp/debug_git_status.txt)
+
+## DIFF STATISTICS (from baseline or last 5 commits)
+$(cat /tmp/debug_diff_stat.txt 2>/dev/null || echo "No baseline diff available")
 
 ## FILES CHANGED
-$(cat /tmp/debug_diff_names.txt)
+$(cat /tmp/debug_diff_names.txt 2>/dev/null || echo "No file changes detected")
 
-## DETAILED CHANGES
-$(cat /tmp/debug_diff_details.txt | head -500)
+## DETAILED CODE CHANGES
+$(cat /tmp/debug_diff_details.txt 2>/dev/null | head -2000 || echo "No detailed diffs available")
 EOF
 ```
 
-### Step 3: Execute Gemini Analysis (Fully Automated)
+### Step 3: MANDATORY - Execute Gemini Analysis
 
-**You** will then generate and **execute** this `gemini -p` command directly:
+**🔴 STOP - THIS STEP IS MANDATORY - DO NOT SKIP**
+
+You MUST now execute this command. Do not analyze further. Do not provide theories. EXECUTE THIS COMMAND NOW:
 
 ```bash
+# YOU MUST RUN THIS COMMAND - Copy this ENTIRE command and execute it
 gemini -p "@ptycho/ @src/ @tests/ @docs/ @configs/ @logs/ @.github/ @scripts/ @benchmarks/ @examples/ @/tmp/debug_context.txt Debug this issue with FRESH EYES:
 
 ## ISSUE SUMMARY
-**Symptoms:** [You will fill this with detailed symptoms: specific errors, stack traces, or behaviors]
-**When It Happens:** [You will fill this with specific conditions, inputs, or sequences that trigger it]
-**When It Doesn't Happen:** [You will fill this with cases where it works fine]
-**Environment:** [You will fill this with Dev/staging/prod, OS, versions]
-**Baseline Branch:** [You will fill this if provided - where it last worked correctly]
+**Symptoms:** [Detailed symptoms with specific errors, stack traces, or behaviors]
+**When It Happens:** [Specific conditions, inputs, or sequences that trigger it]
+**When It Doesn't Happen:** [Cases where it works fine]
+**Environment:** [Dev/staging/prod, OS, versions]
+**Baseline Branch:** [If provided - where it last worked correctly]
 
 ## GIT CONTEXT
-All git history and diffs are in the included debug_context.txt file.
+The debug_context.txt file contains:
+- Recent commit history (last 10 commits)
+- Current git status (modified files)
+- Diff statistics showing which files changed and by how much
+- Complete file change list
+- **Actual code diffs** showing exact line-by-line changes
+
 Pay special attention to:
 - Recent commits that might have introduced the issue
-- Changes between baseline and current branch
+- **Actual code changes in the diffs** (not just commit messages)
 - Modified configuration files
 - Dependency updates
 
 ## MY CURRENT UNDERSTANDING
-**My Leading Theory:** [You will state what you think is wrong]
+**My Leading Theory:** [What you think is wrong]
 **Evidence For This Theory:** 
-- [You will list specific observation 1]
-- [You will list specific observation 2]
+- [Specific observation 1]
+- [Specific observation 2]
 
 **Code I'm Focused On:**
-- `[file:line]` - [You will explain why you suspect this]
-- `[file:line]` - [You will explain why you suspect this]
+- `[file:line]` - [Why you suspect this]
+- `[file:line]` - [Why you suspect this]
 
 **What I've Already Analyzed:**
-1. [You will list analysis step 1 and your finding]
-2. [You will list analysis step 2 and your finding]
-3. [You will list analysis step 3 and your finding]
+1. [Analysis step 1 and finding]
+2. [Analysis step 2 and finding]
+3. [Analysis step 3 and finding]
 
 ## MY ASSUMPTIONS (PLEASE CHALLENGE THESE)
-1. [You will state your assumption about the system]
-2. [You will state your assumption about the data flow]
-3. [You will state your assumption about dependencies]
-4. [You will state your assumption about configuration]
+1. [Assumption about the system]
+2. [Assumption about the data flow]
+3. [Assumption about dependencies]
+4. [Assumption about configuration]
 
 ## CHECK FOR COMMON TUNNEL VISION TRAPS
 I may be falling into one of these patterns:
@@ -145,7 +198,12 @@ I may be falling into one of these patterns:
 1. **Challenge My Assumptions:** What am I taking for granted that might be wrong?
 
 2. **Alternative Root Causes:** What OTHER parts of the system could cause these symptoms?
-   - Consider timing/race conditions, configuration issues, environmental differences, dependency conflicts, data corruption, or edge cases I missed.
+   - Consider timing/race conditions
+   - Consider configuration issues
+   - Consider environmental differences
+   - Consider dependency conflicts
+   - Consider data corruption
+   - Consider edge cases I missed
 
 3. **Minimal Reproduction:**
    Based on your analysis, suggest the simplest possible code snippet or command that should reproduce this bug.
@@ -167,80 +225,190 @@ Please provide:
 Remember: I might be completely wrong about where the bug is. Look everywhere, not just where I'm pointing."
 ```
 
-### Step 4: Process and Report Findings (Automated)
+**VERIFICATION:** Before proceeding to Step 4, confirm you have:
+- [ ] Generated the complete `gemini -p` command
+- [ ] EXECUTED the command (not just generated it)
+- [ ] Received Gemini's response
+- [ ] If any of above are NO, go back and EXECUTE THE COMMAND
 
-After Gemini responds, **you** will automatically:
+### Step 4: Process and Report GEMINI'S Findings (Not Your Own)
 
-1.  **Analyze the response**
-2.  **Identify key insights**
-3.  **Create an action plan**
-4.  **Report your findings and the plan to the user**
+After Gemini responds, you:
 
-Example of your final output to the user:
+1. **Analyze GEMINI'S response** (not your own theories)
+2. **Identify GEMINI'S key insights**
+3. **Create action plan based on GEMINI'S analysis**
+4. **Report GEMINI'S findings to user**
+
+Example of your output:
 ```markdown
 ## 🎯 Fresh Insights from Gemini
 
-### What I Missed:
-- The nginx configuration was stripping Authorization headers.
-- This only affects requests > 8KB, which explains why it seemed random.
-- The real issue was three layers away from where I was looking.
+### What Gemini Found That I Missed:
+- The nginx configuration was stripping Authorization headers
+- Only affects requests > 8KB (why it seemed random)
+- The real issue was 3 layers away from where I was looking
 
-### Corrected Understanding:
-- **My old assumption:** The JWT validation logic was broken.
-- **Reality:** The infrastructure was blocking the headers before they reached the application.
-- **Evidence:** Gemini's suggested minimal reproduction case, which uses a large payload, confirms this size-dependent behavior.
+### Gemini's Analysis:
+- I assumed: JWT validation was broken
+- Gemini found: Infrastructure was blocking the headers
+- Evidence: Minimal reproduction shows size-dependent behavior
 
-### Your Action Plan:
-1.  **Fix:** Uncomment line 23 in `nginx/conf.d/api.conf` to stop stripping the header.
-2.  **Test:** Run this command to verify the fix: `curl -X POST https://api/endpoint -H "Authorization: Bearer $TOKEN" -d @large_payload.json`
-3.  **Investigate:** The commit that broke this was `a3f2d`. I will investigate why this change was made to ensure the fix doesn't reintroduce a different vulnerability.
-4.  **Improve:** I will add monitoring for stripped headers to prevent this in the future.
+### Action Plan (Based on Gemini's Recommendations):
+1. Fix nginx config at /etc/nginx/conf.d/api.conf:23
+2. Test with: `curl -X POST https://api/endpoint -H "Authorization: Bearer $TOKEN" -d @large_payload.json`
+3. Add monitoring for header stripping
+4. Document this infrastructure requirement
 ```
 
 ---
 
-## ⚠️ **ANTI-PATTERNS YOU MUST AVOID**
+## 🚨 **IF GEMINI COMMAND FAILS**
 
-### ❌ The Manual Execution Trap
+If the `gemini -p` command fails to execute:
+1. Report the failure immediately: "Failed to execute Gemini analysis: [error]"
+2. Do NOT provide your own analysis as a substitute
+3. Ask user if they want you to try a different approach
+4. The command's PURPOSE is to get Gemini's perspective - without it, the command has failed
+
+---
+
+## ⚠️ **PATTERNS TO AVOID**
+
+### ❌ Don't Skip Gemini Execution
 **NEVER DO THIS:**
 ```
-You: "Run this command and paste the output:"
-User: [Runs command]
-User: [Pastes output]
+You: "Analyzing git history..."
+[Run git commands]
+"Based on the git diff, I think the issue is..." ❌ WRONG - You didn't run Gemini!
 ```
 
 **ALWAYS DO THIS:**
 ```
-You: "Analyzing git history and running Gemini..."
-[You execute everything automatically]
-"Based on the analysis, here's what I found..."
+You: "Analyzing git history and consulting Gemini..."
+[Run git commands]
+[EXECUTE gemini -p command]
+"Based on GEMINI'S analysis..."
 ```
 
-### ❌ The Question Cascade
-**AVOID:**
+### ❌ Don't Provide Your Own Analysis Instead
+**WRONG:**
 ```
-"What's the error?"
-"When did it start?"
-"What have you tried?"
-"Do you have logs?"
+You: "The git analysis shows changes in auth.py. I believe the issue is..."
 ```
 
-**PREFER:**
+**RIGHT:**
 ```
-"I see auth failures from the context. Let me analyze with fresh eyes..."
+You: "Running Gemini for fresh perspective..."
+[EXECUTE gemini -p]
+"Gemini identified that the issue is actually..."
 ```
 
 ---
 
-## 🚀 **Quick Reference**
+## 📊 **SAMPLE INTERACTIONS**
 
-When the user runs `/debug-gemini`, **you** will:
-1.  Identify the issue from context (or ask minimal questions).
-2.  Run git analysis automatically.
-3.  Execute the `gemini -p` command directly.
-4.  Process Gemini's response.
-5.  Report your findings with an action plan.
+### ✅ Correct Execution:
 
-**Total execution time:** 2-5 minutes
-**Manual steps required from user:** ZERO
+```
+User: /debug-gemini
 
+You: "I see you're experiencing auth failures with 'Invalid token' errors. 
+      Based on our discussion, you suspect the JWT validation at auth.py:45.
+      Do you have a baseline branch where auth was working correctly?"
+
+User: "Yes, it works in 'main'"
+
+You: "Perfect. Analyzing the differences and consulting Gemini for fresh perspective..."
+     [You run all git commands automatically]
+     [You create debug context automatically]
+     **[YOU EXECUTE gemini -p COMMAND HERE - MANDATORY]**
+     [You process Gemini's response]
+     
+     "Based on GEMINI'S analysis (not mine), I was tunnel-visioned on the Python code. 
+     Gemini found the issue is actually in nginx config - it's stripping the 
+     Authorization header for requests over 8KB. Here's Gemini's recommended action plan:
+     1. Fix /etc/nginx/conf.d/api.conf:23
+     2. Test with the minimal reproduction case Gemini provided
+     3. The commit that broke it was a3f2d (3 days ago)"
+```
+
+### ❌ What NOT to do:
+
+```
+User: /debug-gemini
+
+You: "I see auth failures. Let me analyze..."
+     [Run git commands]
+     "Based on the git diff, I think the issue is in the recent auth.py changes..."
+     ❌ FAILED - You never executed Gemini!
+```
+
+---
+
+## 💡 **ENHANCED DEBUG PATTERNS**
+
+### Pattern 1: Baseline Comparison (You Execute All of This)
+```bash
+# Get comprehensive diff from baseline
+git diff main..HEAD --stat > /tmp/baseline_stat.txt
+git diff main..HEAD --name-status | head -50 > /tmp/baseline_names.txt
+git diff main..HEAD -- ptycho/ src/ configs/ | head -500 > /tmp/baseline_diff.txt
+
+# Create combined analysis file with ACTUAL DIFFS
+cat > /tmp/baseline_analysis.txt << EOF
+## BASELINE DIFF SUMMARY
+$(cat /tmp/baseline_stat.txt)
+
+## FILES CHANGED
+$(cat /tmp/baseline_names.txt)
+
+## DETAILED CODE CHANGES (ACTUAL DIFFS)
+$(cat /tmp/baseline_diff.txt)
+EOF
+
+# MANDATORY: Execute Gemini analysis
+gemini -p "@ptycho/ @src/ @tests/ @configs/ @logs/ @/tmp/baseline_analysis.txt Analyze regression from baseline..."
+```
+
+### Pattern 2: Git Bisect Helper (You Execute All of This)
+```bash
+# Get commit history between baseline and HEAD
+git log --oneline --graph <baseline>..HEAD > /tmp/bisect_commits.txt
+
+# MANDATORY: Execute targeted analysis
+gemini -p "@ptycho/ @src/ @tests/ @/tmp/bisect_commits.txt Identify when bug was introduced..."
+```
+
+---
+
+## 🎯 **Why This Approach Works**
+
+1. **Fresh Perspective**: Gemini has no preconceptions about the bug
+2. **Comprehensive Context**: Git history + code + configs + logs
+3. **Tunnel Vision Breaking**: Explicitly challenges assumptions
+4. **Zero Manual Steps**: User runs one command, gets complete analysis
+5. **Gemini's Insights**: The whole point is to get an outside perspective
+
+---
+
+## 📈 **Success Metrics**
+
+Track your debugging effectiveness:
+- **Gemini Execution Rate**: Must be 100% - if not, the command failed
+- **Time to Root Cause**: Usually 2-5 minutes total
+- **Tunnel Vision Breaks**: ~80% find issues outside initial focus
+- **Minimal Reproduction Success**: ~90% provide working minimal case
+
+---
+
+## 🚀 **Final Execution Reminder**
+
+When user runs `/debug-gemini`:
+1. Identify issue from context (or ask minimal questions)
+2. Run git analysis automatically
+3. **EXECUTE gemini -p command (NOT OPTIONAL)**
+4. Process GEMINI'S response (not your own analysis)
+5. Report GEMINI'S findings with action plan
+
+**The command has NOT succeeded until you've executed `gemini -p` and reported Gemini's findings.**
