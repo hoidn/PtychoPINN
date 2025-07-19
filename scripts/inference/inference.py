@@ -80,6 +80,13 @@ def parse_arguments() -> argparse.Namespace:
                        help="Enable debug mode")
     parser.add_argument("--comparison_plot", action="store_true",
                        help="Generate original comparison plot (only if ground truth is available)")
+    parser.add_argument("--n_images", type=int, required=False, default=None,
+                       help="Number of images/groups to process. Interpretation depends on gridsize: "
+                            "gridsize=1 means individual images, gridsize>1 means number of groups")
+    parser.add_argument("--phase_vmin", type=float, required=False, default=None,
+                       help="Minimum value for phase color scale (default: auto)")
+    parser.add_argument("--phase_vmax", type=float, required=False, default=None,
+                       help="Maximum value for phase color scale (default: auto)")
     return parser.parse_args()
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
@@ -245,7 +252,7 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
         print(f"Error during inference: {str(e)}")
         raise ValueError(f"Error during inference: {str(e)}")
 
-def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_dir):
+def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase, output_dir, phase_vmin=None, phase_vmax=None):
     """
     Save a comparison plot of reconstructed and ground truth images.
     
@@ -270,12 +277,12 @@ def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_ampl
         fig, axs = plt.subplots(2, 2, figsize=(4, 4))
         
         # PtychoPINN phase
-        im_pinn_phase = axs[0, 0].imshow(reconstructed_phase, cmap='gray')
+        im_pinn_phase = axs[0, 0].imshow(reconstructed_phase, cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
         axs[0, 0].set_title('PtychoPINN Phase')
         fig.colorbar(im_pinn_phase, ax=axs[0, 0], fraction=0.046, pad=0.04)
         
         # ePIE phase
-        im_epie_phase = axs[0, 1].imshow(epie_phase, cmap='gray')
+        im_epie_phase = axs[0, 1].imshow(epie_phase, cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
         axs[0, 1].set_title('ePIE Phase')
         fig.colorbar(im_epie_phase, ax=axs[0, 1], fraction=0.046, pad=0.04)
         
@@ -305,7 +312,7 @@ def save_comparison_plot(reconstructed_amplitude, reconstructed_phase, epie_ampl
     except Exception as e:
         print(f"Error saving comparison plot: {str(e)}")
 
-def save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_dir):
+def save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_dir, phase_vmin=None, phase_vmax=None):
     """
     Save the reconstructed amplitude and phase as separate PNG files.
     
@@ -336,7 +343,7 @@ def save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, out
         # Save phase image
         phase_path = os.path.join(output_dir, "reconstructed_phase.png")
         plt.figure(figsize=(8, 8))
-        plt.imshow(reconstructed_phase, cmap='viridis')
+        plt.imshow(reconstructed_phase, cmap='viridis', vmin=phase_vmin, vmax=phase_vmax)
         plt.colorbar()
         plt.savefig(phase_path)
         plt.close()
@@ -475,21 +482,48 @@ def main():
         print("Loading test data...")
         test_data = load_data(args.test_data)
 
+        # Determine number of samples for inference
+        gridsize = params.cfg.get('gridsize', 1)
+        total_patterns = len(test_data.xcoords)
+        
+        if args.n_images is not None:
+            # User specified number of images/groups
+            if gridsize == 1:
+                nsamples = min(args.n_images, total_patterns)
+                print(f"Inference config: gridsize={gridsize}, using {nsamples} individual patterns (user specified {args.n_images})")
+            else:
+                max_groups = total_patterns // (gridsize ** 2)
+                nsamples = min(args.n_images, max_groups)
+                if nsamples == 0:
+                    nsamples = 1  # Minimum of 1 group
+                print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns, user specified {args.n_images})")
+        else:
+            # Default behavior: use full dataset
+            if gridsize == 1:
+                nsamples = total_patterns
+                print(f"Inference config: gridsize={gridsize}, using all {nsamples} individual patterns")
+            else:
+                nsamples = total_patterns // (gridsize ** 2)
+                if nsamples == 0:
+                    nsamples = 1  # Minimum of 1 group
+                print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns)")
+
         # Perform inference
         print("Performing inference...")
-        # TODO might want to reduce K
         reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
-            model, test_data, params.cfg, K=7, nsamples=1)
+            model, test_data, params.cfg, K=4, nsamples=nsamples)
 
         # Save separate reconstruction images
         print("Saving reconstruction images...")
-        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir)
+        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, config.output_dir, 
+                                  phase_vmin=args.phase_vmin, phase_vmax=args.phase_vmax)
         
         # Generate comparison plot if requested and ground truth is available
         if args.comparison_plot and epie_amplitude is not None and epie_phase is not None:
             print("Generating comparison plot...")
             save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
-                                epie_amplitude, epie_phase, config.output_dir)
+                                epie_amplitude, epie_phase, config.output_dir,
+                                phase_vmin=args.phase_vmin, phase_vmax=args.phase_vmax)
         elif args.comparison_plot:
             print("Skipping comparison plot generation - ground truth not available")
 
