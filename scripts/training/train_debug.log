@@ -1,0 +1,101 @@
+2025-07-18 18:10:42,937 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-07-18 18:10:43,087 - DEBUG - Creating converter from 7 to 5
+2025-07-18 18:10:43,087 - DEBUG - Creating converter from 5 to 7
+2025-07-18 18:10:43,087 - DEBUG - Creating converter from 7 to 5
+2025-07-18 18:10:43,087 - DEBUG - Creating converter from 5 to 7
+2025-07-18 18:10:43,673 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/matplotlib/mpl-data
+2025-07-18 18:10:43,676 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-07-18 18:10:43,677 - DEBUG - interactive is False
+2025-07-18 18:10:43,677 - DEBUG - platform is linux
+2025-07-18 18:10:43,706 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-07-18 18:10:43,708 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-07-18 18:10:52,188 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-07-18 18:10:52,339 - DEBUG - Creating converter from 7 to 5
+2025-07-18 18:10:52,339 - DEBUG - Creating converter from 5 to 7
+2025-07-18 18:10:52,339 - DEBUG - Creating converter from 7 to 5
+2025-07-18 18:10:52,339 - DEBUG - Creating converter from 5 to 7
+2025-07-18 18:10:52,921 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/matplotlib/mpl-data
+2025-07-18 18:10:52,924 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-07-18 18:10:52,924 - DEBUG - interactive is False
+2025-07-18 18:10:52,924 - DEBUG - platform is linux
+2025-07-18 18:10:52,953 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-07-18 18:10:52,955 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-07-18 18:10:53,683 - DEBUG - Field: train_data_file
+2025-07-18 18:10:53,683 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-07-18 18:10:53,683 - DEBUG - Field default: None
+2025-07-18 18:10:53,684 - DEBUG - Field: test_data_file
+2025-07-18 18:10:53,684 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-07-18 18:10:53,684 - DEBUG - Field default: None
+2025-07-18 18:10:53,684 - DEBUG - Field: output_dir
+2025-07-18 18:10:53,684 - DEBUG - Field type: <class 'pathlib.Path'>
+2025-07-18 18:10:53,684 - DEBUG - Field default: training_outputs
+2025-07-18 18:10:53,684 - DEBUG - Converting path value: datasets/fly/fly001_transposed.npz
+2025-07-18 18:10:53,684 - DEBUG - Converting path value: test_phase2_final_validation
+2025-07-18 18:10:53,684 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'N': 64, 'gridsize': 2, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('datasets/fly/fly001_transposed.npz'), 'test_data_file': None, 'batch_size': 16, 'nepochs': 1, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('test_phase2_final_validation')}
+2025-07-18 18:10:53,684 - DEBUG - Training arguments: {'train_data_file': PosixPath('datasets/fly/fly001_transposed.npz'), 'test_data_file': None, 'batch_size': 16, 'nepochs': 1, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('test_phase2_final_validation')}
+2025-07-18 18:10:53,684 - INFO - Configuration setup complete
+2025-07-18 18:10:53,684 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('datasets/fly/fly001_transposed.npz'), test_data_file=None, batch_size=16, nepochs=1, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_images=4, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('test_phase2_final_validation'))
+2025-07-18 18:10:53,684 - INFO - Parameter interpretation: --n-images=4 refers to neighbor groups (gridsize=2, total patterns=16)
+2025-07-18 18:10:53,684 - INFO - Starting training with n_images=4, stitching=disabled
+2025-07-18 18:10:53,684 - INFO - Loading data from datasets/fly/fly001_transposed.npz with n_images=4
+2025-07-18 18:10:53,684 - ERROR - An error occurred during execution: [Errno 2] No such file or directory: 'datasets/fly/fly001_transposed.npz'
+2025-07-18 18:11:00,481 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-07-18 18:11:00,639 - DEBUG - Creating converter from 7 to 5
+2025-07-18 18:11:00,639 - DEBUG - Creating converter from 5 to 7
+2025-07-18 18:11:00,639 - DEBUG - Creating converter from 7 to 5
+2025-07-18 18:11:00,639 - DEBUG - Creating converter from 5 to 7
+2025-07-18 18:11:01,229 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/matplotlib/mpl-data
+2025-07-18 18:11:01,232 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-07-18 18:11:01,233 - DEBUG - interactive is False
+2025-07-18 18:11:01,233 - DEBUG - platform is linux
+2025-07-18 18:11:01,262 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-07-18 18:11:01,263 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-07-18 18:11:02,007 - DEBUG - Field: train_data_file
+2025-07-18 18:11:02,007 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-07-18 18:11:02,007 - DEBUG - Field default: None
+2025-07-18 18:11:02,007 - DEBUG - Field: test_data_file
+2025-07-18 18:11:02,007 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-07-18 18:11:02,007 - DEBUG - Field default: None
+2025-07-18 18:11:02,007 - DEBUG - Field: output_dir
+2025-07-18 18:11:02,007 - DEBUG - Field type: <class 'pathlib.Path'>
+2025-07-18 18:11:02,007 - DEBUG - Field default: training_outputs
+2025-07-18 18:11:02,007 - DEBUG - Converting path value: datasets/fly/fly001_transposed.npz
+2025-07-18 18:11:02,007 - DEBUG - Converting path value: test_phase2_final_validation
+2025-07-18 18:11:02,007 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'N': 64, 'gridsize': 2, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('datasets/fly/fly001_transposed.npz'), 'test_data_file': None, 'batch_size': 16, 'nepochs': 1, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('test_phase2_final_validation')}
+2025-07-18 18:11:02,007 - DEBUG - Training arguments: {'train_data_file': PosixPath('datasets/fly/fly001_transposed.npz'), 'test_data_file': None, 'batch_size': 16, 'nepochs': 1, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('test_phase2_final_validation')}
+2025-07-18 18:11:02,007 - INFO - Configuration setup complete
+2025-07-18 18:11:02,007 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('datasets/fly/fly001_transposed.npz'), test_data_file=None, batch_size=16, nepochs=1, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_images=4, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('test_phase2_final_validation'))
+2025-07-18 18:11:02,007 - INFO - Parameter interpretation: --n-images=4 refers to neighbor groups (gridsize=2, total patterns=16)
+2025-07-18 18:11:02,007 - INFO - Starting training with n_images=4, stitching=disabled
+2025-07-18 18:11:02,008 - INFO - Loading data from datasets/fly/fly001_transposed.npz with n_images=4
+2025-07-18 18:11:02,008 - ERROR - An error occurred during execution: [Errno 2] No such file or directory: 'datasets/fly/fly001_transposed.npz'
+2025-07-18 18:11:41,306 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-07-18 18:11:41,458 - DEBUG - Creating converter from 7 to 5
+2025-07-18 18:11:41,458 - DEBUG - Creating converter from 5 to 7
+2025-07-18 18:11:41,458 - DEBUG - Creating converter from 7 to 5
+2025-07-18 18:11:41,458 - DEBUG - Creating converter from 5 to 7
+2025-07-18 18:11:42,046 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/matplotlib/mpl-data
+2025-07-18 18:11:42,049 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-07-18 18:11:42,049 - DEBUG - interactive is False
+2025-07-18 18:11:42,049 - DEBUG - platform is linux
+2025-07-18 18:11:42,079 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-07-18 18:11:42,081 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-07-18 18:11:42,813 - DEBUG - Field: train_data_file
+2025-07-18 18:11:42,814 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-07-18 18:11:42,814 - DEBUG - Field default: None
+2025-07-18 18:11:42,814 - DEBUG - Field: test_data_file
+2025-07-18 18:11:42,814 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-07-18 18:11:42,814 - DEBUG - Field default: None
+2025-07-18 18:11:42,814 - DEBUG - Field: output_dir
+2025-07-18 18:11:42,814 - DEBUG - Field type: <class 'pathlib.Path'>
+2025-07-18 18:11:42,814 - DEBUG - Field default: training_outputs
+2025-07-18 18:11:42,814 - DEBUG - Converting path value: datasets/fly/fly001_transposed.npz
+2025-07-18 18:11:42,814 - DEBUG - Converting path value: final_validation_gs1_quick
+2025-07-18 18:11:42,814 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('datasets/fly/fly001_transposed.npz'), 'test_data_file': None, 'batch_size': 16, 'nepochs': 1, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 10304, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('final_validation_gs1_quick')}
+2025-07-18 18:11:42,814 - DEBUG - Training arguments: {'train_data_file': PosixPath('datasets/fly/fly001_transposed.npz'), 'test_data_file': None, 'batch_size': 16, 'nepochs': 1, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 10304, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('final_validation_gs1_quick')}
+2025-07-18 18:11:42,814 - INFO - Configuration setup complete
+2025-07-18 18:11:42,814 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('datasets/fly/fly001_transposed.npz'), test_data_file=None, batch_size=16, nepochs=1, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_images=10304, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('final_validation_gs1_quick'))
+2025-07-18 18:11:42,814 - INFO - Parameter interpretation: --n-images=10304 refers to individual images (gridsize=1)
+2025-07-18 18:11:42,814 - INFO - Starting training with n_images=10304, stitching=disabled
+2025-07-18 18:11:42,814 - INFO - Loading data from datasets/fly/fly001_transposed.npz with n_images=10304
+2025-07-18 18:11:42,814 - ERROR - An error occurred during execution: [Errno 2] No such file or directory: 'datasets/fly/fly001_transposed.npz'

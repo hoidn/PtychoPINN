@@ -28,6 +28,28 @@ from ptycho.workflows.components import (
 )
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import model_manager, params
+
+def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
+    """
+    Interpret --n-images parameter based on gridsize.
+    
+    For gridsize=1: n_images refers to individual images (traditional behavior)
+    For gridsize>1: n_images refers to number of neighbor groups
+    
+    Args:
+        n_images: User-specified number from --n-images
+        gridsize: Current gridsize setting
+        
+    Returns:
+        tuple: (actual_n_images, interpretation_message)
+    """
+    if gridsize == 1:
+        message = f"Parameter interpretation: --n-images={n_images} refers to individual images (gridsize=1)"
+        return n_images, message
+    else:
+        total_patterns = n_images * gridsize * gridsize
+        message = f"Parameter interpretation: --n-images={n_images} refers to neighbor groups (gridsize={gridsize}, total patterns={total_patterns})"
+        return n_images, message
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     args = parse_arguments()
@@ -38,6 +60,17 @@ def main() -> None:
         delattr(args, 'train_data_file_path')
         
     config = setup_configuration(args, args.config)
+    
+    # Interpret n_images parameter based on gridsize
+    interpreted_n_images, interpretation_message = interpret_n_images_parameter(
+        config.n_images, config.model.gridsize
+    )
+    logger.info(interpretation_message)
+    
+    # Update config with interpreted value
+    config = config.__class__(
+        **{**config.__dict__, 'n_images': interpreted_n_images}
+    )
     
     # Update global params with new-style config at entry point
     update_legacy_dict(params.cfg, config)
