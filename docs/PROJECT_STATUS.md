@@ -1,6 +1,6 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-01-14
+**Last Updated:** 2025-07-19
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
 
@@ -62,8 +62,26 @@ This document provides a high-level overview of the major development initiative
 
 ## 🚀 **Current Active Initiative**
 
+### **Initiative: Smart Subsampling for Overlap-Based Training**
+*   **Status:** 🚀 Active (Phase 1)
+*   **Goal:** To replace the spatially biased sequential subsampling with a "group-then-sample" strategy that ensures both physical coherence and spatial representativeness for overlap-based training (`gridsize > 1`).
+*   **Key Deliverables:**
+    *   Enhanced data loading pipeline in `ptycho/raw_data.py` with group-first sampling strategy
+    *   Automated caching mechanism for expensive neighbor-finding operations
+    *   Unified `--n-images` command-line argument with intelligent interpretation based on `gridsize`
+    *   Updated documentation explaining the new robust sampling behavior
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">docs/initiatives/smart-subsampling/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">docs/initiatives/smart-subsampling/implementation.md</doc-ref>
+    *   **Phase 1 Checklist:** <doc-ref type="checklist">docs/initiatives/smart-subsampling/phase_1_checklist.md</doc-ref>
+*   **Current Phase:** Phase 1: Core Data Structure Refactoring
+
+---
+
+## 📋 **Recently Completed Initiatives**
+
 ### **Initiative: Spatially-Biased Randomized Sampling Study**
-*   **Status:** 🚀 Active (Final Phase)
+*   **Status:** ✅ Complete
 *   **Goal:** To enable generalization studies on random samples from specific spatial regions of datasets, rather than just the first N data points.
 *   **Key Deliverables:**
     *   `scripts/tools/shuffle_dataset_tool.py` for randomizing dataset order ✅
@@ -73,6 +91,5 @@ This document provides a high-level overview of the major development initiative
     *   **R&D Plan:** <doc-ref type="plan">docs/sampling/plan_sampling_study.md</doc-ref>
     *   **Implementation Plan:** <doc-ref type="plan">docs/sampling/implementation_sampling_study.md</doc-ref>
     *   **Final Phase Checklist:** <doc-ref type="checklist">docs/sampling/final_phase_validation_checklist.md</doc-ref>
-*   **Current Phase:** Final Phase: Validation & Documentation
 
 ---
