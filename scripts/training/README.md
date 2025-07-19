@@ -48,6 +48,10 @@ The training script uses a configuration file (`config.yaml`) to set various par
   - n_filters_scale: Scale factor for number of filters
   - model_type: 'pinn' or 'supervised'
   - amp_activation: Activation function ('sigmoid', 'swish', 'softplus', 'relu')
+
+### Important Considerations
+
+- **Subsampling with `gridsize > 1`:** Be aware that using the `--n_images` flag selects the *first N* images from the dataset. If `gridsize` is greater than 1, this will result in training on a spatially biased, non-representative subset of your object. For robust training in this mode, it is better to prepare a smaller, complete dataset rather than subsampling a large one.
   - Various boolean flags for model configuration
 
 You can provide a custom configuration file using the `--config` command-line argument.

@@ -43,6 +43,18 @@ PtychoPINN uses a modern dataclass-based configuration system defined in `<code-
 | `n_images`          | `int`         | The number of diffraction patterns to use from the dataset. Default: `512`.                                    |
 | `gridsize`          | `int`         | For PINN-style models, this defines the number of neighboring patches to process together (e.g., 1 for single-patch processing, 2 for 2x2 neighbors). For supervised models, it defines the input channel depth. |
 
+### Critical Parameter Interactions
+
+> **⚠️ Important: `n_images` × `gridsize` Interaction**
+>
+> When using `gridsize > 1`, the `n_images` parameter creates spatially biased training data because subsampling occurs **before** nearest-neighbor grouping:
+> 
+> - **Sequential subsampling**: Training uses only the first N images from a small spatial region
+> - **Broken neighbor relationships**: Random subsampling destroys physical adjacency required for overlap constraints
+> - **Recommendation**: For `gridsize > 1`, prepare complete smaller datasets rather than using `n_images` parameter
+>
+> See the Developer Guide for detailed architectural explanation: <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>
+
 ## Physics & Loss Parameters
 
 | Parameter                   | Type    | Description                                                                                                     |

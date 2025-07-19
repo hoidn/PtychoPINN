@@ -215,9 +215,27 @@ This command will discover and execute all test files following the `test_*.py` 
 
 ---
 
-## 7. Troubleshooting References
+## 7. The Challenge of Subsampling with Overlap Constraints (`gridsize > 1`)
 
-### 7.1. Common Gotchas and Solutions
+**The Lesson:** A critical architectural limitation exists when using subsampling (e.g., via the `--n_images` flag) in conjunction with a `gridsize` greater than 1. The model's overlap constraint relies on the physical adjacency of neighboring diffraction patterns, and the current data loading pipeline can break this assumption.
+
+**The Problem:** The data loading workflow performs subsampling *before* nearest-neighbor grouping.
+1. `ptycho/workflows/components.py:load_data` selects the first `N` sequential scan points.
+2. `ptycho/raw_data.py:generate_grouped_data` then finds neighbors *within this small, pre-selected subset*.
+
+This leads to a critical dilemma:
+- **Sequential Subsampling (Current Behavior):** The training data is drawn from a small, spatially contiguous region of the object. This is a **non-representative, biased sample** that leads to poor model generalization.
+- **Random Subsampling (Incorrect Fix):** If the dataset is shuffled before subsampling (e.g., with `<code-ref type="tool">scripts/tools/shuffle_dataset_tool.py</code-ref>`), the "nearest" neighbors found will be from random, distant parts of the object. This creates **physically incoherent training samples** and the model will fail to learn the overlap constraint.
+
+**The Correct (but Unimplemented) Solution:** The ideal workflow would be to first perform nearest-neighbor grouping on the *entire* dataset to create a "dataset of valid groups," and then subsample from that set of groups. This is not yet implemented.
+
+**The Rule:** For any rigorous training or generalization study using `gridsize > 1`, **do not use the `--n_images` flag for subsampling**. Instead, create a smaller, but complete and spatially coherent, dataset as a separate `.npz` file and train on 100% of that file.
+
+---
+
+## 8. Troubleshooting References
+
+### 8.1. Common Gotchas and Solutions
 
 For detailed documentation of critical issues and solutions discovered during development:
 

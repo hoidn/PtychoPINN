@@ -2,6 +2,9 @@
 
 This directory contains tools for conducting comprehensive model generalization studies comparing PtychoPINN and baseline performance across different training set sizes.
 
+> **⚠️ Critical: `gridsize > 1` Subsampling Limitation**  
+> Using `--n-train-images` with `gridsize > 1` creates spatially biased training data. For rigorous results, prepare complete smaller datasets instead of subsampling large ones.
+
 ## Quick Commands
 
 ### Complete Automated Study
