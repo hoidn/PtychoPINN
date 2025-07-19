@@ -137,14 +137,28 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
 
     if n_images is None:
         n_images = xcoords.shape[0]
-
-    # Create RawData object for the training subset
-    ptycho_data = RawData(xcoords[:n_images], ycoords[:n_images],
-                          xcoords_start[:n_images], ycoords_start[:n_images],
-                          diff3d[:n_images], probeGuess,
-                          scan_index[:n_images], objectGuess=objectGuess,
+    
+    # For gridsize > 1, pass full dataset to enable grouping-aware subsampling
+    # For gridsize = 1, use traditional sequential slicing for backward compatibility
+    from ptycho import params
+    gridsize = params.cfg.get('gridsize', 1)
+    
+    if gridsize == 1:
+        # Traditional behavior: sequential slicing
+        logger.info(f"Using sequential slicing for gridsize=1: selecting first {n_images} images")
+        selected_indices = slice(None, n_images)
+    else:
+        # Grouping-aware subsampling behavior: pass full dataset, let generate_grouped_data handle selection
+        logger.info(f"Using grouping-aware subsampling for gridsize={gridsize}: passing full dataset for group-first sampling")
+        selected_indices = slice(None)  # Full dataset
+    
+    # Create RawData object with appropriate data subset
+    ptycho_data = RawData(xcoords[selected_indices], ycoords[selected_indices],
+                          xcoords_start[selected_indices], ycoords_start[selected_indices],
+                          diff3d[selected_indices], probeGuess,
+                          scan_index[selected_indices], objectGuess=objectGuess,
                           # --- FIX: Pass the loaded Y array to the constructor ---
-                          Y=(Y_patches[:n_images] if Y_patches is not None else None))
+                          Y=(Y_patches[selected_indices] if Y_patches is not None else None))
 
     return ptycho_data
 
@@ -303,7 +317,13 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        dataset = data.generate_grouped_data(config.model.N, K=7, nsamples=1)
+        # Use config.n_images for nsamples - this is the interpreted value from the training script
+        dataset = data.generate_grouped_data(
+            config.model.N, 
+            K=4, 
+            nsamples=config.n_images,  # Use interpreted n_images
+            dataset_path=str(config.train_data_file) if config.train_data_file else None
+        )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")
