@@ -70,12 +70,13 @@ graph LR
 Before reporting ANY findings, verify:
 - [ ] I identified the issue from context
 - [ ] I ran git analysis commands
-- [ ] I created /tmp/debug_context.txt
+- [ ] I created /tmp/debug_context.txt WITH ACTUAL CONTENT (not shell commands)
 - [ ] **I EXECUTED `gemini -p` command** ← THIS IS MANDATORY
 - [ ] I received Gemini's response
 - [ ] I'm reporting GEMINI'S findings, not my own analysis
 
 If you haven't executed `gemini -p`, STOP and do it now.
+If debug_context.txt contains `$(cat ...)` commands, STOP and fix it using the incremental approach.
 
 ---
 
@@ -113,10 +114,12 @@ fi
 
 ### Step 2: Run Debug Analysis (You Execute This)
 
+**⚠️ CRITICAL ISSUE:** Heredocs with command substitution (`$(...)`) do not work properly in Claude Code's environment. Use the simple sequential approach below that executes each command separately.
+
 Automatically execute these commands without any user intervention:
 
 ```bash
-# Get recent commit history (NOTE: Use dash separator, not pipe)
+# Get recent commit history (NOTE: Use dash separator, not pipe to avoid parsing issues)
 git log -n 10 --pretty=format:"%h %ad - %s [%an]" --date=short > /tmp/debug_git_log.txt
 
 # Get current status
@@ -142,24 +145,60 @@ git diff "$BASELINE"..HEAD --stat > /tmp/debug_diff_stat.txt
 git diff "$BASELINE"..HEAD --name-status > /tmp/debug_diff_names.txt
 git diff "$BASELINE"..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
 
-# Combine all debug info into one file
-cat > /tmp/debug_context.txt << EOF
-## RECENT COMMITS
-$(cat /tmp/debug_git_log.txt)
+# CRITICAL: Build debug context file using simple sequential approach
+# Heredocs with command substitution don't work in Claude Code's environment
+# Each command is executed separately to ensure actual content is written
 
-## CURRENT GIT STATUS
-$(cat /tmp/debug_git_status.txt)
+echo "## RECENT COMMITS" > /tmp/debug_context.txt
+cat /tmp/debug_git_log.txt >> /tmp/debug_context.txt
+echo -e "\n## CURRENT GIT STATUS" >> /tmp/debug_context.txt  
+cat /tmp/debug_git_status.txt >> /tmp/debug_context.txt
+echo -e "\n## BASELINE USED: $BASELINE" >> /tmp/debug_context.txt
+echo -e "\n## DIFF STATISTICS (from $BASELINE to HEAD)" >> /tmp/debug_context.txt
+cat /tmp/debug_diff_stat.txt >> /tmp/debug_context.txt 2>/dev/null || echo "No baseline diff available" >> /tmp/debug_context.txt
+echo -e "\n## FILES CHANGED" >> /tmp/debug_context.txt
+cat /tmp/debug_diff_names.txt >> /tmp/debug_context.txt 2>/dev/null || echo "No file changes detected" >> /tmp/debug_context.txt
+echo -e "\n## DETAILED CODE CHANGES" >> /tmp/debug_context.txt
+head -2000 /tmp/debug_diff_details.txt >> /tmp/debug_context.txt 2>/dev/null || echo "No detailed diffs available" >> /tmp/debug_context.txt
 
-## BASELINE USED: $BASELINE
-## DIFF STATISTICS (from $BASELINE to HEAD)
-$(cat /tmp/debug_diff_stat.txt 2>/dev/null || echo "No baseline diff available")
+# Python alternative if shell approaches fail:
+# BASELINE="$BASELINE" python3 << 'EOF'
+# import os
+# baseline = os.environ.get('BASELINE', 'unknown')
+# sections = [
+#     ('RECENT COMMITS', '/tmp/debug_git_log.txt'),
+#     ('CURRENT GIT STATUS', '/tmp/debug_git_status.txt'),
+#     (f'BASELINE USED: {baseline}', None),
+#     (f'DIFF STATISTICS (from {baseline} to HEAD)', '/tmp/debug_diff_stat.txt'),
+#     ('FILES CHANGED', '/tmp/debug_diff_names.txt'),
+#     ('DETAILED CODE CHANGES', '/tmp/debug_diff_details.txt')
+# ]
+# 
+# with open('/tmp/debug_context.txt', 'w') as out:
+#     for title, path in sections:
+#         out.write(f'## {title}\n')
+#         if path is None:
+#             out.write('\n')
+#         else:
+#             try:
+#                 with open(path) as f:
+#                     content = f.read()
+#                     if 'DETAILED CODE CHANGES' in title:
+#                         lines = content.splitlines()[:2000]
+#                         content = '\n'.join(lines)
+#                     out.write(content + '\n')
+#             except:
+#                 out.write(f'No data available\n')
+#         out.write('\n')
+# EOF
 
-## FILES CHANGED
-$(cat /tmp/debug_diff_names.txt 2>/dev/null || echo "No file changes detected")
-
-## DETAILED CODE CHANGES
-$(cat /tmp/debug_diff_details.txt 2>/dev/null | head -2000 || echo "No detailed diffs available")
-EOF
+# Verify the file contains actual content
+echo "Verifying debug context file..."
+if grep -q '$(cat' /tmp/debug_context.txt; then
+    echo "❌ ERROR: File still contains shell commands! Try the Python approach above."
+else
+    echo "✅ Debug context file ready with actual git data"
+fi
 ```
 
 ### Step 3: MANDATORY - Execute Gemini Analysis
@@ -180,13 +219,15 @@ gemini -p "@ptycho/ @src/ @tests/ @docs/ @configs/ @logs/ @.github/ @scripts/ @b
 **Baseline Branch:** [If provided - where it last worked correctly]
 
 ## GIT CONTEXT
-The debug_context.txt file contains:
-- Recent commit history (last 10 commits)
-- Current git status (modified files)
+The debug_context.txt file MUST contain:
+- Recent commit history (actual commits, not `$(cat ...)` commands)
+- Current git status (actual file list)
 - **Baseline used for comparison** (branch/commit shown in file)
 - Diff statistics showing which files changed and by how much
 - Complete file change list
 - **Actual code diffs** showing exact line-by-line changes
+
+**⚠️ CRITICAL:** If Gemini receives shell commands instead of actual content, it cannot analyze your issue!
 
 Pay special attention to:
 - Recent commits that might have introduced the issue
@@ -392,17 +433,13 @@ git diff "$BASELINE"..HEAD --stat > /tmp/baseline_stat.txt
 git diff "$BASELINE"..HEAD --name-status | head -50 > /tmp/baseline_names.txt
 git diff "$BASELINE"..HEAD -- ptycho/ src/ configs/ | head -500 > /tmp/baseline_diff.txt
 
-# Create combined analysis file with ACTUAL DIFFS
-cat > /tmp/baseline_analysis.txt << EOF
-## BASELINE DIFF SUMMARY
-$(cat /tmp/baseline_stat.txt)
-
-## FILES CHANGED
-$(cat /tmp/baseline_names.txt)
-
-## DETAILED CODE CHANGES (ACTUAL DIFFS)
-$(cat /tmp/baseline_diff.txt)
-EOF
+# Create combined analysis file with ACTUAL DIFFS (use simple approach)
+echo "## BASELINE DIFF SUMMARY" > /tmp/baseline_analysis.txt
+cat /tmp/baseline_stat.txt >> /tmp/baseline_analysis.txt
+echo -e "\n## FILES CHANGED" >> /tmp/baseline_analysis.txt
+cat /tmp/baseline_names.txt >> /tmp/baseline_analysis.txt
+echo -e "\n## DETAILED CODE CHANGES (ACTUAL DIFFS)" >> /tmp/baseline_analysis.txt
+cat /tmp/baseline_diff.txt >> /tmp/baseline_analysis.txt
 
 # MANDATORY: Execute Gemini analysis
 gemini -p "@ptycho/ @src/ @tests/ @configs/ @logs/ @/tmp/baseline_analysis.txt Analyze regression from baseline $BASELINE..."
@@ -436,6 +473,31 @@ Track your debugging effectiveness:
 - **Time to Root Cause**: Usually 2-5 minutes total
 - **Tunnel Vision Breaks**: ~80% find issues outside initial focus
 - **Minimal Reproduction Success**: ~90% provide working minimal case
+
+---
+
+## 🔧 **TROUBLESHOOTING**
+
+### Debug Context File Issues
+
+**Known Issue:** Heredocs with command substitution don't work in Claude Code's environment. The command would create a file containing `$(cat /tmp/debug_git_log.txt)` instead of actual git commits.
+
+**Solution Implemented:** Step 2 now uses a simple sequential approach where each line is executed separately. This ensures the debug_context.txt file contains actual git data that Gemini can analyze.
+
+**Verification:** After creating debug_context.txt, the script verifies it doesn't contain shell commands. If verification fails, try the Python alternative (commented in Step 2).
+
+**Expected Content:**
+```
+## RECENT COMMITS
+abc123 2025-01-19 - fix bug [author]
+def456 2025-01-18 - add feature [author]
+```
+
+**NOT:**
+```
+## RECENT COMMITS
+$(cat /tmp/debug_git_log.txt)
+```
 
 ---
 
