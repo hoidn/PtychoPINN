@@ -239,4 +239,41 @@ This leads to a critical dilemma:
 
 For detailed documentation of critical issues and solutions discovered during development:
 
-- **GridSize Inference Issues**: <doc-ref type="troubleshooting">docs/GRIDSIZE_INFERENCE_GOTCHAS.md</doc-ref> - Comprehensive guide to configuration loading, initialization order, and multi-channel data handling issues encountered when implementing gridsize>1 inference support.
+- **GridSize Inference Issues**: Comprehensive guide to configuration loading, initialization order, and multi-channel data handling issues (see section 9.1 below).
+
+---
+
+## 9. Architectural Learnings & Historical Context
+
+This section captures key architectural decisions and lessons learned from past development initiatives. This context is preserved to explain the reasoning behind certain design patterns in the codebase.
+
+### 9.1. The GridSize Inference Issue (Resolved)
+
+A critical issue was discovered where models trained with `gridsize > 1` would fail during inference. The root cause was a combination of initialization order bugs and an implicit dependency on the global `ptycho.params.cfg` state.
+
+#### The Problem
+- **Model Creation**: Lambda layers were constructed with a default `gridsize=1` during import, before the correct configuration could be loaded from the model's saved parameters
+- **Global State Dependency**: The `_flat_to_channel` function in `<code-ref type="module">ptycho/tf_helper.py</code-ref>` relied on global configuration that wasn't preserved during model serialization
+- **Initialization Order**: Module imports triggered model construction before configuration was properly set
+
+#### The Solution Pattern
+Multiple interconnected fixes were required:
+
+1. **Configuration Loading Order**: Ensure parameters are loaded and applied **before** TensorFlow model loading in `<code-ref type="module">ptycho/model_manager.py</code-ref>`
+2. **Delayed Module Imports**: Avoid importing model-constructing modules at top level in inference scripts
+3. **Multi-Channel Data Preservation**: Fix data loading logic in `<code-ref type="module">ptycho/loader.py</code-ref>` to preserve channel dimensions for `gridsize > 1`
+4. **Explicit Configuration Flow**: Use modern dataclass-based configuration instead of global state where possible
+
+#### Key Anti-Patterns Identified
+- **Never use training config loaders for inference** - They have different parameter priorities
+- **Never import model-constructing modules at top level** - Delays model construction until configuration is finalized  
+- **Never load models before setting configuration** - Global state must be updated before TensorFlow operations
+- **Never assume single-channel tensor shapes** - Always preserve and validate channel dimensions
+
+#### Lessons Learned
+- **Avoid side effects on module import** and minimize reliance on global state
+- **Configuration should be explicitly passed** wherever possible rather than accessed globally
+- **Initialization order matters** - parameters → configuration → model loading → inference
+- **Debug logging is essential** for tracing parameter flow and identifying initialization issues
+
+*This architectural learning was derived from extensive debugging of gridsize>1 inference failures and represents a fundamental understanding of the initialization dependencies in the TensorFlow model loading pipeline.*
