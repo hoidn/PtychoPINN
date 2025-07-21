@@ -1,13 +1,19 @@
-# Command: /debug-gemini-v3
+# Command: /debug-gemini-v3 [baseline-ref]
 
 **Goal:** Get comprehensive debugging help from Gemini with fresh perspective, especially when you might have tunnel vision about the root cause.
+
+**Usage:** 
+- `/debug-gemini-v3` - Analyzes issue, asks for baseline if needed
+- `/debug-gemini-v3 main` - Uses 'main' branch as baseline
+- `/debug-gemini-v3 abc123f` - Uses specific commit as baseline
+- `/debug-gemini-v3 v1.2.3` - Uses tag as baseline
 
 ---
 
 ## 🔴 **CRITICAL: MANDATORY EXECUTION FLOW**
 
 **THIS IS THE CORE PURPOSE OF THIS COMMAND:**
-1. You MUST run git analysis
+1. You MUST run git analysis (with baseline from args if provided)
 2. You MUST execute `gemini -p` 
 3. You MUST wait for and process Gemini's response
 4. You MUST report Gemini's findings to the user
@@ -28,6 +34,7 @@ You are Claude Code - the autonomous command-line tool that executes shell comma
 - **Execute** commands autonomously (don't just suggest them)
 - **Run** the entire workflow without human intervention
 - **Complete** debugging from start to finish in one go
+- **Use** `./tmp/` for temporary files (not `/tmp/` to avoid permissions issues)
 
 ## 🚨 **YOU MUST EXECUTE GEMINI - THIS IS NOT OPTIONAL**
 
@@ -62,14 +69,16 @@ graph LR
 ## ✅ **EXECUTION CHECKLIST**
 
 Before reporting ANY findings, verify:
+- [ ] I created ./tmp directory with `mkdir -p ./tmp`
 - [ ] I identified the issue from context
 - [ ] I ran git analysis commands
-- [ ] I created /tmp/debug_context.txt
+- [ ] I created ./tmp/debug_context.txt WITH ACTUAL CONTENT (not shell commands)
 - [ ] **I EXECUTED `gemini -p` command** ← THIS IS MANDATORY
 - [ ] I received Gemini's response
 - [ ] I'm reporting GEMINI'S findings, not my own analysis
 
 If you haven't executed `gemini -p`, STOP and do it now.
+If debug_context.txt contains `$(cat ...)` commands, STOP and fix it using the incremental approach.
 
 ---
 
@@ -81,53 +90,120 @@ Determine from the conversation/context:
 - What's the bug/issue
 - What's been tried already
 - Your current working theory
-- Whether there's a baseline branch where it worked
+- Check if baseline was provided via arguments
+
+**Parse baseline from arguments:**
+```bash
+# $ARGUMENTS contains whatever user typed after /debug-gemini-v3
+BASELINE_REF="$ARGUMENTS"
+if [ -n "$BASELINE_REF" ]; then
+    # User provided a baseline ref
+    if git rev-parse --verify "$BASELINE_REF" >/dev/null 2>&1; then
+        echo "Using provided baseline: $BASELINE_REF"
+    else
+        echo "Warning: '$BASELINE_REF' is not a valid git ref, will auto-detect baseline"
+        BASELINE_REF=""
+    fi
+else
+    echo "No baseline provided, will auto-detect from main/master/HEAD~5"
+fi
+```
 
 **Only ask the user if:**
 - The issue is unclear from context
-- You need a baseline branch name
-- Critical details are missing
+- No baseline provided and auto-detection fails
+- Provided baseline is invalid and you need a valid one
 
 ### Step 2: Run Debug Analysis (You Execute This)
+
+**⚠️ CRITICAL ISSUE:** Heredocs with command substitution (`$(...)`) do not work properly in Claude Code's environment. Use the simple sequential approach below that executes each command separately.
 
 Automatically execute these commands without any user intervention:
 
 ```bash
-# Get recent commit history (NOTE: Use dash separator, not pipe)
-git log -n 10 --pretty=format:"%h %ad - %s [%an]" --date=short > /tmp/debug_git_log.txt
+# Ensure local tmp directory exists
+mkdir -p ./tmp
+
+# Get recent commit history (NOTE: Use dash separator, not pipe to avoid parsing issues)
+git log -n 10 --pretty=format:"%h %ad - %s [%an]" --date=short > ./tmp/debug_git_log.txt
 
 # Get current status
-git status --porcelain > /tmp/debug_git_status.txt
+git status --porcelain > ./tmp/debug_git_status.txt
 
-# If baseline branch provided, get the diff
-if [ -n "<baseline-branch>" ]; then
-    git diff <baseline-branch>..HEAD --stat > /tmp/debug_diff_stat.txt
-    git diff <baseline-branch>..HEAD --name-status > /tmp/debug_diff_names.txt
-    git diff <baseline-branch>..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
+# Use baseline ref from arguments or determine automatically
+if [ -n "$BASELINE_REF" ]; then
+    # User provided baseline
+    BASELINE="$BASELINE_REF"
+elif git rev-parse --verify main >/dev/null 2>&1; then
+    # Default to main if it exists
+    BASELINE="main"
+elif git rev-parse --verify master >/dev/null 2>&1; then
+    # Fall back to master
+    BASELINE="master"
 else
-    # No baseline - use HEAD~5 as a reasonable default
-    git diff HEAD~5..HEAD --stat > /tmp/debug_diff_stat.txt
-    git diff HEAD~5..HEAD --name-status > /tmp/debug_diff_names.txt
-    git diff HEAD~5..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
+    # Use HEAD~5 as last resort
+    BASELINE="HEAD~5"
 fi
 
-# Combine all debug info into one file
-cat > /tmp/debug_context.txt << EOF
-## RECENT COMMITS
-$(cat /tmp/debug_git_log.txt)
+# Get diffs from baseline
+git diff "$BASELINE"..HEAD --stat > ./tmp/debug_diff_stat.txt
+git diff "$BASELINE"..HEAD --name-status > ./tmp/debug_diff_names.txt
+git diff "$BASELINE"..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > ./tmp/debug_diff_details.txt
 
-## CURRENT GIT STATUS
-$(cat /tmp/debug_git_status.txt)
+# CRITICAL: Build debug context file using simple sequential approach
+# Heredocs with command substitution don't work in Claude Code's environment
+# Each command is executed separately to ensure actual content is written
 
-## DIFF STATISTICS (from baseline or last 5 commits)
-$(cat /tmp/debug_diff_stat.txt 2>/dev/null || echo "No baseline diff available")
+echo "## RECENT COMMITS" > ./tmp/debug_context.txt
+cat ./tmp/debug_git_log.txt >> ./tmp/debug_context.txt
+echo -e "\n## CURRENT GIT STATUS" >> ./tmp/debug_context.txt  
+cat ./tmp/debug_git_status.txt >> ./tmp/debug_context.txt
+echo -e "\n## BASELINE USED: $BASELINE" >> ./tmp/debug_context.txt
+echo -e "\n## DIFF STATISTICS (from $BASELINE to HEAD)" >> ./tmp/debug_context.txt
+cat ./tmp/debug_diff_stat.txt >> ./tmp/debug_context.txt 2>/dev/null || echo "No baseline diff available" >> ./tmp/debug_context.txt
+echo -e "\n## FILES CHANGED" >> ./tmp/debug_context.txt
+cat ./tmp/debug_diff_names.txt >> ./tmp/debug_context.txt 2>/dev/null || echo "No file changes detected" >> ./tmp/debug_context.txt
+echo -e "\n## DETAILED CODE CHANGES" >> ./tmp/debug_context.txt
+head -2000 ./tmp/debug_diff_details.txt >> ./tmp/debug_context.txt 2>/dev/null || echo "No detailed diffs available" >> ./tmp/debug_context.txt
 
-## FILES CHANGED
-$(cat /tmp/debug_diff_names.txt 2>/dev/null || echo "No file changes detected")
+# Python alternative if shell approaches fail:
+# BASELINE="$BASELINE" python3 << 'EOF'
+# import os
+# baseline = os.environ.get('BASELINE', 'unknown')
+# sections = [
+#     ('RECENT COMMITS', './tmp/debug_git_log.txt'),
+#     ('CURRENT GIT STATUS', './tmp/debug_git_status.txt'),
+#     (f'BASELINE USED: {baseline}', None),
+#     (f'DIFF STATISTICS (from {baseline} to HEAD)', './tmp/debug_diff_stat.txt'),
+#     ('FILES CHANGED', './tmp/debug_diff_names.txt'),
+#     ('DETAILED CODE CHANGES', './tmp/debug_diff_details.txt')
+# ]
+# 
+# with open('./tmp/debug_context.txt', 'w') as out:
+#     for title, path in sections:
+#         out.write(f'## {title}\n')
+#         if path is None:
+#             out.write('\n')
+#         else:
+#             try:
+#                 with open(path) as f:
+#                     content = f.read()
+#                     if 'DETAILED CODE CHANGES' in title:
+#                         lines = content.splitlines()[:2000]
+#                         content = '\n'.join(lines)
+#                     out.write(content + '\n')
+#             except:
+#                 out.write(f'No data available\n')
+#         out.write('\n')
+# EOF
 
-## DETAILED CODE CHANGES
-$(cat /tmp/debug_diff_details.txt 2>/dev/null | head -2000 || echo "No detailed diffs available")
-EOF
+# Verify the file contains actual content
+echo "Verifying debug context file..."
+if grep -q '$(cat' ./tmp/debug_context.txt; then
+    echo "❌ ERROR: File still contains shell commands! Try the Python approach above."
+else
+    echo "✅ Debug context file ready with actual git data"
+fi
 ```
 
 ### Step 3: MANDATORY - Execute Gemini Analysis
@@ -138,7 +214,7 @@ You MUST now execute this command. Do not analyze further. Do not provide theori
 
 ```bash
 # YOU MUST RUN THIS COMMAND - Copy this ENTIRE command and execute it
-gemini -p "@ptycho/ @src/ @tests/ @docs/ @configs/ @logs/ @.github/ @scripts/ @benchmarks/ @examples/ @/tmp/debug_context.txt Debug this issue with FRESH EYES:
+gemini -p "@ptycho/ @src/ @tests/ @docs/ @configs/ @logs/ @.github/ @scripts/ @benchmarks/ @examples/ @./tmp/debug_context.txt Debug this issue with FRESH EYES:
 
 ## ISSUE SUMMARY
 **Symptoms:** [Detailed symptoms with specific errors, stack traces, or behaviors]
@@ -148,12 +224,15 @@ gemini -p "@ptycho/ @src/ @tests/ @docs/ @configs/ @logs/ @.github/ @scripts/ @b
 **Baseline Branch:** [If provided - where it last worked correctly]
 
 ## GIT CONTEXT
-The debug_context.txt file contains:
-- Recent commit history (last 10 commits)
-- Current git status (modified files)
+The debug_context.txt file MUST contain:
+- Recent commit history (actual commits, not `$(cat ...)` commands)
+- Current git status (actual file list)
+- **Baseline used for comparison** (branch/commit shown in file)
 - Diff statistics showing which files changed and by how much
 - Complete file change list
 - **Actual code diffs** showing exact line-by-line changes
+
+**⚠️ CRITICAL:** If Gemini receives shell commands instead of actual content, it cannot analyze your issue!
 
 Pay special attention to:
 - Recent commits that might have introduced the issue
@@ -350,34 +429,40 @@ You: "I see auth failures. Let me analyze..."
 
 ### Pattern 1: Baseline Comparison (You Execute All of This)
 ```bash
+# If user provided baseline via argument, use it
+# Otherwise use detected baseline (main/master/HEAD~5)
+BASELINE="${BASELINE_REF:-main}"
+
+# Ensure local tmp directory exists
+mkdir -p ./tmp
+
 # Get comprehensive diff from baseline
-git diff main..HEAD --stat > /tmp/baseline_stat.txt
-git diff main..HEAD --name-status | head -50 > /tmp/baseline_names.txt
-git diff main..HEAD -- ptycho/ src/ configs/ | head -500 > /tmp/baseline_diff.txt
+git diff "$BASELINE"..HEAD --stat > ./tmp/baseline_stat.txt
+git diff "$BASELINE"..HEAD --name-status | head -50 > ./tmp/baseline_names.txt
+git diff "$BASELINE"..HEAD -- ptycho/ src/ configs/ | head -500 > ./tmp/baseline_diff.txt
 
-# Create combined analysis file with ACTUAL DIFFS
-cat > /tmp/baseline_analysis.txt << EOF
-## BASELINE DIFF SUMMARY
-$(cat /tmp/baseline_stat.txt)
-
-## FILES CHANGED
-$(cat /tmp/baseline_names.txt)
-
-## DETAILED CODE CHANGES (ACTUAL DIFFS)
-$(cat /tmp/baseline_diff.txt)
-EOF
+# Create combined analysis file with ACTUAL DIFFS (use simple approach)
+echo "## BASELINE DIFF SUMMARY" > ./tmp/baseline_analysis.txt
+cat ./tmp/baseline_stat.txt >> ./tmp/baseline_analysis.txt
+echo -e "\n## FILES CHANGED" >> ./tmp/baseline_analysis.txt
+cat ./tmp/baseline_names.txt >> ./tmp/baseline_analysis.txt
+echo -e "\n## DETAILED CODE CHANGES (ACTUAL DIFFS)" >> ./tmp/baseline_analysis.txt
+cat ./tmp/baseline_diff.txt >> ./tmp/baseline_analysis.txt
 
 # MANDATORY: Execute Gemini analysis
-gemini -p "@ptycho/ @src/ @tests/ @configs/ @logs/ @/tmp/baseline_analysis.txt Analyze regression from baseline..."
+gemini -p "@ptycho/ @src/ @tests/ @configs/ @logs/ @./tmp/baseline_analysis.txt Analyze regression from baseline $BASELINE..."
 ```
 
 ### Pattern 2: Git Bisect Helper (You Execute All of This)
 ```bash
+# Ensure local tmp directory exists
+mkdir -p ./tmp
+
 # Get commit history between baseline and HEAD
-git log --oneline --graph <baseline>..HEAD > /tmp/bisect_commits.txt
+git log --oneline --graph <baseline>..HEAD > ./tmp/bisect_commits.txt
 
 # MANDATORY: Execute targeted analysis
-gemini -p "@ptycho/ @src/ @tests/ @/tmp/bisect_commits.txt Identify when bug was introduced..."
+gemini -p "@ptycho/ @src/ @tests/ @./tmp/bisect_commits.txt Identify when bug was introduced..."
 ```
 
 ---
@@ -402,13 +487,57 @@ Track your debugging effectiveness:
 
 ---
 
+## 🔧 **TROUBLESHOOTING**
+
+### Debug Context File Issues
+
+**Known Issue:** Heredocs with command substitution don't work in Claude Code's environment. The command would create a file containing `$(cat ./tmp/debug_git_log.txt)` instead of actual git commits.
+
+**Solution Implemented:** Step 2 now uses a simple sequential approach where each line is executed separately. This ensures the debug_context.txt file contains actual git data that Gemini can analyze.
+
+**Verification:** After creating debug_context.txt, the script verifies it doesn't contain shell commands. If verification fails, try the Python alternative (commented in Step 2).
+
+**Expected Content:**
+```
+## RECENT COMMITS
+abc123 2025-01-19 - fix bug [author]
+def456 2025-01-18 - add feature [author]
+```
+
+**NOT:**
+```
+## RECENT COMMITS
+$(cat ./tmp/debug_git_log.txt)
+```
+
+### Temporary Directory Cleanup
+
+The command creates a `./tmp/` directory in the current working directory. You may want to clean it up after debugging:
+```bash
+rm -rf ./tmp/
+```
+
+Or add to `.gitignore`:
+```
+tmp/
+```
+
+---
+
 ## 🚀 **Final Execution Reminder**
 
-When user runs `/debug-gemini`:
-1. Identify issue from context (or ask minimal questions)
-2. Run git analysis automatically
-3. **EXECUTE gemini -p command (NOT OPTIONAL)**
-4. Process GEMINI'S response (not your own analysis)
-5. Report GEMINI'S findings with action plan
+When user runs `/debug-gemini-v3 [baseline-ref]`:
+1. Parse baseline ref from arguments (if provided)
+2. Identify issue from context (or ask minimal questions)
+3. Run git analysis automatically with baseline
+4. **EXECUTE gemini -p command (NOT OPTIONAL)**
+5. Process GEMINI'S response (not your own analysis)
+6. Report GEMINI'S findings with action plan
+
+**Usage Examples:**
+- `/debug-gemini-v3` - Auto-detects baseline
+- `/debug-gemini-v3 main` - Compare against main branch
+- `/debug-gemini-v3 v1.2.3` - Compare against specific tag
+- `/debug-gemini-v3 abc123f` - Compare against specific commit
 
 **The command has NOT succeeded until you've executed `gemini -p` and reported Gemini's findings.**
