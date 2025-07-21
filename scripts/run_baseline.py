@@ -45,8 +45,18 @@ from ptycho.config.config import TrainingConfig, update_legacy_dict
 args = parse_arguments()
 config = setup_configuration(args, args.config)
 
+# CRITICAL FIX: Override model_type to 'supervised' for baseline training
+# This prevents the bug where baseline inherits model_type='pinn' from default config
+from dataclasses import replace
+config = replace(config, model=replace(config.model, model_type='supervised'))
+
 # For compatibility with legacy modules, update the global params dictionary.
 update_legacy_dict(p.cfg, config)
+
+# GUARDRAIL: Validate model_type is correct for baseline training
+assert config.model.model_type == 'supervised', f"Baseline script requires model_type='supervised', got '{config.model.model_type}'"
+logger.info(f"✅ Validated model_type = '{config.model.model_type}' for baseline training")
+
 p.cfg['label'] = f"baseline_gs{config.model.gridsize}" # Set a specific label for this run
 p.cfg['output_prefix'] = misc.get_path_prefix()
 out_prefix = p.get('output_prefix')
