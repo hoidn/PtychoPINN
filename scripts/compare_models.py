@@ -546,44 +546,114 @@ def main():
     logger.info(f"Loading test data from {args.test_data}...")
     test_data_raw = load_data(str(args.test_data))
     
-    # Create a minimal config for data container creation
-    # The actual model parameters will come from the saved models
-    dummy_config = TrainingConfig(
-        model=ModelConfig(N=test_data_raw.probeGuess.shape[0]),
-        train_data_file=Path("dummy.npz"),
-        n_images=test_data_raw.diff3d.shape[0]
-    )
-    update_legacy_dict(p.cfg, dummy_config)
+    # Load models first to detect required configuration
+    pinn_model = load_pinn_model(args.pinn_dir)
+    baseline_model = load_baseline_model(args.baseline_dir)
     
-    # Create data container
-    test_container = create_ptycho_data_container(test_data_raw, dummy_config)
+    # Auto-detect required gridsize for each model independently
+    baseline_input_shape = baseline_model.input_shape
+    baseline_expected_channels = baseline_input_shape[-1]
+    
+    pinn_input_shape = pinn_model.input[0].shape  # First input is diffraction data
+    pinn_expected_channels = pinn_input_shape[-1]
+    
+    # Determine gridsize for each model
+    def channels_to_gridsize(channels):
+        if channels == 1:
+            return 1
+        elif channels == 4:
+            return 2
+        else:
+            raise ValueError(f"Unexpected model input channels: {channels}. Expected 1 (gridsize=1) or 4 (gridsize=2)")
+    
+    pinn_gridsize = channels_to_gridsize(pinn_expected_channels)
+    baseline_gridsize = channels_to_gridsize(baseline_expected_channels)
+    
+    logger.info(f"Detected model requirements:")
+    logger.info(f"  - PINN model: gridsize={pinn_gridsize} (input shape: {pinn_input_shape})")
+    logger.info(f"  - Baseline model: gridsize={baseline_gridsize} (input shape: {baseline_input_shape})")
+    
+    # Create separate data containers for each model if needed
+    if pinn_gridsize == baseline_gridsize:
+        logger.info(f"Both models use gridsize={pinn_gridsize}, creating single data container")
+        config = TrainingConfig(
+            model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=pinn_gridsize),
+            train_data_file=Path("dummy.npz"),
+            n_images=test_data_raw.diff3d.shape[0]
+        )
+        update_legacy_dict(p.cfg, config)
+        test_container_pinn = create_ptycho_data_container(test_data_raw, config)
+        test_container_baseline = test_container_pinn
+        logger.info(f"Shared data container shape: {test_container_pinn.X.shape}")
+    else:
+        logger.info(f"Mixed gridsize models detected, creating separate data containers")
+        
+        # Create PINN data container
+        logger.info(f"Creating PINN data container with gridsize={pinn_gridsize}...")
+        pinn_config = TrainingConfig(
+            model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=pinn_gridsize),
+            train_data_file=Path("dummy_pinn.npz"),
+            n_images=test_data_raw.diff3d.shape[0]
+        )
+        update_legacy_dict(p.cfg, pinn_config)
+        test_container_pinn = create_ptycho_data_container(test_data_raw, pinn_config)
+        
+        # Create baseline data container
+        logger.info(f"Creating baseline data container with gridsize={baseline_gridsize}...")
+        baseline_config = TrainingConfig(
+            model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=baseline_gridsize),
+            train_data_file=Path("dummy_baseline.npz"),
+            n_images=test_data_raw.diff3d.shape[0]
+        )
+        update_legacy_dict(p.cfg, baseline_config)
+        test_container_baseline = create_ptycho_data_container(test_data_raw, baseline_config)
+        
+        logger.info(f"PINN data container shape: {test_container_pinn.X.shape}")
+        logger.info(f"Baseline data container shape: {test_container_baseline.X.shape}")
+    
+    # Validate compatibility
+    if test_container_pinn.X.shape[-1] != pinn_expected_channels:
+        raise ValueError(f"PINN data container produces {test_container_pinn.X.shape[-1]} channels but model expects {pinn_expected_channels}")
+    
+    if test_container_baseline.X.shape[-1] != baseline_expected_channels:
+        raise ValueError(f"Baseline data container produces {test_container_baseline.X.shape[-1]} channels but model expects {baseline_expected_channels}")
+    
+    logger.info(f"✅ Mixed gridsize configuration validated successfully")
     
     # Extract ground truth if available
     ground_truth_obj = test_data_raw.objectGuess[None, ..., None] if test_data_raw.objectGuess is not None else None
-
-    # Load models
-    pinn_model = load_pinn_model(args.pinn_dir)
-    baseline_model = load_baseline_model(args.baseline_dir)
 
 
     # Run inference for PtychoPINN
     logger.info("Running inference with PtychoPINN...")
     # PtychoPINN model requires both diffraction patterns and position coordinates
     # Scale the input data by intensity_scale to match training normalization
+    
+    # Ensure global gridsize parameter matches PINN model training configuration
+    # This is critical for mixed gridsize comparisons where PINN uses gridsize=2 and baseline uses gridsize=1
+    current_global_gridsize = p.get('gridsize')
+    if current_global_gridsize != pinn_gridsize:
+        logger.info(f"Updating global gridsize parameter from {current_global_gridsize} to {pinn_gridsize} to match PINN model")
+        p.cfg.update({'gridsize': pinn_gridsize})
+    
+    # Run PINN model inference
+    diffraction_input = test_container_pinn.X * p.get('intensity_scale')
+    coords_input = test_container_pinn.coords_nominal
+    
     pinn_patches = pinn_model.predict(
-        [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
+        [diffraction_input, coords_input],
         batch_size=32,
         verbose=1
     )
     
     # Reassemble patches
     logger.info("Reassembling PtychoPINN patches...")
-    pinn_recon = reassemble_position(pinn_patches, test_container.global_offsets, M=20)
+    pinn_recon = reassemble_position(pinn_patches, test_container_pinn.global_offsets, M=20)
 
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")
     # Baseline model outputs amplitude and phase separately
-    baseline_output = baseline_model.predict(test_container.X, batch_size=32, verbose=1)
+    baseline_output = baseline_model.predict(test_container_baseline.X, batch_size=32, verbose=1)
     
     # Handle different output formats
     if isinstance(baseline_output, list) and len(baseline_output) == 2:
@@ -598,7 +668,7 @@ def main():
     
     # Reassemble patches
     logger.info("Reassembling baseline patches...")
-    baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=20)
+    baseline_recon = reassemble_position(baseline_patches_complex, test_container_baseline.global_offsets, M=20)
 
     # Save NPZ files of reconstructions (before any alignment/registration) if requested
     if args.save_npz:
@@ -631,7 +701,8 @@ def main():
         M_STITCH_SIZE = 20
 
         # 2. Extract scan coordinates in (y, x) format
-        global_offsets = test_container.global_offsets
+        # Use PINN container coordinates as reference for alignment
+        global_offsets = test_container_pinn.global_offsets
         scan_coords_xy = np.squeeze(global_offsets)
         scan_coords_yx = scan_coords_xy[:, [1, 0]]
 
