@@ -1,13 +1,19 @@
-# Command: /debug-gemini-v3
+# Command: /debug-gemini-v3 [baseline-ref]
 
 **Goal:** Get comprehensive debugging help from Gemini with fresh perspective, especially when you might have tunnel vision about the root cause.
+
+**Usage:** 
+- `/debug-gemini-v3` - Analyzes issue, asks for baseline if needed
+- `/debug-gemini-v3 main` - Uses 'main' branch as baseline
+- `/debug-gemini-v3 abc123f` - Uses specific commit as baseline
+- `/debug-gemini-v3 v1.2.3` - Uses tag as baseline
 
 ---
 
 ## 🔴 **CRITICAL: MANDATORY EXECUTION FLOW**
 
 **THIS IS THE CORE PURPOSE OF THIS COMMAND:**
-1. You MUST run git analysis
+1. You MUST run git analysis (with baseline from args if provided)
 2. You MUST execute `gemini -p` 
 3. You MUST wait for and process Gemini's response
 4. You MUST report Gemini's findings to the user
@@ -81,12 +87,29 @@ Determine from the conversation/context:
 - What's the bug/issue
 - What's been tried already
 - Your current working theory
-- Whether there's a baseline branch where it worked
+- Check if baseline was provided via arguments
+
+**Parse baseline from arguments:**
+```bash
+# $ARGUMENTS contains whatever user typed after /debug-gemini-v3
+BASELINE_REF="$ARGUMENTS"
+if [ -n "$BASELINE_REF" ]; then
+    # User provided a baseline ref
+    if git rev-parse --verify "$BASELINE_REF" >/dev/null 2>&1; then
+        echo "Using provided baseline: $BASELINE_REF"
+    else
+        echo "Warning: '$BASELINE_REF' is not a valid git ref, will auto-detect baseline"
+        BASELINE_REF=""
+    fi
+else
+    echo "No baseline provided, will auto-detect from main/master/HEAD~5"
+fi
+```
 
 **Only ask the user if:**
 - The issue is unclear from context
-- You need a baseline branch name
-- Critical details are missing
+- No baseline provided and auto-detection fails
+- Provided baseline is invalid and you need a valid one
 
 ### Step 2: Run Debug Analysis (You Execute This)
 
@@ -99,17 +122,25 @@ git log -n 10 --pretty=format:"%h %ad - %s [%an]" --date=short > /tmp/debug_git_
 # Get current status
 git status --porcelain > /tmp/debug_git_status.txt
 
-# If baseline branch provided, get the diff
-if [ -n "<baseline-branch>" ]; then
-    git diff <baseline-branch>..HEAD --stat > /tmp/debug_diff_stat.txt
-    git diff <baseline-branch>..HEAD --name-status > /tmp/debug_diff_names.txt
-    git diff <baseline-branch>..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
+# Use baseline ref from arguments or determine automatically
+if [ -n "$BASELINE_REF" ]; then
+    # User provided baseline
+    BASELINE="$BASELINE_REF"
+elif git rev-parse --verify main >/dev/null 2>&1; then
+    # Default to main if it exists
+    BASELINE="main"
+elif git rev-parse --verify master >/dev/null 2>&1; then
+    # Fall back to master
+    BASELINE="master"
 else
-    # No baseline - use HEAD~5 as a reasonable default
-    git diff HEAD~5..HEAD --stat > /tmp/debug_diff_stat.txt
-    git diff HEAD~5..HEAD --name-status > /tmp/debug_diff_names.txt
-    git diff HEAD~5..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
+    # Use HEAD~5 as last resort
+    BASELINE="HEAD~5"
 fi
+
+# Get diffs from baseline
+git diff "$BASELINE"..HEAD --stat > /tmp/debug_diff_stat.txt
+git diff "$BASELINE"..HEAD --name-status > /tmp/debug_diff_names.txt
+git diff "$BASELINE"..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > /tmp/debug_diff_details.txt
 
 # Combine all debug info into one file
 cat > /tmp/debug_context.txt << EOF
@@ -119,7 +150,8 @@ $(cat /tmp/debug_git_log.txt)
 ## CURRENT GIT STATUS
 $(cat /tmp/debug_git_status.txt)
 
-## DIFF STATISTICS (from baseline or last 5 commits)
+## BASELINE USED: $BASELINE
+## DIFF STATISTICS (from $BASELINE to HEAD)
 $(cat /tmp/debug_diff_stat.txt 2>/dev/null || echo "No baseline diff available")
 
 ## FILES CHANGED
@@ -151,6 +183,7 @@ gemini -p "@ptycho/ @src/ @tests/ @docs/ @configs/ @logs/ @.github/ @scripts/ @b
 The debug_context.txt file contains:
 - Recent commit history (last 10 commits)
 - Current git status (modified files)
+- **Baseline used for comparison** (branch/commit shown in file)
 - Diff statistics showing which files changed and by how much
 - Complete file change list
 - **Actual code diffs** showing exact line-by-line changes
@@ -350,10 +383,14 @@ You: "I see auth failures. Let me analyze..."
 
 ### Pattern 1: Baseline Comparison (You Execute All of This)
 ```bash
+# If user provided baseline via argument, use it
+# Otherwise use detected baseline (main/master/HEAD~5)
+BASELINE="${BASELINE_REF:-main}"
+
 # Get comprehensive diff from baseline
-git diff main..HEAD --stat > /tmp/baseline_stat.txt
-git diff main..HEAD --name-status | head -50 > /tmp/baseline_names.txt
-git diff main..HEAD -- ptycho/ src/ configs/ | head -500 > /tmp/baseline_diff.txt
+git diff "$BASELINE"..HEAD --stat > /tmp/baseline_stat.txt
+git diff "$BASELINE"..HEAD --name-status | head -50 > /tmp/baseline_names.txt
+git diff "$BASELINE"..HEAD -- ptycho/ src/ configs/ | head -500 > /tmp/baseline_diff.txt
 
 # Create combined analysis file with ACTUAL DIFFS
 cat > /tmp/baseline_analysis.txt << EOF
@@ -368,7 +405,7 @@ $(cat /tmp/baseline_diff.txt)
 EOF
 
 # MANDATORY: Execute Gemini analysis
-gemini -p "@ptycho/ @src/ @tests/ @configs/ @logs/ @/tmp/baseline_analysis.txt Analyze regression from baseline..."
+gemini -p "@ptycho/ @src/ @tests/ @configs/ @logs/ @/tmp/baseline_analysis.txt Analyze regression from baseline $BASELINE..."
 ```
 
 ### Pattern 2: Git Bisect Helper (You Execute All of This)
@@ -404,11 +441,18 @@ Track your debugging effectiveness:
 
 ## 🚀 **Final Execution Reminder**
 
-When user runs `/debug-gemini`:
-1. Identify issue from context (or ask minimal questions)
-2. Run git analysis automatically
-3. **EXECUTE gemini -p command (NOT OPTIONAL)**
-4. Process GEMINI'S response (not your own analysis)
-5. Report GEMINI'S findings with action plan
+When user runs `/debug-gemini-v3 [baseline-ref]`:
+1. Parse baseline ref from arguments (if provided)
+2. Identify issue from context (or ask minimal questions)
+3. Run git analysis automatically with baseline
+4. **EXECUTE gemini -p command (NOT OPTIONAL)**
+5. Process GEMINI'S response (not your own analysis)
+6. Report GEMINI'S findings with action plan
+
+**Usage Examples:**
+- `/debug-gemini-v3` - Auto-detects baseline
+- `/debug-gemini-v3 main` - Compare against main branch
+- `/debug-gemini-v3 v1.2.3` - Compare against specific tag
+- `/debug-gemini-v3 abc123f` - Compare against specific commit
 
 **The command has NOT succeeded until you've executed `gemini -p` and reported Gemini's findings.**
