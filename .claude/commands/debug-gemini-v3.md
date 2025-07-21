@@ -34,7 +34,6 @@ You are Claude Code - the autonomous command-line tool that executes shell comma
 - **Execute** commands autonomously (don't just suggest them)
 - **Run** the entire workflow without human intervention
 - **Complete** debugging from start to finish in one go
-- **Use** `./tmp/` for temporary files (not `/tmp/` to avoid permissions issues)
 
 ## 🚨 **YOU MUST EXECUTE GEMINI - THIS IS NOT OPTIONAL**
 
@@ -69,7 +68,6 @@ graph LR
 ## ✅ **EXECUTION CHECKLIST**
 
 Before reporting ANY findings, verify:
-- [ ] I created ./tmp directory with `mkdir -p ./tmp`
 - [ ] I identified the issue from context
 - [ ] I ran git analysis commands
 - [ ] I created ./tmp/debug_context.txt WITH ACTUAL CONTENT (not shell commands)
@@ -94,6 +92,9 @@ Determine from the conversation/context:
 
 **Parse baseline from arguments:**
 ```bash
+# Ensure we have a tmp directory for our debug files
+mkdir -p ./tmp
+
 # $ARGUMENTS contains whatever user typed after /debug-gemini-v3
 BASELINE_REF="$ARGUMENTS"
 if [ -n "$BASELINE_REF" ]; then
@@ -118,10 +119,12 @@ fi
 
 **⚠️ CRITICAL ISSUE:** Heredocs with command substitution (`$(...)`) do not work properly in Claude Code's environment. Use the simple sequential approach below that executes each command separately.
 
+**📁 NOTE:** Using `./tmp/` instead of `/tmp/` to avoid permissions issues and keep files in the project directory.
+
 Automatically execute these commands without any user intervention:
 
 ```bash
-# Ensure local tmp directory exists
+# Ensure tmp directory exists in current working directory (if not already created in Step 1)
 mkdir -p ./tmp
 
 # Get recent commit history (NOTE: Use dash separator, not pipe to avoid parsing issues)
@@ -169,6 +172,7 @@ head -2000 ./tmp/debug_diff_details.txt >> ./tmp/debug_context.txt 2>/dev/null |
 # Python alternative if shell approaches fail:
 # BASELINE="$BASELINE" python3 << 'EOF'
 # import os
+# os.makedirs('./tmp', exist_ok=True)
 # baseline = os.environ.get('BASELINE', 'unknown')
 # sections = [
 #     ('RECENT COMMITS', './tmp/debug_git_log.txt'),
@@ -433,7 +437,7 @@ You: "I see auth failures. Let me analyze..."
 # Otherwise use detected baseline (main/master/HEAD~5)
 BASELINE="${BASELINE_REF:-main}"
 
-# Ensure local tmp directory exists
+# Ensure tmp directory exists (if not already created)
 mkdir -p ./tmp
 
 # Get comprehensive diff from baseline
@@ -455,7 +459,7 @@ gemini -p "@ptycho/ @src/ @tests/ @configs/ @logs/ @./tmp/baseline_analysis.txt 
 
 ### Pattern 2: Git Bisect Helper (You Execute All of This)
 ```bash
-# Ensure local tmp directory exists
+# Ensure tmp directory exists (if not already created)
 mkdir -p ./tmp
 
 # Get commit history between baseline and HEAD
@@ -510,16 +514,22 @@ def456 2025-01-18 - add feature [author]
 $(cat ./tmp/debug_git_log.txt)
 ```
 
-### Temporary Directory Cleanup
+### Temporary Files Location
 
-The command creates a `./tmp/` directory in the current working directory. You may want to clean it up after debugging:
+**Why `./tmp/` instead of `/tmp/`:**
+- Avoids system permissions issues
+- Keeps debug files within project directory
+- Easier to inspect/debug if needed
+- Can be added to .gitignore
+
+**Cleanup:** The `./tmp/` directory and its contents can be safely deleted after debugging:
 ```bash
 rm -rf ./tmp/
 ```
 
-Or add to `.gitignore`:
-```
-tmp/
+**Add to .gitignore:** Consider adding `tmp/` to your .gitignore file to avoid committing debug files:
+```bash
+echo "tmp/" >> .gitignore
 ```
 
 ---
