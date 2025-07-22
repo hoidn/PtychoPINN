@@ -123,7 +123,16 @@ def main():
     parser.add_argument("output_npz", help="Path to save the downsampled .npz file.")
     parser.add_argument("--crop-factor", type=int, required=True, help="Factor to crop diffraction patterns (e.g., 2 for 1/4 area).")
     parser.add_argument("--bin-factor", type=int, required=True, help="Factor to bin real-space arrays (e.g., 2 for 2x2 blocks).")
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     args = parser.parse_args()
+    
+    # Set up enhanced centralized logging
+    output_dir = Path(args.output_npz).parent
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(output_dir / "logs", **logging_config)
 
     try:
         downsample_npz(args.input_npz, args.output_npz, args.crop_factor, args.bin_factor)

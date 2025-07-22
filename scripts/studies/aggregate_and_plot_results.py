@@ -77,11 +77,20 @@ Data Requirements:
 import argparse
 import glob
 import logging
+import os
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+# Add project root to Python path for enhanced logging imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+    
+from ptycho.cli_args import add_logging_arguments, get_logging_config
+from ptycho.log_config import setup_logging
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -1085,12 +1094,12 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('--title', type=str,
                        help='Custom plot title (default: auto-generated)')
     
-    parser.add_argument('--verbose', action='store_true',
-                       help='Enable verbose logging')
-    
     parser.add_argument('--ms-ssim-phase-threshold', type=float, default=0.3,
                        help='Exclude trials where the MS-SSIM (phase) is below this value. '
                             'Set to 0 to disable filtering. Default: 0.3')
+    
+    # Add logging arguments (replaces the standalone --verbose)
+    add_logging_arguments(parser)
     
     return parser.parse_args()
 
@@ -1098,7 +1107,12 @@ def parse_arguments() -> argparse.Namespace:
 def main():
     """Main entry point."""
     args = parse_arguments()
-    setup_logging(args.verbose)
+    
+    # Set up enhanced centralized logging
+    output_dir = args.output.parent if args.output else Path('.')
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(output_dir / "logs", **logging_config)
+    
     logger = logging.getLogger(__name__)
     
     try:

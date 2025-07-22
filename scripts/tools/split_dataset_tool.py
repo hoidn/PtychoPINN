@@ -12,6 +12,14 @@ import sys
 from pathlib import Path
 import numpy as np
 
+# Add project root to Python path for enhanced logging imports
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from ptycho.cli_args import add_logging_arguments, get_logging_config
+from ptycho.log_config import setup_logging
+
 def split_dataset(
     input_path: Path,
     output_dir: Path,
@@ -104,7 +112,15 @@ def main():
                         help="Fraction of the data to use for the training set (e.g., 0.8 for an 80/20 split).")
     parser.add_argument("--split-axis", choices=['x', 'y'], default='y',
                         help="The spatial axis along which to perform the split ('y' for top/bottom, 'x' for left/right).")
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     args = parser.parse_args()
+    
+    # Set up enhanced centralized logging
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(args.output_dir / "logs", **logging_config)
 
     try:
         split_dataset(args.input_npz, args.output_dir, args.split_fraction, args.split_axis)

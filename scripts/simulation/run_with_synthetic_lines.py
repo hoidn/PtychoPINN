@@ -41,6 +41,8 @@ if project_root not in sys.path:
 from ptycho import params as p
 from ptycho.diffsim import sim_object_image
 from ptycho.probe import get_default_probe
+from ptycho.cli_args import add_logging_arguments, get_logging_config
+from ptycho.log_config import setup_logging
 
 def generate_and_save_synthetic_input(
     output_dir: Path,
@@ -150,11 +152,18 @@ def main():
         help="The size (N) of the synthetic square probe to generate. The object will be scaled accordingly."
     )
     
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     # This will parse the known arguments and leave the rest in `extra_args`
     args, extra_args = parser.parse_known_args()
     
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Set up enhanced centralized logging
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(output_dir / "logs", **logging_config)
 
     try:
         # Step 1: Generate and save the synthetic object and probe

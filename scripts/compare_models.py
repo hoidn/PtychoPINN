@@ -27,6 +27,8 @@ from ptycho.tf_helper import reassemble_position
 from ptycho.evaluation import eval_reconstruction
 from ptycho.image.cropping import align_for_evaluation
 from ptycho.image.registration import find_translation_offset, apply_shift_and_crop, register_and_align
+from ptycho.cli_args import add_logging_arguments, get_logging_config
+from ptycho.log_config import setup_logging
 
 # NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
 
@@ -72,6 +74,10 @@ def parse_args():
                         help="Save debug images for MS-SSIM and FRC preprocessing visualization.")
     parser.add_argument("--ms-ssim-sigma", type=float, default=1.0,
                         help="Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0).")
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     return parser.parse_args()
 
 
@@ -530,6 +536,10 @@ def main():
     """
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Set up enhanced centralized logging
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(Path(args.output_dir) / "logs", **logging_config)
 
     # Handle NPZ flag combinations
     if args.no_save_npz:
@@ -546,44 +556,86 @@ def main():
     logger.info(f"Loading test data from {args.test_data}...")
     test_data_raw = load_data(str(args.test_data))
     
-    # Create a minimal config for data container creation
-    # The actual model parameters will come from the saved models
-    dummy_config = TrainingConfig(
-        model=ModelConfig(N=test_data_raw.probeGuess.shape[0]),
+    # Load models first to inspect their requirements
+    pinn_model = load_pinn_model(args.pinn_dir)
+    baseline_model = load_baseline_model(args.baseline_dir)
+    
+    # Determine gridsize requirements for each model
+    baseline_channels = baseline_model.input_shape[-1]
+    baseline_gridsize = int(baseline_channels ** 0.5)  # gridsize^2 = channels
+    
+    # For PINN model, check if it has dual inputs (diffraction + positions)
+    if isinstance(pinn_model.input_shape, list):
+        pinn_channels = pinn_model.input_shape[0][-1]  # First input is diffraction
+    else:
+        pinn_channels = pinn_model.input_shape[-1]
+    pinn_gridsize = int(pinn_channels ** 0.5)
+    
+    logger.info(f"Baseline model expects {baseline_channels} channels (gridsize={baseline_gridsize})")
+    logger.info(f"PINN model expects {pinn_channels} channels (gridsize={pinn_gridsize})")
+    
+    # Create separate data containers for each model based on their native gridsize
+    # This ensures each model gets data in the format it expects
+    
+    # Create container for PINN model
+    pinn_config = TrainingConfig(
+        model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=pinn_gridsize),
         train_data_file=Path("dummy.npz"),
         n_images=test_data_raw.diff3d.shape[0]
     )
-    update_legacy_dict(p.cfg, dummy_config)
+    update_legacy_dict(p.cfg, pinn_config)
+    pinn_container = create_ptycho_data_container(test_data_raw, pinn_config)
+    logger.info(f"Created PINN container with shape: {pinn_container.X.shape}")
     
-    # Create data container
-    test_container = create_ptycho_data_container(test_data_raw, dummy_config)
+    # Create container for baseline model  
+    baseline_config = TrainingConfig(
+        model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=baseline_gridsize),
+        train_data_file=Path("dummy.npz"),
+        n_images=test_data_raw.diff3d.shape[0]
+    )
+    update_legacy_dict(p.cfg, baseline_config)
+    baseline_container = create_ptycho_data_container(test_data_raw, baseline_config)
+    logger.info(f"Created baseline container with shape: {baseline_container.X.shape}")
+    
+    # GEMINI'S DIAGNOSTIC: Log channel semantics info (images already saved)
+    if baseline_container.X.shape[-1] == 4:
+        logger.info("GEMINI DIAGNOSTIC: Baseline model using 4-channel data (gridsize=2 neighboring patches)")
+    
+    if pinn_container.X.shape[-1] == 4:
+        logger.info("GEMINI DIAGNOSTIC: PINN model using 4-channel data (gridsize=2 neighboring patches)")
+    elif pinn_container.X.shape[-1] == 1:
+        logger.info("GEMINI DIAGNOSTIC: PINN model using 1-channel data (gridsize=1 single patches)")
+    
+    # Use the PINN container for ground truth extraction (since both should be equivalent)
+    test_container = pinn_container
     
     # Extract ground truth if available
     ground_truth_obj = test_data_raw.objectGuess[None, ..., None] if test_data_raw.objectGuess is not None else None
 
-    # Load models
-    pinn_model = load_pinn_model(args.pinn_dir)
-    baseline_model = load_baseline_model(args.baseline_dir)
 
-
-    # Run inference for PtychoPINN
+    # Run inference for PtychoPINN using its native container
     logger.info("Running inference with PtychoPINN...")
-    # PtychoPINN model requires both diffraction patterns and position coordinates
-    # Scale the input data by intensity_scale to match training normalization
+    logger.info(f"PINN input shape: {pinn_container.X.shape} -> model expects: {pinn_model.input_shape}")
+    
+    # Use PINN's native container - no shape adaptation needed
     pinn_patches = pinn_model.predict(
-        [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
+        [pinn_container.X * p.get('intensity_scale'), pinn_container.coords_nominal],
         batch_size=32,
         verbose=1
     )
+    logger.info("PtychoPINN inference completed successfully!")
     
-    # Reassemble patches
+    # Reassemble patches using PINN container's offsets
     logger.info("Reassembling PtychoPINN patches...")
-    pinn_recon = reassemble_position(pinn_patches, test_container.global_offsets, M=20)
+    pinn_recon = reassemble_position(pinn_patches, pinn_container.global_offsets, M=20)
 
-    # Run inference for Baseline
+    # Run inference for Baseline using its native container
     logger.info("Running inference with Baseline model...")
-    # Baseline model outputs amplitude and phase separately
-    baseline_output = baseline_model.predict(test_container.X, batch_size=32, verbose=1)
+    logger.info(f"Baseline input shape: {baseline_container.X.shape} -> model expects: {baseline_model.input_shape}")
+    
+    # Use baseline's native container - no shape adaptation needed
+    baseline_output = baseline_model.predict(baseline_container.X, batch_size=32, verbose=1)
+    logger.info("Baseline inference completed successfully!")
     
     # Handle different output formats
     if isinstance(baseline_output, list) and len(baseline_output) == 2:
@@ -596,9 +648,9 @@ def main():
     baseline_patches_complex = tf.cast(baseline_patches_I, tf.complex64) * \
                                tf.exp(1j * tf.cast(baseline_patches_phi, tf.complex64))
     
-    # Reassemble patches
+    # Reassemble patches using baseline container's offsets
     logger.info("Reassembling baseline patches...")
-    baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=20)
+    baseline_recon = reassemble_position(baseline_patches_complex, baseline_container.global_offsets, M=20)
 
     # Save NPZ files of reconstructions (before any alignment/registration) if requested
     if args.save_npz:

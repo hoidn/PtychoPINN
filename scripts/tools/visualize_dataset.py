@@ -14,6 +14,7 @@ It intelligently checks for diffraction data under the keys 'diff3d' or 'diffrac
 import argparse
 import os
 import sys
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -21,6 +22,10 @@ import matplotlib.pyplot as plt
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+# Import enhanced logging components
+from ptycho.cli_args import add_logging_arguments, get_logging_config
+from ptycho.log_config import setup_logging
 
 def visualize_full_dataset(npz_path: str, output_path: str, seed: int = None):
     """Loads and creates a comprehensive visualization of an NPZ dataset."""
@@ -138,7 +143,16 @@ def main():
     parser.add_argument("input_npz", help="Path to the source .npz file.")
     parser.add_argument("output_png", help="Path to save the output visualization PNG file.")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for selecting patterns, for reproducibility.")
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     args = parser.parse_args()
+    
+    # Set up enhanced centralized logging
+    output_dir = Path(args.output_png).parent
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(output_dir / "logs", **logging_config)
 
     try:
         visualize_full_dataset(args.input_npz, args.output_png, args.seed)

@@ -28,6 +28,8 @@ if project_root not in sys.path:
 from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
+from ptycho.cli_args import add_logging_arguments, get_logging_config
+from ptycho.log_config import setup_logging
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import cKDTree
@@ -251,11 +253,20 @@ def parse_arguments() -> argparse.Namespace:
         "--visualize", action="store_true",
         help="If set, generate a PNG visualization of the simulation inputs and outputs."
     )
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     return parser.parse_args()
 
 def main():
     """Main function to handle command-line execution."""
     args = parse_arguments()
+    
+    # Set up enhanced centralized logging
+    output_dir = Path(args.output_file).parent
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(output_dir / "logs", **logging_config)
     
     # Load data once at the beginning
     object_guess, probe_guess, original_data_dict = load_data_for_sim(args.input_file, load_all=True)

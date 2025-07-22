@@ -174,8 +174,16 @@ def main():
     parser.add_argument("--sigma", type=float, default=1.0, help="Sigma for Gaussian filter (for --smooth).")
     parser.add_argument("--zoom-factor", type=float, default=2.0, help="Zoom factor for interpolation (for --interpolate).")
     parser.add_argument("--apodize-phase", action="store_true", help="Also unwrap and apodize phase (for --apodize).")
-
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     args = parser.parse_args()
+    
+    # Set up enhanced centralized logging
+    output_dir = Path(args.output_npz).parent
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(output_dir / "logs", **logging_config)
 
     data_dict, probe_key, object_key = load_and_identify_arrays(args.input_npz)
     
