@@ -131,21 +131,28 @@ python scripts/compare_models.py \
 ## Studies
 
 ```bash
-# Generalization study with multiple training sizes
+# Synthetic data generalization study (auto-generates datasets)
 ./scripts/studies/run_complete_generalization_study.sh \
-    --train-data dataset.npz \
-    --test-data dataset.npz \
-    --output-dir study_results \
-    --train-sizes "512 1024 2048" \
-    --test-size 512
+    --train-sizes "512 1024 2048 4096" \
+    --num-trials 3 \
+    --output-dir synthetic_study
 
-# Multi-trial study for statistical robustness
+# Experimental data generalization study (uses existing datasets)
 ./scripts/studies/run_complete_generalization_study.sh \
-    --train-data dataset.npz \
-    --test-data dataset.npz \
-    --output-dir multi_trial_study \
-    --train-sizes "512 1024" \
-    --num-trials 3
+    --train-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir experimental_study
+
+# Spatial bias analysis study (specialized dataset)
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly64_top_half_shuffled.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024 2048" \
+    --output-dir spatial_bias_study
 
 # Plot results from a completed study
 python scripts/studies/aggregate_and_plot_results.py study_results --output plots/

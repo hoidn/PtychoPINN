@@ -28,9 +28,37 @@ This directory contains tools for conducting comprehensive model generalization 
     --output-dir my_study
 ```
 
+### Experimental Dataset Workflows
+```bash
+# Study with experimental fly64 dataset (properly preprocessed)
+./run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024" \
+    --output-dir fly64_study
+
+# Study with specialized datasets (e.g., spatial bias analysis)
+./run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly64_top_half_shuffled.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024 2048" \
+    --output-dir spatial_bias_study
+
+# Multi-trial experimental study for robust statistics
+./run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir experimental_robust_study
+```
+
 ### Partial Workflows
 ```bash
-# Skip dataset preparation (use existing data)
+# Skip dataset preparation (use existing synthetic data)
 ./run_complete_generalization_study.sh \
     --skip-data-prep \
     --test-data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz
@@ -225,7 +253,9 @@ python aggregate_and_plot_results.py existing_results/ \
 | Issue | Solution |
 |-------|----------|
 | **GPU out of memory** | `--parallel-jobs 1` or reduce training sizes |
-| **Dataset not found** | Run `bash ../../prepare.sh` first |
+| **Dataset not found** | Run `bash ../../prepare.sh` first or use `--skip-data-prep` with `--train-data` |
+| **Experimental dataset errors** | Use `transpose_rename_convert_tool.py` to preprocess raw datasets |
+| **"Must specify --train-data when using --skip-data-prep"** | Add `--train-data path/to/dataset.npz` when skipping data preparation |
 | **Training fails** | Check individual logs in `train_SIZE/*/training.log` |
 | **Missing comparison files** | Re-run comparison manually with `../compare_models.py` |
 | **Plot generation fails** | Verify all `comparison_metrics.csv` files exist |
