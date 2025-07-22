@@ -38,9 +38,10 @@ import matplotlib.pyplot as plt
 from ptycho import probe, params
 from ptycho.model_manager import ModelManager
 from ptycho.raw_data import RawData
-from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
+from ptycho.workflows.components import load_data, setup_configuration
 from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
 from ptycho.log_config import setup_logging
+from ptycho.cli_args import add_logging_arguments, get_logging_config
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,10 @@ def parse_arguments() -> argparse.Namespace:
                        help="Minimum value for phase color scale (default: auto)")
     parser.add_argument("--phase_vmax", type=float, required=False, default=None,
                        help="Maximum value for phase color scale (default: auto)")
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     return parser.parse_args()
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
@@ -464,8 +469,9 @@ def main():
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
         
-        # Set up centralized logging
-        setup_logging(config.output_dir)
+        # Set up enhanced centralized logging
+        logging_config = get_logging_config(args)
+        setup_logging(config.output_dir, **logging_config)
         
         print("Starting ptychography inference script...")
         

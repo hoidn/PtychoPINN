@@ -92,11 +92,37 @@ The training script generates the following outputs in the specified `--output_d
 - **Training results**: Including reconstructed amplitude, phase, and metrics
 - **Console output**: Real-time training progress (INFO level)
 
-## Logging
+## Enhanced Logging
 
-The script uses the centralized logging system:
-- **File logging**: All messages (DEBUG level and above) are written to `<output_dir>/logs/debug.log`
-- **Console logging**: INFO level messages are displayed in real-time for monitoring training progress
+The script uses an advanced centralized logging system with comprehensive output capture:
+
+**Key Features:**
+- **Complete Output Capture**: ALL stdout (including print statements from any module) is captured to log files
+- **Tee-style Logging**: Simultaneous console and file output with flexible control  
+- **Command-line Options**: Control console verbosity without affecting file logging
+
+**File Logging**: The `<output_dir>/logs/debug.log` file contains:
+- All logging messages (DEBUG level and above)
+- All print() statements from any imported module
+- Model architecture summaries and data shape information
+- Complete execution record
+
+**Console Control Options**:
+```bash
+# Default: INFO level console output + complete file logging
+ptycho_train --train_data dataset.npz --output_dir my_run
+
+# Quiet mode: suppress console logging (automation-friendly)
+ptycho_train --train_data dataset.npz --output_dir my_run --quiet
+
+# Verbose mode: DEBUG level console output + complete file logging  
+ptycho_train --train_data dataset.npz --output_dir my_run --verbose
+
+# Custom console log level
+ptycho_train --train_data dataset.npz --output_dir my_run --console-level WARNING
+```
+
+**Important**: These flags only affect console output. All messages are ALWAYS captured in the log file regardless of console settings.
 
 This centralized approach ensures logs are organized within each training run's output directory, making it easier to debug specific runs and keep the project root clean.
 

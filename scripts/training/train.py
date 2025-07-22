@@ -11,6 +11,7 @@ from ptycho.workflows.components import (
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import model_manager, params
 from ptycho.log_config import setup_logging
+from ptycho.cli_args import get_logging_config
 from pathlib import Path
 
 def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
@@ -45,8 +46,12 @@ def main() -> None:
         
     config = setup_configuration(args, args.config)
     
-    # Set up centralized logging
-    setup_logging(Path(config.output_dir))
+    # Set up enhanced centralized logging
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(Path(config.output_dir), **logging_config)
+    
+    # Redirect print statements to logger to capture all output
+    print = logger.info
     
     # Interpret n_images parameter based on gridsize
     interpreted_n_images, interpretation_message = interpret_n_images_parameter(

@@ -62,11 +62,34 @@ All outputs are organized within the specified output directory.
 4. The results are processed to generate the comparison image.
 5. If requested, a probe visualization is generated.
 
-## Logging
+## Enhanced Logging
 
-The script uses the centralized logging system:
-- **File logging**: All messages (DEBUG level and above) are written to `<output_dir>/logs/debug.log`
-- **Console logging**: INFO level messages are displayed in real-time for monitoring inference progress
+The script uses an advanced centralized logging system with comprehensive output capture:
+
+**Key Features:**
+- **Complete Output Capture**: ALL stdout (including print statements from any module) is captured to log files
+- **Tee-style Logging**: Simultaneous console and file output with flexible control
+- **Command-line Options**: Control console verbosity without affecting file logging
+
+**File Logging**: The `<output_dir>/logs/debug.log` file contains:
+- All logging messages (DEBUG level and above)  
+- All print() statements from any imported module
+- Model loading information and inference progress
+- Complete execution record
+
+**Console Control Options**:
+```bash
+# Default: INFO level console output + complete file logging
+ptycho_inference --model_path model_dir --test_data test.npz --output_dir results
+
+# Quiet mode: suppress console logging (automation-friendly)
+ptycho_inference --model_path model_dir --test_data test.npz --output_dir results --quiet
+
+# Verbose mode: DEBUG level console output + complete file logging
+ptycho_inference --model_path model_dir --test_data test.npz --output_dir results --verbose
+```
+
+**Important**: These flags only affect console output. All messages are ALWAYS captured in the log file.
 
 This centralized approach ensures logs are organized within each inference run's output directory.
 
