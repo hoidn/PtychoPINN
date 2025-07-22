@@ -1,23 +1,5 @@
 #!/usr/bin/env python
 
-import logging
-import sys
-
-# Set up file handler for debug logging
-file_handler = logging.FileHandler('train_debug.log')
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-
-# Set up console handler for info logging
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-
-# Configure root logger
-logging.getLogger().setLevel(logging.DEBUG)
-logging.getLogger().addHandler(file_handler)
-logging.getLogger().addHandler(console_handler)
-
 from ptycho.workflows.components import (
     parse_arguments,
     setup_configuration,
@@ -28,6 +10,8 @@ from ptycho.workflows.components import (
 )
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import model_manager, params
+from ptycho.log_config import setup_logging
+from pathlib import Path
 
 def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
     """
@@ -60,6 +44,9 @@ def main() -> None:
         delattr(args, 'train_data_file_path')
         
     config = setup_configuration(args, args.config)
+    
+    # Set up centralized logging
+    setup_logging(Path(config.output_dir))
     
     # Interpret n_images parameter based on gridsize
     interpreted_n_images, interpretation_message = interpret_n_images_parameter(

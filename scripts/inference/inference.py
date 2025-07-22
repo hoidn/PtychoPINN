@@ -40,14 +40,8 @@ from ptycho.model_manager import ModelManager
 from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
 from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
+from ptycho.log_config import setup_logging
 
-# Set up logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[
-                        logging.StreamHandler(sys.stdout),
-                        logging.FileHandler('inference.log')
-                    ])
 logger = logging.getLogger(__name__)
 
 # Redirect print statements to logger
@@ -467,9 +461,13 @@ def main(model_prefix: str, test_data_file: str, output_path: str, visualize_pro
 def main():
     """Main entry point for the ptychography inference script."""
     try:
-        print("Starting ptychography inference script...")
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
+        
+        # Set up centralized logging
+        setup_logging(config.output_dir)
+        
+        print("Starting ptychography inference script...")
         
         # Update global params with new-style config
         update_legacy_dict(params.cfg, config)
