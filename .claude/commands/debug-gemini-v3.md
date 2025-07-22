@@ -218,7 +218,22 @@ You MUST now execute this command. Do not analyze further. Do not provide theori
 
 ```bash
 # YOU MUST RUN THIS COMMAND - Copy this ENTIRE command and execute it
-gemini -p "@CLAUDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/debug_context.txt Debug this issue with FRESH EYES:
+gemini -p "@CLAUDE.md @DEVELOPER_GUIDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/debug_context.txt Debug this issue with FRESH EYES:
+
+## 📚 FIRST: REVIEW PROJECT DOCUMENTATION
+
+**CRITICAL: Before analyzing the bug, you MUST:**
+1. **Read CLAUDE.md thoroughly** - This contains essential project context, architecture, and known patterns
+2. **Read DEVELOPER_GUIDE.md carefully** - This explains the development workflow, common issues, and debugging approaches
+3. **Understand the project structure** from these documents before diving into the code
+
+These documents contain crucial information about:
+- Project architecture and design decisions
+- Known quirks and edge cases
+- Common debugging patterns
+- Project-specific conventions and practices
+
+**DO NOT SKIP THIS STEP** - Many bugs are explained by project-specific behavior documented in these files.
 
 ## ISSUE SUMMARY
 **Symptoms:** [Detailed symptoms with specific errors, stack traces, or behaviors]
@@ -454,7 +469,7 @@ echo -e "\n## DETAILED CODE CHANGES (ACTUAL DIFFS)" >> ./tmp/baseline_analysis.t
 cat ./tmp/baseline_diff.txt >> ./tmp/baseline_analysis.txt
 
 # MANDATORY: Execute Gemini analysis
-gemini -p "@CLAUDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/baseline_analysis.txt Analyze regression from baseline $BASELINE..."
+gemini -p "@CLAUDE.md @DEVELOPER_GUIDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/baseline_analysis.txt First review CLAUDE.md and DEVELOPER_GUIDE.md, then analyze regression from baseline $BASELINE..."
 ```
 
 ### Pattern 2: Git Bisect Helper (You Execute All of This)
@@ -466,7 +481,7 @@ mkdir -p ./tmp
 git log --oneline --graph <baseline>..HEAD > ./tmp/bisect_commits.txt
 
 # MANDATORY: Execute targeted analysis
-gemini -p "@CLAUDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/bisect_commits.txt Identify when bug was introduced..."
+gemini -p "@CLAUDE.md @DEVELOPER_GUIDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/bisect_commits.txt First review CLAUDE.md and DEVELOPER_GUIDE.md, then identify when bug was introduced..."
 ```
 
 ---
