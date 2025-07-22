@@ -218,7 +218,7 @@ You MUST now execute this command. Do not analyze further. Do not provide theori
 
 ```bash
 # YOU MUST RUN THIS COMMAND - Copy this ENTIRE command and execute it
-gemini -p "@ptycho/ @src/ @tests/ @docs/ @configs/ @logs/ @.github/ @scripts/ @benchmarks/ @examples/ @./tmp/debug_context.txt Debug this issue with FRESH EYES:
+gemini -p "@CLAUDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/debug_context.txt Debug this issue with FRESH EYES:
 
 ## ISSUE SUMMARY
 **Symptoms:** [Detailed symptoms with specific errors, stack traces, or behaviors]
@@ -454,7 +454,7 @@ echo -e "\n## DETAILED CODE CHANGES (ACTUAL DIFFS)" >> ./tmp/baseline_analysis.t
 cat ./tmp/baseline_diff.txt >> ./tmp/baseline_analysis.txt
 
 # MANDATORY: Execute Gemini analysis
-gemini -p "@ptycho/ @src/ @tests/ @configs/ @logs/ @./tmp/baseline_analysis.txt Analyze regression from baseline $BASELINE..."
+gemini -p "@CLAUDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/baseline_analysis.txt Analyze regression from baseline $BASELINE..."
 ```
 
 ### Pattern 2: Git Bisect Helper (You Execute All of This)
@@ -466,7 +466,7 @@ mkdir -p ./tmp
 git log --oneline --graph <baseline>..HEAD > ./tmp/bisect_commits.txt
 
 # MANDATORY: Execute targeted analysis
-gemini -p "@ptycho/ @src/ @tests/ @./tmp/bisect_commits.txt Identify when bug was introduced..."
+gemini -p "@CLAUDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/bisect_commits.txt Identify when bug was introduced..."
 ```
 
 ---
