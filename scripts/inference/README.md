@@ -41,17 +41,18 @@ The script expects the test data to be in .npz format with the following arrays:
 
 ## Output
 
-The script generates the following outputs:
+The script generates the following outputs in the specified `--output_dir`:
 
-1. A comparison image (`reconstruction_comparison.png`) showing:
-   - Reconstructed amplitude
-   - Reconstructed phase
-   - ePIE amplitude
-   - ePIE phase
-2. If `--visualize_probe` is used, a probe visualization image (`probe_visualization.png`)
-3. Log file (`inference.log`) with detailed information about the inference process
+1. **`logs/`**: Directory containing all log files
+   - **`debug.log`**: Complete log history (DEBUG level and above) for troubleshooting
+2. **`reconstruction_comparison.png`**: Comparison image showing:
+   - Reconstructed amplitude and phase
+   - ePIE amplitude and phase (if ground truth available)
+3. **`reconstructed_amplitude.png`**: Individual amplitude reconstruction
+4. **`reconstructed_phase.png`**: Individual phase reconstruction  
+5. **`probe_visualization.png`**: (Optional) Generated when `--visualize_probe` flag is used
 
-All outputs are saved in the specified output directory.
+All outputs are organized within the specified output directory.
 
 ## Process
 
@@ -61,9 +62,17 @@ All outputs are saved in the specified output directory.
 4. The results are processed to generate the comparison image.
 5. If requested, a probe visualization is generated.
 
+## Logging
+
+The script uses the centralized logging system:
+- **File logging**: All messages (DEBUG level and above) are written to `<output_dir>/logs/debug.log`
+- **Console logging**: INFO level messages are displayed in real-time for monitoring inference progress
+
+This centralized approach ensures logs are organized within each inference run's output directory.
+
 ## Notes
 
-- The script uses logging to provide information about the process. Check the console output and log file for details.
 - Ensure that the model files (saved using the training script) are located at the path specified by `model_prefix`.
 - The `K` and `nsamples` parameters can be adjusted to experiment with different data grouping strategies.
+- For troubleshooting, check both console output and the debug log file in the output directory's logs subdirectory.
 

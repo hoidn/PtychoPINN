@@ -232,6 +232,8 @@ python scripts/compare_models.py \
 
 After a successful training run using `ptycho_train --output_dir <my_run>`, the output directory will contain several key files:
 
+- **`logs/`**: Directory containing all log files for the run
+  - **`debug.log`**: Complete log history (DEBUG level and above) for troubleshooting
 - **`wts.h5.zip`**: This is the primary output. It's a zip archive containing the trained model weights and architecture for both the main autoencoder and the inference-only `diffraction_to_obj` model. Use `ModelManager.load_multiple_models()` to load it.
 - **`history.dill`**: A Python pickle file (using dill) containing the training history dictionary. You can load it to plot loss curves:
   ```python
@@ -244,27 +246,31 @@ After a successful training run using `ptycho_train --output_dir <my_run>`, the 
 - **`metrics.csv`**: If a ground truth object was available, this file contains quantitative image quality metrics (MAE, PSNR, FRC) comparing the reconstruction to the ground truth.
 - **`params.dill`**: A snapshot of the full configuration used for the run, for reproducibility.
 
-## 8. Advanced & Undocumented Features
+### Troubleshooting: Log File Locations
 
-### 8.1. Caching Decorators (`ptycho/misc.py`)
+**Critical:** When a workflow fails, you **MUST** look for log files in the specified `<output_dir>/logs/` directory, not the project root. The centralized logging system ensures all logs are organized within each run's output directory, making it easier to debug specific runs and keeping the project root clean.
+
+## 9. Advanced & Undocumented Features
+
+### 9.1. Caching Decorators (`ptycho/misc.py`)
 
 - **`@memoize_disk_and_memory`**: Caches the results of expensive functions to disk to speed up subsequent runs with the same parameters.
 - **`@memoize_simulated_data`**: Specifically designed for caching simulated data generation, avoiding redundant computation.
 
-### 8.2. Data Utility Tools (`scripts/tools/`)
+### 9.2. Data Utility Tools (`scripts/tools/`)
 
 - **`downsample_data_tool.py`**: For cropping k-space and binning real-space arrays to maintain physical consistency.
 - **`prepare_data_tool.py`**: For apodizing, smoothing, or interpolating probes/objects before simulation.
 - **`update_tool.py`**: For updating an NPZ file with a new reconstruction result.
 - **`visualize_dataset.py`**: For generating a comprehensive visualization plot of an NPZ dataset.
 
-### 8.3. Automated Testing Framework (`ptycho/autotest/`)
+### 9.3. Automated Testing Framework (`ptycho/autotest/`)
 
 - This internal framework provides testing utilities for the project.
 - The `@debug` decorator (imported from `ptycho.autotest.debug`) is used to serialize function inputs and outputs during development for creating regression tests.
 - This is a developer-facing feature primarily used for debugging and test creation.
 
-## 9. Legacy Code & Deprecation Warnings
+## 10. Legacy Code & Deprecation Warnings
 
 - **Legacy Training Script (`ptycho/train.py`):** The file `ptycho/train.py` is a legacy script that uses an older configuration system. **Do not use it.** Always use the `ptycho_train` command-line tool (which points to `scripts/training/train.py`) for all training workflows, as it uses the modern, correct configuration system.
 

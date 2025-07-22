@@ -84,21 +84,19 @@ The script includes comprehensive error handling:
 
 ## Output Structure
 
-The training script generates the following outputs:
+The training script generates the following outputs in the specified `--output_dir`:
 
-- Model artifacts saved to the specified output directory
-- Debug logs written to 'train_debug.log'
-- Console output showing training progress
-- Training results including:
-  - Reconstructed amplitude
-  - Reconstructed phase
-  - Additional training metrics and results
+- **`logs/`**: Directory containing all log files
+  - **`debug.log`**: Complete log history (DEBUG level and above) 
+- **Model artifacts**: Saved model files and weights
+- **Training results**: Including reconstructed amplitude, phase, and metrics
+- **Console output**: Real-time training progress (INFO level)
 
 ## Logging
 
-The script implements a two-level logging system:
-- Debug information is written to 'train_debug.log'
-- Info level messages are displayed in the console
+The script uses the centralized logging system:
+- **File logging**: All messages (DEBUG level and above) are written to `<output_dir>/logs/debug.log`
+- **Console logging**: INFO level messages are displayed in real-time for monitoring training progress
 
-This dual logging system helps track both detailed debugging information and high-level progress during training.
+This centralized approach ensures logs are organized within each training run's output directory, making it easier to debug specific runs and keep the project root clean.
 
