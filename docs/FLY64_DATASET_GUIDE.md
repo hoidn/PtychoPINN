@@ -21,6 +21,50 @@ python scripts/tools/transpose_rename_convert_tool.py \
 | `fly001_64_train.npz` | Raw | Original experimental data (uint16) | **Do not use directly** |
 | `fly001_64_train_converted.npz` | Ready | Format-converted for PtychoPINN | **Recommended** |
 | `fly001_64_prepared_final_*.npz` | Processed | Subsampled + Y patches added | Use if subsampling acceptable |
+| `fly64_top_half_shuffled.npz` | Ready | First 5172 scan points, shuffled | **Gridsize=1 spatial bias studies** |
+
+## Specialized Datasets
+
+### fly64_top_half_shuffled.npz
+**Purpose:** A specialized dataset for studying spatial sampling bias effects in gridsize=1 training.
+
+**Created:** From the first 5172 scan points (top half) of `fly001_64_train_converted.npz`, randomized with seed 42.
+
+**Creation Process:**
+1. **Source:** `fly001_64_train_converted.npz` (10304 total scan points)
+2. **Subset:** Extract first 5172 scan points (spatial top half)
+3. **Shuffle:** Randomize order using `shuffle_dataset_tool.py --seed 42`
+4. **Result:** 5172 scan points in random order
+
+**Use Case:** Enables controlled studies comparing spatially-biased vs. random sampling for gridsize=1 training.
+
+**Creation Commands:**
+```bash
+# 1. Extract top half (first 5172 scan points)
+python -c "
+import numpy as np
+data = np.load('datasets/fly64/fly001_64_train_converted.npz')
+subset = {k: v[:5172] if v.shape and v.shape[0] == 10304 else v for k, v in data.items()}
+np.savez_compressed('datasets/fly64/fly64_top_half.npz', **subset)
+"
+
+# 2. Shuffle the subset
+python scripts/tools/shuffle_dataset_tool.py \
+    --input-file datasets/fly64/fly64_top_half.npz \
+    --output-file datasets/fly64/fly64_top_half_shuffled.npz \
+    --seed 42
+
+# 3. Clean up intermediate file
+rm datasets/fly64/fly64_top_half.npz
+```
+
+**Validation:**
+```python
+import numpy as np
+data = np.load('datasets/fly64/fly64_top_half_shuffled.npz')
+assert len(data['xcoords']) == 5172, "Must contain exactly 5172 scan points"
+print("✓ fly64_top_half_shuffled.npz ready for spatial bias studies")
+```
 
 ## Format Issues & Solutions
 
