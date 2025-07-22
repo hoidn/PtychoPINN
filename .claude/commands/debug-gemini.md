@@ -31,7 +31,7 @@ Before asking Gemini, document:
 Create this command for the user, being GENEROUS with paths:
 
 ```bash
-gemini -p "@src/ @ptycho/ @tests/ @docs/ @configs/ @logs/ @.github/ @scripts/ @benchmarks/ @examples/ Debug this issue with FRESH EYES:
+gemini -p "@CLAUDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ Debug this issue with FRESH EYES:
 
 ## ISSUE SUMMARY
 **Symptoms:** [Detailed symptoms with specific errors, stack traces, or behaviors]
@@ -151,42 +151,6 @@ When Gemini responds:
 
 ---
 
-## 💡 **ENHANCED DEBUG PATTERNS**
-
-### Pattern 1: Performance Degradation
-```bash
-gemini -p "@src/ @benchmarks/ @profiling/ @logs/ @monitoring/ @configs/ @docs/performance/ 
-Performance degraded after [change]. I think it's [cause], but need fresh eyes.
-[Include specific metrics, timeline, what changed]
-Check for: memory leaks, N+1 queries, cache misses, lock contention, GC pressure"
-```
-
-### Pattern 2: Intermittent Failures
-```bash
-gemini -p "@src/ @tests/ @.github/workflows/ @logs/ @configs/ @infrastructure/
-Intermittent test failures. I think it's [race condition in X], but could be wrong.
-[Include failure rate, patterns, logs]
-Check for: test pollution, timezone issues, external dependencies, resource limits"
-```
-
-### Pattern 3: Integration Issues
-```bash
-gemini -p "@src/ @docs/api/ @examples/ @integration_tests/ @configs/ @docker/
-API integration failing. I think it's [auth issue], but customer says it worked before.
-[Include request/response, versions, environment]
-Check for: API changes, version mismatches, network policies, SSL/TLS issues"
-```
-
-### Pattern 4: Data Corruption
-```bash
-gemini -p "@src/ @migrations/ @docs/data/ @scripts/ @tests/fixtures/ @configs/
-Data corruption in [table/field]. I think it's [bad migration], but could be deeper.
-[Include samples, timeline, affected records]
-Check for: race conditions, transaction issues, encoding problems, precision loss"
-```
-
----
-
 ## 🎯 **ANTI-TUNNEL VISION CHECKLIST**
 
 Before sending to Gemini, ask yourself:
@@ -236,13 +200,13 @@ After Gemini's first analysis:
 
 ```bash
 # If new theory emerges
-gemini -p "@[new_relevant_paths]/ Gemini suggested [theory]. 
+gemini -p "CLAUDE.md @PROJECT_STATUS.md @[new_relevant_paths]/ Gemini suggested [theory]. 
 Let's deep dive into [specific area] to verify...
 [Include Gemini's evidence]
 Please analyze [specific aspect] in detail."
 
 # If multiple theories exist
-gemini -p "@src/ Here are the top 3 theories:
+gemini -p "CLAUDE.md @PROJECT_STATUS.md @src/ Here are the top 3 theories:
 1. [Gemini's top theory]
 2. [Alternative theory]
 3. [Claude's original theory]
