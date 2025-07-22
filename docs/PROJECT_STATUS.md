@@ -67,9 +67,9 @@ This document provides a high-level overview of the major development initiative
 **Path:** `plans/active/probe-generalization-study/`
 **Branch:** `feature/probe-generalization-study` (baseline: devel)
 **Started:** 2025-07-22
-**Current Phase:** Phase 1: Housekeeping & Workflow Verification
-**Progress:** ░░░░░░░░░░░░░░░░ 0%
-**Next Milestone:** A cleaner codebase with a new unit test confirming 'lines' dataset generation for both grid sizes
+**Current Phase:** Phase 3: Automated 2x2 Study Execution
+**Progress:** ████████░░░░░░░░ 50%
+**Next Milestone:** Orchestration script and completed training outputs for all four experimental arms
 **R&D Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/plan.md</doc-ref>
 **Implementation Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/implementation.md</doc-ref>
 
