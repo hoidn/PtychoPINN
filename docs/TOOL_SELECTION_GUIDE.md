@@ -8,8 +8,9 @@ This guide helps you choose the right tools and scripts for different PtychoPINN
 
 ### For comprehensive model evaluation studies:
 - **Primary**: `scripts/studies/run_complete_generalization_study.sh` 
-- **Controls**: Training sizes, number of trials, datasets, full pipeline
-- **Use when**: Running complete studies, need statistical robustness, control over training parameters
+- **Controls**: Training sizes, number of trials, synthetic/experimental datasets, full pipeline
+- **Use when**: Running complete studies, need statistical robustness, comparing synthetic vs experimental data
+- **Modes**: Synthetic data generation (default) or experimental data analysis (`--skip-data-prep`)
 
 ### For comparing existing trained models:
 - **Primary**: `scripts/compare_models.py`
@@ -36,7 +37,8 @@ This guide helps you choose the right tools and scripts for different PtychoPINN
 
 | Need | Tool | Key Parameters |
 |------|------|----------------|
-| **Train models with specific sizes** | `run_complete_generalization_study.sh` | `--train-sizes`, `--num-trials` |
+| **Train models with specific sizes (synthetic data)** | `run_complete_generalization_study.sh` | `--train-sizes`, `--num-trials` |
+| **Train models with experimental data** | `run_complete_generalization_study.sh` | `--train-data`, `--test-data`, `--skip-data-prep` |
 | **Compare existing models** | `compare_models.py` | `--pinn_dir`, `--baseline_dir` |
 | **Visualize study results** | `aggregate_and_plot_results.py` | `--metric`, `--part` |
 | **Debug dataset issues** | `scripts/tools/visualize_dataset.py` | Input dataset path |
@@ -60,13 +62,26 @@ ptycho_train --train_data_file <data.npz> --n_images 5000 --output_dir <output>
 ```
 
 ### Generalization Studies
+
+#### Synthetic Data Mode (Default)
 ```bash
-# Run complete generalization study with multiple training sizes
+# Run complete generalization study with auto-generated synthetic data
 ./scripts/studies/run_complete_generalization_study.sh \
-    --dataset <dataset.npz> \
-    --output-dir <study_output> \
     --train-sizes "512 1024 2048 4096" \
-    --num-trials 3
+    --num-trials 3 \
+    --output-dir synthetic_study
+```
+
+#### Experimental Data Mode
+```bash
+# Run generalization study with existing experimental datasets
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir experimental_study
 ```
 
 ## Inference Workflows

@@ -20,19 +20,35 @@ The generalization study workflow enables researchers to:
 
 ## Key Scripts
 
-### `run_generalization_study.sh`
-Master orchestration script that automates the complete generalization study workflow.
+### `run_complete_generalization_study.sh`
+Master orchestration script that automates the complete generalization study workflow with support for both synthetic and experimental datasets.
 
-**Purpose:** Trains multiple model pairs (PtychoPINN + baseline) across a range of training set sizes, then aggregates results into comprehensive analysis plots.
+**Purpose:** Trains multiple model pairs (PtychoPINN + baseline) across a range of training set sizes, then aggregates results into comprehensive analysis plots. Supports both auto-generated synthetic datasets and user-provided experimental datasets.
 
 **Usage:**
 ```bash
-./scripts/studies/run_generalization_study.sh <train_data.npz> <test_data.npz> <output_dir> [options]
+# Automatic synthetic data generation (default mode)
+./scripts/studies/run_complete_generalization_study.sh [options]
+
+# Experimental dataset mode
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-data <train_data.npz> \
+    --test-data <test_data.npz> \
+    --skip-data-prep \
+    [options]
 ```
 
-**Options:**
-- `--n-train-sizes`: Space-separated list of training set sizes to test
-- `--n-test-images`: Number of test images to use for evaluation (default: 500)
+**Key Options:**
+- `--train-sizes "512 1024 2048"`: Space-separated list of training set sizes to test
+- `--num-trials N`: Number of trials per training size for statistical robustness (default: 5)
+- `--train-data PATH`: Path to training dataset (for experimental data mode)
+- `--test-data PATH`: Path to test dataset (for experimental data mode)
+- `--skip-data-prep`: Skip synthetic data generation, use provided datasets
+- `--output-dir DIR`: Output directory (default: timestamped directory)
+- `--parallel-jobs N`: Number of parallel training jobs (default: 1)
+
+### `run_generalization_study.sh` (Legacy)
+Legacy script for manual generalization studies. Use `run_complete_generalization_study.sh` for new studies.
 
 ### `aggregate_and_plot_results.py`
 Analysis script that processes results from multiple training runs and generates visualization plots.
@@ -44,27 +60,81 @@ Analysis script that processes results from multiple training runs and generates
 python scripts/studies/aggregate_and_plot_results.py <study_output_dir> [--output-plot results.png]
 ```
 
-## Complete Workflow Example
+## Workflow Modes
 
-Here's a step-by-step example of running a complete generalization study:
+The generalization study script supports two primary modes:
+
+### Mode 1: Synthetic Data Generation (Default)
+Automatically generates large-scale synthetic datasets for controlled studies.
+
+**Best for:** Controlled experiments, publication studies, baseline comparisons
 
 ```bash
-# 1. Prepare your dataset (if needed)
-./scripts/prepare.sh datasets/raw/my_data.npz datasets/prepared/
+# Full synthetic study with default settings
+./scripts/studies/run_complete_generalization_study.sh
 
-# 2. Run the complete generalization study
-./scripts/studies/run_generalization_study.sh \
-    datasets/prepared/my_data_train.npz \
-    datasets/prepared/my_data_test.npz \
-    generalization_study_results \
-    --n-train-sizes "128 256 512 1024 2048" \
-    --n-test-images 500
+# Custom synthetic study
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-sizes "512 1024 2048 4096" \
+    --num-trials 3 \
+    --output-dir my_synthetic_study
+```
 
-# 3. View results
-ls generalization_study_results/
-# -> n_train_128/  n_train_256/  n_train_512/  n_train_1024/  n_train_2048/
-# -> generalization_study_results.png
-# -> aggregated_metrics.csv
+### Mode 2: Experimental Data Analysis
+Uses existing experimental datasets for real-world validation studies.
+
+**Best for:** Validating models on real data, comparing experimental vs synthetic performance
+
+```bash
+# Basic experimental study
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024" \
+    --output-dir experimental_study
+
+# Multi-trial experimental study for robust statistics
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly64_top_half_shuffled.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir robust_experimental_study
+```
+
+## Complete Workflow Examples
+
+### Synthetic Data Study
+```bash
+# Full publication-quality study with synthetic data
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-sizes "512 1024 2048 4096" \
+    --num-trials 5 \
+    --output-dir publication_study_$(date +%Y%m%d)
+
+# Results: publication_study_YYYYMMDD/
+# -> train_512/trial_1/, trial_2/, ..., trial_5/
+# -> train_1024/trial_1/, trial_2/, ..., trial_5/
+# -> psnr_phase_generalization.png (with uncertainty bands)
+# -> STUDY_SUMMARY.md
+```
+
+### Experimental Data Study
+```bash
+# Study with experimental fly64 dataset
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir fly64_study
+
+# Results: fly64_study/
+# -> train_512/trial_1/, trial_2/, trial_3/
+# -> generalization plots with experimental data validation
 ```
 
 ## Output Directory Structure
@@ -72,44 +142,87 @@ ls generalization_study_results/
 After running a generalization study, the output directory will contain:
 
 ```
-generalization_study_results/
-├── n_train_128/                    # Results for 128 training images
-│   ├── pinn_run/                   # PtychoPINN model outputs
-│   ├── baseline_run/               # Baseline model outputs
-│   ├── comparison_plot.png         # Side-by-side comparison
-│   └── comparison_metrics.csv      # Quantitative metrics
-├── n_train_256/                    # Results for 256 training images
-│   └── ...
-├── n_train_512/                    # Results for 512 training images
-│   └── ...
-├── generalization_study_results.png # Final aggregated plot
-└── aggregated_metrics.csv         # Combined metrics from all runs
+study_output/
+├── train_512/                      # Results for 512 training images
+│   ├── trial_1/                    # First training run
+│   │   ├── pinn_run/               # PtychoPINN model outputs
+│   │   │   ├── wts.h5.zip          # Trained model weights
+│   │   │   ├── history.dill        # Training history
+│   │   │   └── params.dill         # Training configuration
+│   │   ├── baseline_run/           # Baseline model outputs
+│   │   │   └── baseline_model.h5   # Trained baseline model
+│   │   ├── comparison_plot.png     # Side-by-side comparison
+│   │   └── comparison_metrics.csv  # Quantitative metrics
+│   ├── trial_2/                    # Second training run (if --num-trials > 1)
+│   └── trial_N/                    # Additional trials
+├── train_1024/                     # Results for 1024 training images
+│   ├── trial_1/
+│   └── trial_N/
+├── train_2048/                     # Results for 2048 training images
+│   ├── trial_1/
+│   └── trial_N/
+├── psnr_phase_generalization.png   # 📊 Primary generalization plot (mean ± percentiles)
+├── frc50_amp_generalization.png    # 📊 FRC analysis plot  
+├── mae_amp_generalization.png      # 📊 Error trends plot
+├── ssim_amp_generalization.png     # 📊 SSIM amplitude analysis
+├── ssim_phase_generalization.png   # 📊 SSIM phase analysis
+├── ms_ssim_amp_generalization.png  # 📊 Multi-Scale SSIM amplitude
+├── ms_ssim_phase_generalization.png # 📊 Multi-Scale SSIM phase
+├── results.csv                     # 📋 Aggregated median and percentile statistics
+├── study_config.txt                # Configuration parameters
+├── study_log.txt                   # Complete execution log
+└── STUDY_SUMMARY.md                # 📄 Executive summary report
 ```
 
 ## Key Metrics Tracked
 
-The study tracks several important metrics across training set sizes:
+The study tracks comprehensive metrics across training set sizes with statistical robustness:
 
+### Core Metrics
 - **Mean Absolute Error (MAE)**: Average pixel-wise error
-- **Mean Squared Error (MSE)**: Squared pixel-wise error
+- **Mean Squared Error (MSE)**: Squared pixel-wise error  
 - **Peak Signal-to-Noise Ratio (PSNR)**: Image quality metric
-- **Fourier Ring Correlation (FRC)**: Spatial frequency resolution metric
+- **Fourier Ring Correlation (FRC50)**: Spatial frequency resolution metric
 
-## Integration with Main Workflows
+### Advanced Perceptual Metrics
+- **SSIM (Structural Similarity)**: Perceptual similarity for amplitude and phase
+- **MS-SSIM (Multi-Scale SSIM)**: Multi-resolution perceptual analysis
+- **Registration Offsets**: Alignment quality assessment
 
-This generalization study builds on the core comparison workflow (`run_comparison.sh`) by:
-1. Running multiple instances with different `--n-train-images` values
-2. Collecting and aggregating the resulting metrics
-3. Generating trend analysis plots
+### Statistical Analysis
+- **Multi-Trial Support**: Runs multiple training instances per configuration
+- **Robust Statistics**: Reports mean, 25th percentile, and 75th percentile
+- **Uncertainty Quantification**: Visualizes performance variability
+- **NaN Handling**: Automatically excludes failed trials from aggregation
 
-The individual comparison runs use the same configuration file (`configs/comparison_config.yaml`) to ensure consistent hyperparameters across all experiments.
+## Experimental Data Requirements
+
+### For Experimental Datasets:
+1. **Preprocessing Required**: Use `transpose_rename_convert_tool.py` for raw experimental data
+2. **Shuffling Critical**: For gridsize=1 studies, shuffle datasets with `shuffle_dataset_tool.py`
+3. **Format Compliance**: Must follow [Data Contracts](../../docs/data_contracts.md) specification
+4. **Sufficient Size**: Ensure dataset has enough images for largest training size requested
+
+### Recommended Experimental Datasets:
+- **fly64**: `datasets/fly64/fly001_64_train_converted.npz` (10,304 images)
+- **fly64 (spatial bias)**: `datasets/fly64/fly64_top_half_shuffled.npz` (5,172 images, shuffled)
 
 ## Usage Tips
 
+### Study Design
 - **Training Set Sizes**: Choose sizes that span 1-2 orders of magnitude to observe clear trends
-- **Test Set Size**: Use a consistent, sufficiently large test set (≥500 images) for reliable metrics
-- **Resource Planning**: Each training run can take several hours; plan accordingly for multiple runs
-- **Reproducibility**: Results are deterministic given the same input data and training configuration
+- **Multi-Trial Robustness**: Use `--num-trials 3-5` for publication-quality results
+- **Resource Planning**: Each trial can take 1-2 hours; plan accordingly for multiple trials
+
+### Performance Optimization  
+- **Parallel Jobs**: Use `--parallel-jobs` carefully to avoid GPU memory conflicts
+- **Disk Space**: Allocate ~50-100GB for full studies with multiple trials
+- **GPU Memory**: Monitor memory usage, especially with large training sizes
+
+### Result Interpretation
+- **Statistical Significance**: Multi-trial studies provide uncertainty bands in plots
+- **Model Comparison**: PtychoPINN typically shows superior data efficiency
+- **Convergence Analysis**: Both models often converge at larger dataset sizes
 
 ## Requirements
 
