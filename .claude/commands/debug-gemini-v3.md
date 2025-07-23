@@ -210,39 +210,7 @@ else
 fi
 ```
 
-### Step 3: MANDATORY - Execute Gemini Analysis
-
-**🔴 STOP - THIS STEP IS MANDATORY - DO NOT SKIP**
-
-You MUST now execute this command. Do not analyze further. Do not provide theories. EXECUTE THIS COMMAND NOW:
-
-```bash
-# YOU MUST RUN THIS COMMAND - Copy this ENTIRE command and execute it
-gemini -p "@CLAUDE.md @DEVELOPER_GUIDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/debug_context.txt Debug this issue with FRESH EYES:
-
-## 📚 FIRST: REVIEW PROJECT DOCUMENTATION
-
-**CRITICAL: Before analyzing the bug, you MUST:**
-1. **Read CLAUDE.md thoroughly** - This contains essential project context, architecture, and known patterns
-2. **Read DEVELOPER_GUIDE.md carefully** - This explains the development workflow, common issues, and debugging approaches
-3. **Understand the project structure** from these documents before diving into the code
-
-These documents contain crucial information about:
-- Project architecture and design decisions
-- Known quirks and edge cases
-- Common debugging patterns
-- Project-specific conventions and practices
-
-**DO NOT SKIP THIS STEP** - Many bugs are explained by project-specific behavior documented in these files.
-
-## ISSUE SUMMARY
-**Symptoms:** [Detailed symptoms with specific errors, stack traces, or behaviors]
-**When It Happens:** [Specific conditions, inputs, or sequences that trigger it]
-**When It Doesn't Happen:** [Cases where it works fine]
-**Environment:** [Dev/staging/prod, OS, versions]
-**Baseline Branch:** [If provided - where it last worked correctly]
-
-## GIT CONTEXT
+### Step 2.5: MANDATORY prepare gemini inputs / context 
 The debug_context.txt file MUST contain:
 - Recent commit history (actual commits, not `$(cat ...)` commands)
 - Current git status (actual file list)
@@ -258,6 +226,61 @@ Pay special attention to:
 - **Actual code changes in the diffs** (not just commit messages)
 - Modified configuration files
 - Dependency updates
+
+
+### Step 3: MANDATORY - Execute Gemini Analysis
+
+**🔴 STOP - THIS STEP IS MANDATORY - DO NOT SKIP**
+#### Step 3.1
+Run this shell command:
+```bash
+npx repomix@latest .   --include "**/*.sh,**/*.md,**/*.py,**/*.c,**/*.h,**/*.json,**/*.log" --ignore ".aider.chat.history.md,PtychoNN/**,build/**,ptycho/trash/**,diagram/**,tests/**,notebooks/**,Oclaude.md,ptycho.md,plans/archive/**,dpl.md"
+```
+It will generate a file ./repomix-output.xml, which we will provide to gemini
+
+#### Step 3.2
+delete ./gemini-prompt.md if it exists.
+
+#### Step 3.3
+You MUST now populate this command template and save it to gemini-prompt.md. Note that text in [] brackets are placeholders, to be populated by you. 
+
+```markdown
+<task> Debug this issue with FRESH EYES:
+
+Carry out the following steps:
+<steps/>
+<0>
+list the files included in the repomix archive
+</0>
+<1>
+REVIEW PROJECT DOCUMENTATION
+ - **Read CLAUDE.md thoroughly** - This contains essential project context, architecture, and known patterns
+ - **Read DEVELOPER_GUIDE.md carefully** - This explains the development workflow, common issues, and debugging approaches
+ - **Understand the project structure** from these documents before diving into the code
+
+These documents contain crucial information about:
+- Project architecture and design decisions
+- Known quirks and edge cases
+- Common debugging patterns
+- Project-specific conventions and practices
+</1>
+
+<2>
+review the provided <git> diff. it represents the increment of possibly-buggy code changes that we're analyzing.
+</2> 
+
+<3> 
+analyze the issue's prior understanding <summary>. Then, attempt to find the root cause and propose a fix approach 
+</3>
+</steps>
+
+<summary>
+## ISSUE SUMMARY
+**Symptoms:** [Detailed symptoms with specific errors, stack traces, or behaviors]
+**When It Happens:** [Specific conditions, inputs, or sequences that trigger it]
+**When It Doesn't Happen:** [Cases where it works fine]
+**Environment:** [Dev/staging/prod, OS, versions]
+**Baseline Branch:** [If provided - where it last worked correctly]
 
 ## MY CURRENT UNDERSTANDING
 **My Leading Theory:** [What you think is wrong]
@@ -279,20 +302,16 @@ Pay special attention to:
 2. [Assumption about the data flow]
 3. [Assumption about dependencies]
 4. [Assumption about configuration]
+</summary>
 
-## CHECK FOR COMMON TUNNEL VISION TRAPS
-I may be falling into one of these patterns:
-1. **Looking Where the Error Appears** (not where it originates)
-2. **Assuming Recent Changes** (when old code hit new conditions)
-3. **Focusing on Code** (when it's config/environment/data)
-4. **Debugging Symptoms** (not root causes)
-5. **Trusting Error Messages** (when they're misleading)
-6. **Assuming Local = Production** (environment differences)
-7. **Following Stack Traces** (missing async/timing issues)
-8. **Checking Application Layer** (missing infrastructure/OS issues)
+<git>
+## GIT CONTEXT
+[tell gemini about the debug_context.txt that you generated]
+</git>
 
-## GEMINI: PLEASE PROVIDE FRESH PERSPECTIVE
 
+<guidelines>
+## FOCUS ON IDENTIFYING ROOT CAUSES
 1. **Challenge My Assumptions:** What am I taking for granted that might be wrong?
 
 2. **Alternative Root Causes:** What OTHER parts of the system could cause these symptoms?
@@ -310,18 +329,33 @@ I may be falling into one of these patterns:
    - Could this be a design flaw rather than a bug?
    - Are there architectural issues at play?
    - Is this a symptom of technical debt?
+5. Do not use tools. All needed context files you need should be included in your context with 
+surrounding xml tags. If required information is missing, abort the analysis with an explanataion of the reason you cannot 
+successfully continue.
+</guidelines>
 
-## OUTPUT FORMAT
 
+<output format>
 Please provide:
 1. **Most Likely Alternative Causes** (ranked by probability)
-2. **Specific Things to Check** (with exact commands/locations)
-3. **Minimal Reproduction Case** (simplest way to trigger the bug)
-4. **Debug Strategy** (systematic approach)
-5. **Quick Experiments** (to prove/disprove theories)
+2. **Minimal Reproduction Case** (simplest way to trigger the bug)
+3. **Debug Strategy** (systematic approach)
 
-Remember: I might be completely wrong about where the bug is. Look everywhere, not just where I'm pointing."
+</output format>
+Remember: I might be completely wrong about where the bug is. Look everywhere, not just where I'm pointing.
+</task>"
 ```
+
+#### Step 3.4
+You MUST now EXECUTE the following shell commands:
+```bash
+cat  repomix-output.xml >> gemini-prompt.md
+```
+
+```bash
+gemini -p "@gemini-prompt.md"
+```
+
 
 **VERIFICATION:** Before proceeding to Step 4, confirm you have:
 - [ ] Generated the complete `gemini -p` command
@@ -469,7 +503,7 @@ echo -e "\n## DETAILED CODE CHANGES (ACTUAL DIFFS)" >> ./tmp/baseline_analysis.t
 cat ./tmp/baseline_diff.txt >> ./tmp/baseline_analysis.txt
 
 # MANDATORY: Execute Gemini analysis
-gemini -p "@CLAUDE.md @DEVELOPER_GUIDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/baseline_analysis.txt First review CLAUDE.md and DEVELOPER_GUIDE.md, then analyze regression from baseline $BASELINE..."
+gemini -p "@repomix-output.xml  First review CLAUDE.md and DEVELOPER_GUIDE.md, then analyze regression from baseline $BASELINE..."
 ```
 
 ### Pattern 2: Git Bisect Helper (You Execute All of This)
@@ -481,7 +515,7 @@ mkdir -p ./tmp
 git log --oneline --graph <baseline>..HEAD > ./tmp/bisect_commits.txt
 
 # MANDATORY: Execute targeted analysis
-gemini -p "@CLAUDE.md @DEVELOPER_GUIDE.md @PROJECT_STATUS.md @src/ @ptycho/ @tests/ @docs/ @configs/  @scripts/ @examples/ @./tmp/bisect_commits.txt First review CLAUDE.md and DEVELOPER_GUIDE.md, then identify when bug was introduced..."
+gemini -p "@repomix-output.xml First review CLAUDE.md and DEVELOPER_GUIDE.md, then identify when bug was introduced..."
 ```
 
 ---
