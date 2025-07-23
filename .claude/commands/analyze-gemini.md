@@ -3,11 +3,11 @@
 **Goal:** Get a comprehensive, code-aware analysis from Gemini on any given topic, feature, or problem, leveraging a fresh perspective and deep codebase context.
 
 **Usage Examples:**
--   **Feature Planning:** `/analyze-gemini-v3 "How should I implement a new caching layer for the API?"`
--   **Refactoring:** `/analyze-gemini-v3 "What is the best way to refactor the User model to be more modular?" main`
--   **Security Audit:** `/analyze-gemini-v3 "Analyze the authentication flow for potential security vulnerabilities."`
--   **Onboarding:** `/analyze-gemini-v3 "Explain the data processing pipeline from end to end."`
--   **Code Review:** `/analyze-gemini-v3 "Review the changes for the new feature branch and suggest improvements." main`
+-   **Feature Planning:** `/analyze-gemini-v3 How should I implement a new caching layer for the API?`
+-   **Refactoring:** `/analyze-gemini-v3 What is the best way to refactor the User model to be more modular? main`
+-   **Security Audit:** `/analyze-gemini-v3 Analyze the authentication flow for potential security vulnerabilities.`
+-   **Onboarding:** `/analyze-gemini-v3 Explain the data processing pipeline from end to end.`
+-   **Code Review:** `/analyze-gemini-v3 Review the changes for the new feature branch and suggest improvements. v1.2.3`
 
 ---
 
@@ -37,19 +37,47 @@ You are Claude Code - the autonomous command-line tool that executes shell comma
 
 ### Step 1: Assess Current Context & Parse Arguments
 
+This step intelligently parses the user's full input to separate the multi-word query from the optional baseline reference.
+
 ```bash
 # Ensure we have a tmp directory for our analysis files
 mkdir -p ./tmp
 
-# The user's primary query is the first argument
-ANALYSIS_QUERY="$1"
-# The optional baseline for comparison is the second argument
-BASELINE_REF="$2"
+# The special $ARGUMENTS variable contains the entire string typed by the user after the command.
+# This is the ONLY reliable way to get the user's full input.
+RAW_ARGS="$ARGUMENTS"
 
-if [ -z "$ANALYSIS_QUERY" ]; then
+# Default values
+ANALYSIS_QUERY=""
+BASELINE_REF=""
+
+if [ -z "$RAW_ARGS" ]; then
     echo "❌ ERROR: An analysis query is required."
-    echo "Usage: /analyze-gemini-v3 \"Your question here\" [optional-git-ref]"
+    echo "Usage: /analyze-gemini-v3 <Your question here> [optional-git-ref]"
     exit 1
+fi
+
+# --- Intelligent Parsing Logic ---
+# We assume the baseline ref, if present, is the LAST word and is a valid git ref.
+# Everything else is part of the query.
+
+# Get the last word from the arguments
+LAST_WORD=$(echo "$RAW_ARGS" | awk '{print $NF}')
+
+# Check if the last word is a valid git ref. This is the key verification step.
+if git rev-parse --verify "$LAST_WORD" >/dev/null 2>&1; then
+    # It's a valid ref, so we treat it as the baseline.
+    BASELINE_REF="$LAST_WORD"
+    # The query is everything *except* the last word.
+    ANALYSIS_QUERY=$(echo "$RAW_ARGS" | sed 's/ [^ ]*$//')
+    echo "✅ Query identified: \"$ANALYSIS_QUERY\""
+    echo "✅ Baseline identified: \"$BASELINE_REF\""
+else
+    # The last word is not a valid ref, so the entire string is the query.
+    ANALYSIS_QUERY="$RAW_ARGS"
+    BASELINE_REF=""
+    echo "✅ Query identified: \"$ANALYSIS_QUERY\""
+    echo "ℹ️ No valid baseline ref found in query."
 fi
 ```
 
@@ -74,16 +102,12 @@ git status --porcelain >> ./tmp/analysis_context.txt
 
 # Only perform diff if a baseline was provided
 if [ -n "$BASELINE_REF" ]; then
-    if git rev-parse --verify "$BASELINE_REF" >/dev/null 2>&1; then
-        echo "✅ Using provided baseline for comparison: $BASELINE_REF"
-        echo -e "\n## BASELINE USED: $BASELINE_REF" >> ./tmp/analysis_context.txt
-        echo -e "\n## DIFF STATISTICS (from $BASELINE_REF to HEAD)" >> ./tmp/analysis_context.txt
-        git diff "$BASELINE_REF"..HEAD --stat >> ./tmp/analysis_context.txt
-        echo -e "\n## DETAILED CODE CHANGES" >> ./tmp/analysis_context.txt
-        git diff "$BASELINE_REF"..HEAD -- ptycho/ src/ configs/ | head -2000 >> ./tmp/analysis_context.txt
-    else
-        echo "⚠️ Warning: '$BASELINE_REF' is not a valid git ref. Skipping diff analysis."
-    fi
+    echo "✅ Using provided baseline for comparison: $BASELINE_REF"
+    echo -e "\n## BASELINE USED: $BASELINE_REF" >> ./tmp/analysis_context.txt
+    echo -e "\n## DIFF STATISTICS (from $BASELINE_REF to HEAD)" >> ./tmp/analysis_context.txt
+    git diff "$BASELINE_REF"..HEAD --stat >> ./tmp/analysis_context.txt
+    echo -e "\n## DETAILED CODE CHANGES" >> ./tmp/analysis_context.txt
+    git diff "$BASELINE_REF"..HEAD -- ptycho/ src/ configs/ | head -2000 >> ./tmp/analysis_context.txt
 else
     echo "ℹ️ No baseline provided. Skipping diff analysis."
 fi
@@ -99,7 +123,7 @@ echo "✅ Context gathering complete."
 **🔴 STOP - THIS STEP IS MANDATORY - DO NOT SKIP**
 
 #### Step 3.1: Build Prompt File
-You MUST now populate this **generalized** command template and save it to `./tmp/analysis-prompt.md`.
+You MUST now populate this generalized command template and save it to `./tmp/analysis-prompt.md`.
 
 ```bash
 # Clean start for the prompt file
@@ -129,15 +153,6 @@ Carry out the following steps:
 <analysis_request>
 ## PRIMARY GOAL / QUESTION
 [Placeholder for the user's main analysis query]
-
-## BACKGROUND CONTEXT & ASSUMPTIONS
-[Placeholder for any additional context from the conversation, e.g., "I'm trying to fix ticket #123," or "My assumption is that the database is the bottleneck."]
-
-## KEY AREAS OF FOCUS
-[Placeholder for specific files, modules, or concepts to pay special attention to, e.g., "Focus on the `auth` and `api` modules."]
-
-## DESIRED OUTCOME
-[Placeholder for what kind of output is expected, e.g., "A step-by-step implementation plan," "A list of security vulnerabilities," or "A high-level explanation."]
 </analysis_request>
 
 <git_context>
@@ -173,10 +188,9 @@ You MUST now EXECUTE the following shell commands:
 
 ```bash
 # Inject the dynamic content into the prompt file
-# This is more complex than the original, so we use sed with placeholders.
-# A more robust solution might use a simple script, but sed is fine for this.
-sed -i.bak "s|\[Placeholder for the user's main analysis query\]|$ANALYSIS_QUERY|" ./tmp/analysis-prompt.md
-# Note: The other placeholders would be filled from conversation context.
+# Using a temp file for the query handles special characters and multi-line input safely.
+echo "$ANALYSIS_QUERY" > ./tmp/query.txt
+sed -i.bak -e '/\[Placeholder for the user.s main analysis query\]/r ./tmp/query.txt' -e '//d' ./tmp/analysis-prompt.md
 
 # Append the git context
 echo -e "\n<git_context>" >> ./tmp/analysis-prompt.md
@@ -196,7 +210,6 @@ gemini -p "@./tmp/analysis-prompt.md"
 
 After Gemini responds, you will synthesize its findings into a clear report for the user.
 
-Example of your output:
 ```markdown
 ## 🎯 Expert Analysis from Gemini
 
