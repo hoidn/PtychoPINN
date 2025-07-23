@@ -15,8 +15,8 @@
 
 **THIS IS THE CORE PURPOSE OF THIS COMMAND:**
 1.  You MUST run context analysis (including `git` analysis if a baseline is provided).
-2.  You MUST build the complete, structured prompt in `./tmp/analysis-prompt.md`.
-3.  You MUST execute `gemini -p "@./tmp/analysis-prompt.md"`.
+2.  You MUST build the complete, structured prompt in `analysis-prompt.md`.
+3.  You MUST execute `gemini -p "@analysis-prompt.md"`.
 4.  You MUST wait for and process Gemini's response.
 5.  You MUST report Gemini's findings to the user.
 
@@ -112,7 +112,7 @@ else
     echo "ℹ️ No baseline provided. Skipping diff analysis."
 fi
 
-# --- CODEBASE CONTEXT GATHERING ---
+# --- CODEBASE CONTEXT GATHERING --- you MUST run this whether or not repomix-output.xml already exists
 npx repomix@latest . --include "**/*.sh,**/*.md,**/*.py,**/*.c,**/*.h,**/*.json,**/*.log" --ignore ".aider.chat.history.md,build/**,tests/**"
 
 echo "✅ Context gathering complete."
@@ -123,14 +123,14 @@ echo "✅ Context gathering complete."
 **🔴 STOP - THIS STEP IS MANDATORY - DO NOT SKIP**
 
 #### Step 3.1: Build Prompt File
-You MUST now populate this generalized command template and save it to `./tmp/analysis-prompt.md`.
+You MUST now populate this generalized command template and save it to `analysis-prompt.md`.
 
 ```bash
 # Clean start for the prompt file
-rm -f ./tmp/analysis-prompt.md 2>/dev/null
+rm -f analysis-prompt.md 2>/dev/null
 
 # Create the structured prompt with placeholders
-cat > ./tmp/analysis-prompt.md << 'PROMPT'
+cat > analysis-prompt.md << 'PROMPT'
 <task>
 Perform a comprehensive, code-aware analysis based on the user's request, providing a fresh and expert perspective.
 
@@ -190,20 +190,20 @@ You MUST now EXECUTE the following shell commands:
 # Inject the dynamic content into the prompt file
 # Using a temp file for the query handles special characters and multi-line input safely.
 echo "$ANALYSIS_QUERY" > ./tmp/query.txt
-sed -i.bak -e '/\[Placeholder for the user.s main analysis query\]/r ./tmp/query.txt' -e '//d' ./tmp/analysis-prompt.md
+sed -i.bak -e '/\[Placeholder for the user.s main analysis query\]/r ./tmp/query.txt' -e '//d' analysis-prompt.md
 
 # Append the git context
-echo -e "\n<git_context>" >> ./tmp/analysis-prompt.md
-cat ./tmp/analysis_context.txt >> ./tmp/analysis-prompt.md
-echo -e "\n</git_context>" >> ./tmp/analysis-prompt.md
+echo -e "\n<git_context>" >> analysis-prompt.md
+cat ./tmp/analysis_context.txt >> analysis-prompt.md
+echo -e "\n</git_context>" >> analysis-prompt.md
 
 # Append the codebase context
-echo -e "\n<codebase_context>" >> ./tmp/analysis-prompt.md
-cat repomix-output.xml >> ./tmp/analysis-prompt.md
-echo -e "\n</codebase_context>" >> ./tmp/analysis-prompt.md
+echo -e "\n<codebase_context>" >> analysis-prompt.md
+cat repomix-output.xml >> analysis-prompt.md
+echo -e "\n</codebase_context>" >> analysis-prompt.md
 
 # Execute the command
-gemini -p "@./tmp/analysis-prompt.md"
+gemini -p "@analysis-prompt.md"
 ```
 
 ### Step 4: Process and Report GEMINI'S Findings
