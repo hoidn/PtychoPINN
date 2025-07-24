@@ -245,26 +245,51 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
     try:
-        yaml_config = load_yaml_config(yaml_path) if yaml_path else None
+        yaml_config = load_yaml_config(yaml_path) if yaml_path else {}
         args_config = vars(args)
+        
+        # Get the dataclass defaults to detect which CLI args were explicitly set
+        model_defaults = {f.name: f.default for f in fields(ModelConfig)}
+        training_defaults = {f.name: f.default for f in fields(TrainingConfig) if f.name != 'model'}
+        all_defaults = {**model_defaults, **training_defaults}
+        
+        # Merge YAML config with CLI args, prioritizing explicit CLI args over YAML
+        merged_config = {}
+        
+        # Start with YAML config
+        merged_config.update(yaml_config)
+        
+        # Override with CLI args that are NOT default values (indicating user specified them)
+        for key, value in args_config.items():
+            if value is not None and key != 'config' and key != 'do_stitching':
+                # Only override YAML if the CLI value differs from the default
+                if key not in all_defaults or value != all_defaults[key]:
+                    merged_config[key] = value
+                    logger.debug(f"CLI override: {key}={value} (differs from default {all_defaults.get(key)})")
+                else:
+                    logger.debug(f"CLI default: {key}={value} (matches default, keeping YAML value if present)")
         
         # Convert string paths to Path objects
         for key in ['train_data_file', 'test_data_file', 'output_dir']:
-            if key in args_config and args_config[key] is not None:
-                args_config[key] = Path(args_config[key])
+            if key in merged_config and merged_config[key] is not None:
+                merged_config[key] = Path(merged_config[key])
         
-        # Create ModelConfig from args
+        # Create ModelConfig from merged config
         model_fields = {f.name for f in fields(ModelConfig)}
-        model_args = {k: v for k, v in args_config.items() if k in model_fields}
+        model_args = {k: v for k, v in merged_config.items() if k in model_fields}
         model_config = ModelConfig(**model_args)
         
         # Create TrainingConfig
         training_fields = {f.name for f in fields(TrainingConfig)}
-        training_args = {k: v for k, v in args_config.items() 
+        training_args = {k: v for k, v in merged_config.items() 
                         if k in training_fields and k != 'model'}
         
-        # Log the CLI arguments for debugging
+        # Log the configuration sources for debugging
+        logger.debug(f"YAML config: {yaml_config}")
         logger.debug(f"CLI arguments: {args_config}")
+        logger.debug(f"Dataclass defaults: {all_defaults}")
+        logger.debug(f"Merged config: {merged_config}")
+        logger.debug(f"Model arguments: {model_args}")
         logger.debug(f"Training arguments: {training_args}")
         
         config = TrainingConfig(model=model_config, **training_args)

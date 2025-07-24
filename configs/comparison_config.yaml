@@ -3,7 +3,7 @@
 
 # Model Architecture Parameters
 N: 64                    # Dimension of input diffraction patterns (64x64 pixels)
-gridsize: 1              # Non-grid data (set to 1)
+gridsize: 2              # Grid size 2 for overlap-based training
 n_filters_scale: 2       # Multiplier for number of filters in conv layers
 model_type: "pinn"       # For PtychoPINN model (baseline ignores this)
 amp_activation: "sigmoid" # Activation function for amplitude output
@@ -19,7 +19,7 @@ n_images: 512            # Number of diffraction patterns to use
 learning_rate: 0.001     # Learning rate for Adam optimizer
 
 # Physics & Loss Parameters
-nphotons: 1e6            # Average photons per diffraction pattern
+nphotons: 1000000.0      # Average photons per diffraction pattern
 nll_weight: 1.0          # Weight for Negative Log-Likelihood loss
 mae_weight: 0.0          # Weight for Mean Absolute Error loss
 probe_scale: 1.0         # Probe normalization factor

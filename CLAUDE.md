@@ -246,9 +246,37 @@ After a successful training run using `ptycho_train --output_dir <my_run>`, the 
 - **`metrics.csv`**: If a ground truth object was available, this file contains quantitative image quality metrics (MAE, PSNR, FRC) comparing the reconstruction to the ground truth.
 - **`params.dill`**: A snapshot of the full configuration used for the run, for reproducibility.
 
+### Enhanced Logging System
+
+The project uses an advanced centralized logging system with comprehensive output capture:
+
+**Key Features:**
+- **Complete Output Capture:** ALL stdout (including print statements from any module) is captured to log files
+- **Tee-style Logging:** Simultaneous console and file output with flexible control
+- **Command-line Options:** `--quiet`, `--verbose`, and `--console-level` for different use cases
+
+**Common Usage:**
+```bash
+# Interactive development (default)
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run
+
+# Automation-friendly (quiet console)  
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run --quiet
+
+# Debugging (verbose console output)
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run --verbose
+```
+
 ### Troubleshooting: Log File Locations
 
 **Critical:** When a workflow fails, you **MUST** look for log files in the specified `<output_dir>/logs/` directory, not the project root. The centralized logging system ensures all logs are organized within each run's output directory, making it easier to debug specific runs and keeping the project root clean.
+
+**Complete Record:** The `debug.log` file contains:
+- All logging messages from the application
+- All print() statements from any imported module
+- Model architecture summaries and data shape information  
+- Debug output from core modules
+- **Everything that appeared on stdout during execution**
 
 ## 9. Advanced & Undocumented Features
 

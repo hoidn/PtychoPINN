@@ -166,47 +166,97 @@ To ensure fair and consistent model comparison, the project must use single, aut
 
 ---
 
-## 6. Centralized Logging
+## 6. Enhanced Centralized Logging
 
 **The Golden Rule:** All logs for a specific run must be stored in a `logs/` subdirectory within that run's main output directory.
 
-### 6.1. The Logging Architecture
+### 6.1. The Enhanced Logging Architecture
 
-**The Authoritative Module:** <code-ref type="module">ptycho/log_config.py</code-ref> provides the single source of truth for all logging configuration in the project.
+**The Authoritative Module:** <code-ref type="module">ptycho/log_config.py</code-ref> provides the single source of truth for all logging configuration in the project, now with advanced tee-style logging, stdout capture, and flexible console control.
 
-**The Correct Pattern:** All user-facing scripts must call the centralized logging setup function:
+**Key Features:**
+- **Tee-style logging**: Simultaneous console and file output
+- **Print statement capture**: All stdout from any module captured to log files
+- **Flexible console control**: `--quiet`, `--verbose`, and custom log levels
+- **Complete records**: All output preserved in files regardless of console settings
+
+**The Correct Pattern:** All user-facing scripts must call the centralized logging setup function with enhanced options:
 ```python
 from ptycho.log_config import setup_logging
+from ptycho.cli_args import add_logging_arguments, get_logging_config
 from pathlib import Path
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="My Script")
+    # Add standard arguments...
+    
+    # Add enhanced logging arguments
+    add_logging_arguments(parser)
+    return parser.parse_args()
 
 def main():
     # Parse arguments and set up configuration first
     args = parse_arguments()
     config = setup_configuration(args, args.config)
     
-    # Set up centralized logging
-    setup_logging(Path(config.output_dir))
+    # Set up enhanced centralized logging with user options
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(Path(config.output_dir), **logging_config)
     
     # Continue with workflow logic...
 ```
 
-### 6.2. Log File Organization
+### 6.2. Enhanced Log File Organization & Features
 
 **Directory Structure:** When a workflow executes with `--output_dir my_run`, the logging system creates:
 ```
 my_run/
 ├── logs/
-│   └── debug.log        # All log messages (DEBUG level and above)
+│   └── debug.log        # Complete record: ALL messages + captured stdout
 ├── wts.h5.zip          # Model outputs
 ├── history.dill        # Training history
 └── ...                 # Other workflow outputs
 ```
 
-**Log Levels:**
-- **File (`debug.log`)**: All messages at DEBUG level and above
-- **Console**: INFO level and above for real-time monitoring
+**Enhanced Log Capabilities:**
+- **File (`debug.log`)**: 
+  - All logging messages (DEBUG level and above)
+  - **All print() statements from any module**
+  - Model architecture summaries
+  - Data shape information
+  - Debug output from core modules
+  - **Complete execution record**
+- **Console**: Flexible control via command-line flags
+  - Default: INFO level and above
+  - `--quiet`: Only external output (TensorFlow warnings, etc.)
+  - `--verbose`: DEBUG level output to console
+  - `--console-level WARNING`: Custom console filtering
 
-### 6.3. Anti-Pattern: Local Logging Configuration
+**Print Statement Capture:** The enhanced logging system automatically captures ALL stdout output (including print statements from any imported module) and writes it to the log file, ensuring complete traceability of execution.
+
+### 6.3. Command-Line Logging Options
+
+**Standard Logging Arguments:** All scripts supporting enhanced logging provide these options:
+
+```bash
+# Quiet mode: suppress console output from logging system
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run --quiet
+
+# Verbose mode: show DEBUG messages on console  
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run --verbose
+
+# Custom console log level
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run --console-level WARNING
+```
+
+**Use Cases:**
+- **Interactive development**: Default or `--verbose` mode for real-time feedback
+- **Automation/CI**: `--quiet` mode to reduce noise in automated workflows
+- **Custom filtering**: `--console-level` for specific debugging scenarios
+
+**Important:** These flags only affect console output. All messages are ALWAYS captured in the `logs/debug.log` file regardless of the console settings.
+
+### 6.4. Anti-Pattern: Local Logging Configuration
 
 **DON'T:** Add local `logging.basicConfig()` or manual handler setup to new scripts:
 ```python
