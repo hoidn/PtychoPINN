@@ -27,6 +27,8 @@ from ptycho.tf_helper import reassemble_position
 from ptycho.evaluation import eval_reconstruction
 from ptycho.image.cropping import align_for_evaluation
 from ptycho.image.registration import find_translation_offset, apply_shift_and_crop, register_and_align
+from ptycho.cli_args import add_logging_arguments, get_logging_config
+from ptycho.log_config import setup_logging
 
 # NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
 
@@ -72,6 +74,10 @@ def parse_args():
                         help="Save debug images for MS-SSIM and FRC preprocessing visualization.")
     parser.add_argument("--ms-ssim-sigma", type=float, default=1.0,
                         help="Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0).")
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
+    
     return parser.parse_args()
 
 
@@ -530,6 +536,10 @@ def main():
     """
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Set up enhanced centralized logging
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(Path(args.output_dir) / "logs", **logging_config)
 
     # Handle NPZ flag combinations
     if args.no_save_npz:

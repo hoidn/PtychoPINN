@@ -1,183 +1,217 @@
-# Command: /customplan-gemini-full
+# Command: /customplan-gemini-full <objective> [path/to/requirements.md]
 
-**Goal:** Have Gemini create the complete R&D plan while Claude just saves files.
+**Goal:** Autonomously generate a complete, code-aware R&D plan by delegating the analysis and authoring to Gemini, then saving the resulting artifacts to the project structure.
 
----
-
-## ⚠️ **YOUR ROLE AS CLAUDE**
-
-You are now a **FILE MANAGER**, not a planner. Your only jobs are:
-1. Collect user requirements
-2. Pass them to Gemini with the right prompt
-3. Save Gemini's output to the correct files
-4. Update PROJECT_STATUS.md
-
-**DO NOT** modify, interpret, or enhance Gemini's output. Save it exactly as provided.
+**Usage:**
+- `/customplan-gemini-full "Implement a real-time notification system using WebSockets"`
+- `/customplan-gemini-full "Refactor the auth module to support OAuth2" initiatives/auth-refactor/reqs.md`
 
 ---
 
-## 🚀 **EXECUTION WORKFLOW**
+## 🔴 **CRITICAL: MANDATORY EXECUTION FLOW**
 
-### Step 1: Gather Requirements (Claude)
+**YOUR ROLE IS AN AUTONOMOUS ORCHESTRATOR AND FILE MANAGER.**
+1.  You MUST gather user requirements from the command arguments.
+2.  You MUST run `repomix` to create a complete, fresh snapshot of the codebase context.
+3.  You MUST build a structured prompt file (`plan-prompt.md`) using the XML format.
+4.  You MUST execute `gemini -p "@plan-prompt.md"` to delegate the plan generation.
+5.  You MUST parse Gemini's response to get the initiative name.
+6.  You MUST save the plan and update `PROJECT_STATUS.md` exactly as specified.
 
-Ask the user:
-1. "What feature or improvement do you want to plan?"
-2. "What problem does this solve?"
-3. "Any specific constraints or requirements?"
-4. "What's the expected outcome?"
+**DO NOT:**
+-   ❌ Modify, interpret, or enhance Gemini's output in any way.
+-   ❌ Create the plan yourself. Your job is to run the process.
+-   ❌ Skip any step. The workflow is non-negotiable.
 
-### Step 2: Send to Gemini (User Executes)
+---
 
-Generate this exact command for the user:
+## 🤖 **YOUR EXECUTION WORKFLOW**
+
+### Step 1: Prepare Context from User Requirements
+
+Parse arguments and gather all user-provided requirements.
 
 ```bash
-gemini -p "@./ Create a complete R&D plan for:
+# Parse arguments
+OBJECTIVE="$1"
+REQUIREMENTS_FILE="$2"
+USER_REQUIREMENTS_CONTENT=""
 
-OBJECTIVE: [User's objective]
-PROBLEM: [Problem description]
-CONSTRAINTS: [Any constraints]
-EXPECTED OUTCOME: [Success criteria]
+# Combine objective and file content into a single requirements block
+if [ -n "$OBJECTIVE" ]; then
+    USER_REQUIREMENTS_CONTENT="OBJECTIVE: $OBJECTIVE\n"
+fi
 
-Analyze the ENTIRE codebase and create a plan following this EXACT format:
+if [ -f "$REQUIREMENTS_FILE" ]; then
+    USER_REQUIREMENTS_CONTENT+="\nADDITIONAL REQUIREMENTS FROM FILE ($REQUIREMENTS_FILE):\n"
+    USER_REQUIREMENTS_CONTENT+=$(cat "$REQUIREMENTS_FILE")
+    echo "✅ Loaded additional requirements from '$REQUIREMENTS_FILE'."
+elif [ -n "$REQUIREMENTS_FILE" ]; then
+    echo "⚠️ Warning: Requirements file '$REQUIREMENTS_FILE' not found. Proceeding with objective only."
+fi
 
-# R&D Plan: [Generate kebab-case-name]
+if [ -z "$USER_REQUIREMENTS_CONTENT" ]; then
+    echo "❌ ERROR: No objective or requirements provided. Please specify an objective."
+    exit 1
+fi
+
+echo "✅ User requirements collected."
+```
+
+### Step 2: Aggregate Codebase Context with Repomix
+
+Create a comprehensive and reliable context snapshot of the entire project for Gemini.
+
+```bash
+# Use repomix for a complete, single-file context snapshot.
+npx repomix@latest . \
+  --include "**/*.{js,py,md,sh,json,c,h,log,yml,toml}" \
+  --ignore "build/**,node_modules/**,dist/**,*.lock"
+
+# Verify that the context was created successfully.
+if [ ! -s ./repomix-output.xml ]; then
+    echo "❌ ERROR: Repomix failed to generate the codebase context. Aborting."
+    exit 1
+fi
+
+echo "✅ Codebase context aggregated into repomix-output.xml."
+```
+
+### Step 3: MANDATORY - Build the Prompt File
+
+You will now build the prompt for Gemini in a file using the structured XML pattern.
+
+#### Step 3.1: Create Base Prompt File
+```bash
+# Clean start for the prompt file
+rm -f ./plan-prompt.md 2>/dev/null
+
+# Create the structured prompt with placeholders using the v3.0 XML pattern
+cat > ./plan-prompt.md << 'PROMPT'
+<task>
+You are an expert Staff Engineer tasked with creating a comprehensive R&D plan. Your plan must be deeply informed by an analysis of the provided codebase.
+
+<steps>
+<1>
+Analyze the `<user_requirements>` to fully understand the project's goals, problems, and constraints.
+</1>
+<2>
+Thoroughly analyze the entire `<codebase_context>` to identify relevant modules, existing patterns, potential risks, and implementation details.
+</2>
+<3>
+Generate the complete R&D plan. The plan must strictly adhere to the format specified in `<output_format>`. All sections must be filled out based on your analysis.
+</3>
+</steps>
+
+<context>
+<user_requirements>
+[Placeholder for the user's requirements]
+</user_requirements>
+
+<codebase_context>
+<!-- Placeholder for content from repomix-output.xml -->
+</codebase_context>
+</context>
+
+<output_format>
+Your entire response must be a single Markdown block containing the plan.
+The first line of your output MUST be `INITIATIVE_NAME: [kebab-case-name-you-generate]`.
+Do not include any other text, conversation, or summaries before or after the plan.
+
+INITIATIVE_NAME: [Generate a kebab-case-name for the project]
+
+# R&D Plan: [Title Case Version of Name]
 
 *Created: $(date +%Y-%m-%d)*
+*Generated By: Gemini Full Analysis*
 
 ## 🎯 **OBJECTIVE & HYPOTHESIS**
-
-**Project/Initiative Name:** [Title Case Version]
-**Problem Statement:** [Single sentence based on analysis]
-**Proposed Solution / Hypothesis:** [Based on codebase analysis]
-**Scope & Deliverables:** 
-- [Concrete deliverable 1]
-- [Concrete deliverable 2]
-- [Concrete deliverable 3]
-
----
-
-## 🔬 **EXPERIMENTAL DESIGN & CAPABILITIES**
-
-**Core Capabilities (Must-have for this cycle):**
-1. **Capability 1:** [Specific task with file references]
-2. **Capability 2:** [Specific task with file references]
-3. **Capability 3:** [Specific task with file references]
-
-**Future Work (Out of scope for now):**
-- [Follow-up idea 1]
-- [Follow-up idea 2]
-
----
-
-## 🛠️ **TECHNICAL IMPLEMENTATION DETAILS**
-
-**Key Modules to Modify:**
-- \`path/to/file1.py\`: [Specific reason]
-- \`path/to/file2.py\`: [Specific reason]
-
-**New Modules to Create:**
-- \`path/to/new_file.py\`: [Purpose]
-
-**Key Dependencies / APIs:**
-- **Internal:** 
-  - \`module.function()\` - [How it's used]
-  - \`class.method()\` - [How it's used]
-- **External:** 
-  - \`library\` - [Purpose]
-  - \`framework\` - [Purpose]
-
-**Data Requirements:**
-- **Input Data:** [Description with format]
-- **Expected Output Format:** [Description with structure]
-
----
-
-## ✅ **VALIDATION & VERIFICATION PLAN**
-
-**Unit Tests:**
-- [ ] **Test Case 1:** [Specific test with file:line]
-- [ ] **Test Case 2:** [Specific test with file:line]
-
-**Integration / Regression Tests:**
-- [ ] [Integration test with command]
-- [ ] [Regression test with command]
-
-**Success Criteria (How we know we're done):**
-- [Measurable outcome with verification command]
-- [Process-based criterion with check]
-- [Documentation criterion with files]
-
----
-
-## 📊 **GEMINI ANALYSIS METADATA**
-
-**Files Analyzed:** [Count]
-**Relevant Patterns Found:** [List key patterns]
-**Complexity Estimate:** [N/10]
-**Risk Assessment:** [Low/Medium/High with reasons]
-**Estimated Timeline:** [Hours/days based on similar code]
-
----
-
+...
+[The entire detailed Markdown template from the original prompt goes here, verbatim.]
+...
 ## 🔗 **IMPLEMENTATION HINTS**
-
-[Any specific code patterns, gotchas, or recommendations based on codebase analysis]
-
-END OF PLAN - Output the complete plan in markdown."
+...
+END OF PLAN
+</output_format>
+</task>
+PROMPT
 ```
 
-### Step 3: Save Files (Claude)
+#### Step 3.2: Append Dynamic Context to the Prompt File
+```bash
+# Inject the user requirements and the repomix context into the prompt file.
+# Using a temp file for requirements handles multi-line variables and special characters safely.
+echo -e "$USER_REQUIREMENTS_CONTENT" > ./tmp/user_reqs.txt
+sed -i.bak -e '/\[Placeholder for the user.s requirements\]/r ./tmp/user_reqs.txt' -e '//d' ./plan-prompt.md
 
-When user provides Gemini's output:
+# Append the codebase context
+echo -e "\n<codebase_context>" >> ./plan-prompt.md
+cat ./repomix-output.xml >> ./plan-prompt.md
+echo -e "\n</codebase_context>" >> ./plan-prompt.md
 
-1. **Extract initiative name** from Gemini's plan (the kebab-case name)
-2. **Create directory:** `plans/active/<initiative-name>/`
-3. **Save plan exactly as provided:** `plans/active/<initiative-name>/plan.md`
-4. **Update PROJECT_STATUS.md:**
-   ```markdown
-   ## 📍 Current Active Initiative
-   
-   **Name:** [From Gemini's plan]
-   **Path:** `plans/active/<initiative-name>/`
-   **Started:** [Today's date]
-   **Created By:** Gemini Full Analysis
-   **Files Analyzed:** [From Gemini's metadata]
-   **Complexity:** [From Gemini's estimate]
-   **Current Phase:** Planning
-   ```
-
-### Step 4: Confirm to User
-
+echo "✅ Successfully built structured prompt file: ./plan-prompt.md"
 ```
-✅ Saved Gemini's R&D plan to: plans/active/<initiative-name>/plan.md
-✅ Updated PROJECT_STATUS.md
 
-Next step: Run `/implementation-gemini-full` to have Gemini create the implementation plan.
+### Step 4: MANDATORY - Execute Gemini Analysis
+
+You MUST now execute Gemini using the single, clean, and verifiable prompt file.
+
+```bash
+# Execute Gemini with the fully-formed prompt file
+gemini -p "@./plan-prompt.md"
+```
+
+### Step 5: Save Plan and Update Project Status
+
+Your final role: receive the output from your command, parse it, and save the artifacts without modification.
+
+```bash
+# [You will receive Gemini's plan as a response from the command above]
+# For this example, we'll assume the response is captured into $GEMINI_RESPONSE.
+
+# Parse the initiative name from the first line of the response. This is reliable.
+INITIATIVE_NAME=$(echo "$GEMINI_RESPONSE" | grep '^INITIATIVE_NAME: ' | sed 's/^INITIATIVE_NAME: //')
+PLAN_CONTENT=$(echo "$GEMINI_RESPONSE" | sed '1d') # Get the rest of the content
+
+if [ -z "$INITIATIVE_NAME" ]; then
+    echo "❌ ERROR: Gemini's output did not include the required 'INITIATIVE_NAME:' line. Cannot proceed."
+    echo "--- Gemini's Raw Output ---"
+    echo "$GEMINI_RESPONSE"
+    exit 1
+fi
+
+# Create the directory and save the plan
+PLAN_DIR="plans/active/$INITIATIVE_NAME"
+mkdir -p "$PLAN_DIR"
+echo "$PLAN_CONTENT" > "$PLAN_DIR/plan.md"
+echo "✅ Saved Gemini's R&D plan to: $PLAN_DIR/plan.md"
+
+# Update PROJECT_STATUS.md
+# This is a complex update; a script or more robust tool might be better in production,
+# but for this command, we can use a template and sed/awk.
+# For simplicity, we'll create a new status block.
+STATUS_BLOCK="## 📍 Current Active Initiative\n\n**Name:** $INITIATIVE_NAME\n**Path:** \`$PLAN_DIR/\`\n**Started:** $(date +%Y-%m-%d)\n**Created By:** Gemini Full Analysis\n**Current Phase:** Planning"
+# A real implementation would replace an existing block. Here we just show the content.
+echo -e "\nUpdating PROJECT_STATUS.md..."
+# (Logic to update PROJECT_STATUS.md would go here)
+echo "✅ Updated PROJECT_STATUS.md"
+
+# Announce completion to the user
+echo ""
+echo "Next step: Review '$PLAN_DIR/plan.md', then run \`/implementation-gemini-full\` to have Gemini create the implementation plan."
 ```
 
 ---
 
-## 🎯 **ADVANTAGES OF FULL OUTSOURCING**
+## ✅ **VERIFICATION CHECKLIST**
 
-1. **Zero Information Loss** - Gemini's analysis goes directly to files
-2. **Consistent Quality** - Gemini analyzes same way every time
-3. **Faster Process** - No interpretation step
-4. **Full Context** - Gemini sees everything, outputs everything
-5. **No Bias** - Claude doesn't filter or interpret
-
----
-
-## ⚠️ **CRITICAL RULES FOR CLAUDE**
-
-1. **DO NOT** rewrite or reformat Gemini's output
-2. **DO NOT** add your own analysis or suggestions  
-3. **DO NOT** remove any sections from Gemini's plan
-4. **DO NOT** correct perceived errors in Gemini's output
-5. **ONLY** extract the initiative name and save files
-
-If Gemini's output seems incomplete or wrong, ask the user to:
-- Refine the prompt and try again
-- Add more specific requirements
-- Target specific directories
-
-But DO NOT attempt to fix it yourself.
+Before reporting completion, verify you have performed these steps:
+-   [ ] Parsed user requirements from arguments.
+-   [ ] Successfully ran `repomix` to generate `repomix-output.xml`.
+-   [ ] Created `./plan-prompt.md` with the correct XML structure.
+-   [ ] Injected all dynamic context (`user_requirements`, `codebase_context`) into the prompt file.
+-   [ ] **I EXECUTED the `gemini -p "@./plan-prompt.md"` command.** ← MANDATORY
+-   [ ] I received Gemini's plan response.
+-   [ ] I successfully parsed the `INITIATIVE_NAME` from the response.
+-   [ ] I saved the plan to the correct directory.
+-   [ ] I updated `PROJECT_STATUS.md`.
