@@ -41,17 +41,18 @@ The script expects the test data to be in .npz format with the following arrays:
 
 ## Output
 
-The script generates the following outputs:
+The script generates the following outputs in the specified `--output_dir`:
 
-1. A comparison image (`reconstruction_comparison.png`) showing:
-   - Reconstructed amplitude
-   - Reconstructed phase
-   - ePIE amplitude
-   - ePIE phase
-2. If `--visualize_probe` is used, a probe visualization image (`probe_visualization.png`)
-3. Log file (`inference.log`) with detailed information about the inference process
+1. **`logs/`**: Directory containing all log files
+   - **`debug.log`**: Complete log history (DEBUG level and above) for troubleshooting
+2. **`reconstruction_comparison.png`**: Comparison image showing:
+   - Reconstructed amplitude and phase
+   - ePIE amplitude and phase (if ground truth available)
+3. **`reconstructed_amplitude.png`**: Individual amplitude reconstruction
+4. **`reconstructed_phase.png`**: Individual phase reconstruction  
+5. **`probe_visualization.png`**: (Optional) Generated when `--visualize_probe` flag is used
 
-All outputs are saved in the specified output directory.
+All outputs are organized within the specified output directory.
 
 ## Process
 
@@ -61,9 +62,40 @@ All outputs are saved in the specified output directory.
 4. The results are processed to generate the comparison image.
 5. If requested, a probe visualization is generated.
 
+## Enhanced Logging
+
+The script uses an advanced centralized logging system with comprehensive output capture:
+
+**Key Features:**
+- **Complete Output Capture**: ALL stdout (including print statements from any module) is captured to log files
+- **Tee-style Logging**: Simultaneous console and file output with flexible control
+- **Command-line Options**: Control console verbosity without affecting file logging
+
+**File Logging**: The `<output_dir>/logs/debug.log` file contains:
+- All logging messages (DEBUG level and above)  
+- All print() statements from any imported module
+- Model loading information and inference progress
+- Complete execution record
+
+**Console Control Options**:
+```bash
+# Default: INFO level console output + complete file logging
+ptycho_inference --model_path model_dir --test_data test.npz --output_dir results
+
+# Quiet mode: suppress console logging (automation-friendly)
+ptycho_inference --model_path model_dir --test_data test.npz --output_dir results --quiet
+
+# Verbose mode: DEBUG level console output + complete file logging
+ptycho_inference --model_path model_dir --test_data test.npz --output_dir results --verbose
+```
+
+**Important**: These flags only affect console output. All messages are ALWAYS captured in the log file.
+
+This centralized approach ensures logs are organized within each inference run's output directory.
+
 ## Notes
 
-- The script uses logging to provide information about the process. Check the console output and log file for details.
 - Ensure that the model files (saved using the training script) are located at the path specified by `model_prefix`.
 - The `K` and `nsamples` parameters can be adjusted to experiment with different data grouping strategies.
+- For troubleshooting, check both console output and the debug log file in the output directory's logs subdirectory.
 

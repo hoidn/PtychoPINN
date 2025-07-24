@@ -84,21 +84,45 @@ The script includes comprehensive error handling:
 
 ## Output Structure
 
-The training script generates the following outputs:
+The training script generates the following outputs in the specified `--output_dir`:
 
-- Model artifacts saved to the specified output directory
-- Debug logs written to 'train_debug.log'
-- Console output showing training progress
-- Training results including:
-  - Reconstructed amplitude
-  - Reconstructed phase
-  - Additional training metrics and results
+- **`logs/`**: Directory containing all log files
+  - **`debug.log`**: Complete log history (DEBUG level and above) 
+- **Model artifacts**: Saved model files and weights
+- **Training results**: Including reconstructed amplitude, phase, and metrics
+- **Console output**: Real-time training progress (INFO level)
 
-## Logging
+## Enhanced Logging
 
-The script implements a two-level logging system:
-- Debug information is written to 'train_debug.log'
-- Info level messages are displayed in the console
+The script uses an advanced centralized logging system with comprehensive output capture:
 
-This dual logging system helps track both detailed debugging information and high-level progress during training.
+**Key Features:**
+- **Complete Output Capture**: ALL stdout (including print statements from any module) is captured to log files
+- **Tee-style Logging**: Simultaneous console and file output with flexible control  
+- **Command-line Options**: Control console verbosity without affecting file logging
+
+**File Logging**: The `<output_dir>/logs/debug.log` file contains:
+- All logging messages (DEBUG level and above)
+- All print() statements from any imported module
+- Model architecture summaries and data shape information
+- Complete execution record
+
+**Console Control Options**:
+```bash
+# Default: INFO level console output + complete file logging
+ptycho_train --train_data dataset.npz --output_dir my_run
+
+# Quiet mode: suppress console logging (automation-friendly)
+ptycho_train --train_data dataset.npz --output_dir my_run --quiet
+
+# Verbose mode: DEBUG level console output + complete file logging  
+ptycho_train --train_data dataset.npz --output_dir my_run --verbose
+
+# Custom console log level
+ptycho_train --train_data dataset.npz --output_dir my_run --console-level WARNING
+```
+
+**Important**: These flags only affect console output. All messages are ALWAYS captured in the log file regardless of console settings.
+
+This centralized approach ensures logs are organized within each training run's output directory, making it easier to debug specific runs and keep the project root clean.
 

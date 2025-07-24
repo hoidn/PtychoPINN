@@ -166,11 +166,131 @@ To ensure fair and consistent model comparison, the project must use single, aut
 
 ---
 
-## 6. Testing Conventions
+## 6. Enhanced Centralized Logging
+
+**The Golden Rule:** All logs for a specific run must be stored in a `logs/` subdirectory within that run's main output directory.
+
+### 6.1. The Enhanced Logging Architecture
+
+**The Authoritative Module:** <code-ref type="module">ptycho/log_config.py</code-ref> provides the single source of truth for all logging configuration in the project, now with advanced tee-style logging, stdout capture, and flexible console control.
+
+**Key Features:**
+- **Tee-style logging**: Simultaneous console and file output
+- **Print statement capture**: All stdout from any module captured to log files
+- **Flexible console control**: `--quiet`, `--verbose`, and custom log levels
+- **Complete records**: All output preserved in files regardless of console settings
+
+**The Correct Pattern:** All user-facing scripts must call the centralized logging setup function with enhanced options:
+```python
+from ptycho.log_config import setup_logging
+from ptycho.cli_args import add_logging_arguments, get_logging_config
+from pathlib import Path
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="My Script")
+    # Add standard arguments...
+    
+    # Add enhanced logging arguments
+    add_logging_arguments(parser)
+    return parser.parse_args()
+
+def main():
+    # Parse arguments and set up configuration first
+    args = parse_arguments()
+    config = setup_configuration(args, args.config)
+    
+    # Set up enhanced centralized logging with user options
+    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
+    setup_logging(Path(config.output_dir), **logging_config)
+    
+    # Continue with workflow logic...
+```
+
+### 6.2. Enhanced Log File Organization & Features
+
+**Directory Structure:** When a workflow executes with `--output_dir my_run`, the logging system creates:
+```
+my_run/
+├── logs/
+│   └── debug.log        # Complete record: ALL messages + captured stdout
+├── wts.h5.zip          # Model outputs
+├── history.dill        # Training history
+└── ...                 # Other workflow outputs
+```
+
+**Enhanced Log Capabilities:**
+- **File (`debug.log`)**: 
+  - All logging messages (DEBUG level and above)
+  - **All print() statements from any module**
+  - Model architecture summaries
+  - Data shape information
+  - Debug output from core modules
+  - **Complete execution record**
+- **Console**: Flexible control via command-line flags
+  - Default: INFO level and above
+  - `--quiet`: Only external output (TensorFlow warnings, etc.)
+  - `--verbose`: DEBUG level output to console
+  - `--console-level WARNING`: Custom console filtering
+
+**Print Statement Capture:** The enhanced logging system automatically captures ALL stdout output (including print statements from any imported module) and writes it to the log file, ensuring complete traceability of execution.
+
+### 6.3. Command-Line Logging Options
+
+**Standard Logging Arguments:** All scripts supporting enhanced logging provide these options:
+
+```bash
+# Quiet mode: suppress console output from logging system
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run --quiet
+
+# Verbose mode: show DEBUG messages on console  
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run --verbose
+
+# Custom console log level
+ptycho_train --train_data datasets/fly64.npz --output_dir my_run --console-level WARNING
+```
+
+**Use Cases:**
+- **Interactive development**: Default or `--verbose` mode for real-time feedback
+- **Automation/CI**: `--quiet` mode to reduce noise in automated workflows
+- **Custom filtering**: `--console-level` for specific debugging scenarios
+
+**Important:** These flags only affect console output. All messages are ALWAYS captured in the `logs/debug.log` file regardless of the console settings.
+
+### 6.4. Anti-Pattern: Local Logging Configuration
+
+**DON'T:** Add local `logging.basicConfig()` or manual handler setup to new scripts:
+```python
+# WRONG - Creates inconsistent log file locations
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('my_script_debug.log')  # Creates root-level log files
+    ]
+)
+```
+
+**DO:** Use the centralized system:
+```python
+# CORRECT - Consistent log organization
+from ptycho.log_config import setup_logging
+setup_logging(output_dir)
+```
+
+### 6.4. Migration from Legacy Logging
+
+**Historical Context:** Prior to the centralized logging system, scripts created log files directly in the project root (e.g., `train_debug.log`, `inference.log`). This pattern has been deprecated in favor of organized, per-run logging within output directories.
+
+**Rule for New Development:** Any new script that needs logging must use `<code-ref type="module">ptycho/log_config.py</code-ref>`. Adding local logging configuration is now an anti-pattern that violates the single source of truth principle.
+
+---
+
+## 7. Testing Conventions
 
 **The Principle:** All tests for the PtychoPINN project must follow a standardized, conventional structure to ensure maintainability, discoverability, and consistency.
 
-### 6.1. Test Directory Structure
+### 7.1. Test Directory Structure
 
 **The Rule:** All tests for the `ptycho` library code must reside in the top-level `tests/` directory, with a structure that mirrors the `ptycho/` package organization.
 
@@ -191,7 +311,7 @@ tests/
 
 **Example:** A test for `ptycho/image/cropping.py` must be located at `tests/image/test_cropping.py`.
 
-### 6.2. Running Tests
+### 7.2. Running Tests
 
 **The Command:** To run all tests, use the standard unittest discovery from the project root:
 ```bash
@@ -200,11 +320,11 @@ python -m unittest discover -s tests -p "test_*.py"
 
 This command will discover and execute all test files following the `test_*.py` naming pattern within the `tests/` directory structure.
 
-### 6.3. Script-Level Tests
+### 7.3. Script-Level Tests
 
 **Exception:** Tests for standalone scripts in the `scripts/` directory can be co-located with the script itself (e.g., `scripts/tools/test_update_tool.py`). This exception applies only to command-line scripts, not library modules.
 
-### 6.4. Test File Naming
+### 7.4. Test File Naming
 
 **The Convention:** All test files must follow the naming pattern `test_<module_name>.py`, where `<module_name>` corresponds to the module being tested.
 
@@ -215,7 +335,7 @@ This command will discover and execute all test files following the `test_*.py` 
 
 ---
 
-## 7. The Challenge of Subsampling with Overlap Constraints (`gridsize > 1`)
+## 8. The Challenge of Subsampling with Overlap Constraints (`gridsize > 1`)
 
 **The Lesson:** A critical architectural limitation exists when using subsampling (e.g., via the `--n_images` flag) in conjunction with a `gridsize` greater than 1. The model's overlap constraint relies on the physical adjacency of neighboring diffraction patterns, and the current data loading pipeline can break this assumption.
 
@@ -233,21 +353,21 @@ This leads to a critical dilemma:
 
 ---
 
-## 8. Troubleshooting References
+## 9. Troubleshooting References
 
-### 8.1. Common Gotchas and Solutions
+### 9.1. Common Gotchas and Solutions
 
 For detailed documentation of critical issues and solutions discovered during development:
 
-- **GridSize Inference Issues**: Comprehensive guide to configuration loading, initialization order, and multi-channel data handling issues (see section 9.1 below).
+- **GridSize Inference Issues**: Comprehensive guide to configuration loading, initialization order, and multi-channel data handling issues (see section 10.1 below).
 
 ---
 
-## 9. Architectural Learnings & Historical Context
+## 10. Architectural Learnings & Historical Context
 
 This section captures key architectural decisions and lessons learned from past development initiatives. This context is preserved to explain the reasoning behind certain design patterns in the codebase.
 
-### 9.1. The GridSize Inference Issue (Resolved)
+### 10.1. The GridSize Inference Issue (Resolved)
 
 A critical issue was discovered where models trained with `gridsize > 1` would fail during inference. The root cause was a combination of initialization order bugs and an implicit dependency on the global `ptycho.params.cfg` state.
 

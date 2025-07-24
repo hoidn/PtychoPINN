@@ -1,68 +1,169 @@
-### Refined Command: `/geminictx`
-
-<file path=".claude/commands/geminictx.md">
 # Command: /geminictx [query]
 
-**Goal:** Use Gemini to identify the most relevant files for a given query, then have Claude read and synthesize that context to provide a comprehensive answer.
+**Goal:** Leverage a two-pass AI workflow to provide a comprehensive, context-aware answer to a user's query about the codebase. Pass 1 uses Gemini to identify relevant files, and Pass 2 uses your own (Claude's) synthesis capabilities on the full content of those files.
 
 **Usage:**
-- `/geminictx how does authentication work?`
-- `/geminictx explain the data loading pipeline`
+- `/geminictx "how does authentication work?"`
+- `/geminictx "explain the data loading pipeline"`
 
 ---
 
 ## 🔴 **CRITICAL: MANDATORY EXECUTION FLOW**
 
-**This command follows a deliberate two-pass workflow:**
-1.  **Pass 1 (Gemini as Identifier):** You MUST execute a `gemini -p` command to have it analyze the codebase and return a list of relevant files.
-2.  **Pass 2 (Claude as Synthesizer):** You MUST then read the full content of EVERY file Gemini identified to build your own deep context before providing a synthesized answer.
+**This command follows a deliberate, non-negotiable two-pass workflow:**
+1.  **Context Aggregation:** You MUST first run `repomix` to create a complete snapshot of the codebase.
+2.  **Pass 1 (Gemini as Context Locator):** You MUST build a structured prompt file and execute `gemini -p` to identify a list of relevant files based on the user's query and the `repomix` context.
+3.  **Pass 2 (Claude as Synthesizer):** You MUST then read the full content of EVERY file Gemini identified to build your own deep context before providing a synthesized answer.
 
 **DO NOT:**
--   ❌ Skip the Gemini step and guess which files are relevant.
--   ❌ Only read the justifications from Gemini; you must read the full file contents.
--   ❌ Present an answer before you have read all the identified files.
+-   ❌ Skip the `repomix` step. The entire workflow depends on this complete context.
+-   ❌ Guess which files are relevant. You must delegate this to Gemini.
+-   ❌ Only read Gemini's one-sentence justifications. You must read the **full file contents**.
+-   ❌ Answer the user's query before you have completed Pass 1 and read all identified files in Pass 2.
 
 ---
 
 ## 🤖 **YOUR EXECUTION WORKFLOW**
 
-### Step 1: Execute Gemini to Identify Relevant Context
+### Step 1: Gather Codebase Context with Repomix
 
-You will execute the following command, which includes default context paths and the user's query.
+First, create a comprehensive and reliable context snapshot of the entire project.
 
 ```bash
 # The user's query is passed as $ARGUMENTS
 USER_QUERY="$ARGUMENTS"
 
-gemini -p "@src/ @ptycho/ @scripts/ @docs/ <query>
-$USER_QUERY
-</query>
+# Use repomix for a complete, single-file context snapshot.
+# This is more robust than a long list of @-references.
+npx repomix@latest . \
+  --include "**/*.{js,py,md,sh,json,c,h,log}" \
+  --ignore "build/**,node_modules/**,dist/**,*.lock"
 
-<task>
-Based on the user's query, your task is to act as a context locator. Analyze the provided directories and identify the most relevant files (source code, documentation, configs, etc.) to answer the query.
+# Verify that the context was created successfully.
+if [ ! -s ./repomix-output.xml ]; then
+    echo "❌ ERROR: Repomix failed to generate the codebase context. Aborting."
+    exit 1
+fi
 
-For each relevant file you identify, provide your output in the following strict format:
-
-FILE: [exact/path/to/file.ext]
-RELEVANCE: [A concise, one-sentence explanation of why this file is relevant to the user's query.]
----
-</task>"
+echo "✅ Codebase context aggregated into repomix-output.xml."
 ```
 
-### Step 2: Read and Synthesize the Identified Files
+### Step 2: Build and Execute Pass 1 (Gemini as Context Locator)
 
-After receiving the list of files from Gemini, you will perform the following actions:
+Now, build a structured prompt in a file to ask Gemini to find the relevant files.
 
-1.  **Parse the Output:** Extract the list of file paths from Gemini's response.
-2.  **Read Full Content:** Read the entire content of each identified file into your working context. Announce which files you are reading for transparency.
-3.  **Synthesize and Answer:** After reading all files, construct your final response to the user, following the structure below.
+#### Step 2.1: Build the Prompt File
+```bash
+# Clean start for the prompt file
+rm -f ./gemini-pass1-prompt.md 2>/dev/null
 
-### Step 3: Present Your Synthesized Analysis
+# Create the structured prompt using the v3.0 XML pattern
+cat > ./gemini-pass1-prompt.md << 'PROMPT'
+<task>
+You are a **Context Locator**. Your sole purpose is to analyze the provided codebase context and identify the most relevant files for answering the user's query. Do not answer the query yourself.
 
-Your final output to the user should be structured as follows:
+<steps>
+<1>
+Analyze the user's `<query>`.
+</1>
+<2>
+Scan the entire `<codebase_context>` to find all files (source code, documentation, configs) that are relevant to the query.
+</2>
+<3>
+For each relevant file you identify, provide your output in the strict format specified in `<output_format>`.
+</3>
+</steps>
+
+<context>
+<query>
+[Placeholder for the user's query]
+</query>
+
+<codebase_context>
+<!-- Placeholder for content from repomix-output.xml -->
+</codebase_context>
+</context>
+
+<output_format>
+Your output must be a list of entries. Each entry MUST follow this exact format, ending with three dashes on a new line.
+
+FILE: [exact/path/to/file.ext]
+RELEVANCE: [A concise, one-sentence explanation of why this file is relevant.]
+---
+
+Do not include any other text, conversation, or summaries in your response.
+</output_format>
+</task>
+PROMPT
+```
+
+#### Step 2.2: Append Dynamic Context
+```bash
+# Inject the user's query and the repomix context into the prompt file.
+# Using a temp file for the query handles special characters safely.
+echo "$USER_QUERY" > ./tmp/user_query.txt
+sed -i.bak -e '/\[Placeholder for the user.s query\]/r ./tmp/user_query.txt' -e '//d' ./gemini-pass1-prompt.md
+
+# Append the codebase context
+echo -e "\n<codebase_context>" >> ./gemini-pass1-prompt.md
+cat ./repomix-output.xml >> ./gemini-pass1-prompt.md
+echo -e "\n</codebase_context>" >> ./gemini-pass1-prompt.md
+
+echo "✅ Built structured prompt for Pass 1: ./gemini-pass1-prompt.md"
+```
+
+#### Step 2.3: Execute Gemini
+```bash
+# Execute Gemini with the single, clean prompt file.
+gemini -p "@./gemini-pass1-prompt.md"
+```
+
+### Step 3: Process Gemini's Response & Prepare for Pass 2
+
+After receiving the list of files from Gemini, parse the output and prepare to read the files.
+
+```bash
+# [You will receive Gemini's response, e.g., captured in $GEMINI_RESPONSE]
+# For this example, we'll simulate parsing the response to get a file list.
+
+# Parse the output to get a clean list of file paths.
+# This is a robust way to extract just the file paths for the next step.
+FILE_LIST=$(echo "$GEMINI_RESPONSE" | grep '^FILE: ' | sed 's/^FILE: //')
+
+# Verify that Gemini returned relevant files.
+if [ -z "$FILE_LIST" ]; then
+    echo "⚠️ Gemini did not identify any specific files for your query. I will attempt to answer based on general project knowledge, but the answer may be incomplete."
+    # You might choose to exit here or proceed with caution.
+    exit 0
+fi
+
+echo "Gemini identified the following relevant files:"
+echo "$FILE_LIST"
+```
+
+### Step 4: Execute Pass 2 (Claude as Synthesizer)
+
+This is your primary role. Read the full content of the identified files to build deep context.
+
+```bash
+# Announce what you are doing for transparency.
+echo "Now reading the full content of each identified file to build a deep understanding..."
+
+# You will now iterate through the FILE_LIST and read each one.
+# For each file in FILE_LIST:
+#   - Verify the file exists (e.g., if [ -f "$file" ]; then ...).
+#   - Read its full content into your working memory.
+#   - Announce: "Reading: `path/to/file.ext`..."
+
+# After reading all files, you are ready to synthesize the answer.
+```
+
+### Step 5: Present Your Synthesized Analysis
+
+Your final output to the user should follow the well-structured format from your original prompt.
 
 ```markdown
-Based on your query, Gemini identified the following key files, which I have now read and analyzed:
+Based on your query, Gemini identified the following key files, which I have now read and analyzed in their entirety:
 
 -   `path/to/relevant/file1.ext`
 -   `path/to/relevant/file2.ext`
@@ -91,23 +192,9 @@ Here is a synthesized analysis of how they work together to address your questio
 [Quote a relevant snippet showing the interaction.]
 \`\`\`
 
-#### **Documentation in `docs/relevant_guide.md`**
-[Reference the official documentation, explaining how it clarifies the implementation.]
-
 ### How It All Connects
-[Provide a brief narrative explaining the data flow or call chain between the identified components. For example: "The process starts in `file2.py`, which calls the `core_function()` from `file1.py` using parameters defined in the documentation..."]
+[Provide a brief narrative explaining the data flow or call chain between the identified components.]
 
 ### Conclusion
-[End with a concluding thought or a question to guide the user's next step, e.g., "This covers the authentication flow. Would you like to dive deeper into the JWT validation logic specifically?"]
+[End with a concluding thought or a question to guide the user's next step.]
 ```
-
----
-
-### Why This Two-Pass Approach is Effective
-
-This workflow is deliberately designed to play to the strengths of both models and provide the most robust context for you, the agent:
-
-1.  **Comprehensive Discovery:** Gemini's large context window scans the entire relevant codebase to act as an intelligent "grep," ensuring no key files are missed.
-2.  **Focused Context for Claude:** You receive a curated list of the most important files. By reading their full content, you load a dense, relevant, and manageable context into your working memory.
-3.  **Deep Synthesis:** With the full text of the key files available, you can provide a much deeper and more accurate synthesis than if you were relying only on Gemini's brief summaries. This is critical for complex follow-up tasks.
-4.  **Transparency:** The user sees exactly which files were identified as relevant, making the process clear and auditable.
