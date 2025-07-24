@@ -113,7 +113,7 @@ fi
 
 **Name:** <Initiative Name in Title Case>
 **Path:** `plans/active/<initiative-name>/`
-**Branch:** `feature/<initiative-name>`
+**Branch:** `feature/<initiative-name>` (baseline: <ref_branch>)
 **Started:** <Today's date YYYY-MM-DD>
 **Current Phase:** Planning
 **Progress:** ░░░░░░░░░░░░░░░░ 0%

@@ -68,15 +68,12 @@ You must execute the following shell commands. This robust, sequential approach 
 # 1. Get the current feature branch name
 feature_branch=$(git rev-parse --abbrev-ref HEAD)
 
-# 2. Determine the baseline branch using a safe, sequential method.
-if git rev-parse --verify main >/dev/null 2>&1; then
-    baseline_branch="main"
-elif git rev-parse --verify master >/dev/null 2>&1; then
-    baseline_branch="master"
-elif git rev-parse --verify develop >/dev/null 2>&1; then
-    baseline_branch="develop"
-else
-    baseline_branch=$(git rev-parse --abbrev-ref HEAD@{upstream} | sed 's/.*\///' || echo "main")
+# 2. Extract baseline branch from PROJECT_STATUS.md
+# Format: **Branch:** `feature/name` (baseline: branch-name)
+baseline_branch=$(grep "Branch:" PROJECT_STATUS.md | sed 's/.*baseline: \(.*\))/\1/')
+if [ -z "$baseline_branch" ]; then
+    echo "❌ ERROR: Could not determine baseline branch from PROJECT_STATUS.md"
+    exit 1
 fi
 echo "Baseline branch determined as: $baseline_branch"
 
@@ -268,5 +265,4 @@ This document orchestrates the implementation of the objective defined in the ma
 **Progress:** ░░░░░░░░░░░░░░░░ 0%
 **Next Milestone:** A new module `src/core/new_feature.py` with passing unit tests.
 **Implementation Plan:** `plans/active/<initiative-name>/implementation.md`
-```
 ```

@@ -1,6 +1,6 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-07-19
+**Last Updated:** 2025-07-22
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
 
@@ -63,7 +63,23 @@ This document provides a high-level overview of the major development initiative
 
 ## 🚀 **Current Active Initiative**
 
-**No active initiative** - Project is ready for new development planning.
+### **Initiative: Probe Generalization Study**
+**Path:** `plans/active/probe-generalization-study/`
+**Branch:** `feature/probe-generalization-study` (baseline: devel)
+**Started:** 2025-07-22
+**Current Phase:** Phase 3: Automated 2x2 Study Execution
+**Progress:** ████████░░░░░░░░ 50%
+**Next Milestone:** Orchestration script and completed training outputs for all four experimental arms
+**R&D Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/plan.md</doc-ref>
+**Implementation Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/implementation.md</doc-ref>
+
+**Goal:** To understand the impact of different probe functions (idealized vs. experimental) on PtychoPINN model performance across different overlap constraints (gridsize=1 vs. gridsize=2).
+
+**Key Deliverables:**
+- Verification of synthetic 'lines' dataset workflow for both gridsizes
+- 2x2 experimental matrix comparing idealized/experimental probes with gridsize 1/2
+- Quantitative comparison report with PSNR, SSIM, and FRC50 metrics
+- Visualization plots for all four experimental conditions
 
 ---
 

@@ -1,12 +1,6 @@
-# Command: /debug-gemini-v3 [baseline-ref]
+# Command: /analyze-gemini-v3 [analysis_query] [optional_baseline_ref]
 
-**Goal:** Get comprehensive debugging help from Gemini with fresh perspective, especially when you might have tunnel vision about the root cause.
-
-**Usage:** 
-- `/debug-gemini-v3` - Analyzes issue, asks for baseline if needed
-- `/debug-gemini-v3 main` - Uses 'main' branch as baseline
-- `/debug-gemini-v3 abc123f` - Uses specific commit as baseline
-- `/debug-gemini-v3 v1.2.3` - Uses tag as baseline
+**Goal:** Get comprehensive analysis from Gemini 
 
 ---
 
@@ -33,11 +27,11 @@
 You are Claude Code - the autonomous command-line tool that executes shell commands directly. You:
 - **Execute** commands autonomously (don't just suggest them)
 - **Run** the entire workflow without human intervention
-- **Complete** debugging from start to finish in one go
+- **Complete** analysis from start to finish in one go
 
 ## 🚨 **YOU MUST EXECUTE GEMINI - THIS IS NOT OPTIONAL**
 
-When a user runs `/debug-gemini`, you handle EVERYTHING:
+When a user runs `/analyze-gemini`, you handle EVERYTHING:
 - ✅ Run all git commands automatically
 - ✅ Create all temp files automatically  
 - **✅ Execute the `gemini -p` command directly (MANDATORY)**
@@ -53,7 +47,7 @@ When a user runs `/debug-gemini`, you handle EVERYTHING:
 
 ```mermaid
 graph LR
-    A[User: /debug-gemini] --> B[You: Identify issue from context]
+    A[User: /analyze-gemini] --> B[You: Identify issue from context]
     B --> C[You: Run git analysis automatically]
     C --> D[You: Create temp files]
     D --> E[**You: MUST Execute gemini -p command**]
@@ -68,15 +62,14 @@ graph LR
 ## ✅ **EXECUTION CHECKLIST**
 
 Before reporting ANY findings, verify:
-- [ ] I identified the issue from context
 - [ ] I ran git analysis commands
-- [ ] I created ./tmp/debug_context.txt WITH ACTUAL CONTENT (not shell commands)
+- [ ] I created ./tmp/analysis_context.txt WITH ACTUAL CONTENT (not shell commands)
 - [ ] **I EXECUTED `gemini -p` command** ← THIS IS MANDATORY
 - [ ] I received Gemini's response
 - [ ] I'm reporting GEMINI'S findings, not my own analysis
 
 If you haven't executed `gemini -p`, STOP and do it now.
-If debug_context.txt contains `$(cat ...)` commands, STOP and fix it using the incremental approach.
+If analysis_context.txt contains `$(cat ...)` commands, STOP and fix it using the incremental approach.
 
 ---
 
@@ -92,10 +85,10 @@ Determine from the conversation/context:
 
 **Parse baseline from arguments:**
 ```bash
-# Ensure we have a tmp directory for our debug files
+# Ensure we have a tmp directory for our analysis files
 mkdir -p ./tmp
 
-# $ARGUMENTS contains whatever user typed after /debug-gemini-v3
+# $ARGUMENTS contains whatever user typed after /analyze-gemini-v3
 BASELINE_REF="$ARGUMENTS"
 if [ -n "$BASELINE_REF" ]; then
     # User provided a baseline ref
@@ -128,10 +121,10 @@ Automatically execute these commands without any user intervention:
 mkdir -p ./tmp
 
 # Get recent commit history (NOTE: Use dash separator, not pipe to avoid parsing issues)
-git log -n 10 --pretty=format:"%h %ad - %s [%an]" --date=short > ./tmp/debug_git_log.txt
+git log -n 10 --pretty=format:"%h %ad - %s [%an]" --date=short > ./tmp/analysis_git_log.txt
 
 # Get current status
-git status --porcelain > ./tmp/debug_git_status.txt
+git status --porcelain > ./tmp/analysis_git_status.txt
 
 # Use baseline ref from arguments or determine automatically
 if [ -n "$BASELINE_REF" ]; then
@@ -149,25 +142,25 @@ else
 fi
 
 # Get diffs from baseline
-git diff "$BASELINE"..HEAD --stat > ./tmp/debug_diff_stat.txt
-git diff "$BASELINE"..HEAD --name-status > ./tmp/debug_diff_names.txt
-git diff "$BASELINE"..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > ./tmp/debug_diff_details.txt
+git diff "$BASELINE"..HEAD --stat > ./tmp/analysis_diff_stat.txt
+git diff "$BASELINE"..HEAD --name-status > ./tmp/analysis_diff_names.txt
+git diff "$BASELINE"..HEAD -- ptycho/ src/ configs/ package.json requirements.txt > ./tmp/analysis_diff_details.txt
 
-# CRITICAL: Build debug context file using simple sequential approach
+# CRITICAL: Build analysis context file using simple sequential approach
 # Heredocs with command substitution don't work in Claude Code's environment
 # Each command is executed separately to ensure actual content is written
 
-echo "## RECENT COMMITS" > ./tmp/debug_context.txt
-cat ./tmp/debug_git_log.txt >> ./tmp/debug_context.txt
-echo -e "\n## CURRENT GIT STATUS" >> ./tmp/debug_context.txt  
-cat ./tmp/debug_git_status.txt >> ./tmp/debug_context.txt
-echo -e "\n## BASELINE USED: $BASELINE" >> ./tmp/debug_context.txt
-echo -e "\n## DIFF STATISTICS (from $BASELINE to HEAD)" >> ./tmp/debug_context.txt
-cat ./tmp/debug_diff_stat.txt >> ./tmp/debug_context.txt 2>/dev/null || echo "No baseline diff available" >> ./tmp/debug_context.txt
-echo -e "\n## FILES CHANGED" >> ./tmp/debug_context.txt
-cat ./tmp/debug_diff_names.txt >> ./tmp/debug_context.txt 2>/dev/null || echo "No file changes detected" >> ./tmp/debug_context.txt
-echo -e "\n## DETAILED CODE CHANGES" >> ./tmp/debug_context.txt
-head -2000 ./tmp/debug_diff_details.txt >> ./tmp/debug_context.txt 2>/dev/null || echo "No detailed diffs available" >> ./tmp/debug_context.txt
+echo "## RECENT COMMITS" > ./tmp/analysis_context.txt
+cat ./tmp/analysis_git_log.txt >> ./tmp/analysis_context.txt
+echo -e "\n## CURRENT GIT STATUS" >> ./tmp/analysis_context.txt  
+cat ./tmp/analysis_git_status.txt >> ./tmp/analysis_context.txt
+echo -e "\n## BASELINE USED: $BASELINE" >> ./tmp/analysis_context.txt
+echo -e "\n## DIFF STATISTICS (from $BASELINE to HEAD)" >> ./tmp/analysis_context.txt
+cat ./tmp/analysis_diff_stat.txt >> ./tmp/analysis_context.txt 2>/dev/null || echo "No baseline diff available" >> ./tmp/analysis_context.txt
+echo -e "\n## FILES CHANGED" >> ./tmp/analysis_context.txt
+cat ./tmp/analysis_diff_names.txt >> ./tmp/analysis_context.txt 2>/dev/null || echo "No file changes detected" >> ./tmp/analysis_context.txt
+echo -e "\n## DETAILED CODE CHANGES" >> ./tmp/analysis_context.txt
+head -2000 ./tmp/analysis_diff_details.txt >> ./tmp/analysis_context.txt 2>/dev/null || echo "No detailed diffs available" >> ./tmp/analysis_context.txt
 
 # Python alternative if shell approaches fail:
 # BASELINE="$BASELINE" python3 << 'EOF'
@@ -175,15 +168,15 @@ head -2000 ./tmp/debug_diff_details.txt >> ./tmp/debug_context.txt 2>/dev/null |
 # os.makedirs('./tmp', exist_ok=True)
 # baseline = os.environ.get('BASELINE', 'unknown')
 # sections = [
-#     ('RECENT COMMITS', './tmp/debug_git_log.txt'),
-#     ('CURRENT GIT STATUS', './tmp/debug_git_status.txt'),
+#     ('RECENT COMMITS', './tmp/analysis_git_log.txt'),
+#     ('CURRENT GIT STATUS', './tmp/analysis_git_status.txt'),
 #     (f'BASELINE USED: {baseline}', None),
-#     (f'DIFF STATISTICS (from {baseline} to HEAD)', './tmp/debug_diff_stat.txt'),
-#     ('FILES CHANGED', './tmp/debug_diff_names.txt'),
-#     ('DETAILED CODE CHANGES', './tmp/debug_diff_details.txt')
+#     (f'DIFF STATISTICS (from {baseline} to HEAD)', './tmp/analysis_diff_stat.txt'),
+#     ('FILES CHANGED', './tmp/analysis_diff_names.txt'),
+#     ('DETAILED CODE CHANGES', './tmp/analysis_diff_details.txt')
 # ]
 # 
-# with open('./tmp/debug_context.txt', 'w') as out:
+# with open('./tmp/analysis_context.txt', 'w') as out:
 #     for title, path in sections:
 #         out.write(f'## {title}\n')
 #         if path is None:
@@ -202,8 +195,8 @@ head -2000 ./tmp/debug_diff_details.txt >> ./tmp/debug_context.txt 2>/dev/null |
 # EOF
 
 # Verify the file contains actual content
-echo "Verifying debug context file..."
-if grep -q '$(cat' ./tmp/debug_context.txt; then
+echo "Verifying analysis context file..."
+if grep -q '$(cat' ./tmp/analysis_context.txt; then
     echo "❌ ERROR: File still contains shell commands! Try the Python approach above."
 else
     echo "✅ Debug context file ready with actual git data"
@@ -211,7 +204,7 @@ fi
 ```
 
 ### Step 2.5: MANDATORY prepare gemini inputs / context 
-The debug_context.txt file MUST contain:
+The analysis_context.txt file MUST contain:
 - Recent commit history (actual commits, not `$(cat ...)` commands)
 - Current git status (actual file list)
 - **Baseline used for comparison** (branch/commit shown in file)
@@ -255,13 +248,13 @@ list the files included in the repomix archive
 <1>
 REVIEW PROJECT DOCUMENTATION
  - **Read CLAUDE.md thoroughly** - This contains essential project context, architecture, and known patterns
- - **Read DEVELOPER_GUIDE.md carefully** - This explains the development workflow, common issues, and debugging approaches
+ - **Read DEVELOPER_GUIDE.md carefully** - This explains the development workflow, common issues, and analysis approaches
  - **Understand the project structure** from these documents before diving into the code
 
 These documents contain crucial information about:
 - Project architecture and design decisions
 - Known quirks and edge cases
-- Common debugging patterns
+- Common analysis patterns
 - Project-specific conventions and practices
 </1>
 
@@ -275,33 +268,13 @@ analyze the issue's prior understanding <summary>. Then, attempt to find the roo
 </steps>
 
 <summary>
-## ISSUE SUMMARY
-**Symptoms:** [Detailed symptoms with specific errors, stack traces, or behaviors]
-**When It Happens:** [Specific conditions, inputs, or sequences that trigger it]
-**When It Doesn't Happen:** [Cases where it works fine]
-**Environment:** [Dev/staging/prod, OS, versions]
-**Baseline Branch:** [If provided - where it last worked correctly]
-
-## MY CURRENT UNDERSTANDING
-**My Leading Theory:** [What you think is wrong]
-**Evidence For This Theory:** 
-- [Specific observation 1]
-- [Specific observation 2]
-
-**Code I'm Focused On:**
-- `[file:line]` - [Why you suspect this]
-- `[file:line]` - [Why you suspect this]
-
-**What I've Already Analyzed:**
-1. [Analysis step 1 and finding]
-2. [Analysis step 2 and finding]
-3. [Analysis step 3 and finding]
-
 ## MY ASSUMPTIONS (PLEASE CHALLENGE THESE)
-1. [Assumption about the system]
-2. [Assumption about the data flow]
-3. [Assumption about dependencies]
+1. [beliefs about the situation]
+2. [Assumptions about data flow]
+3. [Assumptions about dependencies]
 4. [Assumption about configuration]
+5. [Possible call chains to trace]
+6. [Possible components needing review]
 </summary>
 
 <git>
@@ -313,23 +286,7 @@ analyze the issue's prior understanding <summary>. Then, attempt to find the roo
 <guidelines>
 ## FOCUS ON IDENTIFYING ROOT CAUSES
 1. **Challenge My Assumptions:** What am I taking for granted that might be wrong?
-
-2. **Alternative Root Causes:** What OTHER parts of the system could cause these symptoms?
-   - Consider timing/race conditions
-   - Consider configuration issues
-   - Consider environmental differences
-   - Consider dependency conflicts
-   - Consider data corruption
-   - Consider edge cases I missed
-
-3. **Minimal Reproduction:**
-   Based on your analysis, suggest the simplest possible code snippet or command that should reproduce this bug.
-
-4. **Systemic Issues:**
-   - Could this be a design flaw rather than a bug?
-   - Are there architectural issues at play?
-   - Is this a symptom of technical debt?
-5. Do not use tools. All needed context files you need should be included in your context with 
+2. Do not use tools. All needed context files you need should be included in your context with 
 surrounding xml tags. If required information is missing, abort the analysis with an explanataion of the reason you cannot 
 successfully continue.
 </guidelines>
@@ -337,12 +294,10 @@ successfully continue.
 
 <output format>
 Please provide:
-1. **Most Likely Alternative Causes** (ranked by probability)
-2. **Minimal Reproduction Case** (simplest way to trigger the bug)
-3. **Debug Strategy** (systematic approach)
+1. **Your full analysis
+2. **Suggestions for next steps
 
 </output format>
-Remember: I might be completely wrong about where the bug is. Look everywhere, not just where I'm pointing.
 </task>"
 ```
 
@@ -585,7 +540,7 @@ echo "tmp/" >> .gitignore
 
 ## 🚀 **Final Execution Reminder**
 
-When user runs `/debug-gemini-v3 [baseline-ref]`:
+When user runs `/analyze-gemini-v3 [baseline-ref]`:
 1. Parse baseline ref from arguments (if provided)
 2. Identify issue from context (or ask minimal questions)
 3. Run git analysis automatically with baseline
@@ -594,9 +549,9 @@ When user runs `/debug-gemini-v3 [baseline-ref]`:
 6. Report GEMINI'S findings with action plan
 
 **Usage Examples:**
-- `/debug-gemini-v3` - Auto-detects baseline
-- `/debug-gemini-v3 main` - Compare against main branch
-- `/debug-gemini-v3 v1.2.3` - Compare against specific tag
-- `/debug-gemini-v3 abc123f` - Compare against specific commit
+- `/analyze-gemini - Auto-detects baseline
+- `/analyze-gemini main` - Compare against main branch
+- `/analyze-gemini v1.2.3` - Compare against specific tag
+- `/analyze-gemini abc123f` - Compare against specific commit
 
 **The command has NOT succeeded until you've executed `gemini -p` and reported Gemini's findings.**

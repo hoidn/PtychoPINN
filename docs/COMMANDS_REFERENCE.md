@@ -181,7 +181,7 @@ python -c "import numpy as np; data=np.load('dataset.npz'); print('Keys:', list(
 ptycho_train --help
 
 # Monitor training progress in real-time
-tail -f output_dir/train_debug.log
+tail -f output_dir/logs/debug.log
 
 # Check GPU usage for bottlenecks or OOM errors
 nvidia-smi
