@@ -164,11 +164,15 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
 
 def parse_arguments():
     """Parse command-line arguments based on TrainingConfig fields."""
+    from ptycho.cli_args import add_logging_arguments
     logger = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
     parser.add_argument("--do_stitching", action='store_true', default=False,
                         help="Perform image stitching after training (default: False)")
+    
+    # Add logging arguments
+    add_logging_arguments(parser)
     
     # Add arguments based on TrainingConfig fields
     for field in fields(TrainingConfig):
