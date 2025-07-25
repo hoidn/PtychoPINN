@@ -253,6 +253,11 @@ COMPARE_CMD="python scripts/compare_models.py \
     --test_data \"$TEST_DATA\" \
     --output_dir \"$OUTPUT_DIR\""
 
+# Add n-test-images parameter if specified
+if [[ -n "$N_TEST_IMAGES" ]]; then
+    COMPARE_CMD="$COMPARE_CMD --n-test-images $N_TEST_IMAGES"
+fi
+
 # Add phase control parameters if provided
 if [ -n "$PINN_PHASE_VMIN" ]; then
     COMPARE_CMD="$COMPARE_CMD --pinn_phase_vmin $PINN_PHASE_VMIN"
