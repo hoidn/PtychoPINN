@@ -49,6 +49,7 @@ SKIP_DATA_PREP=false
 SKIP_TRAINING=false
 SKIP_COMPARISON=false
 DRY_RUN=false
+N_TEST_IMAGES=""
 
 # Parse command line arguments
 show_help() {
@@ -67,6 +68,7 @@ OPTIONS:
     --output-dir DIRECTORY     Output directory (default: timestamped directory)
     --train-data PATH         Path to training dataset (default: auto-generated)
     --test-data PATH          Path to test dataset (default: auto-generated)
+    --n-test-images N         Number of test images to use for evaluation (default: use all images)
     --skip-data-prep          Skip dataset preparation step
     --skip-training           Skip model training (use existing models)
     --skip-comparison         Skip model comparison step  
@@ -163,6 +165,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --test-data)
             TEST_DATA="$2"
+            shift 2
+            ;;
+        --n-test-images)
+            N_TEST_IMAGES="$2"
             shift 2
             ;;
         --skip-data-prep)
@@ -464,6 +470,10 @@ compare_models() {
                 --baseline_dir '$baseline_dir' \\
                 --test_data '$TEST_DATA' \\
                 --output_dir '$trial_output_dir'"
+                
+            if [[ -n "$N_TEST_IMAGES" ]]; then
+                compare_cmd="$compare_cmd --n-test-images $N_TEST_IMAGES"
+            fi
                 
             run_cmd "$compare_cmd" "Model comparison (train_size=$train_size, trial=$trial)"
         done
