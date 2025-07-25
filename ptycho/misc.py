@@ -1,3 +1,31 @@
+"""Miscellaneous utility functions for PtychoPINN.
+
+This module provides utility functions and decorators supporting the PtychoPINN 
+workflow, including caching mechanisms for expensive computations and helper 
+functions for output path generation and image processing.
+
+Key Public Interface:
+    @memoize_disk_and_memory: Decorator for caching function results to disk and memory
+    @memoize_simulated_data: Specialized decorator for caching simulated ptychography data
+    get_path_prefix(): Generate timestamped output directory paths
+    colormap2arr(): Convert RGB colormap images to grayscale arrays
+    cross_image(): Find offsets through 2D autocorrelation
+
+The caching decorators significantly speed up repeated computations by storing 
+results based on function parameters and configuration state. They are primarily 
+used by simulation and data preprocessing modules.
+
+Example Usage:
+    from ptycho.misc import memoize_disk_and_memory, get_path_prefix
+    
+    @memoize_disk_and_memory
+    def expensive_simulation(params):
+        # Computation is cached automatically
+        return simulate_diffraction_data(params)
+    
+    output_dir = get_path_prefix()  # e.g., "outputs/01-15-2024-14.30.15_experiment/"
+"""
+
 import numpy as np
 import matplotlib.cm as cm
 import scipy.cluster.vq as scv

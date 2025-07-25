@@ -1,14 +1,45 @@
 """
-Image cropping utilities for coordinate-based alignment.
+Reconstruction alignment and cropping utilities for evaluation pipelines.
 
-This module provides utilities to crop images based on scan coordinates,
-ensuring consistent alignment between reconstructed and ground truth objects.
+This module provides specialized image cropping functions for aligning ptychographic
+reconstructions with ground truth objects during evaluation. The core function
+`align_for_evaluation` performs a critical role in model comparison workflows by
+ensuring reconstructed objects are properly cropped and aligned with ground truth
+data before metric calculation.
 
-Note: The current implementation uses a simplified margin calculation (half the
-probe radius) which works well for typical ptychographic reconstructions but
-may need adjustment for different reconstruction algorithms or scan patterns.
-For precise alignment with specific reconstruction methods, consider using
-the reconstruction bounds directly rather than calculating from scan coordinates.
+**Primary Use Case**: Model comparison and evaluation workflows where reconstructions
+need to be aligned with ground truth for fair quantitative comparison (SSIM, FRC, etc.).
+
+**Key Functions**:
+    - `align_for_evaluation`: Two-stage alignment for reconstruction-to-ground-truth comparison
+    - `crop_to_scan_area`: Generic scanning area cropping based on coordinates
+    - `get_scan_area_bbox`: Bounding box calculation from scan coordinate arrays
+
+**Integration Pattern**:
+    ```python
+    # Typical model comparison workflow integration
+    from ptycho.tf_helper import reassemble_position
+    from ptycho.image.cropping import align_for_evaluation
+    
+    # After reconstruction assembly
+    pinn_recon = reassemble_position(pinn_patches, coords, stitch_size)
+    baseline_recon = reassemble_position(baseline_patches, coords, stitch_size)
+    
+    # Align both reconstructions with ground truth
+    pinn_aligned, gt_for_pinn = align_for_evaluation(
+        pinn_recon, ground_truth, scan_coords_yx, stitch_size)
+    baseline_aligned, gt_for_baseline = align_for_evaluation(
+        baseline_recon, ground_truth, scan_coords_yx, stitch_size)
+    
+    # Now both are ready for fair metric comparison
+    pinn_ssim = calculate_ssim(pinn_aligned, gt_for_pinn) 
+    baseline_ssim = calculate_ssim(baseline_aligned, gt_for_baseline)
+    ```
+
+**Data Formats**:
+    - Input images: 2D complex numpy arrays (amplitude + phase)
+    - Coordinates: `(n_positions, 2)` arrays with `[y, x]` format
+    - Output: Identically-shaped complex arrays ready for metric calculation
 """
 
 import numpy as np

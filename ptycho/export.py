@@ -1,3 +1,7 @@
+"""Export utilities for saving ptychographic reconstruction results and visualizations.
+
+Provides functions to save reconstructed objects as images and pickled data files.
+"""
 import dill
 import matplotlib.pyplot as plt
 import numpy as np
