@@ -1,3 +1,63 @@
+"""Physics-informed neural network (PINN) training implementation for ptychographic reconstruction.
+
+This module implements the PINN training workflow, which differs fundamentally from supervised 
+learning by integrating physics constraints directly into the neural network loss function.
+Unlike traditional supervised approaches that learn input-output mappings from ground truth 
+data, the PINN approach enforces physical consistency through differentiable forward modeling 
+of the ptychographic measurement process.
+
+**Physics-Informed Training Architecture:**
+The PINN training approach combines three key physics-informed loss components:
+1. **Poisson Negative Log-Likelihood (NLL)**: Enforces realistic photon noise statistics
+   matching experimental diffraction measurements via negloglik() loss function
+2. **Real-Space Consistency**: Optional realspace_loss() constraining object reconstruction
+   to be physically plausible in the sample domain
+3. **Differentiable Forward Model**: Custom TensorFlow layers embed the complete 
+   ptychographic measurement equation (object * probe → |FFT|² → Poisson noise)
+
+**Key Differences from Supervised Learning:**
+- **No Ground Truth Required**: Trains directly on experimental diffraction data without
+  requiring known object/phase references
+- **Physics-Constrained**: Loss functions enforce Maxwell equations and photon statistics
+  rather than pixel-wise reconstruction accuracy
+- **Self-Supervised**: The forward physics model provides supervision signals through
+  differentiable simulation of the measurement process
+- **Measurement Fidelity**: Optimizes for consistency with actual experimental physics
+  rather than similarity to reference images
+
+**Integration with Core Physics:**
+- **ptycho.model**: Provides the U-Net + physics layers architecture with PINN loss terms
+- **ptycho.diffsim**: Supplies differentiable forward model for physics constraints
+- **ptycho.tf_helper**: Implements realspace_loss() and Poisson statistics functions
+- **ptycho.probe**: Manages probe setup and trainable parameters for PINN optimization
+
+Key Functions:
+    train(): Main PINN training workflow with physics-informed loss configuration
+    train_eval(): Complete training + evaluation pipeline with object stitching
+    eval(): Inference on test data using trained PINN model
+    calculate_intensity_scale(): Computes physics-consistent intensity normalization
+
+Example:
+    # Complete PINN training workflow with physics constraints
+    from ptycho.loader import PtychoDataContainer
+    
+    # Load experimental diffraction data (no ground truth needed)
+    train_data = PtychoDataContainer.from_file('experimental_data.npz')
+    
+    # Configure physics parameters for PINN training
+    from ptycho import params
+    params.set('nll_weight', 1.0)      # Poisson NLL physics constraint weight
+    params.set('realspace_weight', 0.1) # Real-space consistency weight
+    params.set('nphotons', 1e6)        # Expected photon count for Poisson model
+    
+    # Train with physics-informed loss functions
+    model, history = train(train_data)
+    
+    # Evaluate reconstruction quality
+    results = eval(test_data, trained_model=model)
+    reconstructed_object = results['reconstructed_obj']
+"""
+
 from ptycho import params
 from .loader import PtychoDataContainer
 from .image import reassemble_patches

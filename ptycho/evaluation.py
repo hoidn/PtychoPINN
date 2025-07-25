@@ -1,3 +1,81 @@
+"""Central quality assessment and metrics orchestration for ptychographic reconstruction.
+
+This module serves as PtychoPINN's evaluation control center, coordinating multiple 
+quality metrics and providing standardized interfaces for training monitoring, model 
+comparison, and research analysis. It operates as a logic/control module that 
+orchestrates specialized metric calculations while handling complex data preprocessing
+and alignment requirements.
+
+**System Role:**
+In the PtychoPINN architecture, this module bridges reconstruction outputs with 
+quantitative assessment, enabling real-time training validation and systematic model 
+comparisons. It integrates with FRC analysis (ptycho.FRC), image registration 
+(ptycho.image), and model comparison workflows (scripts/studies/).
+
+**Key Control Logic:**
+- **Dual-Component Processing**: Automatically handles amplitude/phase separation
+- **Configurable Phase Alignment**: Routes to 'plane' fitting or 'mean' subtraction
+- **Adaptive Normalization**: Applies consistent scaling across all amplitude metrics
+- **Debug Pipeline Control**: Coordinates visualization output across metric types
+- **Format Standardization**: Ensures consistent input/output contracts
+
+**Primary Functions:**
+- `eval_reconstruction()`: Main orchestrator returning comprehensive metric suite
+- `ms_ssim()`: Multi-scale SSIM with adaptive downsampling control
+- `frc50()`: Fourier Ring Correlation with 0.5 threshold detection
+- `fit_and_remove_plane()`: Linear phase trend removal via least squares
+- `save_metrics()`: Persistent storage integration with params.cfg
+
+**Integration Workflows:**
+
+Training Pipeline:
+```python
+from ptycho.evaluation import eval_reconstruction, save_metrics
+from ptycho.image.cropping import align_for_evaluation
+
+# Real-time validation during training
+aligned_recon = align_for_evaluation(reconstruction, ground_truth)
+metrics = eval_reconstruction(aligned_recon, ground_truth, 
+                            phase_align_method='plane',
+                            debug_save_images=False)
+validation_loss = metrics['mae'][0]  # Amplitude MAE for early stopping
+```
+
+Model Comparison Study:
+```python
+# Systematic multi-model evaluation with debug visualization
+for model_name, reconstruction in models.items():
+    metrics = eval_reconstruction(
+        reconstruction, ground_truth,
+        label=model_name,
+        debug_save_images=True,  # Saves preprocessing images for analysis
+        ms_ssim_sigma=1.0        # Consistent preprocessing across models
+    )
+    save_metrics(reconstruction, ground_truth, label=model_name)
+    
+    # Structured output: metrics['frc50'] = (amp_frc50, phase_frc50)
+    print(f"{model_name}: FRC50 = {metrics['frc50']}")
+```
+
+**Data Flow & Dependencies:**
+- **Input**: Complex reconstructions (3D/4D), ground truth objects (3D)
+- **Output**: Structured metric dictionaries with (amplitude, phase) tuples
+- **Dependencies**: params.cfg (legacy paths), FRC modules, skimage.metrics
+- **Format Requirements**: Amplitude arrays must be normalized consistently
+
+**Critical Behavior Modes:**
+- **phase_align_method='plane'**: Removes linear phase gradients (recommended)
+- **phase_align_method='mean'**: Simple mean subtraction (legacy compatibility)
+- **debug_save_images=True**: Generates diagnostic images in cwd/debug_images_<label>/
+- **Amplitude normalization**: Always applied via mean scaling for fair comparison
+
+**Performance Characteristics:**
+- FRC calculation requires square images (auto-crops to smaller dimension)
+- MS-SSIM scales adaptively with image resolution
+- Debug image generation adds ~2-3x evaluation time
+- Caching not implemented (metrics recalculated on each call)
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib

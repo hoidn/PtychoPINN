@@ -1,3 +1,120 @@
+"""
+TensorFlow Helper: Core tensor operations for ptychographic reconstruction.
+
+This module implements the essential tensor transformation operations in the PtychoPINN 
+physics-informed neural network architecture. It provides foundational data format 
+conversions and patch assembly operations that enable the ptychographic reconstruction 
+pipeline to process scanning diffraction data efficiently.
+
+⚠️  PROTECTED MODULE: This is part of the stable physics implementation.
+    Modifications should only be made with explicit justification and
+    deep understanding of the ptychographic tensor flow requirements.
+
+Architecture Role:
+    Raw Data → Data Pipeline → **TF_HELPER** → Model Training → Reconstruction Output
+"""
+
+"""
+Tensor Format System:
+    The module implements a three-format tensor conversion system optimized for 
+    ptychographic data processing:
+    
+    **Grid Format**: `(batch, gridsize, gridsize, N, N, 1)`
+        - Physical meaning: Structured 2D array of overlapping diffraction patches
+        - Usage: Maintains spatial relationships for physics-based operations
+        - Memory layout: Preserves scan grid geometry for position-aware processing
+    
+    **Channel Format**: `(batch, N, N, gridsize²)`  
+        - Physical meaning: Neural network compatible with channels = number of patches
+        - Usage: Direct input to convolutional layers and U-Net processing
+        - Memory layout: Height×Width×Channels for TensorFlow optimization
+    
+    **Flat Format**: `(batch × gridsize², N, N, 1)`
+        - Physical meaning: Individual patches treated as separate batch elements
+        - Usage: Independent processing of each scan position
+        - Memory layout: Maximizes parallelism for element-wise operations
+"""
+
+"""
+Public Interface:
+    `reassemble_whole_object(patches, offsets, size, batch_size=None)`
+        - **Purpose:** Assembles individual reconstruction patches into full object image
+        - **Physics Context:** Inverts the ptychographic scanning process by combining overlapping regions
+        - **Tensor Contracts:**
+            - Input: `(B, N, N, gridsize²)` - Reconstruction patches in channel format
+            - Output: `(1, size, size, 1)` - Full reconstructed object image
+        - **Critical Parameters:**
+            - `batch_size`: Memory management for large datasets (None=auto)
+    
+    `extract_patches_position(imgs, offsets_xy, jitter=0.)`
+        - **Purpose:** Extracts patches from full images at specified scan positions
+        - **Physics Context:** Simulates ptychographic probe scanning with positional accuracy
+        - **Tensor Contracts:**
+            - Input: `(B, M, M, 1)` - Full object images, `(B, N, N, 2)` - scan coordinates
+            - Output: `(B, N, N, gridsize²)` - Extracted patches in channel format
+        - **Critical Parameters:**
+            - `jitter`: Random positioning noise for data augmentation
+            
+    `_togrid(img, gridsize=None, N=None)`
+        - **Purpose:** Converts flat format to grid format for structured operations
+        - **Usage Context:** Prepares data for physics-based spatial processing
+        - **Tensor Contracts:**
+            - Input: `(B×gridsize², N, N, 1)` - Flat format patches  
+            - Output: `(B, gridsize, gridsize, N, N, 1)` - Grid format preserving geometry
+            
+    `shift_and_sum(obj_tensor, global_offsets, M=10)`
+        - **Purpose:** High-performance batched patch reassembly with position correction
+        - **Physics Context:** Reconstructs object from overlapping measurements with translation
+        - **Performance:** 20-44x speedup over iterative implementation with perfect accuracy
+"""
+
+"""
+Physics Implementation Notes:
+    - **Patch Reassembly:** Uses batched TensorFlow operations for memory-efficient overlap handling
+    - **Position Registration:** Maintains subpixel accuracy in scan position corrections
+    - **Complex Tensor Support:** Automatic handling of amplitude/phase and real/imaginary representations
+    - **Streaming Architecture:** Processes large datasets in chunks to prevent GPU memory overflow
+"""
+
+"""
+Global State Dependencies:
+    This module accesses `params.get()` for critical configuration parameters:
+    - `params.get('N')`: Diffraction pattern size - controls all tensor dimensions
+    - `params.get('gridsize')`: Overlap grouping size - fundamentally changes processing mode
+    - `params.get('offset')`: Patch stride - determines sampling density and overlap
+    - **Initialization Order:** Global configuration must be set before function calls
+"""
+
+"""
+Canonical Usage Pipeline:
+    ```python
+    import ptycho.tf_helper as hh
+    from ptycho.params import params
+    
+    # 1. Set required global configuration
+    params.set('N', 64)           # Diffraction pattern size
+    params.set('gridsize', 2)     # Enable overlap processing  
+    params.set('offset', 32)      # 50% overlap between patches
+    
+    # 2. Format conversion for neural network input
+    patches_flat = load_patches()  # Shape: (B×4, 64, 64, 1)
+    patches_grid = hh._togrid(patches_flat)              # (B, 2, 2, 64, 64, 1)
+    patches_channels = hh._grid_to_channel(patches_grid) # (B, 64, 64, 4)
+    
+    # 3. High-performance reconstruction assembly
+    reconstruction = hh.reassemble_whole_object(
+        patches_channels, 
+        scan_offsets,
+        size=256,
+        batch_size=64  # Memory management for large datasets
+    )
+    
+    # 4. Complex tensor handling for amplitude/phase data
+    complex_obj = hh.combine_complex(amplitude, phase)
+    amp, phase = hh.separate_amp_phase(complex_obj)
+    ```
+"""
+
 import os
 import numpy as np
 import tensorflow as tf

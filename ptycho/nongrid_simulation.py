@@ -1,3 +1,114 @@
+"""Non-grid ptychography simulation module for coordinate-based workflows.
+
+This module implements the modern coordinate-based approach to ptychography simulation,
+providing flexibility over traditional grid-based methods. It enables simulation of
+arbitrary scan patterns with random or structured coordinate positioning, making it
+ideal for realistic experimental conditions and advanced reconstruction algorithms.
+
+Architecture Overview
+--------------------
+The module serves as a bridge between the modern configuration system and legacy
+simulation components, providing a clean interface while maintaining compatibility:
+
+* **Modern Interface**: Uses TrainingConfig dataclasses for consistent parameter management
+* **Legacy Adapter**: Safely handles global state manipulation for backward compatibility  
+* **Coordinate-Based**: Generates arbitrary scan positions vs fixed grid patterns
+* **Simulation Pipeline**: Complete workflow from NPZ data to simulated measurements
+
+Key Concepts
+-----------
+**Non-Grid vs Grid-Based Approaches:**
+
+* **Grid-Based (Legacy)**: Fixed, regular grid of scan positions with uniform spacing
+* **Non-Grid (Modern)**: Arbitrary coordinate positioning enabling:
+  - Random scan patterns (more realistic)
+  - Non-uniform sampling density
+  - Irregular geometric arrangements
+  - Better convergence properties for some algorithms
+
+**Coordinate Workflow:**
+1. Load object/probe from NPZ files
+2. Generate random scan coordinates within object bounds
+3. Simulate diffraction patterns at each position
+4. Return RawData container with measurements and ground truth
+
+Core Components
+--------------
+* `generate_simulated_data()`: Main simulation function with modern config interface
+* `simulate_from_npz()`: Complete workflow from file to simulated data
+* `load_probe_object()`: NPZ data loading with validation
+* `visualize_simulated_data()`: Comprehensive visualization of simulation results
+* `plot_random_groups()`: Debug visualization for diffraction/reconstruction pairs
+
+Integration Points
+-----------------
+* **Configuration**: Uses TrainingConfig for all simulation parameters
+* **Data Pipeline**: Produces RawData objects compatible with training workflows
+* **Baselines**: Integrates with baseline reconstruction methods for comparison
+* **Visualization**: Provides debug and analysis tools for simulation validation
+
+Example Usage
+------------
+Basic simulation from NPZ file:
+
+    >>> from ptycho.config.config import TrainingConfig, ModelConfig
+    >>> from ptycho.nongrid_simulation import simulate_from_npz
+    >>> 
+    >>> # Configure simulation parameters
+    >>> model_config = ModelConfig(N=64, gridsize=2)
+    >>> training_config = TrainingConfig(
+    ...     model=model_config,
+    ...     n_images=2000
+    ... )
+    >>> 
+    >>> # Simulate non-grid data from experimental object/probe
+    >>> raw_data, ground_truth = simulate_from_npz(
+    ...     config=training_config,
+    ...     file_path="datasets/fly/fly001_transposed.npz",
+    ...     buffer=20.0  # Minimum distance from object edges
+    ... )
+    >>> 
+    >>> print(f"Generated {raw_data.diff3d.shape[0]} diffraction patterns")
+    >>> print(f"Scan coordinates: {raw_data.xcoords.shape}")
+
+Advanced simulation with custom parameters:
+
+    >>> # Direct simulation with loaded data
+    >>> from ptycho.nongrid_simulation import load_probe_object, generate_simulated_data
+    >>> 
+    >>> obj, probe = load_probe_object("my_sample.npz")
+    >>> raw_data = generate_simulated_data(
+    ...     config=training_config,
+    ...     objectGuess=obj,
+    ...     probeGuess=probe,
+    ...     buffer=15.0,
+    ...     return_patches=False
+    ... )
+    >>> 
+    >>> # Visualize results
+    >>> from ptycho.nongrid_simulation import visualize_simulated_data
+    >>> viz_data = {
+    ...     'probe_guess': probe,
+    ...     'object': obj,
+    ...     'x_coordinates': raw_data.xcoords,
+    ...     'y_coordinates': raw_data.ycoords,
+    ...     'diffraction_patterns': raw_data.diff3d,
+    ...     'ground_truth_patches': raw_data.Y
+    ... }
+    >>> visualize_simulated_data(viz_data, "simulation_output/")
+
+Notes
+-----
+This module includes legacy compatibility adapters that temporarily modify global
+state during simulation calls. This is necessary for integration with existing
+simulation components but is isolated to internal functions to maintain a clean
+public interface.
+
+The coordinate-based approach provides more realistic simulation conditions compared
+to grid-based methods, leading to better training data for neural network models
+and more robust reconstruction algorithms.
+"""
+
 # ptycho/nongrid_simulation.py
 
 import numpy as np

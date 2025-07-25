@@ -1,3 +1,67 @@
+"""
+Interactive Jupyter Notebook Utilities for PtychoPINN Development
+
+This module provides specialized visualization and development utilities for interactive analysis 
+in Jupyter notebooks, focusing on ptychographic reconstruction results comparison, debugging, 
+and exploratory data analysis. It bridges the core reconstruction pipeline with interactive 
+development workflows.
+
+Primary Functions:
+  - compare(): Automated side-by-side comparison of PtychoPINN vs ground truth reconstructions
+  - mk_comparison(): Flexible visualization of 2-3 reconstruction methods with phase/amplitude plots
+  - reconstruct_image(): Single-function interface for model inference on test data
+  - probeshow(): Interactive probe visualization with scan position overlay
+  - print_shapes(): Debug utility for data container inspection
+
+Architecture Integration:
+  This module operates at the high-level workflow tier, consuming processed data from the 
+  loader.py pipeline and providing visualization interfaces for model outputs. It serves as 
+  the primary interface between the core PtychoPINN system and interactive research workflows.
+
+Data Flow Integration:
+  ```python
+  # Typical interactive workflow
+  test_data = loader.PtychoDataContainer(...)  # From ptycho.loader
+  obj_tensor, offsets = reconstruct_image(test_data)  # This module
+  compare(obj_tensor, offsets, ground_truth)  # Visualization
+  ```
+
+Legacy System Dependencies:
+  - Depends on ptycho.params global configuration for intensity scaling in reconstruct_image()
+  - Uses legacy loader.reassemble_position() for grid-based patch stitching
+  - Compatible with both modern coordinate-based and legacy grid-based data flows
+
+Development Context:
+  Designed for exploratory analysis during model development, hyperparameter tuning, and 
+  result validation. Functions prioritize immediate visual feedback over production efficiency.
+  The cropping utilities help focus analysis on scientifically relevant regions by removing 
+  background padding from reconstructed images.
+
+Typical Interactive Usage:
+  ```python
+  # Load and process data
+  test_data = loader.create_test_data(npz_file)
+  
+  # Generate reconstruction
+  obj_tensor, global_offsets = reconstruct_image(test_data)
+  
+  # Compare with ground truth
+  compare(obj_tensor, global_offsets, test_data.objectGuess)
+  
+  # Inspect probe properties
+  probeshow(test_data.probeGuess, test_data)
+  
+  # Debug data shapes
+  print_shapes(test_data.__dict__)
+  ```
+
+Notes:
+  - All visualization functions use matplotlib with notebook-optimized layouts
+  - Cropping functions assume scientific images with uniform background regions
+  - Comparison functions automatically handle complex number visualization (phase/amplitude)
+  - Functions are designed for single-call convenience rather than programmatic efficiency
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 

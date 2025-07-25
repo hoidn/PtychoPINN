@@ -1,3 +1,59 @@
+"""Fourier transform utilities and frequency domain processing for ptychography.
+
+This module provides essential Fourier domain operations and filtering utilities
+used throughout the PtychoPINN ptychographic reconstruction pipeline. It serves
+as the mathematical foundation for frequency domain analysis, probe processing,
+and signal filtering operations required for coherent diffraction imaging.
+
+Core Functions:
+    Gaussian Filters:
+        - lowpass_g(): Gaussian lowpass filtering for probe initialization
+        - highpass_g(): Gaussian highpass filtering for frequency analysis
+        - bandpass_g(): Combined lowpass/highpass for frequency band selection
+    
+    Frequency Domain Clipping:
+        - clip_high(): Remove high-frequency components with fractional control
+        - clip_low(): Remove low-frequency components with masking
+        - clip_low_window(): Generate frequency domain windows
+    
+    Fourier Operations:
+        - if_mag(): Inverse FFT with magnitude processing and phase control
+        - power(): Complex amplitude to power spectrum conversion
+        - mag(): Complex amplitude to magnitude conversion
+    
+    Analysis Utilities:
+        - lorenz(): Lorentzian function for spectral line fitting
+        - plot_df(): Pandas DataFrame plotting utility
+
+Architecture Integration:
+    - **Probe Module (ptycho/probe.py)**: Uses lowpass_g() for creating default
+      disk-shaped scanning probes with controlled frequency content
+    - **Physics Simulation**: Provides frequency domain tools for realistic
+      modeling of coherent diffraction patterns
+    - **Signal Processing**: Core mathematical utilities for ptychographic
+      reconstruction algorithms
+
+Mathematical Context:
+    The functions implement frequency domain operations essential for ptychography:
+    - Gaussian filters model realistic probe shapes and experimental conditions
+    - Frequency clipping operations simulate detector limitations and noise
+    - Complex amplitude processing handles the phase-sensitive nature of coherent imaging
+
+Example:
+    # Create a Gaussian lowpass filter for probe initialization
+    >>> import numpy as np
+    >>> from ptycho import fourier as f
+    >>> N = 64
+    >>> scale = 0.4
+    >>> filter_1d = f.lowpass_g(scale, np.ones(N), sym=True)
+    >>> probe_2d = f.gf(np.outer(filter_1d, filter_1d) > 0.5, sigma=1)
+    
+    # Process complex amplitude data
+    >>> complex_data = np.random.random((128,)) + 1j * np.random.random((128,))
+    >>> power_spectrum = f.power(complex_data)
+    >>> magnitude = f.mag(complex_data)
+"""
+
 import pandas as pd
 import numpy as np
 

@@ -1,19 +1,56 @@
-"""Image registration module for ptychographic reconstruction alignment.
+"""Automatic image registration for ptychographic reconstruction alignment.
 
-This module provides robust image registration functionality using phase cross-correlation
-to detect and correct translational misalignments between reconstructions and ground truth.
-The implementation uses scikit-image's phase_cross_correlation for sub-pixel precision.
+This module provides sub-pixel precision image alignment for fair comparison between 
+ptychographic reconstructions and ground truth images. It addresses the critical problem 
+that neural network reconstructions often exhibit slight translational offsets from 
+their targets, making direct pixel-wise evaluation misleading.
 
-Key features:
-- Sub-pixel precision registration using upsampled FFT
-- Complex-valued image support via magnitude extraction
-- Fourier-domain shifting for exact sub-pixel alignment
-- Border cropping to eliminate wrap-around artifacts
+Core Architecture:
+    Registration Pipeline: Raw Reconstruction → Offset Detection → Sub-pixel Shifting → Border Cropping → Aligned Image
+    
+    Uses phase cross-correlation with Fourier-domain sub-pixel shifting to achieve 
+    <0.1 pixel alignment accuracy, enabling accurate computation of evaluation metrics 
+    (SSIM, MAE, FRC) by ensuring compared images are spatially aligned.
 
-Typical workflow:
-1. Use find_translation_offset() to detect misalignment
-2. Apply apply_shift_and_crop() to correct and clean the alignment
-3. Or use register_and_align() for one-step convenience
+Key Capabilities:
+    • Sub-pixel precision registration (upsample_factor=50 → ~0.02 pixel accuracy)
+    • Complex-valued image support via automatic magnitude extraction
+    • Fourier-domain shifting for exact alignment without interpolation artifacts
+    • Automatic border cropping to eliminate wrap-around contamination
+
+Integration with PtychoPINN Evaluation:
+    Essential for the model comparison pipeline in scripts/compare_models.py. Ensures 
+    PINN and baseline reconstructions are fairly compared against ground truth by 
+    removing spurious translational differences that would otherwise dominate metrics.
+
+Typical Usage Patterns:
+    
+    # Complete registration workflow (recommended)
+    from ptycho.image.registration import register_and_align
+    aligned_recon, aligned_gt = register_and_align(reconstruction, ground_truth)
+    mae = np.mean(np.abs(aligned_recon - aligned_gt))
+    
+    # Two-step registration for custom processing
+    offset = find_translation_offset(reconstruction, ground_truth, upsample_factor=50)
+    aligned_recon, aligned_gt = apply_shift_and_crop(reconstruction, ground_truth, offset)
+    
+    # Batch evaluation in model comparison
+    for model_output in reconstruction_batch:
+        aligned_output, aligned_gt = register_and_align(model_output, ground_truth)
+        metrics = compute_evaluation_metrics(aligned_output, aligned_gt)
+
+Input/Output Formats:
+    Input: 2D numpy arrays (real/complex), typical shapes (64,64) to (512,512)
+    Output: Same dtype as input, spatially aligned, slightly smaller due to border cropping
+    
+Dependencies:
+    • scikit-image.registration.phase_cross_correlation for offset detection
+    • numpy.fft for Fourier-domain shifting  
+    • No legacy ptycho.params dependencies (fully modern architecture)
+
+Note: Designed specifically for ptychographic reconstruction evaluation where small 
+translational misalignments are common. Not intended for general-purpose registration 
+requiring rotation or scale correction.
 """
 
 from __future__ import annotations

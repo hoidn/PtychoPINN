@@ -1,3 +1,9 @@
+"""
+Configuration state for PtychoPINN autotest framework.
+
+Manages debug flags and log file prefixes for ptycho.autotest.debug and 
+ptycho.autotest.testing modules.
+"""
 import os
 
 class Configuration:

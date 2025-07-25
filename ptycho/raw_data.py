@@ -1,3 +1,95 @@
+"""
+Core data ingestion and preprocessing module for ptychographic datasets.
+
+This module serves as the first stage of the PtychoPINN data pipeline, responsible for
+transforming raw NPZ files into structured data containers and performing critical
+coordinate grouping operations for overlap-based training.
+
+Primary Consumer Context:
+Its primary consumers are ptycho.data_preprocessing (3 imports), ptycho.loader (1 import), 
+and ptycho.workflows.components (1 import), which use it to prepare raw ptychographic 
+data for model training and inference.
+
+Key Architecture Integration:
+In the broader PtychoPINN architecture, this module bridges the gap between raw
+experimental data files and the structured data containers needed by the machine
+learning pipeline. The data flows: NPZ files → raw_data.py (RawData) → loader.py 
+(PtychoDataContainer) → model-ready tensors.
+
+Key Components:
+- `RawData`: Primary data container class with validation and I/O capabilities
+  - `.generate_grouped_data()`: Core grouping method for gridsize > 1 with intelligent caching
+  - `.diffraction`: Raw diffraction patterns array (amplitude, not intensity)
+  - `.xcoords, .ycoords`: Scan position coordinates
+  - `.objectGuess`: Full sample object for ground truth patch generation
+  - `.Y`: Pre-computed ground truth patches (optional)
+
+Public Interface:
+    `group_coords(xcoords, ycoords, K, C, nsamples)`
+        - Purpose: Groups scan coordinates by spatial proximity for overlap training
+        - Key Parameters:
+            - `K` (int): **Number of nearest neighbors for grouping**
+              Controls the overlap constraint strength - larger K provides more potential
+              neighbors but increases computational cost. Typical values: 4-8.
+            - `C` (int): **Target coordinates per solution region** 
+              Usually equals gridsize². Determines spatial coherence of training patches.
+            - `nsamples` (int): **Number of training samples to generate**
+              For gridsize=1: individual images. For gridsize>1: neighbor groups.
+        - Returns: Tuple of grouped coordinate arrays and neighbor indices
+        - Used by: RawData.generate_grouped_data(), data preprocessing workflows
+
+    `get_neighbor_diffraction_and_positions(ptycho_data, N, K, C, nsamples)`
+        - Purpose: Legacy function for generating grouped diffraction data (gridsize=1)
+        - Parameters: RawData instance, solution region size, neighbor parameters
+        - Returns: Dictionary with diffraction patterns, coordinates, and ground truth
+        - Caching: No automatic caching (preserved for backward compatibility)
+
+Usage Example:
+    This module is typically used at the start of the PtychoPINN data loading pipeline,
+    which converts raw experimental data into model-ready tensors.
+
+    ```python
+    from ptycho.raw_data import RawData
+    from ptycho import loader
+    
+    # 1. Load raw experimental data from NPZ file
+    raw_data = RawData.from_file("/path/to/experimental_data.npz")
+    
+    # 2. Generate grouped data for overlap-based training (gridsize > 1)
+    grouped_data = raw_data.generate_grouped_data(
+        N=64,  # Diffraction pattern size - must match probe dimensions
+        K=6,   # Number of nearest neighbors - critical for physics constraint
+        nsamples=1000  # Target number of training groups
+    )
+    
+    # 3. Pass to loader for tensor conversion and normalization
+    container = loader.load(
+        cb=lambda: grouped_data,
+        probeGuess=raw_data.probeGuess,
+        which='train'
+    )
+    
+    # 4. Access model-ready data
+    X_data = container.X  # Normalized diffraction patterns
+    Y_data = container.Y  # Ground truth patches (if available)
+    ```
+
+Integration Notes:
+The K parameter in coordinate grouping is critical for physics-informed training.
+Too small K limits the overlap constraint effectiveness; too large K increases
+computational cost exponentially. The grouping operation is cached automatically
+for gridsize > 1 using the format `<dataset>.g{gridsize}k{K}.groups_cache.npz`.
+
+For gridsize=1, the module preserves legacy sequential sampling for backward
+compatibility. For gridsize>1, it implements a "group-then-sample" strategy that
+ensures both physical coherence and spatial representativeness.
+
+Data Contract Compliance:
+This module adheres to the data contracts defined in docs/data_contracts.md,
+expecting NPZ files with keys: 'diffraction' (amplitude), 'objectGuess', 
+'probeGuess', 'xcoords', 'ycoords'. Ground truth patches ('Y') are optional
+and generated on-demand from objectGuess when not provided.
+"""
 import numpy as np
 import tensorflow as tf
 from typing import Tuple, Optional

@@ -1,8 +1,25 @@
 """
-Central logging configuration for PtychoPINN.
+Centralized logging system with enhanced tee-style output and stdout capture.
 
-This module provides a single source of truth for logging setup across all workflows,
-with flexible tee-style output supporting both interactive and automated use cases.
+Provides authoritative logging configuration for all PtychoPINN workflows with comprehensive
+output capture that logs ALL stdout (including print statements) while maintaining flexible
+console control for interactive development and automation-friendly operation.
+
+Key Features:
+- Complete stdout/stderr capture with automatic exception handling
+- Tee-style logging: simultaneous console and file output with independent level control
+- Flexible modes: --quiet (file-only), --verbose (debug), or default (info to console)
+- Per-run organization: all logs stored in output_dir/logs/debug.log for full records
+
+Usage:
+    from ptycho.log_config import setup_logging
+    
+    setup_logging(Path("my_run"))              # Standard: INFO to console, DEBUG to file
+    setup_logging(Path("my_run"), quiet=True)  # Automation: file-only logging
+    setup_logging(Path("my_run"), verbose=True) # Debug: DEBUG to both console and file
+
+This system ensures every workflow execution has complete logging records for troubleshooting
+and reproducibility across all training, inference, and simulation workflows.
 """
 
 import logging

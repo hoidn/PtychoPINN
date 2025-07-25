@@ -1,3 +1,14 @@
+"""Legacy training script for PtychoPINN models.
+
+**DEPRECATED**: Uses older configuration system. Use `ptycho_train` command instead.
+
+Orchestrates model training for PINN and supervised approaches using legacy
+`ptycho.params.cfg` system. Generates/loads data, trains model, and saves
+results including weights, history, and reconstruction visualizations.
+
+Usage (deprecated): python -m ptycho.train --model_type pinn --nepochs 60
+Modern alternative: ptycho_train --config configs/my_config.yaml --output_dir my_run
+"""
 # train.py
 
 import os

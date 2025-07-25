@@ -1,3 +1,4 @@
+"""DEPRECATED: Legacy data wrapper with import-time side effects. Use ptycho.data_preprocessing directly."""
 import numpy as np
 from .data_preprocessing import generate_data
 from . import params as p

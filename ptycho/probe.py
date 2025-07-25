@@ -1,3 +1,12 @@
+"""Probe initialization and manipulation for ptychographic reconstruction.
+
+Manages the scanning beam (probe) used in experiments, including creation of
+idealized disk-shaped probes, automatic estimation from data, and masking.
+
+Example:
+    probe = get_default_probe(N=64, fmt='tf')  # Default disk probe
+    set_probe_guess(X_train=data, probe_guess=exp_probe)  # From data
+"""
 import tensorflow as tf
 import numpy as np
 from . import fourier as f

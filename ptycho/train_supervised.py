@@ -1,3 +1,11 @@
+"""Legacy supervised training module for baseline ptychography models.
+
+Provides reconstruction functions and training workflows for supervised baseline
+models with gridsize 1/2 support and patch-based object stitching.
+
+Example:
+    model, history = bl.train(X_train[:, :, :, :1], Y_I_train[:, :, :, :1], Y_phi_train[:, :, :, :1])
+"""
 from ptycho.generate_data import *
 from ptycho import tf_helper as hh
 from ptycho import baselines as bl

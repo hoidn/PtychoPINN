@@ -1,3 +1,18 @@
+"""
+Workflow for visualizing ptychographic reconstruction results as heatmap images.
+
+Transforms reconstruction results and test data into heatmaps via evaluation.summarize,
+saving PNG files for visual assessment of reconstruction quality.
+
+**Input:** results dict with 'pred_amp'/'reconstructed_obj', PtychoDataContainer test_data
+**Output:** PNG heatmap files at {output_prefix}/{heatmap_name}.png
+**Key params:** i (sample index), output_prefix (save directory)
+
+```python
+visualize_results(results, test_data, i=200, output_prefix='analysis')
+```
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from ptycho import evaluation, params
