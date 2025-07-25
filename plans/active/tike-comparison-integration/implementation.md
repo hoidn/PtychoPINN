@@ -37,7 +37,7 @@ This document orchestrates the implementation of the objective defined in the ma
 
 **Overall Goal:** To integrate the Tike iterative reconstruction algorithm as a third arm in comparison studies, providing a traditional algorithm baseline against which to benchmark the ML models.
 
-**Total Estimated Duration:** 3.5 days
+**Total Estimated Duration:** 3 days
 
 ---
 
@@ -116,25 +116,26 @@ This document orchestrates the implementation of the objective defined in the ma
 
 ---
 
-### **Phase 4: Full Integration into Generalization Study Script**
+### **Phase 4: Full Integration into Generalization Study Script (Simplified Approach)**
 
-**Goal:** To enhance `run_complete_generalization_study.sh` to fully automate the three-way comparison, including on-the-fly test set subsampling and Tike reconstruction for each trial.
+**Goal:** To enhance `run_complete_generalization_study.sh` to fully automate the three-way comparison by leveraging a pre-shuffled test dataset and existing subsampling logic.
 
 **Deliverable:** An updated `run_complete_generalization_study.sh` script that can execute the entire three-way study with a single command.
 
-**Estimated Duration:** 1 day
+**Estimated Duration:** 0.5 days
 
 **Key Tasks:**
-- Create a new `subsample_dataset_tool.py` to generate reproducible test sets for Tike.
+- Add an `--n-images` argument to the `run_tike_reconstruction.py` script.
 - Add an `--add-tike-arm` flag to the main study script.
-- Integrate the Tike reconstruction step into the main trial loop.
-- Modify `compare_models.py` to handle the dual-test-set evaluation logic correctly.
+- Integrate the Tike reconstruction step into the main trial loop, using the `--n-images` flag for subsampling.
+- Modify `compare_models.py` to correctly load and align against the in-memory subsampled ground truth for Tike's evaluation.
+- Update documentation to state the prerequisite of a pre-shuffled test dataset.
 
 **Dependencies:** All previous phases must be complete.
 
 **Implementation Checklist:** `phase_4_checklist.md`
 
-**Success Test:** A single command (`./run_complete_generalization_study.sh --add-tike-arm ...`) successfully executes the entire three-way comparison study.
+**Success Test:** A single command (`./run_complete_generalization_study.sh --add-tike-arm ...`) successfully executes the entire three-way comparison study on a pre-shuffled test set.
 
 ---
 
