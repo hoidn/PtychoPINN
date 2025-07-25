@@ -42,6 +42,7 @@ def parse_arguments():
 Examples:
     python run_tike_reconstruction.py input.npz ./tike_output
     python run_tike_reconstruction.py input.npz ./tike_output --iterations 500 --quiet
+    python run_tike_reconstruction.py input.npz ./tike_output --extra-padding 64
         """
     )
     
@@ -67,6 +68,12 @@ Examples:
         type=int,
         default=1,
         help='Number of GPUs to use (default: 1)'
+    )
+    parser.add_argument(
+        '--extra-padding',
+        type=int,
+        default=32,
+        help='Extra padding pixels for object canvas (default: 32)'
     )
     
     # Add standard logging arguments
@@ -129,7 +136,7 @@ def load_tike_data(npz_path):
     return result
 
 
-def configure_tike_parameters(data_dict, iterations, num_gpu):
+def configure_tike_parameters(data_dict, iterations, num_gpu, extra_padding=32):
     """
     Configure Tike reconstruction parameters based on loaded data.
     
@@ -137,6 +144,7 @@ def configure_tike_parameters(data_dict, iterations, num_gpu):
         data_dict: Dictionary from load_tike_data()
         iterations: Number of iterations to perform
         num_gpu: Number of GPUs to use
+        extra_padding: Extra padding pixels for object canvas
         
     Returns:
         tuple: (data, tike.ptycho.PtychoParameters) configured for reconstruction
@@ -148,19 +156,23 @@ def configure_tike_parameters(data_dict, iterations, num_gpu):
     diffraction = data_dict['diffraction'].astype(tike.precision.floating)
     probe = data_dict['probeGuess'].astype(tike.precision.cfloating)
     
-    # Prepare scan coordinates (stack y, x)
+    # Prepare scan coordinates for Tike's [Y, X] convention
+    # Note: PtychoPINN uses [X, Y] convention, but the NPZ files store xcoords and ycoords separately
+    # so we stack them in Tike's expected order: [Y, X]
     scan = np.stack([
-        data_dict['ycoords'].astype(tike.precision.floating),
-        data_dict['xcoords'].astype(tike.precision.floating)
+        data_dict['ycoords'].astype(tike.precision.floating),  # Y coords in column 0 (Tike expects Y first)
+        data_dict['xcoords'].astype(tike.precision.floating)   # X coords in column 1 (Tike expects X second)
     ], axis=1)
     
     # Add batch and other dimensions to probe as expected by Tike
     probe = probe[np.newaxis, np.newaxis, np.newaxis, :, :]
     
-    # Create padded object using Tike's automatic padding
+    # Use Tike's coordinate-consistent padding with extra margin
+    # This avoids the NaN convergence issues that occur with manual coordinate offsetting
     psi_2d, scan = tike.ptycho.object.get_padded_object(
         scan=scan,
         probe=probe,
+        extra=extra_padding,  # Add extra padding to improve reconstruction quality
     )
     psi = psi_2d[np.newaxis, :, :]
     
@@ -322,6 +334,7 @@ def main():
     logger.info(f"Output directory: {output_dir}")
     logger.info(f"Iterations: {args.iterations}")
     logger.info(f"GPUs: {args.num_gpu}")
+    logger.info(f"Extra padding: {args.extra_padding} pixels")
     
     try:
         # Load data
@@ -329,7 +342,7 @@ def main():
         
         # Configure parameters
         diffraction, parameters = configure_tike_parameters(
-            data_dict, args.iterations, args.num_gpu
+            data_dict, args.iterations, args.num_gpu, args.extra_padding
         )
         
         # Run reconstruction with timing
@@ -359,6 +372,9 @@ def main():
                 'noise_model': 'poisson',
                 'use_adaptive_moment': True,
                 'force_centered_intensity': True,
+                'canvas_padding': 'tike_automatic_with_extra',
+                'extra_padding': args.extra_padding,
+                'canvas_size': result.psi.shape[-1],  # Record actual canvas size used
             },
             'input_file': str(Path(args.input_npz).resolve()),
             'timestamp': datetime.now().isoformat(),
