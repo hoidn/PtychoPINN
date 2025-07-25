@@ -1,3 +1,74 @@
+"""High-level workflow orchestration layer for PtychoPINN pipeline integration.
+
+This module serves as the primary orchestration layer that chains together core PtychoPINN 
+modules into complete end-to-end workflows. It bridges the gap between the high-level 
+scripts/command-line interfaces and low-level core library modules, providing standardized 
+interfaces for data loading, configuration management, model training, and result assembly.
+
+Architecture Role:
+    The module operates at the workflow orchestration level, sitting above the core library 
+    modules (model.py, diffsim.py, loader.py, etc.) and below the top-level scripts. It 
+    integrates the complete PtychoPINN pipeline by:
+    
+    1. Configuration Management: Bridges modern dataclass-based config with legacy params
+    2. Data Pipeline Integration: Orchestrates RawData → PtychoDataContainer → training
+    3. Training Workflow: Chains data loading, probe initialization, and model training
+    4. Reconstruction Pipeline: Coordinates inference, image reassembly, and visualization
+    5. Result Management: Handles output serialization and visualization
+
+Core Workflow Functions:
+    Configuration Orchestration:
+        - update_config_from_dict(): Update global config from dict (notebook workflows)
+        - parse_arguments(): Auto-generate CLI parser from TrainingConfig dataclass
+        - setup_configuration(): Merge YAML, CLI args, and defaults into unified config
+        - load_yaml_config(): Load and validate YAML configuration files
+    
+    Data Pipeline Integration:
+        - load_data(): Load NPZ data with coordinate transformations and validation
+        - create_ptycho_data_container(): Factory for RawData → PtychoDataContainer conversion
+        - load_and_prepare_data(): Legacy data loading interface (deprecated)
+    
+    End-to-End Workflow Orchestration:
+        - run_cdi_example(): Complete training → reconstruction → visualization pipeline
+        - train_cdi_model(): Orchestrate data preparation, probe setup, and model training
+        - reassemble_cdi_image(): Coordinate reconstruction and image stitching workflows
+        - save_outputs(): Handle result serialization and visualization generation
+
+Integration Points:
+    - Core Modules: Integrates ptycho.loader, ptycho.train_pinn, ptycho.probe, ptycho.tf_helper
+    - Configuration: Bridges TrainingConfig dataclass with legacy params.cfg dictionary
+    - Data Flow: Manages RawData → PtychoDataContainer → trained model → reconstruction
+    - Visualization: Coordinates with matplotlib for result visualization and export
+
+Example Usage:
+    Complete end-to-end workflow orchestration:
+    
+    >>> from ptycho.workflows.components import (
+    ...     run_cdi_example, load_data, setup_configuration, parse_arguments
+    ... )
+    >>> 
+    >>> # Parse CLI arguments and setup unified configuration
+    >>> args = parse_arguments()
+    >>> config = setup_configuration(args, yaml_path=args.config)
+    >>> 
+    >>> # Load and validate training data
+    >>> train_data = load_data(str(config.train_data_file), n_images=config.n_images)
+    >>> test_data = load_data(str(config.test_data_file)) if config.test_data_file else None
+    >>> 
+    >>> # Execute complete pipeline: training → reconstruction → visualization
+    >>> amplitude, phase, results = run_cdi_example(
+    ...     train_data, test_data, config, do_stitching=True
+    ... )
+    >>> 
+    >>> # Save results and visualizations
+    >>> save_outputs(amplitude, phase, results, str(config.output_dir))
+
+Notes:
+    This module is designed to be imported by top-level scripts and provides the primary
+    interface for workflow execution. It handles the complexity of integrating multiple
+    core modules while providing a simple, consistent API for complete workflow execution.
+"""
+
 import argparse
 import yaml
 import os

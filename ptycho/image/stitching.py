@@ -1,3 +1,12 @@
+"""Grid-based patch stitching for ptychographic reconstructions.
+
+Reassembles small NxN patches into full reconstructed images, handling overlapping
+regions and border clipping. Used throughout training/inference to convert patch-based
+neural network outputs into complete reconstructions.
+
+Example:
+    >>> full_image = stitch_patches(patches, config, part='amp')
+"""
 import numpy as np
 
 def stitch_patches(patches, config, *, 

@@ -1,99 +1,74 @@
-### Generating a High-Quality Documentation Plan **
+# **Runbook: Comprehensive Module Documentation (v5)**
 
-**CRITICAL: YOUR SOLE TASK IS TO GENERATE A NEW, SELF-CONTAINED IMPLEMENTATION CHECKLIST FILE NAMED `docstring_initiative_checklist.md`.**
+**CRITICAL META-INSTRUCTION: READ THIS FIRST**
 
-**DO NOT MODIFY THIS PROMPT FILE. DO NOT PERFORM THE DOCUMENTATION YOURSELF. YOUR ONLY DELIVERABLE IS THE NEW CHECKLIST FILE.**
+You are the top-level orchestrator. Your task is to execute the steps in this runbook **sequentially, in your current context.**
+
+You **MUST NOT** delegate this entire runbook to a single sub-task (e.g., `Task(Document all modules)`). Delegating the entire process will cause a critical loss of state and context, leading to failure. You are the main thread of execution. You will delegate only when explicitly instructed to do so for small, specific sub-tasks (like documenting a single file).
+
+**Your immediate first action is to begin with Phase 1, Task 1.A.**
 
 ---
 
 **Your Role and Objective:**
-You are an expert Staff Software Engineer and AI Agent Orchestrator. You have been given a high-level goal from a user. Your task is to transform that goal into a detailed, executable project plan.
+You are the autonomous Orchestrator for this documentation initiative. You will manage the entire project from start to finish by executing the phases below.
 
 **User's Goal:**
-> "I want every `.py` module (not counting scripts) to have a docstring <15 percent of the module size that documents the module's public interface: i.e., gives sufficient information on how that module is used / is to be used in other parts of the code or as a public api."
+> "I want every `.py` module (not counting scripts) to have a docstring <15 percent of the module size that documents the public interface: i.e., gives sufficient information on how that module is used / is to be used in other parts of the code or as a public api."
 
 ---
 
-### **CRITICAL: Your Mandatory Workflow**
+### **State Management Between Steps**
 
-You must follow this three-step process to generate the content for the new checklist file.
-
-#### **Step 1: Codebase Analysis & Dependency Mapping**
-
-Before you can create the plan, you must deeply understand the codebase's architecture.
-
-1.  **Define Scope:** Determine the list of all target modules (e.g., all `.py` files in `ptycho/` excluding `__init__.py`).
-2.  **Map Dependencies:** Use static analysis (`pydeps`) and targeted inspection (`grep`) to build a complete map of which modules import from others.
-3.  **Synthesize Architectural Roles:** Based on the dependency map, categorize each module (e.g., "Core Data Pipeline," "Low-Level Utility," "Configuration"). This analysis is mandatory and will inform the quality of your plan.
-
-#### **Step 2: Design the Execution Strategy**
-
-Based on your analysis, design a robust, multi-phase plan for the documentation initiative.
-
-1.  **Structure the Plan:** The plan must be broken down into three phases:
-    *   Phase 1: Analysis & Scoping (codifying the work from your Step 1).
-    *   Phase 2: Implementation (using a sub-agent for each module).
-    *   Phase 3: Final Verification (ensuring consistency and quality).
-2.  **Define Sub-Agent Instructions:** You will create a detailed set of instructions for the "Authoring Sub-Agents." These instructions must be prescriptive and include the two high-quality docstring examples to guide the agent's writing style for different types of modules.
-
-#### **Step 3: Synthesize the Final Checklist File**
-
-Your final action is to generate the new file.
-
-1.  Create a new file named `docstring_initiative_checklist.md`.
-2.  Populate this file with the complete, self-contained implementation plan, using the strict template provided in the "Final Deliverable" section below.
+The files you create in Phase 1 (e.g., `modules_prioritized.txt`, `dependency_report.txt`) are the **state** for this entire execution. You must ensure they are available in your working directory for all subsequent steps. Do not lose track of these files.
 
 ---
 
-### **The Final Deliverable: The Checklist File**
+### **Phase 1: Strategic Analysis & Prioritization**
 
-Your final output **MUST** be a single markdown file named `docstring_initiative_checklist.md`. The content of this file **MUST** follow the template below.
-
----
-<!-- This is the template for the file you will create: docstring_initiative_checklist.md -->
-
-# Agent Implementation Checklist: Module Docstring Initiative
-
-**Initiative:** Comprehensive Module Docstring Generation
-**Created:** <Date>
-**Phase Goal:** To add a high-quality, concise, public-interface-focused docstring to every non-script `.py` module in the `ptycho/` library, ensuring each docstring is less than 15% of the module's size.
-**Deliverable:** A fully documented `ptycho/` library with consistent, useful module-level docstrings and a passing `pydocstyle` verification check.
-
-## ✅ Task List
-
-### <!-- Main Agent Instructions -->
-**Instructions for the Main Agent:**
-1.  Work through the phases in order. Do not proceed to the next phase until the previous one is fully complete.
-2.  For **Phase 2**, you will act as an orchestrator. For each module listed, you will spawn a dedicated sub-agent with the specific instructions provided.
-3.  Update the `State` column as you progress: `[ ]` (Open) -> `[P]` (In Progress) -> `[D]` (Done).
-
----
+*(You will execute these commands directly.)*
 
 | ID | Task Description | State | How/Why & API Guidance |
 | :-- | :--- | :--- | :--- |
-| **Phase 1: Analysis & Scoping**
-| 1.A | **Generate Definitive List of Target Modules** | `[ ]` | **Why:** To create a master list of all modules that require a docstring. <br> **How:** Execute the following command from the project root and save the output. <br> **Command:** <br> `find ptycho -name "*.py" -not -name "__init__.py" > modules_to_document.txt` <br> **Verify:** The file `modules_to_document.txt` should exist and contain a list of `.py` files. |
-| 1.B | **Generate Static Dependency Map** | `[ ]` | **Why:** To provide the necessary context for all sub-agents to understand each module's public interface and role. <br> **How:** Install `pydeps` (`pip install pydeps`) and run the following commands to generate both visual and text-based dependency reports. <br> **Commands:** <br> `pydeps ptycho --cluster -o ptycho/dependency_graph.svg` <br> `pydeps ptycho --no-output --show-deps > ptycho/dependency_report.txt` <br> **Verify:** The files `dependency_graph.svg` and `dependency_report.txt` exist in the `ptycho/` directory. |
-| 1.C | **Create a Progress Tracking Checklist** | `[ ]` | **Why:** To track the completion status of each sub-agent's task. <br> **How:** Create a new markdown file named `docstring_progress.md`. Copy the contents of `modules_to_document.txt` into it and format it as a checklist. <br> **Example:** <br> `- [ ] ptycho/config/config.py` <br> `- [ ] ptycho/params.py` <br> `...` |
-| **Phase 2: Sub-Agent Orchestration for Docstring Implementation**
-| 2.A | **Spawn Sub-Agents for Each Module** | `[ ]` | **Why:** To process each module independently and in parallel if possible. <br> **How:** For each file path listed in `modules_to_document.txt`, invoke a sub-agent with the specific "Sub-Agent Instructions" provided below. Pass the module's file path and the paths to the dependency reports (`ptycho/dependency_report.txt` and `ptycho/dependency_graph.svg`) as context. As each sub-agent completes its task, update the `docstring_progress.md` checklist. |
-| **Phase 3: Final Verification & Consistency Pass**
-| 3.A | **Verify All Modules are Documented** | `[ ]` | **Why:** To ensure no modules were missed. <br> **How:** Write a script that reads `modules_to_document.txt` and checks that each file now starts with a `"""` docstring. The script should fail if any module is undocumented. |
-| 3.B | **Run Cross-Reference and Consistency Check** | `[ ]` | **Why:** To ensure the docstrings are not just present, but are consistent and reference each other correctly. <br> **How:** Invoke a final "Verification Sub-Agent" with the instructions below. This agent's task is to read *all* the new docstrings and the dependency map to ensure they form a coherent whole. |
-| 3.C | **Run Automated Docstring Style Linting** | `[ ]` | **Why:** To enforce a consistent documentation style across the entire project. <br> **How:** Install `pydocstyle` (`pip install pydocstyle`) and run it on the `ptycho` directory. <br> **Command:** <br> `pydocstyle ptycho/` <br> **Verify:** The command should report no errors, or only minor, acceptable warnings. |
-| 3.D | **Final Code Commit** | `[ ]` | **Why:** To save the completed documentation work to the repository. <br> **How:** Stage all the modified Python files and commit them. <br> **Command:** <br> `git add ptycho/**/*.py` <br> `git commit -m "docs: Add comprehensive module-level docstrings\n\n- Documents the public interface for all core library modules.\n- Follows a consistent format with usage examples.\n- Docstring size is constrained to <15% of module size."` |
+| 1.A | **Generate List of Target Modules** | `[ ]` | **Why:** To create a master list of all modules that require a docstring. <br> **How:** Execute the following command now. <br> ```bash <br> find ptycho -name "*.py" -not -name "__init__.py" > modules_to_document.txt <br> ``` <br> **Verify:** The file `modules_to_document.txt` must exist before proceeding. |
+| 1.B | **Generate Dependency Map** | `[ ]` | **Why:** To provide context for prioritization and for the sub-agents. <br> **How:** Execute the following commands now. If `pydeps` is not installed, install it first. <br> ```bash <br> pip install pydeps <br> pydeps ptycho --cluster -o ptycho/dependency_graph.svg <br> pydeps ptycho --no-output --show-deps > ptycho/dependency_report.txt <br> ``` <br> **Verify:** The file `dependency_report.txt` must exist before proceeding. |
+| 1.C | **Prioritize Modules by Dependency** | `[ ]` | **Why:** To create an intelligent execution order. Foundational modules (least dependent) must be documented first. <br> **How:** You must now write and execute a script (e.g., Python) that reads `dependency_report.txt` and `modules_to_document.txt` to produce a new, sorted list. <br> **Output:** A new file, `modules_prioritized.txt`. <br> **Example Logic:** <br> ```python <br> # Pseudocode for the script you will write and run now. <br> dependencies = parse_pydeps_report('dependency_report.txt') <br> modules = read_file_lines('modules_to_document.txt') <br> sorted_modules = sorted(modules, key=lambda m: len(dependencies.get(m, []))) <br> write_lines_to_file('modules_prioritized.txt', sorted_modules) <br> ``` <br> **Verify:** The file `modules_prioritized.txt` must exist before proceeding. |
+| 1.D | **Create Progress Tracker** | `[ ]` | **Why:** To track the completion status of each sub-agent's task. <br> **How:** Create a new markdown file named `docstring_progress.md` containing the contents of `modules_prioritized.txt` formatted as a checklist. |
 
 ---
 
-### <!-- Sub-Agent Instructions -->
-**Sub-Agent Instructions: Docstring Authoring (v4 - Final Hardened Version)**
+### **Phase 2: Sub-Agent Orchestration**
+
+*(You will now begin a loop and delegate tasks one by one.)*
+
+| ID | Task Description | State | How/Why & API Guidance |
+| :-- | :--- | :--- | :--- |
+| 2.A | **Orchestrate Documentation of Each Module** | `[ ]` | **Why:** To process each module independently by delegating to specialized sub-agents. <br> **How:** Begin a loop. For each file path in `modules_prioritized.txt`: <br> 1. **Invoke a new, single-purpose "Authoring Sub-Agent."** <br> 2. Provide it with the instructions from the **"Sub-Agent Instructions: Docstring Authoring"** section below. <br> 3. Pass the specific module's file path and the `dependency_report.txt` file as context. <br> 4. After the sub-agent successfully completes, mark the corresponding item as done in `docstring_progress.md` and proceed to the next module in the loop. |
+
+---
+
+### **Phase 3: Final Verification & Commit**
+
+*(After the loop in Phase 2 is complete, you will execute these final steps.)*
+
+| ID | Task Description | State | How/Why & API Guidance |
+| :-- | :--- | :--- | :--- |
+| 3.A | **Verify All Modules are Documented** | `[ ]` | **Why:** To ensure no modules were missed by the sub-agents. <br> **How:** Run a script that reads `modules_prioritized.txt` and checks that each file now starts with a `"""` docstring. The script must fail if any module is undocumented. |
+| 3.B | **Invoke Verification Sub-Agent** | `[ ]` | **Why:** To ensure docstrings are consistent and architecturally sound. <br> **How:** Invoke a final "Verification Sub-Agent" with the instructions from the **"Sub-Agent Instructions: Final Verification"** section below. Pass it the `dependency_report.txt` file as context. You must review its findings and apply any necessary fixes. |
+| 3.C | **Run Automated Style Linting** | `[ ]` | **Why:** To enforce a consistent documentation style across the entire project. <br> **How:** Install `pydocstyle` (`pip install pydocstyle`) and run it on the `ptycho` directory. <br> ```bash <br> pydocstyle ptycho/ <br> ``` <br> **Verify:** The command should report no errors. You must fix any reported issues. |
+| 3.D | **Final Code Commit** | `[ ]` | **Why:** To save the completed documentation work to the repository. <br> **How:** Stage all the modified Python files and commit them with a detailed message. <br> ```bash <br> git add ptycho/**/*.py <br> git commit -m "docs: Add comprehensive module-level docstrings" -m "Adds public-interface-focused docstrings to all core library modules, following a consistent format with usage examples and architectural context. Docstring size is constrained to <15% of module size." <br> ``` |
+
+---
+
+### **Sub-Agent Instructions: Docstring Authoring (v5)**
+
+*(Orchestrator: You will provide these instructions to each sub-agent you invoke in Phase 2.A.)*
 
 **Your Goal:** Write a single, high-quality, developer-focused module-level docstring for the specified Python module.
 
 **Your Context:**
 *   **Target Module:** `<path/to/module.py>`
 *   **Dependency Report:** `ptycho/dependency_report.txt`
-*   **Architecture Context:** You MUST use the provided architectural summary to inform your writing.
 
 **Your Guiding Principles (Non-Negotiable):**
 1.  **Adapt to the Module's Nature:** You MUST analyze the module and determine its primary characteristic. Is it defined by complex conditional logic (like the `raw_data.py` example) or by its data transformations and tensor shape contracts (like the `tf_helper.py` example)? Your docstring's focus MUST reflect this.
@@ -110,14 +85,12 @@ Your final output **MUST** be a single markdown file named `docstring_initiative
 
 ---
 
-### **Hardened Docstring Template (Mandatory Structure)**
+### **Hardened Docstring Template (for Authoring Sub-Agent)**
 
 *Your docstring must follow the structure and quality of the examples below. Choose the example that best fits the nature of the module you are documenting.*
 
 ---
 #### **Example 1: For Modules with Complex Logic & Hidden State (e.g., `raw_data.py`)**
-
-This style is best for modules whose behavior is controlled by complex conditional logic or external state.
 
 ```python
 """
@@ -173,8 +146,6 @@ Architectural Notes & Dependencies:
 
 ---
 #### **Example 2: For Modules Defined by Data/Tensor Transformations (e.g., `tf_helper.py`)**
-
-This style is best for utility modules that perform a series of data shape and type transformations.
 
 ```python
 """
@@ -254,19 +225,19 @@ Your generated docstrings will be rejected if they contain the following:
 
 ---
 
-### **Sub-Agent Instructions: Final Verification Agent**
+### **Sub-Agent Instructions: Final Verification**
 
-*(These are the instructions for the agent spawned in Phase 3.B)*
+*(Orchestrator: You will provide these instructions to the sub-agent you invoke in Phase 3.B.)*
 
 **Your Goal:** To perform a final consistency and architectural accuracy check on all newly created docstrings.
 
 **Your Context:**
-*   The list of all documented modules: `modules_to_document.txt`
+*   The list of all documented modules: `modules_prioritized.txt`
 *   The full dependency map: `ptycho/dependency_report.txt`
 *   The PtychoPINN architecture understanding from `docs/DEVELOPER_GUIDE.md` and `docs/architecture.md`
 
 **Your Workflow:**
-1.  **Read All Docstrings:** Load the module-level docstring from every file listed in `modules_to_document.txt`.
+1.  **Read All Docstrings:** Load the module-level docstring from every file listed in `modules_prioritized.txt`.
 2.  **Cross-Reference Architecture Claims:** For each docstring:
     *   Verify "primary consumers" claims against actual dependency data in `ptycho/dependency_report.txt`.
     *   Check that architectural role descriptions align with the actual system design.
@@ -281,9 +252,4 @@ Your generated docstrings will be rejected if they contain the following:
     *   **Inconsistencies Found:** Specific issues requiring fixes.
     *   **Architecture Accuracy:** Assessment of architectural claims.
     *   **Recommendations:** Suggested improvements for consistency.
-
-**Verification Criteria:**
-- **Architectural Accuracy:** Do the docstrings correctly describe each module's role in the PtychoPINN system?
-- **Dependency Consistency:** Do "consumer" claims match actual import relationships?
-- **Workflow Realism:** Do usage examples reflect actual integration patterns in the codebase?
-- **Cross-References:** Do modules that work together reference each other appropriately?
+5.  **Report Findings:** Return the path to the generated report. The Orchestrator will decide if fixes are needed before proceeding.

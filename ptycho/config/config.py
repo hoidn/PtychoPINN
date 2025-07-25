@@ -1,3 +1,43 @@
+"""
+Modern dataclass-based configuration system replacing legacy params.cfg pattern.
+
+Provides type-safe, structured configuration for PtychoPINN model architecture,
+training workflows, and inference tasks. Maintains backward compatibility through
+automatic legacy dictionary generation for existing modules.
+
+Configuration Classes:
+    ModelConfig: Architecture parameters (N, gridsize, model_type, activations)
+    TrainingConfig: Training workflow (epochs, loss weights, data paths)
+    InferenceConfig: Inference workflow (model paths, output settings)
+
+Core Functions:
+    validate_*_config(config) -> None: Validates configuration constraints
+    load_yaml_config(path) -> Dict: Loads YAML configuration files
+    update_legacy_dict(cfg, dataclass_obj): Updates params.cfg for compatibility
+
+Workflow Integration:
+    ```python
+    # Modern configuration with legacy compatibility
+    config = TrainingConfig(
+        model=ModelConfig(N=128, model_type='pinn'),
+        train_data_file='data.npz', nepochs=100)
+    
+    # Enable legacy module compatibility
+    import ptycho.params as params
+    update_legacy_dict(params.cfg, config)
+    
+    # YAML loading for scripts
+    yaml_data = load_yaml_config(Path('config.yaml'))
+    config = TrainingConfig(**yaml_data)
+    ```
+
+Legacy Migration:
+    - Modern workflows use dataclasses directly
+    - Legacy modules continue using params.get() pattern
+    - Configuration updates flow one-way: dataclass → legacy dict
+    - Key mappings handle naming differences (object_big → object.big)
+"""
+
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, Any, Optional, Literal

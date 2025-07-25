@@ -1,8 +1,12 @@
 """
 Shared command-line argument components for PtychoPINN scripts.
 
-This module provides reusable argument parser components to ensure consistent
-CLI interfaces across all scripts in the project.
+Provides reusable argument parser functions for consistent logging configuration.
+Public interface: add_logging_arguments() and get_logging_config().
+
+Example:
+    add_logging_arguments(parser)
+    setup_logging(output_dir, **get_logging_config(args))
 """
 
 import argparse
