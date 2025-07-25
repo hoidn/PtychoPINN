@@ -1,6 +1,6 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-07-22
+**Last Updated:** 2025-07-25
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
 
@@ -63,27 +63,46 @@ This document provides a high-level overview of the major development initiative
 
 ## 🚀 **Current Active Initiative**
 
-### **Initiative: Probe Generalization Study**
-**Path:** `plans/active/probe-generalization-study/`
-**Branch:** `feature/probe-generalization-study` (baseline: devel)
-**Started:** 2025-07-22
-**Current Phase:** Phase 3: Automated 2x2 Study Execution
-**Progress:** ████████░░░░░░░░ 50%
-**Next Milestone:** Orchestration script and completed training outputs for all four experimental arms
-**R&D Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/plan.md</doc-ref>
-**Implementation Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/implementation.md</doc-ref>
+**Status:** No active initiatives at this time.
 
-**Goal:** To understand the impact of different probe functions (idealized vs. experimental) on PtychoPINN model performance across different overlap constraints (gridsize=1 vs. gridsize=2).
+All major development initiatives have been completed. The project is ready for maintenance, bug fixes, or new feature development as needed.
 
-**Key Deliverables:**
-- Verification of synthetic 'lines' dataset workflow for both gridsizes
-- 2x2 experimental matrix comparing idealized/experimental probes with gridsize 1/2
-- Quantitative comparison report with PSNR, SSIM, and FRC50 metrics
-- Visualization plots for all four experimental conditions
+**Next Steps:** 
+- Consider planning new initiatives based on research or user needs
+- Focus on maintenance and optimization of existing features
+- Address any issues or feature requests from users
 
 ---
 
 ## 📋 **Recently Completed Initiatives**
+
+### **Initiative: Tike Comparison Integration**
+*   **Status:** ✅ Complete (Moved from active - 2025-07-25)
+*   **Goal:** To integrate the Tike iterative reconstruction algorithm as a third arm in comparison studies, providing a traditional algorithm baseline against which to benchmark the ML models.
+*   **Key Deliverables:**
+    *   Standalone Tike reconstruction script (`scripts/reconstruction/run_tike_reconstruction.py`) ✅
+    *   Enhanced comparison framework supporting three-way comparisons (`scripts/compare_models.py`) ✅
+    *   Performance metrics including computation time tracking ✅
+    *   Rich metadata for reproducibility ✅
+    *   Complete documentation including README, command reference, and model comparison guide ✅
+    *   Coordinate convention handling for cross-algorithm compatibility ✅
+    *   Backward compatibility verification ✅
+    *   Full validation workflow with 100/1000 iteration testing ✅
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/active/tike-comparison-integration/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/active/tike-comparison-integration/implementation.md</doc-ref>
+
+### **Initiative: Probe Generalization Study**
+*   **Status:** ✅ Complete (Moved from active)
+*   **Goal:** To understand the impact of different probe functions (idealized vs. experimental) on PtychoPINN model performance across different overlap constraints (gridsize=1 vs. gridsize=2).
+*   **Key Deliverables:**
+    *   Verification of synthetic 'lines' dataset workflow for both gridsizes
+    *   2x2 experimental matrix comparing idealized/experimental probes with gridsize 1/2
+    *   Quantitative comparison report with PSNR, SSIM, and FRC50 metrics
+    *   Visualization plots for all four experimental conditions
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/implementation.md</doc-ref>
 
 ### **Initiative: Grouping-Aware Subsampling for Overlap-Based Training**
 *   **Status:** ✅ Complete

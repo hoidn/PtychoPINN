@@ -109,15 +109,42 @@ ptycho_inference --model_path gs2_model/ --test_data test.npz --n_images 125 --g
 
 ---
 
+## Reconstruction
+
+```bash
+# Tike iterative reconstruction
+python scripts/reconstruction/run_tike_reconstruction.py \
+    input_data.npz \
+    tike_output/ \
+    --iterations 1000 \
+    --extra-padding 32
+
+# Quick reconstruction (fewer iterations)
+python scripts/reconstruction/run_tike_reconstruction.py \
+    input_data.npz \
+    tike_output/ \
+    --iterations 100
+```
+
+---
+
 ## Model Comparison
 
 ```bash
-# Compare two trained models
+# Two-way comparison (PtychoPINN vs Baseline)
 python scripts/compare_models.py \
     --pinn_dir pinn_model/ \
     --baseline_dir baseline_model/ \
     --test_data test.npz \
     --output_dir comparison_out
+
+# Three-way comparison (PtychoPINN vs Baseline vs Tike)
+python scripts/compare_models.py \
+    --pinn_dir pinn_model/ \
+    --baseline_dir baseline_model/ \
+    --test_data test.npz \
+    --output_dir comparison_out \
+    --tike_recon_path tike_output/tike_reconstruction.npz
 
 # Complete training + comparison workflow
 ./scripts/run_comparison.sh train.npz test.npz output_dir
