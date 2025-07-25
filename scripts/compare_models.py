@@ -74,6 +74,8 @@ def parse_args():
                         help="Save debug images for MS-SSIM and FRC preprocessing visualization.")
     parser.add_argument("--ms-ssim-sigma", type=float, default=1.0,
                         help="Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0).")
+    parser.add_argument("--n-test-images", type=int, default=None,
+                        help="Number of test images to load from the file (default: all).")
     
     # Add logging arguments
     add_logging_arguments(parser)
@@ -554,7 +556,7 @@ def main():
 
     # Load test data
     logger.info(f"Loading test data from {args.test_data}...")
-    test_data_raw = load_data(str(args.test_data))
+    test_data_raw = load_data(str(args.test_data), n_images=args.n_test_images)
     
     # Create a minimal config for data container creation
     # The actual model parameters will come from the saved models
