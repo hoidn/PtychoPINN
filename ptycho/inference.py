@@ -1,3 +1,10 @@
+"""
+Legacy inference utilities for loading pre-trained models and performing reconstruction.
+
+Example:
+    >>> results = inference_flow("model.h5", data_container)
+    >>> reconstructed_obj = results['reconstructed_obj']
+"""
 from ptycho.model_manager import ModelManager
 from tensorflow.keras.models import Model
 from ptycho import params

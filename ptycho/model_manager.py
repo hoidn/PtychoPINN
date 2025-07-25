@@ -1,4 +1,38 @@
-# model_manager.py
+"""
+Model lifecycle management and persistence layer for PtychoPINN.
+
+Critical bridge between training/inference workflows and model storage, providing
+comprehensive serialization and loading with complete context preservation.
+Handles TensorFlow models with metadata, custom objects, parameters, and training state.
+
+Architecture Role:
+    Centralized persistence layer enabling model reuse across workflow stages. Integrates
+    with training pipelines and inference workflows, managing relationships between model
+    architecture, custom TensorFlow layers, and physics parameters.
+
+Core Functionality:
+    - Model serialization with context preservation
+    - Architecture-aware loading with correct gridsize/N parameters  
+    - Multi-model zip archives for related model pairs
+    - Parameter restoration and custom object management
+
+Key Components:
+    - ModelManager: Static class for all persistence operations
+    - save_model/load_model: Individual model management
+    - save_multiple_models/load_multiple_models: Multi-model archives
+
+File Format:
+    Dual-format combining TensorFlow SavedModel with dill-serialized metadata in zip
+    archives, ensuring compatibility and Python object preservation.
+
+Usage Example:
+    # Training - save with full context
+    models = {'autoencoder': model1, 'diffraction_to_obj': model2}
+    ModelManager.save_multiple_models(models, 'output/wts.h5', custom_objects, scale)
+    
+    # Inference - load with parameter restoration
+    loaded = ModelManager.load_multiple_models('output/wts.h5', ['diffraction_to_obj'])
+"""
 
 import os
 import h5py

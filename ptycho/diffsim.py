@@ -1,3 +1,45 @@
+"""Core forward physics simulation engine for ptychographic reconstruction.
+
+This module implements the differentiable forward physics model that forms the foundation 
+of PtychoPINN's physics-informed neural network architecture. It simulates the complete 
+ptychographic measurement process: object illumination, coherent diffraction, and 
+photon detection with realistic Poisson noise characteristics.
+
+Physics Implementation:
+    The ptychographic forward model: object * probe → |FFT|² → Poisson(counts)
+    Serves dual purposes: generates synthetic training data and provides physics 
+    constraints for PINN training via differentiable simulation.
+
+Architecture Role:
+    - Training data generation with various object types (lines, GRF, points)
+    - Physics-informed loss terms constraining network to optical principles  
+    - Realistic Poisson photon noise modeling for experimental data matching
+
+Core Functions:
+    illuminate_and_diffract: Complete illumination and diffraction pipeline
+    mk_simdata: Generate synthetic datasets with configurable object types
+    observe_amplitude: Poisson photon noise simulation
+    scale_nphotons: Photon count normalization
+    sim_object_image: Synthetic object generation
+
+Example:
+    # Generate synthetic training dataset
+    from ptycho import params
+    params.set('nphotons', 1e6)
+    params.set('data_source', 'lines')
+    
+    probe = np.exp(1j * np.random.uniform(0, 2*np.pi, (64, 64)))
+    X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, coords = mk_simdata(
+        n=2000, size=64, probe=probe, outer_offset=32, data_source='lines'
+    )
+    # X: (n, 64, 64) diffraction amplitudes, Y_I/Y_phi: object patches
+
+Integration:
+    Integrates with ptycho.model (physics losses), ptycho.loader (training data),
+    ptycho.datagen.* (synthetic objects), ptycho.tf_helper (TF diffraction ops).
+
+Note: Core physics module - preserve ptychographic forward model compatibility.
+"""
 from skimage import draw, morphology
 from tensorflow.keras.layers import Lambda
 from tensorflow.signal import fft2d, fftshift

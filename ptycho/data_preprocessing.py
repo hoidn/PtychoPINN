@@ -1,3 +1,39 @@
+"""Data preprocessing and transformation utilities for ptychographic datasets.
+
+This module provides comprehensive data preprocessing operations for PtychoPINN workflows,
+handling multiple data sources (simulated, experimental, generic) and preparing datasets
+for training and inference pipelines.
+
+Core Functions:
+    Data Loading:
+        - load_simulated_data(): Generate synthetic ptychographic training/test data
+        - load_experimental_data(): Process real experimental measurements
+        - load_generic_data(): Handle arbitrary .npz dataset files
+        
+    Data Transformation:
+        - shuffle_data(): Randomize dataset ordering with reproducible seeds
+        - get_clipped_object(): Extract ground truth objects with proper clipping
+        - stitch_data(): Reassemble patch-based reconstructions into full images
+        
+    Pipeline Integration:
+        - generate_data(): Main entry point coordinating all preprocessing operations
+        - create_ptycho_dataset(): Package data into standardized containers
+
+Architecture Role:
+    Acts as the data preparation layer bridging raw datasets and model training.
+    Coordinates with diffsim for simulation, loader for data containers, and probe
+    generation. Ensures consistent data formats across acquisition sources.
+
+Usage Example:
+    # Generate preprocessed dataset for training
+    X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, \
+        ground_truth, dataset, full_test, norm = generate_data()
+    
+    # Manual preprocessing workflow  
+    X_shuffled, Y_I_shuffled, Y_phi_shuffled, indices = shuffle_data(
+        X_train, Y_I_train, Y_phi_train, random_state=42)
+"""
+
 from sklearn.utils import shuffle
 import numpy as np
 
