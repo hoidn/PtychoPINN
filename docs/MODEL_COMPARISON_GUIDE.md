@@ -59,6 +59,61 @@ python scripts/compare_models.py \
   - `reconstructions_metadata.txt` - Description of arrays in raw reconstructions NPZ
   - `reconstructions_aligned_metadata.txt` - Description of arrays in aligned reconstructions NPZ
 
+## Three-Way Comparison with Tike Integration
+
+The comparison framework now supports including Tike iterative reconstruction as a third baseline for comprehensive algorithm evaluation. This enables comparing PtychoPINN and supervised baseline models against traditional iterative methods.
+
+### Prerequisites
+
+Before performing three-way comparisons, you must first generate a Tike reconstruction:
+
+```bash
+# Step 1: Generate Tike reconstruction
+python scripts/reconstruction/run_tike_reconstruction.py \
+    <test_data.npz> \
+    <tike_output_dir> \
+    --iterations 1000
+
+# This creates: <tike_output_dir>/tike_reconstruction.npz
+```
+
+### Three-Way Comparison Command
+
+Use the `--tike_recon_path` argument to include Tike reconstruction in comparisons:
+
+```bash
+# Step 2: Run three-way comparison
+python scripts/compare_models.py \
+    --pinn_dir <path/to/pinn/model/dir> \
+    --baseline_dir <path/to/baseline/model/dir> \
+    --test_data <path/to/test.npz> \
+    --output_dir <comparison_output_dir> \
+    --tike_recon_path <tike_output_dir>/tike_reconstruction.npz
+
+# Complete example:
+python scripts/compare_models.py \
+    --pinn_dir training_outputs/pinn_run \
+    --baseline_dir training_outputs/baseline_run \
+    --test_data datasets/fly64/test_data.npz \
+    --output_dir three_way_comparison \
+    --tike_recon_path tike_reconstruction/tike_reconstruction.npz
+```
+
+### Three-Way Comparison Outputs
+
+When `--tike_recon_path` is provided, the comparison generates:
+
+- **`comparison_plot.png`** - 2×4 grid showing PtychoPINN, Baseline, Tike, and Ground Truth (amplitude/phase)
+- **`comparison_metrics.csv`** - Quantitative metrics for all three methods including computation time tracking
+- **Unified NPZ files** - Include Tike reconstruction data alongside PtychoPINN and baseline results
+
+### Key Features
+
+- **Automatic Format Handling**: Tike reconstructions are automatically aligned and processed for fair comparison
+- **Computation Time Tracking**: Records reconstruction time for each method (Tike times from metadata)
+- **Backward Compatibility**: Existing two-way comparisons work identically when `--tike_recon_path` is omitted
+- **Consistent Metrics**: All methods evaluated using the same registration and evaluation pipeline
+
 ## Automatic Image Registration
 
 **IMPORTANT:** Model comparisons now include automatic image registration to ensure fair evaluation.

@@ -1,88 +1,133 @@
-# Reconstruction Scripts Directory
+# Reconstruction Scripts
 
-This directory contains scripts for generating ptychographic reconstructions using various traditional algorithms, providing baselines for comparison with machine learning models.
+This directory contains scripts for running traditional iterative reconstruction algorithms, primarily for comparison with neural network approaches.
 
-## Available Scripts
+## Overview
+
+The reconstruction scripts provide implementations of classical ptychographic reconstruction methods that serve as baselines for evaluating the performance of PtychoPINN and other machine learning approaches.
+
+## Scripts
 
 ### `run_tike_reconstruction.py`
 
-A standalone script that performs ptychographic reconstruction using the Tike library's iterative algorithms.
-
-**Purpose:** Generate traditional algorithm reconstructions that can be integrated into model comparison studies, providing a third arm alongside PtychoPINN and baseline models.
+**Purpose:** Standalone Tike iterative reconstruction script that provides a traditional baseline for comparing against PtychoPINN neural network reconstructions.
 
 **Usage:**
 ```bash
-python run_tike_reconstruction.py <input_npz> <output_dir> [options]
+python scripts/reconstruction/run_tike_reconstruction.py \
+    <input_data.npz> \
+    <output_dir> \
+    [options]
 ```
 
-**Arguments:**
-- `input_npz`: NPZ file containing `diffraction`, `probeGuess`, `xcoords`, `ycoords`
-- `output_dir`: Directory where results will be saved
-- `--iterations`: Number of reconstruction iterations (default: 1000)
-- `--num-gpu`: Number of GPUs to use (default: 1)
-- `--quiet`: Suppress console output (file logging only)
-- `--verbose`: Enable DEBUG output to console
+**Required Arguments:**
+- `input_data.npz` - Input dataset file containing diffraction patterns, probe, and scan coordinates
+- `output_dir` - Directory where reconstruction results will be saved
+
+**Key Options:**
+- `--iterations N` - Number of Tike algorithm iterations (default: 100)
+- `--extra-padding N` - Extra padding pixels for object canvas (default: 32)
+- `--visualize` - Generate visualization plots of the reconstruction
+
+**Example Commands:**
+```bash
+# Quick reconstruction test (100 iterations)
+python scripts/reconstruction/run_tike_reconstruction.py \
+    datasets/fly64/test_data.npz \
+    tike_output_quick/ \
+    --iterations 100
+
+# High-quality reconstruction (1000 iterations)
+python scripts/reconstruction/run_tike_reconstruction.py \
+    datasets/fly64/test_data.npz \
+    tike_output/ \
+    --iterations 1000 \
+    --extra-padding 64 \
+    --visualize
+
+# For model comparison studies
+python scripts/reconstruction/run_tike_reconstruction.py \
+    tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz \
+    tike_reconstruction/ \
+    --iterations 1000
+```
+
+**Input Requirements:**
+The input NPZ file must contain:
+- `diffraction` - Stack of diffraction patterns (n_images, N, N) as amplitude values
+- `probeGuess` - Initial probe estimate (N, N) complex array  
+- `xcoords`, `ycoords` - Scan position coordinates (n_images,) arrays
+- `objectGuess` - Initial object estimate (M, M) complex array (optional, for ground truth)
 
 **Output Files:**
-- `tike_reconstruction.npz`: Standardized NPZ with `reconstructed_object`, `reconstructed_probe`, and `metadata`
-- `reconstruction_visualization.png`: 2x2 plot showing amplitude and phase of results
-- `logs/debug.log`: Complete execution log
+- `tike_reconstruction.npz` - Main reconstruction result containing:
+  - `psi` - Reconstructed object (complex array)
+  - `probe` - Refined probe (complex array)
+  - `metadata` - Reconstruction parameters and timing information
+- `reconstruction_amplitude.png` - Amplitude visualization (if --visualize)
+- `reconstruction_phase.png` - Phase visualization (if --visualize)
+- `tike_reconstruction.log` - Detailed algorithm log
 
-**Examples:**
+**Algorithm Details:**
+- Uses Tike's ptychographic reconstruction implementation with automatic padding
+- Handles coordinate convention differences (PtychoPINN uses [X,Y], Tike uses [Y,X])
+- Implements extra padding strategy to avoid boundary artifacts
+- Supports both probe and object refinement
+- Records computation time and convergence metrics
+
+## Integration with Model Comparison
+
+The reconstruction results can be directly used in three-way model comparisons:
+
 ```bash
-# Basic reconstruction
-python run_tike_reconstruction.py datasets/fly64/test.npz ./tike_output
+# Step 1: Generate Tike reconstruction
+python scripts/reconstruction/run_tike_reconstruction.py \
+    test_data.npz \
+    tike_output/ \
+    --iterations 1000
 
-# Quick test with fewer iterations
-python run_tike_reconstruction.py datasets/fly64/test.npz ./tike_output --iterations 50
-
-# Quiet mode for automation
-python run_tike_reconstruction.py datasets/fly64/test.npz ./tike_output --quiet
+# Step 2: Run three-way comparison
+python scripts/compare_models.py \
+    --pinn_dir pinn_model/ \
+    --baseline_dir baseline_model/ \
+    --test_data test_data.npz \
+    --output_dir comparison_results \
+    --tike_recon_path tike_output/tike_reconstruction.npz
 ```
 
-**Integration with Comparison Studies:**
-The output `tike_reconstruction.npz` file is designed to integrate seamlessly with the model comparison workflow in Phase 2 of the Tike Comparison Integration initiative.
+This enables comprehensive evaluation of neural network approaches against traditional iterative methods.
 
-## Data Contract
+## Technical Notes
 
-All reconstruction scripts in this directory produce NPZ files with the following standardized format:
+### Coordinate Convention Handling
+- **Critical:** PtychoPINN uses [X,Y] coordinate convention while Tike uses [Y,X]
+- The script automatically handles this conversion by swapping coordinate arrays before passing to Tike
+- This ensures consistent spatial alignment across all reconstruction methods
 
-### Required Arrays
-- **`reconstructed_object`**: Complex 2D array containing the final reconstructed object
-- **`reconstructed_probe`**: Complex 2D array containing the final reconstructed probe
+### Padding Strategy
+- Uses Tike's `get_padded_object()` function with configurable extra padding
+- Default 32 pixels of extra padding prevents boundary artifacts
+- Padding can be increased for datasets with larger objects or challenging geometry
 
-### Required Metadata
-- **`metadata`**: Single-element object array containing a dictionary with:
-  - `algorithm`: String identifying the reconstruction algorithm
-  - `version`: Version string of the algorithm library
-  - `iterations`: Number of iterations performed
-  - `computation_time_seconds`: Float timing measurement
-  - `parameters`: Dictionary of algorithm-specific parameters
-  - `input_file`: Path to the input NPZ file
-  - `timestamp`: ISO format timestamp of reconstruction
+### Performance Considerations
+- Reconstruction time scales with iterations and dataset size
+- 100 iterations typically sufficient for quick validation (~1-2 minutes)
+- 1000 iterations recommended for high-quality comparisons (~10-15 minutes)
+- Memory usage scales with object size and padding amount
 
-This standardized format ensures compatibility with existing model comparison and evaluation workflows.
+### Output Format Compatibility
+- Output NPZ format is compatible with PtychoPINN evaluation pipelines
+- Reconstruction results can be directly loaded by `compare_models.py`
+- Metadata includes timing information for performance comparison studies
 
-## Development Notes
+## Dependencies
 
-**Adding New Algorithms:**
-1. Create a new script following the naming pattern `run_<algorithm>_reconstruction.py`
-2. Follow the same CLI pattern with `argparse` and logging integration
-3. Implement the standardized data contract for output NPZ files
-4. Include comprehensive docstrings and error handling
-5. Add usage examples to this README
+- `tike` - Iterative ptychographic reconstruction library
+- `numpy` - Array operations and file I/O
+- `matplotlib` - Visualization (optional, for --visualize flag)
 
-**Dependencies:**
-- Scripts should integrate with the project's centralized logging system (`ptycho.log_config`)
-- Use the standard CLI argument helpers (`ptycho.cli_args`)
-- Follow project conventions for error handling and user feedback
+## See Also
 
-## Future Extensions
-
-This directory is designed to accommodate additional reconstruction algorithms:
-- EPIE (Extended Ptychographic Iterative Engine)
-- RAAR (Relaxed Averaged Alternating Reflections)  
-- Other iterative phase retrieval methods
-- GPU-accelerated implementations
-
-Each new algorithm should follow the established patterns for consistency and integration with the broader comparison framework.
+- **Model Comparison Guide:** `docs/MODEL_COMPARISON_GUIDE.md` - Three-way comparison workflow
+- **Commands Reference:** `docs/COMMANDS_REFERENCE.md` - Quick command reference
+- **Data Contracts:** `docs/data_contracts.md` - NPZ file format specifications
