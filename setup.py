@@ -37,7 +37,6 @@ setup(
         'imageio',
         'ipywidgets',
         'tqdm',
-        'tensorflow-addons',
         'jupyter',
         'scikit-image',
         'opencv-python'
