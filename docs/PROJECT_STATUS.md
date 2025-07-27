@@ -79,9 +79,10 @@ This document provides a high-level overview of the major development initiative
     *   Edge-aware test suite for validation ✅
     *   Complete removal of tensorflow-addons dependency ✅
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/active/remove-tf-addons-dependency/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/active/remove-tf-addons-dependency/implementation.md</doc-ref>
-    *   **Session Documentation:** <doc-ref type="session">docs/TF_ADDONS_REMOVAL_SESSION.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-remove-tf-addons/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-remove-tf-addons/implementation.md</doc-ref>
+    *   **Session Documentation:** <doc-ref type="session">plans/archive/2025-07-remove-tf-addons/session_documentation.md</doc-ref>
+    *   **Summary:** <doc-ref type="summary">plans/archive/2025-07-remove-tf-addons/summary.md</doc-ref>
 
 ### **Initiative: Tike Comparison Integration**
 *   **Status:** ✅ **Complete** (All Phases 1-4) - Completed 2025-07-25
