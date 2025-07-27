@@ -48,6 +48,8 @@ Output Files:
     - results.csv                    Aggregated data from all runs
                                     For multi-trial: includes mean, p25, p75 columns
                                     For single-trial: legacy format with individual values
+    - results_all_trials.csv         Complete record of every individual trial (multi-trial only)
+                                    Includes filter_status column showing which trials passed/failed
     - generalization_plot.png        Publication-ready comparison plot (or custom filename)
                                     For multi-trial: shows mean lines with percentile bands
                                     For single-trial: shows individual data points
@@ -437,7 +439,7 @@ def convert_tidy_to_wide_format(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]], 
-                                ms_ssim_phase_threshold: float = 0.0) -> pd.DataFrame:
+                                ms_ssim_phase_threshold: float = 0.0) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Aggregate results from all comparison files with statistical analysis.
     
@@ -451,8 +453,9 @@ def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]],
                                 Set to 0 to disable filtering.
         
     Returns:
-        DataFrame with columns: train_size, model_type, metric_mean, metric_p25, metric_p75
-        for all available metrics
+        Tuple containing:
+        - DataFrame with statistical aggregation (train_size, model_type, metric_mean, metric_p25, metric_p75)
+        - DataFrame with all individual trials including filter status
         
     Raises:
         ValueError: If no valid data is found
@@ -484,6 +487,12 @@ def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]],
     trials_df = pd.DataFrame(all_trial_data)
     logger.info(f"Loaded {len(trials_df)} trial records")
     
+    # Create a DataFrame for all trials (before any filtering) for export
+    all_trials_df = pd.DataFrame(all_trial_data)
+    
+    # Add a "Status" Column to track filter outcomes
+    all_trials_df['filter_status'] = 'passed'
+    
     # Apply MS-SSIM phase threshold filtering if requested
     if ms_ssim_phase_threshold > 0:
         initial_rows = len(trials_df)
@@ -496,6 +505,11 @@ def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]],
             # Filter out trials with MS-SSIM phase below threshold
             # Note: NaN values will be excluded by this comparison
             mask = trials_df['ms_ssim_phase'] >= ms_ssim_phase_threshold
+            
+            # Update status for filtered trials in all_trials_df
+            mask_low_msssim = all_trials_df['ms_ssim_phase'] < ms_ssim_phase_threshold
+            all_trials_df.loc[mask_low_msssim, 'filter_status'] = 'filtered_low_msssim'
+            
             trials_df = trials_df[mask]
             
             filtered_count = initial_rows - len(trials_df)
@@ -519,6 +533,12 @@ def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]],
                     for (train_size, model_type), counts in filtered_summary.items():
                         logger.info(f"  train_size={train_size}, model={model_type}: "
                                    f"{counts['filtered']} filtered, {counts['remaining']} remaining")
+    
+    # Mark trials with NaN metrics as failed
+    # Use a key metric (psnr_phase) to identify failed trials
+    if 'psnr_phase' in all_trials_df.columns:
+        mask_nan = all_trials_df['psnr_phase'].isna()
+        all_trials_df.loc[mask_nan, 'filter_status'] = 'failed_nan'
     
     # Identify metric columns (exclude metadata)
     metadata_cols = {'model_type', 'train_size', 'trial_number'}
@@ -607,7 +627,7 @@ def aggregate_results_statistical(comparison_files: List[Tuple[int, int, Path]],
             logger.info(f"  {metric}: {stats['total_nan']} NaN values excluded "
                        f"({percentage:.1f}% of {stats['total_trials']} total trials)")
     
-    return result_df
+    return result_df, all_trials_df
 
 
 def aggregate_results(comparison_files: List[Tuple[int, int, Path]], 
@@ -633,7 +653,7 @@ def aggregate_results(comparison_files: List[Tuple[int, int, Path]],
     logger = logging.getLogger(__name__)
     
     # Use the new statistical aggregation
-    stats_df = aggregate_results_statistical(comparison_files, ms_ssim_phase_threshold)
+    stats_df, _ = aggregate_results_statistical(comparison_files, ms_ssim_phase_threshold)
     
     # Extract the specific metric requested
     metric_col = f"{metric}_{part}"
@@ -1060,6 +1080,57 @@ def export_aggregated_results(df: pd.DataFrame, output_path: Path,
         logger.info(f"Results exported to: {output_path}")
 
 
+def export_all_trials_results(all_trials_df: pd.DataFrame, output_path: Path) -> None:
+    """
+    Export all individual trial results to CSV with filter status information.
+    
+    This function creates a comprehensive record of every trial in the study,
+    including those that were filtered out or failed. Each row represents one
+    trial for one model type.
+    
+    Args:
+        all_trials_df: DataFrame containing all trial data with filter_status column
+        output_path: Path for output CSV file
+    """
+    logger = logging.getLogger(__name__)
+    
+    # Create export DataFrame with desired column order
+    export_df = all_trials_df.copy()
+    
+    # Define desired column order, putting key identifiers first
+    key_cols = ['train_size', 'trial_number', 'model_type', 'filter_status']
+    
+    # Get all metric columns (excluding metadata)
+    metadata_cols = {'train_size', 'trial_number', 'model_type', 'filter_status'}
+    metric_cols = [col for col in export_df.columns if col not in metadata_cols]
+    
+    # Sort metric columns alphabetically for consistency
+    metric_cols_sorted = sorted(metric_cols)
+    
+    # Reorder columns
+    column_order = key_cols + metric_cols_sorted
+    export_df = export_df[column_order]
+    
+    # Sort the DataFrame by train_size, trial_number, and model_type
+    export_df = export_df.sort_values(['train_size', 'trial_number', 'model_type'])
+    
+    # Add generation timestamp
+    export_df['generated_at'] = datetime.now().isoformat()
+    
+    # Save the DataFrame to CSV
+    export_df.to_csv(output_path, index=False)
+    
+    # Log summary information
+    total_trials = len(export_df)
+    status_counts = export_df['filter_status'].value_counts()
+    
+    logger.info(f"All trials results exported to: {output_path}")
+    logger.info(f"Total trial records: {total_trials}")
+    for status, count in status_counts.items():
+        percentage = (count / total_trials) * 100
+        logger.info(f"  {status}: {count} ({percentage:.1f}%)")
+
+
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -1126,7 +1197,11 @@ def main():
             logger.info("Multi-trial data detected - using statistical aggregation")
             
             # Use statistical aggregation for multi-trial data
-            stats_df = aggregate_results_statistical(comparison_files, args.ms_ssim_phase_threshold)
+            stats_df, all_trials_df = aggregate_results_statistical(comparison_files, args.ms_ssim_phase_threshold)
+            
+            # Export all individual trial results
+            all_trials_path = args.study_dir / 'results_all_trials.csv'
+            export_all_trials_results(all_trials_df, all_trials_path)
             
             # Validate data quality using legacy interface (on specific metric)
             legacy_df = aggregate_results(comparison_files, args.metric, args.part, args.ms_ssim_phase_threshold)
@@ -1152,6 +1227,7 @@ def main():
             logger.info(f"Outputs:")
             logger.info(f"  - Plot: {plot_path}")
             logger.info(f"  - Data: {results_path}")
+            logger.info(f"  - All trials: {all_trials_path}")
             logger.info(f"Summary: {len(model_types)} models, {len(train_sizes)} training sizes, {total_trials} total trials")
             logger.info(f"Training sizes: {train_sizes}")
             logger.info(f"Model types: {model_types}")
