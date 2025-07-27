@@ -102,28 +102,11 @@ from .loader import PtychoDataContainer
 from . import tf_helper as hh
 from . import params as p
 
-import tensorflow_addons as tfa
-gaussian_filter2d = tfa.image.gaussian_filter2d
+# Import native Gaussian filter implementation instead of tensorflow_addons
+from .gaussian_filter import gaussian_filter2d, complex_gaussian_filter2d as complex_gaussian_filter2d_native
 
-def complex_gaussian_filter2d(input_tensor, filter_shape, sigma):
-    """
-    Apply Gaussian filter to complex-valued tensor.
-    
-    Args:
-    input_tensor: Complex-valued input tensor
-    filter_shape: Tuple of integers specifying the filter shape
-    sigma: Float or tuple of floats for the Gaussian kernel standard deviation
-    
-    Returns:
-    Complex-valued tensor after applying Gaussian filter
-    """
-    real_part = tf.math.real(input_tensor)
-    imag_part = tf.math.imag(input_tensor)
-    
-    filtered_real = gaussian_filter2d(real_part, filter_shape=filter_shape, sigma=sigma)
-    filtered_imag = gaussian_filter2d(imag_part, filter_shape=filter_shape, sigma=sigma)
-    
-    return tf.complex(filtered_real, filtered_imag)
+# Use the native complex gaussian filter implementation directly
+complex_gaussian_filter2d = complex_gaussian_filter2d_native
 
 tfk = hh.tf.keras
 tfkl = hh.tf.keras.layers
