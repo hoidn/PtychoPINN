@@ -43,6 +43,7 @@ Examples:
     python run_tike_reconstruction.py input.npz ./tike_output
     python run_tike_reconstruction.py input.npz ./tike_output --iterations 500 --quiet
     python run_tike_reconstruction.py input.npz ./tike_output --extra-padding 64
+    python run_tike_reconstruction.py input.npz ./tike_output --n-images 1000
         """
     )
     
@@ -72,8 +73,14 @@ Examples:
     parser.add_argument(
         '--extra-padding',
         type=int,
-        default=32,
-        help='Extra padding pixels for object canvas (default: 32)'
+        default=64,
+        help='Extra padding pixels for object canvas (default: 64)'
+    )
+    parser.add_argument(
+        '--n-images',
+        type=int,
+        default=None,
+        help='Number of images to use from dataset (uses all if not specified)'
     )
     
     # Add standard logging arguments
@@ -82,12 +89,13 @@ Examples:
     return parser.parse_args()
 
 
-def load_tike_data(npz_path):
+def load_tike_data(npz_path, n_images=None):
     """
     Load necessary arrays from input NPZ file for Tike reconstruction.
     
     Args:
         npz_path: Path to input NPZ file
+        n_images: Number of images to use (None for all images)
         
     Returns:
         dict: Dictionary containing diffraction, probe, xcoords, ycoords arrays
@@ -122,21 +130,37 @@ def load_tike_data(npz_path):
         if missing_keys:
             raise KeyError(f"Missing required keys: {missing_keys}")
         
+        # Apply subsampling if n_images is specified
+        if n_images is not None:
+            total_images = diffraction.shape[0]
+            if n_images > total_images:
+                logger.warning(f"Requested {n_images} images but dataset only has {total_images}. Using all {total_images} images.")
+                n_images = total_images
+            else:
+                logger.info(f"Subsampling dataset: using {n_images} out of {total_images} images")
+                # Slice per-scan arrays to first n_images entries
+                diffraction = diffraction[:n_images]
+                xcoords = data['xcoords'][:n_images]
+                ycoords = data['ycoords'][:n_images]
+        else:
+            xcoords = data['xcoords']
+            ycoords = data['ycoords']
+        
         result = {
             'diffraction': diffraction,
-            'probeGuess': data['probeGuess'],
-            'xcoords': data['xcoords'],
-            'ycoords': data['ycoords']
+            'probeGuess': data['probeGuess'],  # Keep global array unchanged
+            'xcoords': xcoords,
+            'ycoords': ycoords
         }
         
-        logger.info(f"Loaded data shapes:")
+        logger.info(f"Final data shapes:")
         for key, arr in result.items():
             logger.info(f"  {key}: {arr.shape} ({arr.dtype})")
     
     return result
 
 
-def configure_tike_parameters(data_dict, iterations, num_gpu, extra_padding=32):
+def configure_tike_parameters(data_dict, iterations, num_gpu, extra_padding=64):
     """
     Configure Tike reconstruction parameters based on loaded data.
     
@@ -335,10 +359,14 @@ def main():
     logger.info(f"Iterations: {args.iterations}")
     logger.info(f"GPUs: {args.num_gpu}")
     logger.info(f"Extra padding: {args.extra_padding} pixels")
+    if args.n_images is not None:
+        logger.info(f"Subsampling: {args.n_images} images")
+    else:
+        logger.info("Using all images in dataset")
     
     try:
         # Load data
-        data_dict = load_tike_data(args.input_npz)
+        data_dict = load_tike_data(args.input_npz, args.n_images)
         
         # Configure parameters
         diffraction, parameters = configure_tike_parameters(
