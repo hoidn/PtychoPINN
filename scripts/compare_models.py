@@ -715,21 +715,34 @@ def main():
     logger.info(f"Registration: {'disabled' if args.skip_registration else 'enabled'}")
     logger.info(f"NPZ output: raw={'enabled' if args.save_npz else 'disabled'}, aligned={'enabled' if args.save_npz_aligned else 'disabled'}")
 
-    # Load test data
+    # CRITICAL FIX: Initialize configuration BEFORE loading data
+    # This ensures params.cfg is properly set up when load_data() checks gridsize
+    logger.info("Initializing configuration before data loading...")
+    
+    # Create a minimal config with gridsize=1 (default for comparison mode)
+    # We'll update N after loading data to get the correct probe size
+    initial_config = TrainingConfig(
+        model=ModelConfig(N=64, gridsize=1),  # Will be updated after loading
+        train_data_file=Path("dummy.npz"),
+        n_images=args.n_test_images or None  # Pass through the CLI parameter
+    )
+    update_legacy_dict(p.cfg, initial_config)
+    logger.info(f"Initialized with gridsize={initial_config.model.gridsize}, n_images={initial_config.n_images}")
+
+    # Load test data (now with proper configuration in place)
     logger.info(f"Loading test data from {args.test_data}...")
     test_data_raw = load_data(str(args.test_data), n_images=args.n_test_images)
     
-    # Create a minimal config for data container creation
-    # The actual model parameters will come from the saved models
-    dummy_config = TrainingConfig(
-        model=ModelConfig(N=test_data_raw.probeGuess.shape[0]),
+    # Update config with actual probe size from loaded data
+    final_config = TrainingConfig(
+        model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=1),
         train_data_file=Path("dummy.npz"),
-        n_images=test_data_raw.diff3d.shape[0]
+        n_images=test_data_raw.diff3d.shape[0]  # Actual loaded size (should match n_test_images if properly applied)
     )
-    update_legacy_dict(p.cfg, dummy_config)
+    update_legacy_dict(p.cfg, final_config)
     
     # Create data container
-    test_container = create_ptycho_data_container(test_data_raw, dummy_config)
+    test_container = create_ptycho_data_container(test_data_raw, final_config)
     
     # Extract ground truth if available
     ground_truth_obj = test_data_raw.objectGuess[None, ..., None] if test_data_raw.objectGuess is not None else None

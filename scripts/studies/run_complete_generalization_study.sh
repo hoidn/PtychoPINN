@@ -512,12 +512,12 @@ compare_models() {
                 registration_arg="--skip-registration"
             fi
             
-            local compare_cmd="python scripts/compare_models.py \\
-                --pinn_dir '$pinn_dir' \\
-                --baseline_dir '$baseline_dir' \\
-                --test_data '$TEST_DATA' \\
-                --output_dir '$trial_output_dir' \\
-                $registration_arg"
+            local compare_cmd="python scripts/compare_models.py --pinn_dir '$pinn_dir' --baseline_dir '$baseline_dir' --test_data '$TEST_DATA' --output_dir '$trial_output_dir'"
+            
+            # Add registration flag if needed
+            if [ -n "$registration_arg" ]; then
+                compare_cmd="$compare_cmd $registration_arg"
+            fi
                 
             # Add Tike reconstruction if available
             if [ "$ADD_TIKE_ARM" = true ]; then

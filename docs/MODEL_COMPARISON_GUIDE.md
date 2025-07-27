@@ -30,6 +30,7 @@ This workflow:
 
 If you already have trained models, use `<code-ref type="script">scripts/compare_models.py</code-ref>` directly:
 
+### Two-Way Comparison (PtychoPINN vs Baseline)
 ```bash
 # Compare two existing trained models
 python scripts/compare_models.py \
@@ -44,6 +45,26 @@ python scripts/compare_models.py \
     --baseline_dir training_outputs/baseline_run \
     --test_data datasets/fly/fly001_transposed.npz \
     --output_dir comparison_results
+```
+
+### Three-Way Comparison (PtychoPINN vs Baseline vs Tike) **NEW**
+```bash
+# Compare all three methods with existing Tike reconstruction
+python scripts/compare_models.py \
+    --pinn_dir <path/to/pinn/model/dir> \
+    --baseline_dir <path/to/baseline/model/dir> \
+    --test_data <path/to/test.npz> \
+    --tike_recon_path <path/to/tike_reconstruction.npz> \
+    --output_dir <three_way_comparison_output_dir>
+
+# Example with test data subsampling for fair comparison:
+python scripts/compare_models.py \
+    --pinn_dir training_outputs/pinn_run \
+    --baseline_dir training_outputs/baseline_run \
+    --test_data datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz \
+    --tike_recon_path tike_outputs/tike_reconstruction.npz \
+    --n-test-images 1024 \
+    --output_dir three_way_comparison
 ```
 
 **Requirements:**
@@ -446,4 +467,85 @@ For detailed information on evaluation methodology and debugging:
 **Generalization studies:** `docs/studies/GENERALIZATION_STUDY_GUIDE.md`
 - Complete guide for running training size studies
 - Performance scaling analysis workflows
+
+## Automated Three-Way Generalization Studies **NEW**
+
+For comprehensive algorithm benchmarking, the project now supports automated 3-way comparisons including Tike iterative reconstruction alongside PtychoPINN and Baseline models.
+
+### Complete 3-Way Study Workflow
+
+Use the enhanced `run_complete_generalization_study.sh` script with the `--add-tike-arm` flag:
+
+```bash
+# Quick 3-way validation study
+./scripts/studies/run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 100 \
+    --train-sizes "512 1024" \
+    --num-trials 2 \
+    --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz" \
+    --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz" \
+    --skip-data-prep \
+    --output-dir quick_3way_study
+
+# Full research-quality 3-way study
+./scripts/studies/run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 1000 \
+    --train-sizes "512 1024 2048 4096" \
+    --num-trials 3 \
+    --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz" \
+    --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz" \
+    --skip-data-prep \
+    --output-dir research_3way_study
+```
+
+### 3-Way Study Features
+
+**Automated Workflow:**
+1. **Train PtychoPINN** model for each training size
+2. **Train Baseline** model with identical configuration  
+3. **Run Tike reconstruction** on test subset matching training size
+4. **Fair comparison** using identical test data subsets across all methods
+5. **Generate 2x4 plots** showing all three methods plus ground truth
+6. **Statistical analysis** with error bars across multiple trials
+
+**Key Parameters:**
+- `--add-tike-arm`: Enable 3-way comparison (default: 2-way PtychoPINN vs Baseline)
+- `--tike-iterations N`: Tike iteration count (default: 1000, use 100-200 for testing)
+- Fair evaluation ensured by automatic test data subsampling
+
+**Generated Outputs:**
+```
+research_3way_study/
+├── train_512/
+│   ├── trial_1/
+│   │   ├── pinn_run/wts.h5.zip
+│   │   ├── baseline_run/baseline_model.h5  
+│   │   ├── tike_run/tike_reconstruction.npz
+│   │   ├── comparison_plot.png            # 2x4 grid: PINN|Baseline|Tike|GT
+│   │   └── comparison_metrics.csv         # All three methods
+│   └── trial_2/, trial_3/...
+├── train_1024/, train_2048/, train_4096/
+├── psnr_phase_generalization.png          # 3-way performance curves
+├── ssim_amp_generalization.png            # All metrics include Tike
+└── results.csv                            # Complete statistical analysis
+```
+
+### Prerequisites for 3-Way Studies
+
+**Required Datasets:**
+- **Training**: `datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz`
+- **Testing**: `datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz`
+- **Format**: Must contain `diff3d` diffraction key and ground truth `objectGuess`
+
+**Computational Requirements:**
+- **GPU recommended** for Tike reconstruction (CUDA support)
+- **Sufficient disk space** (~1GB per trial for full 3-way data)
+- **Time estimate**: ~30 minutes per trial with 1000 Tike iterations
+
+**Fair Comparison Guarantee:**
+- All methods automatically use **identical test subsets**
+- Test subset size matches training size (512 train → 512 test)
+- Same ground truth alignment and evaluation metrics for all methods
 - Publication-ready result generation

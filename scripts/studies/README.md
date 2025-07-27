@@ -46,6 +46,8 @@ Master orchestration script that automates the complete generalization study wor
 - `--skip-data-prep`: Skip synthetic data generation, use provided datasets
 - `--output-dir DIR`: Output directory (default: timestamped directory)
 - `--parallel-jobs N`: Number of parallel training jobs (default: 1)
+- `--add-tike-arm`: **NEW** Enable 3-way comparison including Tike iterative reconstruction
+- `--tike-iterations N`: **NEW** Number of Tike iterations (default: 1000, use 100-200 for quick tests)
 
 ### `run_generalization_study.sh` (Legacy)
 Legacy script for manual generalization studies. Use `run_complete_generalization_study.sh` for new studies.
@@ -103,6 +105,38 @@ Uses existing experimental datasets for real-world validation studies.
     --num-trials 3 \
     --output-dir robust_experimental_study
 ```
+
+### Mode 3: Three-Way Comparison Studies (NEW)
+Compare PtychoPINN, Baseline, and Tike iterative reconstruction for comprehensive algorithm evaluation.
+
+**Best for:** Algorithm benchmarking, comparing ML vs traditional methods, research publications
+
+```bash
+# Quick 3-way comparison study
+./scripts/studies/run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 100 \
+    --train-sizes "512 1024" \
+    --num-trials 2 \
+    --output-dir quick_3way_study
+
+# Full 3-way research study
+./scripts/studies/run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 1000 \
+    --train-sizes "512 1024 2048 4096" \
+    --num-trials 3 \
+    --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz" \
+    --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz" \
+    --skip-data-prep \
+    --output-dir research_3way_study
+```
+
+**3-Way Study Output:**
+- **2x4 comparison plots**: PtychoPINN, Baseline, Tike, Ground Truth
+- **Complete metrics CSV**: All methods evaluated on identical test subsets
+- **Fair evaluation**: Automatic test data subsampling ensures equal evaluation conditions
+- **Timing data**: Computation time comparison across all three methods
 
 ## Complete Workflow Examples
 
