@@ -48,8 +48,11 @@ DEFAULT_NUM_TRIALS=5
 SKIP_DATA_PREP=false
 SKIP_TRAINING=false
 SKIP_COMPARISON=false
+SKIP_REGISTRATION=false
 DRY_RUN=false
 N_TEST_IMAGES=""
+ADD_TIKE_ARM=false
+TIKE_ITERATIONS=1000
 
 # Parse command line arguments
 show_help() {
@@ -68,10 +71,13 @@ OPTIONS:
     --output-dir DIRECTORY     Output directory (default: timestamped directory)
     --train-data PATH         Path to training dataset (default: auto-generated)
     --test-data PATH          Path to test dataset (default: auto-generated)
-    --n-test-images N         Number of test images to use for evaluation (default: use all images)
+    --n-test-images N         Number of test images to use for evaluation (default: all for 2-way, matches train size for 3-way)
+    --add-tike-arm            Add Tike iterative reconstruction as third comparison arm (enables 3-way comparison mode)
+    --tike-iterations N       Number of Tike reconstruction iterations (default: 1000)
     --skip-data-prep          Skip dataset preparation step
     --skip-training           Skip model training (use existing models)
-    --skip-comparison         Skip model comparison step  
+    --skip-comparison         Skip model comparison step
+    --skip-registration       Skip automatic image registration during comparison
     --parallel-jobs N         Number of parallel training jobs (default: $DEFAULT_PARALLEL_JOBS)
     --dry-run                 Show commands without executing
     --help                    Show this help message
@@ -88,6 +94,9 @@ EXAMPLES:
 
     # Only generate plots from existing results
     $0 --skip-data-prep --skip-training --output-dir existing_study_results
+    
+    # Three-way comparison including Tike iterative reconstruction
+    $0 --add-tike-arm --tike-iterations 500 --train-sizes "512 1024"
 
 WORKFLOW:
     1. Dataset Preparation (~30 minutes)
@@ -103,6 +112,8 @@ WORKFLOW:
        - Run inference on test set for all trained models
        - Calculate quantitative metrics (PSNR, MAE, MSE, FRC50)
        - Generate comparison visualizations
+       - Note: In 3-way mode (--add-tike-arm), test set size matches training size for fair comparison
+       - Note: In 2-way mode (default), uses full test set unless --n-test-images is specified
 
     4. Results Aggregation (~5 minutes)
        - Aggregate metrics across all training sizes
@@ -171,6 +182,14 @@ while [[ $# -gt 0 ]]; do
             N_TEST_IMAGES="$2"
             shift 2
             ;;
+        --add-tike-arm)
+            ADD_TIKE_ARM=true
+            shift
+            ;;
+        --tike-iterations)
+            TIKE_ITERATIONS="$2"
+            shift 2
+            ;;
         --skip-data-prep)
             SKIP_DATA_PREP=true
             shift
@@ -181,6 +200,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-comparison)
             SKIP_COMPARISON=true
+            shift
+            ;;
+        --skip-registration)
+            SKIP_REGISTRATION=true
             shift
             ;;
         --parallel-jobs)
@@ -206,6 +229,11 @@ done
 # Validate arguments
 if ! [[ "$NUM_TRIALS" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: --num-trials must be a positive integer, got: '$NUM_TRIALS'"
+    exit 1
+fi
+
+if ! [[ "$TIKE_ITERATIONS" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: --tike-iterations must be a positive integer, got: '$TIKE_ITERATIONS'"
     exit 1
 fi
 
@@ -294,6 +322,8 @@ TEST_DATA=$TEST_DATA
 SKIP_DATA_PREP=$SKIP_DATA_PREP
 SKIP_TRAINING=$SKIP_TRAINING
 SKIP_COMPARISON=$SKIP_COMPARISON
+ADD_TIKE_ARM=$ADD_TIKE_ARM
+TIKE_ITERATIONS=$TIKE_ITERATIONS
 DRY_RUN=$DRY_RUN
 
 # Environment Info
@@ -410,6 +440,18 @@ train_models() {
             
         run_cmd "$baseline_cmd" "Baseline training (n_images=$train_size, trial=$trial)"
         
+        # Run Tike reconstruction if requested
+        if [ "$ADD_TIKE_ARM" = true ]; then
+            local tike_cmd="python scripts/reconstruction/run_tike_reconstruction.py \\
+                '$TEST_DATA' \\
+                '$trial_output_dir/tike_run' \\
+                --n-images $train_size \\
+                --iterations $TIKE_ITERATIONS \\
+                --quiet"
+                
+            run_cmd "$tike_cmd" "Tike reconstruction (n_images=$train_size, trial=$trial)"
+        fi
+        
         log "Completed training for train_size=$train_size (Trial $trial/$NUM_TRIALS)"
     }
     
@@ -465,13 +507,31 @@ compare_models() {
                 baseline_dir=$(dirname "$baseline_model_path")
             fi
             
+            local registration_arg=""
+            if [ "$SKIP_REGISTRATION" = true ]; then
+                registration_arg="--skip-registration"
+            fi
+            
             local compare_cmd="python scripts/compare_models.py \\
                 --pinn_dir '$pinn_dir' \\
                 --baseline_dir '$baseline_dir' \\
                 --test_data '$TEST_DATA' \\
-                --output_dir '$trial_output_dir'"
+                --output_dir '$trial_output_dir' \\
+                $registration_arg"
                 
-            if [[ -n "$N_TEST_IMAGES" ]]; then
+            # Add Tike reconstruction if available
+            if [ "$ADD_TIKE_ARM" = true ]; then
+                local tike_recon_path="$trial_output_dir/tike_run/tike_reconstruction.npz"
+                if [ -f "$tike_recon_path" ]; then
+                    compare_cmd="$compare_cmd --tike_recon_path '$tike_recon_path'"
+                    # For 3-way comparison, limit test set to match training size for fair comparison
+                    compare_cmd="$compare_cmd --n-test-images $train_size"
+                    log "Using test subset size $train_size to match training size (3-way comparison mode)"
+                else
+                    log "WARNING: Tike reconstruction not found for train_size=$train_size trial=$trial: $tike_recon_path"
+                fi
+            elif [[ -n "$N_TEST_IMAGES" ]]; then
+                # For 2-way comparison, use user-specified test size (if any)
                 compare_cmd="$compare_cmd --n-test-images $N_TEST_IMAGES"
             fi
                 
