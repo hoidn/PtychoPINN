@@ -21,16 +21,41 @@
     --train-sizes "512 1024" \
     --num-trials 2 \
     --output-dir quick_study
+
+# NEW: 3-way comparison including Tike iterative reconstruction
+./scripts/studies/run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 1000 \
+    --train-sizes "512 1024 2048" \
+    --num-trials 3 \
+    --output-dir three_way_study
+
+# Quick 3-way test (100 iterations for faster execution)
+./scripts/studies/run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 100 \
+    --train-sizes "512 1024" \
+    --num-trials 1 \
+    --output-dir quick_3way_test
 ```
 
 ### Single Model Comparison
 ```bash
-# Compare two existing trained models
+# Compare two existing trained models (2-way)
 python scripts/compare_models.py \
     --pinn_dir <pinn_model_dir> \
     --baseline_dir <baseline_model_dir> \
     --test_data <test.npz> \
     --output_dir comparison_results
+
+# NEW: 3-way comparison with existing Tike reconstruction
+python scripts/compare_models.py \
+    --pinn_dir <pinn_model_dir> \
+    --baseline_dir <baseline_model_dir> \
+    --test_data <test.npz> \
+    --tike_recon_path <tike_reconstruction.npz> \
+    --output_dir three_way_comparison \
+    --n-test-images 1024
 ```
 
 ### Result Aggregation

@@ -7,7 +7,7 @@ This directory contains tools for conducting comprehensive model generalization 
 
 ## Quick Commands
 
-### Complete Automated Study
+### Complete Automated Study (2-Way)
 ```bash
 # Full study with default settings (4-8 hours)
 ./run_complete_generalization_study.sh
@@ -26,6 +26,35 @@ This directory contains tools for conducting comprehensive model generalization 
     --train-sizes "512 1024 2048 4096" \
     --parallel-jobs 2 \
     --output-dir my_study
+```
+
+### Three-Way Comparison Studies **NEW**
+```bash
+# Quick 3-way test (includes Tike iterative reconstruction)
+./run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 100 \
+    --train-sizes "512 1024" \
+    --num-trials 1 \
+    --output-dir quick_3way_test
+
+# Full 3-way research study
+./run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 1000 \
+    --train-sizes "512 1024 2048 4096" \
+    --num-trials 3 \
+    --output-dir research_3way_study
+
+# 3-way with experimental datasets
+./run_complete_generalization_study.sh \
+    --add-tike-arm \
+    --tike-iterations 500 \
+    --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz" \
+    --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz" \
+    --skip-data-prep \
+    --train-sizes "512 1024" \
+    --output-dir experimental_3way
 ```
 
 ### Experimental Dataset Workflows
