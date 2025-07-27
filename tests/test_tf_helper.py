@@ -17,8 +17,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ptycho.tf_helper import reassemble_position
+from ptycho.tf_helper import reassemble_position, translate_core, translate
 from ptycho import params as p
+# Keep tensorflow_addons import for comparison tests
+import tensorflow_addons as tfa
 
 class TestReassemblePosition(unittest.TestCase):
     """
@@ -172,6 +174,221 @@ class TestReassemblePosition(unittest.TestCase):
         self.assertGreater(np.sum(np.abs(result_np)), 0)
         
         print("✅ Different patch values blend test passed.")
+
+class TestTranslateFunction(unittest.TestCase):
+    """
+    Test suite for the translate_core function and its integration with the translate wrapper.
+    
+    These tests verify that our native TensorFlow implementation produces identical
+    results to the tensorflow_addons implementation.
+    """
+    
+    def setUp(self):
+        """Set a random seed for deterministic tests."""
+        np.random.seed(42)
+        tf.random.set_seed(42)
+    
+    def test_translate_core_matches_addons(self):
+        """Test that translate_core produces identical results to TFA."""
+        print("\n--- Test: translate_core matches TensorFlow Addons ---")
+        
+        # Create test image tensors
+        batch_size = 2
+        height, width = 64, 64
+        channels = 1
+        
+        # Create a simple gradient image for testing
+        x = tf.linspace(0.0, 1.0, width)
+        y = tf.linspace(0.0, 1.0, height)
+        xx, yy = tf.meshgrid(x, y)
+        gradient_image = tf.expand_dims(xx + yy, axis=-1)  # Shape: (H, W, 1)
+        
+        # Batch the image
+        test_images = tf.stack([gradient_image, gradient_image * 2], axis=0)  # Shape: (2, H, W, 1)
+        test_images = tf.cast(test_images, tf.float32)
+        
+        # Define test offsets [dy, dx]
+        test_offsets = tf.constant([[2.5, -1.7], [0.0, 3.2]], dtype=tf.float32)
+        
+        # Run both implementations
+        result_core = translate_core(test_images, test_offsets, interpolation='bilinear')
+        result_tfa = tfa.image.translate(test_images, test_offsets, interpolation='bilinear')
+        
+        # Compare results
+        np.testing.assert_allclose(
+            result_core.numpy(),
+            result_tfa.numpy(),
+            rtol=1e-5,
+            atol=1e-6,
+            err_msg="translate_core output differs from TensorFlow Addons"
+        )
+        
+        print("✅ translate_core matches TensorFlow Addons")
+    
+    def test_zero_translation(self):
+        """Test that zero translation returns the original image."""
+        print("\n--- Test: Zero translation ---")
+        
+        # Create test image
+        test_image = tf.random.normal((1, 32, 32, 1))
+        zero_offset = tf.constant([[0.0, 0.0]], dtype=tf.float32)
+        
+        # Apply translation
+        result = translate_core(test_image, zero_offset)
+        
+        # Should be identical to input
+        np.testing.assert_allclose(
+            result.numpy(),
+            test_image.numpy(),
+            rtol=1e-6,
+            atol=1e-7,
+            err_msg="Zero translation should return original image"
+        )
+        
+        print("✅ Zero translation test passed")
+    
+    def test_integer_translation(self):
+        """Test integer pixel translations."""
+        print("\n--- Test: Integer translation ---")
+        
+        # Create a simple pattern
+        pattern = tf.zeros((1, 32, 32, 1), dtype=tf.float32)
+        # Put a white square at position (10, 10)
+        pattern_np = pattern.numpy()
+        pattern_np[0, 10:15, 10:15, 0] = 1.0
+        pattern = tf.constant(pattern_np)
+        
+        # Translate by integer pixels
+        offset = tf.constant([[5.0, -3.0]], dtype=tf.float32)  # [dy, dx]
+        
+        # Apply translations
+        result_core = translate_core(pattern, offset)
+        result_tfa = tfa.image.translate(pattern, offset)
+        
+        # Compare
+        np.testing.assert_allclose(
+            result_core.numpy(),
+            result_tfa.numpy(),
+            rtol=1e-5,
+            atol=1e-6,
+            err_msg="Integer translation mismatch"
+        )
+        
+        print("✅ Integer translation test passed")
+    
+    def test_subpixel_translation(self):
+        """Test sub-pixel translations with interpolation."""
+        print("\n--- Test: Sub-pixel translation ---")
+        
+        # Create smooth gradient for sub-pixel testing
+        x = tf.linspace(0.0, 1.0, 64)
+        y = tf.linspace(0.0, 1.0, 64)
+        xx, yy = tf.meshgrid(x, y)
+        smooth_image = tf.expand_dims(tf.expand_dims(tf.sin(xx * 2 * np.pi) * tf.cos(yy * 2 * np.pi), 0), -1)
+        smooth_image = tf.cast(smooth_image, tf.float32)
+        
+        # Sub-pixel offsets
+        offsets = tf.constant([[0.5, 0.5], [0.25, -0.75]], dtype=tf.float32)
+        
+        # Expand batch dimension
+        test_batch = tf.concat([smooth_image, smooth_image], axis=0)
+        
+        # Apply translations
+        result_core = translate_core(test_batch, offsets)
+        result_tfa = tfa.image.translate(test_batch, offsets)
+        
+        # Compare
+        # Note: Sub-pixel interpolation may have slight differences between implementations
+        np.testing.assert_allclose(
+            result_core.numpy(),
+            result_tfa.numpy(),
+            rtol=1e-3,  # Relaxed tolerance for sub-pixel interpolation
+            atol=1e-4,
+            err_msg="Sub-pixel translation mismatch"
+        )
+        
+        print("✅ Sub-pixel translation test passed")
+    
+    def test_complex_tensor_translation(self):
+        """Test translation with complex tensors through the wrapper function."""
+        print("\n--- Test: Complex tensor translation ---")
+        
+        # Create complex test image
+        real_part = tf.random.normal((2, 32, 32, 1))
+        imag_part = tf.random.normal((2, 32, 32, 1))
+        complex_image = tf.complex(real_part, imag_part)
+        
+        offsets = tf.constant([[1.5, -2.5], [0.0, 0.0]], dtype=tf.float32)
+        
+        # Use the wrapped translate function (with @complexify_function)
+        result = translate(complex_image, offsets)
+        
+        # Verify result is complex
+        self.assertEqual(result.dtype, tf.complex64)
+        
+        # Verify shape is preserved
+        self.assertEqual(result.shape, complex_image.shape)
+        
+        # The complexify decorator should handle real and imaginary parts separately
+        # Just verify the result is finite and reasonable
+        self.assertTrue(np.all(np.isfinite(result.numpy())))
+        
+        print("✅ Complex tensor translation test passed")
+    
+    def test_batch_translation(self):
+        """Test batch processing with different offsets per image."""
+        print("\n--- Test: Batch translation ---")
+        
+        batch_sizes = [1, 4, 8]
+        
+        for batch_size in batch_sizes:
+            # Create batch of different images
+            test_batch = tf.random.normal((batch_size, 32, 32, 1))
+            
+            # Different offset for each image
+            offsets = tf.random.uniform((batch_size, 2), minval=-5, maxval=5)
+            
+            # Apply translations
+            result_core = translate_core(test_batch, offsets)
+            result_tfa = tfa.image.translate(test_batch, offsets)
+            
+            # Compare
+            # Note: Random offsets may lead to slight interpolation differences
+            np.testing.assert_allclose(
+                result_core.numpy(),
+                result_tfa.numpy(),
+                rtol=1e-3,  # Relaxed tolerance for random offsets
+                atol=1e-4,
+                err_msg=f"Batch translation mismatch for batch_size={batch_size}"
+            )
+        
+        print("✅ Batch translation test passed")
+    
+    def test_edge_cases(self):
+        """Test edge cases like very large translations."""
+        print("\n--- Test: Edge cases ---")
+        
+        # Test with large translation that moves image completely out of frame
+        test_image = tf.ones((1, 32, 32, 1))
+        large_offset = tf.constant([[100.0, 100.0]], dtype=tf.float32)
+        
+        result_core = translate_core(test_image, large_offset)
+        result_tfa = tfa.image.translate(test_image, large_offset)
+        
+        # Both should produce all zeros (or very close to zero)
+        np.testing.assert_allclose(
+            result_core.numpy(),
+            result_tfa.numpy(),
+            rtol=1e-5,
+            atol=1e-6,
+            err_msg="Large translation edge case failed"
+        )
+        
+        # Result should be mostly zeros
+        self.assertLess(np.max(np.abs(result_core.numpy())), 0.01)
+        
+        print("✅ Edge cases test passed")
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

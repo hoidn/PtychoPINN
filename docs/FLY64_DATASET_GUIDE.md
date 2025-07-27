@@ -21,22 +21,85 @@ python scripts/tools/transpose_rename_convert_tool.py \
 | `fly001_64_train.npz` | Raw | Original experimental data (uint16) | **Do not use directly** |
 | `fly001_64_train_converted.npz` | Ready | Format-converted for PtychoPINN | **Recommended** |
 | `fly001_64_prepared_final_*.npz` | Processed | Subsampled + Y patches added | Use if subsampling acceptable |
-| `fly64_top_half_shuffled.npz` | Ready | First 5172 scan points, shuffled | **Gridsize=1 spatial bias studies** |
+| `fly64_shuffled.npz` | Ready | Complete dataset (10304 images), shuffled | **Recommended for full spatial coverage** |
+| `fly64_top_half_shuffled.npz` | Ready | Upper spatial region (5172 points), shuffled | **Spatial subset studies** |
+| `fly64_bottom_half_shuffled.npz` | Ready | Lower spatial region (5050 points), shuffled | **Spatial subset studies** |
 
 ## Specialized Datasets
+
+### fly64_shuffled.npz
+**Purpose:** The complete fly64 dataset with randomized scan order to eliminate spatial bias in subsampling.
+
+**Created:** All 10,304 scan points from `fly001_64_train_converted.npz`, randomized with seed 42.
+
+**Creation Process:**
+1. **Source:** `fly001_64_train_converted.npz` (complete 10304 scan points)
+2. **Shuffle:** Randomize order using `shuffle_dataset_tool.py --seed 42`
+3. **Result:** 10,304 scan points in random order with full spatial coverage
+
+**Use Case:** Recommended for all gridsize=1 training to avoid sequential sampling bias. Provides spatially representative subsets when using `--n_images` parameter.
+
+**Key Properties:**
+- **Full spatial coverage:** x=[33.5, 198.5], y=[33.1, 198.9] (165×166 range)
+- **All relationships preserved:** Each diffraction pattern correctly corresponds to its coordinates
+- **Verified shuffling:** Contains `_shuffle_applied` and `_shuffle_seed` metadata
+
+**Validation:**
+```python
+import numpy as np
+data = np.load('datasets/fly64/fly64_shuffled.npz')
+assert len(data['xcoords']) == 10304, "Must contain exactly 10304 scan points"
+assert data['_shuffle_applied'][0] == True, "Must be shuffled"
+print("✓ fly64_shuffled.npz ready for unbiased training")
+```
+
+### fly64_bottom_half_shuffled.npz
+**Purpose:** Complementary dataset to top_half for spatial subset studies, containing the lower spatial region.
+
+**Created:** All 5,050 scan points from `fly001_64_train_converted.npz` where Y < 114.3, randomized with seed 42.
+
+**Creation Process:**
+1. **Source:** `fly001_64_train_converted.npz` (complete 10304 scan points)
+2. **Extract:** Select points where Y < 114.3 (5050 points)
+3. **Shuffle:** Randomize order using `shuffle_dataset_tool.py --seed 42`
+4. **Result:** 5,050 scan points in random order
+
+**Use Case:** Spatial subset studies, complementary to top_half dataset. Enables controlled experiments comparing models trained on different spatial regions.
+
+**Key Properties:**
+- **Lower spatial region:** Y-range [33.1, 114.3] (when visualized, appears at TOP of image)
+- **No overlap with top_half:** Clear spatial separation at Y=114.3
+- **Full X coverage:** x=[33.5, 198.5] (165 unit range)
+- **Consistent shuffling:** Same seed (42) as top_half for reproducibility
+
+**Validation:**
+```python
+import numpy as np
+data = np.load('datasets/fly64/fly64_bottom_half_shuffled.npz')
+assert len(data['xcoords']) == 5050, "Must contain exactly 5050 scan points"
+assert data['ycoords'].max() < 114.3, "All Y values must be below threshold"
+assert data['_shuffle_seed'][0] == 42, "Must use consistent seed"
+print("✓ fly64_bottom_half_shuffled.npz ready for spatial subset studies")
+```
 
 ### fly64_top_half_shuffled.npz
 **Purpose:** A specialized dataset for studying spatial sampling bias effects in gridsize=1 training.
 
-**Created:** From the first 5172 scan points (top half) of `fly001_64_train_converted.npz`, randomized with seed 42.
+**Created:** From scan points where Y ≥ 114.3 in `fly001_64_train_converted.npz`, randomized with seed 42.
 
 **Creation Process:**
 1. **Source:** `fly001_64_train_converted.npz` (10304 total scan points)
-2. **Subset:** Extract first 5172 scan points (spatial top half)
+2. **Extract:** Select points where Y ≥ 114.3 (5172 points)
 3. **Shuffle:** Randomize order using `shuffle_dataset_tool.py --seed 42`
-4. **Result:** 5172 scan points in random order
+4. **Result:** 5,172 scan points in random order
 
-**Use Case:** Enables controlled studies comparing spatially-biased vs. random sampling for gridsize=1 training.
+**Use Case:** Spatial subset studies, complementary to bottom_half dataset. Originally created for studying spatial sampling bias.
+
+**Key Properties:**
+- **Upper spatial region:** Y-range [114.3, 198.9] (when visualized, appears at BOTTOM of image)
+- **No overlap with bottom_half:** Clear spatial separation at Y=114.3
+- **Partial X coverage:** x=[34.1, 198.5] (164.4 unit range)
+- **Consistent shuffling:** Same seed (42) as bottom_half for reproducibility
 
 **Creation Commands:**
 ```bash
@@ -85,7 +148,15 @@ python scripts/tools/generate_patches_tool.py converted.npz final.npz
 ## Usage Example
 
 ```bash
-# Train with preprocessed FLY64
+# Train with preprocessed FLY64 (recommended: use shuffled dataset)
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly64_shuffled.npz" \
+    --test-data "datasets/fly64/fly001_64_train_converted.npz" \
+    --train-sizes "512 1024" \
+    --output-dir "fly64_study" \
+    --skip-data-prep
+
+# Alternative: train with unshuffled dataset (may have spatial bias)
 ./scripts/studies/run_complete_generalization_study.sh \
     --train-data "datasets/fly64/fly001_64_train_converted.npz" \
     --test-data "datasets/fly64/fly001_64_train_converted.npz" \
