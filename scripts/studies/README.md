@@ -40,6 +40,7 @@ Master orchestration script that automates the complete generalization study wor
 
 **Key Options:**
 - `--train-sizes "512 1024 2048"`: Space-separated list of training set sizes to test
+- `--test-sizes "1024 2048 4096"`: **NEW** Space-separated list of test set sizes (must match number of train sizes)
 - `--num-trials N`: Number of trials per training size for statistical robustness (default: 5)
 - `--train-data PATH`: Path to training dataset (for experimental data mode)
 - `--test-data PATH`: Path to test dataset (for experimental data mode)
@@ -213,6 +214,14 @@ The study tracks comprehensive metrics across training set sizes with statistica
 - **Training Set Sizes**: Choose sizes that span 1-2 orders of magnitude to observe clear trends
 - **Multi-Trial Robustness**: Use `--num-trials 3-5` for publication-quality results
 - **Resource Planning**: Each trial can take 1-2 hours; plan accordingly for multiple trials
+- **Decoupled Train/Test Sizes**: **NEW** Use `--test-sizes` to evaluate models on different test set sizes than training:
+  ```bash
+  # Train on small sets, test on larger sets to assess generalization
+  ./run_complete_generalization_study.sh \
+      --train-sizes "256 512 1024" \
+      --test-sizes "512 1024 2048"
+  ```
+  This allows studying how models trained on limited data perform on larger test sets
 
 ### Performance Optimization  
 - **Parallel Jobs**: Use `--parallel-jobs` carefully to avoid GPU memory conflicts
