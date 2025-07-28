@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ptychopinn"
 description = "PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI"
 readme = "README.md"
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dependencies = [
     "Pillow",
@@ -24,12 +24,12 @@ dependencies = [
     "scikit-image",
     "scikit-learn",
     "scipy",
-    "tensorflow[and-cuda]>=2.13.0,<2.16.0",
-    "tensorflow-addons>=0.23.0",
+    "tensorflow[and-cuda]>=2.13.0",
     "tensorflow-datasets",
     "tensorflow-hub",
     "tensorflow-metadata",
-    "tensorflow-probability<0.23.0",  # This version works with TF 2.15
+    "tensorflow-probability",  # This version works with TF 2.15
+    #"tensorflow-probability<0.23.0",  # This version works with TF 2.15
     #"torchmetrics",
     #"torchvision",
     "tqdm",
