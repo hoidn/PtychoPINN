@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ptychopinn"
 description = "PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.12"
 license = {file = "LICENSE"}
 dependencies = [
     "Pillow",

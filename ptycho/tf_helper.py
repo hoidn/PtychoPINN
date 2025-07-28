@@ -755,14 +755,18 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
 
 #@debug
 def mk_centermask(inputs: tf.Tensor, N: int, c: int, kind: str = 'center') -> tf.Tensor:
-    b = tf.shape(inputs)[0]
-#    if get('probe.big'):
-#        ones = tf.ones((b, N, N, c), dtype = inputs.dtype)
-#    else:
-#        ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
-#        ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
-    ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
-    ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
+    # Use tf.keras.backend for compatibility with older Keras versions
+    if hasattr(inputs, '_keras_history'):
+        # This is a KerasTensor, use keras backend
+        import tensorflow.keras.backend as K
+        b = K.shape(inputs)[0]
+        ones = K.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
+    else:
+        # This is a regular tensor, use tf operations
+        b = tf.shape(inputs)[0]
+        ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
+    
+    ones = tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
     if kind == 'center':
         return ones
     elif kind == 'border':
