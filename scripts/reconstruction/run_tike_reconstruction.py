@@ -44,6 +44,7 @@ Examples:
     python run_tike_reconstruction.py input.npz ./tike_output --iterations 500 --quiet
     python run_tike_reconstruction.py input.npz ./tike_output --extra-padding 64
     python run_tike_reconstruction.py input.npz ./tike_output --n-images 1000
+    python run_tike_reconstruction.py input.npz ./tike_output --amp-vmax 0.5 --phase-vmin -1.5 --phase-vmax 1.5
         """
     )
     
@@ -81,6 +82,32 @@ Examples:
         type=int,
         default=None,
         help='Number of images to use from dataset (uses all if not specified)'
+    )
+    
+    # Visualization control arguments
+    parser.add_argument(
+        '--amp-vmin',
+        type=float,
+        default=None,
+        help='Minimum value for amplitude colormap (auto if not specified)'
+    )
+    parser.add_argument(
+        '--amp-vmax',
+        type=float,
+        default=None,
+        help='Maximum value for amplitude colormap (auto if not specified)'
+    )
+    parser.add_argument(
+        '--phase-vmin',
+        type=float,
+        default=-np.pi,
+        help='Minimum value for phase colormap (default: -π)'
+    )
+    parser.add_argument(
+        '--phase-vmax',
+        type=float,
+        default=np.pi,
+        help='Maximum value for phase colormap (default: π)'
     )
     
     # Add standard logging arguments
@@ -283,13 +310,17 @@ def save_tike_results(result, output_dir, metadata_dict):
     return output_file
 
 
-def save_visualization(result, output_dir):
+def save_visualization(result, output_dir, amp_vmin=None, amp_vmax=None, phase_vmin=-np.pi, phase_vmax=np.pi):
     """
     Generate and save visualization of reconstruction results.
     
     Args:
         result: Tike reconstruction result object
         output_dir: Output directory path
+        amp_vmin: Minimum value for amplitude colormap (None for auto)
+        amp_vmax: Maximum value for amplitude colormap (None for auto)
+        phase_vmin: Minimum value for phase colormap (default: -π)
+        phase_vmax: Maximum value for phase colormap (default: π)
         
     Returns:
         str: Path to saved visualization file
@@ -305,25 +336,25 @@ def save_visualization(result, output_dir):
     
     # Object amplitude
     ax = axes[0, 0]
-    im = ax.imshow(np.abs(reconstructed_object), cmap='gray')
+    im = ax.imshow(np.abs(reconstructed_object), cmap='gray', vmin=amp_vmin, vmax=amp_vmax)
     ax.set_title('Reconstructed Object Amplitude')
     fig.colorbar(im, ax=ax, shrink=0.8)
     
     # Object phase
     ax = axes[0, 1]
-    im = ax.imshow(np.angle(reconstructed_object), cmap='twilight')
+    im = ax.imshow(np.angle(reconstructed_object), cmap='twilight', vmin=phase_vmin, vmax=phase_vmax)
     ax.set_title('Reconstructed Object Phase')
     fig.colorbar(im, ax=ax, shrink=0.8)
     
     # Probe amplitude
     ax = axes[1, 0]
-    im = ax.imshow(np.abs(reconstructed_probe), cmap='gray')
+    im = ax.imshow(np.abs(reconstructed_probe), cmap='gray', vmin=amp_vmin, vmax=amp_vmax)
     ax.set_title('Reconstructed Probe Amplitude')
     fig.colorbar(im, ax=ax, shrink=0.8)
     
     # Probe phase
     ax = axes[1, 1]
-    im = ax.imshow(np.angle(reconstructed_probe), cmap='twilight')
+    im = ax.imshow(np.angle(reconstructed_probe), cmap='twilight', vmin=phase_vmin, vmax=phase_vmax)
     ax.set_title('Reconstructed Probe Phase')
     fig.colorbar(im, ax=ax, shrink=0.8)
     
@@ -335,6 +366,9 @@ def save_visualization(result, output_dir):
     plt.close()  # Close to prevent blocking
     
     logger.info(f"Saved visualization to {vis_file}")
+    if amp_vmin is not None or amp_vmax is not None:
+        logger.info(f"Amplitude colormap range: [{amp_vmin}, {amp_vmax}]")
+    logger.info(f"Phase colormap range: [{phase_vmin:.3f}, {phase_vmax:.3f}]")
     
     return vis_file
 
@@ -410,7 +444,14 @@ def main():
         
         # Save results
         npz_file = save_tike_results(result, output_dir, metadata)
-        vis_file = save_visualization(result, output_dir)
+        vis_file = save_visualization(
+            result, 
+            output_dir, 
+            amp_vmin=args.amp_vmin, 
+            amp_vmax=args.amp_vmax,
+            phase_vmin=args.phase_vmin, 
+            phase_vmax=args.phase_vmax
+        )
         
         logger.info("Reconstruction completed successfully!")
         logger.info(f"Output files:")

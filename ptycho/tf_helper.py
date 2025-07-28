@@ -512,14 +512,99 @@ complexify_sum_amp_phase = complexify_helper(separate_amp_phase, lambda a, b: a 
 complexify_sum_real_imag = complexify_helper(separate_real_imag, lambda a, b: a + b)
 
 
-from tensorflow_addons.image import translate as _translate
+# from tensorflow_addons.image import translate as _translate  # No longer needed - using native TF implementation
+
+def translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: str = 'bilinear') -> tf.Tensor:
+    """Translate images using native TensorFlow ops.
+    
+    This function replaces tensorflow_addons.image.translate with a native TF implementation
+    using tf.raw_ops.ImageProjectiveTransformV3.
+    
+    Args:
+        images: Tensor of shape (batch, height, width, channels)
+        translations: Tensor of shape (batch, 2) with [dy, dx] offsets
+        interpolation: 'bilinear' or 'nearest'
+    
+    Returns:
+        Translated images with same shape as input
+    """
+    # Get input shape
+    batch_size = tf.shape(images)[0]
+    height = tf.shape(images)[1]
+    width = tf.shape(images)[2]
+    
+    # Ensure translations has correct shape
+    translations = tf.ensure_shape(translations, [None, 2])
+    
+    # Convert translation offsets to transformation matrices
+    # For translation by (dx, dy), the transformation matrix is:
+    # [[1, 0, -dx],
+    #  [0, 1, -dy],
+    #  [0, 0,  1]]
+    # Note: The negative sign is because TF applies the inverse transform
+    
+    # Create identity matrices
+    identity = tf.eye(3, batch_shape=[batch_size])  # Shape: (batch, 3, 3)
+    
+    # Extract dx and dy from translations 
+    # TFA uses [dx, dy] order
+    # TFA convention: positive values move the image content in the positive direction
+    # TF raw ops convention: the transformation matrix moves pixels in the opposite direction
+    # So we need to negate the values
+    dx = -translations[:, 0]
+    dy = -translations[:, 1]
+    
+    # Create transformation matrices
+    # ImageProjectiveTransformV3 uses the standard projective transformation convention
+    # where the transformation is applied to output coordinates to get input coordinates
+    # This means we DON'T negate the translation values
+    # The transformation matrix format is row-wise flattened, excluding the last row
+    # [[a0, a1, a2], [a3, a4, a5], [0, 0, 1]] -> [a0, a1, a2, a3, a4, a5, 0, 0]
+    
+    # Build the flattened transformation matrix for each image in the batch
+    ones = tf.ones([batch_size], dtype=tf.float32)
+    zeros = tf.zeros([batch_size], dtype=tf.float32)
+    
+    # Transformation matrix elements [a0, a1, a2, a3, a4, a5, a6, a7]
+    # where a6, a7 are always 0 for affine transforms
+    transforms_flat = tf.stack([
+        ones,   # a0 = 1 (x scale)
+        zeros,  # a1 = 0 (x shear)
+        dx,     # a2 = dx (x translation)
+        zeros,  # a3 = 0 (y shear)
+        ones,   # a4 = 1 (y scale)
+        dy,     # a5 = dy (y translation)
+        zeros,  # a6 = 0 (perspective)
+        zeros   # a7 = 0 (perspective)
+    ], axis=1)  # Shape: (batch, 8)
+    
+    # Map interpolation mode
+    interpolation_map = {
+        'bilinear': 'BILINEAR',
+        'nearest': 'NEAREST'
+    }
+    interp_mode = interpolation_map.get(interpolation, 'BILINEAR')
+    
+    # Apply transformation
+    output = tf.raw_ops.ImageProjectiveTransformV3(
+        images=images,
+        transforms=transforms_flat,
+        output_shape=[height, width],
+        interpolation=interp_mode,
+        fill_mode='CONSTANT',
+        fill_value=0.0
+    )
+    
+    return output
 
 #from ptycho.misc import debug
 @complexify_function
 #@debug
 def translate(imgs: tf.Tensor, offsets: tf.Tensor, **kwargs: Any) -> tf.Tensor:
     # TODO assert dimensionality of translations is 2; i.e. B, 2
-    return _translate(imgs, offsets, **kwargs)
+    # Use our native TensorFlow implementation instead of TensorFlow Addons
+    interpolation = kwargs.get('interpolation', 'bilinear')
+    return translate_core(imgs, offsets, interpolation=interpolation)
 
 # TODO consolidate this and translate()
 class Translation(tf.keras.layers.Layer):
