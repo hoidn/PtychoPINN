@@ -166,6 +166,9 @@ CONFIG_FILE="configs/comparison_config.yaml"
 # Extract gridsize from config file for baseline training
 GRIDSIZE_OVERRIDE=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE'))['gridsize'])")
 
+# Extract stitch_crop_size from config file for comparison
+M_STITCH_SIZE=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE')).get('stitch_crop_size', 20))")
+
 echo "=========================================="
 echo "Starting PtychoPINN vs Baseline Comparison"
 echo "=========================================="
@@ -251,7 +254,8 @@ COMPARE_CMD="python scripts/compare_models.py \
     --pinn_dir \"$PINN_DIR\" \
     --baseline_dir \"$BASELINE_DIR\" \
     --test_data \"$TEST_DATA\" \
-    --output_dir \"$OUTPUT_DIR\""
+    --output_dir \"$OUTPUT_DIR\" \
+    --stitch-crop-size \"$M_STITCH_SIZE\""
 
 # Add n-test-images parameter if specified
 if [[ -n "$N_TEST_IMAGES" ]]; then

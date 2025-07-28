@@ -54,6 +54,7 @@ N_TEST_IMAGES=""
 ADD_TIKE_ARM=false
 TIKE_ITERATIONS=1000
 TEST_SIZES=""
+STITCH_CROP_SIZE=""
 
 # Parse command line arguments
 show_help() {
@@ -81,6 +82,7 @@ OPTIONS:
     --skip-comparison         Skip model comparison step
     --skip-registration       Skip automatic image registration during comparison
     --parallel-jobs N         Number of parallel training jobs (default: $DEFAULT_PARALLEL_JOBS)
+    --stitch-crop-size M      Crop size M for patch stitching (overrides config default)
     --dry-run                 Show commands without executing
     --help                    Show this help message
 
@@ -219,6 +221,10 @@ while [[ $# -gt 0 ]]; do
             PARALLEL_JOBS="$2"
             shift 2
             ;;
+        --stitch-crop-size)
+            STITCH_CROP_SIZE="$2"
+            shift 2
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
@@ -243,6 +249,11 @@ fi
 
 if ! [[ "$TIKE_ITERATIONS" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: --tike-iterations must be a positive integer, got: '$TIKE_ITERATIONS'"
+    exit 1
+fi
+
+if [ -n "$STITCH_CROP_SIZE" ] && ! [[ "$STITCH_CROP_SIZE" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: --stitch-crop-size must be a positive integer, got: '$STITCH_CROP_SIZE'"
     exit 1
 fi
 
@@ -566,12 +577,18 @@ compare_models() {
                 registration_arg="--skip-registration"
             fi
             
+            local stitch_arg=""
+            if [ -n "$STITCH_CROP_SIZE" ]; then
+                stitch_arg="--stitch-crop-size $STITCH_CROP_SIZE"
+            fi
+            
             local compare_cmd="python scripts/compare_models.py \\
                 --pinn_dir '$pinn_dir' \\
                 --baseline_dir '$baseline_dir' \\
                 --test_data '$TEST_DATA' \\
                 --output_dir '$trial_output_dir' \\
-                $registration_arg"
+                $registration_arg \\
+                $stitch_arg"
                 
             # Add Tike reconstruction if available
             if [ "$ADD_TIKE_ARM" = true ]; then
