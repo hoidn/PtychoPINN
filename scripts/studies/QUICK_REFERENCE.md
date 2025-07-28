@@ -26,6 +26,12 @@ This directory contains tools for conducting comprehensive model generalization 
     --train-sizes "512 1024 2048 4096" \
     --parallel-jobs 2 \
     --output-dir my_study
+
+# Decoupled train/test sizes (train small, test large) **NEW**
+./run_complete_generalization_study.sh \
+    --train-sizes "256 512 1024" \
+    --test-sizes "512 1024 2048" \
+    --output-dir decoupled_study
 ```
 
 ### Experimental Dataset Workflows
