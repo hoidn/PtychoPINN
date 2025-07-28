@@ -11,6 +11,7 @@ object_big: true         # Reconstruct large area by stitching patches
 probe_big: false         # Single probe representation
 probe_mask: false        # No circular mask on probe
 gaussian_smoothing_sigma: 0.0  # No smoothing
+stitch_crop_size: 20     # Crop size M for patch stitching (must be 0 < M <= N)
 
 # Training Parameters
 nepochs: 50              # Number of training epochs

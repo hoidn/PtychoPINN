@@ -151,6 +151,14 @@ python scripts/compare_models.py \
 
 # With specific training/test sizes (see gridsize warning in Training section)
 ./scripts/run_comparison.sh train.npz test.npz output_dir --n-train-images 2000 --n-test-images 500
+
+# With custom stitch crop size
+python scripts/compare_models.py \
+    --pinn_dir pinn_model/ \
+    --baseline_dir baseline_model/ \
+    --test_data test.npz \
+    --output_dir comparison_out \
+    --stitch-crop-size 30
 ```
 
 ---
@@ -180,6 +188,13 @@ python scripts/compare_models.py \
     --skip-data-prep \
     --train-sizes "512 1024 2048" \
     --output-dir spatial_bias_study
+
+# Study with custom stitch crop size
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-sizes "512 1024" \
+    --num-trials 3 \
+    --stitch-crop-size 30 \
+    --output-dir custom_stitch_study
 
 # Plot results from a completed study
 python scripts/studies/aggregate_and_plot_results.py study_results --output plots/

@@ -26,6 +26,15 @@ This workflow:
 2. Trains baseline model with the same configuration
 3. Runs comparison analysis using `compare_models.py`
 
+### Configuration Parameters
+
+The comparison workflow uses `configs/comparison_config.yaml` for shared settings. Key parameters include:
+
+- **`stitch_crop_size`**: Controls the crop size M during patch stitching (default: 20)
+  - Reduces edge artifacts by cropping M pixels from patch boundaries
+  - Must be smaller than the diffraction pattern size N
+  - Can be overridden via `--stitch-crop-size` command line argument
+
 ## Compare Pre-Trained Models Only
 
 If you already have trained models, use `<code-ref type="script">scripts/compare_models.py</code-ref>` directly:
@@ -396,6 +405,12 @@ python scripts/compare_models.py \
 **Registration Control:**
 - `--skip-registration`: Disable automatic image registration alignment
 - Default: Registration enabled for fair comparison
+
+**Patch Stitching Control:**
+- `--stitch-crop-size M`: Crop size M for patch reassembly (default: 20)
+- Controls the border cropping during patch stitching to avoid edge artifacts
+- Must satisfy: 0 < M <= N (where N is the diffraction pattern size)
+- Configured via `stitch_crop_size` in `configs/comparison_config.yaml`
 
 **Output Control:**
 - `--save-npz` / `--no-save-npz`: Control raw reconstruction NPZ export (default: enabled)

@@ -79,6 +79,8 @@ def parse_args():
                         help="Number of test images to load from the file (default: all).")
     parser.add_argument("--tike_recon_path", type=Path, default=None,
                         help="Path to Tike reconstruction NPZ file for three-way comparison (optional).")
+    parser.add_argument("--stitch-crop-size", type=int, default=20,
+                        help="Crop size M for patch stitching (must be 0 < M <= N, default: 20).")
     
     # Add logging arguments
     add_logging_arguments(parser)
@@ -728,6 +730,12 @@ def main():
     )
     update_legacy_dict(p.cfg, dummy_config)
     
+    # Validate stitch_crop_size parameter
+    N = test_data_raw.probeGuess.shape[0]
+    if not (0 < args.stitch_crop_size <= N):
+        raise ValueError(f"Invalid stitch_crop_size: {args.stitch_crop_size}. Must be 0 < M <= N={N}")
+    logger.info(f"Using stitch_crop_size M={args.stitch_crop_size} (N={N})")
+    
     # Create data container
     test_container = create_ptycho_data_container(test_data_raw, dummy_config)
     
@@ -763,7 +771,7 @@ def main():
     
     # Reassemble patches
     logger.info("Reassembling PtychoPINN patches...")
-    pinn_recon = reassemble_position(pinn_patches, test_container.global_offsets, M=20)
+    pinn_recon = reassemble_position(pinn_patches, test_container.global_offsets, M=args.stitch_crop_size)
 
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")
@@ -786,7 +794,7 @@ def main():
     
     # Reassemble patches
     logger.info("Reassembling baseline patches...")
-    baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=20)
+    baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
 
     # Save NPZ files of reconstructions (before any alignment/registration) if requested
     if args.save_npz:
@@ -816,7 +824,7 @@ def main():
         # --- COORDINATE-BASED ALIGNMENT + REGISTRATION WORKFLOW ---
         
         # 1. Define the stitching parameter
-        M_STITCH_SIZE = 20
+        M_STITCH_SIZE = args.stitch_crop_size
 
         # 2. Extract scan coordinates in (y, x) format
         global_offsets = test_container.global_offsets
