@@ -63,8 +63,8 @@ class ModelManager:
         try:
             os.makedirs(model_dir, exist_ok=True)
             
-            # Save the model
-            model.save(model_dir, save_format="tf")
+            # Save the model (Keras 3 format)
+            model.save(os.path.join(model_dir, "model.keras"))
             
             # Save custom objects
             with open(custom_objects_path, 'wb') as f:
@@ -122,8 +122,55 @@ class ModelManager:
             with open(custom_objects_path, 'rb') as f:
                 custom_objects = dill.load(f)
             
+            # Add any missing custom objects that might not be in older saved models
+            from ptycho.tf_helper import CenterMaskLayer, trim_reconstruction, combine_complex, reassemble_patches, mk_reassemble_position_real
+            from ptycho.tf_helper import pad_reconstruction, extract_patches_position, pad_and_diffract, _flat_to_channel
+            from ptycho.model import get_amp_activation, scale, inv_scale
+            from ptycho.custom_layers import (CombineComplexLayer, ExtractPatchesPositionLayer,
+                                             PadReconstructionLayer, ReassemblePatchesLayer,
+                                             TrimReconstructionLayer, PadAndDiffractLayer,
+                                             FlatToChannelLayer, ScaleLayer, InvScaleLayer,
+                                             ActivationLayer, SquareLayer)
+            import math
+            
+            if 'CenterMaskLayer' not in custom_objects:
+                custom_objects['CenterMaskLayer'] = CenterMaskLayer
+            if 'trim_reconstruction' not in custom_objects:
+                custom_objects['trim_reconstruction'] = trim_reconstruction
+            
+            # Add all Lambda functions that might be used
+            custom_objects.update({
+                'combine_complex': combine_complex,
+                'reassemble_patches': reassemble_patches,
+                'mk_reassemble_position_real': mk_reassemble_position_real,
+                'pad_reconstruction': pad_reconstruction,
+                'extract_patches_position': extract_patches_position,
+                'pad_and_diffract': pad_and_diffract,
+                '_flat_to_channel': _flat_to_channel,
+                'get_amp_activation': get_amp_activation,
+                'scale': scale,
+                'inv_scale': inv_scale,
+                'math': math,
+                'tf': tf,
+                # Add custom layers
+                'CombineComplexLayer': CombineComplexLayer,
+                'ExtractPatchesPositionLayer': ExtractPatchesPositionLayer,
+                'PadReconstructionLayer': PadReconstructionLayer,
+                'ReassemblePatchesLayer': ReassemblePatchesLayer,
+                'TrimReconstructionLayer': TrimReconstructionLayer,
+                'PadAndDiffractLayer': PadAndDiffractLayer,
+                'FlatToChannelLayer': FlatToChannelLayer,
+                'ScaleLayer': ScaleLayer,
+                'InvScaleLayer': InvScaleLayer,
+                'ActivationLayer': ActivationLayer,
+                'SquareLayer': SquareLayer
+            })
+            
             # Import model factory after parameters are loaded
             from ptycho.model import create_model_with_gridsize
+            
+            # Enable unsafe deserialization for Lambda layers in Keras 3
+            tf.keras.config.enable_unsafe_deserialization()
             
             # Create blank models with correct architecture
             autoencoder, diffraction_to_obj = create_model_with_gridsize(gridsize, N)
@@ -145,7 +192,149 @@ class ModelManager:
                 model = autoencoder
             
             # Load weights into the blank model
-            model.load_weights(model_dir)
+            # Check for new Keras 3 format first
+            keras_model_path = os.path.join(model_dir, "model.keras")
+            h5_model_path = os.path.join(model_dir, "model.h5")
+            
+            if os.path.exists(keras_model_path):
+                # Load from Keras 3 format
+                loaded_model = tf.keras.models.load_model(keras_model_path, custom_objects=custom_objects)
+                # Copy weights to the blank model
+                model.set_weights(loaded_model.get_weights())
+            elif os.path.exists(h5_model_path) and False:  # Temporarily disable H5 loading since our H5 files are metadata only
+                # Check if H5 file is valid (not just metadata)
+                try:
+                    import h5py
+                    with h5py.File(h5_model_path, 'r') as f:
+                        # Check if the file contains actual weight data
+                        if len(f.keys()) > 1 or (len(f.keys()) == 1 and 'intensity_scale' not in f.attrs):
+                            # Load from H5 format - just load the weights
+                            model.load_weights(h5_model_path)
+                        else:
+                            # H5 file only contains metadata, skip to SavedModel loading
+                            print(f"H5 file {h5_model_path} appears to only contain metadata, skipping...")
+                            raise ValueError("H5 file is metadata only")
+                except Exception as e:
+                    print(f"Failed to load from H5 file: {e}")
+                    # Continue to next loading method
+                    pass
+            elif os.path.exists(os.path.join(model_dir, "saved_model.pb")):
+                # Load from SavedModel format
+                # The saved model contains the full model, so we need to load it and extract weights
+                try:
+                    # For Keras 3, we need to use a different approach
+                    # Load the SavedModel and wrap it
+                    print(f"Loading SavedModel from: {model_dir}")
+                    # Enable unsafe deserialization for Lambda layers
+                    tf.keras.config.enable_unsafe_deserialization()
+                    
+                    # Try to load as a Keras model first (might work for newer saves)
+                    try:
+                        loaded_model = tf.keras.models.load_model(model_dir, custom_objects=custom_objects)
+                        # If successful, just return it
+                        return loaded_model
+                    except Exception as keras_load_error:
+                        print(f"Failed to load as Keras model: {keras_load_error}")
+                        print("Falling back to raw SavedModel loading...")
+                    
+                    loaded_model = tf.saved_model.load(model_dir)
+                    
+                    # Create a wrapper that makes the SavedModel callable like a Keras model
+                    class SavedModelWrapper(tf.keras.Model):
+                        def __init__(self, saved_model, blank_model):
+                            super().__init__()
+                            self.saved_model = saved_model
+                            self.blank_model = blank_model
+                            # Try to find the inference function
+                            if hasattr(saved_model, 'signatures'):
+                                self.inference = saved_model.signatures.get('serving_default', None)
+                                if self.inference is None and len(saved_model.signatures) > 0:
+                                    self.inference = list(saved_model.signatures.values())[0]
+                            else:
+                                self.inference = saved_model
+                        
+                        def call(self, inputs, training=None, mask=None):
+                            # The model expects two inputs: input and input_positions
+                            if isinstance(inputs, (list, tuple)):
+                                if len(inputs) >= 2:
+                                    # Call with keyword arguments as expected by SavedModel
+                                    output_dict = self.inference(
+                                        input=inputs[0],
+                                        input_positions=inputs[1]
+                                    )
+                                else:
+                                    raise ValueError(f"Expected at least 2 inputs, got {len(inputs)}")
+                            else:
+                                # Single input - not expected for this model
+                                raise ValueError("This model expects a list of inputs [input, input_positions]")
+                            
+                            # Extract outputs in the expected order
+                            if isinstance(output_dict, dict):
+                                if 'trimmed_obj' in output_dict:
+                                    return output_dict['trimmed_obj']
+                                else:
+                                    # Return the first output
+                                    return list(output_dict.values())[0]
+                            else:
+                                # If output is not a dict, return as is
+                                return output_dict
+                        
+                        @property
+                        def variables(self):
+                            return self.saved_model.variables
+                        
+                        @property
+                        def trainable_variables(self):
+                            return self.saved_model.trainable_variables
+                    
+                    # Use the wrapper instead of trying to copy weights
+                    return SavedModelWrapper(loaded_model, model)
+                    
+                    # Old checkpoint loading code - keeping as fallback
+                    checkpoint_path = os.path.join(model_dir, "variables", "variables")
+                    if False and os.path.exists(checkpoint_path + ".index"):
+                        print(f"Loading weights from checkpoint: {checkpoint_path}")
+                        model.load_weights(checkpoint_path)
+                    else:
+                        # Fallback: Load the full SavedModel and copy weights
+                        print(f"Loading full SavedModel from: {model_dir}")
+                        # Create a wrapper model that can load SavedModel
+                        loaded_model = tf.saved_model.load(model_dir)
+                        
+                        # Try to get the actual keras model from the loaded object
+                        if hasattr(loaded_model, 'keras_api'):
+                            keras_model = loaded_model.keras_api.model
+                            model.set_weights(keras_model.get_weights())
+                        elif hasattr(loaded_model, '__call__'):
+                            # It's a concrete function, we need to extract variables
+                            # Get all trainable variables
+                            variables = loaded_model.variables
+                            if variables:
+                                # Try to match variables by name
+                                loaded_weights = []
+                                for var in model.variables:
+                                    found = False
+                                    for saved_var in variables:
+                                        if var.name == saved_var.name or var.name.split('/')[-1] == saved_var.name.split('/')[-1]:
+                                            loaded_weights.append(saved_var.numpy())
+                                            found = True
+                                            break
+                                    if not found:
+                                        print(f"Warning: Could not find matching variable for {var.name}")
+                                        loaded_weights.append(var.numpy())
+                                
+                                if len(loaded_weights) == len(model.variables):
+                                    model.set_weights(loaded_weights)
+                                else:
+                                    raise ValueError(f"Weight count mismatch: model has {len(model.variables)} variables, loaded {len(loaded_weights)}")
+                        else:
+                            raise ValueError("Could not extract model from SavedModel format")
+                except Exception as e:
+                    print(f"Failed to load from SavedModel: {e}")
+                    raise
+            else:
+                # Fall back to old weights-only format
+                model.load_weights(model_dir)
             
             return model
         
@@ -237,17 +426,37 @@ def save(out_prefix: str) -> None:
     """Save models to a zip archive."""
     from ptycho import model
     from ptycho.model import ProbeIllumination, IntensityScaler, IntensityScaler_inv, negloglik
-    from ptycho.tf_helper import Translation
+    from ptycho.tf_helper import Translation, CenterMaskLayer
     from ptycho.tf_helper import realspace_loss as hh_realspace_loss
 
     model_path = os.path.join(out_prefix, params.get('h5_path'))
+    # Import custom layers
+    from ptycho.custom_layers import (CombineComplexLayer, ExtractPatchesPositionLayer,
+                                     PadReconstructionLayer, ReassemblePatchesLayer,
+                                     TrimReconstructionLayer, PadAndDiffractLayer,
+                                     FlatToChannelLayer, ScaleLayer, InvScaleLayer,
+                                     ActivationLayer, SquareLayer)
+    
     custom_objects = {
         'ProbeIllumination': ProbeIllumination,
         'IntensityScaler': IntensityScaler,
         'IntensityScaler_inv': IntensityScaler_inv,
         'Translation': Translation,
+        'CenterMaskLayer': CenterMaskLayer,
         'negloglik': negloglik,
-        'realspace_loss': hh_realspace_loss
+        'realspace_loss': hh_realspace_loss,
+        # Add custom layers
+        'CombineComplexLayer': CombineComplexLayer,
+        'ExtractPatchesPositionLayer': ExtractPatchesPositionLayer,
+        'PadReconstructionLayer': PadReconstructionLayer,
+        'ReassemblePatchesLayer': ReassemblePatchesLayer,
+        'TrimReconstructionLayer': TrimReconstructionLayer,
+        'PadAndDiffractLayer': PadAndDiffractLayer,
+        'FlatToChannelLayer': FlatToChannelLayer,
+        'ScaleLayer': ScaleLayer,
+        'InvScaleLayer': InvScaleLayer,
+        'ActivationLayer': ActivationLayer,
+        'SquareLayer': SquareLayer
     }
     
     models_to_save = {

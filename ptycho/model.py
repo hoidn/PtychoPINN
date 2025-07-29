@@ -91,6 +91,11 @@ from tensorflow.keras.activations import relu, sigmoid, tanh, swish, softplus
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPool2D, UpSampling2D, InputLayer, Lambda, Dense
 from tensorflow.keras.layers import Layer
 from tensorflow.keras import layers
+from .custom_layers import (CombineComplexLayer, ExtractPatchesPositionLayer, 
+                           PadReconstructionLayer, ReassemblePatchesLayer,
+                           TrimReconstructionLayer, PadAndDiffractLayer,
+                           FlatToChannelLayer, ScaleLayer, InvScaleLayer,
+                           ActivationLayer, SquareLayer)
 import glob
 import math
 import numpy as np
@@ -144,8 +149,10 @@ initial_probe_guess = tf.Variable(
 # TODO total variation loss
 # -probe smoothing scale(?)
 class ProbeIllumination(tf.keras.layers.Layer):
-    def __init__(self, name = None):
-        super(ProbeIllumination, self).__init__(name = name)
+    def __init__(self, name=None, **kwargs):
+        # Remove any kwargs that shouldn't be passed to parent
+        kwargs.pop('dtype', None)  # Handle dtype separately if needed
+        super(ProbeIllumination, self).__init__(name=name, **kwargs)
         self.w = initial_probe_guess
         self.sigma = p.get('gaussian_smoothing_sigma')
 
@@ -172,6 +179,15 @@ class ProbeIllumination(tf.keras.layers.Layer):
         else:
             # Output shape: (batch_size, N, N, gridsize**2)
             return smoothed, (self.w)[None, ...]
+    
+    def compute_output_shape(self, input_shape):
+        # Returns two outputs - both with same shape as input
+        return [input_shape, input_shape]
+    
+    def get_config(self):
+        config = super().get_config()
+        # Don't need to save w or sigma as they come from global state
+        return config
 
 probe_illumination = ProbeIllumination()
 
@@ -186,22 +202,28 @@ log_scale = tf.Variable(
         )
 
 class IntensityScaler(tf.keras.layers.Layer):
-    def __init__(self):
-        super(IntensityScaler, self).__init__()
+    def __init__(self, **kwargs):
+        kwargs.pop('dtype', None)
+        super(IntensityScaler, self).__init__(**kwargs)
         self.w = log_scale
     def call(self, inputs):
         x, = inputs
         return x / tf.math.exp(self.w)
+    def get_config(self):
+        return super().get_config()
 
 # TODO use a bijector instead of separately defining the transform and its
 # inverse
 class IntensityScaler_inv(tf.keras.layers.Layer):
-    def __init__(self):
-        super(IntensityScaler_inv, self).__init__()
+    def __init__(self, **kwargs):
+        kwargs.pop('dtype', None)
+        super(IntensityScaler_inv, self).__init__(**kwargs)
         self.w = log_scale
     def call(self, inputs):
         x, = inputs
         return tf.math.exp(self.w) * x
+    def get_config(self):
+        return super().get_config()
 
 def scale(inputs):
     x, = inputs
@@ -219,7 +241,7 @@ files=glob.glob('%s/*' %wt_path)
 for file in files:
     os.remove(file)
 
-lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]))
+lambda_norm = Lambda(lambda x: tf.math.reduce_sum(x**2, axis = [1, 2]), output_shape=lambda s: (s[0], s[3]))
 input_img = Input(shape=(N, N, gridsize**2), name = 'input')
 input_positions = Input(shape=(1, 2, gridsize**2), name = 'input_positions')
 
@@ -332,7 +354,8 @@ def create_decoder_phase(input_tensor, n_filters_scale, gridsize, big):
     num_filters = gridsize**2 if big else 1
     conv1 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
     conv2 = tf.keras.layers.Conv2D(num_filters, (3, 3), padding='same')
-    act = tf.keras.layers.Lambda(lambda x: math.pi * tf.keras.activations.tanh(x), name='phi')
+    # Use custom activation layer for phase
+    act = ActivationLayer(activation_name='tanh', scale=math.pi, name='phi')
     
     N = p.get('N')
     
@@ -377,62 +400,96 @@ def create_decoder_amp(input_tensor, n_filters_scale):
     # Placeholder convolution layers and activation as defined in the original DecoderAmp class
     conv1 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
     conv2 = tf.keras.layers.Conv2D(1, (3, 3), padding='same')
-    act = Lambda(get_amp_activation(), name='amp')
+    # Use custom activation layer for amplitude
+    try:
+        amp_activation_name = p.get('amp_activation')
+    except KeyError:
+        amp_activation_name = 'sigmoid'
+    act = ActivationLayer(activation_name=amp_activation_name, name='amp')
 
     x = create_decoder_base(input_tensor, n_filters_scale)
     outputs = create_decoder_last(x, n_filters_scale, conv1, conv2, act=act,
         name = 'amp')
     return outputs
 
-normed_input = scale([input_img])
+normed_input = IntensityScaler(name='intensity_scaler')([input_img])
+
+# Get N value for output shapes
+N = p.params()['N']
+
 decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
     p.get('object.big'))
 
 # Combine the two decoded outputs
-obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
+obj = CombineComplexLayer(name='obj')([decoded1, decoded2])
 
 if p.get('object.big'):
     # If 'object.big' is true, reassemble the patches
-    padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name = 'padded_obj_2')([obj, input_positions])
+    # Calculate output shape dynamically based on padded_size
+    from .params import get_padded_size
+    padded_size = get_padded_size()
+    padded_obj_2 = ReassemblePatchesLayer(
+        dtype=tf.complex64,
+        name='padded_obj_2'
+    )([obj, input_positions])
 else:
     # If 'object.big' is not true, pad the reconstruction
-    padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x), name = 'padded_obj_2')(obj)
+    from .params import get_padded_size
+    padded_size = get_padded_size()
+    padded_obj_2 = PadReconstructionLayer(
+        dtype=tf.complex64,
+        name='padded_obj_2'
+    )(obj)
 
 # TODO rename?
 # Trim the object reconstruction to N x N
-trimmed_obj = Lambda(hh.trim_reconstruction, name = 'trimmed_obj')(padded_obj_2)
+trimmed_obj = TrimReconstructionLayer(output_size=N, dtype=tf.complex64, name='trimmed_obj')(padded_obj_2)
 
 # Extract overlapping regions of the object
-padded_objs_with_offsets = Lambda(lambda x:
-    hh.extract_patches_position(x[0], x[1], 0.),
-    name = 'padded_objs_with_offsets')([padded_obj_2, input_positions])
+# Output shape should be (batch, N, N, 1) where N is the patch size
+padded_objs_with_offsets = ExtractPatchesPositionLayer(
+    jitter=0.0,
+    dtype=tf.complex64,
+    name='padded_objs_with_offsets'
+)([padded_obj_2, input_positions])
 
 # Apply the probe illumination
 padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
 flat_illuminated = padded_objs_with_offsets
 
 # Apply pad and diffract operation
-padded_objs_with_offsets, pred_diff = Lambda(lambda x: hh.pad_and_diffract(x, N, N, pad=False), name = 'pred_amplitude')(padded_objs_with_offsets)
+pad_diffract_layer = PadAndDiffractLayer(h=N, w=N, pad=False, name='pred_amplitude')
+padded_objs_with_offsets, pred_diff = pad_diffract_layer(padded_objs_with_offsets)
 
 # Reshape
-pred_diff = Lambda(lambda x: hh._flat_to_channel(x, N=N, gridsize=gridsize), name = 'pred_diff_channels')(pred_diff)
+pred_diff = FlatToChannelLayer(N=N, gridsize=gridsize, name='pred_diff_channels')(pred_diff)
 
 # Scale the amplitude
-pred_amp_scaled = inv_scale([pred_diff])
+pred_amp_scaled = IntensityScaler_inv(name='intensity_scaler_inv')([pred_diff])
 
 
 # TODO Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
-dist_poisson_intensity = tfpl.DistributionLambda(lambda amplitude:
-                                       (tfd.Independent(
-                                           tfd.Poisson(
-                                               (amplitude**2)))))
-pred_intensity_sampled = dist_poisson_intensity(pred_amp_scaled)
+# In TF 2.19, using TFP distributions as model outputs is problematic
+# We'll handle the distribution in the loss function instead
+# For now, just use the squared amplitude as a placeholder
+pred_intensity_sampled = SquareLayer(name='pred_intensity')(pred_amp_scaled)
+
+# Create the distribution function for use in loss calculation
+def create_poisson_distribution_for_loss(amplitude):
+    squared = tf.square(amplitude) 
+    return tfd.Independent(tfd.Poisson(squared), reinterpreted_batch_ndims=3)
+
+# We'll use this in the loss function
+dist_poisson_intensity = create_poisson_distribution_for_loss
 
 # Poisson distribution over expected diffraction intensity (i.e. photons per
 # pixel)
-def negloglik(x, rv_x):
-    return -rv_x.log_prob(x)
-fn_poisson_nll = lambda A_target, A_pred: negloglik(A_target**2, dist_poisson_intensity(A_pred))
+def negloglik(y_true, y_pred):
+    """Compute Poisson negative log-likelihood using TensorFlow's built-in function"""
+    # y_true is the target intensity (already squared)
+    # y_pred is the predicted intensity (already squared)
+    # Use TensorFlow's Poisson loss which computes: y_pred - y_true * log(y_pred)
+    return tf.nn.log_poisson_loss(y_true, tf.math.log(y_pred), compute_full_loss=False)
 
 autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])
 
@@ -450,11 +507,20 @@ nll_weight = p.get('nll_weight') # should normally be 1
 realspace_weight = p.get('realspace_weight')#1e2
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
 
+# Check if XLA compilation is enabled via environment or config
+use_xla_compile = os.environ.get('USE_XLA_COMPILE', '').lower() in ('1', 'true', 'yes')
+# Check if parameter exists in config
+try:
+    use_xla_compile = use_xla_compile or p.get('use_xla_compile')
+except KeyError:
+    pass  # Parameter doesn't exist, keep environment value
+
 autoencoder.compile(optimizer= optimizer,
      #loss=[lambda target, pred: hh.total_variation(pred),
      loss=[hh.realspace_loss,
-        'mean_absolute_error', negloglik, 'mean_absolute_error'],
-     loss_weights = [realspace_weight, mae_weight, nll_weight, 0.])
+        'mean_absolute_error', negloglik],
+     loss_weights = [realspace_weight, mae_weight, nll_weight],
+     jit_compile=use_xla_compile)
 
 print (autoencoder.summary())
 
@@ -486,7 +552,7 @@ def train(epochs, trainset: PtychoDataContainer):
     checkpoints= tf.keras.callbacks.ModelCheckpoint(
                             '%s/weights.{epoch:02d}.h5' %wt_path,
                             monitor='val_loss', verbose=1, save_best_only=True,
-                            save_weights_only=False, mode='auto', period=1)
+                            save_weights_only=False, mode='auto', save_freq='epoch')
 
     batch_size = p.params()['batch_size']
     history=autoencoder.fit(
@@ -562,49 +628,62 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         input_img = Input(shape=(N, N, gridsize**2), name='input')
         input_positions = Input(shape=(1, 2, gridsize**2), name='input_positions')
         
+        # Get padded size for later use
+        from .params import get_padded_size
+        padded_size = get_padded_size()
+        
         # Create model components using explicit parameters
-        normed_input = scale([input_img])
+        normed_input = IntensityScaler(name='intensity_scaler')([input_img])
         decoded1, decoded2 = create_autoencoder(normed_input, p.get('n_filters_scale'), gridsize, p.get('object.big'))
         
         # Combine the decoded outputs
-        obj = Lambda(lambda x: hh.combine_complex(x[0], x[1]), name='obj')([decoded1, decoded2])
+        obj = CombineComplexLayer(name='obj')([decoded1, decoded2])
         
         if p.get('object.big'):
             # If 'object.big' is true, reassemble the patches
-            padded_obj_2 = Lambda(lambda x: hh.reassemble_patches(x[0], fn_reassemble_real=hh.mk_reassemble_position_real(x[1])), name='padded_obj_2')([obj, input_positions])
+            padded_obj_2 = ReassemblePatchesLayer(
+                dtype=tf.complex64,
+                name='padded_obj_2'
+            )([obj, input_positions])
         else:
             # If 'object.big' is not true, pad the reconstruction
-            padded_obj_2 = Lambda(lambda x: hh.pad_reconstruction(x), name='padded_obj_2')(obj)
+            padded_obj_2 = PadReconstructionLayer(
+                dtype=tf.complex64,
+                name='padded_obj_2'
+            )(obj)
         
         # Trim the object reconstruction to N x N
-        trimmed_obj = Lambda(hh.trim_reconstruction, name='trimmed_obj')(padded_obj_2)
+        trimmed_obj = TrimReconstructionLayer(
+            output_size=N,
+            dtype=tf.complex64,
+            name='trimmed_obj'
+        )(padded_obj_2)
         
         # Extract overlapping regions of the object
-        padded_objs_with_offsets = Lambda(lambda x:
-            hh.extract_patches_position(x[0], x[1], 0.),
-            name='padded_objs_with_offsets')([padded_obj_2, input_positions])
+        padded_objs_with_offsets = ExtractPatchesPositionLayer(
+            jitter=0.0,
+            dtype=tf.complex64,
+            name='padded_objs_with_offsets'
+        )([padded_obj_2, input_positions])
         
         # Apply the probe illumination
         padded_objs_with_offsets, probe = probe_illumination([padded_objs_with_offsets])
         flat_illuminated = padded_objs_with_offsets
         
         # Apply pad and diffract operation
-        padded_objs_with_offsets, pred_diff = Lambda(lambda x: hh.pad_and_diffract(x, N, N, pad=False), name='pred_amplitude')(padded_objs_with_offsets)
+        pad_diffract_layer = PadAndDiffractLayer(h=N, w=N, pad=False, name='pred_amplitude')
+        padded_objs_with_offsets, pred_diff = pad_diffract_layer(padded_objs_with_offsets)
         
         # Reshape with explicit parameters
-        pred_diff = Lambda(lambda x: hh._flat_to_channel(x, N=N, gridsize=gridsize), name='pred_diff_channels')(pred_diff)
+        pred_diff = FlatToChannelLayer(N=N, gridsize=gridsize, name='pred_diff_channels')(pred_diff)
         
         # Scale the amplitude
-        pred_amp_scaled = inv_scale([pred_diff])
+        pred_amp_scaled = IntensityScaler_inv(name='intensity_scaler_inv')([pred_diff])
         
-        # Create Poisson noise layer
-        from tensorflow_probability import layers as tfpl
-        from tensorflow_probability import distributions as tfd
-        dist_poisson_intensity = tfpl.DistributionLambda(lambda amplitude:
-                                           (tfd.Independent(
-                                               tfd.Poisson(
-                                                   (amplitude**2)))))
-        pred_intensity_sampled = dist_poisson_intensity(pred_amp_scaled)
+        # In TF 2.19, using TFP distributions as model outputs is problematic
+        # We'll handle the distribution in the loss function instead
+        # For now, just use the squared amplitude as a placeholder
+        pred_intensity_sampled = SquareLayer(name='pred_intensity')(pred_amp_scaled)
         
         # Create models
         autoencoder = Model([input_img, input_positions], [trimmed_obj, pred_amp_scaled, pred_intensity_sampled])

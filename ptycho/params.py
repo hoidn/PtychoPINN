@@ -70,7 +70,8 @@ cfg = {
     'probe.mask': True, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392,
     'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42,
     'debug': True,
-    'gaussian_smoothing_sigma': 0.0  # New parameter for Gaussian smoothing sigma
+    'gaussian_smoothing_sigma': 0.0,  # New parameter for Gaussian smoothing sigma
+    'use_xla_translate': True  # Enable XLA-compatible translation by default for better performance
     }
 
 # TODO parameter description
