@@ -128,6 +128,13 @@ def get_clip_sizes(outer_offset):
     return borderleft, borderright, clipleft, clipright
 
 def stitch_data(b, norm_Y_I_test=1, norm=True, part='amp', outer_offset=None, nimgs=None):
+    # Check if we're in non-grid mode (gridsize=1)
+    if params.get('gridsize') == 1:
+        # For gridsize=1, we can't do grid-based stitching
+        # Return None or raise an informative error
+        raise ValueError("Grid-based stitching is not supported for gridsize=1 (non-grid mode). "
+                        "Individual patches cannot be arranged in a regular grid.")
+    
     # channel size must be 1, or not present
     if b.shape[-1] != 1:
         assert b.shape[-1] == params.get(['N'])
