@@ -282,8 +282,4 @@ def translate_xla(images: tf.Tensor, translations: tf.Tensor,
     else:
         return projective_warp_xla(images, M, 
                                   interpolation=interpolation,
-<<<<<<< HEAD
                                   fill_mode='zeros')  # Match original: CONSTANT with 0
-=======
-                                  fill_mode='zeros')  # Match original: CONSTANT with 0
->>>>>>> b99369418d77fef1807923ed57896d5101058f49
