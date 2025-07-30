@@ -21,7 +21,7 @@ Developers looking to contribute to the codebase or understand its deeper archit
 
 
 ## Installation
-`conda create -n ptycho python=3.10`
+`conda create -n ptycho python=3.11`
 
 `conda activate ptycho`
 
