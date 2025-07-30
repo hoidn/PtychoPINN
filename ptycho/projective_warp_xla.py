@@ -9,9 +9,6 @@ XLA‑friendly projective image warp for TensorFlow (GPU/TPU/CPU).
 
 Typical perf (guidance, not a guarantee):
   A100, B=8, 1024x1024, C=1, bilinear+edge: ~2.5–4 ms/iter after compile.
-
-Author: ChatGPT (2025-07-28)
-License: MIT
 """
 from __future__ import annotations
 import tensorflow as tf
@@ -270,4 +267,8 @@ def translate_xla(images: tf.Tensor, translations: tf.Tensor,
     else:
         return projective_warp_xla(images, M, 
                                   interpolation=interpolation,
+<<<<<<< HEAD
                                   fill_mode='zeros')  # Match original: CONSTANT with 0
+=======
+                                  fill_mode='zeros')  # Match original: CONSTANT with 0
+>>>>>>> b99369418d77fef1807923ed57896d5101058f49
