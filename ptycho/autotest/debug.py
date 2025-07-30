@@ -161,10 +161,6 @@ class TestDebug(unittest.TestCase):
         with self.assertRaises(ZeroDivisionError):
             divide(1, 0)
 
-#    def test_format_console_log(self):
-#        data = (3, "hello")
-#        formatted_log = self.debug._formatConsoleLog(data)
-#        self.assertEqual(formatted_log, "3, hello")
 
 obj = Debug()
 debug = obj.decorate
