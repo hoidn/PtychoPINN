@@ -66,23 +66,27 @@ def projective_warp_xla(
     C = tf.shape(images)[3]
 
     img_dtype = images.dtype
+    compute_dtype = tf.float32
     if img_dtype.is_integer:
-        images = tf.cast(images, tf.float32)
+        images = tf.cast(images, compute_dtype)
     elif img_dtype in (tf.float16, tf.bfloat16):
-        images = tf.cast(images, tf.float32)
+        images = tf.cast(images, compute_dtype)
+    elif img_dtype == tf.float64:
+        # Keep float64 precision for computation
+        compute_dtype = tf.float64
 
     if transforms.shape.rank == 2 and transforms.shape[-1] == 8:
         M = tfa_params_to_3x3(transforms)
     elif transforms.shape.rank == 3 and transforms.shape[-1] == 3 and transforms.shape[-2] == 3:
-        M = tf.convert_to_tensor(transforms, dtype=tf.float32)
+        M = tf.convert_to_tensor(transforms, dtype=compute_dtype)
     else:
         raise ValueError("transforms must be [B,3,3] or [B,8]")
 
-    M = tf.cast(M, tf.float32)
+    M = tf.cast(M, compute_dtype)
 
     # Build output grid in pixel coordinates (x in [0,W-1], y in [0,H-1])
-    y = tf.range(H, dtype=tf.float32)
-    x = tf.range(W, dtype=tf.float32)
+    y = tf.range(H, dtype=compute_dtype)
+    x = tf.range(W, dtype=compute_dtype)
     yy, xx = tf.meshgrid(y, x, indexing="ij")  # [H,W]
     ones = tf.ones_like(xx)
     grid = tf.stack([xx, yy, ones], axis=-1)    # [H,W,3]
@@ -104,16 +108,16 @@ def projective_warp_xla(
         iy = tf.round(sy)
 
         if fill_mode == "edge":
-            ix = tf.clip_by_value(ix, 0.0, tf.cast(W - 1, tf.float32))
-            iy = tf.clip_by_value(iy, 0.0, tf.cast(H - 1, tf.float32))
+            ix = tf.clip_by_value(ix, 0.0, tf.cast(W - 1, compute_dtype))
+            iy = tf.clip_by_value(iy, 0.0, tf.cast(H - 1, compute_dtype))
             gathered = _gather_bhw(images, ix, iy, H, W)
             out = gathered
         else:  # zeros
-            in_x = (sx >= 0.0) & (sx <= tf.cast(W - 1, tf.float32))
-            in_y = (sy >= 0.0) & (sy <= tf.cast(H - 1, tf.float32))
-            mask = tf.cast(in_x & in_y, tf.float32)
-            ix = tf.clip_by_value(ix, 0.0, tf.cast(W - 1, tf.float32))
-            iy = tf.clip_by_value(iy, 0.0, tf.cast(H - 1, tf.float32))
+            in_x = (sx >= 0.0) & (sx <= tf.cast(W - 1, compute_dtype))
+            in_y = (sy >= 0.0) & (sy <= tf.cast(H - 1, compute_dtype))
+            mask = tf.cast(in_x & in_y, compute_dtype)
+            ix = tf.clip_by_value(ix, 0.0, tf.cast(W - 1, compute_dtype))
+            iy = tf.clip_by_value(iy, 0.0, tf.cast(H - 1, compute_dtype))
             gathered = _gather_bhw(images, ix, iy, H, W)
             out = gathered * tf.expand_dims(tf.reshape(mask, [B, H, W]), -1)
     else:
@@ -124,10 +128,10 @@ def projective_warp_xla(
         y1 = y0 + 1.0
 
         if fill_mode == "edge":
-            x0c = tf.clip_by_value(x0, 0.0, tf.cast(W - 1, tf.float32))
-            y0c = tf.clip_by_value(y0, 0.0, tf.cast(H - 1, tf.float32))
-            x1c = tf.clip_by_value(x1, 0.0, tf.cast(W - 1, tf.float32))
-            y1c = tf.clip_by_value(y1, 0.0, tf.cast(H - 1, tf.float32))
+            x0c = tf.clip_by_value(x0, 0.0, tf.cast(W - 1, compute_dtype))
+            y0c = tf.clip_by_value(y0, 0.0, tf.cast(H - 1, compute_dtype))
+            x1c = tf.clip_by_value(x1, 0.0, tf.cast(W - 1, compute_dtype))
+            y1c = tf.clip_by_value(y1, 0.0, tf.cast(H - 1, compute_dtype))
 
             Ia = _gather_bhw(images, x0c, y0c, H, W)
             Ib = _gather_bhw(images, x1c, y0c, H, W)
@@ -136,21 +140,24 @@ def projective_warp_xla(
 
             wx = tf.expand_dims(sx - x0, -1)
             wy = tf.expand_dims(sy - y0, -1)
+            # Cast weights to same dtype as images for multiplication
+            wx = tf.cast(wx, images.dtype)
+            wy = tf.cast(wy, images.dtype)
             wa = (1.0 - wx) * (1.0 - wy)
             wb = wx * (1.0 - wy)
             wc = (1.0 - wx) * wy
             wd = wx * wy
             out = wa * Ia + wb * Ib + wc * Ic + wd * Id
         else:  # zeros
-            in_x0 = (x0 >= 0.0) & (x0 <= tf.cast(W - 1, tf.float32))
-            in_x1 = (x1 >= 0.0) & (x1 <= tf.cast(W - 1, tf.float32))
-            in_y0 = (y0 >= 0.0) & (y0 <= tf.cast(H - 1, tf.float32))
-            in_y1 = (y1 >= 0.0) & (y1 <= tf.cast(H - 1, tf.float32))
+            in_x0 = (x0 >= 0.0) & (x0 <= tf.cast(W - 1, compute_dtype))
+            in_x1 = (x1 >= 0.0) & (x1 <= tf.cast(W - 1, compute_dtype))
+            in_y0 = (y0 >= 0.0) & (y0 <= tf.cast(H - 1, compute_dtype))
+            in_y1 = (y1 >= 0.0) & (y1 <= tf.cast(H - 1, compute_dtype))
 
-            x0c = tf.clip_by_value(x0, 0.0, tf.cast(W - 1, tf.float32))
-            y0c = tf.clip_by_value(y0, 0.0, tf.cast(H - 1, tf.float32))
-            x1c = tf.clip_by_value(x1, 0.0, tf.cast(W - 1, tf.float32))
-            y1c = tf.clip_by_value(y1, 0.0, tf.cast(H - 1, tf.float32))
+            x0c = tf.clip_by_value(x0, 0.0, tf.cast(W - 1, compute_dtype))
+            y0c = tf.clip_by_value(y0, 0.0, tf.cast(H - 1, compute_dtype))
+            x1c = tf.clip_by_value(x1, 0.0, tf.cast(W - 1, compute_dtype))
+            y1c = tf.clip_by_value(y1, 0.0, tf.cast(H - 1, compute_dtype))
 
             Ia = _gather_bhw(images, x0c, y0c, H, W)
             Ib = _gather_bhw(images, x1c, y0c, H, W)
@@ -164,6 +171,9 @@ def projective_warp_xla(
 
             wx = tf.expand_dims(sx - x0, -1)
             wy = tf.expand_dims(sy - y0, -1)
+            # Cast weights to same dtype as images for multiplication
+            wx = tf.cast(wx, images.dtype)
+            wy = tf.cast(wy, images.dtype)
             wa = (1.0 - wx) * (1.0 - wy)
             wb = wx * (1.0 - wy)
             wc = (1.0 - wx) * wy
@@ -242,15 +252,20 @@ def translate_xla(images: tf.Tensor, translations: tf.Tensor,
     # Ensure translations has correct shape
     translations = tf.ensure_shape(translations, [None, 2])
     
+    # Build translation-only homography matrices
+    B = tf.shape(translations)[0]
+    # Use same dtype as images for consistency
+    matrix_dtype = images.dtype.real_dtype if images.dtype.is_complex else images.dtype
+    
     # Convert translations to homography matrices
     # PtychoPINN convention: negate dx,dy (positive values move content in positive direction)
     dx = -translations[:, 0]
     dy = -translations[:, 1]
-    
-    # Build translation-only homography matrices
-    B = tf.shape(translations)[0]
-    ones = tf.ones([B], dtype=tf.float32)
-    zeros = tf.zeros([B], dtype=tf.float32)
+    # Cast to matrix dtype
+    dx = tf.cast(dx, matrix_dtype)
+    dy = tf.cast(dy, matrix_dtype)
+    ones = tf.ones([B], dtype=matrix_dtype)
+    zeros = tf.zeros([B], dtype=matrix_dtype)
     
     # Translation matrix: [[1,0,dx],[0,1,dy],[0,0,1]]
     row0 = tf.stack([ones, zeros, dx], axis=-1)
