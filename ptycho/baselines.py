@@ -67,7 +67,7 @@ from tensorflow.keras import Model
 tf.keras.backend.clear_session()
 np.random.seed(123)
 
-h,w=params.get('N'), params.get('N')
+# Model dimensions will be set dynamically in build_model()
 wt_path = 'wts4' #Where to store network weights
 
 n_filters_scale = params.params()['n_filters_scale']
@@ -96,6 +96,8 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
 def build_model(X_train, Y_I_train, Y_phi_train):
     tf.keras.backend.clear_session()
     c = X_train.shape[-1]
+    # Get dimensions from actual training data rather than global params
+    h, w = X_train.shape[1], X_train.shape[2]
     input_img = Input(shape=(h, w, c))
 
     x = Conv_Pool_block(input_img,n_filters_scale * 32,w1=3,w2=3,p1=2,p2=2, padding='same', data_format='channels_last')

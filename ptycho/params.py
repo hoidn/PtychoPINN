@@ -57,7 +57,7 @@ import tensorflow as tf
 # TODO naming convention for different types of parameters
 # TODO what default value and initialization for the probe scale?
 cfg = {
-    'N': 64, 'offset': 4, 'gridsize': 2,
+    'N': 128, 'offset': 4, 'gridsize': 2,
     'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16,
     'nepochs': 60, 'n_filters_scale': 2, 'output_prefix': 'outputs',
     'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.,
@@ -70,7 +70,8 @@ cfg = {
     'probe.mask': True, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392,
     'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42,
     'debug': True,
-    'gaussian_smoothing_sigma': 0.0  # New parameter for Gaussian smoothing sigma
+    'gaussian_smoothing_sigma': 0.0,  # New parameter for Gaussian smoothing sigma
+    'use_xla_translate': True  # Enable XLA-compatible translation by default for better performance
     }
 
 # TODO parameter description

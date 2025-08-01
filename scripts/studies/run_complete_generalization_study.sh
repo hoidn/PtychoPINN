@@ -53,6 +53,8 @@ DRY_RUN=false
 N_TEST_IMAGES=""
 ADD_TIKE_ARM=false
 TIKE_ITERATIONS=1000
+TEST_SIZES=""
+STITCH_CROP_SIZE=""
 
 # Parse command line arguments
 show_help() {
@@ -67,11 +69,12 @@ USAGE:
 
 OPTIONS:
     --train-sizes SIZES        Space-separated training set sizes (default: "$DEFAULT_TRAIN_SIZES")
+    --test-sizes SIZES         Space-separated test set sizes, must match number of train sizes (default: same as train sizes)
     --num-trials N            Number of trials per training size (default: $DEFAULT_NUM_TRIALS)
     --output-dir DIRECTORY     Output directory (default: timestamped directory)
     --train-data PATH         Path to training dataset (default: auto-generated)
     --test-data PATH          Path to test dataset (default: auto-generated)
-    --n-test-images N         Number of test images to use for evaluation (default: all for 2-way, matches train size for 3-way)
+    --n-test-images N         Number of test images to use for evaluation (overridden by --test-sizes if provided)
     --add-tike-arm            Add Tike iterative reconstruction as third comparison arm (enables 3-way comparison mode)
     --tike-iterations N       Number of Tike reconstruction iterations (default: 1000)
     --skip-data-prep          Skip dataset preparation step
@@ -79,6 +82,7 @@ OPTIONS:
     --skip-comparison         Skip model comparison step
     --skip-registration       Skip automatic image registration during comparison
     --parallel-jobs N         Number of parallel training jobs (default: $DEFAULT_PARALLEL_JOBS)
+    --stitch-crop-size M      Crop size M for patch stitching (overrides config default)
     --dry-run                 Show commands without executing
     --help                    Show this help message
 
@@ -97,6 +101,9 @@ EXAMPLES:
     
     # Three-way comparison including Tike iterative reconstruction
     $0 --add-tike-arm --tike-iterations 500 --train-sizes "512 1024"
+    
+    # Decoupled train/test sizes: train on small sets, test on larger sets
+    $0 --train-sizes "256 512 1024" --test-sizes "512 1024 2048"
 
 WORKFLOW:
     1. Dataset Preparation (~30 minutes)
@@ -182,6 +189,10 @@ while [[ $# -gt 0 ]]; do
             N_TEST_IMAGES="$2"
             shift 2
             ;;
+        --test-sizes)
+            TEST_SIZES="$2"
+            shift 2
+            ;;
         --add-tike-arm)
             ADD_TIKE_ARM=true
             shift
@@ -210,6 +221,10 @@ while [[ $# -gt 0 ]]; do
             PARALLEL_JOBS="$2"
             shift 2
             ;;
+        --stitch-crop-size)
+            STITCH_CROP_SIZE="$2"
+            shift 2
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
@@ -235,6 +250,26 @@ fi
 if ! [[ "$TIKE_ITERATIONS" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: --tike-iterations must be a positive integer, got: '$TIKE_ITERATIONS'"
     exit 1
+fi
+
+if [ -n "$STITCH_CROP_SIZE" ] && ! [[ "$STITCH_CROP_SIZE" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: --stitch-crop-size must be a positive integer, got: '$STITCH_CROP_SIZE'"
+    exit 1
+fi
+
+# Validate train and test sizes match if test sizes are provided
+if [ -n "$TEST_SIZES" ]; then
+    # Convert to arrays
+    TRAIN_ARRAY=($TRAIN_SIZES)
+    TEST_ARRAY=($TEST_SIZES)
+    
+    # Check lengths match
+    if [ ${#TRAIN_ARRAY[@]} -ne ${#TEST_ARRAY[@]} ]; then
+        echo "ERROR: Number of train sizes must match number of test sizes."
+        echo "Train sizes (${#TRAIN_ARRAY[@]}): $TRAIN_SIZES"
+        echo "Test sizes (${#TEST_ARRAY[@]}): $TEST_SIZES"
+        exit 1
+    fi
 fi
 
 # Logging setup
@@ -311,6 +346,7 @@ save_config() {
 
 # Training Configuration
 TRAIN_SIZES=$TRAIN_SIZES
+TEST_SIZES=$TEST_SIZES
 PARALLEL_JOBS=$PARALLEL_JOBS
 
 # Paths
@@ -416,9 +452,10 @@ train_models() {
     train_single_trial() {
         local train_size=$1
         local trial=$2
+        local test_size=$3
         local trial_output_dir="$OUTPUT_DIR/train_$train_size/trial_$trial"
         
-        log "Training models for train_size=$train_size (Trial $trial/$NUM_TRIALS)"
+        log "Training models for train_size=$train_size, test_size=$test_size (Trial $trial/$NUM_TRIALS)"
         
         # Train PtychoPINN
         local pinn_cmd="python scripts/training/train.py \\
@@ -445,11 +482,11 @@ train_models() {
             local tike_cmd="python scripts/reconstruction/run_tike_reconstruction.py \\
                 '$TEST_DATA' \\
                 '$trial_output_dir/tike_run' \\
-                --n-images $train_size \\
+                --n-images $test_size \\
                 --iterations $TIKE_ITERATIONS \\
                 --quiet"
                 
-            run_cmd "$tike_cmd" "Tike reconstruction (n_images=$train_size, trial=$trial)"
+            run_cmd "$tike_cmd" "Tike reconstruction (n_images=$test_size, trial=$trial)"
         fi
         
         log "Completed training for train_size=$train_size (Trial $trial/$NUM_TRIALS)"
@@ -458,11 +495,25 @@ train_models() {
     # Run training sequentially with multiple trials per training size
     log "Training models sequentially with $NUM_TRIALS trials per training size"
     
-    for train_size in $TRAIN_SIZES; do
-        log "Starting training for train_size=$train_size ($NUM_TRIALS trials)"
+    # Convert train sizes to array for indexed access
+    TRAIN_ARRAY=($TRAIN_SIZES)
+    TEST_ARRAY=($TEST_SIZES)
+    
+    # Iterate by index to access both train and test sizes
+    for i in "${!TRAIN_ARRAY[@]}"; do
+        train_size="${TRAIN_ARRAY[$i]}"
+        
+        # Determine test size for this iteration
+        if [ -n "$TEST_SIZES" ]; then
+            test_size="${TEST_ARRAY[$i]}"
+        else
+            test_size="$train_size"
+        fi
+        
+        log "Starting training for train_size=$train_size, test_size=$test_size ($NUM_TRIALS trials)"
         
         for trial in $(seq 1 "$NUM_TRIALS"); do
-            train_single_trial "$train_size" "$trial"
+            train_single_trial "$train_size" "$trial" "$test_size"
         done
         
         log "Completed all trials for train_size=$train_size"
@@ -480,8 +531,22 @@ compare_models() {
     
     log "=== STEP 3: Model Comparison ==="
     
-    for train_size in $TRAIN_SIZES; do
-        log "Running comparisons for train_size=$train_size ($NUM_TRIALS trials)"
+    # Convert train sizes to array for indexed access
+    TRAIN_ARRAY=($TRAIN_SIZES)
+    TEST_ARRAY=($TEST_SIZES)
+    
+    # Iterate by index to access both train and test sizes
+    for i in "${!TRAIN_ARRAY[@]}"; do
+        train_size="${TRAIN_ARRAY[$i]}"
+        
+        # Determine test size for this iteration
+        if [ -n "$TEST_SIZES" ]; then
+            test_size="${TEST_ARRAY[$i]}"
+        else
+            test_size="$train_size"
+        fi
+        
+        log "Running comparisons for train_size=$train_size, test_size=$test_size ($NUM_TRIALS trials)"
         
         for trial in $(seq 1 "$NUM_TRIALS"); do
             local trial_output_dir="$OUTPUT_DIR/train_$train_size/trial_$trial"
@@ -512,11 +577,21 @@ compare_models() {
                 registration_arg="--skip-registration"
             fi
             
+            local stitch_arg=""
+            if [ -n "$STITCH_CROP_SIZE" ]; then
+                stitch_arg="--stitch-crop-size $STITCH_CROP_SIZE"
+            fi
+            
             local compare_cmd="python scripts/compare_models.py --pinn_dir '$pinn_dir' --baseline_dir '$baseline_dir' --test_data '$TEST_DATA' --output_dir '$trial_output_dir'"
             
             # Add registration flag if needed
             if [ -n "$registration_arg" ]; then
                 compare_cmd="$compare_cmd $registration_arg"
+            fi
+            
+            # Add stitch crop size if needed
+            if [ -n "$stitch_arg" ]; then
+                compare_cmd="$compare_cmd $stitch_arg"
             fi
                 
             # Add Tike reconstruction if available
@@ -524,15 +599,18 @@ compare_models() {
                 local tike_recon_path="$trial_output_dir/tike_run/tike_reconstruction.npz"
                 if [ -f "$tike_recon_path" ]; then
                     compare_cmd="$compare_cmd --tike_recon_path '$tike_recon_path'"
-                    # For 3-way comparison, limit test set to match training size for fair comparison
-                    compare_cmd="$compare_cmd --n-test-images $train_size"
-                    log "Using test subset size $train_size to match training size (3-way comparison mode)"
+                    # For 3-way comparison, use the test_size for this iteration
+                    compare_cmd="$compare_cmd --n-test-images $test_size"
+                    log "Using test subset size $test_size (3-way comparison mode)"
                 else
                     log "WARNING: Tike reconstruction not found for train_size=$train_size trial=$trial: $tike_recon_path"
                 fi
             elif [[ -n "$N_TEST_IMAGES" ]]; then
                 # For 2-way comparison, use user-specified test size (if any)
                 compare_cmd="$compare_cmd --n-test-images $N_TEST_IMAGES"
+            else
+                # For 2-way comparison with decoupled sizes, use test_size
+                compare_cmd="$compare_cmd --n-test-images $test_size"
             fi
                 
             run_cmd "$compare_cmd" "Model comparison (train_size=$train_size, trial=$trial)"
