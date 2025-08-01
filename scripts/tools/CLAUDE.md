@@ -140,6 +140,37 @@ python scripts/tools/update_tool.py dataset.npz updated.npz --reconstruction mod
 python scripts/tools/shuffle_dataset_tool.py ordered.npz shuffled.npz --seed 42
 ```
 
+### create_hybrid_probe.py
+**Purpose**: Create synthetic probes by mixing amplitude and phase from different sources  
+**Use case**: Controlled experiments on probe sensitivity, aberration studies
+
+```bash
+# Basic usage - combine amplitude from one probe with phase from another
+python scripts/tools/create_hybrid_probe.py amplitude_source.npz phase_source.npz
+
+# With visualization and custom output
+python scripts/tools/create_hybrid_probe.py \
+    datasets/default_probe.npz \
+    datasets/fly64/fly001_64_train_converted.npz \
+    --output hybrid_probe.npy \
+    --visualize
+
+# With power normalization (preserve total intensity)
+python scripts/tools/create_hybrid_probe.py \
+    ideal_probe.npy \
+    aberrated_probe.npy \
+    --output normalized_hybrid.npy \
+    --normalize \
+    --visualize
+```
+
+**Key features**:
+- Handles probes of different sizes (automatic resizing)
+- Supports .npy and .npz file formats
+- Optional power normalization
+- Visualization of source and hybrid probes
+- Validates output for physical plausibility
+
 ## Common Workflows
 
 ### Experimental Data → Training

@@ -36,11 +36,11 @@ from ptycho.log_config import setup_logging
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Compare PtychoPINN and Baseline models.")
+    parser = argparse.ArgumentParser(description="Evaluate PtychoPINN model performance. Can run single-model evaluation or comparison with baseline model.")
     parser.add_argument("--pinn_dir", type=Path, required=True,
                         help="Directory of the trained PtychoPINN model.")
-    parser.add_argument("--baseline_dir", type=Path, required=True,
-                        help="Directory of the trained baseline model.")
+    parser.add_argument("--baseline_dir", type=Path, default=None,
+                        help="Directory of the trained baseline model (optional for single-model evaluation).")
     parser.add_argument("--test_data", type=Path, required=True,
                         help="Path to the test data NPZ file.")
     parser.add_argument("--output_dir", type=Path, required=True,
@@ -185,14 +185,16 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
                           baseline_phase_vmin=None, baseline_phase_vmax=None,
                           pinn_offset=None, baseline_offset=None,
                           tike_obj=None, tike_phase_vmin=None, tike_phase_vmax=None, tike_offset=None):
-    """Create a 2x3 or 2x4 subplot comparing reconstructions.
+    """Create a dynamic comparison plot based on available models.
     
-    Generates a dynamic comparison plot: 2x3 for two-way comparison (PtychoPINN vs. Baseline)
-    or 2x4 for three-way comparison (PtychoPINN vs. Baseline vs. Tike) when Tike data is provided.
+    Generates a dynamic comparison plot:
+    - 2x2 for single-model evaluation (PtychoPINN vs. Ground Truth)
+    - 2x3 for two-way comparison (PtychoPINN vs. Baseline or PtychoPINN vs. Tike)
+    - 2x4 for three-way comparison (PtychoPINN vs. Baseline vs. Tike)
     
     Args:
         pinn_obj: PtychoPINN reconstruction
-        baseline_obj: Baseline reconstruction  
+        baseline_obj: Baseline reconstruction (optional, can be None)
         ground_truth_obj: Ground truth object (optional)
         output_path: Path to save the plot
         p_min: Lower percentile for color scale (default: 10.0)
@@ -208,13 +210,23 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         tike_phase_vmax: Tike phase vmax (default: auto from percentiles)
         tike_offset: Translation offset detected for Tike (dy, dx)
     """
-    # Dynamic subplot grid: 2x3 for two-way, 2x4 for three-way comparison
-    if tike_obj is not None:
+    # Dynamic subplot grid based on available models
+    if baseline_obj is not None and tike_obj is not None:
+        # Three-way comparison: PtychoPINN vs. Baseline vs. Tike
         fig, axes = plt.subplots(2, 4, figsize=(20, 10), sharex=True, sharey=True)
         fig.suptitle("PtychoPINN vs. Baseline vs. Tike Reconstruction", fontsize=16)
-    else:
+    elif baseline_obj is not None:
+        # Two-way comparison: PtychoPINN vs. Baseline
         fig, axes = plt.subplots(2, 3, figsize=(15, 10), sharex=True, sharey=True)
         fig.suptitle("PtychoPINN vs. Baseline Reconstruction", fontsize=16)
+    elif tike_obj is not None:
+        # Two-way comparison: PtychoPINN vs. Tike
+        fig, axes = plt.subplots(2, 3, figsize=(15, 10), sharex=True, sharey=True)
+        fig.suptitle("PtychoPINN vs. Tike Reconstruction", fontsize=16)
+    else:
+        # Single-model evaluation: PtychoPINN only
+        fig, axes = plt.subplots(2, 2, figsize=(10, 10), sharex=True, sharey=True)
+        fig.suptitle("PtychoPINN Reconstruction", fontsize=16)
 
     # Set titles with offset information
     pinn_title = "PtychoPINN"
@@ -222,20 +234,43 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         pinn_title += f"\n(offset: ({pinn_offset[0]:.2f}, {pinn_offset[1]:.2f}))"
     axes[0, 0].set_title(pinn_title)
     
-    baseline_title = "Baseline"
-    if baseline_offset is not None:
-        baseline_title += f"\n(offset: ({baseline_offset[0]:.2f}, {baseline_offset[1]:.2f}))"
-    axes[0, 1].set_title(baseline_title)
-    
-    # Add Tike title if present
-    if tike_obj is not None:
+    # Determine column positions based on available models
+    if baseline_obj is not None and tike_obj is not None:
+        # Three-way: Baseline in col 1, Tike in col 2, GT in col 3
+        baseline_title = "Baseline"
+        if baseline_offset is not None:
+            baseline_title += f"\n(offset: ({baseline_offset[0]:.2f}, {baseline_offset[1]:.2f}))"
+        axes[0, 1].set_title(baseline_title)
+        
         tike_title = "Tike"
         if tike_offset is not None:
             tike_title += f"\n(offset: ({tike_offset[0]:.2f}, {tike_offset[1]:.2f}))"
         axes[0, 2].set_title(tike_title)
-        axes[0, 3].set_title("Ground Truth")  # Ground Truth moves to column 3
+        
+        gt_col = 3
+        axes[0, gt_col].set_title("Ground Truth")
+    elif baseline_obj is not None:
+        # Two-way with baseline: Baseline in col 1, GT in col 2
+        baseline_title = "Baseline"
+        if baseline_offset is not None:
+            baseline_title += f"\n(offset: ({baseline_offset[0]:.2f}, {baseline_offset[1]:.2f}))"
+        axes[0, 1].set_title(baseline_title)
+        
+        gt_col = 2
+        axes[0, gt_col].set_title("Ground Truth")
+    elif tike_obj is not None:
+        # Two-way with Tike: Tike in col 1, GT in col 2
+        tike_title = "Tike"
+        if tike_offset is not None:
+            tike_title += f"\n(offset: ({tike_offset[0]:.2f}, {tike_offset[1]:.2f}))"
+        axes[0, 1].set_title(tike_title)
+        
+        gt_col = 2
+        axes[0, gt_col].set_title("Ground Truth")
     else:
-        axes[0, 2].set_title("Ground Truth")  # Ground Truth stays in column 2
+        # Single-model: GT in col 1
+        gt_col = 1
+        axes[0, gt_col].set_title("Ground Truth")
     
     # Set row labels
     axes[0, 0].set_ylabel("Phase", fontsize=14)
@@ -248,9 +283,10 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
     pinn_v_amp_min, pinn_v_amp_max = np.percentile(pinn_amps, [p_min, p_max])
     logger.info(f"PtychoPINN amplitude color scale (vmin, vmax) set to: ({pinn_v_amp_min:.3f}, {pinn_v_amp_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
     
-    baseline_amps = np.abs(baseline_obj).ravel()
-    baseline_v_amp_min, baseline_v_amp_max = np.percentile(baseline_amps, [p_min, p_max])
-    logger.info(f"Baseline amplitude color scale (vmin, vmax) set to: ({baseline_v_amp_min:.3f}, {baseline_v_amp_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
+    if baseline_obj is not None:
+        baseline_amps = np.abs(baseline_obj).ravel()
+        baseline_v_amp_min, baseline_v_amp_max = np.percentile(baseline_amps, [p_min, p_max])
+        logger.info(f"Baseline amplitude color scale (vmin, vmax) set to: ({baseline_v_amp_min:.3f}, {baseline_v_amp_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
     
     # Determine phase limits for PtychoPINN
     if pinn_phase_vmin is not None and pinn_phase_vmax is not None:
@@ -262,13 +298,14 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         logger.info(f"PtychoPINN phase color scale (vmin, vmax) set to: ({pinn_v_phase_min:.3f}, {pinn_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
     
     # Determine phase limits for Baseline
-    if baseline_phase_vmin is not None and baseline_phase_vmax is not None:
-        baseline_v_phase_min, baseline_v_phase_max = baseline_phase_vmin, baseline_phase_vmax
-        logger.info(f"Baseline phase color scale (vmin, vmax) set to: ({baseline_v_phase_min:.3f}, {baseline_v_phase_max:.3f}) [manual].")
-    else:
-        baseline_phases = np.angle(baseline_obj).ravel()
-        baseline_v_phase_min, baseline_v_phase_max = np.percentile(baseline_phases, [p_min, p_max])
-        logger.info(f"Baseline phase color scale (vmin, vmax) set to: ({baseline_v_phase_min:.3f}, {baseline_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
+    if baseline_obj is not None:
+        if baseline_phase_vmin is not None and baseline_phase_vmax is not None:
+            baseline_v_phase_min, baseline_v_phase_max = baseline_phase_vmin, baseline_phase_vmax
+            logger.info(f"Baseline phase color scale (vmin, vmax) set to: ({baseline_v_phase_min:.3f}, {baseline_v_phase_max:.3f}) [manual].")
+        else:
+            baseline_phases = np.angle(baseline_obj).ravel()
+            baseline_v_phase_min, baseline_v_phase_max = np.percentile(baseline_phases, [p_min, p_max])
+            logger.info(f"Baseline phase color scale (vmin, vmax) set to: ({baseline_v_phase_min:.3f}, {baseline_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
 
     # Determine color limits for Tike if present
     if tike_obj is not None:
@@ -286,21 +323,35 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
             tike_v_phase_min, tike_v_phase_max = np.percentile(tike_phases, [p_min, p_max])
             logger.info(f"Tike phase color scale (vmin, vmax) set to: ({tike_v_phase_min:.3f}, {tike_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
 
-    # Plot PtychoPINN
-    im1 = axes[0, 0].imshow(np.angle(pinn_obj), vmin=pinn_v_phase_min, vmax=pinn_v_phase_max)
-    im2 = axes[1, 0].imshow(np.abs(pinn_obj), cmap='gray', vmin=pinn_v_amp_min, vmax=pinn_v_amp_max)
+    # Plot PtychoPINN (always in column 0)
+    im_pinn_phase = axes[0, 0].imshow(np.angle(pinn_obj), vmin=pinn_v_phase_min, vmax=pinn_v_phase_max)
+    im_pinn_amp = axes[1, 0].imshow(np.abs(pinn_obj), cmap='gray', vmin=pinn_v_amp_min, vmax=pinn_v_amp_max)
     
-    # Plot Baseline
-    im3 = axes[0, 1].imshow(np.angle(baseline_obj), vmin=baseline_v_phase_min, vmax=baseline_v_phase_max)
-    im4 = axes[1, 1].imshow(np.abs(baseline_obj), cmap='gray', vmin=baseline_v_amp_min, vmax=baseline_v_amp_max)
+    # Track images for colorbars
+    phase_images = [(im_pinn_phase, axes[0, 0])]
+    amp_images = [(im_pinn_amp, axes[1, 0])]
+    
+    # Plot additional models based on what's available
+    col_idx = 1
+    
+    # Plot Baseline if present
+    if baseline_obj is not None:
+        im_baseline_phase = axes[0, col_idx].imshow(np.angle(baseline_obj), vmin=baseline_v_phase_min, vmax=baseline_v_phase_max)
+        im_baseline_amp = axes[1, col_idx].imshow(np.abs(baseline_obj), cmap='gray', vmin=baseline_v_amp_min, vmax=baseline_v_amp_max)
+        phase_images.append((im_baseline_phase, axes[0, col_idx]))
+        amp_images.append((im_baseline_amp, axes[1, col_idx]))
+        col_idx += 1
     
     # Plot Tike if present
     if tike_obj is not None:
-        im5 = axes[0, 2].imshow(np.angle(tike_obj), vmin=tike_v_phase_min, vmax=tike_v_phase_max)
-        im6 = axes[1, 2].imshow(np.abs(tike_obj), cmap='gray', vmin=tike_v_amp_min, vmax=tike_v_amp_max)
-        gt_col = 3  # Ground truth is in column 3 when Tike is present
-    else:
-        gt_col = 2  # Ground truth is in column 2 when no Tike
+        im_tike_phase = axes[0, col_idx].imshow(np.angle(tike_obj), vmin=tike_v_phase_min, vmax=tike_v_phase_max)
+        im_tike_amp = axes[1, col_idx].imshow(np.abs(tike_obj), cmap='gray', vmin=tike_v_amp_min, vmax=tike_v_amp_max)
+        phase_images.append((im_tike_phase, axes[0, col_idx]))
+        amp_images.append((im_tike_amp, axes[1, col_idx]))
+        col_idx += 1
+    
+    # Ground truth column is always the last column
+    gt_col = col_idx
     
     # Plot Ground Truth (use its own phase and amplitude scales when auto-scaling)
     if ground_truth_obj is not None:
@@ -319,6 +370,8 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         
         im_gt_phase = axes[0, gt_col].imshow(np.angle(gt_obj), vmin=gt_v_phase_min, vmax=gt_v_phase_max)
         im_gt_amp = axes[1, gt_col].imshow(np.abs(gt_obj), cmap='gray', vmin=gt_v_amp_min, vmax=gt_v_amp_max)
+        phase_images.append((im_gt_phase, axes[0, gt_col]))
+        amp_images.append((im_gt_amp, axes[1, gt_col]))
     else:
         for ax in [axes[0, gt_col], axes[1, gt_col]]:
             ax.text(0.5, 0.5, "No Ground Truth", ha='center', va='center', 
@@ -331,26 +384,14 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         ax.set_yticks([])
 
     # Add individual colorbars for phase plots (top row)
-    cbar_pinn_phase = plt.colorbar(im1, ax=axes[0, 0], fraction=0.046, pad=0.04)
-    cbar_pinn_phase.set_label('Phase (rad)', rotation=270, labelpad=15)
-    
-    cbar_baseline_phase = plt.colorbar(im3, ax=axes[0, 1], fraction=0.046, pad=0.04)
-    cbar_baseline_phase.set_label('Phase (rad)', rotation=270, labelpad=15)
-    
-    if ground_truth_obj is not None:
-        cbar_gt_phase = plt.colorbar(im_gt_phase, ax=axes[0, gt_col], fraction=0.046, pad=0.04)
-        cbar_gt_phase.set_label('Phase (rad)', rotation=270, labelpad=15)
+    for im, ax in phase_images:
+        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.set_label('Phase (rad)', rotation=270, labelpad=15)
     
     # Add individual colorbars for amplitude plots (bottom row)
-    cbar_pinn_amp = plt.colorbar(im2, ax=axes[1, 0], fraction=0.046, pad=0.04)
-    cbar_pinn_amp.set_label('Amplitude', rotation=270, labelpad=15)
-    
-    cbar_baseline_amp = plt.colorbar(im4, ax=axes[1, 1], fraction=0.046, pad=0.04)
-    cbar_baseline_amp.set_label('Amplitude', rotation=270, labelpad=15)
-    
-    if ground_truth_obj is not None:
-        cbar_gt_amp = plt.colorbar(im_gt_amp, ax=axes[1, gt_col], fraction=0.046, pad=0.04)
-        cbar_gt_amp.set_label('Amplitude', rotation=270, labelpad=15)
+    for im, ax in amp_images:
+        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.set_label('Amplitude', rotation=270, labelpad=15)
 
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -392,12 +433,12 @@ def save_frc_curves(frc_tuple, output_path, model_name):
 def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=None, baseline_offset=None, tike_metrics=None, tike_offset=None, pinn_time=None, baseline_time=None, tike_time=None):
     """Save metrics to a CSV file in a tidy format.
     
-    Supports 2-way (PtychoPINN vs Baseline) or 3-way comparison (includes Tike)
-    when tike_metrics is provided. Includes computation times and registration offsets.
+    Supports single-model evaluation (PtychoPINN only), 2-way comparison (PtychoPINN vs Baseline),
+    or 3-way comparison (includes Tike). Includes computation times and registration offsets.
     
     Args:
         pinn_metrics: PtychoPINN model metrics dictionary
-        baseline_metrics: Baseline model metrics dictionary  
+        baseline_metrics: Baseline model metrics dictionary (can be None for single-model evaluation)
         output_path: Path to save CSV file
         pinn_offset: PtychoPINN registration offset (dy, dx)
         baseline_offset: Baseline registration offset (dy, dx)  
@@ -503,7 +544,10 @@ def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=No
     logger.info(f"Metrics saved to {output_path}")
     
     # Print summary
-    print("\n--- Comparison Metrics ---")
+    if baseline_metrics is not None:
+        print("\n--- Comparison Metrics ---")
+    else:
+        print("\n--- Evaluation Metrics ---")
     print(df.to_string(index=False))
 
 
@@ -757,17 +801,29 @@ def main():
 
     # Load models
     pinn_model = load_pinn_model(args.pinn_dir)
-    baseline_model = load_baseline_model(args.baseline_dir)
+    
+    # Load baseline model if provided
+    if args.baseline_dir:
+        baseline_model = load_baseline_model(args.baseline_dir)
+    else:
+        baseline_model = None
+        logger.info("No baseline model provided, running single-model evaluation")
 
     # Load Tike reconstruction if provided
     if args.tike_recon_path:
         tike_recon, tike_computation_time = load_tike_reconstruction(args.tike_recon_path)
-        logger.info("Tike reconstruction loaded for three-way comparison")
+        if args.baseline_dir:
+            logger.info("Tike reconstruction loaded for three-way comparison")
+        else:
+            logger.info("Tike reconstruction loaded for two-way comparison (PtychoPINN vs. Tike)")
         if tike_computation_time is not None:
             logger.info(f"Tike computation time: {tike_computation_time:.2f}s")
     else:
         tike_recon, tike_computation_time = None, None
-        logger.info("Running two-way comparison (PtychoPINN vs. Baseline)")
+        if args.baseline_dir:
+            logger.info("Running two-way comparison (PtychoPINN vs. Baseline)")
+        else:
+            logger.info("Running single-model evaluation (PtychoPINN only)")
 
     # Run inference for PtychoPINN
     logger.info("Running inference with PtychoPINN...")
@@ -786,28 +842,32 @@ def main():
     logger.info("Reassembling PtychoPINN patches...")
     pinn_recon = reassemble_position(pinn_patches, test_container.global_offsets, M=args.stitch_crop_size)
 
-    # Run inference for Baseline
-    logger.info("Running inference with Baseline model...")
-    # Baseline model outputs amplitude and phase separately
-    baseline_start = time.time()
-    baseline_output = baseline_model.predict(test_container.X, batch_size=32, verbose=1)
-    baseline_inference_time = time.time() - baseline_start
-    logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
-    
-    # Handle different output formats
-    if isinstance(baseline_output, list) and len(baseline_output) == 2:
-        baseline_patches_I, baseline_patches_phi = baseline_output
+    # Run inference for Baseline if provided
+    if baseline_model is not None:
+        logger.info("Running inference with Baseline model...")
+        # Baseline model outputs amplitude and phase separately
+        baseline_start = time.time()
+        baseline_output = baseline_model.predict(test_container.X, batch_size=32, verbose=1)
+        baseline_inference_time = time.time() - baseline_start
+        logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
+        
+        # Handle different output formats
+        if isinstance(baseline_output, list) and len(baseline_output) == 2:
+            baseline_patches_I, baseline_patches_phi = baseline_output
+        else:
+            # Some baseline models might output a single array
+            raise ValueError("Unexpected baseline model output format")
+        
+        # Convert to complex representation
+        baseline_patches_complex = tf.cast(baseline_patches_I, tf.complex64) * \
+                                   tf.exp(1j * tf.cast(baseline_patches_phi, tf.complex64))
+        
+        # Reassemble patches
+        logger.info("Reassembling baseline patches...")
+        baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
     else:
-        # Some baseline models might output a single array
-        raise ValueError("Unexpected baseline model output format")
-    
-    # Convert to complex representation
-    baseline_patches_complex = tf.cast(baseline_patches_I, tf.complex64) * \
-                               tf.exp(1j * tf.cast(baseline_patches_phi, tf.complex64))
-    
-    # Reassemble patches
-    logger.info("Reassembling baseline patches...")
-    baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
+        baseline_recon = None
+        baseline_inference_time = None
 
     # Save NPZ files of reconstructions (before any alignment/registration) if requested
     if args.save_npz:
@@ -852,12 +912,16 @@ def main():
             stitch_patch_size=M_STITCH_SIZE
         )
         
-        baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation(
-            reconstruction_image=baseline_recon,
-            ground_truth_image=ground_truth_obj,
-            scan_coords_yx=scan_coords_yx,
-            stitch_patch_size=M_STITCH_SIZE
-        )
+        if baseline_recon is not None:
+            baseline_recon_cropped, gt_cropped_for_baseline = align_for_evaluation(
+                reconstruction_image=baseline_recon,
+                ground_truth_image=ground_truth_obj,
+                scan_coords_yx=scan_coords_yx,
+                stitch_patch_size=M_STITCH_SIZE
+            )
+        else:
+            baseline_recon_cropped = None
+            gt_cropped_for_baseline = None
         
         # Crop Tike reconstruction if available
         if tike_recon is not None:
@@ -885,12 +949,16 @@ def main():
                     pinn_recon_cropped, cropped_gt, pinn_offset, border_crop=2
                 )
                 
-                # Register Baseline reconstruction against ground truth
-                baseline_offset = find_translation_offset(baseline_recon_cropped, cropped_gt, upsample_factor=50)
-                logger.info(f"Baseline detected offset: ({baseline_offset[0]:.3f}, {baseline_offset[1]:.3f})")
-                baseline_recon_aligned, gt_aligned_for_baseline = apply_shift_and_crop(
-                    baseline_recon_cropped, cropped_gt, baseline_offset, border_crop=2
-                )
+                # Register Baseline reconstruction against ground truth if available
+                if baseline_recon_cropped is not None:
+                    baseline_offset = find_translation_offset(baseline_recon_cropped, cropped_gt, upsample_factor=50)
+                    logger.info(f"Baseline detected offset: ({baseline_offset[0]:.3f}, {baseline_offset[1]:.3f})")
+                    baseline_recon_aligned, gt_aligned_for_baseline = apply_shift_and_crop(
+                        baseline_recon_cropped, cropped_gt, baseline_offset, border_crop=2
+                    )
+                else:
+                    baseline_recon_aligned = None
+                    baseline_offset = None
                 
                 # Register Tike reconstruction against ground truth if available
                 if tike_recon_cropped is not None:
@@ -907,12 +975,18 @@ def main():
                 cropped_gt = gt_aligned_for_pinn
                 
                 # Log registration results
-                if tike_recon_aligned is not None:
+                if baseline_recon_aligned is not None and tike_recon_aligned is not None:
                     logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}, Baseline offset: {baseline_offset}, Tike offset: {tike_offset}")
                     logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, Baseline: {baseline_recon_aligned.shape}, Tike: {tike_recon_aligned.shape}, GT: {cropped_gt.shape}")
-                else:
+                elif baseline_recon_aligned is not None:
                     logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}, Baseline offset: {baseline_offset}")
                     logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, Baseline: {baseline_recon_aligned.shape}, GT: {cropped_gt.shape}")
+                elif tike_recon_aligned is not None:
+                    logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}, Tike offset: {tike_offset}")
+                    logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, Tike: {tike_recon_aligned.shape}, GT: {cropped_gt.shape}")
+                else:
+                    logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}")
+                    logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, GT: {cropped_gt.shape}")
                 
             except Exception as e:
                 logger.warning(f"Registration failed: {e}. Continuing with coordinate-aligned images.")
@@ -929,10 +1003,14 @@ def main():
             pinn_offset = baseline_offset = tike_offset = None
             # cropped_gt already set above
         
-        if tike_recon_aligned is not None:
+        if baseline_recon_aligned is not None and tike_recon_aligned is not None:
             logger.info(f"Final evaluation shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}, Tike {tike_recon_aligned.shape}, GT {cropped_gt.shape}")
-        else:
+        elif baseline_recon_aligned is not None:
             logger.info(f"Final evaluation shapes: PINN {pinn_recon_aligned.shape}, Baseline {baseline_recon_aligned.shape}, GT {cropped_gt.shape}")
+        elif tike_recon_aligned is not None:
+            logger.info(f"Final evaluation shapes: PINN {pinn_recon_aligned.shape}, Tike {tike_recon_aligned.shape}, GT {cropped_gt.shape}")
+        else:
+            logger.info(f"Final evaluation shapes: PINN {pinn_recon_aligned.shape}, GT {cropped_gt.shape}")
         
         # Evaluate with aligned arrays (add back dimensions for eval function)
         # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
@@ -957,26 +1035,29 @@ def main():
                 'frc50': (np.nan, np.nan), 'frc': (None, None)
             }
         
-        try:
-            baseline_metrics = eval_reconstruction(
-                baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
-                cropped_gt[..., None],                     # (H, W, 1) - no batch dimension!
-                label="Baseline",
-                phase_align_method=args.phase_align_method,
-                frc_sigma=args.frc_sigma,
-                debug_save_images=args.save_debug_images,
-                ms_ssim_sigma=args.ms_ssim_sigma
-            )
-            logger.info(f"Baseline evaluation complete. SSIM: amp={baseline_metrics['ssim'][0]:.3f}, phase={baseline_metrics['ssim'][1]:.3f}, MS-SSIM: amp={baseline_metrics['ms_ssim'][0]:.3f}, phase={baseline_metrics['ms_ssim'][1]:.3f}")
-        except Exception as e:
-            logger.error(f"Baseline evaluation failed: {e}")
-            # Create dummy metrics with NaN values to allow comparison to continue
-            baseline_metrics = {
-                'mae': (np.nan, np.nan), 'mse': (np.nan, np.nan), 
-                'psnr': (np.nan, np.nan), 'ssim': (np.nan, np.nan),
-                'ms_ssim': (np.nan, np.nan),
-                'frc50': (np.nan, np.nan), 'frc': (None, None)
-            }
+        if baseline_recon_aligned is not None:
+            try:
+                baseline_metrics = eval_reconstruction(
+                    baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
+                    cropped_gt[..., None],                     # (H, W, 1) - no batch dimension!
+                    label="Baseline",
+                    phase_align_method=args.phase_align_method,
+                    frc_sigma=args.frc_sigma,
+                    debug_save_images=args.save_debug_images,
+                    ms_ssim_sigma=args.ms_ssim_sigma
+                )
+                logger.info(f"Baseline evaluation complete. SSIM: amp={baseline_metrics['ssim'][0]:.3f}, phase={baseline_metrics['ssim'][1]:.3f}, MS-SSIM: amp={baseline_metrics['ms_ssim'][0]:.3f}, phase={baseline_metrics['ms_ssim'][1]:.3f}")
+            except Exception as e:
+                logger.error(f"Baseline evaluation failed: {e}")
+                # Create dummy metrics with NaN values to allow comparison to continue
+                baseline_metrics = {
+                    'mae': (np.nan, np.nan), 'mse': (np.nan, np.nan), 
+                    'psnr': (np.nan, np.nan), 'ssim': (np.nan, np.nan),
+                    'ms_ssim': (np.nan, np.nan),
+                    'frc50': (np.nan, np.nan), 'frc': (None, None)
+                }
+        else:
+            baseline_metrics = None
         
         # Evaluate Tike reconstruction if available
         if tike_recon_aligned is not None:
@@ -1012,7 +1093,7 @@ def main():
             pinn_frc_path = args.output_dir / "pinn_frc_curves.csv"
             save_frc_curves(pinn_metrics['frc'], pinn_frc_path, "PtychoPINN")
         
-        if baseline_metrics['frc'][0] is not None:
+        if baseline_metrics is not None and baseline_metrics['frc'][0] is not None:
             baseline_frc_path = args.output_dir / "baseline_frc_curves.csv"
             save_frc_curves(baseline_metrics['frc'], baseline_frc_path, "Baseline")
         
@@ -1030,7 +1111,7 @@ def main():
         logger.warning("No ground truth object found in test data. Skipping metric evaluation.")
         cropped_gt = None
         pinn_recon_aligned = np.squeeze(pinn_recon)
-        baseline_recon_aligned = np.squeeze(baseline_recon)
+        baseline_recon_aligned = np.squeeze(baseline_recon) if baseline_recon is not None else None
         
         # For cases without ground truth, we can still save aligned reconstructions if registration was performed
         if args.save_npz_aligned and not args.skip_registration:
