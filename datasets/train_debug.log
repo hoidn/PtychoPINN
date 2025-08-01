@@ -1,0 +1,11 @@
+2025-07-27 23:55:37,946 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-07-27 23:55:38,127 - DEBUG - Creating converter from 7 to 5
+2025-07-27 23:55:38,127 - DEBUG - Creating converter from 5 to 7
+2025-07-27 23:55:38,127 - DEBUG - Creating converter from 7 to 5
+2025-07-27 23:55:38,127 - DEBUG - Creating converter from 5 to 7
+2025-07-27 23:55:38,750 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho312/lib/python3.12/site-packages/matplotlib/mpl-data
+2025-07-27 23:55:38,754 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-07-27 23:55:38,755 - DEBUG - interactive is False
+2025-07-27 23:55:38,755 - DEBUG - platform is linux
+2025-07-27 23:55:38,791 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-07-27 23:55:38,793 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json

@@ -1,0 +1,45 @@
+"""
+probe_trainable: bool = False
+    Optimizes the probe function during training. Experimental feature.
+
+intensity_scale_trainable: bool = True
+    Optimize the model's internal amplitude scaling factor during training. Typically 
+    left True.
+
+object_big: bool = True
+    Enables a separate real-space reconstruction for each input
+    diffraction image and an averaging / overlap constraint step. If
+    False, no explicit averaging is performed and the decoders return a
+    single real space image instead of `gridsize**2` images. Typically
+    left True.
+
+probe_mask: bool = False
+    Whether to apply circular mask to the probe function. If toggling
+    this changes the reconstruction, it's likely that there are edge /
+    real space truncation artifacts. Should be used with pad_object =
+    False.
+
+pad_object: bool = True
+    Whether to reconstruct the full real space grid (False) or restrict
+    to N/2 x N/2 (True). True strictly enforces the necessary reciprocal
+    space oversampling, but may cause truncation issues for probe
+    amplitudes with long tails. This truncation can be mitigated by
+    setting probe_big, which uses a small number of CNN filters to
+    generate a low-resolution reconstruction of the outer region.
+    Typically left True.
+
+probe_big: bool = True
+    if True, enables a low-resolution reconstruction of the outer
+    region of the NxN real-space grid. This technically violates the
+    zero-padding / oversampling condition, but may be needed if the
+    probe illumination has wide tails. Has no effect unless pad_object
+    is True.
+
+probe_scale: float = 4.0
+    Scaling factor for the probe amplitude. 
+
+gaussian_smoothing_sigma: float = 0.0
+    Standard deviation for Gaussian smoothing of probe illumination.
+    Increase from 0 to reduce noise / artifacts at cost of resolution.
+    Beware that abusing this can cause convergence issues.
+"""

@@ -35,6 +35,13 @@ python scripts/simulation/simulate_and_save.py \
     --output-file output.npz \
     --n-images 1000 \
     --visualize
+
+# With external probe (new feature)
+python scripts/simulation/simulate_and_save.py \
+    --input-file input.npz \
+    --output-file output.npz \
+    --probe-file external_probe.npy \
+    --n-images 1000
 ```
 
 ## Two-Stage Architecture
@@ -108,6 +115,27 @@ np.savez('custom_input.npz',
 ```
 
 ## Advanced Workflows
+
+### Decoupled Probe Simulation
+```bash
+# Use external probe for controlled studies
+python scripts/simulation/simulate_and_save.py \
+    --input-file object_data.npz \
+    --output-file sim_with_custom_probe.npz \
+    --probe-file experimental_probe.npz \
+    --n-images 2000
+
+# Combine with hybrid probe tool
+python scripts/tools/create_hybrid_probe.py \
+    amplitude_source.npy phase_source.npy \
+    --output hybrid.npy
+
+python scripts/simulation/simulate_and_save.py \
+    --input-file object_data.npz \
+    --output-file sim_with_hybrid.npz \
+    --probe-file hybrid.npy \
+    --n-images 2000
+```
 
 ### Noise-Free Simulation
 ```bash

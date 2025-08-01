@@ -1,0 +1,189 @@
+2025-07-31 18:40:23.307357: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1754012423.318330   86538 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1754012423.321625   86538 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1754012423.331606   86538 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754012423.331617   86538 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754012423.331620   86538 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754012423.331621   86538 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-07-31 18:40:23.334396: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1754012426.110804   86538 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1754012426.112049   86538 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 11780 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1754012426.653271   86538 service.cc:152] XLA service 0x30643dc0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1754012426.653301   86538 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-07-31 18:40:26.671117: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1754012426.688295   86538 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1754012426.823691   86538 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-07-31 18:41:37.709505: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 671088640 exceeds 10% of free system memory.
+2025-07-31 18:41:38.946348: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 671088640 exceeds 10% of free system memory.
+An unexpected error occurred: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/diffsim.py", line 81, in diffract_obj  *
+        amplitude = hh.pad_and_diffract(sample, N, N, pad=False)[1]
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 347, in pad_and_diffract  *
+        input = tf.ensure_shape(input, (None, h, w, 1))
+
+    ValueError: Dimension 3 in both shapes must be equal, but are 1 and 4. Shapes are [?,64,64,1] and [?,64,64,4]. for '{{node EnsureShape}} = EnsureShape[T=DT_COMPLEX64, shape=[?,64,64,1]](args_0)' with input shapes: [?,64,64,4].
+
+--- Configuration Updated for Simulation ---
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_images: 512
+nepochs: 50
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: training_outputs
+pad_object: True
+positions.provided: True
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+test_data_file_path: dummy.npz
+train_data_file_path: dummy.npz
+tv_weight: 0.0
+use_xla_translate: True
+------------------------------------------
+
+Loading object and probe from: datasets/fly/fly001_transposed.npz
+  - Object shape: (232, 232)
+  - Probe shape: (64, 64)
+
+Overriding probe with external file: probe_study_phase3_test_QUICK_TEST/default_probe.npy
+  - External probe shape: (64, 64)
+Setting random seed to: 42
+Simulating 512 diffraction patterns...
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 2 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 2 in params
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 318, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 314, in main
+    raise e
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 299, in main
+    simulate_and_save(
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 102, in simulate_and_save
+    raw_data_instance, ground_truth_patches = generate_simulated_data(
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/nongrid_simulation.py", line 193, in generate_simulated_data
+    raw_data = _generate_simulated_data_legacy_params(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/nongrid_simulation.py", line 176, in _generate_simulated_data_legacy_params
+    raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/raw_data.py", line 202, in from_simulation
+    X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/diffsim.py", line 119, in illuminate_and_diffract
+    .map(diffract_obj)
+     ^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/data/ops/dataset_ops.py", line 2341, in map
+    return map_op._map_v2(
+           ^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/data/ops/map_op.py", line 43, in _map_v2
+    return _MapDataset(
+           ^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/data/ops/map_op.py", line 157, in __init__
+    self._map_func = structured_function.StructuredFunctionWrapper(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/data/ops/structured_function.py", line 265, in __init__
+    self._function = fn_factory()
+                     ^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/polymorphic_function.py", line 1256, in get_concrete_function
+    concrete = self._get_concrete_function_garbage_collected(*args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/polymorphic_function.py", line 1226, in _get_concrete_function_garbage_collected
+    self._initialize(args, kwargs, add_initializers_to=initializers)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/polymorphic_function.py", line 696, in _initialize
+    self._concrete_variable_creation_fn = tracing_compilation.trace_function(
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/tracing_compilation.py", line 178, in trace_function
+    concrete_function = _maybe_define_function(
+                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/tracing_compilation.py", line 283, in _maybe_define_function
+    concrete_function = _create_concrete_function(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/tracing_compilation.py", line 310, in _create_concrete_function
+    traced_func_graph = func_graph_module.func_graph_from_py_func(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/func_graph.py", line 1060, in func_graph_from_py_func
+    func_outputs = python_func(*func_args, **func_kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/polymorphic_function.py", line 599, in wrapped_fn
+    out = weak_wrapped_fn().__wrapped__(*args, **kwds)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/data/ops/structured_function.py", line 231, in wrapped_fn
+    ret = wrapper_helper(*args)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/data/ops/structured_function.py", line 161, in wrapper_helper
+    ret = autograph.tf_convert(self._func, ag_ctx)(*nested_args)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/autograph/impl/api.py", line 693, in wrapper
+    raise e.ag_error_metadata.to_exception(e)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/autograph/impl/api.py", line 690, in wrapper
+    return converted_call(f, args, kwargs, options=options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/autograph/impl/api.py", line 439, in converted_call
+    result = converted_f(*effective_args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/__autograph_generated_file_biszwhk.py", line 11, in tf__diffract_obj
+    amplitude = ag__.converted_call(ag__.ld(hh).pad_and_diffract, (ag__.ld(sample), ag__.ld(N), ag__.ld(N)), dict(pad=False), fscope)[1]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/autograph/impl/api.py", line 439, in converted_call
+    result = converted_f(*effective_args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/__autograph_generated_filehvjpcmkm.py", line 16, in tf__pad_and_diffract
+    input = ag__.converted_call(ag__.ld(tf).ensure_shape, (ag__.ld(input), (None, ag__.ld(h), ag__.ld(w), 1)), None, fscope)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/autograph/impl/api.py", line 377, in converted_call
+    return _call_unconverted(f, args, kwargs, options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/autograph/impl/api.py", line 460, in _call_unconverted
+    return f(*args)
+           ^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 1060, in _create_c_op
+    raise ValueError(e.message)
+ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/diffsim.py", line 81, in diffract_obj  *
+        amplitude = hh.pad_and_diffract(sample, N, N, pad=False)[1]
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 347, in pad_and_diffract  *
+        input = tf.ensure_shape(input, (None, h, w, 1))
+
+    ValueError: Dimension 3 in both shapes must be equal, but are 1 and 4. Shapes are [?,64,64,1] and [?,64,64,4]. for '{{node EnsureShape}} = EnsureShape[T=DT_COMPLEX64, shape=[?,64,64,1]](args_0)' with input shapes: [?,64,64,4].
+

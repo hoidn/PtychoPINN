@@ -1,0 +1,2650 @@
+    1  ls .ssh
+    2  ls
+    3  cd
+    4  cd Documents/
+    5  cd
+    6  git clone git@github.com:hoidn/dotfiles.git
+    7  cd dotfiles/
+    8  ls
+    9  cd ..
+   10  cd dotfiles/
+   11  ls
+   12  ls -lt 
+   13  vi basictools.sh 
+   14  bash nvinstall.sh 
+   15  cd 
+   16  cd Downloads/
+   17  wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+   18  ls
+   19  bash Miniconda3-latest-Linux-x86_64.sh 
+   20  exec bash
+   21  ls
+   22  which pip
+   23  ls
+   24  cd
+   25  cd dotfiles
+   26  ls
+   27  bash nvinstall.sh 
+   28  git branch -=v
+   29  git branch -v
+   30  git checkout ubuntu
+   31  git stash
+   32  git checkout ubuntu
+   33  git pull
+   34  cd Documents/
+   35  ls
+   36  git@github.com:hoidn/PtychoPINN.git
+   37  git clone git@github.com:hoidn/PtychoPINN.git
+   38  sudo apt install git
+   39  git clone git@github.com:hoidn/PtychoPINN.git
+   40  ls ~/.ssh
+   41  ssh-keygen  -t rsa -b 4096 
+   42  cat ~/.ssh/id_rsa.pub 
+   43  git clone git@github.com:hoidn/PtychoPINN.git
+   44  cd
+   45  cd dotfiles/
+   46  bash copyconfig.sh 
+   47  exec bash
+   48  which pip
+   49  pip
+   50  cd
+   51  cd Downloads/
+   52  bash Miniconda3-latest-Linux-x86_64.sh 
+   53  bash Miniconda3-latest-Linux-x86_64.sh -u
+   54  exec bash
+   55  which pip
+   56  pip
+   57  ls
+   58  which pip
+   59  rm -r miniconda3/
+   60  which pip
+   61  cd
+   62  cd Downloads/
+   63  bash nvinstall.sh 
+   64  cat basictools.sh 
+   65  bash Miniconda3-latest-Linux-x86_64.sh 
+   66  which pip
+   67  bash basictools.sh 
+   68  exec bash
+   69  which pip
+   70  bash nvinstall.sh 
+   71  sudo apt install make
+   72  source nvinstall.sh 
+   73  exec bash
+   74  vi ~/.bash_profile 
+   75  vi ~/.bashrc 
+   76  exec bash
+   77  vi ~/.bashrc 
+   78  ls
+   79  cd dotfiles
+   80  ls
+   81  git diff
+   82  git reset --hard
+   83  cd
+   84  cd Downloads/
+   85  ls
+   86  bash Miniconda3-latest-Linux-x86_64.sh 
+   87  bash Miniconda3-latest-Linux-x86_64.sh -u
+   88  ls
+   89  pwd
+   90  bash Miniconda3-latest-Linux-x86_64.sh -u
+   91  exec bash
+   92  cd
+   93  cd dotfiles
+   94  ls
+   95  git diff
+   96  vi ~/.bashrc 
+   97  exec bash 
+   98  vi ~/.bashrc 
+   99  vi ~/.bashrc
+  100  ls
+  101  pwd
+  102  vi
+  103  cd dotfiles
+  104  ls
+  105  vi ~/.bashrc
+  106  exec bash
+  107  which pip
+  108  source nvinstall.sh 
+  109  ls
+  110  pwd
+  111  cd dotfiles
+  112  ls
+  113  cat basictools.sh 
+  114  souce basictools.sh 
+  115  source basictools.sh 
+  116  source nvinstall.sh 
+  117  cd dotfiles
+  118  cat install.sh 
+  119  ls nvim
+  120  ls nvim/lua
+  121  git submodule init --recursive
+  122  git submodule update --init --recursive
+  123  ls nvim/
+  124  git grep git
+  125  git grep update
+  126  vi basictools.sh 
+  127  ls vim
+  128  git submodule update --init --recursive
+  129  ls
+  130  ls neovim/
+  131  ls nvim
+  132  git submodule init
+  133  git submodule update --init --recursive
+  134  ls nvim
+  135  tree nvim
+  136  ls nvim
+  137  cat .gitmodules 
+  138  git submodule init
+  139  git submodule update --init --recursive
+  140  ls neovim
+  141  git branch -v
+  142  vi .gitmodules 
+  143  git submodule init
+  144  vi .gitmodules 
+  145  git submodule init
+  146  vi .gitmodules 
+  147  git submodule init
+  148  vi .gitmodules 
+  149  git submodule sync --recursive
+  150  git submodule init
+  151  cat .gitmodules 
+  152  vi .gitmodules 
+  153  git submodule sync --recursive
+  154  git submodule init
+  155  ls
+  156  cd dotfiles
+  157  ls
+  158  git diff
+  159  git add -u
+  160  git commit -m "fix submodules and update bashrc for miniconda"
+  161  git config --global user.email "ohoidn"
+  162  git add -u
+  163  git commit -m "fix submodules and update bashrc for miniconda"
+  164  git push
+  165  git branch -v
+  166  git submodule update --init --recursive
+  167  ls
+  168  source nvinstall.sh 
+  169  cd dotfiles
+  170  cat basictools.sh 
+  171  cat install.sh 
+  172  git grep cmake
+  173  bash install.sh 
+  174  source nvinstall.sh 
+  175  sudo apt install gettext
+  176  source nvinstall.sh 
+  177  cd dotfiles
+  178  vi nvinstall.sh 
+  179  source nvinstall.sh 
+  180  brew install curl
+  181  neovim
+  182  nvim
+  183  cd ..
+  184  ls
+  185  cat viminstall.sh 
+  186  cd dotfiles
+  187  ls
+  188  sudo apt install neovim
+  189  nvim
+  190  which nvim
+  191  cat nvinstall.sh 
+  192  vi nvinstall.sh 
+  193  bash nvinstall.sh 
+  194  vi nvinstall.sh 
+  195  sudo apt install curl
+  196  exec bash
+  197  nvim
+  198  ls
+  199  vi nvinstall.sh 
+  200  ls .config/nvim/
+  201  vi nvinstall.sh 
+  202  ls ~/.config
+  203  ls ~/.config/nvim
+  204  which nvim
+  205  nvim\
+  206  nvim
+  207  ls ~/.config/nvim
+  208  bash nvinstall.sh 
+  209  nvim
+  210  cat fzf.sh 
+  211  bash fzf.sh 
+  212  which fzf
+  213  nvim
+  214  fzf
+  215  nvim
+  216  sudo apt install fzf
+  217  sudo apt install fzy
+  218  nvvim
+  219  nvim
+  220  bash nvi
+  221  bash nvinstall.sh 
+  222  vi nvinstall.sh 
+  223  bash nvinstall.sh 
+  224  nvim
+  225  ls neovim/build/
+  226  ls neovim/build/bin/
+  227  ls neovim/build/bin/nvim 
+  228  which nvim,
+  229  which neovim
+  230  ls ~/bin
+  231  sudo apt remove neovim
+  232  nvim
+  233  ls /usr/bin/ | grep vim
+  234  cp neovim/build/bin/nvim ~/bin/
+  235  which nvim
+  236  nvim
+  237  cd neovim/
+  238  ls
+  239  git pull
+  240  git pull origin main
+  241  git pull origin master
+  242  cd ..
+  243  htop
+  244  sudo apt install htop
+  245  bash nvinstall.sh 
+  246  cd dotfiles
+  247  git pushj
+  248  git push
+  249  nvim
+  250  cp neovim/build/bin/nvim ~/bin/
+  251  ls neovim/
+  252  ls neovim/build
+  253  tree neovim/ | grep bin
+  254  tree neovim/ | grep neovim
+  255  sudo apt install tree
+  256  tree neovim/ | grep neovim
+  257  tree neovim/ | grep nvim
+  258  tree neovim/ | grep neovim
+  259  vi nvinstall.sh 
+  260  ls ~/.local/
+  261  ls ~/.local/bin/
+  262  rm ~/bin/nvim 
+  263  which nvim
+  264  nvim
+  265  cd neovim/
+  266  ls
+  267  git log
+  268  cd ..
+  269  vi nvinstall.sh 
+  270  cd nvim/
+  271  ls
+  272  cd ..
+  273  cd neovim/
+  274  make clean
+  275  cd ..
+  276  rm ~/.local/bin/
+  277  rm ~/.local/bin/nvim 
+  278  bash nvinstall.sh 
+  279  cd neovim
+  280  make distclean
+  281  cd ..
+  282  bash nvinstall.sh 
+  283  nvim
+  284  ls
+  285  c Pt
+  286  cd
+  287  cd Documents/
+  288  ls
+  289  cd PtychoPINN/
+  290  vi README.md 
+  291  conda create -n ptycho --python
+  292  vi README.md 
+  293  conda create -n ptycho --python=3.10
+  294  vi README.md 
+  295  conda create -n ptycho python=3.10
+  296  conda activate ptycho
+  297  ls
+  298  pip install .
+  299  tmux
+  300  sudo apt install tmux
+  301  cd ..
+  302  conda activate ptycho
+  303  tmux new -s jupyter
+  304  jupyter notebook list
+  305  c Pt
+  306  ls
+  307  ls datasets/
+  308  ls
+  309  python scripts/training/train.py --train_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --test_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz 
+  310  cat pyproject.toml 
+  311  pip install tensorflow[and-cuda]
+  312  nvidia-smi
+  313  pip install tensorflow
+  314  python scripts/training/train.py --train_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --test_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz 
+  315  echo $LD_LIBRARY_PATH
+  316  conda list | grep -E "cuda|cudnn"
+  317  pip uninstall -y nvidia-cudnn-cu11 nvidia-cuda-runtime-cu11 nvidia-cuda-nvrtc-cu11 nvidia-cuda-cupti-cu11
+  318  python scripts/training/train.py --train_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --test_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz 
+  319  nvidia-smi
+  320  pip install tensorflow[and-cuda]
+  321  python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+  322  pip install --force-reinstall tensorflow
+  323  pip remove tensorflow
+  324  pip uninstall tensorflow
+  325  pip install .
+  326  conda list | grep -E "cuda|cudnn"
+  327  vi pyproject.toml 
+  328  pip uninstall tensorflow
+  329  pip uninstall -y nvidia-cudnn-cu11 nvidia-cuda-runtime-cu11 nvidia-cuda-nvrtc-cu11 nvidia-cuda-cupti-cu11
+  330  pip install .
+  331  python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+  332  conda deactivate
+  333  # Create a brand new, clean environment. We'll call it 'ptycho-final'.
+  334  conda create --name ptycho-final python=3.10 -y
+  335  # Activate the new, pristine environment
+  336  conda activate ptycho-final
+  337  pip install .
+  338  python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+  339  python scripts/training/train.py --train_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --test_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz 
+  340  jupyter notebook --no-browser
+  341  conda deactivate
+  342  conda activate ptycho-final
+  343  tm
+  344  conda activate ptycho-final
+  345  c
+  346  conda activate ptycho-final
+  347  tmux new -s ptycho
+  348  conda activate ptycho-final
+  349  tmux ls
+  350  tm
+  351  claude
+  352  vi ~/.ssh/authorized_keys 
+  353  tmux ls
+  354  ls
+  355  git grep fly
+  356  git grep fly00
+  357  find . | grep fly001
+  358  ls /media/
+  359  lsblk
+  360  sudo mount /dev/sda1 /media
+  361  ls
+  362  pwd
+  363  ls /media
+  364  ls -lt /media
+  365  ls -lt /media/backups/
+  366  cp ~/Downloads/fly001.npz datasets/
+  367  ls datasets
+  368  python scripts/training/train.py --train_data_file datasets/fly001_transposed.npz --test_data_file datasets/fly001_transposed.npz 
+  369  conda activate ptycho-final
+  370  ls datasets/
+  371  ls -lt notebooks/
+  372  du -sh notebooks/*
+  373  du -sh notebooks/* | sort -h
+  374  python scripts/training/train.py --train_data_file notebooks/train_data.npz --test_data_file notebooks/train_data.npz
+  375  python scripts/training/train.py --train_data_file datasets/fly001_transposed.npz --test_data_file datasets/fly001_transposed.npz 
+  376  ls -l datasets/
+  377  date
+  378  python scripts/training/train.py --train_data_file datasets/fly001_transposed.npz --test_data_file datasets/fly001_transposed.npz 
+  379  python scripts/training/train.py -h
+  380  python scripts/training/train.py --train_data_file datasets/fly001_transposed.npz --test_data_file datasets/fly001_transposed.npz 
+  381  python scripts/training/train.py -h
+  382  python scripts/training/train.py --train_data_file datasets/fly001_transposed.npz --test_data_file datasets/fly001_transposed.npz --probe_scale 6
+  383  ls
+  384  pwd
+  385  git branch -v
+  386  git diff demon -- '*.py'
+  387  git diff demo -- '*.py'
+  388  git pull origin demo
+  389  git fetch origin demo
+  390  git diff demo -- '*.py'
+  391  git diff origin/demo -- '*.py'
+  392  python scripts/training/train.py -h
+  393  python scripts/training/train.py --train_data_file datasets/fly001_transposed.npz --test_data_file datasets/fly001_transposed.npz --probe_scale 6 --intensity_scale_trainable True --mae_weight 1 --nll_weight 0
+  394  python scripts/training/train.py -h
+  395  python scripts/training/train.py --train_data_file datasets/fly001_transposed.npz --test_data_file datasets/fly001_transposed.npz --probe_scale 6 --intensity_scale_trainable True --mae_weight 1 --nll_weight 0 --intensity_scale 30
+  396  c P
+  397  ls
+  398  tm
+  399  conda create --name pytorch python=3.10 -y
+  400  conda activate pytorch
+  401  ls
+  402  cd
+  403  c P
+  404  ls
+  405  git checkout pytorch
+  406  git stash
+  407  git checkout pytorch
+  408  git pull
+  409  pip install .
+  410  c
+  411  cd datasets/
+  412  ls
+  413  mkdir fly
+  414  mv fly001.npz fly/
+  415  rm fly001_transposed.npz 
+  416  ls probes/
+  417  rm probes/fly001_transposed.npz 
+  418  python ptycho_torch/train.py --ptycho_dir fly/ --probe_dir probes/
+  419  cd ..
+  420  python ptycho_torch/train.py --ptycho_dir dataset/fly/ --probe_dir datasets/probes/
+  421  pip install torch
+  422  python ptycho_torch/train.py --ptycho_dir dataset/fly/ --probe_dir datasets/probes/
+  423  pip install pytorch-lightning
+  424  python ptycho_torch/train.py --ptycho_dir dataset/fly/ --probe_dir datasets/probes/
+  425  conda activate pytorch
+  426  conda deactivate
+  427  pip install lightning
+  428  python ptycho_torch/train.py --ptycho_dir dataset/fly/ --probe_dir datasets/probes/
+  429  pip install mlflow
+  430  python ptycho_torch/train.py --ptycho_dir dataset/fly/ --probe_dir datasets/probes/
+  431  conda activate pytorch
+  432  pip install mlflow tensorflow lightning
+  433  python ptycho_torch/train.py --ptycho_dir dataset/fly/ --probe_dir datasets/probes/
+  434  pip install tensordict
+  435  python ptycho_torch/train.py --ptycho_dir dataset/fly/ --probe_dir datasets/probes/
+  436  ls datasets
+  437  npm install -g @anthropic-ai/claude-code
+  438  sudo apt install npm
+  439  npm install -g @anthropic-ai/claude-code
+  440  ls
+  441  npx @anthropic-ai/claude-code
+  442  python ptycho_torch/train.py --ptycho_dir dataset/fly/ --probe_dir datasets/probes/
+  443  python ptycho_torch/train.py --ptycho_dir datasets/fly/ --probe_dir datasets/probes/
+  444  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --probe_scale 6 --intensity_scale_trainable True --mae_weight 1 --nll_weight 0 --intensity_scale 30
+  445  git checkout main
+  446  git add -u
+  447  git commit -m "fix: train.py cli path handling"
+  448  git checkout main
+  449  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --probe_scale 6 --intensity_scale_trainable True --mae_weight 1 --nll_weight 0 --intensity_scale 30
+  450  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz 
+  451  python scripts/training/train.py -h
+  452  git diff demo -- '*.py'
+  453  git diff origin/demo -- '*.py'
+  454  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz 
+  455  git diff origin/demo -- '*.py'
+  456  ls
+  457  tm
+  458  python scripts/training/train.py -h
+  459  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --gridsize 2
+  460  cd ..
+  461  cp -r PtychoPINN/ PtychoPINN2/
+  462  cd PtychoPINN
+  463  cd ..
+  464  cd PtychoPINN2
+  465  git branch 0-v
+  466  git branch -v
+  467  git checkout pytorch
+  468  git diff origin/demo -- '*.py' --name-only
+  469  git diff origin/demo -- '*.py' 
+  470  # This will open each file one at a time, waiting for you to exit vim before opening the next
+  471  for file in $(git diff --name-only origin/demo -- '*.py'); do     vim "$file"; done
+  472  for file in $(git diff --name-only origin/demo -- '*.py'); do     nvim "$file"; done
+  473  git checkout demo
+  474  git pull
+  475  git checkout main
+  476  for file in $(git diff --name-only origin/demo -- '*.py'); do     nvim "$file"; done
+  477  git diff
+  478  which llm
+  479  pip install llm
+  480  which claude
+  481  claude
+  482  git diff > gdiff
+  483  vi gdiff
+  484  git diff
+  485  git add -u
+  486  git commit
+  487  git push
+  488  pip install .
+  489  python scripts/training/train.py -h
+  490  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000
+  491  pip uninstall torchmetrics torchvision
+  492  pip uninstall -y nvidia-cudnn-cu11 nvidia-cuda-runtime-cu11 nvidia-cuda-nvrtc-cu11 nvidia-cuda-cupti-cu11
+  493  pip uninstall tensorflow
+  494  pip install .
+  495  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000
+  496  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  
+  497  python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+  498  pip install tensorflow
+  499  python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+  500  cat pyproject.toml 
+  501  pip uninstall -y nvidia-cudnn-cu11 nvidia-cuda-runtime-cu11 nvidia-cuda-nvrtc-cu11 nvidia-cuda-cupti-cu11 torchmetrics torchvision
+  502  pip install --force-reinstall tensorflow
+  503  pip install .
+  504  nvidia-smi
+  505  conda deactivate
+  506  conda create --name ptycho-tf python=3.10 -y
+  507  conda activate ptycho-tf
+  508  tm
+  509  pip install .
+  510  python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+  511  git diff
+  512  conda activate ptycho-tf
+  513  git diff
+  514  git add -u
+  515  git commit -m "remove torchmetrics and torchvision from tensorflow .toml to avoid cudnn conflicts"
+  516  git pushj
+  517  git push
+  518  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000
+  519  python scripts/inference/inference.py  -h
+  520  ls -lt | Head
+  521  ls -lt | head
+  522  ls training_outputs/
+  523  python scripts/inference/inference.py  --model_path training_outputs/
+  524  python scripts/inference/inference.py  --model_path training_outputs/ --test_data datasets/fly/fly001_transposed.npz
+  525  ls -lt | head
+  526  git pull
+  527  git branch -v
+  528  tm
+  529  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000
+  530  python scripts/run_baseline.py --train_npz_path datasets/fly/fly001_transposed.npz --test_npz_path datasets/fly/fly001_transposed.npz  --n_images 5000
+  531  python scripts/run_baseline.py --train_npz_path datasets/fly/fly001_transposed.npz --test_npz_path datasets/fly/fly001_transposed.npz 
+  532  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000
+  533  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz 
+  534  python scripts/run_baseline.py -h
+  535  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --data_source generic
+  536  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz 
+  537  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --data_source generic
+  538  claude
+  539  tm
+  540  npx @anthropic-ai/claude-code
+  541  ls
+  542  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --data_source generic
+  543  python scripts/run_baseline.py --train_data_file datasets/fly/fly001.npz --test_data_file datasets/fly/fly001.npz --data_source generic
+  544  python scripts/run_baseline.py --train_data_file datasets/fly/fly001.npz --test_data_file datasets/fly/fly001.npz --data_source generic --n_images 5000
+  545  git branch -v
+  546  git pull
+  547  python scripts/run_baseline.py --train_data_file datasets/fly/fly001.npz --test_data_file datasets/fly/fly001.npz --data_source generic --n_images 5000
+  548  tm
+  549  python scripts/run_baseline.py --train_data_file datasets/fly/fly001.npz --test_data_file datasets/fly/fly001.npz --data_source generic --n_images 5000
+  550  python scripts/run_baseline.py --train_data_file datasets/fly/fly001.npz --test_data_file datasets/fly/fly001.npz --n_images 5000
+  551  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --n_images 5000
+  552  ls -lt | head
+  553  ls train
+  554  ls training_outputs/
+  555  # Example training command
+  556  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --output_prefix outputs/baseline_fly_run
+  557  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz
+  558  ls -lt training_outputs/
+  559  ls -lt training_outputs/07-02-2025-00.33.25_baseline_gs1
+  560  ls -lt training_outputs/07-02-2025-00.33.25_baseline_gs1/baseline_model.h5 
+  561  python scripts/inference/baseline_inference.py   --model_path training_outputs/07-02-2025-00.33.25_baseline_gs1/baseline_model.h5   --test_data_file datasets/fly/fly001_transposed.npz 
+  562  ls -lt
+  563  python scripts/inference/baseline_inference.py   --model_path training_outputs/07-02-2025-00.33.25_baseline_gs1/baseline_model.h5   --test_data_file datasets/fly/fly001_transposed.npz 
+  564  conda activate ptycho-tf
+  565  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz
+  566  python scripts/inference/baseline_inference.py   --model_path training_outputs/07-02-2025-00.58.29_baseline_gs1/baseline_model.h5   --test_data_file datasets/fly/fly001_transposed.npz 
+  567  ls ptycho/baselines.py 
+  568  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz
+  569  ls ptycho/baselines.py 
+  570  python scripts/inference/baseline_inference.py   --model_path training_outputs/07-02-2025-01.06.25_baseline_gs1/baseline_model.h5   --test_data_file datasets/fly/fly001_transposed.npz 
+  571  ls training_outputs/07-02-2025-01.06.25_baseline_gs1/baseline_model.h5
+  572  cd notebooks
+  573  cd ..
+  574  python scripts/inference/baseline_inference.py   --model_path notebooks/training_outputs/07-02-2025-01.06.25_baseline_gs1/baseline_model.h5   --test_data_file datasets/fly/fly001_transposed.npz 
+  575  ls training_outputs/
+  576  ls -lt
+  577  ls -lt notebooks/
+  578  ls -lt
+  579  ls -lt training_outputs/
+  580  python scripts/inference/baseline_inference.py   --model_path datasets/training_outputs/07-02-2025-01.06.25_baseline_gs1/baseline_model.h5   --test_data_file datasets/fly/fly001_transposed.npz 
+  581  python scripts/inference/baseline_inference.py   --model_path datasets/training_outputs/07-02-2025-01.06.25_baseline_gs1/baseline_model.h5   --test_data_file datasets/fly/fly001_transposed.npz --nepochs 5
+  582  python scripts/run_baseline.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --nepochs 5
+  583  pip install tike
+  584  python
+  585  sudo apt install cupy
+  586  pip install cupy
+  587  nvidia-smi
+  588  pip install cupy-cuda12
+  589  pip install cupy-cuda128
+  590  pip install cupy-cuda12.8
+  591  pip install cupy-cuda
+  592  conda install -c conda-forge cupy
+  593  conda deactivate
+  594  conda deactivate
+  595  conda activate ptycho-tf
+  596  pip install cupy
+  597  sudo apt install nvidia-cuda-toolkit
+  598  pip install cupy
+  599  sudo apt install cuda-dev
+  600  sudo apt install cuda-devel
+  601  sudo apt install nvcc
+  602  sudo apt install nvidia-cuda-dev
+  603  sudo apt install cuda-dev
+  604  apt search cuda | grep -i dev
+  605  apt search cuda | grep -i dev | grep nvid
+  606  sudo apt install nvidia-cuda-dev
+  607  pip install cupy
+  608  pip install cupy-cuda12x
+  609  pip install tike
+  610  pip uninstall cupy -y
+  611  pip cache purge
+  612  pip install tike
+  613  find / | grep libcudart_static
+  614  sudo find / | grep libcudart_static
+  615  sudo apt install cuda-static-runtime 
+  616  tmux new
+  617  npx @anthropic-ai/claude-code
+  618  cat CLAUDE.md 
+  619  sudo find / | grep cuda-static-runtime 
+  620  sudo apt install libcudnn8-dev libnccl-dev libcutensor-dev  cuda-cudart-dev-12-0
+  621  tm
+  622  conda install -c conda-forge numpy matplotlib tike cupy
+  623  conda activate ptycho-tf
+  624  nvidia-smi
+  625  # or
+  626  nvcc --version
+  627  pip install cupy-cuda12x
+  628  python
+  629  pip install tike
+  630  pip uninstall cupy
+  631  import cupy as cp
+  632  print(cp.__version__)
+  633  print(cp.cuda.runtime.runtimeGetVersion())
+  634  pip install cupy-cuda12x
+  635  python
+  636  pip install tike
+  637  pip install tike --no-deps
+  638  python
+  639  jupyter notebook --no-browser
+  640  conda deactivate
+  641  conda activate ptycho-tf
+  642  pip install mpi4py
+  643  htop
+  644  nvidia-smi
+  645  jupyter notebook --no-browser
+  646  pip install mpich
+  647  tm
+  648  nvidia-smi
+  649  npx @anthropic-ai/claude-code
+  650  npx @anthropic-ai/claude-code
+  651  python scripts/simulation/run_with_synthetic_lines.py     --output-dir lines_report
+  652  ls tike_outputs/
+  653  ls tike_outputs/fly001/
+  654  ls scripts/
+  655  ls scripts/tools/
+  656  tm
+  657  htop
+  658  nvidia-smi
+  659  python scripts/tikerecon.py datasets/fly/fly001.npz --iterations 1000
+  660  ls scripts/
+  661  ls scripts/simulation/
+  662  conda activate ptycho-tf
+  663  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000
+  664  tm
+  665  c
+  666  pip install .
+  667  python scripts/simulation/simulate_and_save.py -h
+  668  python scripts/simulation/simulate_and_save.py --gridsize 1 --input-file datasets/fly/fly001_transposed.npz 
+  669  python scripts/simulation/simulate_and_save.py --gridsize 1 --input-file datasets/fly/fly001_transposed.npz --output-file foo
+  670  python scripts/simulation/simulate_and_save.py -h
+  671  vi CLAUDE.md 
+  672  tm
+  673  tm
+  674  git add CLAUDE.md 
+  675  git commit -m "update claude.md"
+  676  git push
+  677  python scripts/tikerecon.py datasets/fly/fly001.npz --iterations 10
+  678  git branch wip
+  679  git checkout wip
+  680  git add scripts/
+  681  git add -u
+  682  git commit -m "wip"
+  683  git push
+  684  conda activate ptycho-tf
+  685  c
+  686  pwd
+  687  tm
+  688  python scripts/tikerecon.py datasets/fly/fly001.npz --iterations 10
+  689  pip install mpi4py
+  690  pip install .
+  691  git grep scale_npho
+  692  git grep illuminate_and_diffract
+  693  git diff
+  694  git add -u
+  695  git commit -m "add a shape assert"
+  696  pip install .
+  697  tm
+  698  git diff
+  699  git stash
+  700  git push
+  701  claude
+  702  npx @anthropic-ai/claude-code
+  703  pip install .
+  704  git diff
+  705  python scripts/tikerecon.py datasets/fly/fly001.npz --iterations 100
+  706  exec bash
+  707  conda activate ptycho-tf
+  708  c
+  709  pip install .
+  710  python scripts/tikerecon.py datasets/fly/fly001.npz --iterations 1000
+  711  git diff
+  712  git add -u
+  713  git commit -m "migrate nongrid simulations to new config style"
+  714  git push
+  715  git pull
+  716  git config pull.rebase true
+  717  git pull
+  718  git push
+  719  # From the PtychoPINN/ directory
+  720  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz
+  721  python scripts/tools/apodize_tool.py     -h
+  722  python scripts/tools/apodize_tool.py     --alpha .5
+  723  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz --alpha .5
+  724  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz --alpha 1
+  725  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz --alpha 1 --apodize-phase
+  726  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz --alpha .5 --apodize-phase
+  727  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz 
+  728  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz  --upsample --target-size 256
+  729  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz  --upsample --target-size 128
+  730  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz  --interpolate --zoom-factor 2.0
+  731  python scripts/tools/apodize_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_apodized/fly001_apodized.npz  --interpolate --zoom-factor 2.0 --apodize --alpha 0.3 
+  732  cd scripts/tools/
+  733  ls
+  734  mv apodize_tool.py prepare_data_tool.py
+  735  cd -
+  736  # Make sure the output directory exists
+  737  mkdir -p tike_outputs/fly001_interpolated
+  738  # Run the interpolation step
+  739  python scripts/tools/prepare_data_tool.py     tike_outputs/fly001/fly001_reconstructed.npz     tike_outputs/fly001_interpolated/fly001_interpolated_2x.npz     --interpolate --zoom-factor 2.0
+  740  # Make sure the final output directory exists
+  741  mkdir -p tike_outputs/fly001_final_prepared
+  742  # Run the apodization step on the upsampled file
+  743  python scripts/tools/prepare_data_tool.py     tike_outputs/fly001_interpolated/fly001_interpolated_2x.npz     tike_outputs/fly001_final_prepared/fly001_interp_apodized.npz     --apodize --alpha 0.3
+  744  history | tail -n 10
+  745  # Make sure the final output directory exists
+  746  mkdir -p tike_outputs/fly001_final_prepared
+  747  # Run the apodization step on the upsampled file, adding the --apodize-phase flag
+  748  python scripts/tools/prepare_data_tool.py     tike_outputs/fly001_interpolated/fly001_interpolated_2x.npz     tike_outputs/fly001_final_prepared/fly001_interp_apodized_full.npz     --apodize --alpha 0.3 --apodize-phase
+  749  nvidia-smi
+  750  python scripts/tools/prepare_data_tool.py     tike_outputs/fly001_interpolated/fly001_interpolated_2x.npz     tike_outputs/fly001_final_prepared/fly001_interp_apodized_full.npz     --apodize --alpha 0.1 --apodize-phase
+  751  python scripts/tools/prepare_data_tool.py     tike_outputs/fly001_interpolated/fly001_interpolated_2x.npz     tike_outputs/fly001_final_prepared/fly001_interp_smoothed.npz     --smooth --target probe --sigma 1.5
+  752  python scripts/tools/prepare_data_tool.py     tike_outputs/fly001_interpolated/fly001_interpolated_2x.npz     tike_outputs/fly001_final_prepared/fly001_interp_smoothed.npz     --smooth --target probe --sigma 1.
+  753  FINAL_DIR="tike_outputs/fly001_final_prepared"
+  754  FINAL_NPZ="$FINAL_DIR/fly001_interp_smooth_both.npz"
+  755  # Make sure the final directory exists
+  756  mkdir -p "$FINAL_DIR"
+  757  # Run the smoothing step on the object
+  758  echo -e "\n--- Step 3: Smoothing Object ---"
+  759  python scripts/tools/prepare_data_tool.py     "$SMOOTH_PROBE_NPZ"     "$FINAL_NPZ"     --smooth --target object --sigma 1
+  760  # Final output file after smoothing the object
+  761  FINAL_DIR="tike_outputs/fly001_final_prepared"
+  762  FINAL_NPZ="$FINAL_DIR/fly001_interp_smooth_both.npz"
+  763  # --- Step 3: Smooth the object in the probe-smoothed file ---
+  764  echo -e "\n--- Step 3: Smoothing Object ---"
+  765  mkdir -p "$FINAL_DIR"
+  766  python scripts/tools/prepare_data_tool.py     "$SMOOTH_PROBE_NPZ"     "$FINAL_NPZ"     --smooth --target object --sigma 1
+  767  vi
+  768  # --- Step 0: Define all file paths at the beginning ---
+  769  # This ensures the variables are set for the entire sequence.
+  770  # Input file
+  771  ORIGINAL_NPZ="tike_outputs/fly001/fly001_reconstructed.npz"
+  772  # Intermediate file after interpolation
+  773  INTERP_DIR="tike_outputs/fly001_interpolated"
+  774  INTERP_NPZ="$INTERP_DIR/fly001_interpolated_2x.npz"
+  775  # Intermediate file after smoothing the probe
+  776  SMOOTH_PROBE_DIR="tike_outputs/fly001_interp_smooth_probe"
+  777  SMOOTH_PROBE_NPZ="$SMOOTH_PROBE_DIR/fly001_interp_smooth_probe.npz"
+  778  # Final output file after smoothing the object
+  779  FINAL_DIR="tike_outputs/fly001_final_prepared"
+  780  FINAL_NPZ="$FINAL_DIR/fly001_interp_smooth_both.npz"
+  781  # --- Step 1: Interpolate the original data ---
+  782  echo "--- Step 1: Interpolating Data ---"
+  783  mkdir -p "$INTERP_DIR"
+  784  python scripts/tools/prepare_data_tool.py     "$ORIGINAL_NPZ"     "$INTERP_NPZ"     --interpolate --zoom-factor 2.0
+  785  # --- Step 2: Smooth the probe in the upsampled file ---
+  786  echo -e "\n--- Step 2: Smoothing Probe ---"
+  787  mkdir -p "$SMOOTH_PROBE_DIR"
+  788  python scripts/tools/prepare_data_tool.py     "$INTERP_NPZ"     "$SMOOTH_PROBE_NPZ"     --smooth --target probe --sigma 1.
+  789  # --- Step 3: Smooth the object in the probe-smoothed file ---
+  790  echo -e "\n--- Step 3: Smoothing Object ---"
+  791  mkdir -p "$FINAL_DIR"
+  792  python scripts/tools/prepare_data_tool.py     "$SMOOTH_PROBE_NPZ"     "$FINAL_NPZ"     --smooth --target object --sigma 1.
+  793  # --- Final Confirmation ---
+  794  echo -e "\n--- Workflow Complete ---"
+  795  echo "Final prepared data is available at: $FINAL_NPZ"
+  796  vi prepare.sh
+  797  bash prepare.sh 
+  798  vi prepare.sh
+  799  bash prepare.sh 
+  800  vi prepare.sh
+  801  bash prepare.sh 
+  802  vi prepare.sh
+  803  bash prepare.sh 
+  804  ls scripts/
+  805  ls scripts/tools/
+  806  ls scripts/simulation/
+  807  ls scripts/simulation/simulate_and_save.py 
+  808  # Define the final prepared data file from the previous step
+  809  PREPARED_NPZ="tike_outputs/fly001_final_prepared/fly001_interp_smooth_both.npz"
+  810  # Define where to save the new simulation output
+  811  SIM_DIR="sim_outputs"
+  812  SIM_NPZ="$SIM_DIR/final_simulation_output.npz"
+  813  # Make sure the output directory exists
+  814  mkdir -p "$SIM_DIR"
+  815  # Run the updated simulation script
+  816  python scripts/simulation/simulate_and_save.py     --input-file "$PREPARED_NPZ"     --output-file "$SIM_NPZ"     --n-images 500     --n-photons 1e9     --seed 42
+  817  git grep 'gridsize to 1'
+  818  ls scripts/simulation/
+  819  python scripts/simulation/run_with_synthetic_lines.py     --output-dir lines_simulation_2k_images     --n-images 200
+  820  ls scripts/simulation/
+  821  python scripts/simulation/simulate_and_save.py     --input-file "$PREPARED_NPZ"     --output-file "$SIM_NPZ"     --n-images 500     --n-photons 1e9     --seed 42
+  822  python scripts/simulation/simulate_and_save.py     --input-file "$PREPARED_NPZ"     --output-file "$SIM_NPZ"     --n-images 500     --n-photons 1e9     --seed 42     --visualize
+  823  python scripts/simulation/run_with_synthetic_lines.py     --output-dir lines_simulation_2k_images     --n-images 200 --visualize
+  824  python scripts/simulation/simulate_and_save.py     --input-file "$PREPARED_NPZ"     --output-file "$SIM_NPZ"     --n-images 500     --n-photons 1e9     --seed 42     --visualize
+  825  python scripts/simulation/run_with_synthetic_lines.py     --output-dir lines_simulation_2k_images     --n-images 200 --visualize
+  826  git diff
+  827  git add scripts/
+  828  git diff
+  829  git add -u
+  830  git diff --cached > gdiff
+  831  vi gdiff
+  832  git commit
+  833  git push
+  834  conda activate ptycho-tf
+  835  c
+  836  ls
+  837  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both.npz --test_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both.npz
+  838  conda activate ptycho-tf
+  839  c
+  840  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both.npz --test_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both.npz
+  841  fzf
+  842  ls scripts/tools/
+  843  history | grep prepare
+  844  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz --test_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz
+  845  python scripts/run_baseline.py -h
+  846  python scripts/run_baseline.py --n_images 5000
+  847  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz --test_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz --n_images 5000
+  848  history | grep inferen
+  849  git pull
+  850  git diff
+  851  git add -u
+  852  git commit -m "update claude md"
+  853  git push
+  854  git pull
+  855  tm
+  856  vi prepare.sh
+  857  tm
+  858  find . | grep comparis
+  859  vi scripts/run_comparison.sh 
+  860  git diff
+  861  git add scripts/
+  862  git diff --cached
+  863  git diff --cached > gdiff
+  864  vi gdiff 
+  865  git diff --cached > gdiff
+  866  vi gdiff 
+  867  git diff
+  868  git add scripts/
+  869  git diff --cached > gdiff
+  870  wc < gdiff
+  871  tm
+  872  git diff
+  873  git add scripts/
+  874  git diff --cached > gdiff
+  875  vi gdiff 
+  876  git diff
+  877  git add scripts/
+  878  git commit -m "feat: comparison script, first pass"
+  879  tm
+  880  git diff
+  881  git log
+  882  git diff HEAD^
+  883  git diff HEAD^ | wc
+  884  git diff HEAD^ > gdiff
+  885  vi gdiff 
+  886  tm
+  887  ls configs/
+  888  git add configs/
+  889  git commit -m "add comparison config"
+  890  tm
+  891  htop
+  892  nvidia-smi
+  893  tm
+  894  vi
+  895  python scripts/compare_models.py \                                                                                                                                                                         │
+  896  --pinn_dir test_comparison_output/pinn_run \                                                                                                                                                           │
+  897  --baseline_dir test_comparison_output/baseline_run \                                                                                                                                                   │
+  898  --test_data datasets/fly/fly001_transposed.npz \                                                                                                                                                       │
+  899  --output_dir test_comparison_simple
+  900  python scripts/compare_models.py \ 
+  901  --pinn_dir test_comparison_output/pinn_run \ 
+  902  --baseline_dir test_comparison_output/baseline_run \ 
+  903  --test_data datasets/fly/fly001_transposed.npz \ 
+  904  --output_dir test_comparison_simple
+  905  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data datasets/fly/fly001_transposed.npz --output_dir test_comparison_simple
+  906  git diff
+  907  git add -u
+  908  git commit -m "comparison script fixes"
+  909  git log
+  910  git diff d7adacd7dc87b3182dd972a5366e5f123dc66e60 | wc\
+  911  git diff d7adacd7dc87b3182dd972a5366e5f123dc66e60 | wc
+  912  git diff d7adacd7dc87b3182dd972a5366e5f123dc66e60 > gdiff
+  913  vi gdiff 
+  914  git diff
+  915  tm
+  916  git diff
+  917  tm
+  918  nvidia-smi
+  919  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data datasets/fly/fly001_transposed.npz --output_dir test_comparison_simple
+  920  tm
+  921  git diff
+  922  git add -u
+  923  git commit -m "bugfixes"
+  924  tm
+  925  git diff
+  926  git diff --cached
+  927  vi
+  928  tm
+  929  git diff
+  930  tm
+  931  git diff
+  932  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data datasets/fly/fly001_transposed.npz --output_dir test_comparison_simple
+  933  git diff
+  934  git diff > gdiff
+  935  vi gdiff 
+  936  tm
+  937  git diff
+  938  git add -u
+  939  git commit -m "fix: crop ground truth using non-grid cdi notebook as a guide"
+  940  tm
+  941  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data datasets/fly/fly001_transposed.npz --output_dir test_comparison_simple
+  942  tm
+  943  ls scripts/in
+  944  ls scripts/inference/
+  945  tm
+  946  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data datasets/fly/fly001_transposed.npz --output_dir test_comparison_simple
+  947  # This is the command you should be running
+  948  ./scripts/run_comparison.sh     datasets/fly/fly001_transposed.npz     datasets/fly/fly001_transposed.npz     test_comparison_output
+  949  history | grep both
+  950  ./scripts/run_comparison.sh     tike_outputs/fly001_final_prepared/fly001_interp_smooth_both.npz tike_outputs/fly001_final_prepared/fly001_interp_smooth_both.npz test_comparison_output
+  951  ./scripts/run_comparison.sh     tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz test_comparison_output
+  952  git diff
+  953  git add -u
+  954  git commit -m "fix: import order initialization in the comparison script"
+  955  git branch -v
+  956  git push
+  957  ls
+  958  ls *sh
+  959  vi prepare.sh 
+  960  history | grep FIN
+  961  history | grep both
+  962  git add prepare.sh 
+  963  git commit -m "fly001 upsampling and simulation"
+  964  vi prepare.sh 
+  965  bash prepare.sh 
+  966  vi prepare.sh 
+  967  tm
+  968  source prepare.sh 
+  969  tm
+  970  python scripts/tools/visualize_dataset.py     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data.npz     tike_outputs/fly001_final_downsampled/dataset_visualization_random.png
+  971  conda activate ptycho-tf
+  972  c
+  973  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz  --output_dir test_comparison_simple
+  974  vi prepare.sh 
+  975  tm
+  976  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz  --output_dir test_comparison_simple
+  977  tm
+  978  source prepare.sh 
+  979  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz  --output_dir test_comparison_simple
+  980  conda activate ptycho-tf
+  981  c
+  982  ipython
+  983  tm
+  984  pip install .
+  985  tm
+  986  python scripts/compare_models.py --pinn_dir test_comparison_output/pinn_run --baseline_dir test_comparison_output/baseline_run --test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz  --output_dir test_comparison_simple
+  987  ls scripts/
+  988  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+  989  python scripts/tools/visualize_dataset.py     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/dataset_visualization_random.png
+  990  python scripts/tools/visualize_dataset.py     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data.npz     tike_outputs/fly001_final_downsampled/dataset_visualization_random.png
+  991  tm
+  992  python scripts/tools/visualize_dataset.py     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data.npz     tike_outputs/fly001_final_downsampled/dataset_visualization_random.png
+  993  rm -r test_comparison_output/
+  994  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+  995  tm
+  996  pip install .
+  997  conda activate ptycho-tf
+  998  c
+  999  ls
+ 1000  python scripts/tools/visualize_dataset.py     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/dataset_visualization_random.png
+ 1001  source prepare.sh 
+ 1002  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1003  rm -r test_comparison_output/
+ 1004  conda activate ptycho-tf
+ 1005  c
+ 1006  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1007  tm
+ 1008  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1009  tm
+ 1010  git diff
+ 1011  git add scripts/
+ 1012  git add -u
+ 1013  git commit -m "tweaks"
+ 1014  git push
+ 1015  history | grep train.py
+ 1016  vi scripts/compare_models.py 
+ 1017  vi scripts/run_comparison.sh 
+ 1018  ls -lt
+ 1019  vi scripts/run_comparison.sh 
+ 1020  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1021  python scripts/training/train.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz  --n_images 5000
+ 1022  history | grep train.py
+ 1023  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000 --n_epochs 10
+ 1024  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000 --nepochs 10
+ 1025  git diff main -- scripts/training/train.py
+ 1026  git grep 'Skipping image stitching'
+ 1027  python scripts/training/train.py --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz  --n_images 5000 --nepochs 3 --do_stitching
+ 1028  python scripts/training/train.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz  --n_images 5000 --nepochs 5 --do_stitching
+ 1029  vi scripts/run_comparison.sh 
+ 1030  conda activate ptycho-tf
+ 1031  ls -lt
+ 1032  ls -lt | head
+ 1033  ls training_outputs/
+ 1034  python scripts/compare_models.py --pinn_dir training_outputs --baseline_dir test_comparison_output/baseline_run/ --output_dir tmp/
+ 1035  python scripts/compare_models.py --pinn_dir training_outputs --baseline_dir test_comparison_output/baseline_run/ --output_dir tmp/ --test_data tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz
+ 1036  history | grep baseline
+ 1037  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz --test_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz --n_images 5000
+ 1038  python scripts/compare_models.py --pinn_dir training_outputs --baseline_dir test_comparison_output/baseline_run/ --output_dir tmp/
+ 1039  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --n_images 5000
+ 1040  python scripts/inference/baseline_inference.py     --model_path baseline_training_run/baseline_model.h5     --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     --output_dir baseline_inference_run
+ 1041  pip install .
+ 1042  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --n_images 5000
+ 1043  git grep 'PtychoNN Am'
+ 1044  git grep 'PtychoNN ph
+ 1045  git grep 'PtychoNN ph'
+ 1046  git grep 'Supervised Am'
+ 1047  git grep Amplitude
+ 1048  git grep Amplitude | grep NN
+ 1049  claude
+ 1050  exit
+ 1051  exit
+ 1052  npx @anthropic-ai/claude-code
+ 1053  exit
+ 1054  conda activate ptycho-tf
+ 1055  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --n_images 5000
+ 1056  tm
+ 1057  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz --test_data_file tike_outputs/fly001_final_prepared/fly001_interp_smooth_both_transposed.npz --n_images 5000
+ 1058  pip install .
+ 1059  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --n_images 50008;52;208;1768;29128;52;208;1768;2912
+ 1060  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --n_images 5000
+ 1061  tm
+ 1062  git diff
+ 1063  git diff | gdiff
+ 1064  git diff | wc
+ 1065  tm
+ 1066  git diff
+ 1067  git add -u
+ 1068  git commit
+ 1069  git push
+ 1070  tm
+ 1071  git diff
+ 1072  git diff | wc
+ 1073  conda activate ptycho-tf
+ 1074  git diff > gdiff
+ 1075  vi gdiff 
+ 1076  tm
+ 1077  git diff
+ 1078  git commit
+ 1079  git push
+ 1080  tm
+ 1081  exec bash
+ 1082  history | grep sh
+ 1083  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output2
+ 1084  conda activate ptycho-tf
+ 1085  pip install .
+ 1086  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output2
+ 1087  git grep export
+ 1088  find . | grep export
+ 1089  cat ptycho/export.py 
+ 1090  tm
+ 1091  git diff
+ 1092  git diff | wc
+ 1093  git diff > gdiff
+ 1094  conda activate ptycho-tf
+ 1095  vi gdiff 
+ 1096  git diff --cached
+ 1097  tm
+ 1098  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1099  exit
+ 1100  python scripts/run_baseline.py --train_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --test_data_file tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz --n_images 5000
+ 1101  tmux new
+ 1102  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1103  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output --p_min 20 --m_max 80
+ 1104  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1105  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output --p_min 20 --m_max 80
+ 1106  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1107  git diff
+ 1108  git add -u
+ 1109  git commit -m "wip"
+ 1110  git push
+ 1111  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1112  git log
+ 1113  git diff -- scripts/run_baseline.py a046fd0ad2901d814e0286fceee2340ce830bc8c
+ 1114  tm
+ 1115  git diff
+ 1116  git status
+ 1117  git diff
+ 1118  git diff --cached
+ 1119  git log
+ 1120  git grep get_image_p
+ 1121  git diff
+ 1122  git diff | wc
+ 1123  git diff > gdiff
+ 1124  vi gdiff 
+ 1125  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1126  git diff > gdiff
+ 1127  vi gdiff 
+ 1128  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1129  pip install .
+ 1130  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output
+ 1131  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output3
+ 1132  git add -u
+ 1133  git commit -m "wip"
+ 1134  tm
+ 1135  git diff
+ 1136  git stash
+ 1137  tm
+ 1138  pip install .
+ 1139  source prepare.sh 
+ 1140  conda activate ptycho-tf
+ 1141  c
+ 1142  cat prepare.sh 
+ 1143  tm
+ 1144  history | grep prepare
+ 1145  history | grep prepare.sh
+ 1146  tm
+ 1147  git diff
+ 1148  git diff --cached
+ 1149  git add -u
+ 1150  git commit -m "fix: save ground truth patches from nongrid simulations instead of trying to recalculate them post hoc"
+ 1151  git push
+ 1152  pip install .
+ 1153  git grep get_image_p
+ 1154  python
+ 1155  git diff
+ 1156  git diff > gdiff
+ 1157  vi
+ 1158  vi gdiff 
+ 1159  source prepare.sh 
+ 1160  pip install .
+ 1161  tm
+ 1162  git diff
+ 1163  git diff | wc
+ 1164  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output4
+ 1165  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output5
+ 1166  git diff
+ 1167  git diff --cached
+ 1168  git add -u
+ 1169  git commit
+ 1170  git push
+ 1171  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output5
+ 1172  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output6
+ 1173  conda activate ptycho-tf
+ 1174  pip install .
+ 1175  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output6
+ 1176  tm
+ 1177  ./scripts/run_comparison.sh     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz     test_comparison_output7
+ 1178  vi
+ 1179  tm
+ 1180  conda activate ptycho-tf
+ 1181  ls
+ 1182  pwd
+ 1183  c
+ 1184  ls
+ 1185  clear
+ 1186  git diff
+ 1187  git add -u
+ 1188  git commit -m "add TODO for restoring fallback path for objectGuess -> ground truth patches calculation at data-loading time"
+ 1189  git push
+ 1190  tm
+ 1191  conda activate ptycho-tf
+ 1192  tm
+ 1193  conda activate ptycho-tf
+ 1194  git status
+ 1195  git diff
+ 1196  ls docs/
+ 1197  git add docs/DEVELOPER_GUIDE.md 
+ 1198  git add -u
+ 1199  git commit -m "update documentation"
+ 1200  git push
+ 1201  wc < CLAUDE.md 
+ 1202  git status
+ 1203  tm
+ 1204  cd
+ 1205  cd Documents/
+ 1206  git clone git@github.com:hoidn/nanoBragg.git
+ 1207  cd nanoBragg/
+ 1208  ls
+ 1209  cd Documents/nanoBragg/
+ 1210  ls
+ 1211  source .venv/bin/activate
+ 1212  ls
+ 1213  git checkout torch
+ 1214  python reports/milestone1_demo.py --cuda
+ 1215  pip install requirements.txt 
+ 1216  pip install -r requirements.txt 
+ 1217  python reports/milestone1_demo.py --cuda
+ 1218  exit
+ 1219  cd Documents/nanoBragg/
+ 1220  source .venv/bin/activate
+ 1221  python reports/milestone1_demo.py --cuda
+ 1222  git pull
+ 1223  python reports/milestone1_demo.py --cuda
+ 1224  vi devdocs/README.md 
+ 1225  git diff
+ 1226  git add -u
+ 1227  git commit -m "update readme"
+ 1228  git push
+ 1229  conda activate ptycho-tf
+ 1230  tm
+ 1231  conda activate ptycho-tf
+ 1232  tm
+ 1233  conda activate ptycho-tf
+ 1234  tm
+ 1235  conda activate ptycho-tf
+ 1236  history | grep sh
+ 1237  git pull
+ 1238  npx @anthropic-ai/claude-code
+ 1239  git diff
+ 1240  git add -u
+ 1241  git commit -m "move prepare.sh to scripts/"
+ 1242  git push
+ 1243  tm
+ 1244  conda activate ptycho-tf
+ 1245  c
+ 1246  source scripts/prepare.sh 
+ 1247  bash scripts/prepare.sh -h
+ 1248  bash scripts/prepare.sh 
+ 1249  find . | grep vis
+ 1250  find . | grep visua
+ 1251  rm -r build/
+ 1252  find . | grep visua
+ 1253  python scripts/tools/visualize_dataset.py fly001_reconstructed_final_downsampled_data_train.npz
+ 1254  python scripts/tools/visualize_dataset.py fly001_reconstructed_final_downsampled_data_train.npz tmp.png
+ 1255  python scripts/tools/visualize_dataset.py datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz tmp.png
+ 1256  find . | grep tmp.p
+ 1257  mkdir -p .claude/commands/
+ 1258  mkdir -p docs/studies/
+ 1259  tm
+ 1260  git diff
+ 1261  git add -u
+ 1262  git commit -m "add train/test split and data type adjustment to prepare.sh"
+ 1263  git branch -v
+ 1264  tm
+ 1265  git diff
+ 1266  git stash
+ 1267  find docs
+ 1268  rm docs/studies/implementation_model_generalization.md 
+ 1269  git diff
+ 1270  tm
+ 1271  git stash pop
+ 1272  git diff
+ 1273  grep -R . "foo"
+ 1274  grep ACTIVE -R . 
+ 1275  tm
+ 1276  repomix
+ 1277  npm install -g repomix
+ 1278  repomix
+ 1279  npx repomix@latest
+ 1280  repomix .claude/commands/
+ 1281  npx repomix@latest .claude/commands
+ 1282  ls -lt | head
+ 1283  npx @anthropic-ai/claude-code
+ 1284  tm
+ 1285  git diff
+ 1286  git add -u
+ 1287  git commit -m "phase 3 wip"
+ 1288  tm
+ 1289  git status
+ 1290  git status | grep py
+ 1291  tm
+ 1292  find . -type f \( -name "*.py" -o -name "*.md" \) -mtime -1
+ 1293  git add scripts/tools/downsample_data_tool.py scripts/tools/split_dataset_tool.py scripts/tools/transpose_rename_convert_tool.py CLAUDE.md 
+ 1294  git commit -m "add new data preparation scripts"
+ 1295  bash scripts/studies/run_generalization_study.sh     --train-data "datasets/fly/fly001_prepared/fly001_final_downsampled_data_train.npz"     --test-data "datasets/fly/fly001_prepared/fly001_final_downsampled_data_test.npz"     --output-dir "generalization_study_results"     --train-sizes "512 1024 2048 4096 8192"
+ 1296  tm
+ 1297  htop
+ 1298  nvidia-smi
+ 1299  tm
+ 1300  git log
+ 1301  git diff 9d7088ce0e71b07725cb8aed255b3c8b944aae61
+ 1302  git diff 9d7088ce0e71b07725cb8aed255b3c8b944aae61 | wc
+ 1303  git diff 9d7088ce0e71b07725cb8aed255b3c8b944aae61 > gdiff
+ 1304  tm
+ 1305  wait
+ 1306  watch -n 1 nvidia-smi
+ 1307  history 
+ 1308  vi ~/.bash_history 
+ 1309  watch -n 1 nvidia-smi
+ 1310  tm
+ 1311  watch -n 1 nvidia-smi
+ 1312  htop
+ 1313  tm
+ 1314  watch -n 1 nvidia-smi
+ 1315  htop
+ 1316  tm
+ 1317  watch -n 1 nvidia-smi
+ 1318  tm
+ 1319  python scripts/tools/visualize_dataset.py     tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data.npz     tike_outputs/fly001_final_downsampled/dataset_visualization_random.png
+ 1320  tm]
+ 1321  tm
+ 1322  python scripts/tools/visualize_dataset.py     datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz     tike_outputs/fly001_final_downsampled/dataset_visualization_random.png
+ 1323  tm
+ 1324  watch -n 1 nvidia-smi
+ 1325  htop
+ 1326  wc < gdiff
+ 1327  mkdir -p docs/refactor/
+ 1328  tm
+ 1329  vi CLAUDE.md 
+ 1330  tm
+ 1331  find . -type f \( -name "*.py" -o -name "*.md" \) -mtime -1
+ 1332  git add -u
+ 1333  git commit -m "feat: registration phase 1"
+ 1334  tm
+ 1335  comm -12 <(find . -type f \( -name "*.py" -o -name "*.md" \) -mtime -1 | sort) <(git ls-files --others --exclude-standard | sort)
+ 1336  tm
+ 1337  find . -type f \( -name "*.py" -o -name "*.md" \) -mtime -1 | while read file; do     git ls-files --error-unmatch "$file" 2>/dev/null || echo "$file"; done
+ 1338  git status
+ 1339  git add scripts/studies/
+ 1340  git status
+ 1341  git commit -m "add generalization study scripts"
+ 1342  tm
+ 1343  git status
+ 1344  tm
+ 1345  watch -n 1 nvidia-smi
+ 1346  htop
+ 1347  tm
+ 1348  ls
+ 1349  tm
+ 1350  git status
+ 1351  git add ptycho/image/
+ 1352  git commit -m "first-pass sub-pixel image registration"
+ 1353  tm
+ 1354  git diff
+ 1355  tm
+ 1356  git diff
+ 1357  git add -u
+ 1358  git commit -m "clean up registration module; improve shift detection by removing tukey window"
+ 1359  tm
+ 1360  git add .claude/
+ 1361  git commit -m "add .claude"
+ 1362  git push
+ 1363  conda activate ptycho-tf
+ 1364  du -sh .
+ 1365  ls
+ 1366  git status
+ 1367  git add tests/test_simulate_and_save.py
+ 1368  git add tests/test_simulate_and_save_simple.py
+ 1369  git commit -m "add tests"
+ 1370  git push
+ 1371  mkdir docs/refactor/eval_enhancements/
+ 1372  ls
+ 1373  ls docs/refactor/eval_enhancements/
+ 1374  ls docs/refactor/
+ 1375  tm
+ 1376  git diff
+ 1377  c
+ 1378  git diff
+ 1379  git status
+ 1380  git add CLAUDE.md tests/ docs/DEVELOPER_GUIDE.md 
+ 1381  git commmit -m "standardize dir structure for tests and update documentation"
+ 1382  git commit -m "standardize dir structure for tests and update documentation"
+ 1383  ls docs/
+ 1384  npm i -g @anthropic-ai/claude-code
+ 1385  tm
+ 1386  git diff
+ 1387  git add -u
+ 1388  git commit -m "first pass adding ssim and phase ramp / plane correction"
+ 1389  ls docs/studies/
+ 1390  ls docs/studies/GENERALIZATION_STUDY_GUIDE.md 
+ 1391  ls docs/refactor/eval_enhancements/
+ 1392  git diff | wc
+ 1393  git status
+ 1394  git diff > gdiff
+ 1395  tm
+ 1396  git add -u
+ 1397  git commit
+ 1398  git push
+ 1399  ls tests
+ 1400  tm
+ 1401  git diff
+ 1402  wc < CLAUDE.md 
+ 1403  git diff | wc
+ 1404  git status
+ 1405  git add -u
+ 1406  git add docs/refactor/eval_enhancements/
+ 1407  git commit -m "doc updates"
+ 1408  git push
+ 1409  ls
+ 1410  du -sh * | sort -h
+ 1411  git push
+ 1412  ls docs
+ 1413  git add docs/PROJECT_STATUS.md docs/data_contracts.md 
+ 1414  git commit -m "add docs"
+ 1415  git push
+ 1416  ls
+ 1417  ls docs
+ 1418  repomix .claude/commands/
+ 1419  tm
+ 1420  git diff
+ 1421  git status
+ 1422  git add docs/CONFIGURATION.md 
+ 1423  git add -u
+ 1424  git commit -m "document config system and sim workflows"
+ 1425  git push
+ 1426  tm
+ 1427  conda activate ptycho-tf
+ 1428  ls docs/studies/
+ 1429  tm
+ 1430  conda activate ptycho-tf
+ 1431  vi
+ 1432  conda activate ptycho-tf
+ 1433  tm
+ 1434  c
+ 1435  conda activate ptycho-tf
+ 1436  git add .claude/
+ 1437  git commit -m "update CC comands"
+ 1438  ./scripts/studies/run_complete_generalization_study.sh --train-sizes "512 1024 2048 4096 8192" --num-trials 5 --output-dir multisample_generalization
+ 1439  ./scripts/studies/run_complete_generalization_study.sh --train-sizes "512 1024 2048 4096 8192" --num-trials 5 --output-dir multisample_generalization --skip-data-prep
+ 1440  ls -;t
+ 1441  ls -lt
+ 1442  rm -r multisample_generalization/
+ 1443  conda activate ptycho-tf
+ 1444  du -sh .
+ 1445  tm
+ 1446  git diff
+ 1447  git status
+ 1448  git diff
+ 1449  ls .claude/commands/
+ 1450  ls docs/
+ 1451  ls docs/studies/
+ 1452  ./scripts/studies/run_complete_generalization_study.sh --train-sizes "512 1024 2048 4096 8192" --num-trials 5 --output-dir multisample_generalization --skip-data-prep
+ 1453  ./scripts/studies/run_complete_generalization_study.sh --train-sizes "512 1024 2048 4096 8192" --num-trials 5 --output-dir multisample_generalization --skip-data-prep --skip-training
+ 1454  tm
+ 1455  conda activate ptycho-tf
+ 1456  c
+ 1457  conda activate ptycho-tf
+ 1458  claude 
+ 1459  npm i -g @anthropic-ai/claude-code
+ 1460  npx @anthropic-ai/claude-code
+ 1461  claude
+ 1462  exec bash
+ 1463  conda activate ptycho-tf
+ 1464  claude
+ 1465  git diff
+ 1466  git status
+ 1467  git add -u
+ 1468  git commit -m "doc updates"
+ 1469  git push
+ 1470  git branch -v
+ 1471  git diff
+ 1472  git add -u
+ 1473  git commit -m "add xml cross references to docs for better discoverability"
+ 1474  wc < CLAUDE.md 
+ 1475  mkdir -p .claude/commands/cleanup
+ 1476  mkdir .claude/commands/refactor
+ 1477  ./scripts/studies/run_complete_generalization_study.sh     --skip-data-prep     --skip-training     --output-dir large_generalization_study_results/
+ 1478  nvidia-smi
+ 1479  ./scripts/studies/run_complete_generalization_study.sh     --skip-data-prep     --skip-training     --output-dir multisample_generalization/
+ 1480  nvidia-smi
+ 1481  ./scripts/studies/run_complete_generalization_study.sh     --skip-data-prep     --skip-training     --skip-comparison     --output-dir multisample_generalization/
+ 1482  nvidia-smi
+ 1483  git grep kill
+ 1484  exec bash
+ 1485  conda activate ptycho-tf
+ 1486  tm
+ 1487  ls
+ 1488  ls Down
+ 1489  ls ~/Downloads/
+ 1490  mv ~/Downloads/fly001_* datasets/
+ 1491  ls datasets
+ 1492  cd data
+ 1493  cd ../datasets/
+ 1494  mkdir fly64
+ 1495  mkdir fly128
+ 1496  mv fly001_64_train.npz fly64
+ 1497  mv fly001_128_train.npz flly128
+ 1498  ls datasets/fly64/fly001_64_train.npz 
+ 1499  ls
+ 1500  ls -lt | head
+ 1501  mv multisample_generalization_16384/ multisample_generalization/train_16834/
+ 1502  cd multisample_generalization/
+ 1503  mv train_16834/train_16384/ .
+ 1504  ls
+ 1505  ls train_16834/
+ 1506  ls -lt | head
+ 1507  mv train_16834/ tmp
+ 1508  ls
+ 1509  ls -lt | head
+ 1510  ls train_16384/
+ 1511  ls tmp
+ 1512  claude
+ 1513  pip install .
+ 1514  cd ..
+ 1515  pip install .
+ 1516  claude --dangerously-skip-permissions
+ 1517  conda activate ptycho-tf
+ 1518  nvidia-smi
+ 1519  for i in $(sudo lsof /dev/nvidia0 | grep python | awk '{print $2}' | sort -u); do sudo kill -9 $i; done
+ 1520  nvidia-smi
+ 1521  git status
+ 1522  nvidia-smi
+ 1523  git commit -m "show metric mean instead of median; reject outliers; improve plot scaling"
+ 1524  htop
+ 1525  nvidia-smi
+ 1526  ls datasets
+ 1527  ls datasets/fly
+ 1528  ls -lt  datasets/fly/
+ 1529  find . | grep fly64
+ 1530  find . | grep fly64 | grep npx
+ 1531  find . | grep fly64 | grep npz
+ 1532  ls datasets/
+ 1533  ls datasets/fly64
+ 1534  git diff
+ 1535  git diff | wc
+ 1536  git status
+ 1537  git add docs/FLY64_DATASET_GUIDE.md 
+ 1538  git diff
+ 1539  git diff > gdiff
+ 1540  git diff --cached >>gdiff
+ 1541  tm
+ 1542  git add -u
+ 1543  git commit
+ 1544  conda activate ptycho-tf
+ 1545  c
+ 1546  tm
+ 1547  git status
+ 1548  git add scripts/tools/generate_patches_tool.py 
+ 1549  tree scripts
+ 1550  ls scripts/tools/
+ 1551  git commit -m "add ground truth patch (Y) extraction tool"
+ 1552  git push
+ 1553  tm
+ 1554  conda activate ptycho-tf
+ 1555  c
+ 1556  mkdir -p docs/sampling/
+ 1557  claude
+ 1558  conda activate ptycho-tf
+ 1559  tm
+ 1560  c
+ 1561  git diff
+ 1562  git status
+ 1563  claude --dangerously-skip-permissions
+ 1564  conda activate ptycho-tf
+ 1565  tm
+ 1566  pip install .
+ 1567  tm
+ 1568  tm
+ 1569  pip uninstall ptychopinn
+ 1570  pip install -e .
+ 1571  git log
+ 1572  git diff 58bdadd2915d43bcfb4d2880e6455a7b0abeb65d | wc
+ 1573  git diff 58bdadd2915d43bcfb4d2880e6455a7b0abeb65d -- '*.py'
+ 1574  git diff 58bdadd2915d43bcfb4d2880e6455a7b0abeb65d -- '*.py' | wc
+ 1575  tm
+ 1576  git diff
+ 1577  git status
+ 1578  tm
+ 1579  git diff
+ 1580  git status
+ 1581  tm
+ 1582  git diff
+ 1583  tm
+ 1584  git diff
+ 1585  git add -u
+ 1586  git commit -m "wip"
+ 1587  git push
+ 1588  htop
+ 1589  nvidia-smi
+ 1590  htop
+ 1591  nvidia-smi
+ 1592  tm
+ 1593  git diff
+ 1594  git diff > gdiff
+ 1595  watch -n 1 nvidia-smi
+ 1596  git diff
+ 1597  git add ptycho
+ 1598  git commit -m "wip batched patch reassembly"
+ 1599  git push
+ 1600  git diff
+ 1601  git stash
+ 1602  claude --continue
+ 1603  git diff | wc
+ 1604  git diff > gdiff
+ 1605  git diff
+ 1606  git branch reassembly-refactor
+ 1607  git checkout reassembly-refactor
+ 1608  tm
+ 1609  conda activate ptycho-tf
+ 1610  c
+ 1611  git log
+ 1612  git diff 58bdadd2915d43bcfb4d2880e6455a7b0abeb65d -- scripts/compare_models.py
+ 1613  git diff 58bdadd2915d43bcfb4d2880e6455a7b0abeb65d -- scripts
+ 1614  git log
+ 1615  git diff daa8fb180af4eea247a4ec7f54549ca07e36edac -- scripts/compare_models.py
+ 1616  git diff
+ 1617  git add -u
+ 1618  git commit -m "refactored patch assembly for speed; midway debugging eval issue"
+ 1619  git push
+ 1620  git add tests/test_tf_helper.py 
+ 1621  git diff --cached
+ 1622  git diff
+ 1623  pytest tests/test_tf_helper.py 
+ 1624  pip install pytest
+ 1625  pytest tests/test_tf_helper.py 
+ 1626  git diff
+ 1627  conda activate ptycho-tf
+ 1628  claude --continue --dangerously-skip-permissions
+ 1629  tm
+ 1630  tm
+ 1631  conda activate ptycho-tf
+ 1632  c
+ 1633  exit
+ 1634  tm
+ 1635  exit
+ 1636  claude --dangerously-skip-permissions
+ 1637  cal
+ 1638  npm install -g @google/gemini-cli
+ 1639  # Install nvm if you don't already have it
+ 1640  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+ 1641  source ~/.bashrc            # or ~/.zshrc
+ 1642  # Install Node 20 LTS and make it default
+ 1643  nvm install 20
+ 1644  nvm alias default 20
+ 1645  nvm use 20       # start using it in this shell
+ 1646  node -v          # should print v20.x
+ 1647  npm install -g @google/gemini-cli
+ 1648  gemini
+ 1649  conda activate ptycho-tf
+ 1650  c
+ 1651  pwd
+ 1652  tm
+ 1653  conda activate ptycho-tf
+ 1654  c
+ 1655  git branch -v
+ 1656  git diff
+ 1657  git branch ms_ssim_refactor
+ 1658  git checkout ms_ssim_refactor 
+ 1659  git add -u
+ 1660  git commit -m "start ms ssim fix"
+ 1661  git log
+ 1662  git checkout reassembly-refactor 
+ 1663  git diff
+ 1664  git add -u
+ 1665  git commit -m "add gemini instructions to claude.md"
+ 1666  git push
+ 1667  ls .claude
+ 1668  ls .claude/commands/
+ 1669  ls .claude
+ 1670  ls -a .claude
+ 1671  mkdir chats
+ 1672  exec bash
+ 1673  conda activate ptycho-tf
+ 1674  fg
+ 1675  claude --resume
+ 1676  claude --resume
+ 1677  ls
+ 1678  ls chats
+ 1679  cat chats/* | wc
+ 1680  conda activate ptycho-tf
+ 1681  bash scripts/analyze_diffs.sh .claude/commands/customplan.md .claude/commands/implementation.md .claude/commands/complete-phase.md .claude/commands/phase-checklist.md 
+ 1682  bash scripts/analyze_diffs.sh .claude/commands/customplan.md .claude/commands/implementation.md .claude/commands/complete-phase.md 
+ 1683  source ~/.openai 
+ 1684  bash scripts/analyze_diffs.sh .claude/commands/customplan.md .claude/commands/implementation.md .claude/commands/complete-phase.md 
+ 1685  rm scripts/analyze_diffs.sh 
+ 1686  claude
+ 1687  claude --resume
+ 1688  claude
+ 1689  source ~/.openai 
+ 1690  git status
+ 1691  git diff .claude/commands/complete-phase.md
+ 1692  claude
+ 1693  ?md
+ 1694  git diff
+ 1695  git add -u
+ 1696  git commit -m "update docs and slash commands"
+ 1697  conda activate ptycho-tf
+ 1698  c
+ 1699  git status
+ 1700  git diff
+ 1701  git status
+ 1702  git diff
+ 1703  git add -u
+ 1704  git commit -m "create CLAUDE.mds in subdirs"
+ 1705  git push
+ 1706  git diff
+ 1707  git add -u
+ 1708  git commit -m "update claude md"
+ 1709  wc CLAUDE.md 
+ 1710  exit
+ 1711  claude
+ 1712  claude --dangerously-skip-permissions
+ 1713  exec bash
+ 1714  conda activate ptycho-tf
+ 1715  source ~/.openai 
+ 1716  git diff main -- ptycho/tf_helper.py
+ 1717  git diff main -- ptycho/tf_helper.py > gdiff
+ 1718  git diff
+ 1719  git stash
+ 1720  git checkout main
+ 1721  git diff reassembly-refactor -- ptycho/raw_data.py
+ 1722  git diff reassembly-refactor -- ptycho/loader.py
+ 1723  git branch transpose-fix
+ 1724  git checkout transpose-fix
+ 1725  git diff
+ 1726  git add -u
+ 1727  git commit -m "fix inconsistency between dataset format and loader expectation"
+ 1728  git diff reassembly-refactor -- ptycho/
+ 1729  git diff reassembly-refactor -- ptycho/|wc
+ 1730  git diff reassembly-refactor -- ptycho/ > gdiff
+ 1731  git diff reassembly-refactor -- ptycho/ scripts/ > gdiff
+ 1732  git checkout reassembly-refactor
+ 1733  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images
+ 1734  nvidia-smi
+ 1735  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 1024
+ 1736  git diff transpose-fix -- ptycho/loader.py
+ 1737  git diff
+ 1738  git add -u
+ 1739  git commit -m "fix training gridsize bugs"
+ 1740  git diff transpose-fix -- ptycho/loader.py
+ 1741  git diff transpose-fix -- ptycho/loader.py> gdiff
+ 1742  git diff transpose-fix -- ptycho/ >  gdiff
+ 1743  git diff
+ 1744  git add -u
+ 1745  git commit -m "wip"
+ 1746  git push
+ 1747  black
+ 1748  conda activate ptycho-tf
+ 1749  black
+ 1750  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1751  tm
+ 1752  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1753  tm
+ 1754  nvidia-smi
+ 1755  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1756  ls -lt | head
+ 1757  tm
+ 1758  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1759  tm
+ 1760  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1761  git diff
+ 1762  git add -u
+ 1763  git commit -m "fixed gridsize=2 inference failure"
+ 1764  git push
+ 1765  nvidia-smi
+ 1766  tm
+ 1767  git diff
+ 1768  git diff
+ 1769  git log
+ 1770  git diff HEAD^
+ 1771  git diff --cached
+ 1772  git diff
+ 1773  git log
+ 1774  git diff HEAD^^
+ 1775  tm
+ 1776  history | grep infer
+ 1777  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1778  tm
+ 1779  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1780  ls -lt | head
+ 1781  git diff
+ 1782  python scripts/training/train.py --config configs/comparison_config.yaml --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --output_dir
+ 1783  python scripts/training/train.py --config configs/comparison_config.yaml --train_data_file datasets/fly/fly001_transposed.npz --test_data_file datasets/fly/fly001_transposed.npz --output_dir gridsize2_training_run --n_images 512 --gridsize 2
+ 1784  git log
+ 1785  git diff 67ea583198fcdfc0bbfcad652aad79a00abc4a5d
+ 1786  git branch -v
+ 1787  git checkout 67ea583198fcdfc0bbfcad652aad79a00abc4a5d
+ 1788  git stash
+ 1789  git checkout 67ea583198fcdfc0bbfcad652aad79a00abc4a5d
+ 1790  git branch devel
+ 1791  git checkout devel
+ 1792  git checkout pytorch
+ 1793  git diff HEAD^
+ 1794  ls
+ 1795  conda list
+ 1796  ls
+ 1797  ls scripts/
+ 1798  ls ptycho_torch/
+ 1799  conda env list
+ 1800  repomix
+ 1801  ls
+ 1802  ls datasets
+ 1803  ls datasets/probes/
+ 1804  find . | grep fly | grep npz
+ 1805  ls
+ 1806  conda deactivate
+ 1807  conda activate pytorch
+ 1808  claude
+ 1809  conda activate pytorch
+ 1810  cd ..
+ 1811  git clone git@github.com:hoidn/CDI-PINN.git
+ 1812  tm
+ 1813  conda activate pytorch
+ 1814  cd ../CDI-PINN/
+ 1815  claude
+ 1816  git checkout pytorch
+ 1817  git pull
+ 1818  ls
+ 1819  ls datasets
+ 1820  cp -r ../PtychoPINN/datasets/ .
+ 1821  conda activate pytorch
+ 1822  tree
+ 1823  tree ptycho_torch/
+ 1824  tree datasets/
+ 1825  python -c "import torch; print(f'CUDA Available: {torch.cuda.is_available()}'); print(f'CUDA Version: {torch.version.cuda}')"
+ 1826  python -c "import torch; print(torch.cuda.is_available())"
+ 1827  c cd
+ 1828  git diff
+ 1829  claude
+ 1830  git diff
+ 1831  git diff --cached
+ 1832  ls
+ 1833  ls ptychopinn_torch/
+ 1834  git branch -v
+ 1835  claude
+ 1836  git diff
+ 1837  git branch -v
+ 1838  c 
+ 1839  claude
+ 1840  git stash
+ 1841  claude --resume
+ 1842  cd ../CDI-PINN/
+ 1843  claude --dangerously-skip-permissions
+ 1844  git branch -v
+ 1845  ls datasets
+ 1846  ls -lt | head
+ 1847  ls data
+ 1848  git grep _reassemble_patches_position_real
+ 1849  cd PtychoPINN
+ 1850  git grep _reassemble_patches_position_real
+ 1851  git branch -v
+ 1852  git checkout devel
+ 1853  git stash
+ 1854  git checkout devel
+ 1855  rm CLAUDE.md .claude/settings.local.json 
+ 1856  git checkout devel
+ 1857  git grep _reassemble_patches_position_real
+ 1858  git diff
+ 1859  git diff --cached
+ 1860  git grep reassemble
+ 1861  git grep stitch
+ 1862  git grep get_image_patches
+ 1863  ls datasets/fly64/fly001_64_train_converted.npz 
+ 1864  python run_axis_test_training.py
+ 1865  python run_axis_test_training.
+ 1866  python run_axis_test_training.py 
+ 1867  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_identity.npz  --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1868  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_swap_xy.npz   --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1869  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_swap_flip_y.npz    --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1870  conda activate ptycho-tf
+ 1871  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_swap_flip_xy.npz    --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1872  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_swap_flip_x.npz     --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1873  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_flip_y.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1874  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_flip_xy.npz  --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1875  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_flip_x.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1876  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_flip_xy.npz  --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1877  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_flip_xy.npz  --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 1024
+ 1878  python scripts/training/train.py       --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_flip_xy.npz       --test_data_file datasets/fly64_coord_variants/fly001_64_train_converted_flip_xy.npz       --gridsize 2       --nepochs 10       --output_dir outputs/flip_xy_fresh       --n_images 1024
+ 1879  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_flip_x.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1880  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_swap_flip_x.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1881  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_swap_flip_y.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1882  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_swap_flip_x.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1883  ptycho_train --train_data_file datasets/fly64_coord_variants/fly001_64_train_converted_swap_flip_y.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 512
+ 1884  tm
+ 1885  tmux new
+ 1886  conda activate ptycho-tf
+ 1887  c
+ 1888  tm
+ 1889  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 1024
+ 1890  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1891  tm
+ 1892  conda activate ptycho-tf
+ 1893  tm
+ 1894  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 1024
+ 1895  c
+ 1896  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 1024
+ 1897  history | grep inference
+ 1898  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1899  tm
+ 1900  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 1024
+ 1901  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1902  git diff
+ 1903  git git add -u
+ 1904  git add -u
+ 1905  git commit -m "fix sign inconsistency in local coord calculation; reduce default K to 4"
+ 1906  git push
+ 1907  tm
+ 1908  git push
+ 1909  git log
+ 1910  git diff
+ 1911  vi repomix-output.xml 
+ 1912  vi
+ 1913  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final
+ 1914  nvidia-smi
+ 1915  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 10000
+ 1916  git diff
+ 1917  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 1918  vi
+ 1919  git diff
+ 1920  git add -u
+ 1921  git commit -m "document gridsize > 1 data subsampling pitfalls" 
+ 1922  git log
+ 1923  git diff
+ 1924  git branch -v
+ 1925  git push
+ 1926  git branch feat-gridsize-subsets
+ 1927  git checkout feat-gridsize-subsets 
+ 1928  claude --resume
+ 1929  claude --dangerously-skip-permissions
+ 1930  exit
+ 1931  claude
+ 1932  exit
+ 1933  claude --dangerously-skip-permissions
+ 1934  exit
+ 1935  claude
+ 1936  git branch -v
+ 1937  exit
+ 1938  claude
+ 1939  exit
+ 1940  claude --continue
+ 1941  exit
+ 1942  tm
+ 1943  htop
+ 1944  nvidia-smi
+ 1945  claude --resume
+ 1946  claude --dangerously-skip-permissions --resume
+ 1947  claude 
+ 1948  ls plan.md 
+ 1949  ls docs
+ 1950  ls docs/initiatives/
+ 1951  claude --resume
+ 1952  git dif
+ 1953  git diff
+ 1954  git add ptycho/ scripts/
+ 1955  ls -a
+ 1956  ls -a | grep git
+ 1957  git diff
+ 1958  git add scripts
+ 1959  rm .git/index.lock 
+ 1960  git add scripts
+ 1961  git add ptycho
+ 1962  git commit
+ 1963  git branch -v
+ 1964  feature/grouping-aware-subsampling-final-phase
+ 1965  git push
+ 1966  git status
+ 1967  git status
+ 1968  c
+ 1969  conda activate ptycho-tf
+ 1970  git status
+ 1971  ls plans/archive/
+ 1972  ls plans
+ 1973  ls plans/active/
+ 1974  tree plans
+ 1975  git push
+ 1976  git status
+ 1977  git add -u docs/
+ 1978  git add -u configs/
+ 1979  git add docs/COMMANDS_REFERENCE.md
+ 1980  ls docs/
+ 1981  mkdir docs/archive
+ 1982  mv docs/GRIDSIZE_ARCHITECTURAL_FIX.md docs/archive/
+ 1983  mv docs/GRIDSIZE_INFERENCE_GOTCHAS.md docs/archive/
+ 1984  git add docs/archive/
+ 1985  git diff
+ 1986  git add CLAUDE.md 
+ 1987  git commit -m "docs: add cli command reference"
+ 1988  git status
+ 1989  tm
+ 1990  git commit -m "add new slash commands"
+ 1991  git diff
+ 1992  vi /tmp/debug_context.txt
+ 1993  claude --dangerously-skip-permissions --resume
+ 1994  vi /tmp/debug_log.txt
+ 1995  vi /tmp/debug_context.txt
+ 1996  vi /tmp/debug_git_log.txt 
+ 1997  claude --dangerously-skip-permissions 
+ 1998  claude --dangerously-skip-permissions --continue
+ 1999  claude --dangerously-skip-permissions 
+ 2000  claude --dangerously-skip-permissions --resume
+ 2001  vi /tmp/debug_context.txt
+ 2002  gemini
+ 2003  exec bash
+ 2004  which gemini
+ 2005  conda activate ptycho-tf
+ 2006  which gemini
+ 2007  claude --dangerously-skip-permissions --resume
+ 2008  vi /tmp/debug_git_log.txt 
+ 2009  vi /tmp/debug_context.txt
+ 2010  ls -lt /tmp | head
+ 2011  vi /tmp/debug_diff_details.txt 
+ 2012  git add -u .claude/
+ 2013  git commit -m "update slash command"
+ 2014  git push
+ 2015  npx ccusage@latest --since 20250101
+ 2016  npx ccusage@latest --since 20250619
+ 2017  gemini -p "make a file bar with contents foo"
+ 2018  tm
+ 2019  conda activate ptycho-tf
+ 2020  c
+ 2021  npx ccusage@latest --since 20250619
+ 2022  claude
+ 2023  conda activate ptycho-tf
+ 2024  c
+ 2025  exit
+ 2026  tm
+ 2027  c
+ 2028  vi v
+ 2029  vi /tmp/debug_diff_stat.txt
+ 2030  vi .gitignore 
+ 2031  git add .gitignore 
+ 2032  vi /tmp/debug_context.txt
+ 2033  git diff HEAD^^^^^ | wc
+ 2034  git log
+ 2035  git diff devel | wc
+ 2036  git diff devel 
+ 2037  git ls-file | grep lg
+ 2038  git ls-file | grep log
+ 2039  git ls-files | grep log
+ 2040  wc < scripts/training/train_debug.log 
+ 2041  ls plans
+ 2042  git add plans/
+ 2043  git commit -m "add plans dir"
+ 2044  git push
+ 2045  git rm --cached .claude/commands/debug-gemini-v2.md 
+ 2046  git rm --cached .claude/commands/debug-gemini.md 
+ 2047  ls .claude/commands/
+ 2048  cd .claude/commands/
+ 2049  repomix
+ 2050  npx repomix@latest
+ 2051  repomix
+ 2052  npx repomix@latest
+ 2053  exec bash
+ 2054  conda activate ptycho-tf
+ 2055  repomix
+ 2056  claude --dangerously-skip-permissions --resume
+ 2057  cd -
+ 2058  claude --dangerously-skip-permissions --resume
+ 2059  vi /tmp/debug_context.txt
+ 2060  stat /tmp/debug_context.txt 
+ 2061  date
+ 2062  stat /tmp/debug_context.txt 
+ 2063  vi /tmp/debug_context.txt
+ 2064  ls
+ 2065  git diff
+ 2066  git status
+ 2067  git add -u docs
+ 2068  git commit -m "docs: cleanup"
+ 2069  git add -u .claude
+ 2070  git commit -m "cleanup .claude"
+ 2071  git log
+ 2072  git branch -v
+ 2073  vi /tmp/debug_context.txt
+ 2074  conda activate ptycho-tf
+ 2075  c
+ 2076  conda activate ptycho-tf
+ 2077  vi
+ 2078  c
+ 2079  vi gemini_debug_analysis.md 
+ 2080  claude --continue
+ 2081  nvidia-smi
+ 2082  git diff
+ 2083  git log
+ 2084  git diff
+ 2085  git status
+ 2086  git add -u .claude
+ 2087  git commit -m "update .claude"
+ 2088  git push
+ 2089  git branch -v
+ 2090  git log
+ 2091  git checkout feature/grouping-aware-subsampling-final-phase
+ 2092  rm .claude/commands/debug-gemini-v2.md .claude/commands/debug-gemini.md 
+ 2093  git checkout feature/grouping-aware-subsampling-final-phase
+ 2094  git cherry-pick 80935dfa18721a3992debe9f285744ea4effda3e f3482d6c1875b7cfb87d8aa479ccdcad3cf07899 b2d28487bb3c9aeb47f72a961b2ccaa1a1351258 
+ 2095  vi .claude/commands/debug-gemini-v3.md 
+ 2096  git add .claude/commands/debug-gemini-v3.md 
+ 2097  git cherry-pick --continue 
+ 2098  vi .claude/commands/debug-gemini-v3.md 
+ 2099  git add .claude/commands/debug-gemini-v3.md 
+ 2100  git cherry-pick --continue 
+ 2101  git log
+ 2102  tm
+ 2103  vi ~/.tmux.conf
+ 2104  tmux source-file ~/.tmux.conf
+ 2105  vi ~/.tmux.conf
+ 2106  tmux source-file ~/.tmux.conf
+ 2107  find .
+ 2108  exit
+ 2109  tmux new
+ 2110  c dot
+ 2111  ls
+ 2112  ls -a
+ 2113  cp ~/.tmux.conf .
+ 2114  git add .tmux.conf 
+ 2115  conda activate ptycho-tf
+ 2116  vi copyconfig.sh 
+ 2117  it diff
+ 2118  git diff
+ 2119  git add -u
+ 2120  git commit -m "add tmux config for mouse scrolling"
+ 2121  git push
+ 2122  find .
+ 2123  exit
+ 2124  tmux new
+ 2125  git push
+ 2126  tm
+ 2127  conda activate ptycho-tf
+ 2128  c
+ 2129  cd ..
+ 2130  mkdir proompting
+ 2131  clear
+ 2132  cd proompting/
+ 2133  ls
+ 2134  vi cc_guide.md
+ 2135  mv cc_guide.md prompting_guide.md
+ 2136  vi cc_patterns.md
+ 2137  git init
+ 2138  git add *
+ 2139  git commit -m "initial commit"
+ 2140  git remote add origin git@github.com:hoidn/proompting.git
+ 2141  git branch -M main
+ 2142  git push -u origin main
+ 2143  repomix
+ 2144  git grep aware
+ 2145  git diff
+ 2146  git add -u
+ 2147  git commit -m "docs: update cli reference and configs"
+ 2148  git push
+ 2149  find . | grep exampl
+ 2150  find . | grep exam
+ 2151  ls
+ 2152  ls archive/
+ 2153  ls plan
+ 2154  ls plans
+ 2155  ls plans/archive/
+ 2156  ls plans/active/
+ 2157  git push
+ 2158  git pull
+ 2159  tm
+ 2160  conda activate ptycho-tf
+ 2161  c
+ 2162  tm
+ 2163  ls
+ 2164  tm
+ 2165  tm
+ 2166  ./scripts/studies/run_complete_generalization_study.sh     --train-data datasets/fly64/fly64_top_half_shuffled.npz     --test-data datasets/fly64/fly001_64_train_converted.npz     --output-dir fly64_test_run_gs1     --train-sizes "512 1024"     --num-trials 1n
+ 2167  ./scripts/studies/run_complete_generalization_study.sh     --train-data datasets/fly64/fly64_top_half_shuffled.npz     --test-data datasets/fly64/fly001_64_train_converted.npz     --output-dir fly64_test_run_gs1     --train-sizes "512 1024"     --num-trials 1
+ 2168  ./scripts/studies/run_complete_generalization_study.sh       --train-data "datasets/fly64/fly64_top_half_shuffled.npz"       --test-data "datasets/fly64/fly001_64_train_converted.npz"       --skip-data-prep       --train-sizes "512 1024"       --num-trials 1       --output-dir verification_test_actual_$(date +%Y%m%d_%H%M%S)
+ 2169  ./scripts/studies/run_complete_generalization_study.sh       --train-data "datasets/fly64/fly64_top_half_shuffled.npz"       --test-data "datasets/fly64/fly001_64_train_converted.npz"       --skip-data-prep       --train-sizes "512 1024"       --num-trials 2       --output-dir verification_test_actual_$(date +%Y%m%d_%H%M%S)
+ 2170  tm
+ 2171  ./scripts/studies/run_complete_generalization_study.sh       --train-data "datasets/fly64/fly64_top_half_shuffled.npz"       --test-data "datasets/fly64/fly001_64_train_converted.npz"       --skip-data-prep       --train-sizes "512 2048"       --num-trials 2       --output-dir verification_test_actual_$(date +%Y%m%d_%H%M%S)
+ 2172  c
+ 2173  conda activate ptycho-tf
+ 2174  git diff
+ 2175  git diff | wc
+ 2176  git diff > gdiff
+ 2177  git status
+ 2178  git add -u
+ 2179  git commit -m "docs: update to represent both synthetic and experimental training / reconstruction workflows"
+ 2180  git push
+ 2181  git push
+ 2182  git diff
+ 2183  git status
+ 2184  git add -u
+ 2185  git commit -m "docs: update workflow commands to include git use and a review process"
+ 2186  git push
+ 2187  ./scripts/studies/run_complete_generalization_study.sh     --train-sizes "512 1024"     --num-trials 3     --output-dir synthetic_study_t3_512_1024
+ 2188  git diff
+ 2189  git status
+ 2190  git status | grep sh
+ 2191  ls
+ 2192  git branch -v
+ 2193  git checkout develop
+ 2194  git branch develop_bm
+ 2195  git merge feature/grouping-aware-subsampling-final-phase 
+ 2196  ls
+ 2197  vi ptycho/train.py py
+ 2198  vi ptycho/train_pinn.py 
+ 2199  git branch -v
+ 2200  git checkout devel
+ 2201  git reset --hard
+ 2202  git checkout devel
+ 2203  git log
+ 2204  git merge feature/grouping-aware-subsampling-final-phase 
+ 2205  ls scripts/studies/
+ 2206  wc < scripts/studies/test_mean_vs_median.py 
+ 2207  tm
+ 2208  conda activate ptycho-tf
+ 2209  git pull
+ 2210  git log
+ 2211  ls archive/
+ 2212  ls plans
+ 2213  ls plans/examples/
+ 2214  git log
+ 2215  git diff HEAD^
+ 2216  claude --dangerously-skip-permissions --continue
+ 2217  tm
+ 2218  c
+ 2219  conda activate ptycho-tf
+ 2220  vi tmp
+ 2221  git diff aedacd848b676bc40e75f4e84662697bd9e06adf
+ 2222  git diff aedacd848b676bc40e75f4e84662697bd9e06adf | wc
+ 2223  git log
+ 2224  git branch -v
+ 2225  git log
+ 2226  git branch -v
+ 2227  git log
+ 2228  vi tmp
+ 2229  git diff
+ 2230  git add -u
+ 2231  git commit -m "docs: fix checklist template; fix baseline branch handling"
+ 2232  rm plans/active/codebase-housekeeping/review_request_phase_1.md
+ 2233  claude --dangerously-skip-permissions --continue
+ 2234  ls -lt plans
+ 2235  ls -lt plans/active/
+ 2236  ls -lt plans/active/codebase-housekeeping/
+ 2237  vi plans/active/codebase-housekeeping/
+ 2238  ls -lt plans/active/codebase-housekeeping/
+ 2239  rm plans/active/codebase-housekeeping/review_phase_1.md 
+ 2240  claude --dangerously-skip-permissions --resume
+ 2241  claude --dangerously-skip-permissions --continue
+ 2242  claude --dangerously-skip-permissions 
+ 2243  git checkout devel
+ 2244  git stash
+ 2245  git checkout devel
+ 2246  repomix docs
+ 2247  tm
+ 2248  vi plans/active/probe-generalization-study/phase_2_checklist.md 
+ 2249  git branch -v
+ 2250  git diff
+ 2251  git add -u .claude/
+ 2252  vi tmp/p
+ 2253  vi tmp/
+ 2254  conda activate ptycho-tf
+ 2255  ls
+ 2256  ls
+ 2257  ls *md
+ 2258  ls
+ 2259  ls *Md
+ 2260  ls *md
+ 2261  ls docs
+ 2262  ls
+ 2263  c
+ 2264  ls
+ 2265  git diff
+ 2266  git diff | wc
+ 2267  git status
+ 2268  git add -u .claude/
+ 2269  git commit -m "clean up gemini-debug"
+ 2270  git push
+ 2271  claude --dangerously-skip-permissions --continue
+ 2272  claude --dangerously-skip-permissions --resume
+ 2273  nvidia-smi
+ 2274  claude --dangerously-skip-permissions 
+ 2275  git rm .claude/commands/debug-gemini.md 
+ 2276  git rm -f .claude/commands/debug-gemini.md 
+ 2277  git diff
+ 2278  git add -u .claude/
+ 2279  git commit -m "update debug-gemini-v3 @ context and remove old version"
+ 2280  git push
+ 2281  claude --dangerously-skip-permissions --continue
+ 2282  git diff
+ 2283  git add -u
+ 2284  git commit -m "update logging"
+ 2285  git branch -v
+ 2286  git push
+ 2287  find . -name "*.log" -mmin -10
+ 2288  find . -name "*.log" -mmin -100
+ 2289  claude --dangerously-skip-permissions --resume
+ 2290  ls -lt | head
+ 2291  find . -name "*.log" -mmin -10
+ 2292  vi `find . -name "*.log" -mmin -10`
+ 2293  find . -name "*.log" -mmin -10
+ 2294  tm
+ 2295  find . -name "*.log" -mmin -10 | head -n 1
+ 2296  vi `find . -name "*.log" -mmin -10 | head -n 1`
+ 2297  cat `find . -name "*.log" -mmin -10`
+ 2298  cat `find . -name "*.log" -mmin -10`| wc
+ 2299  claude --dangerously-skip-permissions --continue
+ 2300  vi tmp/recent_logs.list 
+ 2301  vi tmp/debug_context.txt 
+ 2302  vi -p `find . -name "*.log" -mmin -10  `
+ 2303  find . -name "*.log" -mmin -10
+ 2304  vi -p `find . -name "*.log" -mmin -10  `
+ 2305  ls | grep debug
+ 2306  ls | grep debug| grep md
+ 2307  vi /home/ollie/Documents/PtychoPINN/gemini_debug_output_tensor_shapes.md
+ 2308  claude --dangerously-skip-permissions --continue
+ 2309  ls -lt | head
+ 2310  find . -name "*.log" -mmin -10
+ 2311  git add -u .claude/
+ 2312  git commit -m "add instruction to review docs to debug-gemini-v3"
+ 2313  git push
+ 2314  find . -name "*.log" -mmin -10
+ 2315  claude --dangerously-skip-permissions --resume
+ 2316  ls -lt | head
+ 2317  find . -name "*.log" -mmin -10
+ 2318  vi -p `find . -name "*.log" -mmin -10`
+ 2319  claude --dangerously-skip-permissions --continue
+ 2320  claude --dangerously-skip-permissions --resume
+ 2321  find . -name "*.log" -mmin -10
+ 2322  git diff
+ 2323  nvidia-smi
+ 2324  find . -name "*.log" -mmin -10
+ 2325  vi -p `find . -name "*.log" -mmin -10`
+ 2326  nvidia-smi
+ 2327  git rm .claude/commands/debug-gemini-v2.md 
+ 2328  git add .claude/commands/checklist-gemini.md 
+ 2329  git add -u .claude/
+ 2330  git diff
+ 2331  git commit -m "docs: new checklist-generation command; remove deprecated debug-gemini"
+ 2332  git push
+ 2333  find . -name "*.log" -mmin -10
+ 2334  vi -p `find . -name "*.log" -mmin -10`
+ 2335  ls docs
+ 2336  git status
+ 2337  git add ptycho/
+ 2338  git add scripts/
+ 2339  git commit -m "wip"
+ 2340  git push
+ 2341  git branch -v
+ 2342  npx repomix@latest
+ 2343  npx repomix@latest .  --top-files-len 20  --include "**/*.sh,**/*.md,**/*.py,**/*.c,**/*.h,**/*.json,**/*.xml" --ignore ".aider.chat.history.md,PtychoNN/**,build/**,ptycho/trash/**,diagram/**,tests/**,notebooks/**,Oclaude.md,ptycho.md,plans/archive/**,dpl.md"
+ 2344  ls *md
+ 2345  ls
+ 2346  ranger
+ 2347  npx repomix@latest .  --top-files-len 20  --include "**/*.sh,**/*.md,**/*.py,**/*.c,**/*.h,**/*.json,**/*.log" --ignore ".aider.chat.history.md,PtychoNN/**,build/**,ptycho/trash/**,diagram/**,tests/**,notebooks/**,Oclaude.md,ptycho.md,plans/archive/**,dpl.md"
+ 2348  ls logs
+ 2349  ls logs//logs/
+ 2350  find . | grep log
+ 2351  find . | grep log
+ 2352  git diff
+ 2353  git status | less
+ 2354  claude --dangerously-skip-permissions --continue
+ 2355  claude --dangerously-skip-permissions --resume
+ 2356  wc repomix-output.xml 
+ 2357  ls archive/
+ 2358  ls docs/
+ 2359  cat `ls *md` | wc 
+ 2360  vi repomix-output.xml 
+ 2361  gemini -p "@repomix-output.xml  <task> what do you see?</task>"
+ 2362  echo foo > bar
+ 2363  cat bar
+ 2364  cat foooooo > z
+ 2365  echo foooooo > z
+ 2366  cat bar >> z
+ 2367  cat zz
+ 2368  cat z
+ 2369  claude --dangerously-skip-permissions --continue
+ 2370  vi gemini-prompt.md 
+ 2371  vi repomix-output.xml 
+ 2372  claude --dangerously-skip-permissions --resume
+ 2373  vi gemini-prompt.md 
+ 2374  rm gemini-prompt.md 
+ 2375  git add -u .claude/
+ 2376  git commit -m "fix context subtitution issue in debug-gemini-v3"
+ 2377  git branch -v
+ 2378  git push
+ 2379  tm
+ 2380  conda activate ptycho-tf
+ 2381  c
+ 2382  git diff devel
+ 2383  git diff devel -- '*.py'
+ 2384  git diff devel -- '*.py' | wc
+ 2385  git add .claude/commands/analyze-gemini.md 
+ 2386  git add -u .claude/
+ 2387  git commit -m "docs: revamp gemini prompts to use repomix and xml structure"
+ 2388  git push
+ 2389  git diff
+ 2390  git add -u .claude/
+ 2391  git commit -m "fix arg parsing in analysis slash command"
+ 2392  git push
+ 2393  claude --dangerously-skip-permissions --continue
+ 2394  git add -u .claude/
+ 2395  git commit -m "fix @ paths"
+ 2396  git push
+ 2397  cp analysis-prompt.md bk_ap.md
+ 2398  vi bk_ap.md 
+ 2399  tm
+ 2400  c nano
+ 2401  git log
+ 2402  c
+ 2403  conda activate ptycho-tf
+ 2404  tm
+ 2405  ls
+ 2406  conda activate ptycho-tf
+ 2407  tm
+ 2408  c
+ 2409  git grep optimizer
+ 2410  conda activate ptycho-tf
+ 2411  tm
+ 2412  conda activate ptycho-tf
+ 2413  ls
+ 2414  c
+ 2415  tm
+ 2416  conda activate ptycho-tf
+ 2417  c
+ 2418  ls
+ 2419  clear
+ 2420  tm
+ 2421  conda activate ptycho-tf
+ 2422  c
+ 2423  vi analysis-prompt.md
+ 2424  ls
+ 2425  git diff
+ 2426  git add docs/architecture.md 
+ 2427  git commit -m "docs: add architecture.md"
+ 2428  git push
+ 2429  vi
+ 2430  git log --diff-filter=A --format="%ai %H %an %s" -- scripts/compare_models.py
+ 2431  git diff devel
+ 2432  c
+ 2433  vim -p $(git diff --name-only devel)
+ 2434  conda activate ptycho-tf
+ 2435  vi -p $(git diff --name-only devel)
+ 2436  git diff
+ 2437  git add -u
+ 2438  git commit -m "wip changes"
+ 2439  git branch -v
+ 2440  git checkout devel
+ 2441  git log
+ 2442  git for-each-ref --sort=-committerdate refs/heads/ --format='%(refname:short) %(committerdate:relative)'
+ 2443  git checkout feature/probe-generalization-study 
+ 2444  git checkout devel
+ 2445  git push
+ 2446  git branch -v
+ 2447  git log
+ 2448  git branch -v
+ 2449  git checkout feature/probe-generalization-study 
+ 2450  git diff devel | pbcopy
+ 2451  git checkout feature/probe-generalization-study 
+ 2452  git push
+ 2453  git diff 
+ 2454  git diff --cached
+ 2455  git branch -v
+ 2456  git pull
+ 2457  git checkout devel-testing
+ 2458  ./scripts/studies/run_complete_generalization_study.sh     --train-sizes "512 1024 2048"     --num-trials 3     --output-dir quick_synthetic_test
+ 2459  vi ~/.openai 
+ 2460  ./scripts/studies/run_complete_generalization_study.sh     --skip-data-prep     --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz"     --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz"     --train-sizes "512 1024 2048"     --num-trials 3     --output-dir study_with_10k_test_set     --n-test-images 10000
+ 2461  git branch -v
+ 2462  c
+ 2463  git diff
+ 2464  git diff --cached
+ 2465  git branch docstrings
+ 2466  git checkout docstrings
+ 2467  conda activate ptycho-tf
+ 2468  tm
+ 2469  git branch -v
+ 2470  claude --dangerously-skip-permissions 
+ 2471  ./scripts/studies/run_complete_generalization_study.sh     --skip-data-prep     --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz"     --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz"     --train-sizes "512 1024 2048"     --num-trials 3     --output-dir study_with_10k_test_set     --n-test-images 10000
+ 2472  tm
+ 2473  git diff
+ 2474  git diff | wc
+ 2475  git diff> gdiff
+ 2476  vi gdiff 
+ 2477  tm
+ 2478  ./scripts/studies/run_complete_generalization_study.sh     --skip-data-prep     --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz"     --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz"     --train-sizes "512 1024 2048"     --num-trials 3     --output-dir study_with_10k_test_set_2     --n-test-images 10000
+ 2479  c
+ 2480  git diff
+ 2481  git diff --name-only
+ 2482  git diff --cached
+ 2483  git log
+ 2484  c
+ 2485  conda activate ptycho-tf
+ 2486  ls
+ 2487  git gidff
+ 2488  ls docs
+ 2489  nvidia-smi
+ 2490  c
+ 2491  vi tmp/ptycho_docstring_checklist.md
+ 2492  vi /tmp/ptycho_docstring_checklist.md
+ 2493  clear
+ 2494  git add -u .claude/
+ 2495  git diff --cached
+ 2496  git add .claude/commands/generate-agent-checklist.md 
+ 2497  git diff --cached
+ 2498  tm
+ 2499  ssh-keygen  -t rsa -b 4096 
+ 2500  ls
+ 2501  git commit -m ".claude"
+ 2502  claude --dangerously-skip-permissions 
+ 2503  ./scripts/studies/run_complete_generalization_study.sh     --skip-data-prep     --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz"     --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz"     --train-sizes "512 1024 2048 4096 8192 16384"     --num-trials 5     --output-dir generalization_synthetic_10ktest     --n-test-images 10000
+ 2504  conda activate ptycho-tf
+ 2505  tm
+ 2506  c
+ 2507  conda activate ptycho-tf
+ 2508  git diff
+ 2509  git diff | wc
+ 2510  git push
+ 2511  git diff > gdiff
+ 2512  git diff
+ 2513  git add -u
+ 2514  git commit -m "docs: add docstrings to ptycho/ modules"
+ 2515  git push
+ 2516  git worktree add ../overlap-study overlap-study
+ 2517  git worktree add -b overlap-study ../overlap-study
+ 2518  c
+ 2519  conda activate ptycho-tf
+ 2520  claude --dangerously-skip-permissions --resume
+ 2521  claude --dangerously-skip-permissions 
+ 2522  cd ..
+ 2523  ls
+ 2524  cd overlap-study/
+ 2525  ls
+ 2526  ls
+ 2527  git add .claude/commands/review-phase-gemini.md 
+ 2528  grep tike -R . 
+ 2529  grep tike -R .  | grep ipynb
+ 2530  cd ..
+ 2531  git clone git@github.com:AdvancedPhotonSource/tike.git
+ 2532  cd tike/
+ 2533  ls
+ 2534  cd ..
+ 2535  mv tike tike2
+ 2536  mv tike2 tike
+ 2537  cd tike
+ 2538  ls .git
+ 2539  rm -rf .git*
+ 2540  cd ..
+ 2541  mv tike PtychoPINN
+ 2542  cd PtychoPINN
+ 2543  ls
+ 2544  vi scripts/reconstruction/run_tike_reconstruction.py
+ 2545  htop
+ 2546  tmux new -s overlaps
+ 2547  git branch -v
+ 2548  claude --dangerously-skip-permissions --continue
+ 2549  tm
+ 2550  claude --dangerously-skip-permissions --continue
+ 2551  claude --dangerously-skip-permissions --continue
+ 2552  claude
+ 2553  ./scripts/studies/run_complete_generalization_study.sh       --add-tike-arm       --tike-iterations 100       --train-sizes "512 1024 2048"       --num-trials 3       --output-dir test_3way_fix_complete       --train-data "datasets/fly64/fly64_top_half_shuffled.npz"       --test-data "datasets/fly64/fly64_shuffled.npz"       --skip-data-prep
+ 2554  tm
+ 2555  ./scripts/studies/run_complete_generalization_study.sh       --add-tike-arm       --tike-iterations 1000       --train-sizes "512 1024 2048"       --num-trials 3       --output-dir test_3way_fix_complete       --train-data "datasets/fly64/fly64_top_half_shuffled.npz"       --test-data "datasets/fly64/fly64_shuffled.npz"       --skip-data-prep
+ 2556  c
+ 2557  tm
+ 2558  cd
+ 2559  vi
+ 2560  c
+ 2561  git push
+ 2562  git diff
+ 2563  git commit -m "finish tike integration"
+ 2564  git push
+ 2565  find . | grep split
+ 2566  ./scripts/studies/run_complete_generalization_study.sh       --add-tike-arm       --tike-iterations 1000       --train-sizes "512 1024 2048"       --num-trials 3       --output-dir test_3way_fix_complete       --train-data "datasets/fly64/fly64_top_half_shuffled.npz"       --test-data "datasets/fly64/fly64_bottom_half_shuffled.npz"       --skip-data-prep
+ 2567  ./scripts/studies/run_complete_generalization_study.sh       --add-tike-arm       --tike-iterations 300       --train-sizes "512 1024 2048"       --num-trials 3       --output-dir 3way_bottomhalf       --train-data "datasets/fly64/fly64_top_half_shuffled.npz"       --test-data "datasets/fly64/fly64_bottom_half_shuffled.npz"       --skip-data-prep
+ 2568  ./scripts/studies/run_complete_generalization_study.sh       --add-tike-arm       --tike-iterations 300       --train-sizes "512"       --num-trials 3       --output-dir 3way_bottomhalf       --train-data "datasets/fly64/fly64_top_half_shuffled.npz"       --test-data "datasets/fly64/fly64_bottom_half_shuffled.npz"       --skip-data-prep
+ 2569  python scripts/reconstruction/run_tike_reconstruction.py       datasets/fly64/fly64_bottom_half_shuffled.npz       tike_reconstruction_results/       --iterations 300       --n-images 2000       --extra-padding 64
+ 2570  conda activate ptycho-tf
+ 2571  python scripts/reconstruction/run_tike_reconstruction.py       datasets/fly64/fly64_bottom_half_shuffled.npz       tike_reconstruction_results/       --iterations 300       --n-images 2000       --extra-padding 64
+ 2572  python scripts/reconstruction/run_tike_reconstruction.py       datasets/fly64/fly64_bottom_half_shuffled.npz       tike_reconstruction_results/       --iterations 1000       --n-images 2000       --extra-padding 64
+ 2573  cd ..
+ 2574  git clone git@github.com:tensorflow/tensorflow.git
+ 2575  cd -
+ 2576  ./scripts/studies/run_complete_generalization_study.sh       --add-tike-arm       --tike-iterations 1000       --train-sizes "256"       --num-trials 3       --output-dir 3way_bottomhalf_full       --train-data "datasets/fly64/fly64_bottom_half_shuffled.npz"       --test-data "datasets/fly64/fly64_top_half_shuffled.npz"       --skip-data-prep       --skip-registration
+ 2577  htop
+ 2578  nvidia-smi
+ 2579  git diff
+ 2580  git add -u
+ 2581  git commit
+ 2582  git diff --cached > gdiff
+ 2583  vi gdiff 
+ 2584  claude
+ 2585  git commit
+ 2586  git diff
+ 2587  git log
+ 2588  git push
+ 2589  c
+ 2590  pip install torch
+ 2591  htop
+ 2592  conda deactivate
+ 2593  conda activate ptycho311
+ 2594  python
+ 2595  mv ../PtychoPINN/tensorflow/ .
+ 2596  ls -a tensorflow/
+ 2597  rm -rf tensorflow/
+ 2598  cd ..
+ 2599  git clone git@github.com:tensorflow/tensorflow.git
+ 2600  git clone git@github.com:keras-team/keras.git
+ 2601  python
+ 2602  nvidia-smi
+ 2603  c
+ 2604  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 1000
+ 2605  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 5000
+ 2606  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 2607  ptycho_inference --model_path ../PtychoPINN/fly64_pinn_gridsize2_final --test_data ../PtychoPINN/datasets/fly64/fly001_64_train_converted.npz --config ../PtychoPINN/inference_gridsize2_config.yaml --output_dir verification_test
+ 2608  npx ccusage@latest --since 20250619
+ 2609  ptycho_inference --model_path ../PtychoPINN/fly64_pinn_gridsize2_final --test_data ../PtychoPINN/datasets/fly64/fly001_64_train_converted.npz --config ../PtychoPINN/inference_gridsize2_config.yaml --output_dir verification_test
+ 2610  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 2 --output_dir fly64_pinn_gridsize2_final --n_images 5000
+ 2611  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 1 --output_dir fly64_pinn_gridsize2_final --n_images 5000
+ 2612  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --config inference_gridsize2_config.yaml --output_dir verification_test
+ 2613  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --output_dir verification_test
+ 2614  npx ccusage@latest --since 20250619
+ 2615  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 1 --output_dir fly64_pinn_gridsize2_final --n_images 5000
+ 2616  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --output_dir verification_test
+ 2617  git diff
+ 2618  git diff| wc
+ 2619  git diff| pbcopy
+ 2620  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --output_dir verification_test
+ 2621  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 1 --output_dir fly64_pinn_gridsize2_final --n_images 5000
+ 2622  ptycho_train --train_data_file datasets/fly64/fly001_64_train_converted.npz --test_data_file datasets/fly64/fly001_64_train_converted.npz --gridsize 1 --output_dir fly64_pinn_gridsize2_final --n_images 5000 --nepochs 2
+ 2623  vi
+ 2624  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --output_dir verification_test
+ 2625  npx ccusage@latest --since 20250619
+ 2626  git diff
+ 2627  git diff | wc
+ 2628  ptycho_inference --model_path fly64_pinn_gridsize2_final --test_data datasets/fly64/fly001_64_train_converted.npz --output_dir verification_test
+ 2629  git diff | wc
+ 2630  vi commit_message.md 
+ 2631  python
+ 2632  vi commit_message.md 
+ 2633  git diff
+ 2634  git add -u
+ 2635  git status
+ 2636  git diff
+ 2637  git commit
+ 2638  git branch -v
+ 2639  git checkout main
+ 2640  git merge tf-fix
+ 2641  vi pyproject.toml 
+ 2642  git push
+ 2643  npx ccusage@latest --since 20250619
+ 2644  pip install torch
+ 2645  python
+ 2646  npx ccusage@latest --since 20250619
+ 2647  ls ptycho/FRC
+ 2648  git submodule update --init --recursive
+ 2649  pip install tike
+ 2650  history > hi

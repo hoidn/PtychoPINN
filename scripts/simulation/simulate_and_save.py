@@ -28,9 +28,14 @@ if project_root not in sys.path:
 from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
+from ptycho.workflows.simulation_utils import load_probe_from_source, validate_probe_object_compatibility
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import cKDTree
+import logging
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 def load_data_for_sim(file_path: str, load_all: bool = False) -> tuple:
     """Loads object and probe, and optionally all other data from an NPZ file."""
@@ -58,6 +63,7 @@ def simulate_and_save(
     buffer: Optional[float] = None,
     seed: Optional[int] = None,
     visualize: bool = False,
+    probe_file: Optional[str] = None,
 ) -> None:
     """
     Loads an object/probe, runs a ptychography simulation, saves the result,
@@ -72,6 +78,18 @@ def simulate_and_save(
     print(f"Loading object and probe from: {input_file_path}")
     print(f"  - Object shape: {object_guess.shape}")
     print(f"  - Probe shape: {probe_guess.shape}")
+    
+    # Override probe if external file is provided
+    if probe_file is not None:
+        try:
+            print(f"\nOverriding probe with external file: {probe_file}")
+            external_probe = load_probe_from_source(probe_file)
+            validate_probe_object_compatibility(external_probe, object_guess)
+            probe_guess = external_probe
+            print(f"  - External probe shape: {probe_guess.shape}")
+            logger.info(f"Successfully loaded external probe from {probe_file}")
+        except (ValueError, FileNotFoundError, KeyError) as e:
+            raise ValueError(f"Failed to load probe from {probe_file}: {str(e)}")
 
     if buffer is None:
         buffer = max(probe_guess.shape) // 2
@@ -251,6 +269,10 @@ def parse_arguments() -> argparse.Namespace:
         "--visualize", action="store_true",
         help="If set, generate a PNG visualization of the simulation inputs and outputs."
     )
+    parser.add_argument(
+        "--probe-file", type=str, default=None,
+        help="Path to external probe file (.npy or .npz) to override the probe from input file"
+    )
     return parser.parse_args()
 
 def main():
@@ -281,7 +303,8 @@ def main():
             original_data_for_vis=original_data_dict,
             buffer=args.buffer,
             seed=args.seed,
-            visualize=args.visualize
+            visualize=args.visualize,
+            probe_file=args.probe_file
         )
     except FileNotFoundError:
         print(f"Error: Input file not found at '{args.input_file}'", file=sys.stderr)
