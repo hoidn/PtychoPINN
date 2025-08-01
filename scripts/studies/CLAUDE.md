@@ -5,6 +5,7 @@
 - **Purpose**: Compare PtychoPINN vs baseline across training sizes
 - **Output**: Statistical analysis with mean/percentiles
 - **Use Case**: Publication-quality model evaluation
+- **NEW Tool**: `run_2x2_probe_study.sh` for probe parameterization studies
 
 ## Essential Commands
 
@@ -37,6 +38,29 @@
     --train-sizes "512 1024" \
     --num-trials 1 \
     --output-dir quick_3way_test
+```
+
+### Probe Parameterization Study (NEW)
+```bash
+# Full 2x2 probe study (default vs hybrid probe, gridsize 1 vs 2)
+./scripts/studies/run_2x2_probe_study.sh \
+    --output-dir probe_study_results \
+    --dataset datasets/fly/fly64_transposed.npz
+
+# Quick test to verify pipeline
+./scripts/studies/run_2x2_probe_study.sh \
+    --output-dir test_probe_study \
+    --quick-test
+
+# Resume interrupted study
+./scripts/studies/run_2x2_probe_study.sh \
+    --output-dir probe_study_results \
+    --skip-completed
+
+# Parallel execution with 4 jobs
+./scripts/studies/run_2x2_probe_study.sh \
+    --output-dir probe_study_results \
+    --parallel-jobs 4
 ```
 
 ### Single Model Comparison
@@ -76,6 +100,8 @@ python scripts/studies/aggregate_and_plot_results.py \
 ## Study Architecture
 
 ### Directory Structure
+
+#### Generalization Study
 ```
 study_results/
 ├── train_512/
@@ -87,6 +113,22 @@ study_results/
 ├── train_1024/
 ├── train_2048/
 └── train_4096/
+```
+
+#### Probe Parameterization Study
+```
+probe_study_results/
+├── default_probe.npy          # Extracted default probe
+├── hybrid_probe.npy           # Generated hybrid probe
+├── study_summary.csv          # Combined results
+├── gs1_default/               # Gridsize 1, default probe
+│   ├── simulated_data.npz
+│   ├── model/
+│   ├── evaluation/
+│   └── metrics_summary.csv
+├── gs1_hybrid/                # Gridsize 1, hybrid probe
+├── gs2_default/               # Gridsize 2, default probe
+└── gs2_hybrid/                # Gridsize 2, hybrid probe
 ```
 
 ### Statistical Analysis
