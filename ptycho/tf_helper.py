@@ -118,7 +118,7 @@ Canonical Usage Pipeline:
 import os
 import numpy as np
 import tensorflow as tf
-from typing import Tuple, Optional, Union, Callable, Any
+from typing import Tuple, Optional, Union, Callable, Any, List
 
 # Check if there are any GPUs available and set memory growth accordingly
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -137,11 +137,182 @@ from tensorflow.keras.applications.vgg16 import VGG16
 from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, UpSampling2D
 from tensorflow.keras.layers import Lambda
 from tensorflow.signal import fft2d, fftshift
+
 import tensorflow_probability as tfp
 
 from .params import params, cfg, get, get_padded_size
+
+# Import XLA-friendly projective warp implementation
+from .projective_warp_xla import translate_xla
+
+# Helper function to check if XLA should be used
+def should_use_xla() -> bool:
+    """Check if XLA translation should be used based on config or environment.
+    
+    XLA translation is enabled by default for better performance.
+    Can be disabled by setting 'use_xla_translate' to False in params or
+    by setting USE_XLA_TRANSLATE=0 in environment.
+    """
+    # Check environment variable first (allows override)
+    use_xla_env = os.environ.get('USE_XLA_TRANSLATE', '')
+    if use_xla_env.lower() in ('0', 'false', 'no'):
+        return False
+    
+    # Check if parameter exists in config
+    try:
+        use_xla_config = get('use_xla_translate')
+        if use_xla_config is not None:
+            return bool(use_xla_config)
+    except KeyError:
+        pass  # Parameter doesn't exist, use default
+    
+    # Default to True (XLA enabled)
+    return True
 #from .logging import debug
 from .autotest.debug import debug
+
+# Define a simple translation function using gather_nd for XLA compatibility
+def _translate_images_simple(images, dx, dy):
+    """Simple translation using gather_nd that's XLA compatible."""
+    batch_size = tf.shape(images)[0]
+    height = tf.shape(images)[1]
+    width = tf.shape(images)[2]
+    channels = tf.shape(images)[3]
+    
+    # Create coordinate grids
+    y_coords = tf.range(height, dtype=tf.float32)
+    x_coords = tf.range(width, dtype=tf.float32)
+    y_grid, x_grid = tf.meshgrid(y_coords, x_coords, indexing='ij')
+    
+    # Expand for batch dimension
+    y_grid = tf.expand_dims(y_grid, axis=0)  # (1, H, W)
+    x_grid = tf.expand_dims(x_grid, axis=0)  # (1, H, W)
+    
+    # Apply translation offsets
+    # dx and dy are (batch,) tensors
+    dx_expanded = tf.reshape(dx, [batch_size, 1, 1])  # (B, 1, 1)
+    dy_expanded = tf.reshape(dy, [batch_size, 1, 1])  # (B, 1, 1)
+    
+    # New coordinates after translation
+    new_x = x_grid - dx_expanded  # Subtract because we're moving the image
+    new_y = y_grid - dy_expanded
+    
+    # Bilinear interpolation
+    x0 = tf.floor(new_x)
+    x1 = x0 + 1
+    y0 = tf.floor(new_y)
+    y1 = y0 + 1
+    
+    # Clip coordinates
+    x0 = tf.clip_by_value(x0, 0, tf.cast(width - 1, tf.float32))
+    x1 = tf.clip_by_value(x1, 0, tf.cast(width - 1, tf.float32))
+    y0 = tf.clip_by_value(y0, 0, tf.cast(height - 1, tf.float32))
+    y1 = tf.clip_by_value(y1, 0, tf.cast(height - 1, tf.float32))
+    
+    # Convert to integer indices
+    x0_int = tf.cast(x0, tf.int32)
+    x1_int = tf.cast(x1, tf.int32)
+    y0_int = tf.cast(y0, tf.int32)
+    y1_int = tf.cast(y1, tf.int32)
+    
+    # Compute interpolation weights
+    wa = (x1 - new_x) * (y1 - new_y)
+    wb = (new_x - x0) * (y1 - new_y)
+    wc = (x1 - new_x) * (new_y - y0)
+    wd = (new_x - x0) * (new_y - y0)
+    
+    # Expand weights for channels
+    wa = tf.expand_dims(wa, axis=-1)  # (B, H, W, 1)
+    wb = tf.expand_dims(wb, axis=-1)
+    wc = tf.expand_dims(wc, axis=-1)
+    wd = tf.expand_dims(wd, axis=-1)
+    
+    # Gather pixel values
+    # Create batch indices
+    batch_idx = tf.range(batch_size)
+    batch_idx = tf.reshape(batch_idx, [batch_size, 1, 1])
+    batch_idx = tf.tile(batch_idx, [1, height, width])
+    
+    # Stack indices for gather_nd
+    def gather_pixels(y_idx, x_idx):
+        indices = tf.stack([batch_idx, y_idx, x_idx], axis=-1)
+        return tf.gather_nd(images, indices)
+    
+    # Gather corner pixels
+    Ia = gather_pixels(y0_int, x0_int)
+    Ib = gather_pixels(y0_int, x1_int)
+    Ic = gather_pixels(y1_int, x0_int)
+    Id = gather_pixels(y1_int, x1_int)
+    
+    # Compute interpolated values
+    output = wa * Ia + wb * Ib + wc * Ic + wd * Id
+    
+    # Handle out-of-bounds pixels
+    mask_x = tf.logical_and(new_x >= 0, new_x < tf.cast(width, tf.float32))
+    mask_y = tf.logical_and(new_y >= 0, new_y < tf.cast(height, tf.float32))
+    mask = tf.logical_and(mask_x, mask_y)
+    mask = tf.expand_dims(mask, axis=-1)  # (B, H, W, 1)
+    
+    # Set out-of-bounds pixels to zero
+    output = tf.where(mask, output, tf.zeros_like(output))
+    
+    return output
+
+def _translate_images_nearest(images, dx, dy):
+    """Simple translation using gather_nd with nearest neighbor interpolation."""
+    batch_size = tf.shape(images)[0]
+    height = tf.shape(images)[1]
+    width = tf.shape(images)[2]
+    channels = tf.shape(images)[3]
+    
+    # Create coordinate grids
+    y_coords = tf.range(height, dtype=tf.float32)
+    x_coords = tf.range(width, dtype=tf.float32)
+    y_grid, x_grid = tf.meshgrid(y_coords, x_coords, indexing='ij')
+    
+    # Expand for batch dimension
+    y_grid = tf.expand_dims(y_grid, axis=0)  # (1, H, W)
+    x_grid = tf.expand_dims(x_grid, axis=0)  # (1, H, W)
+    
+    # Apply translation offsets
+    dx_expanded = tf.reshape(dx, [batch_size, 1, 1])  # (B, 1, 1)
+    dy_expanded = tf.reshape(dy, [batch_size, 1, 1])  # (B, 1, 1)
+    
+    # New coordinates after translation
+    new_x = x_grid - dx_expanded
+    new_y = y_grid - dy_expanded
+    
+    # Round to nearest integer for nearest neighbor
+    new_x = tf.round(new_x)
+    new_y = tf.round(new_y)
+    
+    # Clip coordinates
+    new_x = tf.clip_by_value(new_x, 0, tf.cast(width - 1, tf.float32))
+    new_y = tf.clip_by_value(new_y, 0, tf.cast(height - 1, tf.float32))
+    
+    # Convert to integer indices
+    x_int = tf.cast(new_x, tf.int32)
+    y_int = tf.cast(new_y, tf.int32)
+    
+    # Create batch indices
+    batch_idx = tf.range(batch_size)
+    batch_idx = tf.reshape(batch_idx, [batch_size, 1, 1])
+    batch_idx = tf.tile(batch_idx, [1, height, width])
+    
+    # Stack indices for gather_nd
+    indices = tf.stack([batch_idx, y_int, x_int], axis=-1)
+    output = tf.gather_nd(images, indices)
+    
+    # Handle out-of-bounds pixels
+    mask_x = tf.logical_and(new_x >= 0, new_x < tf.cast(width, tf.float32))
+    mask_y = tf.logical_and(new_y >= 0, new_y < tf.cast(height, tf.float32))
+    mask = tf.logical_and(mask_x, mask_y)
+    mask = tf.expand_dims(mask, axis=-1)  # (B, H, W, 1)
+    
+    # Set out-of-bounds pixels to zero
+    output = tf.where(mask, output, tf.zeros_like(output))
+    
+    return output
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -446,6 +617,10 @@ def extract_patches_position(imgs: tf.Tensor, offsets_xy: tf.Tensor, jitter: flo
 
     no negative sign
     """
+    # Ensure offsets are real-valued
+    if offsets_xy.dtype in [tf.complex64, tf.complex128]:
+        offsets_xy = tf.math.real(offsets_xy)
+        
     if  imgs.get_shape()[0] is not None:
         assert int(imgs.get_shape()[0]) == int(offsets_xy.get_shape()[0])
     assert int(imgs.get_shape()[3]) == 1
@@ -456,8 +631,10 @@ def extract_patches_position(imgs: tf.Tensor, offsets_xy: tf.Tensor, jitter: flo
     offsets_flat = flatten_offsets(offsets_xy)
     stacked = tf.repeat(imgs, gridsize**2, axis = 3)
     flat_padded = _channel_to_flat(stacked)
+    # Create Translation layer with jitter parameter
+    translation_layer = Translation(jitter_stddev=jitter if isinstance(jitter, (int, float)) else 0.0, use_xla=should_use_xla())
     channels_translated = trim_reconstruction(
-        Translation()([flat_padded, offsets_flat, jitter]))
+        translation_layer([flat_padded, offsets_flat]))
     return channels_translated
 
 #@debug
@@ -465,7 +642,10 @@ def center_channels(channels: tf.Tensor, offsets_xy: tf.Tensor) -> tf.Tensor:
     """
     Undo image patch offsets
     """
-    ct = Translation()([_channel_to_flat(channels), flatten_offsets(-offsets_xy), 0.])
+    # Ensure offsets are real-valued
+    if offsets_xy.dtype in [tf.complex64, tf.complex128]:
+        offsets_xy = tf.math.real(offsets_xy)
+    ct = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([_channel_to_flat(channels), flatten_offsets(-offsets_xy)])
     channels_centered = _flat_to_channel(ct)
     return channels_centered
 
@@ -514,86 +694,90 @@ complexify_sum_real_imag = complexify_helper(separate_real_imag, lambda a, b: a 
 
 # from tensorflow_addons.image import translate as _translate  # No longer needed - using native TF implementation
 
-def translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: str = 'bilinear') -> tf.Tensor:
-    """Translate images using native TensorFlow ops.
+def translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: str = 'bilinear', use_xla_workaround: bool = False) -> tf.Tensor:
+    """Translate images with optimized implementation.
     
-    This function replaces tensorflow_addons.image.translate with a native TF implementation
-    using tf.raw_ops.ImageProjectiveTransformV3.
+    This function provides fast translation that's compatible with TF 2.18/2.19.
+    XLA compilation is enabled by default for better performance.
     
     Args:
         images: Tensor of shape (batch, height, width, channels)
         translations: Tensor of shape (batch, 2) with [dy, dx] offsets
         interpolation: 'bilinear' or 'nearest'
+        use_xla_workaround: If True, use XLA-compatible implementation (overrides config)
     
     Returns:
         Translated images with same shape as input
     """
-    # Get input shape
-    batch_size = tf.shape(images)[0]
-    height = tf.shape(images)[1]
-    width = tf.shape(images)[2]
+    # Use XLA-friendly implementation if requested or configured
+    use_xla = use_xla_workaround or should_use_xla()
     
+    # Use XLA-friendly implementation if enabled
+    if use_xla:
+        return translate_xla(images, translations, interpolation=interpolation, use_jit=True)
     # Ensure translations has correct shape
     translations = tf.ensure_shape(translations, [None, 2])
-    
-    # Convert translation offsets to transformation matrices
-    # For translation by (dx, dy), the transformation matrix is:
-    # [[1, 0, -dx],
-    #  [0, 1, -dy],
-    #  [0, 0,  1]]
-    # Note: The negative sign is because TF applies the inverse transform
-    
-    # Create identity matrices
-    identity = tf.eye(3, batch_shape=[batch_size])  # Shape: (batch, 3, 3)
     
     # Extract dx and dy from translations 
     # TFA uses [dx, dy] order
     # TFA convention: positive values move the image content in the positive direction
-    # TF raw ops convention: the transformation matrix moves pixels in the opposite direction
     # So we need to negate the values
     dx = -translations[:, 0]
     dy = -translations[:, 1]
     
-    # Create transformation matrices
-    # ImageProjectiveTransformV3 uses the standard projective transformation convention
-    # where the transformation is applied to output coordinates to get input coordinates
-    # This means we DON'T negate the translation values
-    # The transformation matrix format is row-wise flattened, excluding the last row
-    # [[a0, a1, a2], [a3, a4, a5], [0, 0, 1]] -> [a0, a1, a2, a3, a4, a5, 0, 0]
+    # For performance, use ImageProjectiveTransformV3 when not using XLA
+    # This is much faster than the pure TF implementation
+    if not use_xla_workaround:
+        try:
+            # Get input shape
+            batch_size = tf.shape(images)[0]
+            height = tf.shape(images)[1]
+            width = tf.shape(images)[2]
+            
+            # Build the flattened transformation matrix for each image in the batch
+            ones = tf.ones([batch_size], dtype=tf.float32)
+            zeros = tf.zeros([batch_size], dtype=tf.float32)
+            
+            # Transformation matrix elements [a0, a1, a2, a3, a4, a5, a6, a7]
+            transforms_flat = tf.stack([
+                ones,   # a0 = 1 (x scale)
+                zeros,  # a1 = 0 (x shear)
+                dx,     # a2 = dx (x translation)
+                zeros,  # a3 = 0 (y shear)
+                ones,   # a4 = 1 (y scale)
+                dy,     # a5 = dy (y translation)
+                zeros,  # a6 = 0 (perspective)
+                zeros   # a7 = 0 (perspective)
+            ], axis=1)  # Shape: (batch, 8)
+            
+            # Map interpolation mode
+            interpolation_map = {
+                'bilinear': 'BILINEAR',
+                'nearest': 'NEAREST'
+            }
+            interp_mode = interpolation_map.get(interpolation, 'BILINEAR')
+            
+            # Use native operation
+            output = tf.raw_ops.ImageProjectiveTransformV3(
+                images=images,
+                transforms=transforms_flat,
+                output_shape=[height, width],
+                interpolation=interp_mode,
+                fill_mode='CONSTANT',
+                fill_value=0.0
+            )
+            
+            return output
+            
+        except Exception:
+            # Fall back to pure TF if there's any issue
+            pass
     
-    # Build the flattened transformation matrix for each image in the batch
-    ones = tf.ones([batch_size], dtype=tf.float32)
-    zeros = tf.zeros([batch_size], dtype=tf.float32)
-    
-    # Transformation matrix elements [a0, a1, a2, a3, a4, a5, a6, a7]
-    # where a6, a7 are always 0 for affine transforms
-    transforms_flat = tf.stack([
-        ones,   # a0 = 1 (x scale)
-        zeros,  # a1 = 0 (x shear)
-        dx,     # a2 = dx (x translation)
-        zeros,  # a3 = 0 (y shear)
-        ones,   # a4 = 1 (y scale)
-        dy,     # a5 = dy (y translation)
-        zeros,  # a6 = 0 (perspective)
-        zeros   # a7 = 0 (perspective)
-    ], axis=1)  # Shape: (batch, 8)
-    
-    # Map interpolation mode
-    interpolation_map = {
-        'bilinear': 'BILINEAR',
-        'nearest': 'NEAREST'
-    }
-    interp_mode = interpolation_map.get(interpolation, 'BILINEAR')
-    
-    # Apply transformation
-    output = tf.raw_ops.ImageProjectiveTransformV3(
-        images=images,
-        transforms=transforms_flat,
-        output_shape=[height, width],
-        interpolation=interp_mode,
-        fill_mode='CONSTANT',
-        fill_value=0.0
-    )
+    # Fall back to pure TF implementation for XLA compatibility
+    if interpolation == 'nearest':
+        output = _translate_images_nearest(images, dx, dy)
+    else:  # default to bilinear
+        output = _translate_images_simple(images, dx, dy)
     
     return output
 
@@ -602,18 +786,47 @@ def translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: st
 #@debug
 def translate(imgs: tf.Tensor, offsets: tf.Tensor, **kwargs: Any) -> tf.Tensor:
     # TODO assert dimensionality of translations is 2; i.e. B, 2
-    # Use our native TensorFlow implementation instead of TensorFlow Addons
     interpolation = kwargs.get('interpolation', 'bilinear')
-    return translate_core(imgs, offsets, interpolation=interpolation)
+    use_xla_workaround = kwargs.get('use_xla_workaround', False)
+    return translate_core(imgs, offsets, interpolation=interpolation, use_xla_workaround=use_xla_workaround)
 
 # TODO consolidate this and translate()
 class Translation(tf.keras.layers.Layer):
-    def __init__(self) -> None:
+    def __init__(self, jitter_stddev: float = 0.0, use_xla: bool = False) -> None:
         super(Translation, self).__init__()
-    def call(self, inputs: Tuple[tf.Tensor, tf.Tensor, float]) -> tf.Tensor:
-        imgs, offsets, jitter = inputs
-        jitter = tf.random.normal(tf.shape(offsets), stddev = jitter)
-        return translate(imgs, offsets + jitter, interpolation = 'bilinear')
+        self.jitter_stddev = jitter_stddev
+        self.use_xla = use_xla
+        
+    def call(self, inputs: Union[List[tf.Tensor], tf.Tensor]) -> tf.Tensor:
+        # In TF 2.19, we pass jitter as a constructor parameter instead
+        if isinstance(inputs, list):
+            if len(inputs) >= 2:
+                imgs = inputs[0]
+                offsets = inputs[1]
+                # If a third input is provided, use it to override jitter_stddev
+                if len(inputs) == 3 and isinstance(inputs[2], (int, float)):
+                    self.jitter_stddev = inputs[2]
+            else:
+                raise ValueError("Translation layer requires at least 2 inputs")
+        else:
+            raise ValueError("Translation layer expects a list of inputs")
+            
+        # Offsets should always be real-valued float32
+        # If they're not, there's a bug upstream that needs fixing
+        if offsets.dtype not in [tf.float32, tf.float64]:
+            tf.print("WARNING: Translation layer received offsets with dtype:", offsets.dtype, 
+                     "Expected float32. This indicates a bug upstream.")
+            if offsets.dtype in [tf.complex64, tf.complex128]:
+                offsets = tf.math.real(offsets)
+            offsets = tf.cast(offsets, tf.float32)
+            
+        if self.jitter_stddev > 0:
+            jitter = tf.random.normal(tf.shape(offsets), stddev=self.jitter_stddev)
+        else:
+            jitter = 0.0
+        
+        # Pass use_xla parameter to translate_core via kwargs
+        return translate(imgs, offsets + jitter, interpolation='bilinear', use_xla_workaround=self.use_xla)
 
 #@debug
 def flatten_offsets(channels: tf.Tensor) -> tf.Tensor:
@@ -633,12 +846,16 @@ def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, ag
         def reassemble_patches_position_real(imgs, **kwargs):
             return _reassemble_patches_position_real(imgs, coords)
     """
+    # Ensure offsets are real-valued
+    if offsets_xy.dtype in [tf.complex64, tf.complex128]:
+        offsets_xy = tf.math.real(offsets_xy)
+        
     if padded_size is None:
         padded_size = get_padded_size()
     offsets_flat = flatten_offsets(offsets_xy)
     imgs_flat = _channel_to_flat(imgs)
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
-    imgs_flat_bigN_translated = Translation()([imgs_flat_bigN, -offsets_flat, 0.])
+    imgs_flat_bigN_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([imgs_flat_bigN, -offsets_flat])
     if agg:
         imgs_merged = tf.reduce_sum(
                 _flat_to_channel(imgs_flat_bigN_translated, N = padded_size),
@@ -687,7 +904,7 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
     # Use original approach if fewer patches than batch size
     def original_approach():
         imgs_flat_padded = pad_patches(imgs_flat, padded_size)
-        imgs_translated = Translation()([imgs_flat_padded, -offsets_flat, 0.])
+        imgs_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([imgs_flat_padded, -offsets_flat])
         channels = _flat_to_channel(imgs_translated, N=padded_size)
         return tf.reduce_sum(channels, axis=3, keepdims=True)
     
@@ -716,7 +933,7 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
             # Only process if we have images in the batch
             def process_batch():
                 batch_imgs_padded = pad_patches(batch_imgs, padded_size)
-                batch_translated = Translation()([batch_imgs_padded, -batch_offsets, 0.])
+                batch_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([batch_imgs_padded, -batch_offsets])
                 batch_channels = _flat_to_channel(batch_translated, N=padded_size)
                 return tf.reduce_sum(batch_channels, axis=3, keepdims=True)
             
@@ -753,22 +970,39 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
         batched_approach
     )
 
+# Define CenterMaskLayer at module level for serialization
+class CenterMaskLayer(tfkl.Layer):
+    def __init__(self, N, c, kind='center', **kwargs):
+        super().__init__(**kwargs)
+        self.N = N
+        self.c = c
+        self.kind = kind
+        self.zero_pad = tfkl.ZeroPadding2D((N // 4, N // 4))
+    
+    def call(self, inputs):
+        b = tf.shape(inputs)[0]
+        ones = tf.ones((b, self.N // 2, self.N // 2, self.c), dtype=inputs.dtype)
+        ones = self.zero_pad(ones)
+        if self.kind == 'center':
+            return ones
+        elif self.kind == 'border':
+            return 1 - ones
+        else:
+            raise ValueError(f"Unknown kind: {self.kind}")
+    
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'N': self.N,
+            'c': self.c,
+            'kind': self.kind
+        })
+        return config
+
 #@debug
 def mk_centermask(inputs: tf.Tensor, N: int, c: int, kind: str = 'center') -> tf.Tensor:
-    b = tf.shape(inputs)[0]
-#    if get('probe.big'):
-#        ones = tf.ones((b, N, N, c), dtype = inputs.dtype)
-#    else:
-#        ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
-#        ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
-    ones = tf.ones((b, N // 2, N // 2, c), dtype = inputs.dtype)
-    ones =   tfkl.ZeroPadding2D((N // 4, N // 4))(ones)
-    if kind == 'center':
-        return ones
-    elif kind == 'border':
-        return 1 - ones
-    else:
-        raise ValueError
+    # Use the module-level CenterMaskLayer
+    return CenterMaskLayer(N, c, kind)(inputs)
 
 #@debug
 def mk_norm(channels: tf.Tensor, fn_reassemble_real: Callable[[tf.Tensor], tf.Tensor]) -> tf.Tensor:
