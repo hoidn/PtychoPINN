@@ -21,7 +21,7 @@ This modular design allows you to simulate diffraction for any object you can cr
 
 | Script | Purpose |
 |--------|---------|
-| `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. |
+| `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. Now supports `--probe-file` for decoupled probe studies. |
 | `run_with_synthetic_lines.py` | **Convenience Wrapper.** A high-level script that automates both Stage 1 and Stage 2 for the specific 'lines' object type. Ideal for quick tests. |
 
 ## Workflow Examples
@@ -83,6 +83,36 @@ python scripts/simulation/simulate_and_save.py \
     --n-images 2000 \
     --visualize
 ```
+
+### Using External Probe for Studies
+
+The `--probe-file` option allows you to override the probe from the input file with an external probe. This is useful for controlled studies on how probe variations affect reconstruction.
+
+```bash
+# Example 1: Use a probe from another dataset
+python scripts/simulation/simulate_and_save.py \
+    --input-file object_data.npz \
+    --output-file output_with_custom_probe.npz \
+    --probe-file experimental_probe.npz \
+    --n-images 2000
+
+# Example 2: Use a hybrid probe created with the Phase 1 tool
+python scripts/tools/create_hybrid_probe.py \
+    ideal_probe.npy \
+    aberrated_probe.npy \
+    --output hybrid_probe.npy
+
+python scripts/simulation/simulate_and_save.py \
+    --input-file object_data.npz \
+    --output-file output_with_hybrid_probe.npz \
+    --probe-file hybrid_probe.npy \
+    --n-images 2000
+```
+
+The external probe must be:
+- A 2D complex array
+- Smaller than the object in both dimensions
+- Provided as either a `.npy` file or `.npz` file (with 'probeGuess' key)
 
 ## Output Data Format
 

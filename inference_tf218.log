@@ -1,0 +1,368 @@
+2025-07-28 13:57:45.277574: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1753736265.288918 3829404 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1753736265.292530 3829404 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-07-28 13:57:45.305178: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-07-28 13:57:47,694 - INFO - Starting ptychography inference script...
+2025-07-28 13:57:47,695 - INFO - Loading configuration from YAML: ../PtychoPINN/inference_gridsize2_config.yaml
+2025-07-28 13:57:47,696 - INFO - Loaded gridsize=2 from config.
+2025-07-28 13:57:47,696 - INFO - Final inference config - gridsize: 2
+2025-07-28 13:57:47,696 - INFO - Loading model...
+2025-07-28 13:57:47,696 - INFO - Attempting to load model from: ../PtychoPINN/fly64_pinn_gridsize2_final
+2025-07-28 13:57:47,696 - INFO - Current working directory: /home/ollie/Documents/PtychoPINN2
+I0000 00:00:1753736267.956483 3829404 gpu_process_state.cc:201] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1753736267.957724 3829404 gpu_device.cc:2022] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 21917 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+input shape (None, 64, 64, 1)
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ input (InputLayer)  │ (None, 64, 64, 4) │          0 │ -                 │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ true_divide         │ (None, 64, 64, 4) │          0 │ input[0][0]       │
+│ (TrueDivide)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d (Conv2D)     │ (None, 64, 64,    │      2,368 │ true_divide[0][0] │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_1 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d[0][0]      │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d       │ (None, 32, 32,    │          0 │ conv2d_1[0][0]    │
+│ (MaxPooling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_2 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d[0]… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_3 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_2[0][0]    │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_1     │ (None, 16, 16,    │          0 │ conv2d_3[0][0]    │
+│ (MaxPooling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_4 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_1[… │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_5 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_4[0][0]    │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_2     │ (None, 8, 8, 256) │          0 │ conv2d_5[0][0]    │
+│ (MaxPooling2D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_8 (Conv2D)   │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_16 (Conv2D)  │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_9 (Conv2D)   │ (None, 8, 8, 128) │    147,584 │ conv2d_8[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_17 (Conv2D)  │ (None, 8, 8, 128) │    147,584 │ conv2d_16[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_9[0][0]    │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_3     │ (None, 16, 16,    │          0 │ conv2d_17[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_10 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d[0]… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_18 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d_3[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_11 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_10[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_19 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_18[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_11[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_4     │ (None, 32, 32,    │          0 │ conv2d_19[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_1          │ (None, 32, 32, 4) │          0 │ up_sampling2d_1[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_3          │ (None, 32, 32, 4) │          0 │ up_sampling2d_4[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_12 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_1[0][0]  │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_20 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_3[0][0]  │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_13 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_12[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_21 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_20[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_13[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_5     │ (None, 64, 64,    │          0 │ conv2d_21[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item (GetItem)  │ (None, 32, 32,    │          0 │ up_sampling2d_1[… │
+│                     │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_7 (Conv2D)   │ (None, 64, 64, 1) │        577 │ up_sampling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_2          │ (None, 32, 32,    │          0 │ up_sampling2d_4[… │
+│ (GetItem)           │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_15 (Conv2D)  │ (None, 64, 64, 4) │      2,308 │ up_sampling2d_5[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_6 (Conv2D)   │ (None, 32, 32, 1) │        541 │ get_item[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu (Silu)         │ (None, 64, 64, 1) │          0 │ conv2d_7[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_14 (Conv2D)  │ (None, 32, 32, 4) │      2,164 │ get_item_2[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu_1 (Silu)       │ (None, 64, 64, 4) │          0 │ conv2d_15[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp (Lambda)        │ (None, 32, 32, 1) │          0 │ conv2d_6[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer   │ (None, 64, 64, 1) │          0 │ silu[0][0]        │
+│ (CenterMaskLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phi (Lambda)        │ (None, 32, 32, 4) │          0 │ conv2d_14[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer_1 │ (None, 64, 64, 1) │          0 │ silu_1[0][0]      │
+│ (CenterMaskLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp_padded          │ (None, 64, 64, 1) │          0 │ amp[0][0]         │
+│ (ZeroPadding2D)     │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply (Multiply) │ (None, 64, 64, 1) │          0 │ silu[0][0],       │
+│                     │                   │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phase_padded        │ (None, 64, 64, 4) │          0 │ phi[0][0]         │
+│ (ZeroPadding2D)     │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply_1          │ (None, 64, 64, 4) │          0 │ silu_1[0][0],     │
+│ (Multiply)          │                   │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add (Add)           │ (None, 64, 64, 1) │          0 │ amp_padded[0][0], │
+│                     │                   │            │ multiply[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add_1 (Add)         │ (None, 64, 64, 4) │          0 │ phase_padded[0][… │
+│                     │                   │            │ multiply_1[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ obj (Lambda)        │ (None, 64, 64, 1) │          0 │ add[0][0],        │
+│                     │                   │            │ add_1[0][0]       │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ input_positions     │ (None, 1, 2, 4)   │          0 │ -                 │
+│ (InputLayer)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_obj_2        │ (None, 78, 78, 1) │          0 │ obj[0][0],        │
+│ (Lambda)            │                   │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_objs_with_o… │ (None, 64, 64, 1) │          0 │ padded_obj_2[0][… │
+│ (Lambda)            │                   │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ probe_illumination  │ [(None, 64, 64,   │          0 │ padded_objs_with… │
+│ (ProbeIllumination) │ 1), (1, 1, 64,    │            │                   │
+│                     │ 64, 1)]           │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_amplitude      │ [(None, 64, 64,   │          0 │ probe_illuminati… │
+│ (Lambda)            │ 1), (None, 64,    │            │                   │
+│                     │ 64, 1)]           │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_diff_channels  │ (None, 64, 64, 4) │          0 │ pred_amplitude[0… │
+│ (Lambda)            │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply_2          │ (None, 64, 64, 4) │          0 │ pred_diff_channe… │
+│ (Multiply)          │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ trimmed_obj         │ (None, 64, 64, 1) │          0 │ padded_obj_2[0][… │
+│ (Lambda)            │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_intensity      │ (None, 64, 64, 4) │          0 │ multiply_2[0][0]  │
+│ (Lambda)            │                   │            │                   │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+ Total params: 2,336,854 (8.91 MB)
+ Trainable params: 2,336,854 (8.91 MB)
+ Non-trainable params: 0 (0.00 B)
+2025-07-28 13:57:48.678017: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:103] Profiler session initializing.
+2025-07-28 13:57:48.678033: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:118] Profiler session started.
+2025-07-28 13:57:48.678051: I external/local_xla/xla/backends/profiler/gpu/cupti_tracer.cc:1006] Profiler found 1 GPUs
+2025-07-28 13:57:48.695225: W external/local_xla/xla/backends/profiler/gpu/cupti_tracer.cc:1177] Fail to use per-thread activity buffer, cupti trace overhead may be big. CUPTI ERROR CODE:1
+2025-07-28 13:57:48.695304: I external/local_tsl/tsl/profiler/lib/profiler_session.cc:130] Profiler session tear down.
+2025-07-28 13:57:48.695375: I external/local_xla/xla/backends/profiler/gpu/cupti_tracer.cc:1213] CUPTI activity buffer flushed
+2025-07-28 13:57:50,336 - INFO - Successfully loaded model from ../PtychoPINN/fly64_pinn_gridsize2_final
+2025-07-28 13:57:50,336 - INFO - Model configuration: {'N': 64, 'offset': 4, 'gridsize': 2, 'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16, 'nepochs': 50, 'n_filters_scale': 2, 'output_prefix': 'fly64_pinn_gridsize2_final', 'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.0, 'default_probe_scale': 0.7, 'mae_weight': 0.0, 'nll_weight': 1.0, 'tv_weight': 0.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'nimgs_train': 9, 'nimgs_test': 3, 'data_source': 'generic', 'probe.trainable': False, 'intensity_scale.trainable': True, 'positions.provided': True, 'object.big': True, 'probe.big': True, 'probe_scale': 4.0, 'set_phi': False, 'probe.mask': False, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392, 'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42, 'debug': True, 'gaussian_smoothing_sigma': 0.0, 'model_path': PosixPath('../PtychoPINN/fly64_pinn_gridsize2_final'), 'test_data_file_path': 'datasets/fly64/fly001_64_train_converted.npz', 'n_images': 10000, 'train_data_file_path': 'datasets/fly64/fly001_64_train_converted.npz', 'probe': <tf.Tensor: shape=(64, 64, 1), dtype=complex64, numpy=
+array([[[ 0.05078768+0.03908647j],
+        [-0.00147524+0.02986646j],
+        [-0.04124447-0.02018933j],
+        ...,
+        [ 0.02548227+0.01806978j],
+        [ 0.04268315+0.0188654j ],
+        [ 0.04516761+0.01956229j]],
+
+       [[ 0.0220891 -0.01188079j],
+        [ 0.03835767+0.03358509j],
+        [-0.00142893+0.02197503j],
+        ...,
+        [-0.01391465-0.00432523j],
+        [ 0.03996065+0.03697475j],
+        [ 0.02918082+0.03941054j]],
+
+       [[ 0.02744894-0.00778296j],
+        [-0.02554526+0.00479967j],
+        [-0.01781248-0.02643128j],
+        ...,
+        [-0.03899888+0.05420399j],
+        [-0.02644318+0.00979219j],
+        [ 0.03697952-0.08437678j]],
+
+       ...,
+
+       [[-0.03238868-0.01856977j],
+        [ 0.04393906+0.0009207j ],
+        [-0.0523303 +0.16835369j],
+        ...,
+        [ 0.07663022+0.06388126j],
+        [-0.10884623+0.05475416j],
+        [-0.09921163-0.09906429j]],
+
+       [[-0.00452902-0.01962221j],
+        [-0.03836754+0.03825318j],
+        [-0.0233613 +0.0739998j ],
+        ...,
+        [ 0.0232537 +0.04757752j],
+        [-0.06083298-0.04434002j],
+        [-0.0041243 -0.0299162j ]],
+
+       [[ 0.02184559+0.02220817j],
+        [-0.04714252-0.0093401j ],
+        [-0.01891536-0.00193338j],
+        ...,
+        [-0.10183024-0.00715991j],
+        [ 0.0541427 -0.08391279j],
+        [ 0.03675748+0.03997286j]]], dtype=complex64)>, 'intensity_scale': np.float32(988.21173)}
+2025-07-28 13:57:50,336 - INFO - Loading test data...
+2025-07-28 13:57:50,336 - INFO - Loading data from ../PtychoPINN/datasets/fly64/fly001_64_train_converted.npz with n_images=None
+2025-07-28 13:57:50,709 - INFO - Using grouping-aware subsampling for gridsize=2: passing full dataset for group-first sampling
+2025-07-28 13:57:50,709 - INFO - Inference config: gridsize=2, using 10 groups (≈40 total patterns, user specified 10)
+2025-07-28 13:57:50,709 - INFO - Performing inference...
+2025-07-28 13:57:50,720 - INFO - DEBUG: Using gridsize=2 for data generation
+2025-07-28 13:57:50,720 - INFO - Using grouping-aware subsampling strategy for gridsize=2
+2025-07-28 13:57:50,722 - INFO - Groups cache loaded from temp_dataset_1e57f614a006c0f2eaf1b712f6241854.g2k4.groups_cache.npz
+2025-07-28 13:57:50,722 - INFO - Using 18102 cached groups
+2025-07-28 13:57:50,722 - INFO - Randomly sampling 10 groups from 18102 available groups
+2025-07-28 13:57:50,722 - INFO - Selected 10 groups for training
+2025-07-28 13:57:52,681 - INFO - DEBUG: Generated diffraction data shape: (10, 64, 64, 4)
+2025-07-28 13:57:52,681 - INFO - DEBUG: Generated Y data shape: (10, 64, 64, 4)
+2025-07-28 13:57:53,016 - INFO - DEBUG: PtychoDataContainer shapes - X (diffraction): (10, 64, 64, 4), Y: (10, 64, 64, 4)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1753736273.188775 3829542 service.cc:148] XLA service 0x754f8c004250 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1753736273.188820 3829542 service.cc:156]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-07-28 13:57:53.215871: W tensorflow/core/framework/op_kernel.cc:1841] OP_REQUIRES failed at xla_ops.cc:577 : INVALID_ARGUMENT: Detected unsupported operations when trying to compile graph __inference_one_step_on_data_29423[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{function_node __inference_translate_10560}}{{node translate/transform/ImageProjectiveTransformV3}}){{function_node __inference_translate_10560}}{{node translate/transform/ImageProjectiveTransformV3}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting __inference_one_step_on_data_29423[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+2025-07-28 13:57:53.215918: I tensorflow/core/framework/local_rendezvous.cc:405] Local rendezvous is aborting with status: INVALID_ARGUMENT: Detected unsupported operations when trying to compile graph __inference_one_step_on_data_29423[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{function_node __inference_translate_10560}}{{node translate/transform/ImageProjectiveTransformV3}}){{function_node __inference_translate_10560}}{{node translate/transform/ImageProjectiveTransformV3}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting __inference_one_step_on_data_29423[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]]
+2025-07-28 13:57:53,216 - INFO - Error during inference: Graph execution error:
+
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected unsupported operations when trying to compile graph __inference_one_step_on_data_29423[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node translate/transform/ImageProjectiveTransformV3}}){{node translate/transform/ImageProjectiveTransformV3}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting __inference_one_step_on_data_29423[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_29532]
+2025-07-28 13:57:53,216 - INFO - Script execution failed: Error during inference: Graph execution error:
+
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected unsupported operations when trying to compile graph __inference_one_step_on_data_29423[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node translate/transform/ImageProjectiveTransformV3}}){{node translate/transform/ImageProjectiveTransformV3}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting __inference_one_step_on_data_29423[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_29532]
+2025-07-28 13:57:53,216 - INFO - Cleaning up resources...
+None
+input shape (None, 64, 64, 1)
+Loading SavedModel from: /tmp/tmpwx141mee/autoencoder
+Failed to load as Keras model: File format not supported: filepath=/tmp/tmpwx141mee/autoencoder. Keras 3 only supports V3 `.keras` files and legacy H5 format files (`.h5` extension). Note that the legacy SavedModel format is not supported by `load_model()` in Keras 3. In order to reload a TensorFlow SavedModel as an inference-only layer in Keras 3, use `keras.layers.TFSMLayer(/tmp/tmpwx141mee/autoencoder, call_endpoint='serving_default')` (note that your `call_endpoint` might have a different name).
+Falling back to raw SavedModel loading...
+input shape (None, 64, 64, 1)
+Loading SavedModel from: /tmp/tmpwx141mee/diffraction_to_obj
+Failed to load as Keras model: File format not supported: filepath=/tmp/tmpwx141mee/diffraction_to_obj. Keras 3 only supports V3 `.keras` files and legacy H5 format files (`.h5` extension). Note that the legacy SavedModel format is not supported by `load_model()` in Keras 3. In order to reload a TensorFlow SavedModel as an inference-only layer in Keras 3, use `keras.layers.TFSMLayer(/tmp/tmpwx141mee/diffraction_to_obj, call_endpoint='serving_default')` (note that your `call_endpoint` might have a different name).
+Falling back to raw SavedModel loading...
+diff3d shape: (10304, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10304,)
+objectGuess shape: (232, 232)
+xcoords shape: (10304,)
+ycoords shape: (10304,)
+xcoords_start shape: (10304,)
+ycoords_start shape: (10304,)
+DEBUG: Setting probe to tf.Tensor(
+[[[ 0.05078768+0.03908647j]
+  [-0.00147524+0.02986646j]
+  [-0.04124447-0.02018933j]
+  ...
+  [ 0.02548227+0.01806978j]
+  [ 0.04268315+0.0188654j ]
+  [ 0.04516761+0.01956229j]]
+
+ [[ 0.0220891 -0.01188079j]
+  [ 0.03835767+0.03358509j]
+  [-0.00142893+0.02197503j]
+  ...
+  [-0.01391465-0.00432523j]
+  [ 0.03996065+0.03697475j]
+  [ 0.02918082+0.03941054j]]
+
+ [[ 0.02744894-0.00778296j]
+  [-0.02554526+0.00479967j]
+  [-0.01781248-0.02643128j]
+  ...
+  [-0.03899888+0.05420399j]
+  [-0.02644318+0.00979219j]
+  [ 0.03697952-0.08437678j]]
+
+ ...
+
+ [[-0.03238868-0.01856977j]
+  [ 0.04393906+0.0009207j ]
+  [-0.0523303 +0.16835369j]
+  ...
+  [ 0.07663022+0.06388126j]
+  [-0.10884623+0.05475416j]
+  [-0.09921163-0.09906429j]]
+
+ [[-0.00452902-0.01962221j]
+  [-0.03836754+0.03825318j]
+  [-0.0233613 +0.0739998j ]
+  ...
+  [ 0.0232537 +0.04757752j]
+  [-0.06083298-0.04434002j]
+  [-0.0041243 -0.0299162j ]]
+
+ [[ 0.02184559+0.02220817j]
+  [-0.04714252-0.0093401j ]
+  [-0.01891536-0.00193338j]
+  ...
+  [-0.10183024-0.00715991j]
+  [ 0.0541427 -0.08391279j]
+  [ 0.03675748+0.03997286j]]], shape=(64, 64, 1), dtype=complex64) in params
+DEBUG: nsamples: 10, gridsize: 2 (using smart group-first sampling)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+loader: using provided ground truth patches.
+INFO: None
+<PtychoDataContainer X=(10, 64, 64, 4) Y_I=(10, 64, 64, 4) Y_phi=(10, 64, 64, 4) norm_Y_I=() coords_nominal=(10, 1, 2, 4) coords_true=(10, 1, 2, 4) nn_indices=(10, 4) mean=4762.425 global_offsets=(10, 1, 2, 1) mean=118.852 local_offsets=(10, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.086>

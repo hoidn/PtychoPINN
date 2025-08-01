@@ -1,0 +1,31 @@
+2025-07-28 01:38:31,338 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-07-28 01:38:31,509 - DEBUG - Creating converter from 7 to 5
+2025-07-28 01:38:31,509 - DEBUG - Creating converter from 5 to 7
+2025-07-28 01:38:31,509 - DEBUG - Creating converter from 7 to 5
+2025-07-28 01:38:31,510 - DEBUG - Creating converter from 5 to 7
+2025-07-28 01:38:32,108 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
+2025-07-28 01:38:32,112 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-07-28 01:38:32,113 - DEBUG - interactive is False
+2025-07-28 01:38:32,113 - DEBUG - platform is linux
+2025-07-28 01:38:32,160 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-07-28 01:38:32,162 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-07-28 01:38:33,212 - DEBUG - Field: train_data_file
+2025-07-28 01:38:33,212 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-07-28 01:38:33,212 - DEBUG - Field default: None
+2025-07-28 01:38:33,212 - DEBUG - Field: test_data_file
+2025-07-28 01:38:33,212 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-07-28 01:38:33,212 - DEBUG - Field default: None
+2025-07-28 01:38:33,212 - DEBUG - Field: output_dir
+2025-07-28 01:38:33,213 - DEBUG - Field type: <class 'pathlib.Path'>
+2025-07-28 01:38:33,213 - DEBUG - Field default: training_outputs
+2025-07-28 01:38:33,213 - DEBUG - Converting path value: datasets/fly64/fly001_64_train_converted.npz
+2025-07-28 01:38:33,213 - DEBUG - Converting path value: datasets/fly64/fly001_64_train_converted.npz
+2025-07-28 01:38:33,213 - DEBUG - Converting path value: fly64_pinn_gridsize2_final
+2025-07-28 01:38:33,213 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': False, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('datasets/fly64/fly001_64_train_converted.npz'), 'test_data_file': PosixPath('datasets/fly64/fly001_64_train_converted.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('fly64_pinn_gridsize2_final')}
+2025-07-28 01:38:33,213 - DEBUG - Training arguments: {'train_data_file': PosixPath('datasets/fly64/fly001_64_train_converted.npz'), 'test_data_file': PosixPath('datasets/fly64/fly001_64_train_converted.npz'), 'batch_size': 16, 'nepochs': 50, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 1000, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('fly64_pinn_gridsize2_final')}
+2025-07-28 01:38:33,213 - INFO - Configuration setup complete
+2025-07-28 01:38:33,213 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('datasets/fly64/fly001_64_train_converted.npz'), test_data_file=PosixPath('datasets/fly64/fly001_64_train_converted.npz'), batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_images=1000, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('fly64_pinn_gridsize2_final'))
+2025-07-28 01:38:33,213 - INFO - Parameter interpretation: --n-images=1000 refers to individual images (gridsize=1)
+2025-07-28 01:38:33,213 - INFO - Starting training with n_images=1000, stitching=disabled
+2025-07-28 01:38:33,213 - INFO - Loading data from datasets/fly64/fly001_64_train_converted.npz with n_images=1000
+2025-07-28 01:38:33,213 - ERROR - An error occurred during execution: [Errno 2] No such file or directory: 'datasets/fly64/fly001_64_train_converted.npz'

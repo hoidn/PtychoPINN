@@ -69,9 +69,9 @@ This document provides a high-level overview of the major development initiative
 **Path:** `plans/active/probe-parameterization-study/`  
 **Branch:** `feature/probe-parameterization-study` (baseline: feature/remove-tf-addons-dependency)  
 **Started:** 2025-08-01  
-**Current Phase:** Phase 1: Core Utilities and Hybrid Probe Generation  
-**Progress:** ░░░░░░░░░░░░░░░░ 0%  
-**Next Milestone:** Core helper module and hybrid probe tool with passing unit tests  
+**Current Phase:** Final Phase: Results Aggregation and Documentation  
+**Progress:** ████████████░░░░ 75%  
+**Next Milestone:** Complete 2x2 study execution and generate final report  
 **R&D Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/plan.md</doc-ref>  
 **Implementation Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/implementation.md</doc-ref>
 

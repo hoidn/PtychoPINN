@@ -222,7 +222,7 @@ def main():
     
     # Set up logging
     setup_logging(
-        log_dir=Path('.'),
+        output_dir=Path('.'),
         console_level=getattr(logging, args.log_level)
     )
     
