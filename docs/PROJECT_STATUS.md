@@ -1,6 +1,6 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-07-27
+**Last Updated:** 2025-08-01
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
 
@@ -63,7 +63,19 @@ This document provides a high-level overview of the major development initiative
 
 ## 🚀 **Current Active Initiative**
 
-*No current active initiatives. All major development goals have been completed.*
+### **Initiative: Probe Parameterization Study**
+
+**Name:** Probe Parameterization Study  
+**Path:** `plans/active/probe-parameterization-study/`  
+**Branch:** `feature/probe-parameterization-study` (baseline: feature/remove-tf-addons-dependency)  
+**Started:** 2025-08-01  
+**Current Phase:** Phase 1: Core Utilities and Hybrid Probe Generation  
+**Progress:** ░░░░░░░░░░░░░░░░ 0%  
+**Next Milestone:** Core helper module and hybrid probe tool with passing unit tests  
+**R&D Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/plan.md</doc-ref>  
+**Implementation Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/implementation.md</doc-ref>
+
+**Summary:** Creating modular simulation utilities that decouple object and probe sources, enabling controlled studies on how probe variations affect reconstruction quality across different overlap constraints (gridsize).
 
 ---
 
