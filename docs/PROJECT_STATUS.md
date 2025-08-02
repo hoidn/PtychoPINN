@@ -63,19 +63,16 @@ This document provides a high-level overview of the major development initiative
 
 ## 🚀 **Current Active Initiative**
 
-### **Initiative: Probe Parameterization Study**
-
-**Name:** Probe Parameterization Study  
-**Path:** `plans/active/probe-parameterization-study/`  
-**Branch:** `feature/probe-parameterization-study` (baseline: feature/remove-tf-addons-dependency)  
-**Started:** 2025-08-01  
-**Current Phase:** Final Phase: Results Aggregation and Documentation  
-**Progress:** ████████████░░░░ 75%  
-**Next Milestone:** Complete 2x2 study execution and generate final report  
-**R&D Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/plan.md</doc-ref>  
-**Implementation Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/implementation.md</doc-ref>
-
-**Summary:** Creating modular simulation utilities that decouple object and probe sources, enabling controlled studies on how probe variations affect reconstruction quality across different overlap constraints (gridsize).
+### **Initiative: Probe Parameterization Study - Refactoring Phase**
+*   **Status:** 🔄 **Refactoring in Progress** - Post-mortem cleanup and tool formalization
+*   **Goal:** To refactor successful experimental code into robust, reusable tools with proper process isolation to fix gridsize configuration bugs.
+*   **Current Phase:** Phase 1 - Refactor for Reusability and Modularity
+*   **Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready to begin)
+*   **Next Steps:** Execute Phase 1 checklist to create modular tools and fix subsampling performance
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/implementation.md</doc-ref>
+    *   **Current Checklist:** <doc-ref type="checklist">plans/archive/2025-08-probe-parameterization/phase_1_checklist.md</doc-ref>
 
 ---
 
@@ -160,5 +157,6 @@ This document provides a high-level overview of the major development initiative
 *   **Planning Documents:**
     *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-ms-ssim-correction/plan.md</doc-ref>
     *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-ms-ssim-correction/implementation.md</doc-ref>
+
 
 ---

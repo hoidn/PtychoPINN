@@ -4,7 +4,8 @@ Create a hybrid probe by combining amplitude from one source with phase from ano
 
 This tool enables the creation of synthetic probes for controlled experiments
 by mixing the amplitude characteristics of one probe with the phase
-characteristics of another.
+characteristics of another. Both input probes must have exactly the same
+dimensions - no automatic resizing is performed.
 
 Example:
     python scripts/tools/create_hybrid_probe.py \\
@@ -12,6 +13,9 @@ Example:
         datasets/fly64/fly001_64_train_converted.npz \\
         --output hybrid_probe.npy \\
         --visualize
+        
+Note: If probes have different dimensions, you must resize them to match
+before using this tool.
 """
 
 import argparse
@@ -20,7 +24,6 @@ import os
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.transform import resize
 import logging
 
 # Add project root to path
@@ -57,43 +60,21 @@ def create_hybrid_probe(
     np.ndarray
         Hybrid probe with amplitude from source 1 and phase from source 2
         
-    Notes
-    -----
-    If the input probes have different shapes, the smaller one will be
-    resized to match the larger one using cubic interpolation.
+    Raises
+    ------
+    ValueError
+        If the input probes have different shapes. Both probes must have
+        exactly the same dimensions - no automatic resizing is performed.
     """
     logger.info(f"Creating hybrid probe from amplitude {amplitude_source.shape} "
                 f"and phase {phase_source.shape}")
     
-    # Handle dimension mismatch
+    # Validate dimension match
     if amplitude_source.shape != phase_source.shape:
-        logger.warning(f"Probe dimensions differ: {amplitude_source.shape} vs "
-                      f"{phase_source.shape}. Resizing to match larger probe.")
-        
-        # Determine target shape (use larger dimensions)
-        target_shape = (
-            max(amplitude_source.shape[0], phase_source.shape[0]),
-            max(amplitude_source.shape[1], phase_source.shape[1])
+        raise ValueError(
+            f"Probe dimensions must match exactly. Got amplitude source: {amplitude_source.shape} "
+            f"and phase source: {phase_source.shape}. No automatic resizing will be performed."
         )
-        
-        # Resize if needed
-        if amplitude_source.shape != target_shape:
-            logger.debug(f"Resizing amplitude probe to {target_shape}")
-            # Resize real and imaginary parts separately
-            amp_real = resize(amplitude_source.real, target_shape, order=3, 
-                            anti_aliasing=True, preserve_range=True)
-            amp_imag = resize(amplitude_source.imag, target_shape, order=3,
-                            anti_aliasing=True, preserve_range=True)
-            amplitude_source = amp_real + 1j * amp_imag
-            
-        if phase_source.shape != target_shape:
-            logger.debug(f"Resizing phase probe to {target_shape}")
-            # Resize real and imaginary parts separately
-            phase_real = resize(phase_source.real, target_shape, order=3,
-                              anti_aliasing=True, preserve_range=True)
-            phase_imag = resize(phase_source.imag, target_shape, order=3,
-                              anti_aliasing=True, preserve_range=True)
-            phase_source = phase_real + 1j * phase_imag
     
     # Extract amplitude and phase
     amplitude = np.abs(amplitude_source)

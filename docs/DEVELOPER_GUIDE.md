@@ -335,21 +335,33 @@ This command will discover and execute all test files following the `test_*.py` 
 
 ---
 
-## 8. The Challenge of Subsampling with Overlap Constraints (`gridsize > 1`)
+## 8. Data Handling for Overlap-Based Training (gridsize > 1)
 
-**The Lesson:** A critical architectural limitation exists when using subsampling (e.g., via the `--n_images` flag) in conjunction with a `gridsize` greater than 1. The model's overlap constraint relies on the physical adjacency of neighboring diffraction patterns, and the current data loading pipeline can break this assumption.
+The gridsize parameter controls the use of overlapping scan positions in the physics model. When gridsize is greater than 1 (e.g., gridsize=2 for a 2x2 group of neighbors), the data loading and subsampling behavior is distinct from the gridsize=1 case.
 
-**The Problem:** The data loading workflow performs subsampling *before* nearest-neighbor grouping.
-1. `ptycho/workflows/components.py:load_data` selects the first `N` sequential scan points.
-2. `ptycho/raw_data.py:generate_grouped_data` then finds neighbors *within this small, pre-selected subset*.
+### 8.1. Subsampling Strategy for gridsize > 1
 
-This leads to a critical dilemma:
-- **Sequential Subsampling (Current Behavior):** The training data is drawn from a small, spatially contiguous region of the object. This is a **non-representative, biased sample** that leads to poor model generalization.
-- **Random Subsampling (Incorrect Fix):** If the dataset is shuffled before subsampling (e.g., with `<code-ref type="tool">scripts/tools/shuffle_dataset_tool.py</code-ref>`), the "nearest" neighbors found will be from random, distant parts of the object. This creates **physically incoherent training samples** and the model will fail to learn the overlap constraint.
+To create a training subset from a larger dataset (e.g., via the --n_images flag), the pipeline uses a "sample-then-group" strategy. The workflow is as follows:
 
-**The Correct (but Unimplemented) Solution:** The ideal workflow would be to first perform nearest-neighbor grouping on the *entire* dataset to create a "dataset of valid groups," and then subsample from that set of groups. This is not yet implemented.
+1. **Random Sampling of Anchor Points**: The system first randomly samples N anchor points from the complete set of scan coordinates.
+2. **Neighbor Grouping**: For each of the N anchor points, it then finds the K-nearest neighbors to form the final training groups.
 
-**The Rule:** For any rigorous training or generalization study using `gridsize > 1`, **do not use the `--n_images` flag for subsampling**. Instead, create a smaller, but complete and spatially coherent, dataset as a separate `.npz` file and train on 100% of that file.
+This method generates a spatially representative set of physically valid neighbor groups.
+
+**Guideline for Data Integrity:**
+Do not pre-shuffle a dataset intended for gridsize > 1 training. The neighbor-finding algorithm requires the original spatial arrangement of coordinates to identify physically adjacent scan positions.
+
+### 8.2. Tensor Shape and Configuration
+
+When gridsize=2, the input tensors to the model will have a channel dimension of 4 (gridsize²). The data loader (`ptycho/loader.py`) and the model (`ptycho/model.py`) are designed to handle this multi-channel format.
+
+The training log will confirm the configuration with a message similar to the following:
+
+```
+INFO - Parameter interpretation: --n-images=500 refers to neighbor groups (gridsize=2, total patterns=2000)
+```
+
+This indicates the system is generating 500 training samples, where each sample consists of a 2x2 group of neighboring diffraction patterns.
 
 ---
 

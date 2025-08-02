@@ -99,6 +99,7 @@ import os
 import logging
 from pathlib import Path
 from ptycho import params
+from ptycho.config.config import TrainingConfig
 from ptycho.autotest.debug import debug
 from ptycho import diffsim as datasets
 from ptycho import tf_helper as hh
@@ -123,22 +124,22 @@ class RawData:
         assert len(ycoords_start.shape) == 1, f"Expected ycoords_start to be 1D, got shape {ycoords_start.shape}"
         if diff3d is not None:
             assert len(diff3d.shape) == 3, f"Expected diff3d to be 3D, got shape {diff3d.shape}"
-            print(f"diff3d shape: {diff3d.shape}")
+            logging.debug(f"diff3d shape: {diff3d.shape}")
             assert diff3d.shape[1] == diff3d.shape[2]
         if probeGuess is not None:
             assert len(probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
-            print(f"probeGuess shape: {probeGuess.shape}")
+            logging.debug(f"probeGuess shape: {probeGuess.shape}")
         if scan_index is not None:
             assert len(scan_index.shape) == 1, f"Expected scan_index to be 1D, got shape {scan_index.shape}"
-            print(f"scan_index shape: {scan_index.shape}")
+            logging.debug(f"scan_index shape: {scan_index.shape}")
         if objectGuess is not None:
-            print(f"objectGuess shape: {objectGuess.shape}")
+            logging.debug(f"objectGuess shape: {objectGuess.shape}")
             assert len(objectGuess.shape) == 2
 
-        print(f"xcoords shape: {xcoords.shape}")
-        print(f"ycoords shape: {ycoords.shape}")
-        print(f"xcoords_start shape: {xcoords_start.shape}")
-        print(f"ycoords_start shape: {ycoords_start.shape}")
+        logging.debug(f"xcoords shape: {xcoords.shape}")
+        logging.debug(f"ycoords shape: {ycoords.shape}")
+        logging.debug(f"xcoords_start shape: {xcoords_start.shape}")
+        logging.debug(f"ycoords_start shape: {ycoords_start.shape}")
 
         # Assigning values if checks pass
         self.xcoords = xcoords
@@ -298,114 +299,89 @@ class RawData:
         return train_raw_data, test_raw_data
 
     #@debug
-    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None):
+    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, config: Optional[TrainingConfig] = None):
         """
-        Generate nearest-neighbor solution region grouping with grouping-aware subsampling.
-        
-        This method implements a "group-then-sample" strategy for gridsize > 1 to ensure
-        both physical coherence and spatial representativeness. For gridsize = 1, 
-        the traditional sequential sampling is preserved for backward compatibility.
-        
-        **Grouping-Aware Subsampling for gridsize > 1:**
-        1. Discovers all valid neighbor groups across the entire dataset
-        2. Caches results for performance (creates `<dataset>.g{gridsize}k{K}.groups_cache.npz`)
-        3. Randomly samples from all available groups for spatial representativeness
-        4. Handles edge cases (insufficient groups, cache corruption) gracefully
-        
-        **Cache File Format:**
-        Cache files are automatically created and managed:
-        - Filename: `<dataset_name>.g{gridsize}k{K}.groups_cache.npz`
-        - Contains: `all_groups` array, dataset checksum, parameters for validation
-        - Location: Same directory as the original dataset file
+        Generate nearest-neighbor solution region grouping.
+
+        This method uses different strategies based on the `gridsize` parameter.
+        It prioritizes the `config` object for parameters, falling back to the
+        legacy `ptycho.params` global state if `config` is not provided.
+
+        For gridsize = 1:
+        - Performs sequential sampling of `nsamples` individual images.
+
+        For gridsize > 1:
+        - Implements an efficient "sample-then-group" strategy by randomly
+          sampling `nsamples` starting points and finding their K-nearest neighbors.
 
         Args:
             N (int): Size of the solution region.
             K (int, optional): Number of nearest neighbors. Defaults to 4.
-            nsamples (int, optional): Number of samples. For gridsize=1, this is the
-                                    number of individual images. For gridsize>1, this
-                                    is the number of neighbor groups (total images = 
-                                    nsamples * gridsize²).
-            dataset_path (str, optional): Path to dataset for cache naming. If None,
-                                        uses a hash-based temporary path.
+            nsamples (int, optional): Number of images or groups to generate.
+            dataset_path (str, optional): Unused, for API compatibility.
+            config (TrainingConfig, optional): The modern configuration object.
+                If provided, its parameters (e.g., `gridsize`) will be used.
 
         Returns:
-            dict: Dictionary containing grouped data with keys:
-                - 'diffraction': 4D array of diffraction patterns
-                - 'Y': 4D array of ground truth patches (if available)
-                - 'coords_offsets', 'coords_relative': Coordinate information
-                - 'nn_indices': Selected neighbor indices  
-                - 'X_full': Normalized diffraction data
-                - Additional coordinate and metadata arrays
-                
-        Raises:
-            ValueError: If dataset is too small for requested parameters
-            
-        Note:
-            The expensive neighbor-finding operation is cached automatically.
-            Subsequent calls with the same dataset and parameters will load
-            from cache for improved performance.
+            dict: Dictionary containing the grouped data.
         """
-        gridsize = params.get('gridsize')
-        if gridsize is None:
-            gridsize = 1
+        # Hybrid configuration: prioritize modern config object, fallback to legacy params
+        if config:
+            gridsize = config.model.gridsize
+        else:
+            # Fallback for backward compatibility
+            gridsize = params.get('gridsize')
+            if gridsize is None:
+                gridsize = 1
         
         # BACKWARD COMPATIBILITY: For gridsize=1, use existing sequential logic unchanged
         if gridsize == 1:
-            print('DEBUG:', 'nsamples:', nsamples, '(gridsize=1, using legacy sequential sampling)')
+            logging.debug(f'nsamples: {nsamples} (gridsize=1, using legacy sequential sampling)')
             return get_neighbor_diffraction_and_positions(self, N, K=K, nsamples=nsamples)
         
         # NEW LOGIC: Group-first strategy for gridsize > 1
-        print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using smart group-first sampling)')
+        logging.debug(f'nsamples: {nsamples}, gridsize: {gridsize} (using smart group-first sampling)')
         logging.info(f"Using grouping-aware subsampling strategy for gridsize={gridsize}")
-        
-        # Generate dataset path for cache if not provided
-        if dataset_path is None:
-            data_hash = self._compute_dataset_checksum()
-            dataset_path = f"temp_dataset_{data_hash}.npz"
         
         # Parameters for group discovery
         C = gridsize ** 2  # Number of coordinates per solution region
-        dataset_checksum = self._compute_dataset_checksum()
-        cache_path = self._generate_cache_filename(dataset_path, gridsize, K)
         
-        # Try to load from cache first
-        cached_groups = self._load_groups_cache(cache_path, dataset_checksum, gridsize, K)
+        # EFFICIENT IMPLEMENTATION: Sample first, then find neighbors only for sampled points
+        n_points = len(self.xcoords)
+        n_samples_actual = min(nsamples, n_points)
         
-        if cached_groups is not None:
-            # Cache hit: use cached groups
-            all_groups = cached_groups
-            logging.info(f"Using {len(all_groups)} cached groups")
-        else:
-            # Cache miss: compute all valid groups
-            logging.info("Cache miss, computing all valid groups...")
-            all_groups = self._find_all_valid_groups(K, C)
+        if n_samples_actual < nsamples:
+            logging.warning(f"Requested {nsamples} groups but only {n_points} points available. Using {n_samples_actual}.")
+        
+        # Build KDTree once for efficient neighbor queries
+        points = np.column_stack((self.xcoords, self.ycoords))
+        tree = cKDTree(points)
+        
+        # Sample starting points randomly
+        logging.info(f"Efficiently sampling {n_samples_actual} groups for gridsize={gridsize}")
+        sampled_indices = np.random.choice(n_points, size=n_samples_actual, replace=False)
+        
+        # For each sampled point, find its neighbors and form a group
+        selected_groups = []
+        for idx in sampled_indices:
+            # Find K nearest neighbors for this specific point
+            distances, nn_indices = tree.query(points[idx], k=K+1)
             
-            # Save to cache for future runs
-            self._save_groups_cache(all_groups, cache_path, dataset_checksum, gridsize, K)
+            # Form a group by taking the C closest neighbors
+            if len(nn_indices) >= C:
+                group = nn_indices[:C]  # Take the C closest points
+                selected_groups.append(group)
         
-        # Handle insufficient groups edge case
-        n_available_groups = len(all_groups)
-        if n_available_groups < nsamples:
-            logging.warning(f"Requested {nsamples} groups but only {n_available_groups} available. Using all available groups.")
-            n_samples_actual = n_available_groups
-        else:
-            n_samples_actual = nsamples
-        
-        # Random sampling of groups
-        if n_samples_actual < n_available_groups:
-            logging.info(f"Randomly sampling {n_samples_actual} groups from {n_available_groups} available groups")
-            selected_indices = np.random.choice(n_available_groups, size=n_samples_actual, replace=False)
-            selected_groups = all_groups[selected_indices]
-        else:
-            selected_groups = all_groups
+        selected_groups = np.array(selected_groups)
+        logging.info(f"Efficiently generated {len(selected_groups)} groups without O(N²) computation")
         
         logging.info(f"Selected {len(selected_groups)} groups for training")
         
         # Now use the selected groups to generate the final dataset
         # We need to convert our group indices back to the format expected by get_neighbor_diffraction_and_positions
-        return self._generate_dataset_from_groups(selected_groups, N, K)
+        return self._generate_dataset_from_groups(selected_groups, N, K, config)
 
-    def _generate_dataset_from_groups(self, selected_groups: np.ndarray, N: int, K: int) -> dict:
+    def _generate_dataset_from_groups(self, selected_groups: np.ndarray, N: int, K: int, config: Optional[TrainingConfig] = None) -> dict:
         """
         Generate the final dataset from selected group indices.
         
@@ -436,14 +412,14 @@ class RawData:
         # Handle ground truth patches (Y4d_nn) - same logic as original
         Y4d_nn = None
         if self.Y is not None:
-            print("INFO: Using pre-computed 'Y' array from the input file.")
+            logging.info("Using pre-computed 'Y' array from the input file.")
             Y4d_nn = np.transpose(self.Y[nn_indices], [0, 2, 3, 1])
         elif self.objectGuess is not None:
-            print("INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
-            Y4d_nn = get_image_patches(self.objectGuess, coords_offsets, coords_relative)
+            logging.info("'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
+            Y4d_nn = get_image_patches(self.objectGuess, coords_offsets, coords_relative, config=config)
         else:
-            print("INFO: No ground truth data ('Y' array or 'objectGuess') found.")
-            print("INFO: This is expected for PINN training which doesn't require ground truth.")
+            logging.info("No ground truth data ('Y' array or 'objectGuess') found.")
+            logging.info("This is expected for PINN training which doesn't require ground truth.")
             Y4d_nn = None
         
         # Handle start coordinates
@@ -472,186 +448,9 @@ class RawData:
         # Apply normalization
         X_full = normalize_data(dset, N)
         dset['X_full'] = X_full
-        print('neighbor-sampled diffraction shape', X_full.shape)
+        logging.debug(f'neighbor-sampled diffraction shape: {X_full.shape}')
         
         return dset
-
-    def _generate_cache_filename(self, dataset_path: str, gridsize: int, overlap_factor: int) -> str:
-        """
-        Generate a standardized cache filename for groups cache.
-        
-        Args:
-            dataset_path: Path to the original dataset file
-            gridsize: Current gridsize parameter
-            overlap_factor: K parameter for neighbor finding
-            
-        Returns:
-            str: Cache filename with format <dataset_name>.g{gridsize}k{overlap_factor}.groups_cache.npz
-        """
-        dataset_name = Path(dataset_path).stem
-        cache_dir = Path(dataset_path).parent
-        cache_filename = f"{dataset_name}.g{gridsize}k{overlap_factor}.groups_cache.npz"
-        return str(cache_dir / cache_filename)
-
-    def _compute_dataset_checksum(self) -> str:
-        """
-        Compute a checksum of key dataset properties to detect changes.
-        
-        Returns:
-            str: MD5 hash of coordinate arrays and data shape
-        """
-        # Concatenate key data that affects group generation
-        data_to_hash = np.concatenate([
-            self.xcoords.flatten(),
-            self.ycoords.flatten(),
-            np.array([len(self.xcoords), len(self.ycoords)])  # Include array lengths
-        ])
-        
-        # Convert to bytes and compute hash
-        data_bytes = data_to_hash.tobytes()
-        return hashlib.md5(data_bytes).hexdigest()
-
-    def _save_groups_cache(self, groups: np.ndarray, cache_path: str, dataset_checksum: str, 
-                          gridsize: int, overlap_factor: int) -> None:
-        """
-        Save computed groups to cache file with metadata.
-        
-        Args:
-            groups: Array of group indices to cache
-            cache_path: Path where cache file should be saved
-            dataset_checksum: Checksum of current dataset
-            gridsize: Current gridsize parameter
-            overlap_factor: K parameter used for neighbor finding
-        """
-        try:
-            np.savez_compressed(
-                cache_path,
-                all_groups=groups,
-                dataset_checksum=dataset_checksum,
-                gridsize=gridsize,
-                overlap_factor=overlap_factor
-            )
-            logging.info(f"Groups cache saved to {cache_path}")
-        except Exception as e:
-            logging.warning(f"Failed to save groups cache to {cache_path}: {e}")
-
-    def _load_groups_cache(self, cache_path: str, expected_checksum: str, 
-                          expected_gridsize: int, expected_overlap_factor: int) -> Optional[np.ndarray]:
-        """
-        Load and validate cached groups.
-        
-        Args:
-            cache_path: Path to cache file
-            expected_checksum: Expected dataset checksum
-            expected_gridsize: Expected gridsize parameter
-            expected_overlap_factor: Expected K parameter
-            
-        Returns:
-            Cached groups array if valid, None if cache miss or invalid
-        """
-        try:
-            if not os.path.exists(cache_path):
-                logging.debug(f"Cache file not found: {cache_path}")
-                return None
-                
-            cache_data = np.load(cache_path)
-            
-            # Validate metadata
-            if (cache_data.get('dataset_checksum', '') != expected_checksum or
-                cache_data.get('gridsize', -1) != expected_gridsize or
-                cache_data.get('overlap_factor', -1) != expected_overlap_factor):
-                logging.debug(f"Cache validation failed, parameters mismatch")
-                return None
-            
-            # Validate array shape and type
-            groups = cache_data['all_groups']
-            if not isinstance(groups, np.ndarray) or groups.dtype != np.int64:
-                logging.warning(f"Cache file has invalid data format")
-                # Delete corrupted cache
-                try:
-                    os.remove(cache_path)
-                    logging.debug(f"Removed corrupted cache file: {cache_path}")
-                except:
-                    pass
-                return None
-                
-            logging.info(f"Groups cache loaded from {cache_path}")
-            return groups
-            
-        except Exception as e:
-            logging.warning(f"Failed to load groups cache from {cache_path}: {e}")
-            # Try to remove corrupted cache file
-            try:
-                if os.path.exists(cache_path):
-                    os.remove(cache_path)
-                    logging.debug(f"Removed corrupted cache file: {cache_path}")
-            except:
-                pass
-            return None
-
-    def _find_all_valid_groups(self, K: int, C: int) -> np.ndarray:
-        """
-        Find all possible valid neighbor groups across the entire dataset.
-        
-        Args:
-            K: Number of nearest neighbors to consider
-            C: Number of coordinates per solution region (gridsize^2)
-            
-        Returns:
-            np.ndarray: Array of all valid groups with shape (total_groups, C)
-        """
-        try:
-            logging.info(f"Discovering all valid neighbor groups (K={K}, C={C})...")
-            
-            # Validate inputs
-            n_points = len(self.xcoords)
-            if n_points < K + 1:
-                raise ValueError(f"Dataset has only {n_points} points but K={K} neighbors requested. Need at least {K+1} points.")
-            
-            if C > K + 1:
-                raise ValueError(f"Requested {C} coordinates per group but only {K+1} neighbors available (including self).")
-            
-            # Get neighbor indices for all points
-            nn_indices = get_neighbor_indices(self.xcoords, self.ycoords, K=K)
-            
-            # Validate neighbor indices shape
-            if nn_indices.shape != (n_points, K + 1):
-                raise ValueError(f"Expected neighbor indices shape ({n_points}, {K+1}), got {nn_indices.shape}")
-            
-            # Find all possible groups efficiently without memory explosion
-            # Instead of generating all combinations, collect unique groups from neighbor indices
-            all_groups_list = []
-            
-            # For each point, generate a reasonable number of groups from its neighbors
-            max_groups_per_point = min(50, len(nn_indices[0]) // C + 1)  # Reasonable limit
-            
-            for i in range(n_points):
-                # Get neighbors for this point
-                neighbors = nn_indices[i]
-                
-                # Generate groups by selecting C neighbors from this point's neighbor list
-                for _ in range(max_groups_per_point):
-                    if len(neighbors) >= C:
-                        # Randomly select C neighbors for this group
-                        group = np.random.choice(neighbors, size=C, replace=False)
-                        all_groups_list.append(sorted(group))
-            
-            # Convert to numpy array
-            all_groups = np.array(all_groups_list) if all_groups_list else np.empty((0, C), dtype=int)
-            
-            # Remove any duplicate groups (though this should be rare)
-            unique_groups = np.unique(all_groups, axis=0)
-            
-            if len(unique_groups) == 0:
-                raise ValueError("No valid groups found. This may indicate a problem with the data or parameters.")
-            
-            logging.info(f"Found {len(unique_groups)} unique valid groups from {n_points} scan points")
-            
-            return unique_groups
-            
-        except Exception as e:
-            logging.error(f"Failed to find valid groups: {e}")
-            raise
 
     #@debug
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
@@ -697,7 +496,7 @@ def calculate_relative_coords(xcoords, ycoords, K = 4, C = None, nsamples = 10):
     return coords_offsets, coords_relative, nn_indices
 
 #@debug
-def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=None):
+def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=None, config: Optional[TrainingConfig] = None):
     """
     Generate and return image patches in channel format using a single canvas.
 
@@ -711,10 +510,14 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
     Returns:
         tensor: Image patches in channel format.
     """
-    # Use explicit parameters if provided, otherwise fall back to global params
-    # This follows the project's hybrid modernization pattern
-    N = N if N is not None else params.get('N')
-    gridsize = gridsize if gridsize is not None else params.get('gridsize')
+    # Hybrid configuration: prioritize config object, then explicit parameters, then legacy params
+    if config:
+        N = config.model.N if N is None else N
+        gridsize = config.model.gridsize if gridsize is None else gridsize
+    else:
+        # Fallback for backward compatibility
+        N = params.get('N') if N is None else N
+        gridsize = params.get('gridsize') if gridsize is None else gridsize
     B = global_offsets.shape[0]
     c = gridsize**2
 
@@ -894,7 +697,7 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
         2.  **Implement the Fallback Logic:** Add the following line in its place:
             
             ```python
-            print("INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
+            logging.info("'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
             Y4d_nn = get_image_patches(ptycho_data.objectGuess, coords_offsets, coords_relative)
             ```
 
@@ -917,7 +720,7 @@ def get_neighbor_diffraction_and_positions(ptycho_data, N, K=6, C=None, nsamples
                 "INFO: Using pre-computed 'Y' array..." It must *not* log the
                 "fallback" message.
         """
-        print("INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
+        logging.info("'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
         gridsize = params.get('gridsize')
         Y_patches = get_image_patches(ptycho_data.objectGuess, coords_offsets, coords_relative, N=N, gridsize=gridsize)
         # Always keep 4D shape for consistent tensor dimensions downstream
