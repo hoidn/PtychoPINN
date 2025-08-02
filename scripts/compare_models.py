@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import dill
 
 # Add project root to Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -81,6 +82,8 @@ def parse_args():
                         help="Path to Tike reconstruction NPZ file for three-way comparison (optional).")
     parser.add_argument("--stitch-crop-size", type=int, default=20,
                         help="Crop size M for patch stitching (must be 0 < M <= N, default: 20).")
+    parser.add_argument("--gridsize", type=int, default=None,
+                        help="Grid size for model (gridsize x gridsize channels). If not specified, auto-detects from model directory.")
     
     # Add logging arguments
     add_logging_arguments(parser)
@@ -88,28 +91,137 @@ def parse_args():
     return parser.parse_args()
 
 
+def detect_gridsize_from_model_dir(model_dir: Path) -> int:
+    """Auto-detect gridsize from saved model parameters.
+    
+    Enhanced version that checks multiple sources for gridsize information:
+    1. params.dill file (primary)
+    2. Model architecture inspection (if available)
+    3. Directory name pattern matching (e.g., gs2_idealized)
+    
+    Args:
+        model_dir: Directory containing the trained model
+        
+    Returns:
+        int: Detected gridsize value (defaults to 1 if not found)
+        
+    Raises:
+        RuntimeError: If gridsize detection fails critically during model comparison
+    """
+    # Method 1: Check params.dill file (primary method)
+    params_path = model_dir / "params.dill"
+    
+    if params_path.exists():
+        try:
+            with open(params_path, 'rb') as f:
+                saved_params = dill.load(f)
+                gridsize = saved_params.get('gridsize', None)
+                if gridsize is not None:
+                    logger.info(f"Auto-detected gridsize={gridsize} from {params_path}")
+                    return gridsize
+                else:
+                    logger.debug(f"No gridsize found in {params_path}")
+        except Exception as e:
+            logger.warning(f"Could not load params from {params_path}: {e}")
+    
+    # Method 2: Try to detect from directory structure (for 2x2 study)
+    # Look for patterns like: gs1_idealized, gs2_hybrid, etc.
+    parent_dir_name = model_dir.parent.name
+    model_dir_name = model_dir.name
+    
+    for dir_name in [model_dir_name, parent_dir_name]:
+        if dir_name.startswith('gs') and '_' in dir_name:
+            try:
+                # Extract gridsize from pattern like "gs2_idealized"
+                gridsize_str = dir_name.split('_')[0][2:]  # Remove 'gs' prefix
+                gridsize = int(gridsize_str)
+                logger.info(f"Auto-detected gridsize={gridsize} from directory pattern: {dir_name}")
+                return gridsize
+            except (ValueError, IndexError):
+                logger.debug(f"Could not parse gridsize from directory name: {dir_name}")
+    
+    # Method 3: Check for training config files
+    config_paths = [
+        model_dir / "config.yaml",
+        model_dir / "training_config.dill"
+    ]
+    
+    for config_path in config_paths:
+        if config_path.exists():
+            try:
+                if config_path.suffix == '.yaml':
+                    import yaml
+                    with open(config_path, 'r') as f:
+                        config_data = yaml.safe_load(f)
+                    gridsize = config_data.get('model', {}).get('gridsize', None)
+                elif config_path.suffix == '.dill':
+                    with open(config_path, 'rb') as f:
+                        config_data = dill.load(f)
+                    gridsize = getattr(config_data, 'model', {}).get('gridsize', None)
+                
+                if gridsize is not None:
+                    logger.info(f"Auto-detected gridsize={gridsize} from {config_path}")
+                    return gridsize
+            except Exception as e:
+                logger.debug(f"Could not load config from {config_path}: {e}")
+    
+    # Default fallback
+    logger.warning(f"Could not auto-detect gridsize from {model_dir} using any method, defaulting to 1")
+    logger.info("Available detection methods: params.dill, directory naming (gs[12]_*), config files")
+    return 1
+
+
 def load_pinn_model(model_dir: Path) -> tf.keras.Model:
-    """Load the inference-only PtychoPINN model."""
+    """Load the inference-only PtychoPINN model with enhanced error handling."""
     logger.info(f"Loading PtychoPINN model from {model_dir}...")
+    
+    # Validate model directory exists
+    if not model_dir.exists():
+        raise FileNotFoundError(f"PtychoPINN model directory does not exist: {model_dir}")
     
     # ModelManager expects the path *without* the .zip extension
     model_zip_base_path = model_dir / "wts.h5"
+    model_zip_full_path = model_dir / "wts.h5.zip"
     
-    if not (model_dir / "wts.h5.zip").exists():
-        raise FileNotFoundError(f"PtychoPINN model not found at {model_dir}/wts.h5.zip")
+    if not model_zip_full_path.exists():
+        # Provide helpful error message with directory contents
+        available_files = list(model_dir.glob("*"))
+        raise FileNotFoundError(
+            f"PtychoPINN model weights not found at {model_zip_full_path}. "
+            f"Available files in {model_dir}: {[f.name for f in available_files]}. "
+            f"Expected 'wts.h5.zip' file from successful training run."
+        )
     
-    models = ModelManager.load_multiple_models(str(model_zip_base_path))
+    try:
+        models = ModelManager.load_multiple_models(str(model_zip_base_path))
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load PtychoPINN model from {model_zip_full_path}. "
+            f"This could indicate a corrupted model file or incompatible format. "
+            f"Error: {e}"
+        )
+    
     pinn_model = models.get('diffraction_to_obj')
     
     if pinn_model is None:
-        raise ValueError("Could not find 'diffraction_to_obj' model in PtychoPINN archive.")
+        available_models = list(models.keys())
+        raise ValueError(
+            f"Could not find 'diffraction_to_obj' model in PtychoPINN archive. "
+            f"Available models: {available_models}. "
+            f"This indicates an unexpected model structure."
+        )
     
+    logger.info(f"Successfully loaded PtychoPINN model with {pinn_model.count_params()} parameters")
     return pinn_model
 
 
 def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
-    """Load the Keras baseline model."""
+    """Load the Keras baseline model with enhanced error handling."""
     logger.info(f"Loading Baseline model from {baseline_dir}...")
+    
+    # Validate baseline directory exists
+    if not baseline_dir.exists():
+        raise FileNotFoundError(f"Baseline model directory does not exist: {baseline_dir}")
     
     # Find the baseline model file
     baseline_model_path = None
@@ -122,10 +234,29 @@ def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
             break
     
     if baseline_model_path is None or not baseline_model_path.exists():
-        raise FileNotFoundError(f"Baseline model not found in: {baseline_dir}")
+        # Provide helpful error message with directory contents
+        available_files = []
+        for root, dirs, files in os.walk(baseline_dir):
+            for file in files:
+                available_files.append(str(Path(root).relative_to(baseline_dir) / file))
+        
+        raise FileNotFoundError(
+            f"Baseline model file 'baseline_model.h5' not found in: {baseline_dir}. "
+            f"Available files: {available_files}. "
+            f"Expected 'baseline_model.h5' file from successful baseline training run."
+        )
     
-    logger.info(f"Found baseline model at: {baseline_model_path}")
-    return tf.keras.models.load_model(baseline_model_path)
+    try:
+        logger.info(f"Found baseline model at: {baseline_model_path}")
+        model = tf.keras.models.load_model(baseline_model_path)
+        logger.info(f"Successfully loaded Baseline model with {model.count_params()} parameters")
+        return model
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load Baseline model from {baseline_model_path}. "
+            f"This could indicate a corrupted model file, incompatible TensorFlow version, "
+            f"or missing custom layers. Error: {e}"
+        )
 
 
 def load_tike_reconstruction(tike_path: Path) -> np.ndarray:
@@ -765,23 +896,59 @@ def main():
     # This ensures params.cfg is properly set up when load_data() checks gridsize
     logger.info("Initializing configuration before data loading...")
     
-    # Create a minimal config with gridsize=1 (default for comparison mode)
+    # Use manual gridsize if provided, otherwise auto-detect from the PINN model directory
+    if args.gridsize is not None:
+        pinn_gridsize = args.gridsize
+        logger.info(f"Using manually specified gridsize={pinn_gridsize}")
+    else:
+        try:
+            pinn_gridsize = detect_gridsize_from_model_dir(args.pinn_dir)
+        except Exception as e:
+            logger.error(f"Failed to detect gridsize from model directory {args.pinn_dir}: {e}")
+            raise RuntimeError(
+                f"Gridsize detection failed. Please specify --gridsize manually or ensure "
+                f"the model directory contains valid configuration files. Error: {e}"
+            )
+    
+    # Validate gridsize value
+    if pinn_gridsize not in [1, 2, 3, 4]:
+        logger.warning(f"Unusual gridsize value detected: {pinn_gridsize}. Expected 1, 2, 3, or 4.")
+    
+    # Create a minimal config with auto-detected gridsize
     # We'll update N after loading data to get the correct probe size
-    initial_config = TrainingConfig(
-        model=ModelConfig(N=64, gridsize=1),  # Will be updated after loading
-        train_data_file=Path("dummy.npz"),
-        n_images=args.n_test_images or None  # Pass through the CLI parameter
-    )
-    update_legacy_dict(p.cfg, initial_config)
-    logger.info(f"Initialized with gridsize={initial_config.model.gridsize}, n_images={initial_config.n_images}")
+    try:
+        initial_config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=pinn_gridsize),  # Will be updated after loading
+            train_data_file=Path("dummy.npz"),
+            n_images=args.n_test_images or None  # Pass through the CLI parameter
+        )
+        update_legacy_dict(p.cfg, initial_config)
+        logger.info(f"Initialized with gridsize={initial_config.model.gridsize}, n_images={initial_config.n_images}")
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to initialize configuration with gridsize={pinn_gridsize}. "
+            f"This could indicate an incompatible configuration format. Error: {e}"
+        )
 
     # Load test data (now with proper configuration in place)
     logger.info(f"Loading test data from {args.test_data}...")
-    test_data_raw = load_data(str(args.test_data), n_images=args.n_test_images)
+    
+    # Validate test data file exists
+    if not args.test_data.exists():
+        raise FileNotFoundError(f"Test data file does not exist: {args.test_data}")
+    
+    try:
+        test_data_raw = load_data(str(args.test_data), n_images=args.n_test_images)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load test data from {args.test_data}. "
+            f"This could indicate an incompatible data format, missing keys, or gridsize mismatch. "
+            f"Current gridsize setting: {pinn_gridsize}. Error: {e}"
+        )
     
     # Update config with actual probe size from loaded data
     final_config = TrainingConfig(
-        model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=1),
+        model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=pinn_gridsize),
         train_data_file=Path("dummy.npz"),
         n_images=test_data_raw.diff3d.shape[0]  # Actual loaded size (should match n_test_images if properly applied)
     )

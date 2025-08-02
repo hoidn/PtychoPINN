@@ -93,8 +93,8 @@ def train_eval(ptycho_dataset):
         config = ptycho_dataset.test_data.config if hasattr(ptycho_dataset.test_data, 'config') else params.cfg
         try:
             stitched_obj = reassemble_patches(eval_results['reconstructed_obj'], config, part='complex')
-        except ValueError as e:
-            print(e)
+        except (ValueError, TypeError) as e:
+            print(f"Object stitching failed: {e}")
             stitched_obj = None
 
         results.update({

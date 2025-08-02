@@ -56,8 +56,9 @@ mkdir -p ./tmp
 # Note: Using awk is a simple, tested way to extract the value
 diff_base=$(grep 'Last Phase Commit Hash:' <path>/implementation.md | awk '{print $4}')
 
-# Generate the diff against the baseline hash
-git diff "${diff_base}"..HEAD > ./tmp/phase_diff.txt
+# Generate the diff against the baseline hash, excluding .ipynb files
+# Using pathspec magic syntax (requires Git 1.9+)
+git diff "${diff_base}"..HEAD -- . ':(exclude)*.ipynb' ':(exclude)**/*.ipynb' > ./tmp/phase_diff.txt
 ```
 
 #### Step 1.2: Generate Review Request File
@@ -151,6 +152,7 @@ This document contains all necessary information to review the work completed fo
 **Baseline Commit:** `<Last Phase Commit Hash from implementation.md>`
 **Current Branch:** `<current feature branch name>`
 **Changes since last phase:**
+*Note: Jupyter notebook (.ipynb) files are excluded from this diff for clarity*
 
 ```diff
 <The full output of the 'git diff' command is embedded here>
@@ -191,7 +193,7 @@ User: /complete-phase
 
 You: "Phase 1 checklist is complete. A review file was not found, so I will now generate a review request."
 
-     [You execute 'git diff ...', then generate 'review_request_phase_1.md']
+     [You execute 'git diff ... -- . ':(exclude)*.ipynb' ':(exclude)**/*.ipynb'', then generate 'review_request_phase_1.md']
 
 You: "✅ Review request for Phase 1 has been generated at:
        `plans/active/my-initiative/review_request_phase_1.md`

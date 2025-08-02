@@ -40,27 +40,33 @@
     --output-dir quick_3way_test
 ```
 
-### Probe Parameterization Study (NEW)
+### Probe Parameterization Study (Phase 3 Complete)
 ```bash
-# Full 2x2 probe study (default vs hybrid probe, gridsize 1 vs 2)
+# Full 2x2 probe study (idealized vs hybrid probe, gridsize 1 vs 2)
 ./scripts/studies/run_2x2_probe_study.sh \
     --output-dir probe_study_results \
     --dataset datasets/fly/fly64_transposed.npz
 
-# Quick test to verify pipeline
+# Quick test to verify pipeline (256 train images, 5 epochs)
 ./scripts/studies/run_2x2_probe_study.sh \
     --output-dir test_probe_study \
     --quick-test
 
-# Resume interrupted study
+# Resume interrupted study using checkpoint markers
 ./scripts/studies/run_2x2_probe_study.sh \
     --output-dir probe_study_results \
     --skip-completed
 
-# Parallel execution with 4 jobs
+# Parallel execution with multiple jobs
 ./scripts/studies/run_2x2_probe_study.sh \
     --output-dir probe_study_results \
-    --parallel-jobs 4
+    --parallel-jobs 2
+
+# Custom dataset with dry-run mode
+./scripts/studies/run_2x2_probe_study.sh \
+    --output-dir custom_study \
+    --dataset datasets/my_data.npz \
+    --dry-run
 ```
 
 ### Single Model Comparison
@@ -115,21 +121,43 @@ study_results/
 └── train_4096/
 ```
 
-#### Probe Parameterization Study
+#### Probe Parameterization Study (2x2 Factorial Design)
 ```
 probe_study_results/
-├── default_probe.npy          # Extracted default probe
-├── hybrid_probe.npy           # Generated hybrid probe
-├── study_summary.csv          # Combined results
-├── gs1_default/               # Gridsize 1, default probe
-│   ├── simulated_data.npz
-│   ├── model/
-│   ├── evaluation/
-│   └── metrics_summary.csv
-├── gs1_hybrid/                # Gridsize 1, hybrid probe
-├── gs2_default/               # Gridsize 2, default probe
-└── gs2_hybrid/                # Gridsize 2, hybrid probe
+├── idealized_probe.npy        # Generated synthetic probe (get_default_probe)
+├── hybrid_probe.npy           # Generated hybrid probe (idealized amplitude + experimental phase)
+├── study_summary.csv          # Combined results across all 4 conditions
+├── study_log.txt              # Complete execution log
+├── gs1_idealized/             # Condition 1: Gridsize 1, idealized probe (reference)
+│   ├── simulated_data.npz     # Training data for this condition
+│   ├── test_data.npz          # Test subset for evaluation
+│   ├── model/wts.h5.zip       # Trained PtychoPINN model
+│   ├── evaluation/            # Comparison metrics and visualizations
+│   ├── training.log           # Training execution log
+│   ├── simulation.log         # Simulation execution log  
+│   ├── evaluation.log         # Evaluation execution log
+│   ├── metrics_summary.csv    # Key metrics with experiment metadata
+│   ├── .simulation_done       # Checkpoint marker
+│   ├── .training_done         # Checkpoint marker
+│   └── .evaluation_done       # Checkpoint marker
+├── gs1_hybrid/                # Condition 2: Gridsize 1, hybrid probe (phase aberration test)
+├── gs2_idealized/             # Condition 3: Gridsize 2, idealized probe (patch assembly test)
+└── gs2_hybrid/                # Condition 4: Gridsize 2, hybrid probe (combined stress test)
 ```
+
+### Probe Parameterization Study Design
+
+The 2x2 probe study tests PtychoPINN robustness across two factors:
+- **Factor 1: Gridsize** (1 vs 2) - tests patch assembly strategy impact
+- **Factor 2: Probe Type** (idealized vs hybrid) - tests phase aberration sensitivity
+
+**Study Interpretation:**
+- **gs1_idealized**: Reference baseline (synthetic probe, no patch assembly)
+- **gs1_hybrid**: Phase aberration impact (realistic probe phase, no patch assembly)  
+- **gs2_idealized**: Patch assembly impact (synthetic probe, patch assembly)
+- **gs2_hybrid**: Combined stress test (realistic probe phase + patch assembly)
+
+**Key Metrics:** PSNR (amplitude/phase), FRC50, SSIM, MS-SSIM for reconstruction quality assessment.
 
 ### Statistical Analysis
 - **Multiple trials** per training size for robustness
