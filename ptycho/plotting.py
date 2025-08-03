@@ -1,20 +1,24 @@
-"""Interactive and static plotting utilities for ptychographic data visualization.
+"""Interactive visualization utilities for ptychographic data analysis.
 
-This module provides advanced plotting capabilities for the PtychoPINN physics-informed
-neural network system with interactive Jupyter visualization and standardized static
-plot generation with automatic layout management.
-
-Primary Consumers: Jupyter notebooks, research workflows, publication-quality figures
-Integration Points: Visualizes data from model.py, evaluation.py, reconstruction workflows
-Key Capabilities:
-    - **Interactive Visualization:** `ishow_imgs()` with widget controls for image series
-    - **Plot Standardization:** `@plotting_function` decorator for consistent figure creation
-    - **Layout Management:** Automated subfigure composition with flexible grid layouts
+Widget-based plotting for Jupyter and standardized plot creation.
 
 Public Interface:
-    `ishow_imgs(*arrays, labels=None, styles=None, log=False, height='550px')`
-        - Interactive widget-based viewer for image series with navigation controls
-    `@plotting_function` decorator - standardizes plot creation with save/display options
+    `ishow_imgs(*arrays, labels=None, height='550px')`
+        Interactive viewer for image series.
+    
+    `@plotting_function` decorator
+        Standardizes plot creation.
+
+Usage Example:
+    ```python
+    from ptycho.plotting import ishow_imgs, plotting_function
+    
+    ishow_imgs(recons, truth, labels=['Recon', 'Truth'])
+    
+    @plotting_function
+    def plot_data(data, ax=None):
+        ax[0, 0].imshow(data)
+    ```
 """
 
 import matplotlib.pyplot as plt

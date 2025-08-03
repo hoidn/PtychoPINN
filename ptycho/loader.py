@@ -1,73 +1,46 @@
 """
-TensorFlow-ready data pipeline finalizer for ptychographic reconstruction.
+TensorFlow tensor conversion and data container finalizer for ptychographic datasets.
 
-This module serves as the final stage in PtychoPINN's data pipeline, converting
-grouped NumPy arrays from ptycho.raw_data into TensorFlow tensors ready for model
-training and inference. As the most heavily used data pipeline module (9 importing
-modules), it bridges the gap between NumPy-based data processing and TensorFlow-based
-neural network training.
+Converts grouped NumPy arrays from ptycho.raw_data into TensorFlow tensors with proper
+dtype casting, train/test splitting, and multi-channel support. Final pipeline stage
+before model training that handles complex tensor creation and data normalization.
 
 Architecture Role:
     NPZ files → raw_data.py (RawData) → loader.py (PtychoDataContainer) → model tensors
-
-Primary Components:
-    - PtychoDataContainer: Core data container holding model-ready TensorFlow tensors
-      including diffraction patterns (X), ground truth patches (Y_I, Y_phi), 
-      coordinates, and probe functions
-    - load(): Main entry point that transforms grouped data into PtychoDataContainer
-      via callback mechanism, handling train/test splits and tensor conversion
-    - PtychoDataset: Simple wrapper for train/test data pairs
-
-Key Features:
-    - Multi-channel tensor support for gridsize > 1 configurations
-    - Automatic train/test data splitting with fraction-based allocation
-    - Complex tensor handling (amplitude/phase separation)
-    - NPZ serialization of processed tensor data
-    - Comprehensive debug representations with tensor statistics
+    Most heavily used data pipeline module (9 importing modules) for tensor preparation.
 
 Public Interface:
-    load(cb, probeGuess, which, create_split) -> PtychoDataContainer
-        cb: Callback returning grouped data dictionary from raw_data
-        probeGuess: Initial probe function as TensorFlow tensor
-        which: 'train' or 'test' for data splitting
-        create_split: Boolean to enable train/test splitting
-        
-    PtychoDataContainer.from_raw_data_without_pc(xcoords, ycoords, diff3d, ...)
-        Static constructor combining raw_data grouping with tensor loading
-        
-    split_data(X_full, coords_nominal, coords_true, train_frac, which)
-        Utility for fraction-based data splitting
+    `load(cb, probeGuess, which, create_split)`
+        - Purpose: Converts grouped data dictionary to TensorFlow tensors via callback
+        - Critical Behavior: Handles train/test splits, preserves multi-channel dimensions for gridsize>1
+        - Key Parameters: cb (data callback), which ('train'/'test'), create_split (enables splitting)
 
-Usage Example:
-    # Complete pipeline: raw data → grouped data → model tensors
-    from ptycho.raw_data import RawData
-    from ptycho.loader import load, PtychoDataContainer
-    
-    # Create raw data object
-    raw_data = RawData.from_coords_without_pc(
-        xcoords, ycoords, diff3d, probe, scan_idx
-    )
-    
-    # Generate grouped data and convert to tensors
+    `PtychoDataContainer(X, Y_I, Y_phi, ...)`
+        - Purpose: Container for model-ready tensors with amplitude/phase separation
+        - Critical Behavior: Auto-combines Y_I/Y_phi into complex Y tensor, validates channel consistency
+        - Key Parameters: X (diffraction), Y_I/Y_phi (ground truth), coords, probe
+
+    `split_data(X_full, coords, train_frac, which)`
+        - Purpose: Fraction-based data splitting utility
+        - Critical Behavior: Consistent splitting across all arrays (X, Y, coordinates)
+        - Key Parameters: train_frac controls split ratio
+
+Workflow Usage Example:
+    ```python
+    # Standard tensor conversion pipeline
     def data_callback():
         return raw_data.generate_grouped_data(N=64, K=7)
     
     train_container = load(data_callback, probe_tensor, 'train', True)
-    test_container = load(data_callback, probe_tensor, 'test', True)
-    
-    # Access model-ready tensors
-    X_train = train_container.X        # Diffraction patterns
-    Y_train = train_container.Y        # Complex ground truth
-    coords = train_container.coords    # Scan coordinates
-    
-    # Export for later use
-    train_container.to_npz("model_ready_train.npz")
+    X_train, Y_train = train_container.X, train_container.Y
+    ```
 
-Integration Notes:
-    - Tensors are automatically cast to appropriate TensorFlow dtypes (float32/complex64)
-    - Preserves multi-channel dimensions for advanced gridsize configurations
-    - Handles missing ground truth by creating complex dummy tensors
-    - Primary consumers: model training, inference, and preprocessing workflows
+Architectural Notes & Dependencies:
+- Depends on ptycho.raw_data for grouped data dictionaries
+- Integrates ptycho.diffsim for photon scaling normalization
+- Auto-casts to tf.float32 (diffraction) and tf.complex64 (ground truth)
+- Creates dummy complex tensors when ground truth missing (PINN training)
+- Validates channel consistency between X and Y tensors for gridsize>1
 """
 
 import numpy as np

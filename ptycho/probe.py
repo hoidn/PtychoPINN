@@ -1,11 +1,53 @@
-"""Probe initialization and manipulation for ptychographic reconstruction.
+"""Probe initialization, estimation, and global state management for ptychographic reconstruction.
 
-Manages the scanning beam (probe) used in experiments, including creation of
-idealized disk-shaped probes, automatic estimation from data, and masking.
+Manages the scanning beam (probe) throughout the ptychographic workflow, providing
+both idealized probe generation and automatic estimation from experimental data.
+Integrates with the global params system for state management and normalization.
 
-Example:
-    probe = get_default_probe(N=64, fmt='tf')  # Default disk probe
-    set_probe_guess(X_train=data, probe_guess=exp_probe)  # From data
+Architecture Role:
+    Input: Raw diffraction data OR explicit probe arrays
+    ↓ Probe estimation/initialization (set_probe_guess, get_default_probe)
+    ↓ Normalization and masking (set_probe)
+    ↓ Global state storage (params.cfg['probe'])
+    → Output: Normalized probe tensors for model training/inference
+
+Public Interface:
+    `get_default_probe(N, fmt='tf')`
+        - Purpose: Creates idealized disk-shaped probe for simulations
+        - Critical Behavior: Uses params.cfg['default_probe_scale'] for sizing
+        - Key Parameters: N (diffraction size), fmt ('tf'/'np' for tensor format)
+    
+    `set_probe_guess(X_train=None, probe_guess=None)`
+        - Purpose: Estimates probe from data or accepts external probe
+        - Critical Behavior: Modifies global params.cfg['probe'], applies masking
+        - Key Parameters: X_train for estimation, probe_guess for explicit setting
+    
+    `set_probe(probe)`
+        - Purpose: Normalizes and stores probe in global state
+        - Critical Behavior: Applies masking, scaling via params.cfg['probe_scale']
+        - Side Effect: Updates params.cfg['probe'] directly
+
+Workflow Usage Example:
+    ```python
+    # Simulation workflow with idealized probe
+    from ptycho import probe, params
+    params.set('N', 64)
+    params.set('default_probe_scale', 0.7)
+    probe.set_default_probe()  # Creates and stores in params.cfg
+    
+    # Experimental workflow with data estimation
+    probe.set_probe_guess(X_train=diffraction_data)  # Estimates from data
+    
+    # Using external probe
+    probe.set_probe_guess(probe_guess=external_probe)  # Direct setting
+    retrieved_probe = probe.get_probe(params)  # Access normalized probe
+    ```
+
+Architectural Notes & Dependencies:
+- Modifies global params.cfg['probe'] - all probe functions have side effects
+- Depends on ptycho.fourier for lowpass filtering and FFT operations
+- Probe masking enforces circular aperture via get_probe_mask()
+- Normalization ensures consistent scaling across workflows via probe_scale parameter
 """
 import tensorflow as tf
 import numpy as np

@@ -402,7 +402,7 @@ Usage Example:
 Your generated docstrings will be rejected if they contain the following:
 
 *   **Vague Summaries:** Avoid generic phrases like "This module contains helper functions" or "Utilities for data processing." Be specific about its role.
-*   **Marketing Language:** Do not use subjective fluff like "critical," "essential," "high-performance," or specific speedup numbers. Instead, explain *how* it is performant (e.g., "Uses a batched algorithm to manage memory").
+*   **Marketing Language:** Do not use subjective fluff like "critical," "essential," "high-performance," or specific speedup numbers. Instead, explain *how* it is performant (e.g., "Uses a batched algorithm to manage memory"). Words you are NEVER allowed to use: "critical," "essential," "high-performance," "fast," "efficient," "optimized," "comprehensive", you get the idea.
 *   **Implementation Details:** Do not explain the line-by-line logic of the code. Focus on the public contract: what goes in, what comes out, and what it's for.
 *   **Isolated Examples:** Do not provide usage examples that are just a single function call with placeholder variables. The example must show a realistic interaction between modules.
 *   **Inaccurate Consumer Lists:** Do not guess which modules use this one. The dependency report is the source of truth.

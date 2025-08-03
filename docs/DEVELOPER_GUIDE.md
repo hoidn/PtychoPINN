@@ -111,6 +111,18 @@ for i in range(B * c):
 1.  **Prioritize the Final Product:** Always check for the most processed, prepared version of the data first (the `Y` array).
 2.  **Fail Loudly:** Do not silently fall back to regenerating data. This masks errors. The corrected logic now raises a `ValueError` or `NotImplementedError` if the expected prepared `Y` array is not found, forcing the developer to use a correctly prepared dataset.
 
+### 3.4. Core Tensor Formats for gridsize > 1
+
+To handle overlapping patches, the codebase uses three primary tensor formats. Understanding the role of each is critical for avoiding shape mismatch errors.
+
+* **Channel Format (`B, N, N, C`)**: This is the primary format for **neural network processing**. The `C = gridsize**2` neighboring patches are treated as channels. This is the format produced by `get_image_patches` and expected by the U-Net in `ptycho/model.py`.
+
+* **Flat Format (`B*C, N, N, 1`)**: This format is used for **individual patch physics simulation**. Each of the `C` patches from a group is treated as a separate item in a larger batch. **This is the required input format for `ptycho.diffsim.illuminate_and_diffract`**.
+
+* **Grid Format (`B, G, G, N, N, 1`)**: A transitional format that makes the physical 2D grid of patches explicit.
+
+**CRITICAL RULE:** You must use `ptycho.tf_helper._channel_to_flat()` to convert data from Channel Format to Flat Format before passing it to the core physics simulation engine.
+
 ---
 
 ## 4. Physical Consistency in Data Preprocessing

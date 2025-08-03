@@ -1,8 +1,71 @@
-"""Custom Keras layers to replace Lambda layers for proper serialization.
+"""
+Custom Keras layers implementing ptychographic physics operations.
 
-This module contains custom Keras layer implementations that replace Lambda layers
-in the PtychoPINN model. These custom layers provide proper serialization support
-for Keras 3 and enable model saving/loading without issues.
+This module provides TensorFlow Keras layers that embed the physics of
+ptychography directly into the neural network computation graph. These
+layers enable differentiable physics simulation, allowing the model to
+learn while respecting physical constraints.
+
+Architecture Role:
+    Neural network outputs -> custom_layers -> Physics-consistent predictions
+    
+    These layers bridge deep learning and physics by implementing differentiable
+    versions of probe illumination, wave propagation, and diffraction operations.
+    All layers are serializable and maintain proper gradient flow for training.
+
+Public Interface:
+    `CombineComplexLayer([real_part, imag_part])`
+        - Purpose: Combines real/imaginary tensors into complex64 format.
+        - Physics: Enables complex-valued wave field representations.
+        - Input: List of [real_tensor, imag_tensor].
+        - Output: Complex tensor for wave computations.
+    
+    `ExtractPatchesPositionLayer([padded_obj, positions], jitter=0.0)`
+        - Purpose: Extracts object patches at specified scan positions.
+        - Physics: Models the spatial selection of illuminated regions.
+        - Input: Padded object array and scan position coordinates.
+        - Output: Object patches corresponding to probe illumination sites.
+    
+    `PadAndDiffractLayer(inputs, h, w, pad=False)`
+        - Purpose: Applies propagation and generates diffraction patterns.
+        - Physics: Implements Fourier transform for far-field diffraction.
+        - Input: Complex exit waves from probe-object interaction.
+        - Output: Tuple of (padded_waves, diffraction_amplitudes).
+
+Workflow Usage Example:
+    ```python
+    import tensorflow as tf
+    from ptycho.custom_layers import CombineComplexLayer, ExtractPatchesPositionLayer, PadAndDiffractLayer
+    
+    # 1. Build physics pipeline in model
+    def physics_branch(real_obj, imag_obj, positions):
+        # Combine into complex object
+        complex_obj = CombineComplexLayer()([real_obj, imag_obj])
+        
+        # Extract patches at scan positions
+        patches = ExtractPatchesPositionLayer()([complex_obj, positions])
+        
+        # Apply physics: propagation to detector
+        waves, predictions = PadAndDiffractLayer(h=64, w=64)(patches)
+        
+        return predictions
+    
+    # 2. Use in Keras model
+    real_input = tf.keras.Input(shape=(232, 232, 1))
+    imag_input = tf.keras.Input(shape=(232, 232, 1))  
+    pos_input = tf.keras.Input(shape=(2,))
+    
+    # ... encoder/decoder layers ...
+    predictions = physics_branch(decoded_real, decoded_imag, pos_input)
+    model = tf.keras.Model([real_input, imag_input, pos_input], predictions)
+    ```
+
+Architectural Notes:
+- All layers preserve gradient flow for end-to-end physics-informed training
+- Complex arithmetic handled internally with proper TensorFlow ops
+- Layers implement serialization for model saving/loading workflows
+- Physics operations delegate to tf_helper module for core computations
+- These layers are the key to physics-informed learning in PtychoPINN
 """
 
 import tensorflow as tf

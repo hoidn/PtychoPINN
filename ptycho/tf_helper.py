@@ -1,117 +1,72 @@
 """
-TensorFlow Helper: Core tensor operations for ptychographic reconstruction.
+Low-level TensorFlow operations for ptychographic data manipulation.
 
-This module implements the essential tensor transformation operations in the PtychoPINN 
-physics-informed neural network architecture. It provides foundational data format 
-conversions and patch assembly operations that enable the ptychographic reconstruction 
-pipeline to process scanning diffraction data efficiently.
+This module provides a suite of high-performance, tensor-based functions for
+the core computational tasks in the PtychoPINN pipeline, primarily patch
+extraction, reassembly, and tensor format conversions. It is a foundational
+library used by the data pipeline, model, and evaluation modules.
 
-⚠️  PROTECTED MODULE: This is part of the stable physics implementation.
-    Modifications should only be made with explicit justification and
-    deep understanding of the ptychographic tensor flow requirements.
+Key Tensor Formats:
+This module defines and converts between three standard data layouts for batches
+of ptychographic patches:
 
-Architecture Role:
-    Raw Data → Data Pipeline → **TF_HELPER** → Model Training → Reconstruction Output
-"""
+- **Grid Format:** `(B, G, G, N, N, 1)`
+  - Represents patches organized in their spatial grid structure.
+- **Channel Format:** `(B, N, N, G*G)`
+  - Stacks patches in the channel dimension. Required for CNN input.
+- **Flat Format:** `(B*G*G, N, N, 1)`
+  - Each patch is an independent item in the batch.
 
-"""
-Tensor Format System:
-    The module implements a three-format tensor conversion system optimized for 
-    ptychographic data processing:
-    
-    **Grid Format**: `(batch, gridsize, gridsize, N, N, 1)`
-        - Physical meaning: Structured 2D array of overlapping diffraction patches
-        - Usage: Maintains spatial relationships for physics-based operations
-        - Memory layout: Preserves scan grid geometry for position-aware processing
-    
-    **Channel Format**: `(batch, N, N, gridsize²)`  
-        - Physical meaning: Neural network compatible with channels = number of patches
-        - Usage: Direct input to convolutional layers and U-Net processing
-        - Memory layout: Height×Width×Channels for TensorFlow optimization
-    
-    **Flat Format**: `(batch × gridsize², N, N, 1)`
-        - Physical meaning: Individual patches treated as separate batch elements
-        - Usage: Independent processing of each scan position
-        - Memory layout: Maximizes parallelism for element-wise operations
-"""
-
-"""
 Public Interface:
-    `reassemble_whole_object(patches, offsets, size, batch_size=None)`
-        - **Purpose:** Assembles individual reconstruction patches into full object image
-        - **Physics Context:** Inverts the ptychographic scanning process by combining overlapping regions
-        - **Tensor Contracts:**
-            - Input: `(B, N, N, gridsize²)` - Reconstruction patches in channel format
-            - Output: `(1, size, size, 1)` - Full reconstructed object image
-        - **Critical Parameters:**
-            - `batch_size`: Memory management for large datasets (None=auto)
-    
+    `reassemble_position(obj_tensor, global_offsets, M=10)`
+        - **Purpose:** The primary function for stitching patches back into a full
+          object image based on their precise, non-uniform scan coordinates.
+        - **Algorithm:** Uses a batched shift-and-sum operation with automatic
+          memory management for large datasets and 20x+ speedup over naive approaches.
+        - **Parameters:**
+            - `obj_tensor` (Tensor): Complex patches in `Flat Format`.
+            - `global_offsets` (Tensor): The `(y, x)` scan coordinates for each patch.
+            - `M` (int): The size of the central region of each patch to use for
+              the reassembly, which helps avoid edge artifacts.
+
+    `grid_to_channel(*grids)`
+        - **Purpose:** Convert tensors from Grid to Channel format for CNN processing.
+        - **Returns:** Tuple of converted tensors in Channel format.
+
+    `channel_to_flat(*imgs)`
+        - **Purpose:** Convert tensors from Channel to Flat format for individual processing.
+        - **Returns:** Tuple of converted tensors in Flat format.
+
     `extract_patches_position(imgs, offsets_xy, jitter=0.)`
-        - **Purpose:** Extracts patches from full images at specified scan positions
-        - **Physics Context:** Simulates ptychographic probe scanning with positional accuracy
-        - **Tensor Contracts:**
-            - Input: `(B, M, M, 1)` - Full object images, `(B, N, N, 2)` - scan coordinates
-            - Output: `(B, N, N, gridsize²)` - Extracted patches in channel format
-        - **Critical Parameters:**
-            - `jitter`: Random positioning noise for data augmentation
-            
-    `_togrid(img, gridsize=None, N=None)`
-        - **Purpose:** Converts flat format to grid format for structured operations
-        - **Usage Context:** Prepares data for physics-based spatial processing
-        - **Tensor Contracts:**
-            - Input: `(B×gridsize², N, N, 1)` - Flat format patches  
-            - Output: `(B, gridsize, gridsize, N, N, 1)` - Grid format preserving geometry
-            
-    `shift_and_sum(obj_tensor, global_offsets, M=10)`
-        - **Purpose:** High-performance batched patch reassembly with position correction
-        - **Physics Context:** Reconstructs object from overlapping measurements with translation
-        - **Performance:** 20-44x speedup over iterative implementation with perfect accuracy
-"""
+        - **Purpose:** Extracts patches from full images at specified scan positions.
+        - **Algorithm:** Uses translation with optional jitter for data augmentation.
+        - **Parameters:**
+            - `imgs` (Tensor): Full object images in `Flat Format`.
+            - `offsets_xy` (Tensor): Scan coordinates in `Channel Format`.
+            - `jitter` (float): Random positioning noise standard deviation.
 
-"""
-Physics Implementation Notes:
-    - **Patch Reassembly:** Uses batched TensorFlow operations for memory-efficient overlap handling
-    - **Position Registration:** Maintains subpixel accuracy in scan position corrections
-    - **Complex Tensor Support:** Automatic handling of amplitude/phase and real/imaginary representations
-    - **Streaming Architecture:** Processes large datasets in chunks to prevent GPU memory overflow
-"""
+Usage Example:
+    This example shows the canonical `Grid -> Channel -> Flat -> Reassembly`
+    workflow that this module enables.
 
-"""
-Global State Dependencies:
-    This module accesses `params.get()` for critical configuration parameters:
-    - `params.get('N')`: Diffraction pattern size - controls all tensor dimensions
-    - `params.get('gridsize')`: Overlap grouping size - fundamentally changes processing mode
-    - `params.get('offset')`: Patch stride - determines sampling density and overlap
-    - **Initialization Order:** Global configuration must be set before function calls
-"""
-
-"""
-Canonical Usage Pipeline:
     ```python
     import ptycho.tf_helper as hh
-    from ptycho.params import params
+    import tensorflow as tf
+
+    # 1. Start with data in Grid Format. Shape: (10, 2, 2, 64, 64, 1)
+    patch_grid = tf.random.normal((10, 2, 2, 64, 64, 1))
     
-    # 1. Set required global configuration
-    params.set('N', 64)           # Diffraction pattern size
-    params.set('gridsize', 2)     # Enable overlap processing  
-    params.set('offset', 32)      # 50% overlap between patches
+    # 2. Convert to Channel Format for a CNN. Shape: (10, 64, 64, 4)
+    patch_channels = hh.grid_to_channel(patch_grid)[0]
     
-    # 2. Format conversion for neural network input
-    patches_flat = load_patches()  # Shape: (B×4, 64, 64, 1)
-    patches_grid = hh._togrid(patches_flat)              # (B, 2, 2, 64, 64, 1)
-    patches_channels = hh._grid_to_channel(patches_grid) # (B, 64, 64, 4)
-    
-    # 3. High-performance reconstruction assembly
-    reconstruction = hh.reassemble_whole_object(
-        patches_channels, 
-        scan_offsets,
-        size=256,
-        batch_size=64  # Memory management for large datasets
-    )
-    
-    # 4. Complex tensor handling for amplitude/phase data
-    complex_obj = hh.combine_complex(amplitude, phase)
-    amp, phase = hh.separate_amp_phase(complex_obj)
+    # ... (model processing) ...
+
+    # 3. Convert to Flat Format for reassembly. Shape: (40, 64, 64, 1)
+    patches_flat = hh.channel_to_flat(patch_channels)[0]
+
+    # 4. Reassemble the flat patches into a final image.
+    scan_coords = tf.random.uniform((40, 1, 1, 2), maxval=100)
+    reconstructed_image = hh.reassemble_position(patches_flat, scan_coords, M=20)
     ```
 """
 
