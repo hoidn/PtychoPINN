@@ -615,8 +615,8 @@ def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: in
     gt_padded_batch = tf.repeat(gt_padded, B * c, axis=0)
     
     # The legacy implementation uses offsets_f[i, :, :, 0] on tensor with shape (B*c, 1, 2, 1)
-    # The last index 0 selects the last dimension.
-    # For the batched version, we need to properly extract the offsets.
+    # This extracts a tensor of shape (1, 2) for each i
+    # For the batched version, we need to extract all offsets at once
     # offsets_f has shape (B*c, 1, 2, 1) after _channel_to_flat
     negated_offsets = -offsets_f[:, 0, :, 0]  # Shape: (B*c, 2)
     

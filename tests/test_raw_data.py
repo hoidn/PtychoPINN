@@ -45,7 +45,7 @@ class TestPatchExtraction(unittest.TestCase):
                 offsets.append([[offset_y, offset_x]])
         
         offsets_f = tf.constant(offsets, dtype=tf.float32)
-        offsets_f = tf.reshape(offsets_f, (B*c, 1, 1, 2))
+        offsets_f = tf.reshape(offsets_f, (B*c, 1, 2, 1))
         
         # Call the batched implementation
         result = _get_image_patches_batched(gt_padded, offsets_f, N, B, c)
@@ -80,7 +80,7 @@ class TestPatchExtraction(unittest.TestCase):
                 # Different batch sizes
                 for B in [1, 10, 100]:
                     # Create random offsets
-                    offsets_f = tf.random.uniform((B*c, 1, 1, 2), 
+                    offsets_f = tf.random.uniform((B*c, 1, 2, 1), 
                                                 minval=-50, maxval=50)
                     
                     # Test batched implementation
@@ -107,7 +107,7 @@ class TestPatchExtraction(unittest.TestCase):
         # Single patch parameters
         B = 1
         c = 1
-        offsets_f = tf.constant([[[[20.0, 30.0]]]], dtype=tf.float32)
+        offsets_f = tf.constant([[[[20.0], [30.0]]]], dtype=tf.float32)
         
         # Extract patch
         result = _get_image_patches_batched(gt_padded, offsets_f, N, B, c)
