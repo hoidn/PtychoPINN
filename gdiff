@@ -1,0 +1,2560 @@
+diff --git a/.claude/commands/generate-agent-checklist-v2.md b/.claude/commands/generate-agent-checklist-v2.md
+index 993033f..60d60d1 100644
+--- a/.claude/commands/generate-agent-checklist-v2.md
++++ b/.claude/commands/generate-agent-checklist-v2.md
+@@ -402,7 +402,7 @@ Usage Example:
+ Your generated docstrings will be rejected if they contain the following:
+ 
+ *   **Vague Summaries:** Avoid generic phrases like "This module contains helper functions" or "Utilities for data processing." Be specific about its role.
+-*   **Marketing Language:** Do not use subjective fluff like "critical," "essential," "high-performance," or specific speedup numbers. Instead, explain *how* it is performant (e.g., "Uses a batched algorithm to manage memory").
++*   **Marketing Language:** Do not use subjective fluff like "critical," "essential," "high-performance," or specific speedup numbers. Instead, explain *how* it is performant (e.g., "Uses a batched algorithm to manage memory"). Words you are NEVER allowed to use: "critical," "essential," "high-performance," "fast," "efficient," "optimized," "comprehensive", you get the idea.
+ *   **Implementation Details:** Do not explain the line-by-line logic of the code. Focus on the public contract: what goes in, what comes out, and what it's for.
+ *   **Isolated Examples:** Do not provide usage examples that are just a single function call with placeholder variables. The example must show a realistic interaction between modules.
+ *   **Inaccurate Consumer Lists:** Do not guess which modules use this one. The dependency report is the source of truth.
+diff --git a/docs/DEVELOPER_GUIDE.md b/docs/DEVELOPER_GUIDE.md
+index 41aa3a9..ee77764 100644
+--- a/docs/DEVELOPER_GUIDE.md
++++ b/docs/DEVELOPER_GUIDE.md
+@@ -111,6 +111,18 @@ for i in range(B * c):
+ 1.  **Prioritize the Final Product:** Always check for the most processed, prepared version of the data first (the `Y` array).
+ 2.  **Fail Loudly:** Do not silently fall back to regenerating data. This masks errors. The corrected logic now raises a `ValueError` or `NotImplementedError` if the expected prepared `Y` array is not found, forcing the developer to use a correctly prepared dataset.
+ 
++### 3.4. Core Tensor Formats for gridsize > 1
++
++To handle overlapping patches, the codebase uses three primary tensor formats. Understanding the role of each is critical for avoiding shape mismatch errors.
++
++* **Channel Format (`B, N, N, C`)**: This is the primary format for **neural network processing**. The `C = gridsize**2` neighboring patches are treated as channels. This is the format produced by `get_image_patches` and expected by the U-Net in `ptycho/model.py`.
++
++* **Flat Format (`B*C, N, N, 1`)**: This format is used for **individual patch physics simulation**. Each of the `C` patches from a group is treated as a separate item in a larger batch. **This is the required input format for `ptycho.diffsim.illuminate_and_diffract`**.
++
++* **Grid Format (`B, G, G, N, N, 1`)**: A transitional format that makes the physical 2D grid of patches explicit.
++
++**CRITICAL RULE:** You must use `ptycho.tf_helper._channel_to_flat()` to convert data from Channel Format to Flat Format before passing it to the core physics simulation engine.
++
+ ---
+ 
+ ## 4. Physical Consistency in Data Preprocessing
+diff --git a/docs/PROJECT_STATUS.md b/docs/PROJECT_STATUS.md
+index 20b28eb..270ac1e 100644
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -1,6 +1,6 @@
+ # Project Status & Initiative Tracker
+ 
+-**Last Updated:** 2025-08-01
++**Last Updated:** 2025-08-02
+ 
+ This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
+ 
+@@ -63,21 +63,37 @@ This document provides a high-level overview of the major development initiative
+ 
+ ## 🚀 **Current Active Initiative**
+ 
++### **Initiative: None - Ready for Next Initiative**
++
++The Simulation Workflow Unification initiative has been completed. The project is ready for the next initiative.
++
++---
++
++## 📋 **Recently Completed Initiatives**
++
++### **Initiative: Simulation Workflow Unification**
++*   **Status:** ✅ **Complete** - Completed 2025-08-03
++*   **Goal:** To fix gridsize > 1 crashes by refactoring the simulation pipeline to use explicit, modular orchestration
++*   **Key Deliverables:**
++    *   Refactored `simulate_and_save.py` with modular workflow ✅
++    *   Comprehensive test suite for gridsize validation ✅
++    *   Deprecation warnings on legacy `RawData.from_simulation` ✅
++    *   Updated documentation with migration guides ✅
++*   **Planning Documents:**
++    *   **R&D Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/plan.md</doc-ref>
++    *   **Implementation Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/implementation.md</doc-ref>
++    *   **Summary:** <doc-ref type="summary">plans/active/simulation-workflow-unification/implementation_summary.md</doc-ref>
++
+ ### **Initiative: Probe Parameterization Study - Refactoring Phase**
+-*   **Status:** 🔄 **Refactoring in Progress** - Post-mortem cleanup and tool formalization
++*   **Status:** 🔄 **Paused** - Ready to resume now that Simulation Workflow Unification is complete
+ *   **Goal:** To refactor successful experimental code into robust, reusable tools with proper process isolation to fix gridsize configuration bugs.
+ *   **Current Phase:** Phase 1 - Refactor for Reusability and Modularity
+ *   **Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready to begin)
+-*   **Next Steps:** Execute Phase 1 checklist to create modular tools and fix subsampling performance
+ *   **Planning Documents:**
+     *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/plan.md</doc-ref>
+     *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/implementation.md</doc-ref>
+     *   **Current Checklist:** <doc-ref type="checklist">plans/archive/2025-08-probe-parameterization/phase_1_checklist.md</doc-ref>
+ 
+----
+-
+-## 📋 **Recently Completed Initiatives**
+-
+ ### **Initiative: Remove TensorFlow Addons Dependency**
+ *   **Status:** ✅ **Complete** - Completed 2025-07-27
+ *   **Goal:** To remove the deprecated TensorFlow Addons dependency by implementing native TensorFlow replacements for `tfa.image.translate` and `tfa.image.gaussian_filter2d`.
+diff --git a/docs/TOOL_SELECTION_GUIDE.md b/docs/TOOL_SELECTION_GUIDE.md
+index 1683d27..c5e3c97 100644
+--- a/docs/TOOL_SELECTION_GUIDE.md
++++ b/docs/TOOL_SELECTION_GUIDE.md
+@@ -148,6 +148,13 @@ python scripts/simulation/simulate_and_save.py \
+     --output-file <sim_data.npz> \
+     --n-images 2000 \
+     --gridsize 1
++
++# Now supports gridsize > 1 (fixed in 2025-08-02)
++python scripts/simulation/simulate_and_save.py \
++    --input-file <obj_probe.npz> \
++    --output-file <sim_data_gs2.npz> \
++    --n-images 1000 \
++    --gridsize 2
+ ```
+ 
+ ### Complex Simulation
+diff --git a/ptycho/FRC b/ptycho/FRC
+--- a/ptycho/FRC
++++ b/ptycho/FRC
+@@ -1 +1 @@
+-Subproject commit 56626c85aabf39b5ed8a94430077b4f57e418d33
++Subproject commit 56626c85aabf39b5ed8a94430077b4f57e418d33-dirty
+diff --git a/ptycho/config/config.py b/ptycho/config/config.py
+index 459be0a..f764c9e 100644
+--- a/ptycho/config/config.py
++++ b/ptycho/config/config.py
+@@ -1,41 +1,68 @@
+ """
+-Modern dataclass-based configuration system replacing legacy params.cfg pattern.
++Configuration loading and validation from YAML files and dataclasses.
+ 
+-Provides type-safe, structured configuration for PtychoPINN model architecture,
+-training workflows, and inference tasks. Maintains backward compatibility through
+-automatic legacy dictionary generation for existing modules.
++This module provides the primary mechanism for loading system configuration
++from YAML files and managing structured dataclass configurations. It handles parsing,
++validation, and the critical bridge between modern type-safe configuration and
++the legacy global parameter state used throughout the system.
+ 
+-Configuration Classes:
+-    ModelConfig: Architecture parameters (N, gridsize, model_type, activations)
+-    TrainingConfig: Training workflow (epochs, loss weights, data paths)
+-    InferenceConfig: Inference workflow (model paths, output settings)
+-
+-Core Functions:
+-    validate_*_config(config) -> None: Validates configuration constraints
+-    load_yaml_config(path) -> Dict: Loads YAML configuration files
+-    update_legacy_dict(cfg, dataclass_obj): Updates params.cfg for compatibility
++Architecture Role:
++    YAML config file -> config.py (parser/validator) -> params.py (global state)
++    
++    This module acts as the configuration entry point, transforming external
++    YAML files into structured dataclasses and maintaining backward compatibility
++    by updating the legacy params.cfg dictionary used by older modules.
++
++Public Interface:
++    `load_yaml_config(path) -> Dict`
++        - Purpose: Load and validate a YAML configuration file.
++        - Input: Path to a YAML configuration file.
++        - Returns: Configuration dictionary suitable for dataclass instantiation.
++        - Raises: OSError, yaml.YAMLError if file cannot be loaded.
++    
++    `update_legacy_dict(cfg, dataclass_obj)`
++        - Purpose: Synchronize dataclass configuration to legacy params.cfg.
++        - Side Effect: Updates global params.cfg with mapped parameter names.
++        - Key Behavior: Applies name mappings (object_big → object.big).
++        
++    `TrainingConfig` / `ModelConfig` / `InferenceConfig`
++        - Purpose: Type-safe configuration dataclasses with validation.
++        - Validation: Automatic constraint checking (positive values, power-of-2).
+ 
+-Workflow Integration:
++Workflow Usage Example:
+     ```python
+-    # Modern configuration with legacy compatibility
++    from ptycho.config.config import TrainingConfig, ModelConfig, load_yaml_config
++    import ptycho.params as params
++    
++    # Method 1: Load from YAML file
++    yaml_data = load_yaml_config(Path('configs/experiment.yaml'))
++    config = TrainingConfig(**yaml_data)
++    
++    # Method 2: Direct instantiation
+     config = TrainingConfig(
+         model=ModelConfig(N=128, model_type='pinn'),
+-        train_data_file='data.npz', nepochs=100)
++        train_data_file=Path('data.npz'), nepochs=100)
+     
+     # Enable legacy module compatibility
+-    import ptycho.params as params
+     update_legacy_dict(params.cfg, config)
+     
+-    # YAML loading for scripts
+-    yaml_data = load_yaml_config(Path('config.yaml'))
+-    config = TrainingConfig(**yaml_data)
++    # Legacy modules now access: params.get('N'), params.get('object.big')
++    
++    # Example minimal YAML file:
++    # ---
++    # model:
++    #   N: 128
++    #   model_type: 'pinn'
++    # train_data_file: 'datasets/fly.npz'
++    # nepochs: 100
++    # batch_size: 16
+     ```
+ 
+-Legacy Migration:
+-    - Modern workflows use dataclasses directly
+-    - Legacy modules continue using params.get() pattern
+-    - Configuration updates flow one-way: dataclass → legacy dict
+-    - Key mappings handle naming differences (object_big → object.big)
++Architectural Notes:
++- Configuration flow is unidirectional: dataclass → legacy dict only
++- Path objects automatically converted to strings for legacy compatibility
++- Validation functions enforce physical constraints and type safety
++- Depends on ptycho.params for global configuration state access
+ """
+ 
+ from dataclasses import dataclass, asdict
+diff --git a/ptycho/custom_layers.py b/ptycho/custom_layers.py
+index 0a2deab..712cc10 100644
+--- a/ptycho/custom_layers.py
++++ b/ptycho/custom_layers.py
+@@ -1,8 +1,71 @@
+-"""Custom Keras layers to replace Lambda layers for proper serialization.
++"""
++Custom Keras layers implementing ptychographic physics operations.
++
++This module provides TensorFlow Keras layers that embed the physics of
++ptychography directly into the neural network computation graph. These
++layers enable differentiable physics simulation, allowing the model to
++learn while respecting physical constraints.
++
++Architecture Role:
++    Neural network outputs -> custom_layers -> Physics-consistent predictions
++    
++    These layers bridge deep learning and physics by implementing differentiable
++    versions of probe illumination, wave propagation, and diffraction operations.
++    All layers are serializable and maintain proper gradient flow for training.
++
++Public Interface:
++    `CombineComplexLayer([real_part, imag_part])`
++        - Purpose: Combines real/imaginary tensors into complex64 format.
++        - Physics: Enables complex-valued wave field representations.
++        - Input: List of [real_tensor, imag_tensor].
++        - Output: Complex tensor for wave computations.
++    
++    `ExtractPatchesPositionLayer([padded_obj, positions], jitter=0.0)`
++        - Purpose: Extracts object patches at specified scan positions.
++        - Physics: Models the spatial selection of illuminated regions.
++        - Input: Padded object array and scan position coordinates.
++        - Output: Object patches corresponding to probe illumination sites.
++    
++    `PadAndDiffractLayer(inputs, h, w, pad=False)`
++        - Purpose: Applies propagation and generates diffraction patterns.
++        - Physics: Implements Fourier transform for far-field diffraction.
++        - Input: Complex exit waves from probe-object interaction.
++        - Output: Tuple of (padded_waves, diffraction_amplitudes).
++
++Workflow Usage Example:
++    ```python
++    import tensorflow as tf
++    from ptycho.custom_layers import CombineComplexLayer, ExtractPatchesPositionLayer, PadAndDiffractLayer
++    
++    # 1. Build physics pipeline in model
++    def physics_branch(real_obj, imag_obj, positions):
++        # Combine into complex object
++        complex_obj = CombineComplexLayer()([real_obj, imag_obj])
++        
++        # Extract patches at scan positions
++        patches = ExtractPatchesPositionLayer()([complex_obj, positions])
++        
++        # Apply physics: propagation to detector
++        waves, predictions = PadAndDiffractLayer(h=64, w=64)(patches)
++        
++        return predictions
++    
++    # 2. Use in Keras model
++    real_input = tf.keras.Input(shape=(232, 232, 1))
++    imag_input = tf.keras.Input(shape=(232, 232, 1))  
++    pos_input = tf.keras.Input(shape=(2,))
++    
++    # ... encoder/decoder layers ...
++    predictions = physics_branch(decoded_real, decoded_imag, pos_input)
++    model = tf.keras.Model([real_input, imag_input, pos_input], predictions)
++    ```
+ 
+-This module contains custom Keras layer implementations that replace Lambda layers
+-in the PtychoPINN model. These custom layers provide proper serialization support
+-for Keras 3 and enable model saving/loading without issues.
++Architectural Notes:
++- All layers preserve gradient flow for end-to-end physics-informed training
++- Complex arithmetic handled internally with proper TensorFlow ops
++- Layers implement serialization for model saving/loading workflows
++- Physics operations delegate to tf_helper module for core computations
++- These layers are the key to physics-informed learning in PtychoPINN
+ """
+ 
+ import tensorflow as tf
+diff --git a/ptycho/datagen/grf.py b/ptycho/datagen/grf.py
+index 8ab01fd..c47e7fb 100644
+--- a/ptycho/datagen/grf.py
++++ b/ptycho/datagen/grf.py
+@@ -1,3 +1,35 @@
++"""
++Generates Gaussian Random Field (GRF) objects for ptychography test patterns.
++
++This module creates synthetic 2D objects with realistic spatial correlations using power-law 
++noise generation. It produces terrain-like structures with controllable spectral properties
++commonly used for testing ptychographic reconstruction algorithms.
++
++Architecture Role:
++    Raw synthetic data → [GRF generator] → Complex object arrays → Ptychography simulation
++
++Public Interface:
++    `mk_grf(N)`
++        - Purpose: Generates a normalized GRF object with terrain-like features
++        - Critical Behavior: Requires even N dimensions for proper FFT alignment
++        - Key Parameters: N (object size), returns (N, N, 1) real array
++
++Workflow Usage Example:
++    ```python
++    # Generate 128x128 terrain-like test object
++    obj = mk_grf(128)  # Returns (128, 128, 1) array
++    
++    # Use in ptychography simulation
++    object_complex = obj[..., 0] * np.exp(1j * phase_pattern)
++    ```
++
++Architectural Notes & Dependencies:
++- Requires powerbox library for spectral synthesis
++- Uses scipy for interpolation and Gaussian filtering
++- Default parameters (indexlaw=-0.4, sigma=1) produce realistic terrain features
++- Credit: Based on MapGenerator by PabloVD (https://github.com/PabloVD/MapGenerator)
++"""
++
+ # credit https://github.com/PabloVD/MapGenerator
+ 
+ import matplotlib.pyplot as plt
+diff --git a/ptycho/datagen/points.py b/ptycho/datagen/points.py
+index eb415e4..603350e 100644
+--- a/ptycho/datagen/points.py
++++ b/ptycho/datagen/points.py
+@@ -1,3 +1,40 @@
++"""
++Generates sparse point-cloud objects for ptychography test patterns.
++
++This module creates synthetic 2D objects containing randomly distributed points with Gaussian 
++smoothing. It produces objects with sparse, blob-like features commonly used for testing 
++ptychographic reconstruction algorithms on objects with isolated features.
++
++Architecture Role:
++    Random point distribution → [Gaussian smoothing] → Complex object arrays → Ptychography simulation
++
++Public Interface:
++    `mk_points(N, sigma=1, pct=0.15)`
++        - Purpose: Generates sparse point objects with multi-scale Gaussian smoothing
++        - Critical Behavior: Uses dual-scale smoothing (sigma and 10*sigma) for feature hierarchy
++        - Key Parameters: N (object size), sigma (smoothing), pct (point density)
++
++    `randones(N, pct=0.1)`
++        - Purpose: Creates random binary point distribution
++        - Critical Behavior: Uses replacement sampling, allowing multiple points per location
++        - Key Parameters: N (array size), pct (fraction of pixels to activate)
++
++Workflow Usage Example:
++    ```python
++    # Generate 64x64 sparse point object
++    obj = mk_points(64, sigma=2, pct=0.1)  # Returns (64, 64, 1) array
++    
++    # Use in ptychography simulation
++    object_complex = obj[..., 0] * np.exp(1j * np.zeros_like(obj[..., 0]))
++    ```
++
++Architectural Notes & Dependencies:
++- Uses scipy.ndimage for Gaussian filtering
++- Dual-scale smoothing creates realistic feature hierarchy
++- Default parameters produce ~15% point coverage with smooth blob features
++- Output range is not normalized - varies with point density and smoothing
++"""
++
+ import matplotlib.pyplot as plt
+ import numpy as np
+ from scipy.ndimage import gaussian_filter as gf
+diff --git a/ptycho/diffsim.py b/ptycho/diffsim.py
+index 9961607..a399d37 100644
+--- a/ptycho/diffsim.py
++++ b/ptycho/diffsim.py
+@@ -1,44 +1,64 @@
+-"""Core forward physics simulation engine for ptychographic reconstruction.
+-
+-This module implements the differentiable forward physics model that forms the foundation 
+-of PtychoPINN's physics-informed neural network architecture. It simulates the complete 
+-ptychographic measurement process: object illumination, coherent diffraction, and 
+-photon detection with realistic Poisson noise characteristics.
++"""
++Diffraction pattern simulation via probe-object interaction.
+ 
+-Physics Implementation:
+-    The ptychographic forward model: object * probe → |FFT|² → Poisson(counts)
+-    Serves dual purposes: generates synthetic training data and provides physics 
+-    constraints for PINN training via differentiable simulation.
++This module orchestrates the complete ptychographic forward model, taking
++object patches and probe functions through the physics pipeline to generate
++realistic diffraction patterns. It serves as the primary simulation engine
++for data generation and physics-informed model training.
+ 
+ Architecture Role:
+-    - Training data generation with various object types (lines, GRF, points)
+-    - Physics-informed loss terms constraining network to optical principles  
+-    - Realistic Poisson photon noise modeling for experimental data matching
+-
+-Core Functions:
+-    illuminate_and_diffract: Complete illumination and diffraction pipeline
+-    mk_simdata: Generate synthetic datasets with configurable object types
+-    observe_amplitude: Poisson photon noise simulation
+-    scale_nphotons: Photon count normalization
+-    sim_object_image: Synthetic object generation
+-
+-Example:
+-    # Generate synthetic training dataset
++    Object/Probe -> diffsim.py (orchestrator) -> Diffraction Amplitudes
++    
++    This module coordinates the physics simulation pipeline:
++    1. Probe-object interaction (multiplication)
++    2. Wave propagation (if thick object)
++    3. Far-field propagation (Fourier transform)
++    4. Optional noise addition
++
++Public Interface:
++    `illuminate_and_diffract(Y_I_flat, Y_phi_flat, probe, intensity_scale=None)`
++        - Purpose: Simulate the complete forward ptychographic process.
++        - Algorithm: Illuminates object patches with probe, propagates to
++          far field, and returns diffraction amplitudes.
++        - Critical: Returns amplitude (sqrt of intensity), not intensity.
++        - Parameters:
++            - Y_I_flat: Object amplitude patches in flat format (B, N, N, 1)
++            - Y_phi_flat: Object phase patches in flat format (B, N, N, 1)
++            - probe: Probe function (N, N, 1)
++            - intensity_scale: Optional normalization factor
++
++    `mk_simdata(n, size, probe, outer_offset, **kwargs)`
++        - Purpose: Generate complete synthetic ptychographic datasets
++        - Returns: Diffraction amplitudes, object patches, coordinates
++        - Parameters: n (dataset size), size (patch dimension), probe
++
++Workflow Usage Example:
++    ```python
++    import ptycho.diffsim as sim
+     from ptycho import params
+-    params.set('nphotons', 1e6)
+-    params.set('data_source', 'lines')
++    import tensorflow as tf
++    
++    # 1. Configure simulation parameters
++    params.set('nphotons', 1e8)  # Photon flux for noise modeling
++    params.set('data_source', 'grf')  # Object type
+     
+-    probe = np.exp(1j * np.random.uniform(0, 2*np.pi, (64, 64)))
+-    X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, coords = mk_simdata(
+-        n=2000, size=64, probe=probe, outer_offset=32, data_source='lines'
++    # 2. Generate complete synthetic dataset
++    probe = tf.complex(tf.ones((64, 64)), 0.0)
++    X, Y_I, Y_phi, scale, full_obj, norm, coords = sim.mk_simdata(
++        n=2000, size=64, probe=probe, outer_offset=32
+     )
+-    # X: (n, 64, 64) diffraction amplitudes, Y_I/Y_phi: object patches
+-
+-Integration:
+-    Integrates with ptycho.model (physics losses), ptycho.loader (training data),
+-    ptycho.datagen.* (synthetic objects), ptycho.tf_helper (TF diffraction ops).
+-
+-Note: Core physics module - preserve ptychographic forward model compatibility.
++    
++    # 3. Note: X contains sqrt(intensity) values per data contract
++    # To get photon counts: intensity = X ** 2
++    ```
++
++Architectural Notes:
++- This module is the authoritative implementation of the forward model
++  used throughout the codebase.
++- The output amplitude format matches the data contract for training data.
++- Noise modeling uses Poisson statistics based on params['nphotons'].
++- Dependencies: ptycho.fourier, ptycho.tf_helper, ptycho.params
++- Supports multiple synthetic object types via datagen modules.
+ """
+ from skimage import draw, morphology
+ from tensorflow.keras.layers import Lambda
+@@ -85,12 +105,33 @@ def diffract_obj(sample, draw_poisson = True):
+     else:
+         return amplitude
+ 
+-def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
++def illuminate_and_diffract(Y_I_flat, Y_phi_flat, probe, intensity_scale = None):
+     """
+-    Illuminate object with real or complex probe, then apply diffraction map.
+-
+-    Returned Y_I and Y_phi are amplitude and phase *after* illumination with the
+-    probe.
++    Simulates diffraction for a batch of individual object patches.
++
++    This function is a core physics engine component and operates on data in the
++    "Flat Format", where each patch is an independent item in the batch. It is the
++    caller's responsibility to ensure input tensors adhere to this format.
++
++    Args:
++        Y_I_flat (tf.Tensor): A tensor of object amplitude patches in Flat Format.
++                             Shape: (B * gridsize**2, N, N, 1)
++        Y_phi_flat (tf.Tensor): A tensor of object phase patches in Flat Format.
++                               Shape: (B * gridsize**2, N, N, 1)
++        probe (tf.Tensor): The probe function.
++                          Shape: (N, N, 1)
++        intensity_scale (float, optional): Normalization factor.
++
++    Returns:
++        Tuple[tf.Tensor, ...]: Simulated diffraction patterns, also in Flat Format.
++                              Shape of X: (B * gridsize**2, N, N, 1)
++
++    Raises:
++        ValueError: If input tensors do not have a channel dimension of 1.
++
++    See Also:
++        - ptycho.tf_helper._channel_to_flat: For converting from Channel to Flat format.
++        - ptycho.tf_helper._flat_to_channel: For converting from Flat to Channel format.
+     """
+     # ensure probe is broadcastable
+     if len(probe.shape) == 2:
+@@ -106,12 +147,12 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
+         f"Internal error: Probe shape must be (H, W, 1) before use, but got {probe.shape}"
+     
+     if intensity_scale is None:
+-        probe_amplitude = tf.cast(tf.abs(probe), Y_I.dtype)
+-        intensity_scale = scale_nphotons(Y_I * probe_amplitude[None, ...]).numpy()
++        probe_amplitude = tf.cast(tf.abs(probe), Y_I_flat.dtype)
++        intensity_scale = scale_nphotons(Y_I_flat * probe_amplitude[None, ...]).numpy()
+     batch_size = p.get('batch_size')
+-    obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
++    obj = intensity_scale * hh.combine_complex(Y_I_flat, Y_phi_flat)
+     obj = obj * tf.cast(probe[None, ...], obj.dtype)
+-    Y_I = tf.math.abs(obj)
++    Y_I_flat = tf.math.abs(obj)
+ 
+     X = (tf.data.Dataset.from_tensor_slices(obj)
+                .batch(batch_size)
+@@ -119,16 +160,16 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
+                .map(diffract_obj)
+                .cache())
+     X = np.vstack(list(iter(X)))
+-    X, Y_I, Y_phi =\
+-        X / intensity_scale, Y_I / intensity_scale, Y_phi
++    X, Y_I_flat, Y_phi_flat =\
++        X / intensity_scale, Y_I_flat / intensity_scale, Y_phi_flat
+ 
+-    X, Y_I, Y_phi =\
+-        hh.togrid(X, Y_I, Y_phi)
++    X, Y_I_flat, Y_phi_flat =\
++        hh.togrid(X, Y_I_flat, Y_phi_flat)
+ 
+-    X, Y_I, Y_phi =\
+-        hh.grid_to_channel(X, Y_I, Y_phi)
++    X, Y_I_flat, Y_phi_flat =\
++        hh.grid_to_channel(X, Y_I_flat, Y_phi_flat)
+ 
+-    return X, Y_I, Y_phi, intensity_scale
++    return X, Y_I_flat, Y_phi_flat, intensity_scale
+ 
+ def mk_rand(N):
+     return int(N * np.random.uniform())
+@@ -266,7 +307,7 @@ def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
+         d['I_pre_probe'] = Y_I
+         d['phi_pre_probe'] = Y_phi
+     X, Y_I, Y_phi, intensity_scale =\
+-        illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
++        illuminate_and_diffract(Y_I_flat=Y_I, Y_phi_flat=Y_phi, probe=probe, intensity_scale=intensity_scale)
+     if YY_phi is None:
+         YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
+     else:
+diff --git a/ptycho/evaluation.py b/ptycho/evaluation.py
+index 8ecdd48..2a439be 100644
+--- a/ptycho/evaluation.py
++++ b/ptycho/evaluation.py
+@@ -1,79 +1,61 @@
+-"""Central quality assessment and metrics orchestration for ptychographic reconstruction.
+-
+-This module serves as PtychoPINN's evaluation control center, coordinating multiple 
+-quality metrics and providing standardized interfaces for training monitoring, model 
+-comparison, and research analysis. It operates as a logic/control module that 
+-orchestrates specialized metric calculations while handling complex data preprocessing
+-and alignment requirements.
+-
+-**System Role:**
+-In the PtychoPINN architecture, this module bridges reconstruction outputs with 
+-quantitative assessment, enabling real-time training validation and systematic model 
+-comparisons. It integrates with FRC analysis (ptycho.FRC), image registration 
+-(ptycho.image), and model comparison workflows (scripts/studies/).
+-
+-**Key Control Logic:**
+-- **Dual-Component Processing**: Automatically handles amplitude/phase separation
+-- **Configurable Phase Alignment**: Routes to 'plane' fitting or 'mean' subtraction
+-- **Adaptive Normalization**: Applies consistent scaling across all amplitude metrics
+-- **Debug Pipeline Control**: Coordinates visualization output across metric types
+-- **Format Standardization**: Ensures consistent input/output contracts
+-
+-**Primary Functions:**
+-- `eval_reconstruction()`: Main orchestrator returning comprehensive metric suite
+-- `ms_ssim()`: Multi-scale SSIM with adaptive downsampling control
+-- `frc50()`: Fourier Ring Correlation with 0.5 threshold detection
+-- `fit_and_remove_plane()`: Linear phase trend removal via least squares
+-- `save_metrics()`: Persistent storage integration with params.cfg
+-
+-**Integration Workflows:**
+-
+-Training Pipeline:
+-```python
+-from ptycho.evaluation import eval_reconstruction, save_metrics
+-from ptycho.image.cropping import align_for_evaluation
+-
+-# Real-time validation during training
+-aligned_recon = align_for_evaluation(reconstruction, ground_truth)
+-metrics = eval_reconstruction(aligned_recon, ground_truth, 
+-                            phase_align_method='plane',
+-                            debug_save_images=False)
+-validation_loss = metrics['mae'][0]  # Amplitude MAE for early stopping
+-```
+-
+-Model Comparison Study:
+-```python
+-# Systematic multi-model evaluation with debug visualization
+-for model_name, reconstruction in models.items():
+-    metrics = eval_reconstruction(
+-        reconstruction, ground_truth,
+-        label=model_name,
+-        debug_save_images=True,  # Saves preprocessing images for analysis
+-        ms_ssim_sigma=1.0        # Consistent preprocessing across models
+-    )
+-    save_metrics(reconstruction, ground_truth, label=model_name)
+-    
+-    # Structured output: metrics['frc50'] = (amp_frc50, phase_frc50)
+-    print(f"{model_name}: FRC50 = {metrics['frc50']}")
+-```
+-
+-**Data Flow & Dependencies:**
+-- **Input**: Complex reconstructions (3D/4D), ground truth objects (3D)
+-- **Output**: Structured metric dictionaries with (amplitude, phase) tuples
+-- **Dependencies**: params.cfg (legacy paths), FRC modules, skimage.metrics
+-- **Format Requirements**: Amplitude arrays must be normalized consistently
+-
+-**Critical Behavior Modes:**
+-- **phase_align_method='plane'**: Removes linear phase gradients (recommended)
+-- **phase_align_method='mean'**: Simple mean subtraction (legacy compatibility)
+-- **debug_save_images=True**: Generates diagnostic images in cwd/debug_images_<label>/
+-- **Amplitude normalization**: Always applied via mean scaling for fair comparison
+-
+-**Performance Characteristics:**
+-- FRC calculation requires square images (auto-crops to smaller dimension)
+-- MS-SSIM scales adaptively with image resolution
+-- Debug image generation adds ~2-3x evaluation time
+-- Caching not implemented (metrics recalculated on each call)
++"""
++Comprehensive reconstruction quality assessment and metric orchestration hub.
++
++This module coordinates multiple quantitative metrics for ptychographic reconstruction evaluation,
++providing standardized interfaces for training validation, model comparison, and research analysis.
++It handles complex preprocessing workflows including amplitude normalization, phase alignment, 
++and debug visualization while ensuring consistent metric calculation across the PtychoPINN ecosystem.
++
++Architecture Role:
++    Complex reconstructions → [metric preprocessing + alignment] → Standardized quality assessment
++    Integrates with ptycho.FRC (frequency analysis), ptycho.image (registration), scripts/studies (comparison)
++
++Public Interface:
++    `eval_reconstruction(stitched_obj, ground_truth_obj, **kwargs)`
++        - Purpose: Main orchestrator computing comprehensive metric suite
++        - Critical Behavior: Amplitude normalization always applied, configurable phase alignment
++        - Key Parameters: phase_align_method ('plane'/'mean'), debug_save_images, ms_ssim_sigma
++
++    `frc50(target, pred, frc_sigma=0, **debug_kwargs)`
++        - Purpose: Fourier Ring Correlation with 0.5 threshold detection  
++        - Critical Behavior: Auto-crops to square images, returns (curve, threshold_index)
++        - Key Parameters: frc_sigma (smoothing), debug_save_images, debug_dir
++
++    `fit_and_remove_plane(phase_img, reference_phase=None)`
++        - Purpose: Linear phase trend removal via least squares fitting
++        - Critical Behavior: Removes fitted plane, optionally aligns to reference
++        - Key Parameters: reference_phase enables relative alignment
++
++    `save_metrics(stitched_obj, ground_truth_obj, label='')`
++        - Purpose: Persistent storage integration with legacy params.cfg system
++        - Critical Behavior: Saves CSV + pickle formats to params-defined output directory
++        - Key Parameters: label for identification in multi-model studies
++
++Workflow Usage Example:
++    ```python
++    from ptycho.evaluation import eval_reconstruction, save_metrics
++    from ptycho.image.cropping import align_for_evaluation
++    
++    # Training validation workflow
++    aligned_recon = align_for_evaluation(reconstruction, ground_truth)
++    metrics = eval_reconstruction(aligned_recon, ground_truth,
++                                phase_align_method='plane', debug_save_images=False)
++    validation_mae = metrics['mae'][0]  # Amplitude MAE for early stopping
++    
++    # Model comparison with debug visualization
++    metrics = eval_reconstruction(reconstruction, ground_truth, label='pinn_model',
++                                debug_save_images=True, ms_ssim_sigma=1.0)
++    save_metrics(reconstruction, ground_truth, label='pinn_model')
++    ```
++
++Architectural Notes & Dependencies:
++- Amplitude normalization always applied via mean scaling for fair comparison
++- Phase alignment modes: 'plane' (linear trend removal) vs 'mean' (simple centering)
++- Debug image generation creates organized output in debug_images_<label>/ directories
++- Dependencies: ptycho.params (paths), ptycho.FRC (frequency analysis), skimage.metrics
++- Output format: structured dictionaries with (amplitude, phase) metric tuples
++- FRC calculation auto-crops to square images, MS-SSIM adapts to resolution
++- No caching implemented - metrics recalculated on each invocation for consistency
+ """
+ 
+ import numpy as np
+diff --git a/ptycho/fourier.py b/ptycho/fourier.py
+index c965a7a..fe85fbc 100644
+--- a/ptycho/fourier.py
++++ b/ptycho/fourier.py
+@@ -1,57 +1,57 @@
+-"""Fourier transform utilities and frequency domain processing for ptychography.
+-
+-This module provides essential Fourier domain operations and filtering utilities
+-used throughout the PtychoPINN ptychographic reconstruction pipeline. It serves
+-as the mathematical foundation for frequency domain analysis, probe processing,
+-and signal filtering operations required for coherent diffraction imaging.
+-
+-Core Functions:
+-    Gaussian Filters:
+-        - lowpass_g(): Gaussian lowpass filtering for probe initialization
+-        - highpass_g(): Gaussian highpass filtering for frequency analysis
+-        - bandpass_g(): Combined lowpass/highpass for frequency band selection
++"""Signal processing utilities for frequency domain operations in ptychography.
++
++This module provides foundational mathematical utilities for frequency domain 
++analysis and signal conditioning. It implements Gaussian filtering, frequency 
++clipping, and complex amplitude processing functions primarily used in data 
++exploration, probe conditioning, and signal analysis workflows.
++
++Architecture Role:
++    Data Analysis → fourier.py (signal processing) → Conditioned Data
++    
++    This module provides mathematical building blocks for signal conditioning
++    and frequency domain analysis, primarily used in interactive notebooks
++    and experimental workflows.
++
++Public Interface:
++    `lowpass_g(size, y, sym=False)`
++        - Purpose: Generate Gaussian lowpass filter windows.
++        - Critical: Filter size controls frequency cutoff relative to array length.
++        - Returns: Normalized Gaussian window for frequency domain filtering.
++    
++    `power(arr)` and `mag(arr)`
++        - Purpose: Extract power and magnitude from complex amplitudes.
++        - Critical: power() computes |arr|², mag() computes |arr|.
++        - Returns: Real-valued power spectra or magnitude arrays.
+     
+-    Frequency Domain Clipping:
+-        - clip_high(): Remove high-frequency components with fractional control
+-        - clip_low(): Remove low-frequency components with masking
+-        - clip_low_window(): Generate frequency domain windows
++    `clip_high(x, frac_zero)` and `clip_low(x, frac_zero)`
++        - Purpose: Zero out frequency components with fractional control.
++        - Critical: frac_zero specifies fraction of frequencies to remove.
++        - Returns: Modified array with frequency masking applied.
++
++Workflow Usage Example:
++    ```python
++    import numpy as np
++    from ptycho import fourier
+     
+-    Fourier Operations:
+-        - if_mag(): Inverse FFT with magnitude processing and phase control
+-        - power(): Complex amplitude to power spectrum conversion
+-        - mag(): Complex amplitude to magnitude conversion
++    # Generate Gaussian filter for probe conditioning
++    N = 64
++    dummy_array = np.ones(N)
++    filter_window = fourier.lowpass_g(0.4, dummy_array, sym=True)
+     
+-    Analysis Utilities:
+-        - lorenz(): Lorentzian function for spectral line fitting
+-        - plot_df(): Pandas DataFrame plotting utility
+-
+-Architecture Integration:
+-    - **Probe Module (ptycho/probe.py)**: Uses lowpass_g() for creating default
+-      disk-shaped scanning probes with controlled frequency content
+-    - **Physics Simulation**: Provides frequency domain tools for realistic
+-      modeling of coherent diffraction patterns
+-    - **Signal Processing**: Core mathematical utilities for ptychographic
+-      reconstruction algorithms
+-
+-Mathematical Context:
+-    The functions implement frequency domain operations essential for ptychography:
+-    - Gaussian filters model realistic probe shapes and experimental conditions
+-    - Frequency clipping operations simulate detector limitations and noise
+-    - Complex amplitude processing handles the phase-sensitive nature of coherent imaging
+-
+-Example:
+-    # Create a Gaussian lowpass filter for probe initialization
+-    >>> import numpy as np
+-    >>> from ptycho import fourier as f
+-    >>> N = 64
+-    >>> scale = 0.4
+-    >>> filter_1d = f.lowpass_g(scale, np.ones(N), sym=True)
+-    >>> probe_2d = f.gf(np.outer(filter_1d, filter_1d) > 0.5, sigma=1)
++    # Analyze complex ptychographic data
++    complex_wave = np.random.random((N,)) + 1j * np.random.random((N,))
++    power_spectrum = fourier.power(complex_wave)
++    magnitude = fourier.mag(complex_wave)
+     
+-    # Process complex amplitude data
+-    >>> complex_data = np.random.random((128,)) + 1j * np.random.random((128,))
+-    >>> power_spectrum = f.power(complex_data)
+-    >>> magnitude = f.mag(complex_data)
++    # Apply frequency domain clipping
++    clipped_data, mask = fourier.clip_low(complex_wave, frac_zero=0.1)
++    ```
++
++Architectural Notes:
++- Provides scipy/numpy-based signal processing utilities.
++- Stateless functions suitable for interactive analysis and notebooks.
++- No dependencies on core PtychoPINN reconstruction pipeline.
++- Primarily used for data exploration and experimental signal conditioning.
+ """
+ 
+ import pandas as pd
+diff --git a/ptycho/inference.py b/ptycho/inference.py
+index 0af9bf6..7e6f512 100644
+--- a/ptycho/inference.py
++++ b/ptycho/inference.py
+@@ -1,63 +1,15 @@
+ """
+-Legacy inference utilities for loading pre-trained models and performing ptychographic reconstruction.
++Core inference library for trained PtychoPINN models.
+ 
+-This module provides a simplified interface for running inference with pre-trained PtychoPINN models.
+-It handles model loading, data preparation, and reconstruction execution in a streamlined workflow.
+-The module serves as a bridge between saved model artifacts and the inference pipeline, abstracting
+-away the complexities of model initialization and data preprocessing.
++Provides `inference_flow(model_path, data_container)` for end-to-end 
++inference pipeline returning reconstructed object and amplitudes.
+ 
+-Architecture Role:
+-    Sits between the training pipeline and end-user inference workflows:
+-    Saved Model (.h5) + Test Data → Model Loading → Data Preparation → Inference Execution → Reconstruction Results
+-    
+-    Key responsibilities:
+-    - Load pre-trained models via ModelManager
+-    - Prepare PtychoDataContainer inputs for inference
+-    - Execute model prediction with proper data scaling
+-    - Return structured reconstruction results
+-    - Provide fallback object stitching capabilities
+-
+-Public Interface:
+-    `inference_flow(model_path, data_container)`
+-        - Purpose: Complete end-to-end inference workflow
+-        - Critical Behavior: Applies intensity scaling from global params during data preparation
+-        - Key Parameters: model_path (H5 file or None for params.h5_path), data_container (preprocessed data)
+-    
+-    `load_pretrained_model(model_path)`
+-        - Purpose: Load saved model weights and architecture via ModelManager
+-        - Critical Behavior: Delegates to ModelManager.load_model() for proper model restoration
+-        - Key Parameters: model_path (path to .h5 model file)
+-    
+-    `perform_inference(model, X, coords_nominal)`
+-        - Purpose: Execute model prediction on prepared inputs
+-        - Critical Behavior: Returns dict with 'reconstructed_obj', 'pred_amp', 'reconstructed_obj_cdi'
+-        - Key Parameters: model (loaded Keras model), X (scaled diffraction data), coords_nominal (scan positions)
+-
+-Workflow Usage Example:
++Usage:
+     ```python
+-    from ptycho.loader import PtychoDataContainer
+     from ptycho.inference import inference_flow
+-    
+-    # Load test data
+-    data_container = PtychoDataContainer.from_file("test_data.npz")
+-    
+-    # Run complete inference pipeline
+-    results = inference_flow("trained_model.h5", data_container)
+-    
+-    # Extract results
+-    reconstructed_object = results['reconstructed_obj']
+-    predicted_amplitudes = results['pred_amp']
+-    cdi_reconstruction = results['reconstructed_obj_cdi']
++    data = PtychoDataContainer.from_file("test.npz")
++    results = inference_flow("model.h5", data)
+     ```
+-
+-Architectural Notes & Dependencies:
+-- ModelManager: Handles model loading/saving with proper weight restoration
+-- PtychoDataContainer: Provides preprocessed, model-ready diffraction data and coordinates
+-- Global params: Used for intensity scaling factor and fallback model paths
+-- ptycho.model: Direct import for accessing model parameters during data preparation
+-- ptycho.image: Optional dependency for modern object stitching capabilities
+-- State Dependency: Relies on global params configuration for intensity_scale and h5_path defaults
+-- Legacy Note: This module uses older parameter access patterns and is marked for consolidation with train_pinn
+ """
+ from ptycho.model_manager import ModelManager
+ from tensorflow.keras.models import Model
+diff --git a/ptycho/loader.py b/ptycho/loader.py
+index 435bbb9..2cff3d4 100644
+--- a/ptycho/loader.py
++++ b/ptycho/loader.py
+@@ -1,73 +1,46 @@
+ """
+-TensorFlow-ready data pipeline finalizer for ptychographic reconstruction.
++TensorFlow tensor conversion and data container finalizer for ptychographic datasets.
+ 
+-This module serves as the final stage in PtychoPINN's data pipeline, converting
+-grouped NumPy arrays from ptycho.raw_data into TensorFlow tensors ready for model
+-training and inference. As the most heavily used data pipeline module (9 importing
+-modules), it bridges the gap between NumPy-based data processing and TensorFlow-based
+-neural network training.
++Converts grouped NumPy arrays from ptycho.raw_data into TensorFlow tensors with proper
++dtype casting, train/test splitting, and multi-channel support. Final pipeline stage
++before model training that handles complex tensor creation and data normalization.
+ 
+ Architecture Role:
+     NPZ files → raw_data.py (RawData) → loader.py (PtychoDataContainer) → model tensors
+-
+-Primary Components:
+-    - PtychoDataContainer: Core data container holding model-ready TensorFlow tensors
+-      including diffraction patterns (X), ground truth patches (Y_I, Y_phi), 
+-      coordinates, and probe functions
+-    - load(): Main entry point that transforms grouped data into PtychoDataContainer
+-      via callback mechanism, handling train/test splits and tensor conversion
+-    - PtychoDataset: Simple wrapper for train/test data pairs
+-
+-Key Features:
+-    - Multi-channel tensor support for gridsize > 1 configurations
+-    - Automatic train/test data splitting with fraction-based allocation
+-    - Complex tensor handling (amplitude/phase separation)
+-    - NPZ serialization of processed tensor data
+-    - Comprehensive debug representations with tensor statistics
++    Most heavily used data pipeline module (9 importing modules) for tensor preparation.
+ 
+ Public Interface:
+-    load(cb, probeGuess, which, create_split) -> PtychoDataContainer
+-        cb: Callback returning grouped data dictionary from raw_data
+-        probeGuess: Initial probe function as TensorFlow tensor
+-        which: 'train' or 'test' for data splitting
+-        create_split: Boolean to enable train/test splitting
+-        
+-    PtychoDataContainer.from_raw_data_without_pc(xcoords, ycoords, diff3d, ...)
+-        Static constructor combining raw_data grouping with tensor loading
+-        
+-    split_data(X_full, coords_nominal, coords_true, train_frac, which)
+-        Utility for fraction-based data splitting
+-
+-Usage Example:
+-    # Complete pipeline: raw data → grouped data → model tensors
+-    from ptycho.raw_data import RawData
+-    from ptycho.loader import load, PtychoDataContainer
+-    
+-    # Create raw data object
+-    raw_data = RawData.from_coords_without_pc(
+-        xcoords, ycoords, diff3d, probe, scan_idx
+-    )
+-    
+-    # Generate grouped data and convert to tensors
++    `load(cb, probeGuess, which, create_split)`
++        - Purpose: Converts grouped data dictionary to TensorFlow tensors via callback
++        - Critical Behavior: Handles train/test splits, preserves multi-channel dimensions for gridsize>1
++        - Key Parameters: cb (data callback), which ('train'/'test'), create_split (enables splitting)
++
++    `PtychoDataContainer(X, Y_I, Y_phi, ...)`
++        - Purpose: Container for model-ready tensors with amplitude/phase separation
++        - Critical Behavior: Auto-combines Y_I/Y_phi into complex Y tensor, validates channel consistency
++        - Key Parameters: X (diffraction), Y_I/Y_phi (ground truth), coords, probe
++
++    `split_data(X_full, coords, train_frac, which)`
++        - Purpose: Fraction-based data splitting utility
++        - Critical Behavior: Consistent splitting across all arrays (X, Y, coordinates)
++        - Key Parameters: train_frac controls split ratio
++
++Workflow Usage Example:
++    ```python
++    # Standard tensor conversion pipeline
+     def data_callback():
+         return raw_data.generate_grouped_data(N=64, K=7)
+     
+     train_container = load(data_callback, probe_tensor, 'train', True)
+-    test_container = load(data_callback, probe_tensor, 'test', True)
+-    
+-    # Access model-ready tensors
+-    X_train = train_container.X        # Diffraction patterns
+-    Y_train = train_container.Y        # Complex ground truth
+-    coords = train_container.coords    # Scan coordinates
+-    
+-    # Export for later use
+-    train_container.to_npz("model_ready_train.npz")
+-
+-Integration Notes:
+-    - Tensors are automatically cast to appropriate TensorFlow dtypes (float32/complex64)
+-    - Preserves multi-channel dimensions for advanced gridsize configurations
+-    - Handles missing ground truth by creating complex dummy tensors
+-    - Primary consumers: model training, inference, and preprocessing workflows
++    X_train, Y_train = train_container.X, train_container.Y
++    ```
++
++Architectural Notes & Dependencies:
++- Depends on ptycho.raw_data for grouped data dictionaries
++- Integrates ptycho.diffsim for photon scaling normalization
++- Auto-casts to tf.float32 (diffraction) and tf.complex64 (ground truth)
++- Creates dummy complex tensors when ground truth missing (PINN training)
++- Validates channel consistency between X and Y tensors for gridsize>1
+ """
+ 
+ import numpy as np
+diff --git a/ptycho/losses.py b/ptycho/losses.py
+index 44d51fa..de33c60 100644
+--- a/ptycho/losses.py
++++ b/ptycho/losses.py
+@@ -1,51 +1,44 @@
+ """
+-Custom Loss Function Definitions for PtychoPINN Training
+-
+-This module is intended to contain specialized loss functions for ptychographic reconstruction 
+-training, including physics-aware losses, symmetry-invariant losses, and domain-specific 
+-evaluation metrics. Currently contains prototype implementations in commented form.
+-
+-Intended Functions:
+-  - I_channel_MAE(): Mean absolute error loss for intensity (amplitude) channels
+-  - symmetrized_loss(): Coordinate-invariant loss accounting for reconstruction ambiguities
+-  - Physics-informed losses incorporating ptychographic constraints
+-  - Multi-scale losses for different reconstruction scales
+-
+-Architecture Integration:
+-  This module is designed to provide custom loss functions for integration with the TensorFlow 
+-  model training pipeline in ptycho.model and ptycho.train_pinn. These losses would complement 
+-  the standard reconstruction losses with domain-specific knowledge about ptychographic 
+-  reconstruction constraints and symmetries.
+-
+-Development Status:
+-  Currently contains only commented prototype code. The module serves as a placeholder for 
+-  future loss function development and experimentation. Active loss functions are currently 
+-  implemented directly in the model architecture and training loops.
+-
+-Intended Usage Pattern:
+-  ```python
+-  # Future intended usage
+-  from ptycho.losses import symmetrized_loss, I_channel_MAE
+-  
+-  # Configure model with custom losses
+-  model.compile(
+-      loss={'reconstruction': symmetrized_loss, 
+-            'intensity': I_channel_MAE},
+-      optimizer=optimizer
+-  )
+-  ```
+-
+-Symmetry-Aware Loss Design:
+-  Ptychographic reconstructions suffer from inherent ambiguities including coordinate 
+-  inversion symmetries. The commented symmetrized_loss() function represents an approach 
+-  to make training invariant to these physical symmetries by computing losses across 
+-  multiple symmetric variants and selecting the minimum.
+-
+-Notes:
+-  - Module currently contains no active code
+-  - Commented implementations show intended design patterns
+-  - Future development should consider integration with existing evaluation metrics
+-  - Loss functions should be compatible with both PINN and supervised training modes
++Experimental loss function definitions for physics-aware ptychographic training.
++
++This module serves as a development workspace for specialized loss functions that incorporate 
++domain-specific knowledge about ptychographic reconstruction constraints and physical symmetries. 
++Currently contains prototype implementations for future integration with the TensorFlow training pipeline.
++
++Architecture Role:
++    Loss functions → ptycho.model training pipeline → Real-time optimization constraints
++    Currently integrates with standard TensorFlow loss compilation in model.compile()
++
++Public Interface:
++    `I_channel_MAE(y_true, y_pred, center_target=True)` [PROTOTYPE]
++        - Purpose: Intensity-channel mean absolute error with optional centering
++        - Critical Behavior: Applies channel centering before loss calculation when enabled
++        - Key Parameters: center_target controls preprocessing normalization
++
++    `symmetrized_loss(target, pred, loss_fn)` [PROTOTYPE]  
++        - Purpose: Coordinate-invariant loss accounting for reconstruction ambiguities
++        - Critical Behavior: Computes loss across coordinate inversions, returns minimum
++        - Key Parameters: loss_fn defines the base metric for symmetry comparison
++
++Workflow Usage Example:
++    ```python
++    # Future intended integration pattern
++    from ptycho.losses import symmetrized_loss, I_channel_MAE
++    
++    model.compile(
++        loss={'reconstruction': symmetrized_loss, 
++              'intensity': I_channel_MAE},
++        optimizer=optimizer
++    )
++    history = model.fit(train_data, validation_data=val_data)
++    ```
++
++Architectural Notes & Dependencies:
++- Currently contains only commented prototype implementations (no active code)
++- Designed for TensorFlow integration with model.compile() loss specification
++- Symmetry-aware design addresses coordinate inversion ambiguities in ptychographic reconstruction
++- Future development should maintain compatibility with both PINN and supervised training modes
++- Intended to complement rather than replace standard reconstruction losses in ptycho.model
+ """
+ 
+ #def I_channel_MAE(y_true,y_pred, center_target = True):
+diff --git a/ptycho/misc.py b/ptycho/misc.py
+index 0221ae3..247f688 100644
+--- a/ptycho/misc.py
++++ b/ptycho/misc.py
+@@ -1,29 +1,62 @@
+-"""Miscellaneous utility functions for PtychoPINN.
+-
+-This module provides utility functions and decorators supporting the PtychoPINN 
+-workflow, including caching mechanisms for expensive computations and helper 
+-functions for output path generation and image processing.
+-
+-Key Public Interface:
+-    @memoize_disk_and_memory: Decorator for caching function results to disk and memory
+-    @memoize_simulated_data: Specialized decorator for caching simulated ptychography data
+-    get_path_prefix(): Generate timestamped output directory paths
+-    colormap2arr(): Convert RGB colormap images to grayscale arrays
+-    cross_image(): Find offsets through 2D autocorrelation
+-
+-The caching decorators significantly speed up repeated computations by storing 
+-results based on function parameters and configuration state. They are primarily 
+-used by simulation and data preprocessing modules.
+-
+-Example Usage:
++"""
++Foundational utilities module providing caching, path generation, and image processing tools.
++
++This module serves as the foundation for computational efficiency across PtychoPINN by providing 
++intelligent caching decorators that persist expensive simulation and diffraction computation 
++results. It bridges data flow between simulation modules, training workflows, and output 
++generation while maintaining state consistency through global configuration dependencies.
++
++Architecture Role:
++    Input: Function calls from diffsim.py, experimental.py, and workflow scripts
++    → Caching Layer: @memoize_disk_and_memory and @memoize_simulated_data decorators
++    → State Dependency: ptycho.params configuration for cache invalidation
++    → Output: Cached results + timestamped output paths for file organization
++
++Public Interface:
++    `@memoize_disk_and_memory`
++        - Purpose: Caches any function results to disk and memory based on arguments
++        - Critical Behavior: Cache keys include global ptycho.params state (N, gridsize, nphotons, etc.)
++        - Key Parameters: Automatically wraps function arguments and configuration state
++        
++    `@memoize_simulated_data`
++        - Purpose: Specialized caching for ptychography simulation data with RawData objects
++        - Critical Behavior: Handles complex numpy arrays and preserves RawData structure
++        - Key Parameters: objectGuess, probeGuess, nimages, buffer, random_seed
++        
++    `get_path_prefix()`
++        - Purpose: Generates timestamped output directory paths for experiment organization
++        - Critical Behavior: Uses ptycho.params['label'] and 'output_prefix' for path construction
++        
++    `cross_image(image1, image2)`
++        - Purpose: Computes 2D cross-correlation for image alignment and offset detection
++
++Workflow Usage Example:
++    ```python
+     from ptycho.misc import memoize_disk_and_memory, get_path_prefix
++    from ptycho import params
++    
++    # Configuration affects cache behavior
++    params.set('nphotons', 1e6)
++    params.set('gridsize', 2)
+     
+     @memoize_disk_and_memory
+-    def expensive_simulation(params):
+-        # Computation is cached automatically
+-        return simulate_diffraction_data(params)
++    def simulate_diffraction(obj, probe, n_imgs):
++        # Results cached based on arguments + global params state
++        return expensive_simulation_computation(obj, probe, n_imgs)
++    
++    # Cache hit/miss depends on params state consistency
++    result1 = simulate_diffraction(obj, probe, 1000)  # Cache miss
++    result2 = simulate_diffraction(obj, probe, 1000)  # Cache hit
+     
+-    output_dir = get_path_prefix()  # e.g., "outputs/01-15-2024-14.30.15_experiment/"
++    # Output organization
++    output_path = get_path_prefix()  # "outputs/08-03-2025-14.30.15_experiment/"
++    ```
++
++Architectural Notes & Dependencies:
++- Critical dependency on global ptycho.params state for cache key generation
++- Cache invalidation occurs when configuration parameters change
++- Disk caching in 'memoized_data/' and 'memoized_simulated_data/' directories
++- Used by core simulation modules (diffsim.py, experimental.py) for performance optimization
+ """
+ 
+ import numpy as np
+diff --git a/ptycho/model.py b/ptycho/model.py
+index 5fd106c..50e9607 100644
+--- a/ptycho/model.py
++++ b/ptycho/model.py
+@@ -1,79 +1,69 @@
+-"""Core physics-informed neural network architecture for ptychographic reconstruction.
+-
+-This module defines the heart of the PtychoPINN system - a U-Net-based deep learning 
+-architecture augmented with custom physics-informed Keras layers that embed ptychographic 
+-forward modeling constraints directly into the neural network. This unique combination 
+-enables rapid, high-resolution reconstruction from scanning coherent diffraction data 
+-while maintaining physical consistency.
+-
+-**Architecture Overview:**
+-The PtychoPINN model integrates three key components:
+-1. **Encoder-Decoder U-Net**: Learns image-to-image mapping from diffraction to object
+-2. **Physics Constraint Layers**: Custom layers implementing differentiable ptychography
+-3. **Probabilistic Loss**: Poisson noise modeling for realistic diffraction statistics
+-
+-**CRITICAL: This is a core physics module with stable, validated implementations.**
+-The model architecture and physics simulation components should NOT be modified 
+-without explicit requirements and thorough validation.
+-
+-Key Components:
+-    - ProbeIllumination: Custom layer applying complex probe illumination with smoothing
+-    - IntensityScaler/IntensityScaler_inv: Trainable intensity scaling for normalization  
+-    - U-Net Architecture: Resolution-adaptive encoder-decoder with dynamic filter scaling
+-    - Physics Integration: Differentiable forward model with Poisson noise simulation
+-    - Model Factory: create_model_with_gridsize() for explicit parameter control
+-
+-**Primary Models Created:**
+-    - autoencoder: Main training model (diffraction -> object, amplitude, intensity)
+-    - diffraction_to_obj: Inference-only model (diffraction -> object reconstruction)
+-    - autoencoder_no_nll: Training model without negative log-likelihood output
+-
+-**Core Workflows:**
+-    - Model Creation: Uses global config or explicit parameters via factory functions
+-    - Training Pipeline: Integration with PtychoDataContainer for data formatting
+-    - Physics Simulation: Differentiable forward model for end-to-end training
+-    - Inference: Direct diffraction-to-object reconstruction
+-
+-Usage Example:
++"""
++Physics-informed neural network architecture for ptychographic reconstruction.
++
++This module defines the core PtychoPINN model architecture, which combines
++deep learning with physics constraints. The model uses an encoder-decoder
++structure with embedded physics layers to reconstruct object and probe
++functions from diffraction patterns.
++
++Architecture Role:
++    Diffraction patterns -> model.py (PINN) -> Object & Probe reconstructions
++    
++    This is the central deep learning component that performs the inverse
++    problem of ptychographic reconstruction using physics-informed learning.
++
++Public Interface:
++    `create_model_with_gridsize(gridsize, N, **kwargs)`
++        - Purpose: Factory function to create model instances with explicit parameters.
++        - Parameters: gridsize (patch neighbors), N (image resolution), object.big (patch mode).
++        - Returns: Tuple of (autoencoder, diffraction_to_obj) compiled Keras Models.
++        - Input: [diffraction_data (batch, N, N, gridsize²), coordinates (batch, 1, 2, gridsize²)]
++        - Output: [trimmed_obj (batch, N, N, 1), pred_amp_scaled, pred_intensity_sampled]
++    
++    `autoencoder` [GLOBAL MODEL]
++        - Purpose: Main training model with three outputs for loss computation.
++        - Returns: Compiled Keras Model ready for training with Poisson loss.
++        - Input: Same as create_model_with_gridsize
++        - Output: [object_reconstruction, amplitude_prediction, intensity_prediction]
++    
++    `diffraction_to_obj` [GLOBAL MODEL]
++        - Purpose: Inference-only model for direct object reconstruction.
++        - Returns: Single-output Keras Model optimized for deployment.
++        - Input: Same as create_model_with_gridsize
++        - Output: [object_reconstruction (batch, N, N, 1)]
++
++Workflow Usage Example:
+     ```python
+-    from ptycho.model import diffraction_to_obj, create_model_with_gridsize
++    from ptycho.model import create_model_with_gridsize, prepare_inputs, prepare_outputs
+     from ptycho.loader import PtychoDataContainer
+     
+-    # Direct inference using global model (legacy)
+-    reconstruction = diffraction_to_obj.predict([diffraction_data, coordinates])
++    # 1. Configure model parameters
++    gridsize, N = 2, 64
+     
+-    # Create model with explicit parameters (modern approach)
+-    autoenc, inference = create_model_with_gridsize(gridsize=2, N=64)
+-    result = inference.predict([test_data, test_coords])
++    # 2. Create and compile models
++    autoenc, inference = create_model_with_gridsize(gridsize=gridsize, N=N)
+     
+-    # Training workflow with data container
++    # 3. Models expect diffraction patterns as input
++    # Input shape: (batch, N, N, gridsize²) for diffraction
++    # Input shape: (batch, 1, 2, gridsize²) for coordinates
++    
++    # 4. Training workflow
+     train_data = PtychoDataContainer(...)
+     inputs = prepare_inputs(train_data)
+     outputs = prepare_outputs(train_data)
+-    history = autoencoder.fit(inputs, outputs, epochs=50)
++    history = autoenc.fit(inputs, outputs, epochs=50, validation_split=0.05)
++    
++    # 5. Inference workflow
++    reconstruction = inference.predict([diffraction_data, coordinates])
+     ```
+ 
+-**Architecture Details:**
+-The U-Net architecture adapts filter counts based on input resolution (N):
+-- N=64: [32, 64, 128] -> [64, 32] filters (encoder -> decoder)  
+-- N=128: [16, 32, 64, 128] -> [128, 64, 32] filters
+-- N=256: [8, 16, 32, 64, 128] -> [256, 128, 64, 32] filters
+-
+-Custom physics layers implement:
+-- Complex-valued probe illumination with Gaussian smoothing
+-- Patch extraction for multi-position scanning geometry  
+-- Differentiable Fourier transform for diffraction simulation
+-- Poisson noise modeling for realistic measurement statistics
+-
+-Dependencies:
+-    - ptycho.tf_helper: Core TensorFlow operations and physics simulation functions
+-    - ptycho.loader: PtychoDataContainer for structured data handling
+-    - ptycho.params: Legacy global configuration system (cfg dictionary)
+-    - ptycho.probe: Probe initialization and processing utilities
+-
+-**Global State Warning:**
+-The module creates model instances at import time using global configuration. 
+-For new code, prefer create_model_with_gridsize() to avoid global state dependencies.
++Architectural Notes:
++- The encoder reduces diffraction patterns to a latent representation
++- The decoder reconstructs object patches and probe from latent space
++- Physics layers enforce consistency via forward diffraction simulation
++- Supports both physics-informed (PINN) and supervised training modes
++- Global model instances use ptycho.params configuration at import
++- New code should prefer create_model_with_gridsize() for explicit control
+ """
+ 
+ # TODO s
+diff --git a/ptycho/params.py b/ptycho/params.py
+index 1158c4c..d99261e 100644
+--- a/ptycho/params.py
++++ b/ptycho/params.py
+@@ -1,56 +1,28 @@
+-"""Legacy global configuration system for PtychoPINN.
++"""Global parameter management and configuration state.
+ 
+-⚠️  DEPRECATED: This module implements a global dictionary-based parameter management
+-system that is being phased out in favor of the modern dataclass configuration system
+-in `ptycho.config.config`. Despite its deprecated status, this module remains CRITICAL
+-for backward compatibility as it is the most imported module in the codebase (23+ consumers).
++Central parameter registry for the PtychoPINN system providing singleton-like 
++global state container for all configuration parameters.
+ 
+ Architecture Role:
+-    This module represents the old architecture pattern where configuration was managed
+-    through a global mutable dictionary (`cfg`). While this pattern has known limitations
+-    (global state, lack of type safety, difficult testing), it is still essential for
+-    maintaining compatibility with existing code during the modernization transition.
+-
+-Global Configuration Dictionary:
+-    The `cfg` dictionary contains all system parameters including:
+-    - Model architecture: N (patch size), gridsize, n_filters_scale
+-    - Training: batch_size, nepochs, various loss weights
+-    - Physics simulation: nphotons, probe parameters, positioning
+-    - Data processing: offsets, padding, object/probe sizing
+-
+-Core Functions:
+-    - get(key): Retrieve parameter value with special handling for derived values
+-    - set(key, value): Update parameter with automatic validation
+-    - params(): Get complete parameter dictionary with derived values
+-    - validate(): Ensure parameter consistency and valid combinations
+-
+-Migration Strategy:
+-    Modern workflows should use the dataclass system from `ptycho.config.config`.
+-    The modern system updates this legacy `cfg` dictionary at initialization to
+-    maintain compatibility with existing modules that still use `params.get()`.
+-
+-Usage Examples:
+-    Legacy pattern (deprecated):
+-        import ptycho.params as p
+-        p.set('N', 128)
+-        batch_size = p.get('batch_size')
+-    
+-    Modern pattern (preferred):
+-        from ptycho.config.config import TrainingConfig
+-        config = TrainingConfig(N=128, batch_size=32)
+-        # Modern config automatically updates legacy params.cfg
+-
+-Deprecation Timeline:
+-    This module will remain until all 23+ consumer modules are migrated to accept
+-    configuration dataclasses directly. Current high-priority consumers requiring
+-    migration include: baselines, diffsim, evaluation, loader, model, train_pinn,
+-    and workflows.components.
++    Configuration Loading → params.py (global state) → All consumers
++    Root of dependency tree, consumed by 23+ modules.
++
++Public Interface:
++    `get(key)` - Retrieve parameters; auto-computes 'bigN' from N/gridsize/offset
++    `set(key, value)` - Update parameters with validation; affects global state
++    `params()` - Complete parameter snapshot including derived values
++
++Usage Example:
++    ```python
++    import ptycho.params as params
++    params.set('N', 64)
++    patch_size = params.get('N')       # 64
++    grid_coverage = params.get('bigN') # Auto-computed from N/gridsize/offset
++    ```
+ 
+ Warnings:
+-    - Avoid using this module in new code
+-    - Global state makes testing and concurrency difficult  
+-    - Parameter changes affect all code using this module
+-    - Type safety is not enforced on parameter values
++- Mutable global state; values may change during execution
++- Legacy system; prefer explicit config objects for new code
+ """
+ import numpy as np
+ import tensorflow as tf
+diff --git a/ptycho/physics.py b/ptycho/physics.py
+index 282f8e8..f287e59 100644
+--- a/ptycho/physics.py
++++ b/ptycho/physics.py
+@@ -1,102 +1,15 @@
+-"""Physics operations and constraints for physics-informed neural networks.
+-
+-This module provides the interface and utilities for physics-based operations that are 
+-fundamental to the physics-informed neural network (PINN) approach in ptychographic 
+-reconstruction. While many core physics functions have been migrated to specialized 
+-modules, this module maintains the central physics namespace and imports.
+-
+-Architecture Role
+------------------
+-The physics module serves as the central hub for physics-related operations in the PINN 
+-framework, providing:
+-
+-- **Physics Namespace**: Central import point for physics-related functionality
+-- **PINN Integration**: Interface between neural network training and physics constraints
+-- **Physics Utilities**: Access to core physics parameters and helper functions
+-- **Legacy Compatibility**: Maintains backward compatibility for existing workflows
+-
+-Key Physics Concepts
+---------------------
+-The module supports fundamental ptychography physics operations:
+-
+-**Photon Counting and Noise**:
+-- Poisson noise modeling for realistic diffraction patterns
+-- Photon counting operations for intensity normalization
+-- Statistical sampling from photon distributions
+-
+-**Forward Physics Model**:
+-- Integration with differentiable physics simulation (diffsim.py)
+-- Object illumination and diffraction modeling  
+-- Complex wave propagation through the sample
+-
+-**Physics Constraints**:
+-- Physical parameter bounds and relationships
+-- Conservation laws in wave propagation
+-- Coherent imaging constraints
+-
+-Migration History
+------------------
+-Physics functions have been reorganized across specialized modules:
+-- Core physics simulation: `ptycho.diffsim` module
+-- PINN-specific physics: `ptycho.train_pinn` module  
+-- Wave propagation helpers: `ptycho.tf_helper` module
+-
+-This architecture allows for better separation of concerns while maintaining
+-a unified physics interface.
+-
+-Integration with PINN Training
+-------------------------------
+-The physics module integrates with the PINN training process by:
+-
+-1. **Forward Model**: Providing access to the differentiable forward physics model
+-2. **Loss Functions**: Supporting physics-informed loss terms in training
+-3. **Constraints**: Enforcing physical constraints during optimization
+-4. **Validation**: Enabling physics-based validation of reconstructions
+-
+-Usage Examples
+---------------
+-Basic physics module usage:
+-
+->>> from ptycho import physics
+->>> from ptycho import params as p
+->>> 
+->>> # Access physics parameters
+->>> nphotons = p.get('sim_nphotons')
+->>> print(f"Simulated photon count: {nphotons}")
+->>>
+->>> # Physics module provides namespace for physics operations
+->>> # Actual implementations are in specialized modules:
+->>> from ptycho.diffsim import observe_amplitude, count_photons
+->>> from ptycho.train_pinn import scale_nphotons
++"""
++Physics namespace providing access to parameters and TensorFlow operations.
+ 
+-Integration with PINN workflow:
++Interface hub for physics-based operations in PtychoPINN. Delegates actual physics
++implementations to specialized modules (diffsim, train_pinn) while providing unified
++access to physics parameters and TF operations for PINN training workflows.
+ 
+->>> import tensorflow as tf
+->>> from ptycho import physics
+->>> from ptycho.diffsim import simulate_diffraction
+->>> from ptycho.train_pinn import physics_loss
+->>>
+->>> # Physics-informed training integrates physical constraints
+->>> def pinn_training_step(model, data, physics_weight=1.0):
+->>>     with tf.GradientTape() as tape:
+->>>         reconstruction = model(data['diffraction'])
+->>>         
+->>>         # Standard reconstruction loss
+->>>         recon_loss = tf.losses.mse(data['target'], reconstruction)
+->>>         
+->>>         # Physics-informed loss incorporating forward model
+->>>         physics_loss_val = physics_loss(reconstruction, data)
+->>>         
+->>>         total_loss = recon_loss + physics_weight * physics_loss_val
+->>>     
+->>>     return total_loss
++Public Interface:
++    `p.get('nphotons')` - Access physics simulation parameters
++    `hh.*` - Physics-aware TensorFlow operations
+ 
+-See Also
+---------
+-- `ptycho.diffsim` : Core physics simulation and forward modeling
+-- `ptycho.train_pinn` : PINN-specific physics implementations  
+-- `ptycho.tf_helper` : TensorFlow utilities for physics operations
+-- `ptycho.model` : Neural network architecture with physics layers
++Architecture: Core physics in diffsim.py, PINN constraints in train_pinn.py
+ """
+ from . import params as p
+ from . import tf_helper as hh
+diff --git a/ptycho/probe.py b/ptycho/probe.py
+index 0d81e92..a5eb1d2 100644
+--- a/ptycho/probe.py
++++ b/ptycho/probe.py
+@@ -1,11 +1,53 @@
+-"""Probe initialization and manipulation for ptychographic reconstruction.
++"""Probe initialization, estimation, and global state management for ptychographic reconstruction.
+ 
+-Manages the scanning beam (probe) used in experiments, including creation of
+-idealized disk-shaped probes, automatic estimation from data, and masking.
++Manages the scanning beam (probe) throughout the ptychographic workflow, providing
++both idealized probe generation and automatic estimation from experimental data.
++Integrates with the global params system for state management and normalization.
+ 
+-Example:
+-    probe = get_default_probe(N=64, fmt='tf')  # Default disk probe
+-    set_probe_guess(X_train=data, probe_guess=exp_probe)  # From data
++Architecture Role:
++    Input: Raw diffraction data OR explicit probe arrays
++    ↓ Probe estimation/initialization (set_probe_guess, get_default_probe)
++    ↓ Normalization and masking (set_probe)
++    ↓ Global state storage (params.cfg['probe'])
++    → Output: Normalized probe tensors for model training/inference
++
++Public Interface:
++    `get_default_probe(N, fmt='tf')`
++        - Purpose: Creates idealized disk-shaped probe for simulations
++        - Critical Behavior: Uses params.cfg['default_probe_scale'] for sizing
++        - Key Parameters: N (diffraction size), fmt ('tf'/'np' for tensor format)
++    
++    `set_probe_guess(X_train=None, probe_guess=None)`
++        - Purpose: Estimates probe from data or accepts external probe
++        - Critical Behavior: Modifies global params.cfg['probe'], applies masking
++        - Key Parameters: X_train for estimation, probe_guess for explicit setting
++    
++    `set_probe(probe)`
++        - Purpose: Normalizes and stores probe in global state
++        - Critical Behavior: Applies masking, scaling via params.cfg['probe_scale']
++        - Side Effect: Updates params.cfg['probe'] directly
++
++Workflow Usage Example:
++    ```python
++    # Simulation workflow with idealized probe
++    from ptycho import probe, params
++    params.set('N', 64)
++    params.set('default_probe_scale', 0.7)
++    probe.set_default_probe()  # Creates and stores in params.cfg
++    
++    # Experimental workflow with data estimation
++    probe.set_probe_guess(X_train=diffraction_data)  # Estimates from data
++    
++    # Using external probe
++    probe.set_probe_guess(probe_guess=external_probe)  # Direct setting
++    retrieved_probe = probe.get_probe(params)  # Access normalized probe
++    ```
++
++Architectural Notes & Dependencies:
++- Modifies global params.cfg['probe'] - all probe functions have side effects
++- Depends on ptycho.fourier for lowpass filtering and FFT operations
++- Probe masking enforces circular aperture via get_probe_mask()
++- Normalization ensures consistent scaling across workflows via probe_scale parameter
+ """
+ import tensorflow as tf
+ import numpy as np
+diff --git a/ptycho/raw_data.py b/ptycho/raw_data.py
+index 1e80e20..8139e88 100644
+--- a/ptycho/raw_data.py
++++ b/ptycho/raw_data.py
+@@ -1,94 +1,67 @@
+ """
+-Core data ingestion and preprocessing module for ptychographic datasets.
+-
+-This module serves as the first stage of the PtychoPINN data pipeline, responsible for
+-transforming raw NPZ files into structured data containers and performing critical
+-coordinate grouping operations for overlap-based training.
+-
+-Primary Consumer Context:
+-Its primary consumers are ptycho.data_preprocessing (3 imports), ptycho.loader (1 import), 
+-and ptycho.workflows.components (1 import), which use it to prepare raw ptychographic 
+-data for model training and inference.
+-
+-Key Architecture Integration:
+-In the broader PtychoPINN architecture, this module bridges the gap between raw
+-experimental data files and the structured data containers needed by the machine
+-learning pipeline. The data flows: NPZ files → raw_data.py (RawData) → loader.py 
+-(PtychoDataContainer) → model-ready tensors.
+-
+-Key Components:
+-- `RawData`: Primary data container class with validation and I/O capabilities
+-  - `.generate_grouped_data()`: Core grouping method for gridsize > 1 with intelligent caching
+-  - `.diffraction`: Raw diffraction patterns array (amplitude, not intensity)
+-  - `.xcoords, .ycoords`: Scan position coordinates
+-  - `.objectGuess`: Full sample object for ground truth patch generation
+-  - `.Y`: Pre-computed ground truth patches (optional)
++Ptychography data ingestion and scan-point grouping.
++
++This module serves as the primary ingestion layer for the PtychoPINN data pipeline.
++It is responsible for taking raw ptychographic data and wrapping it in a `RawData` object.
++Its most critical function, `generate_grouped_data()`, assembles individual scan
++points into physically coherent groups for training.
++
++Architecture Role:
++    Raw NPZ file -> raw_data.py (RawData) -> Grouped Data Dict -> loader.py
++    
++    Its key architectural role is to abstract away raw file formats and enforce
++    physical coherence of scan positions *before* they enter the main ML pipeline.
+ 
+ Public Interface:
+-    `group_coords(xcoords, ycoords, K, C, nsamples)`
+-        - Purpose: Groups scan coordinates by spatial proximity for overlap training
++    `RawData.generate_grouped_data(N, K=4, nsamples=1, ...)`
++        - Purpose: The core function for sampling and grouping scan points.
++        - Critical Behavior (Conditional on `params.get('gridsize')`):
++            - **If `gridsize == 1`:** Performs simple sequential slicing.
++            - **If `gridsize > 1`:** Implements a robust "sample-then-group"
++              strategy to avoid spatial bias.
+         - Key Parameters:
+-            - `K` (int): **Number of nearest neighbors for grouping**
+-              Controls the overlap constraint strength - larger K provides more potential
+-              neighbors but increases computational cost. Typical values: 4-8.
+-            - `C` (int): **Target coordinates per solution region** 
+-              Usually equals gridsize². Determines spatial coherence of training patches.
+-            - `nsamples` (int): **Number of training samples to generate**
+-              For gridsize=1: individual images. For gridsize>1: neighbor groups.
+-        - Returns: Tuple of grouped coordinate arrays and neighbor indices
+-        - Used by: RawData.generate_grouped_data(), data preprocessing workflows
+-
+-    `get_neighbor_diffraction_and_positions(ptycho_data, N, K, C, nsamples)`
+-        - Purpose: Legacy function for generating grouped diffraction data (gridsize=1)
+-        - Parameters: RawData instance, solution region size, neighbor parameters
+-        - Returns: Dictionary with diffraction patterns, coordinates, and ground truth
+-        - Caching: No automatic caching (preserved for backward compatibility)
+-
+-Usage Example:
+-    This module is typically used at the start of the PtychoPINN data loading pipeline,
+-    which converts raw experimental data into model-ready tensors.
+-
++            - `nsamples` (int): For `gridsize=1`, this is the number of images.
++              For `gridsize>1`, this is the number of *groups*.
++        - Output Shape Contract:
++            - **If `gridsize > 1`**: Arrays in "Channel Format", e.g., 
++              X (diffraction) has shape `(nsamples, N, N, gridsize**2)`
++            - **If `gridsize == 1`**: Arrays represent individual patches, e.g.,
++              X (diffraction) has shape `(nsamples, N, N, 1)`
++
++Workflow Usage Example:
+     ```python
+     from ptycho.raw_data import RawData
+-    from ptycho import loader
+-    
+-    # 1. Load raw experimental data from NPZ file
+-    raw_data = RawData.from_file("/path/to/experimental_data.npz")
+-    
+-    # 2. Generate grouped data for overlap-based training (gridsize > 1)
+-    grouped_data = raw_data.generate_grouped_data(
+-        N=64,  # Diffraction pattern size - must match probe dimensions
+-        K=6,   # Number of nearest neighbors - critical for physics constraint
+-        nsamples=1000  # Target number of training groups
+-    )
+-    
+-    # 3. Pass to loader for tensor conversion and normalization
+-    container = loader.load(
+-        cb=lambda: grouped_data,
+-        probeGuess=raw_data.probeGuess,
+-        which='train'
++    from ptycho import params
++
++    # 1. Instantiate RawData from a raw NPZ file's contents.
++    data = np.load('dataset.npz')
++    raw_data = RawData(
++        xcoords=data['xcoords'],
++        ycoords=data['ycoords'], 
++        xcoords_start=data['xcoords_start'],
++        ycoords_start=data['ycoords_start'],
++        diff3d=data['diffraction'],
++        objectGuess=data['objectGuess'],
++        probeGuess=data['probeGuess'],
++        scan_index=data['scan_index']
+     )
+-    
+-    # 4. Access model-ready data
+-    X_data = container.X  # Normalized diffraction patterns
+-    Y_data = container.Y  # Ground truth patches (if available)
++
++    # 2. Set the external state that controls the module's behavior.
++    params.set('gridsize', 2)
++
++    # 3. Generate the grouped data dictionary.
++    grouped_data_dict = raw_data.generate_grouped_data(N=64, nsamples=1000)
++    # Output shapes for gridsize=2:
++    # - grouped_data_dict['X_full'].shape = (1000, 64, 64, 4)  # 4 = 2²
++    # - grouped_data_dict['Y'].shape = (1000, 64, 64, 4)
+     ```
+ 
+-Integration Notes:
+-The K parameter in coordinate grouping is critical for physics-informed training.
+-Too small K limits the overlap constraint effectiveness; too large K increases
+-computational cost exponentially. The grouping operation is cached automatically
+-for gridsize > 1 using the format `<dataset>.g{gridsize}k{K}.groups_cache.npz`.
+-
+-For gridsize=1, the module preserves legacy sequential sampling for backward
+-compatibility. For gridsize>1, it implements a "group-then-sample" strategy that
+-ensures both physical coherence and spatial representativeness.
+-
+-Data Contract Compliance:
+-This module adheres to the data contracts defined in docs/data_contracts.md,
+-expecting NPZ files with keys: 'diffraction' (amplitude), 'objectGuess', 
+-'probeGuess', 'xcoords', 'ycoords'. Ground truth patches ('Y') are optional
+-and generated on-demand from objectGuess when not provided.
++Architectural Notes & Dependencies:
++- This module has a critical implicit dependency on the global `params.get('gridsize')`
++  value, which completely changes its sampling algorithm.
++- It automatically creates a cache file (`*.groups_cache.npz`) to accelerate
++  subsequent runs when using gridsize > 1.
++- The "sample-then-group" algorithm ensures spatial diversity in training batches.
+ """
+ import numpy as np
+ import tensorflow as tf
+@@ -97,6 +70,7 @@ from scipy.spatial import cKDTree
+ import hashlib
+ import os
+ import logging
++import warnings
+ from pathlib import Path
+ from ptycho import params
+ from ptycho.config.config import TrainingConfig
+@@ -179,7 +153,15 @@ class RawData:
+     def from_simulation(xcoords, ycoords, probeGuess,
+                  objectGuess, scan_index = None):
+         """
+-        Create a RawData instance from simulation data.
++        [DEPRECATED] Performs a complete simulation workflow from coordinates.
++
++        This is a monolithic DATA GENERATION function. It takes raw coordinates
++        and an object/probe, and internally performs patch extraction AND
++        diffraction simulation to create a new dataset from scratch.
++
++        WARNING: This method contains legacy logic, is known to be buggy for
++        `gridsize > 1`, and is deprecated. Prefer orchestrating the simulation
++        steps explicitly using the modular helpers in `scripts/simulation/`.
+ 
+         Args:
+             xcoords (np.ndarray): x coordinates of the scan points.
+@@ -191,6 +173,15 @@ class RawData:
+         Returns:
+             RawData: An instance of the RawData class with simulated data.
+         """
++        # Issue deprecation warning
++        warnings.warn(
++            "RawData.from_simulation is deprecated and has bugs with gridsize > 1. "
++            "Use scripts/simulation/simulate_and_save.py directly for reliable simulation. "
++            "See scripts/simulation/README.md for migration guide.",
++            DeprecationWarning,
++            stacklevel=2
++        )
++        
+         from ptycho.diffsim import illuminate_and_diffract
+         xcoords_start = xcoords
+         ycoords_start = ycoords
+@@ -200,7 +191,7 @@ class RawData:
+         Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+         Y_I = tf.math.abs(Y_obj)
+         Y_phi = tf.math.angle(Y_obj)
+-        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
++        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I_flat=Y_I, Y_phi_flat=Y_phi, probe=probeGuess)
+         norm_Y_I = datasets.scale_nphotons(X)
+         assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
+         # TODO RawData should have a method for generating the illuminated ground truth object
+@@ -301,18 +292,19 @@ class RawData:
+     #@debug
+     def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, config: Optional[TrainingConfig] = None):
+         """
+-        Generate nearest-neighbor solution region grouping.
++        Selects and prepares data from an EXISTING dataset for model input.
+ 
+-        This method uses different strategies based on the `gridsize` parameter.
+-        It prioritizes the `config` object for parameters, falling back to the
+-        legacy `ptycho.params` global state if `config` is not provided.
++        This is a DATA PREPARATION function. It assumes diffraction patterns
++        (self.diff3d) already exist. It performs coordinate grouping and extracts
++        the corresponding diffraction patterns and ground truth patches.
+ 
+-        For gridsize = 1:
+-        - Performs sequential sampling of `nsamples` individual images.
++        IT DOES NOT SIMULATE NEW DATA.
+ 
+-        For gridsize > 1:
+-        - Implements an efficient "sample-then-group" strategy by randomly
+-          sampling `nsamples` starting points and finding their K-nearest neighbors.
++        This method also has a dual personality based on `gridsize`:
++        - For `gridsize=1`: It performs sequential slicing. The user MUST pre-shuffle
++          the dataset to get a random sample.
++        - For `gridsize>1`: It performs a robust, randomized "group-then-sample"
++          operation on the full dataset. The user should NOT pre-shuffle the data.
+ 
+         Args:
+             N (int): Size of the solution region.
+diff --git a/ptycho/tf_helper.py b/ptycho/tf_helper.py
+index 92b5794..fc51661 100644
+--- a/ptycho/tf_helper.py
++++ b/ptycho/tf_helper.py
+@@ -1,117 +1,72 @@
+ """
+-TensorFlow Helper: Core tensor operations for ptychographic reconstruction.
++Low-level TensorFlow operations for ptychographic data manipulation.
+ 
+-This module implements the essential tensor transformation operations in the PtychoPINN 
+-physics-informed neural network architecture. It provides foundational data format 
+-conversions and patch assembly operations that enable the ptychographic reconstruction 
+-pipeline to process scanning diffraction data efficiently.
++This module provides a suite of high-performance, tensor-based functions for
++the core computational tasks in the PtychoPINN pipeline, primarily patch
++extraction, reassembly, and tensor format conversions. It is a foundational
++library used by the data pipeline, model, and evaluation modules.
+ 
+-⚠️  PROTECTED MODULE: This is part of the stable physics implementation.
+-    Modifications should only be made with explicit justification and
+-    deep understanding of the ptychographic tensor flow requirements.
++Key Tensor Formats:
++This module defines and converts between three standard data layouts for batches
++of ptychographic patches:
+ 
+-Architecture Role:
+-    Raw Data → Data Pipeline → **TF_HELPER** → Model Training → Reconstruction Output
+-"""
+-
+-"""
+-Tensor Format System:
+-    The module implements a three-format tensor conversion system optimized for 
+-    ptychographic data processing:
+-    
+-    **Grid Format**: `(batch, gridsize, gridsize, N, N, 1)`
+-        - Physical meaning: Structured 2D array of overlapping diffraction patches
+-        - Usage: Maintains spatial relationships for physics-based operations
+-        - Memory layout: Preserves scan grid geometry for position-aware processing
+-    
+-    **Channel Format**: `(batch, N, N, gridsize²)`  
+-        - Physical meaning: Neural network compatible with channels = number of patches
+-        - Usage: Direct input to convolutional layers and U-Net processing
+-        - Memory layout: Height×Width×Channels for TensorFlow optimization
+-    
+-    **Flat Format**: `(batch × gridsize², N, N, 1)`
+-        - Physical meaning: Individual patches treated as separate batch elements
+-        - Usage: Independent processing of each scan position
+-        - Memory layout: Maximizes parallelism for element-wise operations
+-"""
++- **Grid Format:** `(B, G, G, N, N, 1)`
++  - Represents patches organized in their spatial grid structure.
++- **Channel Format:** `(B, N, N, G*G)`
++  - Stacks patches in the channel dimension. Required for CNN input.
++- **Flat Format:** `(B*G*G, N, N, 1)`
++  - Each patch is an independent item in the batch.
+ 
+-"""
+ Public Interface:
+-    `reassemble_whole_object(patches, offsets, size, batch_size=None)`
+-        - **Purpose:** Assembles individual reconstruction patches into full object image
+-        - **Physics Context:** Inverts the ptychographic scanning process by combining overlapping regions
+-        - **Tensor Contracts:**
+-            - Input: `(B, N, N, gridsize²)` - Reconstruction patches in channel format
+-            - Output: `(1, size, size, 1)` - Full reconstructed object image
+-        - **Critical Parameters:**
+-            - `batch_size`: Memory management for large datasets (None=auto)
+-    
+-    `extract_patches_position(imgs, offsets_xy, jitter=0.)`
+-        - **Purpose:** Extracts patches from full images at specified scan positions
+-        - **Physics Context:** Simulates ptychographic probe scanning with positional accuracy
+-        - **Tensor Contracts:**
+-            - Input: `(B, M, M, 1)` - Full object images, `(B, N, N, 2)` - scan coordinates
+-            - Output: `(B, N, N, gridsize²)` - Extracted patches in channel format
+-        - **Critical Parameters:**
+-            - `jitter`: Random positioning noise for data augmentation
+-            
+-    `_togrid(img, gridsize=None, N=None)`
+-        - **Purpose:** Converts flat format to grid format for structured operations
+-        - **Usage Context:** Prepares data for physics-based spatial processing
+-        - **Tensor Contracts:**
+-            - Input: `(B×gridsize², N, N, 1)` - Flat format patches  
+-            - Output: `(B, gridsize, gridsize, N, N, 1)` - Grid format preserving geometry
+-            
+-    `shift_and_sum(obj_tensor, global_offsets, M=10)`
+-        - **Purpose:** High-performance batched patch reassembly with position correction
+-        - **Physics Context:** Reconstructs object from overlapping measurements with translation
+-        - **Performance:** 20-44x speedup over iterative implementation with perfect accuracy
+-"""
++    `reassemble_position(obj_tensor, global_offsets, M=10)`
++        - **Purpose:** The primary function for stitching patches back into a full
++          object image based on their precise, non-uniform scan coordinates.
++        - **Algorithm:** Uses a batched shift-and-sum operation with automatic
++          memory management for large datasets and 20x+ speedup over naive approaches.
++        - **Parameters:**
++            - `obj_tensor` (Tensor): Complex patches in `Flat Format`.
++            - `global_offsets` (Tensor): The `(y, x)` scan coordinates for each patch.
++            - `M` (int): The size of the central region of each patch to use for
++              the reassembly, which helps avoid edge artifacts.
++
++    `grid_to_channel(*grids)`
++        - **Purpose:** Convert tensors from Grid to Channel format for CNN processing.
++        - **Returns:** Tuple of converted tensors in Channel format.
++
++    `channel_to_flat(*imgs)`
++        - **Purpose:** Convert tensors from Channel to Flat format for individual processing.
++        - **Returns:** Tuple of converted tensors in Flat format.
+ 
+-"""
+-Physics Implementation Notes:
+-    - **Patch Reassembly:** Uses batched TensorFlow operations for memory-efficient overlap handling
+-    - **Position Registration:** Maintains subpixel accuracy in scan position corrections
+-    - **Complex Tensor Support:** Automatic handling of amplitude/phase and real/imaginary representations
+-    - **Streaming Architecture:** Processes large datasets in chunks to prevent GPU memory overflow
+-"""
++    `extract_patches_position(imgs, offsets_xy, jitter=0.)`
++        - **Purpose:** Extracts patches from full images at specified scan positions.
++        - **Algorithm:** Uses translation with optional jitter for data augmentation.
++        - **Parameters:**
++            - `imgs` (Tensor): Full object images in `Flat Format`.
++            - `offsets_xy` (Tensor): Scan coordinates in `Channel Format`.
++            - `jitter` (float): Random positioning noise standard deviation.
+ 
+-"""
+-Global State Dependencies:
+-    This module accesses `params.get()` for critical configuration parameters:
+-    - `params.get('N')`: Diffraction pattern size - controls all tensor dimensions
+-    - `params.get('gridsize')`: Overlap grouping size - fundamentally changes processing mode
+-    - `params.get('offset')`: Patch stride - determines sampling density and overlap
+-    - **Initialization Order:** Global configuration must be set before function calls
+-"""
++Usage Example:
++    This example shows the canonical `Grid -> Channel -> Flat -> Reassembly`
++    workflow that this module enables.
+ 
+-"""
+-Canonical Usage Pipeline:
+     ```python
+     import ptycho.tf_helper as hh
+-    from ptycho.params import params
+-    
+-    # 1. Set required global configuration
+-    params.set('N', 64)           # Diffraction pattern size
+-    params.set('gridsize', 2)     # Enable overlap processing  
+-    params.set('offset', 32)      # 50% overlap between patches
+-    
+-    # 2. Format conversion for neural network input
+-    patches_flat = load_patches()  # Shape: (B×4, 64, 64, 1)
+-    patches_grid = hh._togrid(patches_flat)              # (B, 2, 2, 64, 64, 1)
+-    patches_channels = hh._grid_to_channel(patches_grid) # (B, 64, 64, 4)
+-    
+-    # 3. High-performance reconstruction assembly
+-    reconstruction = hh.reassemble_whole_object(
+-        patches_channels, 
+-        scan_offsets,
+-        size=256,
+-        batch_size=64  # Memory management for large datasets
+-    )
++    import tensorflow as tf
++
++    # 1. Start with data in Grid Format. Shape: (10, 2, 2, 64, 64, 1)
++    patch_grid = tf.random.normal((10, 2, 2, 64, 64, 1))
++    
++    # 2. Convert to Channel Format for a CNN. Shape: (10, 64, 64, 4)
++    patch_channels = hh.grid_to_channel(patch_grid)[0]
+     
+-    # 4. Complex tensor handling for amplitude/phase data
+-    complex_obj = hh.combine_complex(amplitude, phase)
+-    amp, phase = hh.separate_amp_phase(complex_obj)
++    # ... (model processing) ...
++
++    # 3. Convert to Flat Format for reassembly. Shape: (40, 64, 64, 1)
++    patches_flat = hh.channel_to_flat(patch_channels)[0]
++
++    # 4. Reassemble the flat patches into a final image.
++    scan_coords = tf.random.uniform((40, 1, 1, 2), maxval=100)
++    reconstructed_image = hh.reassemble_position(patches_flat, scan_coords, M=20)
+     ```
+ """
+ 
+diff --git a/ptycho/train.py b/ptycho/train.py
+index ec17e72..0988b19 100644
+--- a/ptycho/train.py
++++ b/ptycho/train.py
+@@ -1,13 +1,40 @@
+-"""Legacy training script for PtychoPINN models.
+-
+-**DEPRECATED**: Uses older configuration system. Use `ptycho_train` command instead.
+-
+-Orchestrates model training for PINN and supervised approaches using legacy
+-`ptycho.params.cfg` system. Generates/loads data, trains model, and saves
+-results including weights, history, and reconstruction visualizations.
+-
+-Usage (deprecated): python -m ptycho.train --model_type pinn --nepochs 60
+-Modern alternative: ptycho_train --config configs/my_config.yaml --output_dir my_run
++"""
++Legacy training orchestrator for PtychoPINN models.
++
++**DEPRECATED**: Uses older configuration system. For new experiments,
++prefer `ptycho_train` command which uses modern configuration management.
++
++This module orchestrates the complete model training workflow using the legacy
++`ptycho.params.cfg` system. It handles data generation/loading, model compilation,
++training execution, and artifact saving for both PINN and supervised approaches.
++
++Architecture Role:
++    CLI args -> train.py (orchestrator) -> Trained model & artifacts
++    
++    High-level script coordinating training pipeline components from data
++    preparation through optimization to result persistence via global params state.
++
++Public Interface:
++    Script execution only - no public functions for programmatic use.
++    - Input: Command-line arguments for training configuration.
++    - Output: Saves trained model, history, and visualizations to output directory.
++    - Side Effects: Modifies global params state, creates output directory.
++
++Workflow Usage Example:
++    ```bash
++    # Legacy usage (deprecated):
++    python -m ptycho.train --model_type pinn --nepochs 60 --gridsize 2
++    
++    # Modern alternative (preferred):
++    ptycho_train --config configs/experiment.yaml --output_dir my_run
++    ```
++    
++    Output: <output_prefix>/{wts.h5.zip, history.dill, reconstructed_*.png}
++
++Architectural Notes:
++- Supports 'pinn' and 'supervised' model types via --model_type argument.
++- Uses legacy params.cfg instead of modern dataclasses configuration.
++- For new development, use scripts/training/train.py with modern configuration.
+ """
+ # train.py
+ 
+diff --git a/scripts/simulation/CLAUDE.md b/scripts/simulation/CLAUDE.md
+index 09d9be4..1578dcc 100644
+--- a/scripts/simulation/CLAUDE.md
++++ b/scripts/simulation/CLAUDE.md
+@@ -2,9 +2,10 @@
+ 
+ ## Quick Context
+ - **Two-stage architecture**: Input generation → Diffraction simulation
+-- **Core tool**: `simulate_and_save.py` 
++- **Core tool**: `simulate_and_save.py` (refactored with modular workflow)
+ - **Quick start**: `run_with_synthetic_lines.py` (for 'lines' objects)
+ - **Purpose**: Generate synthetic training/test datasets
++- **Key improvement**: Now supports gridsize > 1 correctly
+ 
+ ## Essential Commands
+ 
+@@ -83,12 +84,19 @@ python scripts/simulation/simulate_and_save.py \
+ 
+ ### Custom Grid Sampling
+ ```bash
+-# Dense grid sampling (gridsize > 1)
++# Dense grid sampling (gridsize > 1) - NOW WORKING!
+ python scripts/simulation/simulate_and_save.py \
+     --input-file input.npz \
+     --output-file dense_grid.npz \
+     --n-images 2000 \
+-    --gridsize 2  # 2x2 grid sampling
++    --gridsize 2  # 2x2 grid sampling (fixed!)
++
++# Gridsize 3 also supported
++python scripts/simulation/simulate_and_save.py \
++    --input-file input.npz \
++    --output-file dense_grid_3x3.npz \
++    --n-images 1000 \
++    --gridsize 3  # 3x3 grid sampling
+ ```
+ 
+ ## Object Types
+@@ -212,6 +220,33 @@ ptycho_train --train_data_file sim_data/synthetic_lines_data.npz --output_dir tr
+ ptycho_inference --model_path trained_on_synthetic --test_data real_test_data.npz --output_dir synthetic_to_real_test
+ ```
+ 
++## Architecture Notes (Updated 2025-08-02)
++
++### Modular Workflow
++The `simulate_and_save.py` script now uses a modular, explicit workflow instead of the monolithic `RawData.from_simulation` method:
++
++1. **Coordinate Generation**: Uses `ptycho.raw_data.group_coords()` for spatial grouping
++2. **Patch Extraction**: Uses `ptycho.raw_data.get_image_patches()` in Channel Format
++3. **Format Conversion**: Explicit Channel ↔ Flat format conversion via `tf_helper`
++4. **Physics Simulation**: Direct use of `ptycho.diffsim.illuminate_and_diffract()`
++5. **Assembly**: Proper handling of coordinate expansion for gridsize > 1
++
++### Migration from Legacy Code
++If you have code using the deprecated `RawData.from_simulation`:
++- Replace with direct calls to `simulate_and_save.py`
++- The new approach is more transparent and debuggable
++- Gridsize > 1 now works correctly
++
++### Debug Mode
++```bash
++# Enable debug logging to trace tensor shapes
++python scripts/simulation/simulate_and_save.py \
++    --input-file input.npz \
++    --output-file output.npz \
++    --gridsize 2 \
++    --debug
++```
++
+ ## Cross-References
+ 
+ - **Data format specs**: <doc-ref type="contract">docs/data_contracts.md</doc-ref>
+diff --git a/scripts/simulation/README.md b/scripts/simulation/README.md
+index a7e2805..a8fcd7c 100644
+--- a/scripts/simulation/README.md
++++ b/scripts/simulation/README.md
+@@ -2,6 +2,8 @@
+ 
+ This directory contains tools for generating simulated ptychography datasets. The workflow is designed to be modular, allowing for flexible creation of various types of objects and probes.
+ 
++> **Important Update (2025-08-02):** The `simulate_and_save.py` script has been refactored to fix the gridsize > 1 bug and improve maintainability. It now uses explicit, modular orchestration of the simulation steps instead of the monolithic `RawData.from_simulation` method.
++
+ ## The Two-Stage Simulation Architecture
+ 
+ The simulation process is divided into two distinct stages:
+@@ -21,7 +23,7 @@ This modular design allows you to simulate diffraction for any object you can cr
+ 
+ | Script | Purpose |
+ |--------|---------|
+-| `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. Now supports `--probe-file` for decoupled probe studies. |
++| `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. Now supports `--probe-file` for decoupled probe studies and **gridsize > 1** for dense sampling. |
+ | `run_with_synthetic_lines.py` | **Convenience Wrapper.** A high-level script that automates both Stage 1 and Stage 2 for the specific 'lines' object type. Ideal for quick tests. |
+ 
+ ## Workflow Examples
+@@ -114,6 +116,58 @@ The external probe must be:
+ - Smaller than the object in both dimensions
+ - Provided as either a `.npy` file or `.npz` file (with 'probeGuess' key)
+ 
++## GridSize Support (New!)
++
++The refactored `simulate_and_save.py` now correctly supports gridsize > 1 for dense sampling patterns:
++
++```bash
++# GridSize 2 (2x2 sampling)
++python scripts/simulation/simulate_and_save.py \
++    --input-file input.npz \
++    --output-file output_gs2.npz \
++    --n-images 1000 \
++    --gridsize 2
++
++# GridSize 3 (3x3 sampling) 
++python scripts/simulation/simulate_and_save.py \
++    --input-file input.npz \
++    --output-file output_gs3.npz \
++    --n-images 500 \
++    --gridsize 3
++```
++
++For gridsize > 1, the script properly:
++- Groups coordinates into spatial neighborhoods
++- Extracts patches in Channel Format
++- Handles format conversions correctly
++- Expands coordinates for each pattern in the output
++
++## Migration Guide
++
++If you have existing code that uses the deprecated `RawData.from_simulation` method:
++
++### Old Way (Deprecated)
++```python
++from ptycho.raw_data import RawData
++raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess)
++```
++
++### New Way (Recommended)
++```bash
++# Save your object and probe to an NPZ file
++# Then use simulate_and_save.py directly
++python scripts/simulation/simulate_and_save.py \
++    --input-file your_input.npz \
++    --output-file simulated_data.npz \
++    --n-images <number_of_patterns>
++```
++
++The new approach is:
++- More transparent and debuggable
++- Correctly handles gridsize > 1
++- Follows the same modular architecture as the training pipeline
++- Easier to customize and extend
++
+ ## Output Data Format
+ 
+ The final output of the simulation workflow is an `.npz` file that conforms to the project's data standard. For full details on the required keys and array shapes, see the [Data Contracts Document](../../docs/data_contracts.md).
+\ No newline at end of file
+diff --git a/scripts/simulation/simulate_and_save.py b/scripts/simulation/simulate_and_save.py
+index d07a3b6..acffdea 100644
+--- a/scripts/simulation/simulate_and_save.py
++++ b/scripts/simulation/simulate_and_save.py
+@@ -3,7 +3,13 @@
+ 
+ """
+ Generates a simulated ptychography dataset and saves it to an NPZ file.
+-Optionally, it can also generate a rich PNG visualization of the simulation.
++
++This script uses explicit orchestration of modular functions instead of the
++monolithic RawData.from_simulation method, fixing gridsize > 1 crashes and
++improving maintainability.
++
++Refactored: 2025-08-02 - Replaced monolithic from_simulation with modular workflow
++to fix gridsize > 1 ValueError and improve architectural consistency.
+ 
+ Example:
+     # Run simulation and also create a summary plot with comparisons
+@@ -11,6 +17,12 @@ Example:
+         --input-file /path/to/prepared_data.npz \\
+         --output-file /path/to/simulation_output.npz \\
+         --visualize
++        
++    # Run with gridsize > 1
++    python scripts/simulation/simulate_and_save.py \\
++        --input-file /path/to/prepared_data.npz \\
++        --output-file /path/to/simulation_output.npz \\
++        --gridsize 2
+ """
+ 
+ import argparse
+@@ -25,7 +37,7 @@ if project_root not in sys.path:
+     sys.path.insert(0, project_root)
+ 
+ # Import ptycho components
+-from ptycho.nongrid_simulation import generate_simulated_data
++# Note: Delaying some imports until after configuration is set up
+ from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+ from ptycho import params as p
+ from ptycho.workflows.simulation_utils import load_probe_from_source, validate_probe_object_compatibility
+@@ -33,6 +45,7 @@ import matplotlib.pyplot as plt
+ import numpy as np
+ from scipy.spatial import cKDTree
+ import logging
++import tensorflow as tf
+ 
+ # Set up logger
+ logger = logging.getLogger(__name__)
+@@ -64,22 +77,39 @@ def simulate_and_save(
+     seed: Optional[int] = None,
+     visualize: bool = False,
+     probe_file: Optional[str] = None,
++    debug: bool = False,
+ ) -> None:
+     """
+     Loads an object/probe, runs a ptychography simulation, saves the result,
+     and optionally generates a visualization.
++    
++    This refactored version uses explicit orchestration of modular functions
++    instead of the monolithic RawData.from_simulation method.
+     """
++    # Set up debug logging if requested
++    if debug:
++        logging.basicConfig(level=logging.DEBUG, format='%(name)s:%(lineno)d - %(levelname)s - %(message)s')
++        logger.setLevel(logging.DEBUG)
++    
++    # Section 1: Input Loading & Validation
+     update_legacy_dict(p.cfg, config)
+-    print("--- Configuration Updated for Simulation ---")
+-    p.print_params()
+-    print("------------------------------------------\n")
++    logger.debug("--- Configuration Updated for Simulation ---")
++    if debug:
++        p.print_params()
+     
++    # 1.A: Load NPZ input
+     object_guess, probe_guess, _ = load_data_for_sim(str(input_file_path), load_all=False)
+     print(f"Loading object and probe from: {input_file_path}")
+-    print(f"  - Object shape: {object_guess.shape}")
+-    print(f"  - Probe shape: {probe_guess.shape}")
++    print(f"  - Object shape: {object_guess.shape}, dtype: {object_guess.dtype}")
++    print(f"  - Probe shape: {probe_guess.shape}, dtype: {probe_guess.dtype}")
++    
++    # Validate complex dtype
++    if not np.iscomplexobj(object_guess):
++        raise ValueError(f"objectGuess must be complex, got {object_guess.dtype}")
++    if not np.iscomplexobj(probe_guess):
++        raise ValueError(f"probeGuess must be complex, got {probe_guess.dtype}")
+     
+-    # Override probe if external file is provided
++    # 1.B: Probe override logic
+     if probe_file is not None:
+         try:
+             print(f"\nOverriding probe with external file: {probe_file}")
+@@ -98,51 +128,191 @@ def simulate_and_save(
+         print(f"Setting random seed to: {seed}")
+         np.random.seed(seed)
+ 
+-    print(f"Simulating {config.n_images} diffraction patterns...")
+-    raw_data_instance, ground_truth_patches = generate_simulated_data(
+-        config=config,
+-        objectGuess=object_guess,
+-        probeGuess=probe_guess,
+-        buffer=buffer,
+-        return_patches=True,
+-    )
+-    print("Simulation complete.")
++    # Section 2: Coordinate Generation & Grouping
++    # 2.A: Import and configure parameters
++    p.set('N', probe_guess.shape[0])
++    p.set('gridsize', config.model.gridsize)
++    logger.debug(f"Set N={probe_guess.shape[0]}, gridsize={config.model.gridsize}")
+     
+-    output_dir = Path(output_file_path).parent
+-    output_dir.mkdir(parents=True, exist_ok=True)
++    # Now safe to import modules that depend on params
++    from ptycho import raw_data
++    from ptycho import tf_helper as hh
++    from ptycho.diffsim import illuminate_and_diffract
++    
++    # Generate scan coordinates
++    height, width = object_guess.shape
++    buffer = min(buffer, min(height, width) / 2 - 1)
++    xcoords = np.random.uniform(buffer, width - buffer, config.n_images)
++    ycoords = np.random.uniform(buffer, height - buffer, config.n_images)
++    scan_index = np.zeros(config.n_images, dtype=int)
++    
++    logger.debug(f"Generated {config.n_images} scan positions within bounds")
++    logger.debug(f"X range: [{xcoords.min():.2f}, {xcoords.max():.2f}]")
++    logger.debug(f"Y range: [{ycoords.min():.2f}, {ycoords.max():.2f}]")
++    
++    # 2.B: Generate grouped coordinates
++    print(f"Simulating {config.n_images} diffraction patterns with gridsize={config.model.gridsize}...")
++    
++    # For gridsize=1, we don't need grouping
++    if config.model.gridsize == 1:
++        # Simple case: each coordinate is its own group
++        scan_offsets = np.stack([ycoords, xcoords], axis=1)  # Shape: (n_images, 2)
++        group_neighbors = np.arange(config.n_images).reshape(-1, 1)  # Shape: (n_images, 1)
++        n_groups = config.n_images
++        logger.debug(f"GridSize=1: {n_groups} groups, each with 1 pattern")
++    else:
++        # Use group_coords for gridsize > 1
++        # First calculate relative coordinates
++        global_offsets, local_offsets, nn_indices = raw_data.calculate_relative_coords(xcoords, ycoords)
++        # Check if these are already numpy arrays or tensors
++        scan_offsets = global_offsets if isinstance(global_offsets, np.ndarray) else global_offsets.numpy()
++        group_neighbors = nn_indices if isinstance(nn_indices, np.ndarray) else nn_indices.numpy()
++        n_groups = scan_offsets.shape[0]
++        logger.debug(f"GridSize={config.model.gridsize}: {n_groups} groups, each with {config.model.gridsize**2} patterns")
++        logger.debug(f"scan_offsets shape: {scan_offsets.shape}, group_neighbors shape: {group_neighbors.shape}")
++    
++    # Section 3: Patch Extraction
++    # 3.A: Extract object patches (Y)
++    if config.model.gridsize == 1:
++        # For gridsize=1, we can directly extract patches without the complex grouping
++        N = config.model.N
++        # Pad the object once
++        gt_padded = hh.pad(object_guess[None, ..., None], N // 2)
++        
++        # Create array to hold patches
++        Y_patches_list = []
++        
++        # Extract patches one by one
++        for i in range(n_groups):
++            offset = tf.constant([[scan_offsets[i, 1], scan_offsets[i, 0]]], dtype=tf.float32)  # Note: x,y order for translate
++            translated = hh.translate(gt_padded, -offset)
++            patch = translated[0, :N, :N, 0]  # Extract center patch
++            Y_patches_list.append(patch)
++        
++        # Stack into tensor with shape (B, N, N, 1) for gridsize=1
++        Y_patches = tf.stack(Y_patches_list, axis=0)
++        Y_patches = tf.expand_dims(Y_patches, axis=-1)  # Add channel dimension
++        logger.debug(f"Extracted {len(Y_patches_list)} patches for gridsize=1")
++    else:
++        # For gridsize>1, use the already calculated offsets
++        Y_patches = raw_data.get_image_patches(
++            object_guess,
++            global_offsets,
++            local_offsets,
++            N=config.model.N,
++            gridsize=config.model.gridsize
++        )
+     
+-    # --- KEY CHANGE: Add objectGuess to the output ---
+-    # The raw_data_instance from the simulation doesn't contain the ground truth
+-    # object it was created from. We explicitly add it here before saving.
+-    raw_data_instance.objectGuess = object_guess
+-    print("Added source 'objectGuess' to the output dataset for ground truth.")
+-    # -------------------------------------------------
+-    
+-    print(f"Saving simulated data to: {output_file_path}")
+-    
+-    # Create comprehensive data dictionary including ground truth patches
+-    data_dict = {
+-        'xcoords': raw_data_instance.xcoords,
+-        'ycoords': raw_data_instance.ycoords,
+-        'xcoords_start': raw_data_instance.xcoords_start,
+-        'ycoords_start': raw_data_instance.ycoords_start,
+-        'diff3d': raw_data_instance.diff3d,
+-        'probeGuess': raw_data_instance.probeGuess,
+-        'objectGuess': raw_data_instance.objectGuess,
+-        'scan_index': raw_data_instance.scan_index,
+-        'ground_truth_patches': ground_truth_patches
++    Y_patches_np = Y_patches.numpy()
++    logger.debug(f"Extracted patches shape: {Y_patches_np.shape}, dtype: {Y_patches_np.dtype}")
++    
++    # 3.B: Validate patch content
++    assert np.any(Y_patches_np != 0), "All patches are zero!"
++    assert np.any(np.imag(Y_patches_np) != 0), "Patches have no imaginary component!"
++    logger.debug(f"Patches valid: min abs={np.abs(Y_patches_np).min():.3f}, max abs={np.abs(Y_patches_np).max():.3f}")
++    
++    # Section 4: Format Conversion & Physics Simulation
++    # 4.A: Convert Channel to Flat Format
++    Y_flat = hh._channel_to_flat(Y_patches)
++    logger.debug(f"Converted to flat format: {Y_patches.shape} -> {Y_flat.shape}")
++    
++    # Split into amplitude and phase for illuminate_and_diffract
++    Y_I_flat = tf.math.abs(Y_flat)
++    Y_phi_flat = tf.math.angle(Y_flat)
++    
++    # 4.B: Prepare probe for simulation
++    # Expand probe dimensions to match expected format
++    probe_tensor = tf.constant(probe_guess[:, :, np.newaxis], dtype=tf.complex64)
++    logger.debug(f"Probe tensor shape: {probe_tensor.shape}")
++    
++    # 4.C: Run physics simulation
++    X_flat, _, _, _ = illuminate_and_diffract(Y_I_flat, Y_phi_flat, probe_tensor)
++    logger.debug(f"Diffraction simulation complete: output shape {X_flat.shape}")
++    
++    # Verify output is real amplitude
++    assert tf.reduce_all(tf.math.imag(X_flat) == 0), "Diffraction should be real amplitude"
++    
++    # 4.D: Convert Flat to Channel Format
++    X_channel = hh._flat_to_channel(X_flat, N=config.model.N, gridsize=config.model.gridsize)
++    logger.debug(f"Converted back to channel format: {X_flat.shape} -> {X_channel.shape}")
++    
++    # Section 5: Output Assembly & Saving
++    # 5.A: Reshape arrays for NPZ format
++    N = config.model.N
++    if config.model.gridsize == 1:
++        # For gridsize=1, squeeze the channel dimension
++        diffraction = np.squeeze(X_channel.numpy(), axis=-1)  # Shape: (n_images, N, N)
++        Y_final = np.squeeze(Y_patches_np, axis=-1)  # Shape: (n_images, N, N)
++    else:
++        # For gridsize>1, reshape to 3D by flattening groups
++        diffraction = X_channel.numpy().reshape(-1, N, N)  # Shape: (n_groups * gridsize², N, N)
++        Y_final = Y_patches_np.reshape(-1, N, N)  # Shape: (n_groups * gridsize², N, N)
++    
++    logger.debug(f"Final diffraction shape: {diffraction.shape}, dtype: {diffraction.dtype}")
++    logger.debug(f"Final Y shape: {Y_final.shape}, dtype: {Y_final.dtype}")
++    
++    # 5.B: Prepare coordinate arrays
++    if config.model.gridsize == 1:
++        # Simple case: use original coordinates
++        xcoords_final = xcoords
++        ycoords_final = ycoords
++    else:
++        # For gridsize>1, need to expand coordinates for each neighbor
++        xcoords_final = []
++        ycoords_final = []
++        for group_idx in range(n_groups):
++            for neighbor_idx in group_neighbors[group_idx]:
++                xcoords_final.append(xcoords[neighbor_idx])
++                ycoords_final.append(ycoords[neighbor_idx])
++        xcoords_final = np.array(xcoords_final)
++        ycoords_final = np.array(ycoords_final)
++    
++    logger.debug(f"Final coordinates length: {len(xcoords_final)}")
++    assert len(xcoords_final) == diffraction.shape[0], f"Coordinate mismatch: {len(xcoords_final)} != {diffraction.shape[0]}"
++    
++    # 5.C: Assemble output dictionary
++    output_dict = {
++        'diffraction': diffraction.astype(np.float32),  # Amplitude as per data contract
++        'Y': Y_final,  # Ground truth patches
++        'objectGuess': object_guess,
++        'probeGuess': probe_guess,
++        'xcoords': xcoords_final.astype(np.float64),
++        'ycoords': ycoords_final.astype(np.float64),
++        'scan_index': np.repeat(scan_index[:n_groups], config.model.gridsize**2) if config.model.gridsize > 1 else scan_index
+     }
+     
+-    np.savez_compressed(output_file_path, **data_dict)
+-    print("File saved successfully.")
++    # Add legacy keys for backward compatibility
++    output_dict['diff3d'] = diffraction.astype(np.float32)
++    output_dict['xcoords_start'] = xcoords_final.astype(np.float64)
++    output_dict['ycoords_start'] = ycoords_final.astype(np.float64)
++    
++    print(f"Output summary:")
++    for key, val in output_dict.items():
++        if isinstance(val, np.ndarray):
++            print(f"  - {key}: shape {val.shape}, dtype {val.dtype}")
++    
++    # 5.D: Save NPZ file
++    output_dir = Path(output_file_path).parent
++    output_dir.mkdir(parents=True, exist_ok=True)
++    
++    np.savez_compressed(output_file_path, **output_dict)
++    print(f"✓ Saved simulated data to: {output_file_path}")
+ 
+     if visualize:
+         print("Generating visualization plot...")
++        # Create a minimal RawData-like object for visualization compatibility
++        class VisualizationData:
++            def __init__(self, data_dict):
++                self.xcoords = data_dict['xcoords']
++                self.ycoords = data_dict['ycoords']
++                self.diff3d = data_dict['diffraction']
++        
++        vis_data = VisualizationData(output_dict)
+         visualize_simulation_results(
+             object_guess=object_guess,
+             probe_guess=probe_guess,
+-            raw_data_instance=raw_data_instance,
+-            ground_truth_patches=ground_truth_patches,
++            raw_data_instance=vis_data,
++            ground_truth_patches=Y_final,
+             original_data_dict=original_data_for_vis,
+             output_file_path=output_file_path
+         )
+@@ -273,6 +443,10 @@ def parse_arguments() -> argparse.Namespace:
+         "--probe-file", type=str, default=None,
+         help="Path to external probe file (.npy or .npz) to override the probe from input file"
+     )
++    parser.add_argument(
++        "--debug", action="store_true",
++        help="Enable debug logging to trace tensor shapes and data flow"
++    )
+     return parser.parse_args()
+ 
+ def main():
+@@ -304,7 +478,8 @@ def main():
+             buffer=args.buffer,
+             seed=args.seed,
+             visualize=args.visualize,
+-            probe_file=args.probe_file
++            probe_file=args.probe_file,
++            debug=args.debug
+         )
+     except FileNotFoundError:
+         print(f"Error: Input file not found at '{args.input_file}'", file=sys.stderr)

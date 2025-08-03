@@ -1,0 +1,24 @@
+==========================================
+2x2 PROBE PARAMETERIZATION STUDY SUMMARY
+==========================================
+Study directory: /home/ollie/Documents/PtychoPINN2/probe_study_fresh
+Execution date: Sat Aug  2 12:21:00 PM PDT 2025
+Quick test mode: true
+Parallel execution: false
+Number of conditions: 4
+
+Condition Results:
+  gs1_hybrid (gridsize=1):
+    ✓ Training: SUCCESS
+    ✓ Evaluation: SUCCESS
+  gs1_idealized (gridsize=1):
+    ✓ Training: SUCCESS
+    ✓ Evaluation: SUCCESS
+  gs2_hybrid (gridsize=2):
+    ✓ Training: SUCCESS
+    ✓ Evaluation: SUCCESS
+  gs2_idealized (gridsize=2):
+    ✓ Training: SUCCESS
+    ✓ Evaluation: SUCCESS
+
+==========================================

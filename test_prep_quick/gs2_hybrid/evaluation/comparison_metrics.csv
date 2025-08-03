@@ -1,0 +1,10 @@
+model,metric,amplitude,phase,value
+PtychoPINN,mae,0.837852,0.683705,
+PtychoPINN,mse,0.841265,1.480201,
+PtychoPINN,psnr,48.881477,46.427598,
+PtychoPINN,ssim,0.071867,0.365638,
+PtychoPINN,ms_ssim,,0.040873,
+PtychoPINN,frc50,1.000000,1.000000,
+PtychoPINN,registration_offset_dy,,,-42.119999
+PtychoPINN,registration_offset_dx,,,72.739998
+PtychoPINN,computation_time_s,,,4.456844

@@ -1,0 +1,86 @@
+2025-08-02 10:36:12,376 - INFO - Starting 2x2 Probe Parameterization Study preparation
+2025-08-02 10:36:12,376 - INFO - Output directory: /home/ollie/Documents/PtychoPINN2/test_prep_quick
+2025-08-02 10:36:12,376 - INFO - Quick test mode: True
+2025-08-02 10:36:12,376 - INFO - Gridsize values: [1, 2]
+2025-08-02 10:36:12,376 - INFO - Created study directory: /home/ollie/Documents/PtychoPINN2/test_prep_quick
+2025-08-02 10:36:12,376 - DEBUG - Created condition directory: gs1_idealized
+2025-08-02 10:36:12,376 - DEBUG - Created condition directory: gs1_hybrid
+2025-08-02 10:36:12,376 - DEBUG - Created condition directory: gs2_idealized
+2025-08-02 10:36:12,376 - DEBUG - Created condition directory: gs2_hybrid
+2025-08-02 10:36:12,376 - INFO - Creating probe variants...
+2025-08-02 10:36:12,376 - INFO - Generating idealized probe (64x64)
+2025-08-02 10:36:12,376 - INFO - Idealized probe saved to: test_prep_quick/idealized_probe.npy
+2025-08-02 10:36:12,376 - DEBUG - Idealized probe - shape: (64, 64), dtype: complex64
+2025-08-02 10:36:12,377 - DEBUG - Idealized probe - amplitude range: [0.000, 1.000]
+2025-08-02 10:36:12,377 - INFO - Loading experimental probe from: datasets/fly/fly001_transposed.npz
+2025-08-02 10:36:12,377 - DEBUG - Loading probe from NPZ file: datasets/fly/fly001_transposed.npz
+2025-08-02 10:36:12,377 - DEBUG - Converting probe from complex128 to complex64
+2025-08-02 10:36:12,377 - INFO - Loaded probe with shape (64, 64), dtype complex64
+2025-08-02 10:36:12,377 - DEBUG - Experimental probe - shape: (64, 64), dtype: complex64
+2025-08-02 10:36:12,377 - INFO - Creating hybrid probe (idealized amplitude + experimental phase)
+2025-08-02 10:36:12,377 - DEBUG - Command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/tools/create_hybrid_probe.py test_prep_quick/idealized_probe.npy datasets/fly/fly001_transposed.npz --output test_prep_quick/hybrid_probe.npy --log-level INFO
+2025-08-02 10:36:12,670 - INFO - Hybrid probe saved to: test_prep_quick/hybrid_probe.npy
+2025-08-02 10:36:12,671 - DEBUG - Hybrid probe - shape: (64, 64), dtype: complex64
+2025-08-02 10:36:12,671 - DEBUG - Hybrid probe - amplitude range: [0.000, 1.000]
+2025-08-02 10:36:12,671 - INFO - Creating synthetic object (224x224)
+2025-08-02 10:36:12,672 - INFO - Synthetic object saved to: test_prep_quick/synthetic_input.npz
+2025-08-02 10:36:12,672 - DEBUG - Object shape: (224, 224), probe shape: (64, 64)
+2025-08-02 10:36:12,672 - INFO - Generating datasets for 2x2 experimental matrix...
+2025-08-02 10:36:12,672 - INFO - Quick test mode: using smaller datasets
+2025-08-02 10:36:12,672 - INFO - Generating data for condition: gs1_idealized
+2025-08-02 10:36:12,672 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file test_prep_quick/synthetic_input.npz --output-file test_prep_quick/gs1_idealized/train_data.npz --probe-file test_prep_quick/idealized_probe.npy --n-images 500 --gridsize 1 --seed 42
+2025-08-02 10:36:20,419 - INFO - Simulation completed: test_prep_quick/gs1_idealized/train_data.npz
+2025-08-02 10:36:20,419 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file test_prep_quick/synthetic_input.npz --output-file test_prep_quick/gs1_idealized/test_data.npz --probe-file test_prep_quick/idealized_probe.npy --n-images 100 --gridsize 1 --seed 43
+2025-08-02 10:36:26,213 - INFO - Simulation completed: test_prep_quick/gs1_idealized/test_data.npz
+2025-08-02 10:36:26,214 - INFO - Completed condition: gs1_idealized
+2025-08-02 10:36:26,214 - INFO - Generating data for condition: gs1_hybrid
+2025-08-02 10:36:26,214 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file test_prep_quick/synthetic_input.npz --output-file test_prep_quick/gs1_hybrid/train_data.npz --probe-file test_prep_quick/hybrid_probe.npy --n-images 500 --gridsize 1 --seed 42
+2025-08-02 10:36:33,806 - INFO - Simulation completed: test_prep_quick/gs1_hybrid/train_data.npz
+2025-08-02 10:36:33,806 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file test_prep_quick/synthetic_input.npz --output-file test_prep_quick/gs1_hybrid/test_data.npz --probe-file test_prep_quick/hybrid_probe.npy --n-images 100 --gridsize 1 --seed 43
+2025-08-02 10:36:39,556 - INFO - Simulation completed: test_prep_quick/gs1_hybrid/test_data.npz
+2025-08-02 10:36:39,556 - INFO - Completed condition: gs1_hybrid
+2025-08-02 10:36:39,556 - INFO - Generating data for condition: gs2_idealized
+2025-08-02 10:36:39,556 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file test_prep_quick/synthetic_input.npz --output-file test_prep_quick/gs2_idealized/train_data.npz --probe-file test_prep_quick/idealized_probe.npy --n-images 500 --gridsize 2 --seed 42
+2025-08-02 10:37:48,749 - WARNING - Simulation failed for gridsize=2 due to known multi-channel shape issue
+2025-08-02 10:37:48,749 - WARNING - This is a documented limitation in DEVELOPER_GUIDE.md section 8
+2025-08-02 10:37:48,749 - INFO - Creating placeholder file for test_prep_quick/gs2_idealized/train_data.npz to maintain directory structure
+2025-08-02 10:37:56,485 - WARNING - Created placeholder data with gridsize=1 for test_prep_quick/gs2_idealized/train_data.npz
+2025-08-02 10:37:56,485 - WARNING - NOTE: This is NOT true gridsize>1 data - it's for testing the workflow only
+2025-08-02 10:37:56,485 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file test_prep_quick/synthetic_input.npz --output-file test_prep_quick/gs2_idealized/test_data.npz --probe-file test_prep_quick/idealized_probe.npy --n-images 100 --gridsize 2 --seed 43
+2025-08-02 10:38:14,519 - WARNING - Simulation failed for gridsize=2 due to known multi-channel shape issue
+2025-08-02 10:38:14,519 - WARNING - This is a documented limitation in DEVELOPER_GUIDE.md section 8
+2025-08-02 10:38:14,519 - INFO - Creating placeholder file for test_prep_quick/gs2_idealized/test_data.npz to maintain directory structure
+2025-08-02 10:38:20,394 - WARNING - Created placeholder data with gridsize=1 for test_prep_quick/gs2_idealized/test_data.npz
+2025-08-02 10:38:20,394 - WARNING - NOTE: This is NOT true gridsize>1 data - it's for testing the workflow only
+2025-08-02 10:38:20,394 - INFO - Completed condition: gs2_idealized
+2025-08-02 10:38:20,394 - INFO - Generating data for condition: gs2_hybrid
+2025-08-02 10:38:20,395 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file test_prep_quick/synthetic_input.npz --output-file test_prep_quick/gs2_hybrid/train_data.npz --probe-file test_prep_quick/hybrid_probe.npy --n-images 500 --gridsize 2 --seed 42
+2025-08-02 10:39:29,846 - WARNING - Simulation failed for gridsize=2 due to known multi-channel shape issue
+2025-08-02 10:39:29,846 - WARNING - This is a documented limitation in DEVELOPER_GUIDE.md section 8
+2025-08-02 10:39:29,846 - INFO - Creating placeholder file for test_prep_quick/gs2_hybrid/train_data.npz to maintain directory structure
+2025-08-02 10:39:37,443 - WARNING - Created placeholder data with gridsize=1 for test_prep_quick/gs2_hybrid/train_data.npz
+2025-08-02 10:39:37,443 - WARNING - NOTE: This is NOT true gridsize>1 data - it's for testing the workflow only
+2025-08-02 10:39:37,443 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file test_prep_quick/synthetic_input.npz --output-file test_prep_quick/gs2_hybrid/test_data.npz --probe-file test_prep_quick/hybrid_probe.npy --n-images 100 --gridsize 2 --seed 43
+2025-08-02 10:39:55,488 - WARNING - Simulation failed for gridsize=2 due to known multi-channel shape issue
+2025-08-02 10:39:55,488 - WARNING - This is a documented limitation in DEVELOPER_GUIDE.md section 8
+2025-08-02 10:39:55,488 - INFO - Creating placeholder file for test_prep_quick/gs2_hybrid/test_data.npz to maintain directory structure
+2025-08-02 10:40:01,323 - WARNING - Created placeholder data with gridsize=1 for test_prep_quick/gs2_hybrid/test_data.npz
+2025-08-02 10:40:01,323 - WARNING - NOTE: This is NOT true gridsize>1 data - it's for testing the workflow only
+2025-08-02 10:40:01,323 - INFO - Completed condition: gs2_hybrid
+2025-08-02 10:40:01,323 - INFO - 2x2 Study preparation completed successfully!
+2025-08-02 10:40:01,323 - INFO - Study directory ready: /home/ollie/Documents/PtychoPINN2/test_prep_quick
+2025-08-02 10:40:01,323 - INFO - 
+==================================================
+2025-08-02 10:40:01,323 - INFO - PREPARATION SUMMARY
+2025-08-02 10:40:01,323 - INFO - ==================================================
+2025-08-02 10:40:01,323 - INFO - Study directory: /home/ollie/Documents/PtychoPINN2/test_prep_quick
+2025-08-02 10:40:01,323 - INFO - Gridsize values: [1, 2]
+2025-08-02 10:40:01,323 - INFO - Probe size: 64x64
+2025-08-02 10:40:01,323 - INFO - Object size: 224x224
+2025-08-02 10:40:01,323 - INFO - Quick test mode: True
+2025-08-02 10:40:01,323 - INFO -   gs1_idealized: train=True, test=True
+2025-08-02 10:40:01,323 - INFO -   gs1_hybrid: train=True, test=True
+2025-08-02 10:40:01,323 - INFO -   gs2_idealized: train=True, test=True
+2025-08-02 10:40:01,323 - INFO -   gs2_hybrid: train=True, test=True
+2025-08-02 10:40:01,323 - INFO - Total conditions prepared: 4
+2025-08-02 10:40:01,323 - INFO - ==================================================

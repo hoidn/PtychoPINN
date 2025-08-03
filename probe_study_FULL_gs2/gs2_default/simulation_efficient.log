@@ -1,0 +1,1 @@
+Running with efficient sampling: /home/ollie/miniconda3/envs/ptycho311/bin/python scripts/simulation/simulate_and_save.py --input-file probe_study_lines_data/simulated_data.npz --probe-file probe_study_FULL_gs2/default_probe.npy --output-file probe_study_FULL_gs2/gs2_default/simulated_data.npz --n-images 5000 --gridsize 2 2

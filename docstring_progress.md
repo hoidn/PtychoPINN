@@ -1,0 +1,22 @@
+# Docstring Progress Tracker
+
+- [x] `ptycho/params.py`
+- [x] `ptycho/config/config.py`
+- [x] `ptycho/tf_helper.py`
+- [x] `ptycho/physics.py`
+- [x] `ptycho/diffsim.py`
+- [x] `ptycho/fourier.py`
+- [x] `ptycho/raw_data.py`
+- [x] `ptycho/loader.py`
+- [x] `ptycho/model.py`
+- [x] `ptycho/custom_layers.py`
+- [x] `ptycho/train.py`
+- [x] `ptycho/inference.py`
+- [x] `ptycho/misc.py`
+- [x] `ptycho/classes.py`
+- [x] `ptycho/losses.py`
+- [x] `ptycho/datagen/grf.py`
+- [x] `ptycho/workflows/components.py`
+- [x] `ptycho/plotting.py`
+- [x] `ptycho/autotest/testing.py`
+- [x] `ptycho/FRC/fourier_ring_corr.py`

@@ -1,0 +1,26 @@
+2025-07-31 22:09:28,375 - INFO - Loading amplitude source from: probe_study_corrected_final_QUICK_TEST/synthetic_input/simulated_data.npz
+2025-07-31 22:09:28,376 - INFO -   Loaded probe with shape (64, 64)
+2025-07-31 22:09:28,376 - INFO - Loading phase source from: datasets/fly/fly001_transposed.npz
+2025-07-31 22:09:28,377 - INFO -   Loaded probe with shape (64, 64)
+2025-07-31 22:09:28,377 - INFO - Creating probe pair...
+2025-07-31 22:09:28,377 - INFO - Saved default probe to: probe_study_corrected_final_QUICK_TEST/default_probe.npy
+2025-07-31 22:09:28,377 - INFO - Saved hybrid probe to: probe_study_corrected_final_QUICK_TEST/hybrid_probe.npy
+2025-07-31 22:09:28,377 - INFO - 
+Probe statistics:
+2025-07-31 22:09:28,377 - INFO - Default probe:
+2025-07-31 22:09:28,377 - INFO -   Shape: (64, 64)
+2025-07-31 22:09:28,377 - INFO -   Dtype: complex64
+2025-07-31 22:09:28,377 - INFO -   Amplitude mean: 0.091797
+2025-07-31 22:09:28,377 - INFO -   Phase std: 0.000000
+2025-07-31 22:09:28,377 - INFO - 
+Hybrid probe:
+2025-07-31 22:09:28,377 - INFO -   Shape: (64, 64)
+2025-07-31 22:09:28,377 - INFO -   Dtype: complex64
+2025-07-31 22:09:28,377 - INFO -   Amplitude mean: 0.091797
+2025-07-31 22:09:28,378 - INFO -   Phase std: 1.782917
+2025-07-31 22:09:28,378 - INFO - 
+Creating visualization...
+2025-07-31 22:09:28,779 - INFO - Saved visualization to: probe_study_corrected_final_QUICK_TEST/probe_pair_visualization.png
+2025-07-31 22:09:28,779 - INFO - 
+Probe preparation complete!
+2025-07-31 22:09:28,779 - INFO - These probes should be used as inputs to simulate separate datasets.

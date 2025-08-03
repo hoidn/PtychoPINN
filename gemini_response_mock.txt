@@ -1,0 +1,59 @@
+---PRIORITIZED_MODULES_START---
+ptycho/misc.py
+ptycho/test_data.py
+ptycho/parameters.py
+ptycho/params.py
+ptycho/image/metrics.py
+ptycho/image/utils.py
+ptycho/image/cropping.py
+ptycho/image/registration.py
+ptycho/image/stitching.py
+ptycho/image/visualization.py
+ptycho/autotest/debug.py
+ptycho/autotest/mock.py
+ptycho/config/base.py
+ptycho/config/config.py
+ptycho/tf_helper.py
+ptycho/diffsim.py
+ptycho/nongrid_simulation.py
+ptycho/raw_data.py
+ptycho/loader.py
+ptycho/model.py
+ptycho/workflows/cdi_example.py
+ptycho/workflows/compare_models.py
+ptycho/workflows/components.py
+ptycho/workflows/inference.py
+ptycho/workflows/training.py
+ptycho/get_image_patches_fast.py
+ptycho/raw_data_efficient.py
+---PRIORITIZED_MODULES_END---
+
+---DEPENDENCY_REPORT_START---
+ptycho/misc.py has no dependencies within ptycho
+ptycho/test_data.py depends on numpy only
+ptycho/parameters.py depends on ptycho/misc.py
+ptycho/params.py is a singleton parameter store with no dependencies
+ptycho/image/metrics.py depends on numpy, tensorflow
+ptycho/image/utils.py depends on numpy
+ptycho/image/cropping.py depends on numpy, ptycho/image/utils.py
+ptycho/image/registration.py depends on numpy, scipy, ptycho/image/utils.py
+ptycho/image/stitching.py depends on numpy, ptycho/tf_helper.py
+ptycho/image/visualization.py depends on matplotlib, numpy
+ptycho/autotest/debug.py has no ptycho dependencies
+ptycho/autotest/mock.py has no ptycho dependencies
+ptycho/config/base.py has no dependencies
+ptycho/config/config.py depends on ptycho/config/base.py, ptycho/params.py
+ptycho/tf_helper.py depends on tensorflow, ptycho/params.py
+ptycho/diffsim.py depends on tensorflow, ptycho/tf_helper.py, ptycho/params.py
+ptycho/nongrid_simulation.py depends on tensorflow, ptycho/diffsim.py, ptycho/tf_helper.py
+ptycho/raw_data.py depends on numpy, ptycho/params.py, ptycho/misc.py
+ptycho/loader.py depends on ptycho/raw_data.py, ptycho/tf_helper.py, ptycho/params.py
+ptycho/model.py depends on tensorflow, ptycho/diffsim.py, ptycho/tf_helper.py, ptycho/params.py
+ptycho/workflows/cdi_example.py depends on ptycho/raw_data.py, ptycho/model.py, ptycho/loader.py
+ptycho/workflows/compare_models.py depends on ptycho/model.py, ptycho/image/cropping.py, ptycho/image/metrics.py
+ptycho/workflows/components.py depends on ptycho/model.py, ptycho/loader.py, ptycho/image/stitching.py
+ptycho/workflows/inference.py depends on ptycho/workflows/components.py, ptycho/model.py
+ptycho/workflows/training.py depends on ptycho/workflows/components.py, ptycho/model.py, ptycho/loader.py
+ptycho/get_image_patches_fast.py depends on numpy, tensorflow
+ptycho/raw_data_efficient.py depends on ptycho/raw_data.py, ptycho/get_image_patches_fast.py
+---DEPENDENCY_REPORT_END---

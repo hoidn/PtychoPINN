@@ -1,0 +1,133 @@
+2025-07-31 22:49:44.812532: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1754027384.823804  176592 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1754027384.827135  176592 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1754027384.837319  176592 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754027384.837332  176592 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754027384.837334  176592 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754027384.837335  176592 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-07-31 22:49:44.840094: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1754027388.141091  176592 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1754027388.142337  176592 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 11778 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1754027388.686796  176592 service.cc:152] XLA service 0x2803b320 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1754027388.686820  176592 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-07-31 22:49:48.701274: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1754027388.718465  176592 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1754027388.844255  176592 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+--- Configuration Updated for Simulation ---
+Current Parameters:
+--------------------
+N: 64
+amp_activation: sigmoid
+batch_size: 16
+bigN: 68
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+gaussian_smoothing_sigma: 0.0
+gridsize: 2
+h5_path: wts.h5
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_images: 5000
+nepochs: 50
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 1000000000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: training_outputs
+pad_object: True
+positions.provided: True
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+test_data_file_path: dummy.npz
+train_data_file_path: dummy.npz
+tv_weight: 0.0
+use_xla_translate: True
+------------------------------------------
+
+Loading object and probe from: probe_study_lines_data/simulated_data.npz
+  - Object shape: (224, 224)
+  - Probe shape: (64, 64)
+
+Overriding probe with external file: probe_study_FULL_gs2/default_probe.npy
+  - External probe shape: (64, 64)
+Setting random seed to: 42
+Simulating 5000 diffraction patterns...
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 2 in params
+DEBUG: Setting N to 64 in params
+DEBUG: Setting gridsize to 2 in params
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 318, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 299, in main
+    simulate_and_save(
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 102, in simulate_and_save
+    raw_data_instance, ground_truth_patches = generate_simulated_data(
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/nongrid_simulation.py", line 193, in generate_simulated_data
+    raw_data = _generate_simulated_data_legacy_params(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/nongrid_simulation.py", line 176, in _generate_simulated_data_legacy_params
+    raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/raw_data.py", line 199, in from_simulation
+    Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/raw_data.py", line 732, in get_image_patches
+    translated_patch = hh.translate(gt_padded, offset)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 669, in newf
+    assembled_part1 = fn(part1, *args[1:], **kwargs)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 791, in translate
+    return translate_core(imgs, offsets, interpolation=interpolation, use_xla_workaround=use_xla_workaround)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 717, in translate_core
+    return translate_xla(images, translations, interpolation=interpolation, use_jit=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/projective_warp_xla.py", line 263, in translate_xla
+    dy = -translations[:, 1]
+          ~~~~~~~~~~~~^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 150, in error_handler
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/dispatch.py", line 1260, in op_dispatch_handler
+    return dispatch_target(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/ops/tensor_getitem_override.py", line 256, in _slice_helper
+    return array_ops.strided_slice(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 150, in error_handler
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/dispatch.py", line 1260, in op_dispatch_handler
+    return dispatch_target(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/ops/array_ops.py", line 1097, in strided_slice
+    op = gen_array_ops.strided_slice(
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/ops/gen_array_ops.py", line 11007, in strided_slice
+    _result = pywrap_tfe.TFE_Py_FastPathExecute(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

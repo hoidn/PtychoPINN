@@ -1,0 +1,256 @@
+2025-08-02 12:23:51,571 - INFO - Starting 2x2 Probe Parameterization Study preparation
+2025-08-02 12:23:51,571 - INFO - Output directory: /home/ollie/Documents/PtychoPINN2/probe_study_full
+2025-08-02 12:23:51,571 - INFO - Quick test mode: False
+2025-08-02 12:23:51,571 - INFO - Gridsize values: [1, 2]
+2025-08-02 12:23:51,571 - INFO - Created study directory: /home/ollie/Documents/PtychoPINN2/probe_study_full
+2025-08-02 12:23:51,571 - DEBUG - Created condition directory: gs1_idealized
+2025-08-02 12:23:51,571 - DEBUG - Created condition directory: gs1_hybrid
+2025-08-02 12:23:51,571 - DEBUG - Created condition directory: gs2_idealized
+2025-08-02 12:23:51,571 - DEBUG - Created condition directory: gs2_hybrid
+2025-08-02 12:23:51,571 - INFO - Creating probe variants...
+2025-08-02 12:23:51,571 - INFO - Generating idealized probe (64x64)
+2025-08-02 12:23:51,572 - INFO - Idealized probe saved to: probe_study_full/idealized_probe.npy
+2025-08-02 12:23:51,572 - DEBUG - Idealized probe - shape: (64, 64), dtype: complex64
+2025-08-02 12:23:51,572 - DEBUG - Idealized probe - amplitude range: [0.000, 1.000]
+2025-08-02 12:23:51,572 - INFO - Loading experimental probe from: datasets/fly/fly001_transposed.npz
+2025-08-02 12:23:51,572 - DEBUG - Loading probe from NPZ file: datasets/fly/fly001_transposed.npz
+2025-08-02 12:23:51,573 - DEBUG - Converting probe from complex128 to complex64
+2025-08-02 12:23:51,573 - INFO - Loaded probe with shape (64, 64), dtype complex64
+2025-08-02 12:23:51,573 - DEBUG - Experimental probe - shape: (64, 64), dtype: complex64
+2025-08-02 12:23:51,573 - INFO - Creating hybrid probe (idealized amplitude + experimental phase)
+2025-08-02 12:23:51,573 - DEBUG - Command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/tools/create_hybrid_probe.py probe_study_full/idealized_probe.npy datasets/fly/fly001_transposed.npz --output probe_study_full/hybrid_probe.npy --log-level INFO
+2025-08-02 12:23:51,858 - INFO - Hybrid probe saved to: probe_study_full/hybrid_probe.npy
+2025-08-02 12:23:51,859 - DEBUG - Hybrid probe - shape: (64, 64), dtype: complex64
+2025-08-02 12:23:51,859 - DEBUG - Hybrid probe - amplitude range: [0.000, 1.000]
+2025-08-02 12:23:51,859 - INFO - Creating synthetic object (224x224)
+2025-08-02 12:23:52,327 - INFO - DEBUG: Setting
+2025-08-02 12:23:52,327 - INFO - data_source
+2025-08-02 12:23:52,327 - INFO - to
+2025-08-02 12:23:52,327 - INFO - lines
+2025-08-02 12:23:52,327 - INFO - in params
+2025-08-02 12:23:52,327 - INFO - Generating synthetic lines object using sim_object_image
+2025-08-02 12:23:52,415 - INFO - Synthetic object saved to: probe_study_full/synthetic_input.npz
+2025-08-02 12:23:52,415 - DEBUG - Object shape: (224, 224), probe shape: (64, 64)
+2025-08-02 12:23:52,415 - DEBUG - Using established sim_object_image function with data_source='lines'
+2025-08-02 12:23:52,415 - INFO - Generating datasets for 2x2 experimental matrix...
+2025-08-02 12:23:52,415 - INFO - Full mode: using full-size datasets
+2025-08-02 12:23:52,415 - INFO - Generating data for condition: gs1_idealized
+2025-08-02 12:23:52,415 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file probe_study_full/synthetic_input.npz --output-file probe_study_full/gs1_idealized/train_data.npz --probe-file probe_study_full/idealized_probe.npy --n-images 5000 --gridsize 1 --seed 42
+2025-08-02 12:24:33,044 - INFO - Simulation completed: probe_study_full/gs1_idealized/train_data.npz
+2025-08-02 12:24:33,044 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file probe_study_full/synthetic_input.npz --output-file probe_study_full/gs1_idealized/test_data.npz --probe-file probe_study_full/idealized_probe.npy --n-images 1000 --gridsize 1 --seed 43
+2025-08-02 12:24:45,086 - INFO - Simulation completed: probe_study_full/gs1_idealized/test_data.npz
+2025-08-02 12:24:45,086 - INFO - Completed condition: gs1_idealized
+2025-08-02 12:24:45,086 - INFO - Generating data for condition: gs1_hybrid
+2025-08-02 12:24:45,086 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file probe_study_full/synthetic_input.npz --output-file probe_study_full/gs1_hybrid/train_data.npz --probe-file probe_study_full/hybrid_probe.npy --n-images 5000 --gridsize 1 --seed 42
+2025-08-02 12:25:23,067 - INFO - Simulation completed: probe_study_full/gs1_hybrid/train_data.npz
+2025-08-02 12:25:23,067 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file probe_study_full/synthetic_input.npz --output-file probe_study_full/gs1_hybrid/test_data.npz --probe-file probe_study_full/hybrid_probe.npy --n-images 1000 --gridsize 1 --seed 43
+2025-08-02 12:25:34,830 - INFO - Simulation completed: probe_study_full/gs1_hybrid/test_data.npz
+2025-08-02 12:25:34,830 - INFO - Completed condition: gs1_hybrid
+2025-08-02 12:25:34,830 - INFO - Generating data for condition: gs2_idealized
+2025-08-02 12:25:34,830 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file probe_study_full/synthetic_input.npz --output-file probe_study_full/gs2_idealized/train_data.npz --probe-file probe_study_full/idealized_probe.npy --n-images 5000 --gridsize 2 --seed 42
+2025-08-02 12:34:30,388 - ERROR - Traceback (most recent call last):
+2025-08-02 12:34:30,388 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/studies/prepare_2x2_study.py", line 408, in <module>
+2025-08-02 12:34:30,389 - ERROR - main()
+2025-08-02 12:34:30,389 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/studies/prepare_2x2_study.py", line 372, in main
+2025-08-02 12:34:30,389 - ERROR - generate_datasets(
+2025-08-02 12:34:30,389 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/studies/prepare_2x2_study.py", line 319, in generate_datasets
+2025-08-02 12:34:30,389 - ERROR - run_simulation_condition(
+2025-08-02 12:34:30,389 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/studies/prepare_2x2_study.py", line 251, in run_simulation_condition
+2025-08-02 12:34:30,389 - ERROR - result = subprocess.run(cmd, capture_output=True, text=True)
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,389 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,390 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/subprocess.py", line 550, in run
+2025-08-02 12:34:30,391 - ERROR - stdout, stderr = process.communicate(input, timeout=timeout)
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,391 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - ^
+2025-08-02 12:34:30,392 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/subprocess.py", line 1209, in communicate
+2025-08-02 12:34:30,393 - ERROR - stdout, stderr = self._communicate(input, endtime, timeout)
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,393 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/subprocess.py", line 2115, in _communicate
+2025-08-02 12:34:30,394 - ERROR - ready = selector.select(timeout)
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,394 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - ^
+2025-08-02 12:34:30,395 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/selectors.py", line 415, in select
+2025-08-02 12:34:30,395 - ERROR - fd_event_list = self._selector.poll(timeout)
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - ^
+2025-08-02 12:34:30,396 - ERROR - KeyboardInterrupt

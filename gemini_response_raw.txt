@@ -1,0 +1,322 @@
+<analysis_and_strategy>
+This section must contain your high-level strategic thinking.
+
+**Architectural Pillars:**
+1.  **Configuration & Global State:** The system's behavior is heavily controlled by a centralized, mutable `params` module, which acts as a global state container. This is a critical pillar to understand as it implicitly affects modules across the entire pipeline.
+2.  **Data Ingestion & Preparation Pipeline:** A multi-stage pipeline is responsible for ingesting raw data (from files or simulation), grouping scan positions, extracting patches, and preparing them into model-ready tensors. This pipeline's logic is complex and has significant performance implications.
+3.  **Core Physics & Tensor Operations:** The scientific foundation of the project lies in modules that handle ptychographic physics (diffraction, illumination) and the low-level tensor manipulations (patching, reassembly, format conversion) required to execute these operations efficiently in TensorFlow.
+4.  **Model, Training, & Inference:** The core deep learning components, including the PINN model architecture, custom layers, loss functions, and the orchestration scripts for training, evaluation, and inference.
+
+**Proposed Documentation Phases:**
+- **Phase 1: Configuration & Foundational Utilities:** Document the core state management (`params.py`), configuration (`config.py`), and widely used low-level helpers (`tf_helper.py`, `misc.py`) first, as they are dependencies for everything else and understanding them is a prerequisite for the rest of the system.
+- **Phase 2: Core Physics & Data Structures:** Focus on the stable, foundational modules that define the system's scientific and computational contracts, such as the physics engine (`diffsim.py`), Fourier operations (`fourier.py`), and core data classes (`classes.py`).
+- **Phase 3: Data Ingestion Pipeline:** Document the full flow of data from raw files or synthetic generation (`datagen/`) through the critical data preparation and loading stages (`raw_data.py`, `loader.py`), as this is a common source of bugs and performance bottlenecks.
+- **Phase 4: Model & Training Workflows:** Document the central model architecture (`model.py`), its components (`custom_layers.py`), and the high-level orchestrators for training and evaluation (`train.py`, `train_pinn.py`, `evaluation.py`).
+- **Phase 5: High-Level Workflows & Visualization:** Document the user-facing scripts and modules for running simulations, performing inference, and visualizing results (`workflows/*`, `inference.py`, `plotting.py`).
+- **Phase 6: Automation & Specialized Tooling:** Document auxiliary modules like the automated testing framework (`autotest/*`) and specialized image processing tools (`image/*`, `FRC/*`).
+</analysis_and_strategy>
+
+<prioritized_documentation_plan>
+This section must contain the detailed module-by-module plan, grouped under the phase headings you defined above. Each module entry must strictly adhere to the following Markdown format.
+
+---
+## Phase 1: Configuration & Foundational Utilities
+
+- **File:** `ptycho/params.py`
+  - **Priority:** `CRITICAL`
+  - **Role & Architectural Significance:** Acts as a singleton for global configuration and state management. It is the primary mechanism for passing parameters throughout the application, making it a core dependency for nearly every other module. Its mutable nature makes understanding its state at any given time crucial for debugging.
+  - **Key Public API(s):** `params.get()`, `params.set()`, `params.set_param_from_config()`
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Key-value pairs, typically from YAML configuration files or command-line arguments.
+    - **Output:** Parameter values consumed by virtually all other modules in the system.
+  - **State Dependencies:** This module *is* the central state dependency for the entire application.
+  - **Dependencies (Internal):** None.
+  - **Consumers (Internal):** `config.config`, `raw_data`, `loader`, `model`, `train`, `diffsim`, `tf_helper`, and many others.
+  - **Docstring Action Plan:** `IMPROVE` - The module lacks a docstring. CREATE one that explains its role as a global state container, warns about the risks of mutable global state, and provides a clear example of the initialization and access pattern.
+
+- **File:** `ptycho/config/config.py`
+  - **Priority:** `CRITICAL`
+  - **Role & Architectural Significance:** Responsible for loading, parsing, and validating configuration from YAML files. It populates the global `ptycho.params` object, making it the entry point for system configuration.
+  - **Key Public API(s):** `ConfigLoader` class, `ConfigLoader.load_config()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** A path to a YAML configuration file.
+    - **Output:** Populates the `ptycho.params` global state object. Does not return values directly.
+  - **State Dependencies:** Writes to the global `ptycho.params` object.
+  - **Dependencies (Internal):** `ptycho.params`.
+  - **Consumers (Internal):** Primarily used by high-level training and workflow scripts (`train.py`, `inference.py`).
+  - **Docstring Action Plan:** `CREATE` - The module is undocumented. The docstring should explain the process of loading a YAML file, validating its structure, and populating the global params object. It should include an example of a minimal YAML file.
+
+- **File:** `ptycho/tf_helper.py`
+  - **Priority:** `HIGH`
+  - **Role & Architectural Significance:** Provides foundational, low-level TensorFlow operations for ptychographic data, primarily patch extraction, reassembly, and tensor format conversions. It is a critical performance-sensitive library used by the data pipeline, model, and evaluation modules.
+  - **Key Public API(s):** `reassemble_position()`, `grid_to_channel()`, `channel_to_flat()`, `flat_to_channel()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Tensors in various ptychographic formats (Grid, Channel, Flat).
+    - **Output:** Tensors converted to other formats. For example, `reassemble_position` takes flat patches and outputs a full reconstructed image.
+  - **State Dependencies:** None.
+  - **Dependencies (Internal):** `ptycho.params` (for some functions).
+  - **Consumers (Internal):** `model`, `custom_layers`, `raw_data`, `evaluation`, `nongrid_simulation`.
+  - **Docstring Action Plan:** `REWRITE` - The existing docstring is missing. Create a comprehensive one based on the "Hardened Docstring Template" for tensor transformation modules. It must clearly define the "Grid," "Channel," and "Flat" tensor formats and provide a usage example showing the canonical `Grid -> Channel -> Flat -> Reassembly` workflow.
+
+- **File:** `ptycho/misc.py`
+  - **Priority:** `MEDIUM`
+  - **Role & Architectural Significance:** A collection of miscellaneous utility functions that don't fit into other, more specialized modules. Contains helpers for file I/O, array manipulation, and other common tasks.
+  - **Key Public API(s):** `get_verbose_print()`, `np_complex_to_tf()`, `get_git_hash()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Varies by function (e.g., NumPy arrays, file paths).
+    - **Output:** Varies by function.
+  - **State Dependencies:** Some functions may depend on `ptycho.params` (e.g., for verbosity settings).
+  - **Dependencies (Internal):** `ptycho.params`.
+  - **Consumers (Internal):** Used broadly across the codebase by many modules.
+  - **Docstring Action Plan:** `IMPROVE` - The module is undocumented. Add a module-level docstring explaining its purpose as a collection of general utilities. Ensure each public function has a clear, concise docstring explaining its purpose, arguments, and return value.
+
+---
+## Phase 2: Core Physics & Data Structures
+
+- **File:** `ptycho/physics.py`
+  - **Priority:** `CRITICAL`
+  - **Role & Architectural Significance:** Implements the core physics of ptychography. This module contains the mathematical models for wave propagation, probe-object interaction, and diffraction pattern formation. It is the scientific heart of the simulation and reconstruction process.
+  - **Key Public API(s):** `multislice_propagate()`, `get_probe_fresnel_tf()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Complex-valued tensors representing the object and the probe, and physical parameters (e.g., wavelength, pixel size).
+    - **Output:** A complex-valued tensor representing the exit wave after interaction.
+  - **State Dependencies:** `ptycho.params` (for physical constants like wavelength, energy, etc.).
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.fourier`.
+  - **Consumers (Internal):** `diffsim`, `model`, `losses`.
+  - **Docstring Action Plan:** `REWRITE` - The module has no docstring. Create one that explains the physical models implemented (e.g., multislice propagation) and their role in the ptychography simulation. Document the key physical parameters it depends on from the `params` object.
+
+- **File:** `ptycho/diffsim.py`
+  - **Priority:** `HIGH`
+  - **Role & Architectural Significance:** This module orchestrates the diffraction simulation process. It uses the core physics models to illuminate an object with a probe and calculate the resulting far-field diffraction patterns.
+  - **Key Public API(s):** `illuminate_and_diffract()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Tensors for the object patches (`Y_flat`) and the probe (`probe_batch`).
+    - **Output:** A tensor of simulated diffraction pattern amplitudes (`X_flat`).
+  - **State Dependencies:** `ptycho.params` (for simulation settings like noise level).
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.physics`, `ptycho.fourier`.
+  - **Consumers (Internal):** `nongrid_simulation`, `generate_data`, and simulation scripts.
+  - **Docstring Action Plan:** `CREATE` - The module is undocumented. The docstring should explain its role as the main physics simulation engine, detailing the `object -> exit_wave -> diffraction` workflow. It should clarify that the output is amplitude, not intensity, as per the data contract.
+
+- **File:** `ptycho/fourier.py`
+  - **Priority:** `HIGH`
+  - **Role & Architectural Significance:** Provides efficient and correct implementations of Fourier and Fresnel transforms using TensorFlow. These are fundamental operations for switching between real and reciprocal space, which is central to all ptychographic algorithms.
+  - **Key Public API(s):** `fft2()`, `ifft2()`, `fresnel_propagate_tf()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Complex-valued tensors in real or reciprocal space.
+    - **Output:** Complex-valued tensors transformed to the other space.
+  - **State Dependencies:** None.
+  - **Dependencies (Internal):** `ptycho.tf_helper`.
+  - **Consumers (Internal):** `physics`, `diffsim`, `model`, `custom_layers`.
+  - **Docstring Action Plan:** `IMPROVE` - The module has a minimal docstring. Improve it by explaining the importance of correct FFT shifting (`fftshift`) in physics simulations and clarifying the difference between a standard FFT and the Fresnel propagation implemented here.
+
+- **File:** `ptycho/classes.py`
+  - **Priority:** `MEDIUM`
+  - **Role & Architectural Significance:** Defines custom data structures and classes used throughout the application, such as `PtychoPINNModel` and `CustomModel`. It aims to encapsulate related data and methods for models and other components.
+  - **Key Public API(s):** `PtychoPINNModel`, `CustomModel`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Model weights, configuration parameters.
+    - **Output:** Instantiated model objects.
+  - **State Dependencies:** `ptycho.params`.
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.model`, `ptycho.probe`.
+  - **Consumers (Internal):** `train`, `inference`, `model_manager`.
+  - **Docstring Action Plan:** `REWRITE` - The module is undocumented. Create a docstring that explains the purpose of the main classes defined here and how they are used to structure the model and its components.
+
+---
+## Phase 3: Data Ingestion Pipeline
+
+- **File:** `ptycho/raw_data.py`
+  - **Priority:** `CRITICAL`
+  - **Role & Architectural Significance:** The primary data ingestion layer. Its key architectural role is to abstract away raw file formats and enforce physical coherence of scan positions *before* they enter the main ML pipeline, which is crucial for the validity of `gridsize > 1` training.
+  - **Key Public API(s):** `RawData` class, `RawData.generate_grouped_data()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Raw `.npz` files containing NumPy arrays. Key arrays include `'diffraction'` with shape `(num_scans, N, N)` and `'xcoords'`/`'ycoords'` with shape `(num_scans,)`.
+    - **Output:** A dictionary of grouped NumPy arrays consumed by `ptycho.loader`. The output shape is critically dependent on `params.get('gridsize')`:
+      - **If `gridsize > 1`**: Arrays are in "Channel Format", e.g., the `X` (diffraction) array has shape `(nsamples, N, N, gridsize**2)`.
+      - **If `gridsize == 1`**: Arrays represent individual patches, e.g., the `X` (diffraction) array has shape `(nsamples, N, N, 1)`.
+  - **State Dependencies:** Critically dependent on the global `ptycho.params.get('gridsize')` which algorithmically changes its grouping strategy from sequential slicing to a robust "sample-then-group" method.
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.config.config`, `ptycho.tf_helper`.
+  - **Consumers (Internal):** `ptycho.loader`, `ptycho.workflows.components`.
+  - **Docstring Action Plan:** `REWRITE` - The current docstring is outdated. It incorrectly describes the algorithm as "group-then-sample" and must be updated to reflect the current, performance-optimized "sample-then-group" logic. The critical state dependency on `gridsize` and the conditional output shapes must also be explicitly documented, following the gold standard example.
+
+- **File:** `ptycho/loader.py`
+  - **Priority:** `HIGH`
+  - **Role & Architectural Significance:** This module is the bridge between pre-processed NumPy data and the TensorFlow model. It takes the grouped data from `raw_data.py` and converts it into a `tf.data.Dataset` object, which is the standard input format for training in TensorFlow.
+  - **Key Public API(s):** `PtychoDataLoader` class, `PtychoDataLoader.get_dataset()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** A dictionary of NumPy arrays from `raw_data.generate_grouped_data()`.
+    - **Output:** A `tf.data.Dataset` object yielding batches of tensors ready for model consumption.
+  - **State Dependencies:** `ptycho.params` (for batch size, shuffling, etc.).
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.raw_data`.
+  - **Consumers (Internal):** `train`, `train_pinn`.
+  - **Docstring Action Plan:** `REWRITE` - The module has a basic docstring. It needs to be rewritten to explain its role in the data pipeline, specifically how it converts the NumPy dictionary from `raw_data` into a `tf.data.Dataset`. It should include a workflow example showing the `raw_data -> loader -> model` data flow.
+
+- **File:** `ptycho/datagen/grf.py`
+  - **Priority:** `MEDIUM`
+  - **Role & Architectural Significance:** Generates Gaussian Random Field (GRF) objects, which are synthetic test patterns with realistic terrain-like features. This is a key module for creating standardized, reproducible test data for algorithm validation.
+  - **Key Public API(s):** `mk_grf()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Object size `N`.
+    - **Output:** A real-valued NumPy array of shape `(N, N, 1)` representing the object amplitude.
+  - **State Dependencies:** None.
+  - **Dependencies (Internal):** None.
+  - **Consumers (Internal):** `generate_data` and other data generation scripts.
+  - **Docstring Action Plan:** `IMPROVE` - The existing docstring is good but could be improved by standardizing it to the project's template. Add an "Architecture Role" section and clarify the output shape and type.
+
+---
+## Phase 4: Model & Training Workflows
+
+- **File:** `ptycho/model.py`
+  - **Priority:** `CRITICAL`
+  - **Role & Architectural Significance:** Defines the core PtychoPINN neural network architecture. This module constructs the TensorFlow Keras model, including the encoder, decoder, and the physics-informed layers that connect them. It is the central component of the deep learning system.
+  - **Key Public API(s):** `get_model()`, `construct_model()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Configuration parameters defining the model structure (e.g., latent dimensions, layer sizes).
+    - **Output:** A compiled TensorFlow Keras `Model` instance.
+  - **State Dependencies:** `ptycho.params` (for all model hyperparameters).
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.custom_layers`, `ptycho.probe`, `ptycho.physics`.
+  - **Consumers (Internal):** `classes`, `train`, `inference`, `model_manager`.
+  - **Docstring Action Plan:** `REWRITE` - The module is undocumented. Create a comprehensive docstring that describes the PINN architecture, including the encoder-decoder structure and the role of the physics-informed layers. It should explain how the model takes diffraction patterns as input and outputs a reconstructed object and probe.
+
+- **File:** `ptycho/custom_layers.py`
+  - **Priority:** `HIGH`
+  - **Role & Architectural Significance:** Contains custom TensorFlow Keras layers that implement the physics-informed components of the model. This includes layers for probe illumination, wave propagation, and diffraction, allowing the physics to be embedded directly into the network graph.
+  - **Key Public API(s):** `Propagator`, `ObjectIllumination`, `ProbeIllumination`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Tensors representing object/probe fields at one stage of the physics simulation.
+    - **Output:** Tensors representing the fields after a physical transformation (e.g., after propagation).
+  - **State Dependencies:** `ptycho.params`.
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.physics`, `ptycho.fourier`, `ptycho.tf_helper`.
+  - **Consumers (Internal):** `model`.
+  - **Docstring Action Plan:** `REWRITE` - The module is undocumented. Create a docstring explaining why custom layers are necessary (to embed physics) and describe the function of each key layer.
+
+- **File:** `ptycho/train.py`
+  - **Priority:** `HIGH`
+  - **Role & Architectural Significance:** The main orchestrator for the model training process. This script brings together the data pipeline, the model, the loss functions, and the optimizer to run the training loop.
+  - **Key Public API(s):** `train()` function.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** A configuration object or file path.
+    - **Output:** A trained model saved to disk, along with training history and logs.
+  - **State Dependencies:** Heavily dependent on `ptycho.params`.
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.config.config`, `ptycho.loader`, `ptycho.classes`, `ptycho.model_manager`, `ptycho.losses`.
+  - **Consumers (Internal):** Primarily run as a top-level script.
+  - **Docstring Action Plan:** `CREATE` - The module is undocumented. The docstring should explain the end-to-end training workflow, from loading configuration to data loading, model compilation, training, and saving artifacts.
+
+- **File:** `ptycho/losses.py`
+  - **Priority:** `MEDIUM`
+  - **Role & Architectural Significance:** Defines the loss functions used to train the model. This is critical for the model's performance, as the loss function encodes the optimization objective (e.g., minimizing the difference between predicted and actual diffraction patterns).
+  - **Key Public API(s):** `ptycho_loss()`, `poisson_loss()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Tensors for the true and predicted values (e.g., `y_true`, `y_pred`).
+    - **Output:** A scalar tensor representing the loss value.
+  - **State Dependencies:** None.
+  - **Dependencies (Internal):** None.
+  - **Consumers (Internal):** `train`.
+  - **Docstring Action Plan:** `IMPROVE` - The module has some comments but no formal docstring. Create a module-level docstring explaining the purpose of the different loss functions and why specific choices (like Poisson loss) are relevant for ptychography.
+
+---
+## Phase 5: High-Level Workflows & Visualization
+
+- **File:** `ptycho/inference.py`
+  - **Priority:** `HIGH`
+  - **Role & Architectural Significance:** Orchestrates the inference process. This module loads a pre-trained model and a dataset, runs the model's `predict` method, and saves the reconstructed output.
+  - **Key Public API(s):** `run_inference()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Path to a trained model, path to input data, configuration.
+    - **Output:** Reconstructed object and probe saved as `.npz` or image files.
+  - **State Dependencies:** `ptycho.params`.
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.model_manager`, `ptycho.loader`.
+  - **Consumers (Internal):** Run as a top-level script.
+  - **Docstring Action Plan:** `CREATE` - The module is undocumented. Create a docstring explaining how to use the script to run inference with a trained model. Provide a clear command-line usage example.
+
+- **File:** `ptycho/workflows/components.py`
+  - **Priority:** `MEDIUM`
+  - **Role & Architectural Significance:** Provides reusable components for building higher-level workflows, such as training or simulation. It encapsulates common sequences of operations.
+  - **Key Public API(s):** `prepare_dataset_for_training()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Configuration objects.
+    - **Output:** Prepared data objects (e.g., `RawData` instance).
+  - **State Dependencies:** `ptycho.params`.
+  - **Dependencies (Internal):** `ptycho.params`, `ptycho.raw_data`.
+  - **Consumers (Internal):** High-level workflow scripts.
+  - **Docstring Action Plan:** `CREATE` - The module is undocumented. Add a docstring explaining its role in providing reusable workflow building blocks.
+
+- **File:** `ptycho/plotting.py`
+  - **Priority:** `MEDIUM`
+  - **Role & Architectural Significance:** Contains functions for visualizing data and results, such as plotting object reconstructions, probes, and diffraction patterns. Essential for debugging and interpreting results.
+  - **Key Public API(s):** `plot_fourier_object_probe_all()`, `plot_reconstruction()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** NumPy arrays or tensors representing images or data to be plotted.
+    - **Output:** Matplotlib plots shown to screen or saved to file.
+  - **State Dependencies:** None.
+  - **Dependencies (Internal):** `ptycho.misc`.
+  - **Consumers (Internal):** `evaluation`, `visualization`, various scripts and notebooks.
+  - **Docstring Action Plan:** `IMPROVE` - The module is undocumented. Add a module-level docstring and ensure all public plotting functions have clear docstrings explaining what they plot and what their key parameters are.
+
+---
+## Phase 6: Automation & Specialized Tooling
+
+- **File:** `ptycho/autotest/testing.py`
+  - **Priority:** `LOW`
+  - **Role & Architectural Significance:** Part of an automated testing framework that appears to log function calls and replay them to verify correctness. This is a specialized utility for regression testing.
+  - **Key Public API(s):** `Testing` class, `Testing.testCallable()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Log files containing serialized function inputs and outputs.
+    - **Output:** A test summary (pass/fail).
+  - **State Dependencies:** None.
+  - **Dependencies (Internal):** `ptycho.autotest.logger`, `ptycho.autotest.functionmapping`.
+  - **Consumers (Internal):** Used within the `autotest` framework.
+  - **Docstring Action Plan:** `IMPROVE` - The module has some debug prints but no formal documentation. Add a docstring explaining the purpose of this log-based testing approach.
+
+- **File:** `ptycho/FRC/fourier_ring_corr.py`
+  - **Priority:** `LOW`
+  - **Role & Architectural Significance:** Implements the Fourier Ring Correlation (FRC) calculation, a standard method for estimating the resolution of a reconstructed image.
+  - **Key Public API(s):** `frc()`.
+  - **Data Flow Contract (Inputs/Outputs):**
+    - **Input:** Two images (e.g., two independent reconstructions) to be compared.
+    - **Output:** An FRC curve and a scalar resolution value.
+  - **State Dependencies:** None.
+  - **Dependencies (Internal):** `ptycho.FRC.spin_average`.
+  - **Consumers (Internal):** `evaluation`.
+  - **Docstring Action Plan:** `CREATE` - The module is undocumented. Add a docstring explaining what FRC is and how this function can be used to measure image resolution.
+
+</prioritized_documentation_plan>
+---PRIORITIZED_MODULES_START---
+ptycho/params.py
+ptycho/config/config.py
+ptycho/tf_helper.py
+ptycho/physics.py
+ptycho/diffsim.py
+ptycho/fourier.py
+ptycho/raw_data.py
+ptycho/loader.py
+ptycho/model.py
+ptycho/custom_layers.py
+ptycho/train.py
+ptycho/inference.py
+ptycho/misc.py
+ptycho/classes.py
+ptycho/losses.py
+ptycho/datagen/grf.py
+ptycho/workflows/components.py
+ptycho/plotting.py
+ptycho/autotest/testing.py
+ptycho/FRC/fourier_ring_corr.py
+---PRIORITIZED_MODULES_END---
+
+---DEPENDENCY_REPORT_START---
+This is a high-level summary of dependencies. A full, detailed graph would be generated by a dedicated tool.
+
+- **`ptycho.params`**: Consumed by almost every module. It is the root of the dependency tree.
+- **`ptycho.config.config`**: Consumes `ptycho.params`. Consumed by `train`, `inference`.
+- **`ptycho.tf_helper`**: Consumes `ptycho.params`. Consumed by `model`, `custom_layers`, `raw_data`, `evaluation`.
+- **`ptycho.fourier`**: Consumes `ptycho.tf_helper`. Consumed by `physics`, `diffsim`, `model`.
+- **`ptycho.physics`**: Consumes `ptycho.params`, `ptycho.fourier`. Consumed by `diffsim`, `model`, `losses`.
+- **`ptycho.diffsim`**: Consumes `ptycho.params`, `ptycho.physics`, `ptycho.fourier`. Consumed by simulation scripts.
+- **`ptycho.raw_data`**: Consumes `ptycho.params`, `ptycho.config.config`, `ptycho.tf_helper`. Consumed by `ptycho.loader`.
+- **`ptycho.loader`**: Consumes `ptycho.params`, `ptycho.raw_data`. Consumed by `train`, `inference`.
+- **`ptycho.custom_layers`**: Consumes `ptycho.params`, `ptycho.physics`, `ptycho.fourier`, `ptycho.tf_helper`. Consumed by `ptycho.model`.
+- **`ptycho.model`**: Consumes `ptycho.params`, `ptycho.custom_layers`, `ptycho.probe`, `ptycho.physics`. Consumed by `classes`, `train`, `inference`.
+- **`ptycho.train`**: Consumes `ptycho.params`, `ptycho.config.config`, `ptycho.loader`, `ptycho.classes`, `ptycho.model_manager`, `ptycho.losses`.
+- **`ptycho.inference`**: Consumes `ptycho.params`, `ptycho.model_manager`, `ptycho.loader`.
+---DEPENDENCY_REPORT_END---
+EOF < /dev/null

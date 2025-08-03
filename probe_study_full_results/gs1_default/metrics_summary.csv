@@ -1,0 +1,10 @@
+model,metric,amplitude,phase,value,gridsize,probe_type,experiment
+PtychoPINN,mae,0.025429,0.041327,,1,default,gs1_default
+PtychoPINN,mse,0.011166,0.0584,,1,default,gs1_default
+PtychoPINN,psnr,67.651875,60.466705,,1,default,gs1_default
+PtychoPINN,ssim,,0.967883,,1,default,gs1_default
+PtychoPINN,ms_ssim,0.87114,0.95252,,1,default,gs1_default
+PtychoPINN,frc50,2.0,,,1,default,gs1_default
+PtychoPINN,registration_offset_dy,,,26.18,1,default,gs1_default
+PtychoPINN,registration_offset_dx,,,-0.12,1,default,gs1_default
+PtychoPINN,computation_time_s,,,4.017152,1,default,gs1_default

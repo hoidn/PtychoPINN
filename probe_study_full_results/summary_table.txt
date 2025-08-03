@@ -1,0 +1,20 @@
+# 2x2 Probe Parameterization Study Results
+
+## Performance Metrics
+
+| Gridsize | Probe Type | PSNR (Amp/Phase) | SSIM (Phase) | MS-SSIM (Amp/Phase) | FRC50 |
+|----------|------------|------------------|--------------|---------------------|-------|
+| 1 | Default | 67.65/60.47 | 0.9679 | 0.8711/0.9525 | 2.00 |
+| 1 | Hybrid | 67.65/60.55 | 0.9679 | 0.8709/0.9530 | 2.00 |
+
+## Degradation Analysis
+
+| Gridsize | Amplitude Degradation (dB) | Phase Degradation (dB) | Average Degradation (dB) |
+|----------|---------------------------|------------------------|-------------------------|
+| 1.0 | 0.0002 | -0.0798 | -0.0398 |
+
+## Success Criteria Validation
+
+- ✓ All models achieve PSNR > 20 dB (minimum: 60.47 dB)
+- ✓ Hybrid probe degradation < 3 dB (maximum: 0.0798 dB)
+- ⚠ Gridsize=2 data not available for robustness comparison

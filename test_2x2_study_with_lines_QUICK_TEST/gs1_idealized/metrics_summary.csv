@@ -1,0 +1,10 @@
+model,metric,amplitude,phase,value,gridsize,probe_type,experiment
+PtychoPINN,mae,1.982744,0.560461,,1,idealized,gs1_idealized
+PtychoPINN,mse,6.146803,0.988439,,1,idealized,gs1_idealized
+PtychoPINN,psnr,40.24431,48.181305,,1,idealized,gs1_idealized
+PtychoPINN,ssim,0.103273,0.615515,,1,idealized,gs1_idealized
+PtychoPINN,ms_ssim,,0.205534,,1,idealized,gs1_idealized
+PtychoPINN,frc50,1.0,,,1,idealized,gs1_idealized
+PtychoPINN,registration_offset_dy,,,26.92,1,idealized,gs1_idealized
+PtychoPINN,registration_offset_dx,,,-72.860001,1,idealized,gs1_idealized
+PtychoPINN,computation_time_s,,,2.133276,1,idealized,gs1_idealized

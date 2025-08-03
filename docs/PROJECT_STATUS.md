@@ -1,8 +1,22 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-08-02
+**Last Updated:** 2025-08-03
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
+
+---
+
+## 📍 **Current Active Initiative**
+
+**Name:** High-Performance Patch Extraction Refactoring  
+**Path:** `plans/active/high-performance-patch-extraction/`  
+**Branch:** `feature/high-performance-patch-extraction` (baseline: feature/simulation-workflow-unification)  
+**Started:** 2025-08-03  
+**Current Phase:** Phase 1: Core Batched Implementation  
+**Progress:** ░░░░░░░░░░░░░░░░ 0%  
+**Next Milestone:** A new `_get_image_patches_batched` function with basic unit tests  
+**R&D Plan:** <doc-ref type="plan">plans/active/high-performance-patch-extraction/plan.md</doc-ref>  
+**Implementation Plan:** <doc-ref type="plan">plans/active/high-performance-patch-extraction/implementation.md</doc-ref>
 
 ---
 
@@ -60,12 +74,6 @@ This document provides a high-level overview of the major development initiative
     *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-statistical-generalization/implementation.md</doc-ref>
 
 ---
-
-## 🚀 **Current Active Initiative**
-
-### **Initiative: None - Ready for Next Initiative**
-
-The Simulation Workflow Unification initiative has been completed. The project is ready for the next initiative.
 
 ---
 

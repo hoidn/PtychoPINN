@@ -1,4 +1,87 @@
 #!/usr/bin/env python
+"""
+Main training script for PtychoPINN models using modern configuration system.
+
+This is the primary entry point for training both PINN (physics-informed) and supervised
+baseline models for ptychographic reconstruction. The script supports flexible configuration
+through YAML files or command-line arguments, with automatic parameter validation and
+organized output directory structure.
+
+Key Features:
+- Modern dataclass-based configuration with YAML support
+- Automatic interpretation of --n_images based on gridsize
+- Comprehensive logging and error handling
+- Optional stitching for full object reconstruction
+- Support for both training-only and train+test workflows
+
+Usage:
+    ptycho_train [--config CONFIG_FILE] [ARGUMENTS]
+
+Arguments:
+    --config: Path to YAML configuration file (recommended approach)
+    --train-data-file: Path to training NPZ file (required if no config)
+    --test-data-file: Path to test NPZ file (optional)
+    --output-dir: Directory for outputs (default: current directory)
+    --n-images: Number of images/groups to use (see note below)
+    --nepochs: Number of training epochs (default: 50)
+    --batch-size: Batch size for training (default: 16)
+    --model-type: Model type - 'pinn' or 'supervised' (default: pinn)
+    --do-stitching: Enable patch stitching for visualization
+    
+    Additional arguments control model architecture, physics parameters, and
+    training hyperparameters. Use --help for complete list.
+
+Critical Note on --n-images:
+    The interpretation of --n-images depends on gridsize:
+    - gridsize=1: Refers to individual diffraction patterns
+    - gridsize>1: Refers to number of neighbor groups
+      (total patterns = n_images * gridsize^2)
+    
+    Example: --n-images=100 with gridsize=2 results in 400 total patterns
+
+Examples:
+    # Example 1: Quick verification test with minimal data
+    ptycho_train --train-data-file datasets/fly/fly001_transposed.npz \\
+                 --n-images 512 --output-dir verification_run
+
+    # Example 2: Full training using YAML configuration (recommended)
+    ptycho_train --config configs/experiment_config.yaml
+
+    # Example 3: Override specific parameters from YAML
+    ptycho_train --config configs/base_config.yaml \\
+                 --n-images 2000 --nepochs 100 --output-dir custom_run
+
+    # Example 4: Train supervised baseline with test data
+    ptycho_train --train-data-file train_data.npz \\
+                 --test-data-file test_data.npz \\
+                 --model-type supervised \\
+                 --n-images 5000 \\
+                 --output-dir baseline_model
+
+Input Requirements:
+    Training data must be in NPZ format with required keys:
+    - 'diffraction': Amplitude data (not intensity), shape (n, N, N)
+    - 'objectGuess': Complex object array
+    - 'probeGuess': Complex probe array
+    - 'xcoords', 'ycoords': Scan position coordinates
+    
+    For supervised models, additionally requires:
+    - 'Y': Pre-extracted object patches
+    
+    See docs/data_contracts.md for complete specifications.
+
+Output Structure:
+    The output directory will contain:
+    - output_dir/
+        - wts.h5.zip: Trained model weights (main output)
+        - history.dill: Training history for plotting
+        - params.dill: Configuration snapshot
+        - reconstructed_amplitude.png: Final reconstruction visualization
+        - reconstructed_phase.png: Phase reconstruction
+        - metrics.csv: Evaluation metrics (if test data provided)
+        - logs/
+            - debug.log: Complete training log with DEBUG level detail
+"""
 
 import logging
 import sys
