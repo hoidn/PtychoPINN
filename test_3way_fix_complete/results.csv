@@ -1,4 +1,0 @@
-train_size,model_type,metric_name,metric_value,generated_at
-512,pinn,ms_ssim_phase,0.863545,2025-07-29T20:50:01.295084
-1024,baseline,ms_ssim_phase,0.858226,2025-07-29T20:50:01.295084
-1024,pinn,ms_ssim_phase,0.859098,2025-07-29T20:50:01.295084

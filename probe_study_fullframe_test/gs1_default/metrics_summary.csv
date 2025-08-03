@@ -1,8 +1,0 @@
-model,metric,amplitude,phase,value
-PtychoPINN,mae,,,
-PtychoPINN,mse,,,
-PtychoPINN,psnr,,,
-PtychoPINN,ssim,,,
-PtychoPINN,ms_ssim,,,
-PtychoPINN,frc50,,,
-PtychoPINN,computation_time_s,,,3.798823

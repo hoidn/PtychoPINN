@@ -1,3 +1,0 @@
-[console_scripts]
-ptycho_inference = scripts.inference.inference:main
-ptycho_train = scripts.training.train:main
