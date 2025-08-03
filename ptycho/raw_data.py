@@ -62,6 +62,18 @@ Architectural Notes & Dependencies:
 - It automatically creates a cache file (`*.groups_cache.npz`) to accelerate
   subsequent runs when using gridsize > 1.
 - The "sample-then-group" algorithm ensures spatial diversity in training batches.
+
+Key Tensor Formats and Conventions
+----------------------------------
+This module produces and consumes tensors with specific, non-obvious conventions
+that are critical for correctness.
+
+- **Offsets Tensor (`offsets_c`, `offsets_f`):**
+  - **Shape:** 4D tensors like `(B, 1, 2, c)` or `(B*c, 1, 2, 1)`.
+  - **Coordinate Order:** The dimension of size 2 always stores coordinates
+    in **`[y_offset, x_offset]`** order.
+  - **Usage:** This tensor requires coordinate swapping before being passed to
+    `ptycho.tf_helper.translate`.
 """
 import numpy as np
 import tensorflow as tf
@@ -491,22 +503,27 @@ def calculate_relative_coords(xcoords, ycoords, K = 4, C = None, nsamples = 10):
 def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=None, config: Optional[TrainingConfig] = None):
     """
     Generate and return image patches in channel format.
-    
+
     This function extracts patches from a ground truth image at specified positions.
     It serves as a dispatcher between iterative and batched implementations based
     on the configuration. The batched implementation provides significant performance
     improvements (10-100x) for large datasets.
 
+    The implementation is selected based on the `use_batched_patch_extraction` 
+    configuration parameter, which defaults to False for backward compatibility.
+
     Args:
-        gt_image (tensor): Ground truth image tensor of shape (H, W).
-        global_offsets (tensor): Global offset tensor of shape (B, 1, 1, 2).
-        local_offsets (tensor): Local offset tensor of shape (B, gridsize, gridsize, 2).
-        N (int, optional): Patch size. If None, uses config or params.get('N').
-        gridsize (int, optional): Grid size. If None, uses config or params.get('gridsize').
-        config (TrainingConfig, optional): Configuration object containing model parameters.
+        gt_image (tf.Tensor): Ground truth image tensor.
+        global_offsets (tf.Tensor): Global offset tensor with shape `(B, 1, 2, c)`
+            and coordinate order `[y, x]`.
+        local_offsets (tf.Tensor): Local offset tensor with shape `(B, 1, 2, c)`
+            and coordinate order `[y, x]`.
+        N (int, optional): Patch size. Defaults to value from config.
+        gridsize (int, optional): Grid size. Defaults to value from config.
+        config (TrainingConfig, optional): Configuration object.
 
     Returns:
-        tensor: Image patches in channel format of shape (B, N, N, gridsize**2).
+        tf.Tensor: Image patches in channel format with shape (B, N, N, gridsize**2).
     """
     # Hybrid configuration: prioritize config object, then explicit parameters, then legacy params
     if config:
@@ -597,17 +614,11 @@ def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: in
     # Create a batched version of the padded image by repeating it B*c times
     gt_padded_batch = tf.repeat(gt_padded, B * c, axis=0)
     
-    # IMPORTANT: The legacy implementation has a bug where it uses offsets_f[i, :, :, 0]
-    # which extracts only the first component (y-offset) and creates a shape (1, 1) tensor.
-    # This doesn't work with the current translate function which requires shape [?, 2].
-    # 
-    # The legacy code passes this (1, 1) tensor to translate, which must have been 
-    # interpreted differently in an older version. Since we can't replicate the exact
-    # broken behavior, we'll make a best-effort approximation.
-    # 
-    # For now, we'll use the full offset vector as intended:
-    offsets_reshaped = tf.reshape(offsets_f, (B * c, 2))  # Shape: (B*c, 2)
-    negated_offsets = -offsets_reshaped
+    # The legacy implementation uses offsets_f[i, :, :, 0] on tensor with shape (B*c, 1, 2, 1)
+    # The last index 0 selects the last dimension.
+    # For the batched version, we need to properly extract the offsets.
+    # offsets_f has shape (B*c, 1, 2, 1) after _channel_to_flat
+    negated_offsets = -offsets_f[:, 0, :, 0]  # Shape: (B*c, 2)
     
     # Perform a single batched translation
     translated_patches = hh.translate(gt_padded_batch, negated_offsets)
@@ -616,7 +627,14 @@ def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: in
     patches_flat = translated_patches[:, :N, :N, :]  # Shape: (B*c, N, N, 1)
     
     # Reshape from flat format to channel format
-    patches_channel = tf.reshape(patches_flat, (B, N, N, c))
+    # The iterative version assigns patches like: canvas[i // c, :, :, i % c]
+    # To match this, we need to:
+    # 1. Remove the last dimension: (B*c, N, N, 1) -> (B*c, N, N)
+    patches_squeezed = tf.squeeze(patches_flat, axis=-1)
+    # 2. Reshape to (B, c, N, N) to group patches by batch
+    patches_grouped = tf.reshape(patches_squeezed, (B, c, N, N))
+    # 3. Transpose to (B, N, N, c) to get channel-last format
+    patches_channel = tf.transpose(patches_grouped, [0, 2, 3, 1])
     
     return patches_channel
 

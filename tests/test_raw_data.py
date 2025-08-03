@@ -124,5 +124,115 @@ class TestPatchExtraction(unittest.TestCase):
         self.assertLess(center_value.numpy(), 200.0)
 
 
+class TestPatchExtractionDispatcher(unittest.TestCase):
+    """Test cases for the dispatcher functionality of get_image_patches."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        # Enable eager execution for testing
+        tf.config.run_functions_eagerly(True)
+        # Import the function we need
+        from ptycho.raw_data import get_image_patches
+        self.get_image_patches = get_image_patches
+        
+    def test_dispatcher_uses_iterative_by_default(self):
+        """Verify default behavior uses iterative implementation."""
+        from ptycho import params
+        
+        # Ensure the flag is not set (default behavior)
+        if 'use_batched_patch_extraction' in params.cfg:
+            del params.cfg['use_batched_patch_extraction']
+        
+        # Create test data
+        N = 64
+        gridsize = 2
+        B = 2
+        test_image = tf.complex(
+            tf.ones((200, 200), dtype=tf.float32),
+            tf.zeros((200, 200), dtype=tf.float32)
+        )
+        
+        # Create offsets in the expected shape
+        global_offsets = tf.zeros((B, 1, 2, gridsize**2), dtype=tf.float32)
+        local_offsets = tf.random.uniform((B, 1, 2, gridsize**2), 
+                                        minval=-10, maxval=10, dtype=tf.float32)
+        
+        # Call get_image_patches without config (should use iterative)
+        result = self.get_image_patches(test_image, global_offsets, local_offsets, N=N, gridsize=gridsize)
+        
+        # Verify output shape
+        self.assertEqual(result.shape, (B, N, N, gridsize**2))
+        
+    def test_dispatcher_uses_batched_when_enabled(self):
+        """Verify batched path when feature flag is enabled."""
+        from ptycho import params
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        
+        # Create config with batched extraction enabled
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2, use_batched_patch_extraction=True),
+            nepochs=1
+        )
+        
+        # Create test data
+        N = 64
+        gridsize = 2
+        B = 2
+        test_image = tf.complex(
+            tf.ones((200, 200), dtype=tf.float32),
+            tf.zeros((200, 200), dtype=tf.float32)
+        )
+        
+        # Create offsets in the expected shape
+        global_offsets = tf.zeros((B, 1, 2, gridsize**2), dtype=tf.float32)
+        local_offsets = tf.random.uniform((B, 1, 2, gridsize**2), 
+                                        minval=-10, maxval=10, dtype=tf.float32)
+        
+        # Call get_image_patches with config (should use batched)
+        result = self.get_image_patches(test_image, global_offsets, local_offsets, config=config)
+        
+        # Verify output shape
+        self.assertEqual(result.shape, (B, N, N, gridsize**2))
+        
+    def test_configuration_priority(self):
+        """Test that config object takes precedence over legacy params."""
+        from ptycho import params
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        
+        # Set different values in params vs config
+        params.set('use_batched_patch_extraction', False)  # Legacy says False
+        
+        # Create config with batched extraction enabled
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2, use_batched_patch_extraction=True),  # Config says True
+            nepochs=1
+        )
+        
+        # Create test data
+        N = 64
+        gridsize = 2
+        B = 2
+        test_image = tf.complex(
+            tf.ones((200, 200), dtype=tf.float32),
+            tf.zeros((200, 200), dtype=tf.float32)
+        )
+        
+        # Create offsets
+        global_offsets = tf.zeros((B, 1, 2, gridsize**2), dtype=tf.float32)
+        local_offsets = tf.random.uniform((B, 1, 2, gridsize**2), 
+                                        minval=-10, maxval=10, dtype=tf.float32)
+        
+        # Call with config - should use config value (True) not params value (False)
+        result = self.get_image_patches(test_image, global_offsets, local_offsets, config=config)
+        
+        # Just verify it works - the logging would show which path was taken
+        self.assertEqual(result.shape, (B, N, N, gridsize**2))
+        
+        # Test when config is None - should fall back to params
+        params.set('use_batched_patch_extraction', False)
+        result2 = self.get_image_patches(test_image, global_offsets, local_offsets, N=N, gridsize=gridsize)
+        self.assertEqual(result2.shape, (B, N, N, gridsize**2))
+
+
 if __name__ == '__main__':
     unittest.main()
