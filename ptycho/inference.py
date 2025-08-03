@@ -1,9 +1,63 @@
 """
-Legacy inference utilities for loading pre-trained models and performing reconstruction.
+Legacy inference utilities for loading pre-trained models and performing ptychographic reconstruction.
 
-Example:
-    >>> results = inference_flow("model.h5", data_container)
-    >>> reconstructed_obj = results['reconstructed_obj']
+This module provides a simplified interface for running inference with pre-trained PtychoPINN models.
+It handles model loading, data preparation, and reconstruction execution in a streamlined workflow.
+The module serves as a bridge between saved model artifacts and the inference pipeline, abstracting
+away the complexities of model initialization and data preprocessing.
+
+Architecture Role:
+    Sits between the training pipeline and end-user inference workflows:
+    Saved Model (.h5) + Test Data → Model Loading → Data Preparation → Inference Execution → Reconstruction Results
+    
+    Key responsibilities:
+    - Load pre-trained models via ModelManager
+    - Prepare PtychoDataContainer inputs for inference
+    - Execute model prediction with proper data scaling
+    - Return structured reconstruction results
+    - Provide fallback object stitching capabilities
+
+Public Interface:
+    `inference_flow(model_path, data_container)`
+        - Purpose: Complete end-to-end inference workflow
+        - Critical Behavior: Applies intensity scaling from global params during data preparation
+        - Key Parameters: model_path (H5 file or None for params.h5_path), data_container (preprocessed data)
+    
+    `load_pretrained_model(model_path)`
+        - Purpose: Load saved model weights and architecture via ModelManager
+        - Critical Behavior: Delegates to ModelManager.load_model() for proper model restoration
+        - Key Parameters: model_path (path to .h5 model file)
+    
+    `perform_inference(model, X, coords_nominal)`
+        - Purpose: Execute model prediction on prepared inputs
+        - Critical Behavior: Returns dict with 'reconstructed_obj', 'pred_amp', 'reconstructed_obj_cdi'
+        - Key Parameters: model (loaded Keras model), X (scaled diffraction data), coords_nominal (scan positions)
+
+Workflow Usage Example:
+    ```python
+    from ptycho.loader import PtychoDataContainer
+    from ptycho.inference import inference_flow
+    
+    # Load test data
+    data_container = PtychoDataContainer.from_file("test_data.npz")
+    
+    # Run complete inference pipeline
+    results = inference_flow("trained_model.h5", data_container)
+    
+    # Extract results
+    reconstructed_object = results['reconstructed_obj']
+    predicted_amplitudes = results['pred_amp']
+    cdi_reconstruction = results['reconstructed_obj_cdi']
+    ```
+
+Architectural Notes & Dependencies:
+- ModelManager: Handles model loading/saving with proper weight restoration
+- PtychoDataContainer: Provides preprocessed, model-ready diffraction data and coordinates
+- Global params: Used for intensity scaling factor and fallback model paths
+- ptycho.model: Direct import for accessing model parameters during data preparation
+- ptycho.image: Optional dependency for modern object stitching capabilities
+- State Dependency: Relies on global params configuration for intensity_scale and h5_path defaults
+- Legacy Note: This module uses older parameter access patterns and is marked for consolidation with train_pinn
 """
 from ptycho.model_manager import ModelManager
 from tensorflow.keras.models import Model
