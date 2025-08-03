@@ -526,8 +526,23 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
     offsets_c = tf.cast((global_offsets + local_offsets), tf.float32)
     offsets_f = hh._channel_to_flat(offsets_c)
 
-    # Use the iterative implementation for now (will add dispatcher logic in Phase 2)
-    return _get_image_patches_iterative(gt_padded, offsets_f, N, B, c)
+    # Dispatcher logic: choose between iterative and batched implementations
+    logger = logging.getLogger(__name__)
+    
+    if config and hasattr(config.model, 'use_batched_patch_extraction'):
+        use_batched = config.model.use_batched_patch_extraction
+    else:
+        try:
+            use_batched = params.get('use_batched_patch_extraction')
+        except KeyError:
+            use_batched = False
+    
+    logger.info(f"Using {'batched' if use_batched else 'iterative'} patch extraction implementation.")
+    
+    if use_batched:
+        return _get_image_patches_batched(gt_padded, offsets_f, N, B, c)
+    else:
+        return _get_image_patches_iterative(gt_padded, offsets_f, N, B, c)
 
 
 def _get_image_patches_iterative(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: int, B: int, c: int) -> tf.Tensor:
@@ -582,8 +597,17 @@ def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: in
     # Create a batched version of the padded image by repeating it B*c times
     gt_padded_batch = tf.repeat(gt_padded, B * c, axis=0)
     
-    # Extract the negated offsets (matching the iterative implementation)
-    negated_offsets = -offsets_f[:, 0, 0, :]  # Shape: (B*c, 2)
+    # IMPORTANT: The legacy implementation has a bug where it uses offsets_f[i, :, :, 0]
+    # which extracts only the first component (y-offset) and creates a shape (1, 1) tensor.
+    # This doesn't work with the current translate function which requires shape [?, 2].
+    # 
+    # The legacy code passes this (1, 1) tensor to translate, which must have been 
+    # interpreted differently in an older version. Since we can't replicate the exact
+    # broken behavior, we'll make a best-effort approximation.
+    # 
+    # For now, we'll use the full offset vector as intended:
+    offsets_reshaped = tf.reshape(offsets_f, (B * c, 2))  # Shape: (B*c, 2)
+    negated_offsets = -offsets_reshaped
     
     # Perform a single batched translation
     translated_patches = hh.translate(gt_padded_batch, negated_offsets)
