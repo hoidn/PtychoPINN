@@ -1,56 +1,28 @@
-"""Legacy global configuration system for PtychoPINN.
+"""Global parameter management and configuration state.
 
-⚠️  DEPRECATED: This module implements a global dictionary-based parameter management
-system that is being phased out in favor of the modern dataclass configuration system
-in `ptycho.config.config`. Despite its deprecated status, this module remains CRITICAL
-for backward compatibility as it is the most imported module in the codebase (23+ consumers).
+Central parameter registry for the PtychoPINN system providing singleton-like 
+global state container for all configuration parameters.
 
 Architecture Role:
-    This module represents the old architecture pattern where configuration was managed
-    through a global mutable dictionary (`cfg`). While this pattern has known limitations
-    (global state, lack of type safety, difficult testing), it is still essential for
-    maintaining compatibility with existing code during the modernization transition.
+    Configuration Loading → params.py (global state) → All consumers
+    Root of dependency tree, consumed by 23+ modules.
 
-Global Configuration Dictionary:
-    The `cfg` dictionary contains all system parameters including:
-    - Model architecture: N (patch size), gridsize, n_filters_scale
-    - Training: batch_size, nepochs, various loss weights
-    - Physics simulation: nphotons, probe parameters, positioning
-    - Data processing: offsets, padding, object/probe sizing
+Public Interface:
+    `get(key)` - Retrieve parameters; auto-computes 'bigN' from N/gridsize/offset
+    `set(key, value)` - Update parameters with validation; affects global state
+    `params()` - Complete parameter snapshot including derived values
 
-Core Functions:
-    - get(key): Retrieve parameter value with special handling for derived values
-    - set(key, value): Update parameter with automatic validation
-    - params(): Get complete parameter dictionary with derived values
-    - validate(): Ensure parameter consistency and valid combinations
-
-Migration Strategy:
-    Modern workflows should use the dataclass system from `ptycho.config.config`.
-    The modern system updates this legacy `cfg` dictionary at initialization to
-    maintain compatibility with existing modules that still use `params.get()`.
-
-Usage Examples:
-    Legacy pattern (deprecated):
-        import ptycho.params as p
-        p.set('N', 128)
-        batch_size = p.get('batch_size')
-    
-    Modern pattern (preferred):
-        from ptycho.config.config import TrainingConfig
-        config = TrainingConfig(N=128, batch_size=32)
-        # Modern config automatically updates legacy params.cfg
-
-Deprecation Timeline:
-    This module will remain until all 23+ consumer modules are migrated to accept
-    configuration dataclasses directly. Current high-priority consumers requiring
-    migration include: baselines, diffsim, evaluation, loader, model, train_pinn,
-    and workflows.components.
+Usage Example:
+    ```python
+    import ptycho.params as params
+    params.set('N', 64)
+    patch_size = params.get('N')       # 64
+    grid_coverage = params.get('bigN') # Auto-computed from N/gridsize/offset
+    ```
 
 Warnings:
-    - Avoid using this module in new code
-    - Global state makes testing and concurrency difficult  
-    - Parameter changes affect all code using this module
-    - Type safety is not enforced on parameter values
+- Mutable global state; values may change during execution
+- Legacy system; prefer explicit config objects for new code
 """
 import numpy as np
 import tensorflow as tf

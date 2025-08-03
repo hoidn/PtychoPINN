@@ -1,3 +1,18 @@
+"""
+Gaussian Random Field (GRF) generation for synthetic test objects.
+
+Generates terrain-like synthetic objects for ptychographic algorithm validation.
+
+Public Interface:
+    `mk_grf(N)` - Generate GRF object (N even, returns (N,N,1) real array)
+
+Usage:
+    ```python
+    obj = mk_grf(128)  # Generate test object
+    complex_obj = obj[..., 0] * np.exp(1j * phase)
+    ```
+"""
+
 # credit https://github.com/PabloVD/MapGenerator
 
 import matplotlib.pyplot as plt

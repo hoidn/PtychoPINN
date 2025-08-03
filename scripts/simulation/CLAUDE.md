@@ -2,9 +2,10 @@
 
 ## Quick Context
 - **Two-stage architecture**: Input generation → Diffraction simulation
-- **Core tool**: `simulate_and_save.py` 
+- **Core tool**: `simulate_and_save.py` (refactored with modular workflow)
 - **Quick start**: `run_with_synthetic_lines.py` (for 'lines' objects)
 - **Purpose**: Generate synthetic training/test datasets
+- **Key improvement**: Now supports gridsize > 1 correctly
 
 ## Essential Commands
 
@@ -83,12 +84,19 @@ python scripts/simulation/simulate_and_save.py \
 
 ### Custom Grid Sampling
 ```bash
-# Dense grid sampling (gridsize > 1)
+# Dense grid sampling (gridsize > 1) - NOW WORKING!
 python scripts/simulation/simulate_and_save.py \
     --input-file input.npz \
     --output-file dense_grid.npz \
     --n-images 2000 \
-    --gridsize 2  # 2x2 grid sampling
+    --gridsize 2  # 2x2 grid sampling (fixed!)
+
+# Gridsize 3 also supported
+python scripts/simulation/simulate_and_save.py \
+    --input-file input.npz \
+    --output-file dense_grid_3x3.npz \
+    --n-images 1000 \
+    --gridsize 3  # 3x3 grid sampling
 ```
 
 ## Object Types
@@ -210,6 +218,33 @@ ptycho_train --train_data_file sim_data/synthetic_lines_data.npz --output_dir tr
 
 # 3. Test on real data
 ptycho_inference --model_path trained_on_synthetic --test_data real_test_data.npz --output_dir synthetic_to_real_test
+```
+
+## Architecture Notes (Updated 2025-08-02)
+
+### Modular Workflow
+The `simulate_and_save.py` script now uses a modular, explicit workflow instead of the monolithic `RawData.from_simulation` method:
+
+1. **Coordinate Generation**: Uses `ptycho.raw_data.group_coords()` for spatial grouping
+2. **Patch Extraction**: Uses `ptycho.raw_data.get_image_patches()` in Channel Format
+3. **Format Conversion**: Explicit Channel ↔ Flat format conversion via `tf_helper`
+4. **Physics Simulation**: Direct use of `ptycho.diffsim.illuminate_and_diffract()`
+5. **Assembly**: Proper handling of coordinate expansion for gridsize > 1
+
+### Migration from Legacy Code
+If you have code using the deprecated `RawData.from_simulation`:
+- Replace with direct calls to `simulate_and_save.py`
+- The new approach is more transparent and debuggable
+- Gridsize > 1 now works correctly
+
+### Debug Mode
+```bash
+# Enable debug logging to trace tensor shapes
+python scripts/simulation/simulate_and_save.py \
+    --input-file input.npz \
+    --output-file output.npz \
+    --gridsize 2 \
+    --debug
 ```
 
 ## Cross-References

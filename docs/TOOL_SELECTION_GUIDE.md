@@ -148,6 +148,13 @@ python scripts/simulation/simulate_and_save.py \
     --output-file <sim_data.npz> \
     --n-images 2000 \
     --gridsize 1
+
+# Now supports gridsize > 1 (fixed in 2025-08-02)
+python scripts/simulation/simulate_and_save.py \
+    --input-file <obj_probe.npz> \
+    --output-file <sim_data_gs2.npz> \
+    --n-images 1000 \
+    --gridsize 2
 ```
 
 ### Complex Simulation

@@ -1,3 +1,59 @@
+"""
+Log-based regression testing framework for PtychoPINN functions.
+
+This module implements a testing system that captures function calls during
+development, logs their inputs/outputs, and can replay them later to verify
+that behavior remains consistent. Useful for detecting regressions in
+numerical algorithms and ensuring reproducible results.
+
+Architecture Role:
+    Function calls -> logger -> testing.py -> Pass/Fail verification
+    
+    Part of the autotest framework that enables recording and replaying
+    function behavior for regression detection in complex computations.
+
+Public Interface:
+    `Testing` class
+        - Purpose: Main testing orchestrator for log-based regression tests.
+        - Key Methods:
+            - testCallable(log_path, func): Test function against stored logs
+            - runTestSuite(log_path): Execute all tests for a log directory
+            - createTestCase(log_path): Generate test case from logs
+    
+    `TestSummary` class
+        - Purpose: Tracks and reports test execution results.
+        - Attributes: passed, failed, skipped counters
+
+Workflow Usage Example:
+    ```python
+    from ptycho.autotest.testing import Testing
+    from ptycho.autotest.logger import Logger
+    from ptycho.autotest.functionmapping import FunctionMapping
+    
+    # Initialize testing framework
+    logger = Logger()
+    mapping = FunctionMapping()
+    tester = Testing(logger, mapping)
+    
+    # Test a specific function against its logs
+    def my_algorithm(x, y):
+        return x * 2 + y
+    
+    # Run regression test
+    passed = tester.testCallable('logs/my_algorithm', my_algorithm)
+    print(f"Test passed: {passed}")
+    
+    # Run full test suite
+    summary = tester.runTestSuite('logs/')
+    print(f"Results: {summary.passed} passed, {summary.failed} failed")
+    ```
+
+Dependencies:
+    - ptycho.autotest.logger: Handles log file operations and serialization
+    - ptycho.autotest.functionmapping: Maps functions to their log files
+    - ptycho.autotest.configuration: Provides testing configuration settings
+"""
+
 from .logger import Logger
 from .functionmapping import FunctionMapping
 from .configuration import Configuration

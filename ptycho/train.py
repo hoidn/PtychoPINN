@@ -1,13 +1,40 @@
-"""Legacy training script for PtychoPINN models.
+"""
+Legacy training orchestrator for PtychoPINN models.
 
-**DEPRECATED**: Uses older configuration system. Use `ptycho_train` command instead.
+**DEPRECATED**: Uses older configuration system. For new experiments,
+prefer `ptycho_train` command which uses modern configuration management.
 
-Orchestrates model training for PINN and supervised approaches using legacy
-`ptycho.params.cfg` system. Generates/loads data, trains model, and saves
-results including weights, history, and reconstruction visualizations.
+This module orchestrates the complete model training workflow using the legacy
+`ptycho.params.cfg` system. It handles data generation/loading, model compilation,
+training execution, and artifact saving for both PINN and supervised approaches.
 
-Usage (deprecated): python -m ptycho.train --model_type pinn --nepochs 60
-Modern alternative: ptycho_train --config configs/my_config.yaml --output_dir my_run
+Architecture Role:
+    CLI args -> train.py (orchestrator) -> Trained model & artifacts
+    
+    High-level script coordinating training pipeline components from data
+    preparation through optimization to result persistence via global params state.
+
+Public Interface:
+    Script execution only - no public functions for programmatic use.
+    - Input: Command-line arguments for training configuration.
+    - Output: Saves trained model, history, and visualizations to output directory.
+    - Side Effects: Modifies global params state, creates output directory.
+
+Workflow Usage Example:
+    ```bash
+    # Legacy usage (deprecated):
+    python -m ptycho.train --model_type pinn --nepochs 60 --gridsize 2
+    
+    # Modern alternative (preferred):
+    ptycho_train --config configs/experiment.yaml --output_dir my_run
+    ```
+    
+    Output: <output_prefix>/{wts.h5.zip, history.dill, reconstructed_*.png}
+
+Architectural Notes:
+- Supports 'pinn' and 'supervised' model types via --model_type argument.
+- Uses legacy params.cfg instead of modern dataclasses configuration.
+- For new development, use scripts/training/train.py with modern configuration.
 """
 # train.py
 

@@ -1,29 +1,69 @@
-"""Miscellaneous utility functions for PtychoPINN.
+"""
+General-purpose utilities for the PtychoPINN project.
 
-This module provides utility functions and decorators supporting the PtychoPINN 
-workflow, including caching mechanisms for expensive computations and helper 
-functions for output path generation and image processing.
+This module contains miscellaneous helper functions that are used across
+the codebase but don't belong to any specific subsystem. Includes intelligent 
+caching decorators for expensive computations, path generation utilities, 
+and image processing tools.
 
-Key Public Interface:
-    @memoize_disk_and_memory: Decorator for caching function results to disk and memory
-    @memoize_simulated_data: Specialized decorator for caching simulated ptychography data
-    get_path_prefix(): Generate timestamped output directory paths
-    colormap2arr(): Convert RGB colormap images to grayscale arrays
-    cross_image(): Find offsets through 2D autocorrelation
+Architecture Role:
+    Various modules -> misc.py (utilities) -> Cached results/processed data
+    
+    Provides caching infrastructure and common functionality to avoid code 
+    duplication across the project.
 
-The caching decorators significantly speed up repeated computations by storing 
-results based on function parameters and configuration state. They are primarily 
-used by simulation and data preprocessing modules.
+Public Interface:
+    `@memoize_disk_and_memory`
+        - Purpose: Cache function results to disk and memory based on arguments.
+        - Includes global ptycho.params state in cache keys for consistency.
+    
+    `@memoize_simulated_data`
+        - Purpose: Specialized caching for ptychography simulation with RawData objects.
+        - Handles complex NumPy arrays and preserves data structure integrity.
+    
+    `get_path_prefix()`
+        - Purpose: Generate timestamped output directory paths for experiments.
+        - Returns: Path string using current timestamp and configuration labels.
+        
+    `cross_image(image1, image2)`
+        - Purpose: Compute 2D cross-correlation for image alignment and offset detection.
+        - Returns: Cross-correlation result for finding image offsets.
+        
+    `colormap2arr(arr, cmap)`
+        - Purpose: Convert RGB colormap images back to grayscale scalar values.
+        - Used for reversing matplotlib colormap transformations.
 
-Example Usage:
-    from ptycho.misc import memoize_disk_and_memory, get_path_prefix
+Workflow Usage Example:
+    ```python
+    from ptycho.misc import memoize_disk_and_memory, get_path_prefix, cross_image
+    from ptycho import params
+    import numpy as np
+    
+    # 1. Caching expensive computations
+    params.set('nphotons', 1e6)
+    params.set('gridsize', 2)
     
     @memoize_disk_and_memory
-    def expensive_simulation(params):
-        # Computation is cached automatically
-        return simulate_diffraction_data(params)
+    def expensive_simulation(obj, probe, n_imgs):
+        # Results cached based on arguments + global params state
+        return simulate_diffraction_patterns(obj, probe, n_imgs)
     
-    output_dir = get_path_prefix()  # e.g., "outputs/01-15-2024-14.30.15_experiment/"
+    result = expensive_simulation(obj, probe, 1000)  # Cached for reuse
+    
+    # 2. Organize experimental outputs
+    output_path = get_path_prefix()  # "outputs/08-03-2025-14.30.15_experiment/"
+    
+    # 3. Image alignment using cross-correlation
+    image1 = np.random.rand(64, 64)
+    image2 = np.random.rand(64, 64)
+    correlation = cross_image(image1, image2)
+    ```
+
+Architectural Notes:
+- Caching depends on global ptycho.params state for cache key generation
+- Disk cache stored in 'memoized_data/' and 'memoized_simulated_data/' directories
+- Used by simulation modules (diffsim.py) for performance optimization
+- Functions here should be general-purpose and workflow-agnostic
 """
 
 import numpy as np

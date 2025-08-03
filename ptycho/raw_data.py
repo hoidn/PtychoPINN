@@ -1,94 +1,67 @@
 """
-Core data ingestion and preprocessing module for ptychographic datasets.
+Ptychography data ingestion and scan-point grouping.
 
-This module serves as the first stage of the PtychoPINN data pipeline, responsible for
-transforming raw NPZ files into structured data containers and performing critical
-coordinate grouping operations for overlap-based training.
+This module serves as the primary ingestion layer for the PtychoPINN data pipeline.
+It is responsible for taking raw ptychographic data and wrapping it in a `RawData` object.
+Its most critical function, `generate_grouped_data()`, assembles individual scan
+points into physically coherent groups for training.
 
-Primary Consumer Context:
-Its primary consumers are ptycho.data_preprocessing (3 imports), ptycho.loader (1 import), 
-and ptycho.workflows.components (1 import), which use it to prepare raw ptychographic 
-data for model training and inference.
-
-Key Architecture Integration:
-In the broader PtychoPINN architecture, this module bridges the gap between raw
-experimental data files and the structured data containers needed by the machine
-learning pipeline. The data flows: NPZ files → raw_data.py (RawData) → loader.py 
-(PtychoDataContainer) → model-ready tensors.
-
-Key Components:
-- `RawData`: Primary data container class with validation and I/O capabilities
-  - `.generate_grouped_data()`: Core grouping method for gridsize > 1 with intelligent caching
-  - `.diffraction`: Raw diffraction patterns array (amplitude, not intensity)
-  - `.xcoords, .ycoords`: Scan position coordinates
-  - `.objectGuess`: Full sample object for ground truth patch generation
-  - `.Y`: Pre-computed ground truth patches (optional)
+Architecture Role:
+    Raw NPZ file -> raw_data.py (RawData) -> Grouped Data Dict -> loader.py
+    
+    Its key architectural role is to abstract away raw file formats and enforce
+    physical coherence of scan positions *before* they enter the main ML pipeline.
 
 Public Interface:
-    `group_coords(xcoords, ycoords, K, C, nsamples)`
-        - Purpose: Groups scan coordinates by spatial proximity for overlap training
+    `RawData.generate_grouped_data(N, K=4, nsamples=1, ...)`
+        - Purpose: The core function for sampling and grouping scan points.
+        - Critical Behavior (Conditional on `params.get('gridsize')`):
+            - **If `gridsize == 1`:** Performs simple sequential slicing.
+            - **If `gridsize > 1`:** Implements a robust "sample-then-group"
+              strategy to avoid spatial bias.
         - Key Parameters:
-            - `K` (int): **Number of nearest neighbors for grouping**
-              Controls the overlap constraint strength - larger K provides more potential
-              neighbors but increases computational cost. Typical values: 4-8.
-            - `C` (int): **Target coordinates per solution region** 
-              Usually equals gridsize². Determines spatial coherence of training patches.
-            - `nsamples` (int): **Number of training samples to generate**
-              For gridsize=1: individual images. For gridsize>1: neighbor groups.
-        - Returns: Tuple of grouped coordinate arrays and neighbor indices
-        - Used by: RawData.generate_grouped_data(), data preprocessing workflows
+            - `nsamples` (int): For `gridsize=1`, this is the number of images.
+              For `gridsize>1`, this is the number of *groups*.
+        - Output Shape Contract:
+            - **If `gridsize > 1`**: Arrays in "Channel Format", e.g., 
+              X (diffraction) has shape `(nsamples, N, N, gridsize**2)`
+            - **If `gridsize == 1`**: Arrays represent individual patches, e.g.,
+              X (diffraction) has shape `(nsamples, N, N, 1)`
 
-    `get_neighbor_diffraction_and_positions(ptycho_data, N, K, C, nsamples)`
-        - Purpose: Legacy function for generating grouped diffraction data (gridsize=1)
-        - Parameters: RawData instance, solution region size, neighbor parameters
-        - Returns: Dictionary with diffraction patterns, coordinates, and ground truth
-        - Caching: No automatic caching (preserved for backward compatibility)
-
-Usage Example:
-    This module is typically used at the start of the PtychoPINN data loading pipeline,
-    which converts raw experimental data into model-ready tensors.
-
+Workflow Usage Example:
     ```python
     from ptycho.raw_data import RawData
-    from ptycho import loader
-    
-    # 1. Load raw experimental data from NPZ file
-    raw_data = RawData.from_file("/path/to/experimental_data.npz")
-    
-    # 2. Generate grouped data for overlap-based training (gridsize > 1)
-    grouped_data = raw_data.generate_grouped_data(
-        N=64,  # Diffraction pattern size - must match probe dimensions
-        K=6,   # Number of nearest neighbors - critical for physics constraint
-        nsamples=1000  # Target number of training groups
+    from ptycho import params
+
+    # 1. Instantiate RawData from a raw NPZ file's contents.
+    data = np.load('dataset.npz')
+    raw_data = RawData(
+        xcoords=data['xcoords'],
+        ycoords=data['ycoords'], 
+        xcoords_start=data['xcoords_start'],
+        ycoords_start=data['ycoords_start'],
+        diff3d=data['diffraction'],
+        objectGuess=data['objectGuess'],
+        probeGuess=data['probeGuess'],
+        scan_index=data['scan_index']
     )
-    
-    # 3. Pass to loader for tensor conversion and normalization
-    container = loader.load(
-        cb=lambda: grouped_data,
-        probeGuess=raw_data.probeGuess,
-        which='train'
-    )
-    
-    # 4. Access model-ready data
-    X_data = container.X  # Normalized diffraction patterns
-    Y_data = container.Y  # Ground truth patches (if available)
+
+    # 2. Set the external state that controls the module's behavior.
+    params.set('gridsize', 2)
+
+    # 3. Generate the grouped data dictionary.
+    grouped_data_dict = raw_data.generate_grouped_data(N=64, nsamples=1000)
+    # Output shapes for gridsize=2:
+    # - grouped_data_dict['X_full'].shape = (1000, 64, 64, 4)  # 4 = 2²
+    # - grouped_data_dict['Y'].shape = (1000, 64, 64, 4)
     ```
 
-Integration Notes:
-The K parameter in coordinate grouping is critical for physics-informed training.
-Too small K limits the overlap constraint effectiveness; too large K increases
-computational cost exponentially. The grouping operation is cached automatically
-for gridsize > 1 using the format `<dataset>.g{gridsize}k{K}.groups_cache.npz`.
-
-For gridsize=1, the module preserves legacy sequential sampling for backward
-compatibility. For gridsize>1, it implements a "group-then-sample" strategy that
-ensures both physical coherence and spatial representativeness.
-
-Data Contract Compliance:
-This module adheres to the data contracts defined in docs/data_contracts.md,
-expecting NPZ files with keys: 'diffraction' (amplitude), 'objectGuess', 
-'probeGuess', 'xcoords', 'ycoords'. Ground truth patches ('Y') are optional
-and generated on-demand from objectGuess when not provided.
+Architectural Notes & Dependencies:
+- This module has a critical implicit dependency on the global `params.get('gridsize')`
+  value, which completely changes its sampling algorithm.
+- It automatically creates a cache file (`*.groups_cache.npz`) to accelerate
+  subsequent runs when using gridsize > 1.
+- The "sample-then-group" algorithm ensures spatial diversity in training batches.
 """
 import numpy as np
 import tensorflow as tf
@@ -97,6 +70,7 @@ from scipy.spatial import cKDTree
 import hashlib
 import os
 import logging
+import warnings
 from pathlib import Path
 from ptycho import params
 from ptycho.config.config import TrainingConfig
@@ -179,7 +153,15 @@ class RawData:
     def from_simulation(xcoords, ycoords, probeGuess,
                  objectGuess, scan_index = None):
         """
-        Create a RawData instance from simulation data.
+        [DEPRECATED] Performs a complete simulation workflow from coordinates.
+
+        This is a monolithic DATA GENERATION function. It takes raw coordinates
+        and an object/probe, and internally performs patch extraction AND
+        diffraction simulation to create a new dataset from scratch.
+
+        WARNING: This method contains legacy logic, is known to be buggy for
+        `gridsize > 1`, and is deprecated. Prefer orchestrating the simulation
+        steps explicitly using the modular helpers in `scripts/simulation/`.
 
         Args:
             xcoords (np.ndarray): x coordinates of the scan points.
@@ -191,6 +173,15 @@ class RawData:
         Returns:
             RawData: An instance of the RawData class with simulated data.
         """
+        # Issue deprecation warning
+        warnings.warn(
+            "RawData.from_simulation is deprecated and has bugs with gridsize > 1. "
+            "Use scripts/simulation/simulate_and_save.py directly for reliable simulation. "
+            "See scripts/simulation/README.md for migration guide.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         from ptycho.diffsim import illuminate_and_diffract
         xcoords_start = xcoords
         ycoords_start = ycoords
@@ -200,7 +191,7 @@ class RawData:
         Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
         Y_I = tf.math.abs(Y_obj)
         Y_phi = tf.math.angle(Y_obj)
-        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
+        X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I_flat=Y_I, Y_phi_flat=Y_phi, probe=probeGuess)
         norm_Y_I = datasets.scale_nphotons(X)
         assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
         # TODO RawData should have a method for generating the illuminated ground truth object
@@ -301,18 +292,19 @@ class RawData:
     #@debug
     def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, config: Optional[TrainingConfig] = None):
         """
-        Generate nearest-neighbor solution region grouping.
+        Selects and prepares data from an EXISTING dataset for model input.
 
-        This method uses different strategies based on the `gridsize` parameter.
-        It prioritizes the `config` object for parameters, falling back to the
-        legacy `ptycho.params` global state if `config` is not provided.
+        This is a DATA PREPARATION function. It assumes diffraction patterns
+        (self.diff3d) already exist. It performs coordinate grouping and extracts
+        the corresponding diffraction patterns and ground truth patches.
 
-        For gridsize = 1:
-        - Performs sequential sampling of `nsamples` individual images.
+        IT DOES NOT SIMULATE NEW DATA.
 
-        For gridsize > 1:
-        - Implements an efficient "sample-then-group" strategy by randomly
-          sampling `nsamples` starting points and finding their K-nearest neighbors.
+        This method also has a dual personality based on `gridsize`:
+        - For `gridsize=1`: It performs sequential slicing. The user MUST pre-shuffle
+          the dataset to get a random sample.
+        - For `gridsize>1`: It performs a robust, randomized "group-then-sample"
+          operation on the full dataset. The user should NOT pre-shuffle the data.
 
         Args:
             N (int): Size of the solution region.

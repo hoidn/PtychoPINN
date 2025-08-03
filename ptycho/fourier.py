@@ -1,57 +1,57 @@
-"""Fourier transform utilities and frequency domain processing for ptychography.
+"""Signal processing utilities for frequency domain operations in ptychography.
 
-This module provides essential Fourier domain operations and filtering utilities
-used throughout the PtychoPINN ptychographic reconstruction pipeline. It serves
-as the mathematical foundation for frequency domain analysis, probe processing,
-and signal filtering operations required for coherent diffraction imaging.
+This module provides foundational mathematical utilities for frequency domain 
+analysis and signal conditioning. It implements Gaussian filtering, frequency 
+clipping, and complex amplitude processing functions primarily used in data 
+exploration, probe conditioning, and signal analysis workflows.
 
-Core Functions:
-    Gaussian Filters:
-        - lowpass_g(): Gaussian lowpass filtering for probe initialization
-        - highpass_g(): Gaussian highpass filtering for frequency analysis
-        - bandpass_g(): Combined lowpass/highpass for frequency band selection
+Architecture Role:
+    Data Analysis → fourier.py (signal processing) → Conditioned Data
     
-    Frequency Domain Clipping:
-        - clip_high(): Remove high-frequency components with fractional control
-        - clip_low(): Remove low-frequency components with masking
-        - clip_low_window(): Generate frequency domain windows
-    
-    Fourier Operations:
-        - if_mag(): Inverse FFT with magnitude processing and phase control
-        - power(): Complex amplitude to power spectrum conversion
-        - mag(): Complex amplitude to magnitude conversion
-    
-    Analysis Utilities:
-        - lorenz(): Lorentzian function for spectral line fitting
-        - plot_df(): Pandas DataFrame plotting utility
+    This module provides mathematical building blocks for signal conditioning
+    and frequency domain analysis, primarily used in interactive notebooks
+    and experimental workflows.
 
-Architecture Integration:
-    - **Probe Module (ptycho/probe.py)**: Uses lowpass_g() for creating default
-      disk-shaped scanning probes with controlled frequency content
-    - **Physics Simulation**: Provides frequency domain tools for realistic
-      modeling of coherent diffraction patterns
-    - **Signal Processing**: Core mathematical utilities for ptychographic
-      reconstruction algorithms
-
-Mathematical Context:
-    The functions implement frequency domain operations essential for ptychography:
-    - Gaussian filters model realistic probe shapes and experimental conditions
-    - Frequency clipping operations simulate detector limitations and noise
-    - Complex amplitude processing handles the phase-sensitive nature of coherent imaging
-
-Example:
-    # Create a Gaussian lowpass filter for probe initialization
-    >>> import numpy as np
-    >>> from ptycho import fourier as f
-    >>> N = 64
-    >>> scale = 0.4
-    >>> filter_1d = f.lowpass_g(scale, np.ones(N), sym=True)
-    >>> probe_2d = f.gf(np.outer(filter_1d, filter_1d) > 0.5, sigma=1)
+Public Interface:
+    `lowpass_g(size, y, sym=False)`
+        - Purpose: Generate Gaussian lowpass filter windows.
+        - Critical: Filter size controls frequency cutoff relative to array length.
+        - Returns: Normalized Gaussian window for frequency domain filtering.
     
-    # Process complex amplitude data
-    >>> complex_data = np.random.random((128,)) + 1j * np.random.random((128,))
-    >>> power_spectrum = f.power(complex_data)
-    >>> magnitude = f.mag(complex_data)
+    `power(arr)` and `mag(arr)`
+        - Purpose: Extract power and magnitude from complex amplitudes.
+        - Critical: power() computes |arr|², mag() computes |arr|.
+        - Returns: Real-valued power spectra or magnitude arrays.
+    
+    `clip_high(x, frac_zero)` and `clip_low(x, frac_zero)`
+        - Purpose: Zero out frequency components with fractional control.
+        - Critical: frac_zero specifies fraction of frequencies to remove.
+        - Returns: Modified array with frequency masking applied.
+
+Workflow Usage Example:
+    ```python
+    import numpy as np
+    from ptycho import fourier
+    
+    # Generate Gaussian filter for probe conditioning
+    N = 64
+    dummy_array = np.ones(N)
+    filter_window = fourier.lowpass_g(0.4, dummy_array, sym=True)
+    
+    # Analyze complex ptychographic data
+    complex_wave = np.random.random((N,)) + 1j * np.random.random((N,))
+    power_spectrum = fourier.power(complex_wave)
+    magnitude = fourier.mag(complex_wave)
+    
+    # Apply frequency domain clipping
+    clipped_data, mask = fourier.clip_low(complex_wave, frac_zero=0.1)
+    ```
+
+Architectural Notes:
+- Provides scipy/numpy-based signal processing utilities.
+- Stateless functions suitable for interactive analysis and notebooks.
+- No dependencies on core PtychoPINN reconstruction pipeline.
+- Primarily used for data exploration and experimental signal conditioning.
 """
 
 import pandas as pd

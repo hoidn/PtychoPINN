@@ -1,6 +1,6 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-08-01
+**Last Updated:** 2025-08-02
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
 
@@ -63,20 +63,36 @@ This document provides a high-level overview of the major development initiative
 
 ## 🚀 **Current Active Initiative**
 
-### **Initiative: Probe Parameterization Study - Refactoring Phase**
-*   **Status:** 🔄 **Refactoring in Progress** - Post-mortem cleanup and tool formalization
-*   **Goal:** To refactor successful experimental code into robust, reusable tools with proper process isolation to fix gridsize configuration bugs.
-*   **Current Phase:** Phase 1 - Refactor for Reusability and Modularity
-*   **Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready to begin)
-*   **Next Steps:** Execute Phase 1 checklist to create modular tools and fix subsampling performance
-*   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/implementation.md</doc-ref>
-    *   **Current Checklist:** <doc-ref type="checklist">plans/archive/2025-08-probe-parameterization/phase_1_checklist.md</doc-ref>
+### **Initiative: None - Ready for Next Initiative**
+
+The Simulation Workflow Unification initiative has been completed. The project is ready for the next initiative.
 
 ---
 
 ## 📋 **Recently Completed Initiatives**
+
+### **Initiative: Simulation Workflow Unification**
+*   **Status:** ✅ **Complete** - Completed 2025-08-03
+*   **Goal:** To fix gridsize > 1 crashes by refactoring the simulation pipeline to use explicit, modular orchestration
+*   **Key Deliverables:**
+    *   Refactored `simulate_and_save.py` with modular workflow ✅
+    *   Comprehensive test suite for gridsize validation ✅
+    *   Deprecation warnings on legacy `RawData.from_simulation` ✅
+    *   Updated documentation with migration guides ✅
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/implementation.md</doc-ref>
+    *   **Summary:** <doc-ref type="summary">plans/active/simulation-workflow-unification/implementation_summary.md</doc-ref>
+
+### **Initiative: Probe Parameterization Study - Refactoring Phase**
+*   **Status:** 🔄 **Paused** - Ready to resume now that Simulation Workflow Unification is complete
+*   **Goal:** To refactor successful experimental code into robust, reusable tools with proper process isolation to fix gridsize configuration bugs.
+*   **Current Phase:** Phase 1 - Refactor for Reusability and Modularity
+*   **Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready to begin)
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/implementation.md</doc-ref>
+    *   **Current Checklist:** <doc-ref type="checklist">plans/archive/2025-08-probe-parameterization/phase_1_checklist.md</doc-ref>
 
 ### **Initiative: Remove TensorFlow Addons Dependency**
 *   **Status:** ✅ **Complete** - Completed 2025-07-27

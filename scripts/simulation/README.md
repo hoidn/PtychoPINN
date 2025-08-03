@@ -2,6 +2,8 @@
 
 This directory contains tools for generating simulated ptychography datasets. The workflow is designed to be modular, allowing for flexible creation of various types of objects and probes.
 
+> **Important Update (2025-08-02):** The `simulate_and_save.py` script has been refactored to fix the gridsize > 1 bug and improve maintainability. It now uses explicit, modular orchestration of the simulation steps instead of the monolithic `RawData.from_simulation` method.
+
 ## The Two-Stage Simulation Architecture
 
 The simulation process is divided into two distinct stages:
@@ -21,7 +23,7 @@ This modular design allows you to simulate diffraction for any object you can cr
 
 | Script | Purpose |
 |--------|---------|
-| `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. Now supports `--probe-file` for decoupled probe studies. |
+| `simulate_and_save.py` | **Core Tool.** The main, general-purpose script for running Stage 2. It takes an input `.npz` and generates a full simulated dataset. Now supports `--probe-file` for decoupled probe studies and **gridsize > 1** for dense sampling. |
 | `run_with_synthetic_lines.py` | **Convenience Wrapper.** A high-level script that automates both Stage 1 and Stage 2 for the specific 'lines' object type. Ideal for quick tests. |
 
 ## Workflow Examples
@@ -113,6 +115,58 @@ The external probe must be:
 - A 2D complex array
 - Smaller than the object in both dimensions
 - Provided as either a `.npy` file or `.npz` file (with 'probeGuess' key)
+
+## GridSize Support (New!)
+
+The refactored `simulate_and_save.py` now correctly supports gridsize > 1 for dense sampling patterns:
+
+```bash
+# GridSize 2 (2x2 sampling)
+python scripts/simulation/simulate_and_save.py \
+    --input-file input.npz \
+    --output-file output_gs2.npz \
+    --n-images 1000 \
+    --gridsize 2
+
+# GridSize 3 (3x3 sampling) 
+python scripts/simulation/simulate_and_save.py \
+    --input-file input.npz \
+    --output-file output_gs3.npz \
+    --n-images 500 \
+    --gridsize 3
+```
+
+For gridsize > 1, the script properly:
+- Groups coordinates into spatial neighborhoods
+- Extracts patches in Channel Format
+- Handles format conversions correctly
+- Expands coordinates for each pattern in the output
+
+## Migration Guide
+
+If you have existing code that uses the deprecated `RawData.from_simulation` method:
+
+### Old Way (Deprecated)
+```python
+from ptycho.raw_data import RawData
+raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess)
+```
+
+### New Way (Recommended)
+```bash
+# Save your object and probe to an NPZ file
+# Then use simulate_and_save.py directly
+python scripts/simulation/simulate_and_save.py \
+    --input-file your_input.npz \
+    --output-file simulated_data.npz \
+    --n-images <number_of_patterns>
+```
+
+The new approach is:
+- More transparent and debuggable
+- Correctly handles gridsize > 1
+- Follows the same modular architecture as the training pipeline
+- Easier to customize and extend
 
 ## Output Data Format
 

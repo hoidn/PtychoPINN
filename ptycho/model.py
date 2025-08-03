@@ -1,79 +1,69 @@
-"""Core physics-informed neural network architecture for ptychographic reconstruction.
+"""
+Physics-informed neural network architecture for ptychographic reconstruction.
 
-This module defines the heart of the PtychoPINN system - a U-Net-based deep learning 
-architecture augmented with custom physics-informed Keras layers that embed ptychographic 
-forward modeling constraints directly into the neural network. This unique combination 
-enables rapid, high-resolution reconstruction from scanning coherent diffraction data 
-while maintaining physical consistency.
+This module defines the core PtychoPINN model architecture, which combines
+deep learning with physics constraints. The model uses an encoder-decoder
+structure with embedded physics layers to reconstruct object and probe
+functions from diffraction patterns.
 
-**Architecture Overview:**
-The PtychoPINN model integrates three key components:
-1. **Encoder-Decoder U-Net**: Learns image-to-image mapping from diffraction to object
-2. **Physics Constraint Layers**: Custom layers implementing differentiable ptychography
-3. **Probabilistic Loss**: Poisson noise modeling for realistic diffraction statistics
+Architecture Role:
+    Diffraction patterns -> model.py (PINN) -> Object & Probe reconstructions
+    
+    This is the central deep learning component that performs the inverse
+    problem of ptychographic reconstruction using physics-informed learning.
 
-**CRITICAL: This is a core physics module with stable, validated implementations.**
-The model architecture and physics simulation components should NOT be modified 
-without explicit requirements and thorough validation.
+Public Interface:
+    `create_model_with_gridsize(gridsize, N, **kwargs)`
+        - Purpose: Factory function to create model instances with explicit parameters.
+        - Parameters: gridsize (patch neighbors), N (image resolution), object.big (patch mode).
+        - Returns: Tuple of (autoencoder, diffraction_to_obj) compiled Keras Models.
+        - Input: [diffraction_data (batch, N, N, gridsize²), coordinates (batch, 1, 2, gridsize²)]
+        - Output: [trimmed_obj (batch, N, N, 1), pred_amp_scaled, pred_intensity_sampled]
+    
+    `autoencoder` [GLOBAL MODEL]
+        - Purpose: Main training model with three outputs for loss computation.
+        - Returns: Compiled Keras Model ready for training with Poisson loss.
+        - Input: Same as create_model_with_gridsize
+        - Output: [object_reconstruction, amplitude_prediction, intensity_prediction]
+    
+    `diffraction_to_obj` [GLOBAL MODEL]
+        - Purpose: Inference-only model for direct object reconstruction.
+        - Returns: Single-output Keras Model optimized for deployment.
+        - Input: Same as create_model_with_gridsize
+        - Output: [object_reconstruction (batch, N, N, 1)]
 
-Key Components:
-    - ProbeIllumination: Custom layer applying complex probe illumination with smoothing
-    - IntensityScaler/IntensityScaler_inv: Trainable intensity scaling for normalization  
-    - U-Net Architecture: Resolution-adaptive encoder-decoder with dynamic filter scaling
-    - Physics Integration: Differentiable forward model with Poisson noise simulation
-    - Model Factory: create_model_with_gridsize() for explicit parameter control
-
-**Primary Models Created:**
-    - autoencoder: Main training model (diffraction -> object, amplitude, intensity)
-    - diffraction_to_obj: Inference-only model (diffraction -> object reconstruction)
-    - autoencoder_no_nll: Training model without negative log-likelihood output
-
-**Core Workflows:**
-    - Model Creation: Uses global config or explicit parameters via factory functions
-    - Training Pipeline: Integration with PtychoDataContainer for data formatting
-    - Physics Simulation: Differentiable forward model for end-to-end training
-    - Inference: Direct diffraction-to-object reconstruction
-
-Usage Example:
+Workflow Usage Example:
     ```python
-    from ptycho.model import diffraction_to_obj, create_model_with_gridsize
+    from ptycho.model import create_model_with_gridsize, prepare_inputs, prepare_outputs
     from ptycho.loader import PtychoDataContainer
     
-    # Direct inference using global model (legacy)
-    reconstruction = diffraction_to_obj.predict([diffraction_data, coordinates])
+    # 1. Configure model parameters
+    gridsize, N = 2, 64
     
-    # Create model with explicit parameters (modern approach)
-    autoenc, inference = create_model_with_gridsize(gridsize=2, N=64)
-    result = inference.predict([test_data, test_coords])
+    # 2. Create and compile models
+    autoenc, inference = create_model_with_gridsize(gridsize=gridsize, N=N)
     
-    # Training workflow with data container
+    # 3. Models expect diffraction patterns as input
+    # Input shape: (batch, N, N, gridsize²) for diffraction
+    # Input shape: (batch, 1, 2, gridsize²) for coordinates
+    
+    # 4. Training workflow
     train_data = PtychoDataContainer(...)
     inputs = prepare_inputs(train_data)
     outputs = prepare_outputs(train_data)
-    history = autoencoder.fit(inputs, outputs, epochs=50)
+    history = autoenc.fit(inputs, outputs, epochs=50, validation_split=0.05)
+    
+    # 5. Inference workflow
+    reconstruction = inference.predict([diffraction_data, coordinates])
     ```
 
-**Architecture Details:**
-The U-Net architecture adapts filter counts based on input resolution (N):
-- N=64: [32, 64, 128] -> [64, 32] filters (encoder -> decoder)  
-- N=128: [16, 32, 64, 128] -> [128, 64, 32] filters
-- N=256: [8, 16, 32, 64, 128] -> [256, 128, 64, 32] filters
-
-Custom physics layers implement:
-- Complex-valued probe illumination with Gaussian smoothing
-- Patch extraction for multi-position scanning geometry  
-- Differentiable Fourier transform for diffraction simulation
-- Poisson noise modeling for realistic measurement statistics
-
-Dependencies:
-    - ptycho.tf_helper: Core TensorFlow operations and physics simulation functions
-    - ptycho.loader: PtychoDataContainer for structured data handling
-    - ptycho.params: Legacy global configuration system (cfg dictionary)
-    - ptycho.probe: Probe initialization and processing utilities
-
-**Global State Warning:**
-The module creates model instances at import time using global configuration. 
-For new code, prefer create_model_with_gridsize() to avoid global state dependencies.
+Architectural Notes:
+- The encoder reduces diffraction patterns to a latent representation
+- The decoder reconstructs object patches and probe from latent space
+- Physics layers enforce consistency via forward diffraction simulation
+- Supports both physics-informed (PINN) and supervised training modes
+- Global model instances use ptycho.params configuration at import
+- New code should prefer create_model_with_gridsize() for explicit control
 """
 
 # TODO s

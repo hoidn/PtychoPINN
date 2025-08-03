@@ -1,61 +1,43 @@
 """
-Core Data Structure Definitions for PtychoPINN
+Reserved module for custom data structure and class definitions.
 
-This module is intended to contain class definitions for core data structures, containers, 
-and specialized objects used throughout the PtychoPINN system. It serves as a central 
-location for shared data types and abstractions.
+This module serves as a designated placeholder for future object-oriented components
+in the PtychoPINN system. Currently empty, it is reserved for class definitions that
+would provide structured alternatives to the existing functional architecture.
 
-Intended Class Categories:
-  - Data containers: Structured holders for ptychographic data with validation
-  - Configuration objects: Type-safe parameter containers beyond basic dataclasses
-  - Result containers: Standardized formats for reconstruction outputs and metrics
-  - Custom tensor wrappers: Domain-specific tensor abstractions with physics metadata
-  - Protocol definitions: Interface specifications for extensible components
+Architecture Role:
+    Future: Functional modules -> classes.py (data structures) -> Structured interfaces
+    Current: Placeholder module with no active functionality
+    
+    When developed, this module would bridge functional components with structured
+    data containers and type-safe interfaces for improved code organization.
 
-Architecture Integration:
-  This module would provide the foundational data types that bridge different components 
-  of the PtychoPINN system, offering more structured alternatives to dictionary-based 
-  data passing and numpy array handling. Classes defined here would be consumed across 
-  all system tiers.
+Public Interface:
+    Currently empty - no classes or functions are defined.
+    
+    Future candidates for implementation:
+    - `PtychoDataContainer`: Structured data holders with validation
+    - `ReconstructionResult`: Type-safe containers for model outputs  
+    - `ConfigurationWrapper`: Enhanced parameter containers
 
 Development Status:
-  Currently empty. The module serves as a placeholder for future object-oriented 
-  development as the system evolves from its current functional/procedural architecture 
-  toward more structured class-based designs.
+    This module is intentionally empty and serves as a placeholder for future
+    object-oriented development. The current PtychoPINN system operates using
+    a functional/procedural architecture with dictionary-based data passing.
 
-Design Principles for Future Development:
-  - Immutable data containers where possible for thread safety
-  - Clear separation of data and behavior (prefer data classes over heavy objects)
-  - Integration with existing numpy/TensorFlow tensor operations
-  - Backward compatibility with current dictionary-based data flows
-  - Type hints and validation for improved development experience
+Workflow Usage Example:
+    ```python
+    # Current state: Module import will succeed but provides no functionality
+    import ptycho.classes  # Valid import, no classes available
+    
+    # Future intended usage (not yet implemented):
+    # from ptycho.classes import PtychoDataContainer
+    # dataset = PtychoDataContainer.from_npz('data.npz')
+    ```
 
-Intended Usage Patterns:
-  ```python
-  # Future intended usage
-  from ptycho.classes import PtychoDataSet, ReconstructionResult
-  
-  # Structured data containers
-  dataset = PtychoDataSet.from_npz(file_path, validation=True)
-  
-  # Type-safe result handling
-  result = ReconstructionResult(
-      amplitude=amp_array, 
-      phase=phase_array, 
-      metrics=evaluation_metrics
-  )
-  ```
-
-Integration Considerations:
-  Future class development should consider integration with:
-  - Existing ptycho.loader.PtychoDataContainer functionality
-  - Modern ptycho.config dataclass-based configuration system
-  - TensorFlow data pipeline requirements
-  - Jupyter notebook interactive workflows
-
-Notes:
-  - Module currently contains no active code
-  - Development should prioritize data structures over complex behavior
-  - Consider using dataclasses and attrs for implementation
-  - Maintain compatibility with both legacy and modern system components
+Architectural Notes:
+- Reserved for future structured data containers and model wrappers
+- Intended to provide type-safe alternatives to dictionary-based data flows
+- Should integrate with existing ptycho.loader and ptycho.config modules
+- Development should prioritize data structures over behavioral complexity
 """

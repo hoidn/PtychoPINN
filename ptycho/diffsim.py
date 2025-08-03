@@ -1,44 +1,64 @@
-"""Core forward physics simulation engine for ptychographic reconstruction.
+"""
+Diffraction pattern simulation via probe-object interaction.
 
-This module implements the differentiable forward physics model that forms the foundation 
-of PtychoPINN's physics-informed neural network architecture. It simulates the complete 
-ptychographic measurement process: object illumination, coherent diffraction, and 
-photon detection with realistic Poisson noise characteristics.
-
-Physics Implementation:
-    The ptychographic forward model: object * probe → |FFT|² → Poisson(counts)
-    Serves dual purposes: generates synthetic training data and provides physics 
-    constraints for PINN training via differentiable simulation.
+This module orchestrates the complete ptychographic forward model, taking
+object patches and probe functions through the physics pipeline to generate
+realistic diffraction patterns. It serves as the primary simulation engine
+for data generation and physics-informed model training.
 
 Architecture Role:
-    - Training data generation with various object types (lines, GRF, points)
-    - Physics-informed loss terms constraining network to optical principles  
-    - Realistic Poisson photon noise modeling for experimental data matching
-
-Core Functions:
-    illuminate_and_diffract: Complete illumination and diffraction pipeline
-    mk_simdata: Generate synthetic datasets with configurable object types
-    observe_amplitude: Poisson photon noise simulation
-    scale_nphotons: Photon count normalization
-    sim_object_image: Synthetic object generation
-
-Example:
-    # Generate synthetic training dataset
-    from ptycho import params
-    params.set('nphotons', 1e6)
-    params.set('data_source', 'lines')
+    Object/Probe -> diffsim.py (orchestrator) -> Diffraction Amplitudes
     
-    probe = np.exp(1j * np.random.uniform(0, 2*np.pi, (64, 64)))
-    X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, coords = mk_simdata(
-        n=2000, size=64, probe=probe, outer_offset=32, data_source='lines'
+    This module coordinates the physics simulation pipeline:
+    1. Probe-object interaction (multiplication)
+    2. Wave propagation (if thick object)
+    3. Far-field propagation (Fourier transform)
+    4. Optional noise addition
+
+Public Interface:
+    `illuminate_and_diffract(Y_I_flat, Y_phi_flat, probe, intensity_scale=None)`
+        - Purpose: Simulate the complete forward ptychographic process.
+        - Algorithm: Illuminates object patches with probe, propagates to
+          far field, and returns diffraction amplitudes.
+        - Critical: Returns amplitude (sqrt of intensity), not intensity.
+        - Parameters:
+            - Y_I_flat: Object amplitude patches in flat format (B, N, N, 1)
+            - Y_phi_flat: Object phase patches in flat format (B, N, N, 1)
+            - probe: Probe function (N, N, 1)
+            - intensity_scale: Optional normalization factor
+
+    `mk_simdata(n, size, probe, outer_offset, **kwargs)`
+        - Purpose: Generate complete synthetic ptychographic datasets
+        - Returns: Diffraction amplitudes, object patches, coordinates
+        - Parameters: n (dataset size), size (patch dimension), probe
+
+Workflow Usage Example:
+    ```python
+    import ptycho.diffsim as sim
+    from ptycho import params
+    import tensorflow as tf
+    
+    # 1. Configure simulation parameters
+    params.set('nphotons', 1e8)  # Photon flux for noise modeling
+    params.set('data_source', 'grf')  # Object type
+    
+    # 2. Generate complete synthetic dataset
+    probe = tf.complex(tf.ones((64, 64)), 0.0)
+    X, Y_I, Y_phi, scale, full_obj, norm, coords = sim.mk_simdata(
+        n=2000, size=64, probe=probe, outer_offset=32
     )
-    # X: (n, 64, 64) diffraction amplitudes, Y_I/Y_phi: object patches
+    
+    # 3. Note: X contains sqrt(intensity) values per data contract
+    # To get photon counts: intensity = X ** 2
+    ```
 
-Integration:
-    Integrates with ptycho.model (physics losses), ptycho.loader (training data),
-    ptycho.datagen.* (synthetic objects), ptycho.tf_helper (TF diffraction ops).
-
-Note: Core physics module - preserve ptychographic forward model compatibility.
+Architectural Notes:
+- This module is the authoritative implementation of the forward model
+  used throughout the codebase.
+- The output amplitude format matches the data contract for training data.
+- Noise modeling uses Poisson statistics based on params['nphotons'].
+- Dependencies: ptycho.fourier, ptycho.tf_helper, ptycho.params
+- Supports multiple synthetic object types via datagen modules.
 """
 from skimage import draw, morphology
 from tensorflow.keras.layers import Lambda
@@ -85,12 +105,33 @@ def diffract_obj(sample, draw_poisson = True):
     else:
         return amplitude
 
-def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
+def illuminate_and_diffract(Y_I_flat, Y_phi_flat, probe, intensity_scale = None):
     """
-    Illuminate object with real or complex probe, then apply diffraction map.
+    Simulates diffraction for a batch of individual object patches.
 
-    Returned Y_I and Y_phi are amplitude and phase *after* illumination with the
-    probe.
+    This function is a core physics engine component and operates on data in the
+    "Flat Format", where each patch is an independent item in the batch. It is the
+    caller's responsibility to ensure input tensors adhere to this format.
+
+    Args:
+        Y_I_flat (tf.Tensor): A tensor of object amplitude patches in Flat Format.
+                             Shape: (B * gridsize**2, N, N, 1)
+        Y_phi_flat (tf.Tensor): A tensor of object phase patches in Flat Format.
+                               Shape: (B * gridsize**2, N, N, 1)
+        probe (tf.Tensor): The probe function.
+                          Shape: (N, N, 1)
+        intensity_scale (float, optional): Normalization factor.
+
+    Returns:
+        Tuple[tf.Tensor, ...]: Simulated diffraction patterns, also in Flat Format.
+                              Shape of X: (B * gridsize**2, N, N, 1)
+
+    Raises:
+        ValueError: If input tensors do not have a channel dimension of 1.
+
+    See Also:
+        - ptycho.tf_helper._channel_to_flat: For converting from Channel to Flat format.
+        - ptycho.tf_helper._flat_to_channel: For converting from Flat to Channel format.
     """
     # ensure probe is broadcastable
     if len(probe.shape) == 2:
@@ -106,12 +147,12 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
         f"Internal error: Probe shape must be (H, W, 1) before use, but got {probe.shape}"
     
     if intensity_scale is None:
-        probe_amplitude = tf.cast(tf.abs(probe), Y_I.dtype)
-        intensity_scale = scale_nphotons(Y_I * probe_amplitude[None, ...]).numpy()
+        probe_amplitude = tf.cast(tf.abs(probe), Y_I_flat.dtype)
+        intensity_scale = scale_nphotons(Y_I_flat * probe_amplitude[None, ...]).numpy()
     batch_size = p.get('batch_size')
-    obj = intensity_scale * hh.combine_complex(Y_I, Y_phi)
+    obj = intensity_scale * hh.combine_complex(Y_I_flat, Y_phi_flat)
     obj = obj * tf.cast(probe[None, ...], obj.dtype)
-    Y_I = tf.math.abs(obj)
+    Y_I_flat = tf.math.abs(obj)
 
     X = (tf.data.Dataset.from_tensor_slices(obj)
                .batch(batch_size)
@@ -119,16 +160,16 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
                .map(diffract_obj)
                .cache())
     X = np.vstack(list(iter(X)))
-    X, Y_I, Y_phi =\
-        X / intensity_scale, Y_I / intensity_scale, Y_phi
+    X, Y_I_flat, Y_phi_flat =\
+        X / intensity_scale, Y_I_flat / intensity_scale, Y_phi_flat
 
-    X, Y_I, Y_phi =\
-        hh.togrid(X, Y_I, Y_phi)
+    X, Y_I_flat, Y_phi_flat =\
+        hh.togrid(X, Y_I_flat, Y_phi_flat)
 
-    X, Y_I, Y_phi =\
-        hh.grid_to_channel(X, Y_I, Y_phi)
+    X, Y_I_flat, Y_phi_flat =\
+        hh.grid_to_channel(X, Y_I_flat, Y_phi_flat)
 
-    return X, Y_I, Y_phi, intensity_scale
+    return X, Y_I_flat, Y_phi_flat, intensity_scale
 
 def mk_rand(N):
     return int(N * np.random.uniform())
@@ -266,7 +307,7 @@ def mk_simdata(n, size, probe, outer_offset, intensity_scale = None,
         d['I_pre_probe'] = Y_I
         d['phi_pre_probe'] = Y_phi
     X, Y_I, Y_phi, intensity_scale =\
-        illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = intensity_scale)
+        illuminate_and_diffract(Y_I_flat=Y_I, Y_phi_flat=Y_phi, probe=probe, intensity_scale=intensity_scale)
     if YY_phi is None:
         YY_full = hh.combine_complex(YY_I, tf.zeros_like(YY_I))
     else:
