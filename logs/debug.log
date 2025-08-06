@@ -1,16 +1,17 @@
-2025-08-02 12:23:51,826 - INFO - Loading amplitude source from: probe_study_full/idealized_probe.npy
-2025-08-02 12:23:51,826 - DEBUG - Loading probe from NPY file: probe_study_full/idealized_probe.npy
-2025-08-02 12:23:51,826 - INFO - Loaded probe with shape (64, 64), dtype complex64
-2025-08-02 12:23:51,826 - INFO - Loading phase source from: datasets/fly/fly001_transposed.npz
-2025-08-02 12:23:51,826 - DEBUG - Loading probe from NPZ file: datasets/fly/fly001_transposed.npz
-2025-08-02 12:23:51,827 - DEBUG - Converting probe from complex128 to complex64
-2025-08-02 12:23:51,827 - INFO - Loaded probe with shape (64, 64), dtype complex64
-2025-08-02 12:23:51,827 - INFO - Creating hybrid probe from amplitude (64, 64) and phase (64, 64)
-2025-08-02 12:23:51,828 - INFO - Created hybrid probe with shape (64, 64)
-2025-08-02 12:23:51,828 - DEBUG - Amplitude range: [0.000, 1.000]
-2025-08-02 12:23:51,828 - DEBUG - Phase range: [-3.125, 3.131]
-2025-08-02 12:23:51,828 - INFO - Hybrid probe saved to: probe_study_full/hybrid_probe.npy
-2025-08-02 12:23:51,828 - INFO - Output shape: (64, 64)
-2025-08-02 12:23:51,828 - INFO - Output dtype: complex64
-2025-08-02 12:23:51,828 - INFO - Mean amplitude: 0.091797
-2025-08-02 12:23:51,828 - INFO - Phase std dev: 1.782917
+2025-07-31 18:53:20,704 - INFO - Loading amplitude source from: datasets/fly/fly001_transposed.npz
+2025-07-31 18:53:20,704 - DEBUG - Loading probe from NPZ file: datasets/fly/fly001_transposed.npz
+2025-07-31 18:53:20,706 - DEBUG - Converting probe from complex128 to complex64
+2025-07-31 18:53:20,706 - INFO - Loaded probe with shape (64, 64), dtype complex64
+2025-07-31 18:53:20,706 - INFO - Loading phase source from: datasets/fly/fly001_transposed.npz
+2025-07-31 18:53:20,706 - DEBUG - Loading probe from NPZ file: datasets/fly/fly001_transposed.npz
+2025-07-31 18:53:20,707 - DEBUG - Converting probe from complex128 to complex64
+2025-07-31 18:53:20,707 - INFO - Loaded probe with shape (64, 64), dtype complex64
+2025-07-31 18:53:20,707 - INFO - Creating hybrid probe from amplitude (64, 64) and phase (64, 64)
+2025-07-31 18:53:20,707 - INFO - Created hybrid probe with shape (64, 64)
+2025-07-31 18:53:20,707 - DEBUG - Amplitude range: [0.000, 0.055]
+2025-07-31 18:53:20,707 - DEBUG - Phase range: [-3.125, 3.131]
+2025-07-31 18:53:20,707 - INFO - Hybrid probe saved to: probe_study_single_test_QUICK_TEST/hybrid_probe.npy
+2025-07-31 18:53:20,707 - INFO - Output shape: (64, 64)
+2025-07-31 18:53:20,708 - INFO - Output dtype: complex64
+2025-07-31 18:53:20,708 - INFO - Mean amplitude: 0.009035
+2025-07-31 18:53:20,708 - INFO - Phase std dev: 1.782917
