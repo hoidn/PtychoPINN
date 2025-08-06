@@ -1,56 +1,70 @@
-"""Legacy global configuration system for PtychoPINN.
+"""Global parameter management and configuration state.
 
-⚠️  DEPRECATED: This module implements a global dictionary-based parameter management
-system that is being phased out in favor of the modern dataclass configuration system
-in `ptycho.config.config`. Despite its deprecated status, this module remains CRITICAL
-for backward compatibility as it is the most imported module in the codebase (23+ consumers).
+Central parameter registry for the PtychoPINN system providing singleton-like 
+global state container for all configuration parameters. This module sits at
+the root of the dependency tree and is consumed by virtually every other module.
 
 Architecture Role:
-    This module represents the old architecture pattern where configuration was managed
-    through a global mutable dictionary (`cfg`). While this pattern has known limitations
-    (global state, lack of type safety, difficult testing), it is still essential for
-    maintaining compatibility with existing code during the modernization transition.
-
-Global Configuration Dictionary:
-    The `cfg` dictionary contains all system parameters including:
-    - Model architecture: N (patch size), gridsize, n_filters_scale
-    - Training: batch_size, nepochs, various loss weights
-    - Physics simulation: nphotons, probe parameters, positioning
-    - Data processing: offsets, padding, object/probe sizing
-
-Core Functions:
-    - get(key): Retrieve parameter value with special handling for derived values
-    - set(key, value): Update parameter with automatic validation
-    - params(): Get complete parameter dictionary with derived values
-    - validate(): Ensure parameter consistency and valid combinations
-
-Migration Strategy:
-    Modern workflows should use the dataclass system from `ptycho.config.config`.
-    The modern system updates this legacy `cfg` dictionary at initialization to
-    maintain compatibility with existing modules that still use `params.get()`.
-
-Usage Examples:
-    Legacy pattern (deprecated):
-        import ptycho.params as p
-        p.set('N', 128)
-        batch_size = p.get('batch_size')
+    Configuration Loading → params.py (global state) → All consumers (23+ modules)
     
-    Modern pattern (preferred):
-        from ptycho.config.config import TrainingConfig
-        config = TrainingConfig(N=128, batch_size=32)
-        # Modern config automatically updates legacy params.cfg
+    Critical: This is a legacy system maintained for backward compatibility.
+    Modern code should use ptycho.config dataclasses with update_legacy_dict().
 
-Deprecation Timeline:
-    This module will remain until all 23+ consumer modules are migrated to accept
-    configuration dataclasses directly. Current high-priority consumers requiring
-    migration include: baselines, diffsim, evaluation, loader, model, train_pinn,
-    and workflows.components.
+Public Interface:
+    Core Functions:
+        `get(key)` - Retrieve parameter; auto-computes 'bigN' if requested
+        `set(key, value)` - Update parameter with validation; prints debug info
+        `params()` - Complete parameter snapshot including derived values
+    
+    Validation & Debug:
+        `validate()` - Validate current configuration; raises AssertionError
+        `print_params()` - Debug utility displaying all params with array stats
+    
+    Derived Parameter Functions:
+        `get_bigN()` - Compute object coverage: N + (gridsize - 1) * offset
+        `get_padding_size()` - Compute padding for position jitter
+        `get_padded_size()` - Total padded size including buffer
+
+Migration Guide:
+    Modern code should use dataclass configuration:
+    ```python
+    from ptycho.config import TrainingConfig, update_legacy_dict
+    config = TrainingConfig(...)
+    update_legacy_dict(params.cfg, config)  # One-way sync
+    ```
+
+Usage Example:
+    ```python
+    import ptycho.params as params
+    
+    # Basic parameter access
+    params.set('N', 64)                    # Prints: DEBUG: Setting N to 64
+    params.set('gridsize', 2)
+    params.set('offset', 4)
+    
+    # Retrieve parameters
+    patch_size = params.get('N')           # 64
+    grid_coverage = params.get('bigN')     # Auto-computed: 64 + (2-1)*4 = 68
+    
+    # Validation example (will raise AssertionError on invalid data)
+    try:
+        params.set('data_source', 'invalid')  # Not in allowed list
+    except AssertionError:
+        print("Invalid data source")
+    
+    # Debug utilities
+    params.print_params()                   # Display all params with array stats
+    params.validate()                       # Explicit validation check
+    ```
 
 Warnings:
-    - Avoid using this module in new code
-    - Global state makes testing and concurrency difficult  
-    - Parameter changes affect all code using this module
-    - Type safety is not enforced on parameter values
+- Mutable global state that can change during execution
+- set() operations print debug messages to stdout
+- set() includes validation that raises AssertionError on failure
+- Initialization order matters - modules depending on params.cfg must import
+  after proper initialization (see DEVELOPER_GUIDE.md)
+- Legacy system - new code should use explicit dataclass configurations
+- Auto-computed parameters (bigN) recalculated on each get() call
 """
 import numpy as np
 import tensorflow as tf

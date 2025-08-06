@@ -3,7 +3,13 @@
 
 """
 Generates a simulated ptychography dataset and saves it to an NPZ file.
-Optionally, it can also generate a rich PNG visualization of the simulation.
+
+This script uses explicit orchestration of modular functions instead of the
+monolithic RawData.from_simulation method, fixing gridsize > 1 crashes and
+improving maintainability.
+
+Refactored: 2025-08-02 - Replaced monolithic from_simulation with modular workflow
+to fix gridsize > 1 ValueError and improve architectural consistency.
 
 Example:
     # Run simulation and also create a summary plot with comparisons
@@ -11,6 +17,12 @@ Example:
         --input-file /path/to/prepared_data.npz \\
         --output-file /path/to/simulation_output.npz \\
         --visualize
+        
+    # Run with gridsize > 1
+    python scripts/simulation/simulate_and_save.py \\
+        --input-file /path/to/prepared_data.npz \\
+        --output-file /path/to/simulation_output.npz \\
+        --gridsize 2
 """
 
 import argparse
@@ -25,7 +37,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import ptycho components
-from ptycho.nongrid_simulation import generate_simulated_data
+# Note: Delaying some imports until after configuration is set up
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
 from ptycho.workflows.simulation_utils import load_probe_from_source, validate_probe_object_compatibility
@@ -33,6 +45,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import cKDTree
 import logging
+import tensorflow as tf
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -64,22 +77,39 @@ def simulate_and_save(
     seed: Optional[int] = None,
     visualize: bool = False,
     probe_file: Optional[str] = None,
+    debug: bool = False,
 ) -> None:
     """
     Loads an object/probe, runs a ptychography simulation, saves the result,
     and optionally generates a visualization.
-    """
-    update_legacy_dict(p.cfg, config)
-    print("--- Configuration Updated for Simulation ---")
-    p.print_params()
-    print("------------------------------------------\n")
     
+    This refactored version uses explicit orchestration of modular functions
+    instead of the monolithic RawData.from_simulation method.
+    """
+    # Set up debug logging if requested
+    if debug:
+        logging.basicConfig(level=logging.DEBUG, format='%(name)s:%(lineno)d - %(levelname)s - %(message)s')
+        logger.setLevel(logging.DEBUG)
+    
+    # Section 1: Input Loading & Validation
+    update_legacy_dict(p.cfg, config)
+    logger.debug("--- Configuration Updated for Simulation ---")
+    if debug:
+        p.print_params()
+    
+    # 1.A: Load NPZ input
     object_guess, probe_guess, _ = load_data_for_sim(str(input_file_path), load_all=False)
     print(f"Loading object and probe from: {input_file_path}")
-    print(f"  - Object shape: {object_guess.shape}")
-    print(f"  - Probe shape: {probe_guess.shape}")
+    print(f"  - Object shape: {object_guess.shape}, dtype: {object_guess.dtype}")
+    print(f"  - Probe shape: {probe_guess.shape}, dtype: {probe_guess.dtype}")
     
-    # Override probe if external file is provided
+    # Validate complex dtype
+    if not np.iscomplexobj(object_guess):
+        raise ValueError(f"objectGuess must be complex, got {object_guess.dtype}")
+    if not np.iscomplexobj(probe_guess):
+        raise ValueError(f"probeGuess must be complex, got {probe_guess.dtype}")
+    
+    # 1.B: Probe override logic
     if probe_file is not None:
         try:
             print(f"\nOverriding probe with external file: {probe_file}")
@@ -98,51 +128,191 @@ def simulate_and_save(
         print(f"Setting random seed to: {seed}")
         np.random.seed(seed)
 
-    print(f"Simulating {config.n_images} diffraction patterns...")
-    raw_data_instance, ground_truth_patches = generate_simulated_data(
-        config=config,
-        objectGuess=object_guess,
-        probeGuess=probe_guess,
-        buffer=buffer,
-        return_patches=True,
-    )
-    print("Simulation complete.")
+    # Section 2: Coordinate Generation & Grouping
+    # 2.A: Import and configure parameters
+    p.set('N', probe_guess.shape[0])
+    p.set('gridsize', config.model.gridsize)
+    logger.debug(f"Set N={probe_guess.shape[0]}, gridsize={config.model.gridsize}")
     
+    # Now safe to import modules that depend on params
+    from ptycho import raw_data
+    from ptycho import tf_helper as hh
+    from ptycho.diffsim import illuminate_and_diffract
+    
+    # Generate scan coordinates
+    height, width = object_guess.shape
+    buffer = min(buffer, min(height, width) / 2 - 1)
+    xcoords = np.random.uniform(buffer, width - buffer, config.n_images)
+    ycoords = np.random.uniform(buffer, height - buffer, config.n_images)
+    scan_index = np.zeros(config.n_images, dtype=int)
+    
+    logger.debug(f"Generated {config.n_images} scan positions within bounds")
+    logger.debug(f"X range: [{xcoords.min():.2f}, {xcoords.max():.2f}]")
+    logger.debug(f"Y range: [{ycoords.min():.2f}, {ycoords.max():.2f}]")
+    
+    # 2.B: Generate grouped coordinates
+    print(f"Simulating {config.n_images} diffraction patterns with gridsize={config.model.gridsize}...")
+    
+    # For gridsize=1, we don't need grouping
+    if config.model.gridsize == 1:
+        # Simple case: each coordinate is its own group
+        scan_offsets = np.stack([ycoords, xcoords], axis=1)  # Shape: (n_images, 2)
+        group_neighbors = np.arange(config.n_images).reshape(-1, 1)  # Shape: (n_images, 1)
+        n_groups = config.n_images
+        logger.debug(f"GridSize=1: {n_groups} groups, each with 1 pattern")
+    else:
+        # Use group_coords for gridsize > 1
+        # First calculate relative coordinates
+        global_offsets, local_offsets, nn_indices = raw_data.calculate_relative_coords(xcoords, ycoords)
+        # Check if these are already numpy arrays or tensors
+        scan_offsets = global_offsets if isinstance(global_offsets, np.ndarray) else global_offsets.numpy()
+        group_neighbors = nn_indices if isinstance(nn_indices, np.ndarray) else nn_indices.numpy()
+        n_groups = scan_offsets.shape[0]
+        logger.debug(f"GridSize={config.model.gridsize}: {n_groups} groups, each with {config.model.gridsize**2} patterns")
+        logger.debug(f"scan_offsets shape: {scan_offsets.shape}, group_neighbors shape: {group_neighbors.shape}")
+    
+    # Section 3: Patch Extraction
+    # 3.A: Extract object patches (Y)
+    if config.model.gridsize == 1:
+        # For gridsize=1, we can directly extract patches without the complex grouping
+        N = config.model.N
+        # Pad the object once
+        gt_padded = hh.pad(object_guess[None, ..., None], N // 2)
+        
+        # Create array to hold patches
+        Y_patches_list = []
+        
+        # Extract patches one by one
+        for i in range(n_groups):
+            offset = tf.constant([[scan_offsets[i, 1], scan_offsets[i, 0]]], dtype=tf.float32)  # Note: x,y order for translate
+            translated = hh.translate(gt_padded, -offset)
+            patch = translated[0, :N, :N, 0]  # Extract center patch
+            Y_patches_list.append(patch)
+        
+        # Stack into tensor with shape (B, N, N, 1) for gridsize=1
+        Y_patches = tf.stack(Y_patches_list, axis=0)
+        Y_patches = tf.expand_dims(Y_patches, axis=-1)  # Add channel dimension
+        logger.debug(f"Extracted {len(Y_patches_list)} patches for gridsize=1")
+    else:
+        # For gridsize>1, use the already calculated offsets
+        Y_patches = raw_data.get_image_patches(
+            object_guess,
+            global_offsets,
+            local_offsets,
+            N=config.model.N,
+            gridsize=config.model.gridsize
+        )
+    
+    Y_patches_np = Y_patches.numpy()
+    logger.debug(f"Extracted patches shape: {Y_patches_np.shape}, dtype: {Y_patches_np.dtype}")
+    
+    # 3.B: Validate patch content
+    assert np.any(Y_patches_np != 0), "All patches are zero!"
+    assert np.any(np.imag(Y_patches_np) != 0), "Patches have no imaginary component!"
+    logger.debug(f"Patches valid: min abs={np.abs(Y_patches_np).min():.3f}, max abs={np.abs(Y_patches_np).max():.3f}")
+    
+    # Section 4: Format Conversion & Physics Simulation
+    # 4.A: Convert Channel to Flat Format
+    Y_flat = hh._channel_to_flat(Y_patches)
+    logger.debug(f"Converted to flat format: {Y_patches.shape} -> {Y_flat.shape}")
+    
+    # Split into amplitude and phase for illuminate_and_diffract
+    Y_I_flat = tf.math.abs(Y_flat)
+    Y_phi_flat = tf.math.angle(Y_flat)
+    
+    # 4.B: Prepare probe for simulation
+    # Expand probe dimensions to match expected format
+    probe_tensor = tf.constant(probe_guess[:, :, np.newaxis], dtype=tf.complex64)
+    logger.debug(f"Probe tensor shape: {probe_tensor.shape}")
+    
+    # 4.C: Run physics simulation
+    X_flat, _, _, _ = illuminate_and_diffract(Y_I_flat, Y_phi_flat, probe_tensor)
+    logger.debug(f"Diffraction simulation complete: output shape {X_flat.shape}")
+    
+    # Verify output is real amplitude
+    assert tf.reduce_all(tf.math.imag(X_flat) == 0), "Diffraction should be real amplitude"
+    
+    # 4.D: Convert Flat to Channel Format
+    X_channel = hh._flat_to_channel(X_flat, N=config.model.N, gridsize=config.model.gridsize)
+    logger.debug(f"Converted back to channel format: {X_flat.shape} -> {X_channel.shape}")
+    
+    # Section 5: Output Assembly & Saving
+    # 5.A: Reshape arrays for NPZ format
+    N = config.model.N
+    if config.model.gridsize == 1:
+        # For gridsize=1, squeeze the channel dimension
+        diffraction = np.squeeze(X_channel.numpy(), axis=-1)  # Shape: (n_images, N, N)
+        Y_final = np.squeeze(Y_patches_np, axis=-1)  # Shape: (n_images, N, N)
+    else:
+        # For gridsize>1, reshape to 3D by flattening groups
+        diffraction = X_channel.numpy().reshape(-1, N, N)  # Shape: (n_groups * gridsize², N, N)
+        Y_final = Y_patches_np.reshape(-1, N, N)  # Shape: (n_groups * gridsize², N, N)
+    
+    logger.debug(f"Final diffraction shape: {diffraction.shape}, dtype: {diffraction.dtype}")
+    logger.debug(f"Final Y shape: {Y_final.shape}, dtype: {Y_final.dtype}")
+    
+    # 5.B: Prepare coordinate arrays
+    if config.model.gridsize == 1:
+        # Simple case: use original coordinates
+        xcoords_final = xcoords
+        ycoords_final = ycoords
+    else:
+        # For gridsize>1, need to expand coordinates for each neighbor
+        xcoords_final = []
+        ycoords_final = []
+        for group_idx in range(n_groups):
+            for neighbor_idx in group_neighbors[group_idx]:
+                xcoords_final.append(xcoords[neighbor_idx])
+                ycoords_final.append(ycoords[neighbor_idx])
+        xcoords_final = np.array(xcoords_final)
+        ycoords_final = np.array(ycoords_final)
+    
+    logger.debug(f"Final coordinates length: {len(xcoords_final)}")
+    assert len(xcoords_final) == diffraction.shape[0], f"Coordinate mismatch: {len(xcoords_final)} != {diffraction.shape[0]}"
+    
+    # 5.C: Assemble output dictionary
+    output_dict = {
+        'diffraction': diffraction.astype(np.float32),  # Amplitude as per data contract
+        'Y': Y_final,  # Ground truth patches
+        'objectGuess': object_guess,
+        'probeGuess': probe_guess,
+        'xcoords': xcoords_final.astype(np.float64),
+        'ycoords': ycoords_final.astype(np.float64),
+        'scan_index': np.repeat(scan_index[:n_groups], config.model.gridsize**2) if config.model.gridsize > 1 else scan_index
+    }
+    
+    # Add legacy keys for backward compatibility
+    output_dict['diff3d'] = diffraction.astype(np.float32)
+    output_dict['xcoords_start'] = xcoords_final.astype(np.float64)
+    output_dict['ycoords_start'] = ycoords_final.astype(np.float64)
+    
+    print(f"Output summary:")
+    for key, val in output_dict.items():
+        if isinstance(val, np.ndarray):
+            print(f"  - {key}: shape {val.shape}, dtype {val.dtype}")
+    
+    # 5.D: Save NPZ file
     output_dir = Path(output_file_path).parent
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # --- KEY CHANGE: Add objectGuess to the output ---
-    # The raw_data_instance from the simulation doesn't contain the ground truth
-    # object it was created from. We explicitly add it here before saving.
-    raw_data_instance.objectGuess = object_guess
-    print("Added source 'objectGuess' to the output dataset for ground truth.")
-    # -------------------------------------------------
-    
-    print(f"Saving simulated data to: {output_file_path}")
-    
-    # Create comprehensive data dictionary including ground truth patches
-    data_dict = {
-        'xcoords': raw_data_instance.xcoords,
-        'ycoords': raw_data_instance.ycoords,
-        'xcoords_start': raw_data_instance.xcoords_start,
-        'ycoords_start': raw_data_instance.ycoords_start,
-        'diff3d': raw_data_instance.diff3d,
-        'probeGuess': raw_data_instance.probeGuess,
-        'objectGuess': raw_data_instance.objectGuess,
-        'scan_index': raw_data_instance.scan_index,
-        'ground_truth_patches': ground_truth_patches
-    }
-    
-    np.savez_compressed(output_file_path, **data_dict)
-    print("File saved successfully.")
+    np.savez_compressed(output_file_path, **output_dict)
+    print(f"✓ Saved simulated data to: {output_file_path}")
 
     if visualize:
         print("Generating visualization plot...")
+        # Create a minimal RawData-like object for visualization compatibility
+        class VisualizationData:
+            def __init__(self, data_dict):
+                self.xcoords = data_dict['xcoords']
+                self.ycoords = data_dict['ycoords']
+                self.diff3d = data_dict['diffraction']
+        
+        vis_data = VisualizationData(output_dict)
         visualize_simulation_results(
             object_guess=object_guess,
             probe_guess=probe_guess,
-            raw_data_instance=raw_data_instance,
-            ground_truth_patches=ground_truth_patches,
+            raw_data_instance=vis_data,
+            ground_truth_patches=Y_final,
             original_data_dict=original_data_for_vis,
             output_file_path=output_file_path
         )
@@ -273,6 +443,10 @@ def parse_arguments() -> argparse.Namespace:
         "--probe-file", type=str, default=None,
         help="Path to external probe file (.npy or .npz) to override the probe from input file"
     )
+    parser.add_argument(
+        "--debug", action="store_true",
+        help="Enable debug logging to trace tensor shapes and data flow"
+    )
     return parser.parse_args()
 
 def main():
@@ -304,7 +478,8 @@ def main():
             buffer=args.buffer,
             seed=args.seed,
             visualize=args.visualize,
-            probe_file=args.probe_file
+            probe_file=args.probe_file,
+            debug=args.debug
         )
     except FileNotFoundError:
         print(f"Error: Input file not found at '{args.input_file}'", file=sys.stderr)

@@ -1,8 +1,23 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-08-01
+**Last Updated:** 2025-08-06
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
+
+---
+
+## 📍 **Current Active Initiative**
+
+**Name:** Probe Parameterization Study - Refactoring Phase  
+**Path:** `plans/archive/2025-08-probe-parameterization/`  
+**Branch:** TBD (to be created from current branch)  
+**Started:** 2025-08-06 (Reinstated)  
+**Current Phase:** Phase 1 - Refactor for Reusability and Modularity  
+**Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready to begin)  
+**Next Milestone:** Create robust, reusable tools with proper process isolation  
+**R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/plan.md</doc-ref>  
+**Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/implementation.md</doc-ref>  
+**Current Checklist:** <doc-ref type="checklist">plans/archive/2025-08-probe-parameterization/phase_1_checklist.md</doc-ref>
 
 ---
 
@@ -61,25 +76,35 @@ This document provides a high-level overview of the major development initiative
 
 ---
 
-## 🚀 **Current Active Initiative**
-
-### **Initiative: Probe Parameterization Study**
-
-**Name:** Probe Parameterization Study  
-**Path:** `plans/active/probe-parameterization-study/`  
-**Branch:** `feature/probe-parameterization-study` (baseline: feature/remove-tf-addons-dependency)  
-**Started:** 2025-08-01  
-**Current Phase:** Final Phase: Results Aggregation and Documentation  
-**Progress:** ████████████░░░░ 75%  
-**Next Milestone:** Complete 2x2 study execution and generate final report  
-**R&D Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/plan.md</doc-ref>  
-**Implementation Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/implementation.md</doc-ref>
-
-**Summary:** Creating modular simulation utilities that decouple object and probe sources, enabling controlled studies on how probe variations affect reconstruction quality across different overlap constraints (gridsize).
-
 ---
 
 ## 📋 **Recently Completed Initiatives**
+
+### **Initiative: High-Performance Patch Extraction Refactoring**
+*   **Status:** ✅ **Complete** - Completed 2025-08-06
+*   **Goal:** To optimize patch extraction using batched operations for 4-5x performance improvement
+*   **Key Deliverables:**
+    *   Batched patch extraction implementation with 4-5x speedup ✅
+    *   Feature flag control via `use_batched_patch_extraction` ✅
+    *   Comprehensive equivalence testing to 1e-6 tolerance ✅
+    *   Memory profiling and performance reporting ✅
+    *   Updated documentation and migration guides ✅
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/active/high-performance-patch-extraction/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/active/high-performance-patch-extraction/implementation.md</doc-ref>
+
+### **Initiative: Simulation Workflow Unification**
+*   **Status:** ✅ **Complete** - Completed 2025-08-03
+*   **Goal:** To fix gridsize > 1 crashes by refactoring the simulation pipeline to use explicit, modular orchestration
+*   **Key Deliverables:**
+    *   Refactored `simulate_and_save.py` with modular workflow ✅
+    *   Comprehensive test suite for gridsize validation ✅
+    *   Deprecation warnings on legacy `RawData.from_simulation` ✅
+    *   Updated documentation with migration guides ✅
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/implementation.md</doc-ref>
+    *   **Summary:** <doc-ref type="summary">plans/active/simulation-workflow-unification/implementation_summary.md</doc-ref>
 
 ### **Initiative: Remove TensorFlow Addons Dependency**
 *   **Status:** ✅ **Complete** - Completed 2025-07-27
@@ -160,5 +185,6 @@ This document provides a high-level overview of the major development initiative
 *   **Planning Documents:**
     *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-ms-ssim-correction/plan.md</doc-ref>
     *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-ms-ssim-correction/implementation.md</doc-ref>
+
 
 ---

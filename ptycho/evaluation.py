@@ -1,79 +1,61 @@
-"""Central quality assessment and metrics orchestration for ptychographic reconstruction.
+"""
+Comprehensive reconstruction quality assessment and metric orchestration hub.
 
-This module serves as PtychoPINN's evaluation control center, coordinating multiple 
-quality metrics and providing standardized interfaces for training monitoring, model 
-comparison, and research analysis. It operates as a logic/control module that 
-orchestrates specialized metric calculations while handling complex data preprocessing
-and alignment requirements.
+This module coordinates multiple quantitative metrics for ptychographic reconstruction evaluation,
+providing standardized interfaces for training validation, model comparison, and research analysis.
+It handles complex preprocessing workflows including amplitude normalization, phase alignment, 
+and debug visualization while ensuring consistent metric calculation across the PtychoPINN ecosystem.
 
-**System Role:**
-In the PtychoPINN architecture, this module bridges reconstruction outputs with 
-quantitative assessment, enabling real-time training validation and systematic model 
-comparisons. It integrates with FRC analysis (ptycho.FRC), image registration 
-(ptycho.image), and model comparison workflows (scripts/studies/).
+Architecture Role:
+    Complex reconstructions → [metric preprocessing + alignment] → Standardized quality assessment
+    Integrates with ptycho.FRC (frequency analysis), ptycho.image (registration), scripts/studies (comparison)
 
-**Key Control Logic:**
-- **Dual-Component Processing**: Automatically handles amplitude/phase separation
-- **Configurable Phase Alignment**: Routes to 'plane' fitting or 'mean' subtraction
-- **Adaptive Normalization**: Applies consistent scaling across all amplitude metrics
-- **Debug Pipeline Control**: Coordinates visualization output across metric types
-- **Format Standardization**: Ensures consistent input/output contracts
+Public Interface:
+    `eval_reconstruction(stitched_obj, ground_truth_obj, **kwargs)`
+        - Purpose: Main orchestrator computing comprehensive metric suite
+        - Critical Behavior: Amplitude normalization always applied, configurable phase alignment
+        - Key Parameters: phase_align_method ('plane'/'mean'), debug_save_images, ms_ssim_sigma
 
-**Primary Functions:**
-- `eval_reconstruction()`: Main orchestrator returning comprehensive metric suite
-- `ms_ssim()`: Multi-scale SSIM with adaptive downsampling control
-- `frc50()`: Fourier Ring Correlation with 0.5 threshold detection
-- `fit_and_remove_plane()`: Linear phase trend removal via least squares
-- `save_metrics()`: Persistent storage integration with params.cfg
+    `frc50(target, pred, frc_sigma=0, **debug_kwargs)`
+        - Purpose: Fourier Ring Correlation with 0.5 threshold detection  
+        - Critical Behavior: Auto-crops to square images, returns (curve, threshold_index)
+        - Key Parameters: frc_sigma (smoothing), debug_save_images, debug_dir
 
-**Integration Workflows:**
+    `fit_and_remove_plane(phase_img, reference_phase=None)`
+        - Purpose: Linear phase trend removal via least squares fitting
+        - Critical Behavior: Removes fitted plane, optionally aligns to reference
+        - Key Parameters: reference_phase enables relative alignment
 
-Training Pipeline:
-```python
-from ptycho.evaluation import eval_reconstruction, save_metrics
-from ptycho.image.cropping import align_for_evaluation
+    `save_metrics(stitched_obj, ground_truth_obj, label='')`
+        - Purpose: Persistent storage integration with legacy params.cfg system
+        - Critical Behavior: Saves CSV + pickle formats to params-defined output directory
+        - Key Parameters: label for identification in multi-model studies
 
-# Real-time validation during training
-aligned_recon = align_for_evaluation(reconstruction, ground_truth)
-metrics = eval_reconstruction(aligned_recon, ground_truth, 
-                            phase_align_method='plane',
-                            debug_save_images=False)
-validation_loss = metrics['mae'][0]  # Amplitude MAE for early stopping
-```
-
-Model Comparison Study:
-```python
-# Systematic multi-model evaluation with debug visualization
-for model_name, reconstruction in models.items():
-    metrics = eval_reconstruction(
-        reconstruction, ground_truth,
-        label=model_name,
-        debug_save_images=True,  # Saves preprocessing images for analysis
-        ms_ssim_sigma=1.0        # Consistent preprocessing across models
-    )
-    save_metrics(reconstruction, ground_truth, label=model_name)
+Workflow Usage Example:
+    ```python
+    from ptycho.evaluation import eval_reconstruction, save_metrics
+    from ptycho.image.cropping import align_for_evaluation
     
-    # Structured output: metrics['frc50'] = (amp_frc50, phase_frc50)
-    print(f"{model_name}: FRC50 = {metrics['frc50']}")
-```
+    # Training validation workflow
+    aligned_recon = align_for_evaluation(reconstruction, ground_truth)
+    metrics = eval_reconstruction(aligned_recon, ground_truth,
+                                phase_align_method='plane', debug_save_images=False)
+    validation_mae = metrics['mae'][0]  # Amplitude MAE for early stopping
+    
+    # Model comparison with debug visualization
+    metrics = eval_reconstruction(reconstruction, ground_truth, label='pinn_model',
+                                debug_save_images=True, ms_ssim_sigma=1.0)
+    save_metrics(reconstruction, ground_truth, label='pinn_model')
+    ```
 
-**Data Flow & Dependencies:**
-- **Input**: Complex reconstructions (3D/4D), ground truth objects (3D)
-- **Output**: Structured metric dictionaries with (amplitude, phase) tuples
-- **Dependencies**: params.cfg (legacy paths), FRC modules, skimage.metrics
-- **Format Requirements**: Amplitude arrays must be normalized consistently
-
-**Critical Behavior Modes:**
-- **phase_align_method='plane'**: Removes linear phase gradients (recommended)
-- **phase_align_method='mean'**: Simple mean subtraction (legacy compatibility)
-- **debug_save_images=True**: Generates diagnostic images in cwd/debug_images_<label>/
-- **Amplitude normalization**: Always applied via mean scaling for fair comparison
-
-**Performance Characteristics:**
-- FRC calculation requires square images (auto-crops to smaller dimension)
-- MS-SSIM scales adaptively with image resolution
-- Debug image generation adds ~2-3x evaluation time
-- Caching not implemented (metrics recalculated on each call)
+Architectural Notes & Dependencies:
+- Amplitude normalization always applied via mean scaling for fair comparison
+- Phase alignment modes: 'plane' (linear trend removal) vs 'mean' (simple centering)
+- Debug image generation creates organized output in debug_images_<label>/ directories
+- Dependencies: ptycho.params (paths), ptycho.FRC (frequency analysis), skimage.metrics
+- Output format: structured dictionaries with (amplitude, phase) metric tuples
+- FRC calculation auto-crops to square images, MS-SSIM adapts to resolution
+- No caching implemented - metrics recalculated on each invocation for consistency
 """
 
 import numpy as np

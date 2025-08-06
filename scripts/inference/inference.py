@@ -5,22 +5,76 @@
 # MAYBE save output to npz file, not just image
 
 """
-Inference script for ptychography reconstruction.
+Perform inference on test data using a trained PtychoPINN model.
 
-This script loads a trained model and test data, performs inference,
-and saves the reconstructed image comparison and optionally a probe visualization.
+This script loads a trained model from a directory and runs inference on test data
+to generate reconstructed object images. It produces both amplitude and phase 
+reconstructions, and optionally creates comparison plots when ground truth is available.
+The script handles proper data formatting, model loading, and visualization generation
+in a streamlined inference workflow.
+
+Key Features:
+- Automatic model loading from training output directories
+- Support for both gridsize=1 and gridsize>1 configurations
+- Optional comparison with ground truth when available
+- Configurable phase color scaling for visualization
+- Proper handling of coordinate-based stitching
 
 Usage:
-    python inference_script.py --model_prefix <model_prefix> --test_data <test_data_file> [--output_path <output_path>]
-                               [--visualize_probe] [--K <K>] [--nsamples <nsamples>]
+    ptycho_inference --model_path <model_dir> --test_data <test_data.npz> [OPTIONS]
 
 Arguments:
-    --model_prefix: Path prefix for the saved model and its configuration
-    --test_data: Path to the .npz file containing test data
-    --output_path: Path prefix for saving output files and images (default: './')
-    --visualize_probe: Flag to generate and save probe visualization
-    --K: Number of nearest neighbors for grouped data generation (default: 7)
-    --nsamples: Number of samples for grouped data generation (default: 1)
+    --model_path: Path to trained model directory (must contain wts.h5.zip)
+    --test_data: Path to test NPZ file
+    --output_dir: Directory for output images (default: inference_outputs)
+    --config: Optional YAML config to override model parameters
+    --n_images: Number of images/groups to process (interpretation depends on gridsize)
+    --comparison_plot: Generate comparison plot if ground truth available
+    --phase_vmin: Minimum value for phase color scale (default: auto)
+    --phase_vmax: Maximum value for phase color scale (default: auto)
+    --debug: Enable debug mode with verbose output
+
+Examples:
+    # Example 1: Basic inference on test data
+    ptycho_inference --model_path training_outputs/my_model \\
+                     --test_data datasets/test_data.npz \\
+                     --output_dir inference_results
+
+    # Example 2: Inference with comparison plot and custom phase scaling
+    ptycho_inference --model_path training_outputs/pinn_model \\
+                     --test_data datasets/fly/test.npz \\
+                     --output_dir eval_results \\
+                     --comparison_plot \\
+                     --phase_vmin -3.14 --phase_vmax 3.14
+
+    # Example 3: Quick inference on subset of test data
+    ptycho_inference --model_path trained_model/ \\
+                     --test_data test_dataset.npz \\
+                     --n_images 100 \\
+                     --output_dir quick_test
+
+Input Requirements:
+    Model directory must contain:
+    - wts.h5.zip: Trained model weights archive
+    - params.dill: Training configuration (auto-loaded)
+    
+    Test data NPZ must contain:
+    - 'diffraction': Amplitude data, shape (n, N, N)
+    - 'objectGuess': Complex object array (optional, for comparison)
+    - 'probeGuess': Complex probe array
+    - 'xcoords', 'ycoords': Scan position coordinates
+    
+    See docs/data_contracts.md for complete specifications.
+
+Output Structure:
+    The output directory will contain:
+    - output_dir/
+        - reconstructed_amplitude.png: Object amplitude reconstruction
+        - reconstructed_phase.png: Object phase reconstruction
+        - comparison_plot.png: Side-by-side comparison (if ground truth available)
+        - inference.log: Detailed inference log
+        
+    All images include appropriate colorbars and scaling for scientific use.
 """
 
 from typing import Optional

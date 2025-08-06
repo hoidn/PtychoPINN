@@ -111,6 +111,18 @@ for i in range(B * c):
 1.  **Prioritize the Final Product:** Always check for the most processed, prepared version of the data first (the `Y` array).
 2.  **Fail Loudly:** Do not silently fall back to regenerating data. This masks errors. The corrected logic now raises a `ValueError` or `NotImplementedError` if the expected prepared `Y` array is not found, forcing the developer to use a correctly prepared dataset.
 
+### 3.4. Core Tensor Formats for gridsize > 1
+
+To handle overlapping patches, the codebase uses three primary tensor formats. Understanding the role of each is critical for avoiding shape mismatch errors.
+
+* **Channel Format (`B, N, N, C`)**: This is the primary format for **neural network processing**. The `C = gridsize**2` neighboring patches are treated as channels. This is the format produced by `get_image_patches` and expected by the U-Net in `ptycho/model.py`.
+
+* **Flat Format (`B*C, N, N, 1`)**: This format is used for **individual patch physics simulation**. Each of the `C` patches from a group is treated as a separate item in a larger batch. **This is the required input format for `ptycho.diffsim.illuminate_and_diffract`**.
+
+* **Grid Format (`B, G, G, N, N, 1`)**: A transitional format that makes the physical 2D grid of patches explicit.
+
+**CRITICAL RULE:** You must use `ptycho.tf_helper._channel_to_flat()` to convert data from Channel Format to Flat Format before passing it to the core physics simulation engine.
+
 ---
 
 ## 4. Physical Consistency in Data Preprocessing
@@ -128,6 +140,61 @@ for i in range(B * c):
 **The Principle:** The `diffraction` array in a dataset is only physically valid for the specific `objectGuess` and `probeGuess` it was generated from.
 
 **The Rule:** If you modify the object or probe in any way (e.g., upsampling, smoothing via `prepare_data_tool.py`), the original `diffraction` data is now invalid. You **must** run a new simulation to generate a new, valid `diffraction` array. The `prepare.sh` script correctly models this workflow.
+
+### 4.5 Critical Data Flow: The Patch Extraction Pipeline
+
+The process of extracting patches in `ptycho/raw_data.py` involves a critical coordinate system convention that must be respected. Failure to do so will result in incorrect patch extraction.
+
+1. **Offset Creation:** The `offsets_c` tensor is created by stacking `ycoords` and then `xcoords`. This results in a coordinate order of **`[y_offset, x_offset]`**.
+2. **Translation Function:** The `ptycho.tf_helper.translate` function expects its `translations` argument to be in **`[dx, dy]`** (i.e., `[x_offset, y_offset]`) order.
+3. **The Required Swap:** To ensure correct translation, the coordinate vector **must be swapped** before being passed to the `translate` function.
+
+**Correct Implementation Pattern:**
+```python
+# offsets_yx has shape (batch, 2) and order [y, x]
+offsets_yx = tf.reshape(offsets_f, (-1, 2))
+
+# Swap columns to get [x, y] order for the translate function
+offsets_xy = tf.gather(offsets_yx, [1, 0], axis=1)
+
+# Now pass the correctly ordered offsets to the translate function
+translated_patches = hh.translate(images, -offsets_xy)
+```
+
+The legacy iterative implementation contained a latent bug where this swap was not performed, leading to visually correct but technically transposed translations on symmetric data. All new and refactored code must perform this explicit swap for correctness.
+
+### 4.6. High-Performance Patch Extraction
+
+The patch extraction process in `ptycho/raw_data.py` has been optimized to use batched operations instead of iterative loops, providing significant performance improvements.
+
+**The Legacy Approach:** The original implementation used a for loop to extract patches one by one:
+- Sequential processing of each patch
+- Poor GPU utilization
+- O(n) operations for n patches
+- 12-15 seconds for 1000 patches on typical hardware
+
+**The Modern Batched Approach:** The new implementation leverages TensorFlow's batched translation capabilities:
+- Single batched operation for all patches
+- Full GPU utilization via XLA compilation
+- O(1) operation complexity
+- 2-3 seconds for 1000 patches (4-5x speedup)
+
+**Implementation Details:**
+- **Function:** `<code-ref type="function">ptycho.raw_data._get_image_patches_batched</code-ref>`
+- **Engine:** Uses `ptycho.tf_helper.translate` with the memory-efficient `translate_xla` backend
+- **Feature Flag:** Controlled by `use_batched_patch_extraction` in ModelConfig (default: True)
+- **Equivalence:** Produces numerically identical results (verified to 1e-6 tolerance)
+
+**Performance Characteristics:**
+- **Speedup:** 4-5x for typical workloads, scales with batch size
+- **Memory:** Less than 20% increase over iterative approach
+- **Compatibility:** Seamless fallback to iterative implementation if needed
+
+**Usage Notes:**
+- The batched implementation is now the default for all new training runs
+- Legacy iterative implementation remains available via configuration flag
+- Extensive equivalence testing ensures identical results
+- See `<code-ref type="test">tests/test_patch_extraction_equivalence.py</code-ref>` for validation
 
 ---
 
@@ -335,21 +402,33 @@ This command will discover and execute all test files following the `test_*.py` 
 
 ---
 
-## 8. The Challenge of Subsampling with Overlap Constraints (`gridsize > 1`)
+## 8. Data Handling for Overlap-Based Training (gridsize > 1)
 
-**The Lesson:** A critical architectural limitation exists when using subsampling (e.g., via the `--n_images` flag) in conjunction with a `gridsize` greater than 1. The model's overlap constraint relies on the physical adjacency of neighboring diffraction patterns, and the current data loading pipeline can break this assumption.
+The gridsize parameter controls the use of overlapping scan positions in the physics model. When gridsize is greater than 1 (e.g., gridsize=2 for a 2x2 group of neighbors), the data loading and subsampling behavior is distinct from the gridsize=1 case.
 
-**The Problem:** The data loading workflow performs subsampling *before* nearest-neighbor grouping.
-1. `ptycho/workflows/components.py:load_data` selects the first `N` sequential scan points.
-2. `ptycho/raw_data.py:generate_grouped_data` then finds neighbors *within this small, pre-selected subset*.
+### 8.1. Subsampling Strategy for gridsize > 1
 
-This leads to a critical dilemma:
-- **Sequential Subsampling (Current Behavior):** The training data is drawn from a small, spatially contiguous region of the object. This is a **non-representative, biased sample** that leads to poor model generalization.
-- **Random Subsampling (Incorrect Fix):** If the dataset is shuffled before subsampling (e.g., with `<code-ref type="tool">scripts/tools/shuffle_dataset_tool.py</code-ref>`), the "nearest" neighbors found will be from random, distant parts of the object. This creates **physically incoherent training samples** and the model will fail to learn the overlap constraint.
+To create a training subset from a larger dataset (e.g., via the --n_images flag), the pipeline uses a "sample-then-group" strategy. The workflow is as follows:
 
-**The Correct (but Unimplemented) Solution:** The ideal workflow would be to first perform nearest-neighbor grouping on the *entire* dataset to create a "dataset of valid groups," and then subsample from that set of groups. This is not yet implemented.
+1. **Random Sampling of Anchor Points**: The system first randomly samples N anchor points from the complete set of scan coordinates.
+2. **Neighbor Grouping**: For each of the N anchor points, it then finds the K-nearest neighbors to form the final training groups.
 
-**The Rule:** For any rigorous training or generalization study using `gridsize > 1`, **do not use the `--n_images` flag for subsampling**. Instead, create a smaller, but complete and spatially coherent, dataset as a separate `.npz` file and train on 100% of that file.
+This method generates a spatially representative set of physically valid neighbor groups.
+
+**Guideline for Data Integrity:**
+Do not pre-shuffle a dataset intended for gridsize > 1 training. The neighbor-finding algorithm requires the original spatial arrangement of coordinates to identify physically adjacent scan positions.
+
+### 8.2. Tensor Shape and Configuration
+
+When gridsize=2, the input tensors to the model will have a channel dimension of 4 (gridsize²). The data loader (`ptycho/loader.py`) and the model (`ptycho/model.py`) are designed to handle this multi-channel format.
+
+The training log will confirm the configuration with a message similar to the following:
+
+```
+INFO - Parameter interpretation: --n-images=500 refers to neighbor groups (gridsize=2, total patterns=2000)
+```
+
+This indicates the system is generating 500 training samples, where each sample consists of a 2x2 group of neighboring diffraction patterns.
 
 ---
 

@@ -1,5 +1,85 @@
 #!/usr/bin/env python3
 # ptycho_simulate_cli.py
+"""
+Comprehensive simulation and visualization tool for ptychographic reconstruction workflows.
+
+This script provides an all-in-one pipeline that simulates ptychographic data from
+an input object/probe pair, trains both PINN and baseline models on the simulated data,
+and generates a rich HTML report with multiple visualizations. Unlike the modular
+simulate_and_save.py which focuses on data generation, this script demonstrates
+a complete workflow from simulation through reconstruction comparison.
+
+Key Features:
+- Simulates realistic ptychographic datasets with configurable parameters
+- Trains both PINN and supervised baseline models on the same data
+- Generates multiple visualization types (diffraction patterns, scan positions, reconstructions)
+- Creates an interactive HTML report with embedded images
+- Compares PINN vs baseline reconstruction quality
+- Supports full configuration through command line arguments
+
+Usage:
+    python scripts/simulation/simulation.py <input_file> <output_dir> [OPTIONS]
+
+Arguments:
+    input_file: Path to NPZ file containing objectGuess and probeGuess
+    output_dir: Directory to save all outputs and HTML report
+    --nimages: Number of diffraction patterns to simulate (default: 2000)
+    --seed: Random seed for reproducible simulations
+    --nepochs: Training epochs for both models (default: 50)
+    --N: Diffraction pattern size (default: 128)
+    --gridsize: Grid size for overlapping patches (default: 1)
+    --nphotons: Photon flux for noise simulation (default: 1e9)
+    --mae_weight: MAE loss weight (default: 1.0)
+    --nll_weight: Poisson NLL loss weight (default: 0.0)
+    --probe_scale: Probe scaling factor (default: 4)
+    --config: Optional YAML config file to override defaults
+
+Examples:
+    # Example 1: Quick simulation and comparison with minimal data
+    python scripts/simulation/simulation.py \\
+        datasets/fly/fly001_transposed.npz \\
+        simulation_results \\
+        --nimages 500 \\
+        --nepochs 20
+
+    # Example 2: Full pipeline with PINN model (physics-informed loss)
+    python scripts/simulation/simulation.py \\
+        datasets/object_probe.npz \\
+        full_pipeline_results \\
+        --nimages 2000 \\
+        --nepochs 100 \\
+        --nll_weight 1.0 \\
+        --mae_weight 0.0
+
+    # Example 3: High-photon simulation with custom parameters
+    python scripts/simulation/simulation.py \\
+        input_data.npz \\
+        high_photon_sim \\
+        --nphotons 1e10 \\
+        --N 64 \\
+        --gridsize 2 \\
+        --seed 42
+
+Input Requirements:
+    Input NPZ file must contain:
+    - 'objectGuess': Complex object array for simulation
+    - 'probeGuess': Complex probe function
+    
+    These serve as the ground truth for simulating diffraction patterns.
+    See docs/data_contracts.md for format specifications.
+
+Output Structure:
+    The output directory will contain:
+    - output_dir/
+        - report.html: Interactive HTML report with all visualizations
+        - simulated_data_visualization.png: Overview of simulated data
+        - random_groups_1.png, _2.png, _3.png: Scan position groupings
+        - reconstruction_comparison.png: PINN vs baseline vs ground truth
+        - [Additional training artifacts from the models]
+        
+    The HTML report provides a comprehensive view of the entire workflow,
+    including launch command, parameters used, and all generated visualizations.
+"""
 
 import argparse
 import os

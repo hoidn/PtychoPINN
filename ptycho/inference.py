@@ -1,9 +1,15 @@
 """
-Legacy inference utilities for loading pre-trained models and performing reconstruction.
+Core inference library for trained PtychoPINN models.
 
-Example:
-    >>> results = inference_flow("model.h5", data_container)
-    >>> reconstructed_obj = results['reconstructed_obj']
+Provides `inference_flow(model_path, data_container)` for end-to-end 
+inference pipeline returning reconstructed object and amplitudes.
+
+Usage:
+    ```python
+    from ptycho.inference import inference_flow
+    data = PtychoDataContainer.from_file("test.npz")
+    results = inference_flow("model.h5", data)
+    ```
 """
 from ptycho.model_manager import ModelManager
 from tensorflow.keras.models import Model

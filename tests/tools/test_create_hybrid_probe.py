@@ -63,7 +63,7 @@ class TestCreateHybridProbe(unittest.TestCase):
         self.assertEqual(hybrid.dtype, np.complex64)
         
     def test_mismatched_dimensions(self):
-        """Test hybrid probe creation with different sized inputs."""
+        """Test that mismatched dimensions raise ValueError."""
         # Create smaller phase probe
         small_size = 32
         x = np.linspace(-2, 2, small_size)
@@ -72,12 +72,14 @@ class TestCreateHybridProbe(unittest.TestCase):
         R = np.sqrt(X**2 + Y**2)
         small_phase_probe = np.exp(1j * 0.5 * R**2).astype(np.complex64)
         
-        # Create hybrid - should resize to larger dimension
-        hybrid = create_hybrid_probe(self.amp_probe, small_phase_probe)
+        # Should raise ValueError for dimension mismatch
+        with self.assertRaises(ValueError) as cm:
+            create_hybrid_probe(self.amp_probe, small_phase_probe)
         
-        # Check output has larger dimension
-        self.assertEqual(hybrid.shape, self.amp_probe.shape)
-        self.assertEqual(hybrid.shape, (self.size, self.size))
+        # Check error message
+        self.assertIn("dimensions must match exactly", str(cm.exception))
+        self.assertIn(f"{self.amp_probe.shape}", str(cm.exception))
+        self.assertIn(f"{small_phase_probe.shape}", str(cm.exception))
         
     def test_normalization(self):
         """Test power normalization option."""

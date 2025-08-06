@@ -1,41 +1,68 @@
 """
-Modern dataclass-based configuration system replacing legacy params.cfg pattern.
+Configuration loading and validation from YAML files and dataclasses.
 
-Provides type-safe, structured configuration for PtychoPINN model architecture,
-training workflows, and inference tasks. Maintains backward compatibility through
-automatic legacy dictionary generation for existing modules.
+This module provides the primary mechanism for loading system configuration
+from YAML files and managing structured dataclass configurations. It handles parsing,
+validation, and the critical bridge between modern type-safe configuration and
+the legacy global parameter state used throughout the system.
 
-Configuration Classes:
-    ModelConfig: Architecture parameters (N, gridsize, model_type, activations)
-    TrainingConfig: Training workflow (epochs, loss weights, data paths)
-    InferenceConfig: Inference workflow (model paths, output settings)
+Architecture Role:
+    YAML config file -> config.py (parser/validator) -> params.py (global state)
+    
+    This module acts as the configuration entry point, transforming external
+    YAML files into structured dataclasses and maintaining backward compatibility
+    by updating the legacy params.cfg dictionary used by older modules.
 
-Core Functions:
-    validate_*_config(config) -> None: Validates configuration constraints
-    load_yaml_config(path) -> Dict: Loads YAML configuration files
-    update_legacy_dict(cfg, dataclass_obj): Updates params.cfg for compatibility
+Public Interface:
+    `load_yaml_config(path) -> Dict`
+        - Purpose: Load and validate a YAML configuration file.
+        - Input: Path to a YAML configuration file.
+        - Returns: Configuration dictionary suitable for dataclass instantiation.
+        - Raises: OSError, yaml.YAMLError if file cannot be loaded.
+    
+    `update_legacy_dict(cfg, dataclass_obj)`
+        - Purpose: Synchronize dataclass configuration to legacy params.cfg.
+        - Side Effect: Updates global params.cfg with mapped parameter names.
+        - Key Behavior: Applies name mappings (object_big → object.big).
+        
+    `TrainingConfig` / `ModelConfig` / `InferenceConfig`
+        - Purpose: Type-safe configuration dataclasses with validation.
+        - Validation: Automatic constraint checking (positive values, power-of-2).
 
-Workflow Integration:
+Workflow Usage Example:
     ```python
-    # Modern configuration with legacy compatibility
+    from ptycho.config.config import TrainingConfig, ModelConfig, load_yaml_config
+    import ptycho.params as params
+    
+    # Method 1: Load from YAML file
+    yaml_data = load_yaml_config(Path('configs/experiment.yaml'))
+    config = TrainingConfig(**yaml_data)
+    
+    # Method 2: Direct instantiation
     config = TrainingConfig(
         model=ModelConfig(N=128, model_type='pinn'),
-        train_data_file='data.npz', nepochs=100)
+        train_data_file=Path('data.npz'), nepochs=100)
     
     # Enable legacy module compatibility
-    import ptycho.params as params
     update_legacy_dict(params.cfg, config)
     
-    # YAML loading for scripts
-    yaml_data = load_yaml_config(Path('config.yaml'))
-    config = TrainingConfig(**yaml_data)
+    # Legacy modules now access: params.get('N'), params.get('object.big')
+    
+    # Example minimal YAML file:
+    # ---
+    # model:
+    #   N: 128
+    #   model_type: 'pinn'
+    # train_data_file: 'datasets/fly.npz'
+    # nepochs: 100
+    # batch_size: 16
     ```
 
-Legacy Migration:
-    - Modern workflows use dataclasses directly
-    - Legacy modules continue using params.get() pattern
-    - Configuration updates flow one-way: dataclass → legacy dict
-    - Key mappings handle naming differences (object_big → object.big)
+Architectural Notes:
+- Configuration flow is unidirectional: dataclass → legacy dict only
+- Path objects automatically converted to strings for legacy compatibility
+- Validation functions enforce physical constraints and type safety
+- Depends on ptycho.params for global configuration state access
 """
 
 from dataclasses import dataclass, asdict
@@ -57,6 +84,7 @@ class ModelConfig:
     pad_object: bool = True
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0
+    use_batched_patch_extraction: bool = True  # Feature flag for high-performance patch extraction
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -171,7 +199,8 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
         'positions_provided': 'positions.provided',
         'output_dir': 'output_prefix',
         'train_data_file': 'train_data_file_path',
-        'test_data_file': 'test_data_file_path'
+        'test_data_file': 'test_data_file_path',
+        'use_batched_patch_extraction': 'use_batched_patch_extraction'
     }
 
     # Convert dataclass to dict

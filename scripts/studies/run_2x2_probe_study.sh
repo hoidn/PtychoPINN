@@ -25,7 +25,7 @@
 #   --output-dir DIRECTORY     Output directory for study results
 #
 # Optional Options:
-#   --dataset PATH            Input dataset (default: datasets/fly/fly64_transposed.npz)
+#   --dataset PATH            Source dataset for experimental probe phase (default: datasets/fly/fly001_transposed.npz)
 #   --quick-test              Run in quick test mode (fewer images, epochs)
 #   --parallel-jobs N         Number of parallel jobs (default: 1)
 #   --skip-completed          Skip already completed steps
@@ -34,7 +34,7 @@
 # Quick Test Mode:
 #   When --quick-test is specified:
 #   - N_TRAIN=256 (instead of 5000)
-#   - N_TEST=128 (instead of 1000)
+#   - N_TEST=128 (instead of 1000)  
 #   - EPOCHS=5 (instead of 50)
 #
 # Examples:
@@ -52,15 +52,15 @@
 #
 # Output Structure:
 #   output_dir/
-#   ├── default_probe.npy          # Extracted default probe
-#   ├── hybrid_probe.npy           # Generated hybrid probe
-#   ├── gs1_default/               # Gridsize 1, default probe
+#   ├── idealized_probe.npy        # Generated idealized probe
+#   ├── hybrid_probe.npy           # Generated hybrid probe  
+#   ├── gs1_idealized/             # Gridsize 1, idealized probe
 #   │   ├── simulated_data.npz
 #   │   ├── model/
 #   │   ├── evaluation/
 #   │   └── metrics_summary.csv
 #   ├── gs1_hybrid/                # Gridsize 1, hybrid probe
-#   ├── gs2_default/               # Gridsize 2, default probe
+#   ├── gs2_idealized/             # Gridsize 2, idealized probe
 #   └── gs2_hybrid/                # Gridsize 2, hybrid probe
 #
 # Requirements:
@@ -99,7 +99,7 @@ fi
 
 # Default values
 OUTPUT_DIR=""
-DATASET="datasets/fly/fly64_transposed.npz"
+PHASE_SOURCE_DATASET="datasets/fly/fly001_transposed.npz"
 QUICK_TEST=false
 PARALLEL_JOBS=1
 SKIP_COMPLETED=false
@@ -120,7 +120,7 @@ while [[ $# -gt 0 ]]; do
                 echo "Error: --dataset requires a file path argument"
                 exit 1
             fi
-            DATASET="$2"
+            PHASE_SOURCE_DATASET="$2"
             shift 2
             ;;
         --quick-test)
@@ -161,9 +161,9 @@ if [[ -z "$OUTPUT_DIR" ]]; then
     exit 1
 fi
 
-# Check if dataset exists
-if [[ ! -f "$DATASET" ]]; then
-    echo "Error: Dataset file not found: $DATASET"
+# Check if phase source dataset exists
+if [[ ! -f "$PHASE_SOURCE_DATASET" ]]; then
+    echo "Error: Phase source dataset file not found: $PHASE_SOURCE_DATASET"
     exit 1
 fi
 
@@ -180,7 +180,7 @@ echo "=========================================="
 echo "2x2 Probe Parameterization Study"
 echo "=========================================="
 echo "Output directory: $OUTPUT_DIR"
-echo "Dataset: $DATASET"
+echo "Phase source dataset: $PHASE_SOURCE_DATASET"
 echo "Quick test mode: $QUICK_TEST"
 echo "Parallel jobs: $PARALLEL_JOBS"
 echo "Skip completed: $SKIP_COMPLETED"
@@ -188,13 +188,12 @@ echo "Start time: $(date)"
 echo "=========================================="
 
 # Define experimental matrix
-# TODO: Fix gridsize 2 data format issue before enabling
-GRIDSIZES=(1)  # Only gridsize 1 for now
-PROBE_TYPES=("default" "hybrid")
+GRIDSIZES=(1 2)
+PROBE_TYPES=("idealized" "hybrid")
 
 # Set parameters based on mode
 if [[ "$QUICK_TEST" == true ]]; then
-    N_TRAIN=512
+    N_TRAIN=256
     N_TEST=128
     EPOCHS=5
     echo ""
@@ -241,30 +240,80 @@ log_message() {
 }
 
 # ============================================
+# SYNTHETIC OBJECT GENERATION
+# ============================================
+
+log_message "Generating synthetic lines object..."
+
+# Generate synthetic lines input data
+SYNTHETIC_INPUT_PATH="$OUTPUT_DIR/synthetic_lines_input.npz"
+if is_step_complete "$SYNTHETIC_INPUT_PATH"; then
+    log_message "Synthetic lines object already generated"
+else
+    log_message "Creating synthetic lines object with probe..."
+    python -c "
+import numpy as np
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), '.')))
+
+from ptycho import params as p
+from ptycho.diffsim import sim_object_image
+from ptycho.probe import get_default_probe
+
+# Set up parameters for synthetic object
+N_obj = 224  # Object size (3.5x probe size for 64x64 probe)
+# Set data source in global params
+p.set('data_source', 'lines')
+# Create synthetic lines object
+obj = sim_object_image(N_obj)
+# Remove extra dimension if present (lines returns (H, W, 1))
+if obj.ndim == 3 and obj.shape[2] == 1:
+    obj = obj[:, :, 0]
+# Get default probe
+probe = get_default_probe(64, fmt='np')
+# Ensure probe is complex
+if not np.iscomplexobj(probe):
+    probe = probe.astype(np.complex64)
+# Save as NPZ file
+np.savez('$SYNTHETIC_INPUT_PATH', 
+         objectGuess=obj,
+         probeGuess=probe)
+print(f'Created synthetic lines object with shape {obj.shape}')
+print(f'  Object amplitude range: [{np.abs(obj).min():.3f}, {np.abs(obj).max():.3f}]')
+print(f'  Object phase std: {np.angle(obj).std():.3f}')
+"
+    if [[ $? -ne 0 ]]; then
+        echo "Error: Failed to generate synthetic lines object"
+        exit 1
+    fi
+fi
+
+# ============================================
 # PROBE GENERATION
 # ============================================
 
 log_message "Starting probe generation..."
 
-# Extract default probe
-DEFAULT_PROBE_PATH="$OUTPUT_DIR/default_probe.npy"
-if is_step_complete "$DEFAULT_PROBE_PATH"; then
-    log_message "Default probe already extracted"
+# Create idealized probe using synthetic generation
+IDEALIZED_PROBE_PATH="$OUTPUT_DIR/idealized_probe.npy"
+if is_step_complete "$IDEALIZED_PROBE_PATH"; then
+    log_message "Idealized probe already created"
 else
-    log_message "Extracting default probe from dataset..."
+    log_message "Extracting idealized probe from synthetic lines input..."
     python -c "
 import numpy as np
-data = np.load('$DATASET')
-if 'probeGuess' not in data:
-    raise ValueError('Dataset does not contain probeGuess')
+# Extract probe from synthetic lines input data
+data = np.load('$SYNTHETIC_INPUT_PATH')
 probe = data['probeGuess']
-np.save('$DEFAULT_PROBE_PATH', probe)
-print(f'Saved default probe with shape {probe.shape}, dtype {probe.dtype}')
+# Save the idealized probe
+np.save('$IDEALIZED_PROBE_PATH', probe)
+print(f'Saved idealized probe with shape {probe.shape}, dtype {probe.dtype}')
 print(f'  Mean amplitude: {np.abs(probe).mean():.4f}')
 print(f'  Phase std: {np.angle(probe).std():.4f}')
 "
     if [[ $? -ne 0 ]]; then
-        echo "Error: Failed to extract default probe"
+        echo "Error: Failed to create idealized probe"
         exit 1
     fi
 fi
@@ -275,11 +324,10 @@ if is_step_complete "$HYBRID_PROBE_PATH"; then
     log_message "Hybrid probe already generated"
 else
     log_message "Generating hybrid probe..."
-    # For initial implementation, use the same dataset for both amplitude and phase
-    # This can be modified later to use different sources
+    # Use idealized probe amplitude with experimental phase from source dataset
     python scripts/tools/create_hybrid_probe.py \
-        "$DATASET" \
-        "$DATASET" \
+        "$IDEALIZED_PROBE_PATH" \
+        "$PHASE_SOURCE_DATASET" \
         --output "$HYBRID_PROBE_PATH"
     
     if [[ $? -ne 0 ]]; then
@@ -318,8 +366,8 @@ run_simulation() {
     log_message "Running simulation for gridsize=$gridsize, probe=$probe_type"
     
     # Determine probe path
-    if [[ "$probe_type" == "default" ]]; then
-        local probe_path="$DEFAULT_PROBE_PATH"
+    if [[ "$probe_type" == "idealized" ]]; then
+        local probe_path="$IDEALIZED_PROBE_PATH"
     else
         local probe_path="$HYBRID_PROBE_PATH"
     fi
@@ -333,9 +381,9 @@ run_simulation() {
     # Create output subdirectory
     mkdir -p "$output_subdir"
     
-    # Build simulation command
+    # Build simulation command using synthetic lines input
     local sim_cmd="python scripts/simulation/simulate_and_save.py"
-    sim_cmd="$sim_cmd --input-file $DATASET"
+    sim_cmd="$sim_cmd --input-file $SYNTHETIC_INPUT_PATH"
     sim_cmd="$sim_cmd --probe-file $probe_path"
     sim_cmd="$sim_cmd --output-file $output_subdir/simulated_data.npz"
     sim_cmd="$sim_cmd --n-images $N_TRAIN"
