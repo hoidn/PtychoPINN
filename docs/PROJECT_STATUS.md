@@ -8,16 +8,16 @@ This document provides a high-level overview of the major development initiative
 
 ## 📍 **Current Active Initiative**
 
-**Name:** Probe Parameterization Study - Refactoring Phase  
-**Path:** `plans/archive/2025-08-probe-parameterization/`  
-**Branch:** TBD (to be created from current branch)  
-**Started:** 2025-08-06 (Reinstated)  
-**Current Phase:** Phase 1 - Refactor for Reusability and Modularity  
-**Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready to begin)  
-**Next Milestone:** Create robust, reusable tools with proper process isolation  
-**R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/plan.md</doc-ref>  
-**Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/implementation.md</doc-ref>  
-**Current Checklist:** <doc-ref type="checklist">plans/archive/2025-08-probe-parameterization/phase_1_checklist.md</doc-ref>
+**Name:** Probe Parameterization Study  
+**Path:** `plans/active/probe-parameterization-study/`  
+**Branch:** feature/probe-parameterization-study  
+**Started:** 2025-08-01  
+**Current Phase:** Final Phase - Results Aggregation and Documentation  
+**Progress:** ████████████░░░░ 75% (Phases 1-3 complete, Final phase in progress)  
+**Next Milestone:** Complete results aggregation and documentation  
+**R&D Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/plan.md</doc-ref>  
+**Implementation Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/implementation.md</doc-ref>  
+**Current Checklist:** <doc-ref type="checklist">plans/active/probe-parameterization-study/phase_final_checklist.md</doc-ref>
 
 ---
 
