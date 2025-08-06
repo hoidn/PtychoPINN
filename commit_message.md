@@ -1,22 +1,33 @@
-Add custom Keras layers and XLA-compatible projective warp
+# Commit Message
 
-Implement custom Keras layers to replace Lambda layers for better serialization
-and add XLA-compatible projective warp implementation with full dtype support.
+## Summary
+Activate probe parameterization initiative by moving from archive to active directory
 
-Changes:
-- Add custom_layers.py with Keras layer implementations for all Lambda operations
-- Add projective_warp_xla.py with pure TensorFlow projective warp (no TFA dependency)
-- Support complex tensor operations and mixed precision (float32/float64) in custom layers
-- Enable proper model serialization with @tf.keras.utils.register_keras_serializable
-- Add XLA JIT compilation support for improved performance (~40% faster)
-- Implement translation wrapper compatible with PtychoPINN conventions
-- Fix dtype handling to support both float32 and float64 inputs
-- Ensure compute precision matches input precision for numerical stability
-- Add comprehensive test suite covering all dtype combinations and JIT compilation
+Move probe parameterization initiative from `plans/archive/` to `plans/active/` directory and update PROJECT_STATUS.md to reflect the new active status. This initiative focuses on refactoring probe parameterization study tools for reusability and modularity.
 
-Testing:
-- Added test_projective_warp_xla.py with 12 test cases
-- Specific test for float64 dtype that would have caught the original bug
-- Tests for complex64/complex128 support
-- Tests for JIT compilation with different dtypes
-- All tests pass successfully
+## Changes Made
+
+### File Operations
+- **Moved**: `plans/archive/2025-08-probe-parameterization/` → `plans/active/2025-08-probe-parameterization/`
+  - Includes all planning documents: `plan.md`, `implementation.md`, phase checklists
+
+### Documentation Updates
+- **Modified**: `docs/PROJECT_STATUS.md`
+  - Updated Current Active Initiative path from archive to active
+  - Updated all doc-ref paths to point to new active location
+  - R&D Plan, Implementation Plan, and Current Checklist references updated
+
+## Initiative Status
+- **Name**: Probe Parameterization Study - Refactoring Phase
+- **Current Phase**: Phase 1 - Refactor for Reusability and Modularity  
+- **Progress**: 0% (Planning complete, implementation ready to begin)
+- **Next Milestone**: Create robust, reusable tools with proper process isolation
+
+## Context
+This initiative was previously archived after completion of the successful probe study. Now reactivated to focus on cleaning up and refactoring the experimental scripts into robust, reusable tools following the two-stage (prepare/execute) architecture that proved successful.
+
+---
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
