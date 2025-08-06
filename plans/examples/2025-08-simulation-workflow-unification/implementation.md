@@ -4,7 +4,7 @@
 # Phased Implementation Plan
 
 **Project:** Simulation Workflow Unification
-**Initiative Path:** `plans/active/simulation-workflow-unification/`
+**Initiative Path:** `plans/examples/2025-08-simulation-workflow-unification/`
 
 ---
 ## Git Workflow Information

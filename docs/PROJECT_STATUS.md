@@ -42,9 +42,9 @@ This document provides a high-level overview of the major development initiative
     *   Integration into `scripts/compare_models.py` with `--skip-registration` flag
     *   Unified NPZ file format for reconstruction data
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/implementation.md</doc-ref>
-    *   **Context Document:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/context_priming_registration.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/examples/2025-07-registration-refactor/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/examples/2025-07-registration-refactor/implementation.md</doc-ref>
+    *   **Context Document:** <doc-ref type="plan">plans/examples/2025-07-registration-refactor/context_priming_registration.md</doc-ref>
 
 ### **Initiative: Evaluation Enhancements**
 *   **Status:** ✅ Complete
@@ -102,9 +102,9 @@ This document provides a high-level overview of the major development initiative
     *   Deprecation warnings on legacy `RawData.from_simulation` ✅
     *   Updated documentation with migration guides ✅
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/implementation.md</doc-ref>
-    *   **Summary:** <doc-ref type="summary">plans/active/simulation-workflow-unification/implementation_summary.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/examples/2025-08-simulation-workflow-unification/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/examples/2025-08-simulation-workflow-unification/implementation.md</doc-ref>
+    *   **Summary:** <doc-ref type="summary">plans/examples/2025-08-simulation-workflow-unification/implementation_summary.md</doc-ref>
 
 ### **Initiative: Remove TensorFlow Addons Dependency**
 *   **Status:** ✅ **Complete** - Completed 2025-07-27
@@ -139,8 +139,8 @@ This document provides a high-level overview of the major development initiative
     *   **Phase 4:** Complete three-way comparison workflow validation ✅
 *   **Final Achievement:** Single-command three-way generalization studies via `./run_complete_generalization_study.sh --add-tike-arm`
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/active/tike-comparison-integration/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/active/tike-comparison-integration/implementation.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/tike-comparison-integration/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/tike-comparison-integration/implementation.md</doc-ref>
     *   **Phase 4 Implementation Log:** <doc-ref type="log">PHASE_4_IMPLEMENTATION_LOG.md</doc-ref>
 
 ### **Initiative: Probe Generalization Study**
