@@ -8,16 +8,17 @@ This document provides a high-level overview of the major development initiative
 
 ## 📍 **Current Active Initiative**
 
-**Name:** Probe Parameterization Study  
-**Path:** `plans/active/probe-parameterization-study/`  
-**Branch:** feature/probe-parameterization-study  
-**Started:** 2025-08-01  
-**Current Phase:** Final Phase - Results Aggregation and Documentation  
-**Progress:** ████████████░░░░ 75% (Phases 1-3 complete, Final phase in progress)  
-**Next Milestone:** Complete results aggregation and documentation  
-**R&D Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/plan.md</doc-ref>  
-**Implementation Plan:** <doc-ref type="plan">plans/active/probe-parameterization-study/implementation.md</doc-ref>  
-**Current Checklist:** <doc-ref type="checklist">plans/active/probe-parameterization-study/phase_final_checklist.md</doc-ref>
+**Name:** Probe Parameterization Study - Refactoring with Config Separation  
+**Path:** `plans/active/probe-parameterization-refactor/`  
+**Branch:** TBD (to be created from current branch)  
+**Started:** 2025-08-01 (Refactoring approach chosen 2025-08-06)  
+**Current Phase:** Phase 1 - Refactor for Reusability and Modularity  
+**Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready)  
+**Next Milestone:** Create robust tools with proper process isolation to prevent gridsize config bugs  
+**R&D Plan:** <doc-ref type="plan">plans/active/probe-parameterization-refactor/plan.md</doc-ref>  
+**Implementation Plan:** <doc-ref type="plan">plans/active/probe-parameterization-refactor/implementation.md</doc-ref>  
+**Current Checklist:** <doc-ref type="checklist">plans/active/probe-parameterization-refactor/phase_1_checklist.md</doc-ref>  
+**Note:** This refactoring approach was chosen over the 75% complete version due to its superior config-level separation and two-stage architecture that properly prevents gridsize parameter contamination between runs.
 
 ---
 
