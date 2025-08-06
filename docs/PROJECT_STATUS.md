@@ -90,8 +90,8 @@ This document provides a high-level overview of the major development initiative
     *   Memory profiling and performance reporting ✅
     *   Updated documentation and migration guides ✅
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/active/high-performance-patch-extraction/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/active/high-performance-patch-extraction/implementation.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-high-performance-patch-extraction/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-high-performance-patch-extraction/implementation.md</doc-ref>
 
 ### **Initiative: Simulation Workflow Unification**
 *   **Status:** ✅ **Complete** - Completed 2025-08-03
@@ -152,8 +152,8 @@ This document provides a high-level overview of the major development initiative
     *   Quantitative comparison report with PSNR, SSIM, and FRC50 metrics
     *   Visualization plots for all four experimental conditions
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/implementation.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-generalization-study/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-generalization-study/implementation.md</doc-ref>
 
 ### **Initiative: Grouping-Aware Subsampling for Overlap-Based Training**
 *   **Status:** ✅ Complete
