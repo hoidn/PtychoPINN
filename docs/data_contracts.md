@@ -54,3 +54,110 @@ For detailed preprocessing workflows for specific experimental datasets, see:
 - <doc-ref type="guide">docs/FLY64_DATASET_GUIDE.md</doc-ref> - FLY64 experimental dataset guide
 
 ---
+
+## 3. AI Context Maskset (`.maskset` format)
+
+This contract applies to any file used to specify inclusion patterns for AI context-generation tools, particularly the `/generate-doc-context` command.
+
+**File Naming Convention:** `*.maskset`  
+**Purpose:** To define a subset of the codebase for specific analysis tasks, typically by creating a "documentation-only" view for AI context priming or focused analysis.
+
+### File Format
+
+- **Type:** Plain text
+- **Encoding:** UTF-8  
+- **Structure:** A list of glob patterns, one per line
+
+### Rules
+
+1. **One Pattern Per Line:** Each line in the file represents a single glob pattern that will be used to select files.
+2. **Recursive Globs:** The `**` pattern is supported for recursive directory matching (e.g., `ptycho/**/*.py`).
+3. **Comments:** Lines starting with a `#` character are treated as comments and are ignored by the parser.
+4. **Empty Lines:** Empty lines are ignored.
+5. **Inclusion Only:** The patterns are used for inclusion only. There is no syntax for exclusion within the maskset file itself; filtering should be done by crafting more specific inclusion patterns.
+6. **Order Matters:** Files are included in the order they match patterns, with earlier patterns taking precedence for organization.
+
+### Example Maskset File (`doc_context.maskset`)
+
+```
+# Maskset for generating high-level architectural context.
+# This focuses on the core library and workflow components.
+
+# Include all modules in the main ptycho library
+ptycho/**/*.py
+
+# Include key workflow scripts
+scripts/workflows/*.py
+scripts/studies/run_complete_generalization_study.sh
+
+# Include high-level documentation
+docs/DEVELOPER_GUIDE.md
+docs/architecture.md
+```
+
+### Common Usage Patterns
+
+#### Architecture Overview Maskset
+```
+# Core library architecture
+ptycho/config/*.py
+ptycho/model.py
+ptycho/diffsim.py
+ptycho/loader.py
+
+# High-level workflows
+scripts/workflows/*.py
+
+# Documentation
+docs/DEVELOPER_GUIDE.md
+docs/data_contracts.md
+```
+
+#### Data Pipeline Maskset
+```
+# Data loading and processing
+ptycho/loader.py
+ptycho/raw_data.py
+ptycho/image/**/*.py
+
+# Data preparation tools
+scripts/tools/*_tool.py
+
+# Data contracts
+docs/data_contracts.md
+```
+
+#### Study-Specific Maskset
+```
+# Study orchestration
+scripts/studies/run_*.sh
+scripts/studies/aggregate_*.py
+
+# Analysis workflows
+scripts/analysis/*.py
+
+# Study documentation
+docs/studies/*.md
+```
+
+### Integration with Commands
+
+The primary consumer of maskset files is the `/generate-doc-context` command:
+
+```bash
+# Generate context using a maskset file
+/generate-doc-context --maskset architecture.maskset
+
+# Generate context with output to file
+/generate-doc-context --maskset data_pipeline.maskset --output context.md
+```
+
+### Best Practices
+
+1. **Name Descriptively:** Use names that describe the focus area (e.g., `architecture.maskset`, `data_pipeline.maskset`)
+2. **Document Purpose:** Always include a comment header explaining the maskset's intended use
+3. **Start Broad, Then Narrow:** Begin with general patterns and add specific files as needed
+4. **Test Coverage:** Run the command with `--dry-run` to verify which files will be included
+5. **Version Control:** Commit useful masksets to the repository for team reuse
+
+---

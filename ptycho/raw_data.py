@@ -63,6 +63,15 @@ Architectural Notes & Dependencies:
   subsequent runs when using gridsize > 1.
 - The "sample-then-group" algorithm ensures spatial diversity in training batches.
 
+Performance Optimization:
+- The patch extraction process (`get_image_patches`) now uses a high-performance
+  batched implementation by default, providing 4-5x speedup over the legacy
+  iterative approach.
+- Controlled by the `use_batched_patch_extraction` configuration parameter
+  (default: True as of v1.X).
+- The legacy iterative implementation remains available for compatibility but
+  is deprecated and will be removed in v2.0.
+
 Key Tensor Formats and Conventions
 ----------------------------------
 This module produces and consumes tensors with specific, non-obvious conventions
@@ -74,6 +83,14 @@ that are critical for correctness.
     in **`[y_offset, x_offset]`** order.
   - **Usage:** This tensor requires coordinate swapping before being passed to
     `ptycho.tf_helper.translate`.
+
+- **get_image_patches Input Requirements:**
+  - **gt_image:** Expected shape `(H, W)` or `(H, W, 1)` for complex-valued images.
+    The function internally adds batch and channel dimensions as needed.
+  - **global_offsets/local_offsets:** Must have shape `(B, 1, 2, c)` where B is
+    batch size, c is gridsize², and the 2-dimension contains `[y, x]` coordinates.
+  - **Output:** Always returns patches in channel format `(B, N, N, c)` where N is
+    the patch size and c is the number of channels (gridsize²).
 """
 import numpy as np
 import tensorflow as tf
@@ -507,10 +524,10 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
     This function extracts patches from a ground truth image at specified positions.
     It serves as a dispatcher between iterative and batched implementations based
     on the configuration. The batched implementation provides significant performance
-    improvements (10-100x) for large datasets.
+    improvements (4-5x) for large datasets.
 
     The implementation is selected based on the `use_batched_patch_extraction` 
-    configuration parameter, which defaults to False for backward compatibility.
+    configuration parameter, which defaults to True for optimal performance.
 
     Args:
         gt_image (tf.Tensor): Ground truth image tensor.
@@ -566,9 +583,12 @@ def _get_image_patches_iterative(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: 
     """
     Legacy iterative implementation of patch extraction using a for loop.
     
+    DEPRECATED: This function will be removed in v2.0. Use the batched implementation
+    via get_image_patches() instead.
+    
     This function extracts patches from a padded ground truth image by iterating
     through each offset and translating the image one patch at a time. This is
-    the original implementation that will be replaced by a batched version.
+    the original implementation that has been replaced by a batched version.
     
     Args:
         gt_padded (tf.Tensor): Padded ground truth image tensor of shape (1, H, W, 1).
@@ -580,6 +600,14 @@ def _get_image_patches_iterative(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: 
     Returns:
         tf.Tensor: Image patches in channel format of shape (B, N, N, c).
     """
+    import warnings
+    warnings.warn(
+        "The iterative patch extraction implementation is deprecated and will be removed in v2.0. "
+        "The batched implementation is now default and provides 4-5x speedup.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     # Create a canvas to store the extracted patches
     canvas = np.zeros((B, N, N, c), dtype=np.complex64)
     
@@ -597,9 +625,10 @@ def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: in
     """
     High-performance batched implementation of patch extraction.
     
-    This function extracts patches from a padded ground truth image using a single
-    batched translation call, eliminating the need for a for loop. This provides
-    significant performance improvements, especially for large batch sizes.
+    This is the primary implementation that leverages TensorFlow's XLA-compiled
+    translation engine for optimal performance. It extracts patches from a padded 
+    ground truth image using a single batched operation, providing 4-5x speedup 
+    over the iterative approach while maintaining numerical equivalence.
     
     Args:
         gt_padded (tf.Tensor): Padded ground truth image tensor of shape (1, H, W, 1).

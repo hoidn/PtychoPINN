@@ -10,3 +10,6 @@
 [submodule "ptycho/FRC"]
 	path = ptycho/FRC
 	url = git@github.com:hoidn/FRC.git
+[submodule ".claude"]
+	path = .claude
+	url = git@github.com:hoidn/claude.git

@@ -1,16 +1,67 @@
-*ipynb_checkpoints
-__pycache__
-*.swp
-*.swo
-*.swp
+
 .aider*
-notebooks/untracked_notebooks*
-untracked*
-PlotNeuralNet*
-datasets/Run1084_recon3_postPC_shrunk.npz
+all_modules.txt
+# Build artifacts
+cleanup_commit.md
+*.csv
+# Data files and outputs (comprehensive list)
 datasets/Run1084_recon3_postPC_shrunk_2.npz
 datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
+datasets/Run1084_recon3_postPC_shrunk.npz
+debug_images_*/
+dependency_report.txt
+*.dill
+docstring_*.md
+*.egg-info/
 .env
+gdiff
+gemini_*.md
+# Gemini outputs  
+gemini_*.txt
+*.gif
+gridsize_performance_fix_session.md
+gs1_validation/
+gs2_validation/
+*.h5
+*.h5.zip
+*ipynb_checkpoints
+*.jpeg
+*.jpg
 .log
+# Module lists and analysis
+modules_found.txt
+modules_prioritized.txt
+notebooks/*.ipynb
+# Notebooks (keep specific ones if needed)
+notebooks/untracked_notebooks*
+notebooks/untracked_notebooks/
+*.npy
+*.npz
+# Output files
+*_output.txt
+*.pdf
 phase_diff.txt
+*.pickle
+*.pkl
+PlotNeuralNet*
+*.png
+probe_study_*/
+ptycho_module_dependency_analysis.md
+ptychopinn.egg-info/
+ptychoPINN.egg-info/
+__pycache__
+repomix-output.xml
+*_report.md
+*_report.txt
+*_results.txt
+*_session.md
+*_session_summary.md
+simple_gemini_test.md
+simulation_unification_commit.md
+# Study and test directories
+*.swo
+*.swp
+# Temporary files
+test_*/
 tmp*
+untracked*

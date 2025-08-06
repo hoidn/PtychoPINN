@@ -84,7 +84,7 @@ class ModelConfig:
     pad_object: bool = True
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0
-    use_batched_patch_extraction: bool = False  # Feature flag for high-performance patch extraction
+    use_batched_patch_extraction: bool = True  # Feature flag for high-performance patch extraction
 
 @dataclass(frozen=True)
 class TrainingConfig:

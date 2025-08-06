@@ -740,6 +740,22 @@ def translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: st
 @complexify_function
 #@debug
 def translate(imgs: tf.Tensor, offsets: tf.Tensor, **kwargs: Any) -> tf.Tensor:
+    """
+    Translate images using a batched, XLA-compatible implementation.
+
+    Args:
+        imgs (tf.Tensor): A 4D tensor of images with shape `(batch, H, W, C)`.
+        offsets (tf.Tensor): A 2D tensor of translation vectors with shape
+            `(batch, 2)`.
+            **CRITICAL:** The coordinate order must be `[dx, dy]`, where `dx` is
+            the horizontal shift (x-axis) and `dy` is the vertical shift
+            (y-axis). A positive `dx` moves the image content to the right.
+            A positive `dy` moves the image content down.
+        **kwargs: Additional keyword arguments for the translation backend.
+
+    Returns:
+        tf.Tensor: The translated images.
+    """
     # TODO assert dimensionality of translations is 2; i.e. B, 2
     interpolation = kwargs.get('interpolation', 'bilinear')
     use_xla_workaround = kwargs.get('use_xla_workaround', False)
