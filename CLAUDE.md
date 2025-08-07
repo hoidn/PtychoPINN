@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude when working with the PtychoPINN repository.
 
+## 🚨 CRITICAL: Data File Management
+
+**NEVER commit data files (NPZ, HDF5, etc.) to Git!** See <doc-ref type="critical">docs/DATA_MANAGEMENT_GUIDE.md</doc-ref> for mandatory practices.
+
 ## ⚠️ Core Project Directives
 
 <directive level="critical" purpose="Understand current project focus">
@@ -77,6 +81,7 @@ If the verification run completes and creates files in the `verification_run/` d
 
 This project provides several high-level scripts to automate common tasks. For detailed usage, see the documentation in each script's directory.
 
+- **Data Management:** See <doc-ref type="critical">docs/DATA_MANAGEMENT_GUIDE.md</doc-ref> **⚠️ MUST READ**
 - **Training:** See <doc-ref type="workflow-guide">scripts/training/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>
 - **Inference:** See <doc-ref type="workflow-guide">scripts/inference/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
 - **Simulation:** See <doc-ref type="workflow-guide">scripts/simulation/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/simulation/README.md</doc-ref>
