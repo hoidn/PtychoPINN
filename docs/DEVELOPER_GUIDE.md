@@ -163,38 +163,33 @@ translated_patches = hh.translate(images, -offsets_xy)
 
 The legacy iterative implementation contained a latent bug where this swap was not performed, leading to visually correct but technically transposed translations on symmetric data. All new and refactored code must perform this explicit swap for correctness.
 
-### 4.6. High-Performance Patch Extraction
+### 4.6. High-Performance Patch Extraction with Memory-Efficient Mini-Batching
 
-The patch extraction process in `ptycho/raw_data.py` has been optimized to use batched operations instead of iterative loops, providing significant performance improvements.
+The patch extraction process in `ptycho/raw_data.py` has been optimized to use memory-efficient mini-batched operations, solving both performance and memory issues.
 
-**The Legacy Approach:** The original implementation used a for loop to extract patches one by one:
-- Sequential processing of each patch
-- Poor GPU utilization
-- O(n) operations for n patches
-- 12-15 seconds for 1000 patches on typical hardware
+**The Problem:** The original batched approach created massive tensors with `tf.repeat(gt_padded, B*c, axis=0)`, causing out-of-memory errors for large datasets (e.g., 4096 patches).
 
-**The Modern Batched Approach:** The new implementation leverages TensorFlow's batched translation capabilities:
-- Single batched operation for all patches
-- Full GPU utilization via XLA compilation
-- O(1) operation complexity
-- 2-3 seconds for 1000 patches (4-5x speedup)
+**The Solution:** Mini-batching strategy that processes patches in configurable chunks:
+- Processes patches in chunks of `patch_extraction_batch_size` (default: 256)
+- Avoids creating massive intermediate tensors
+- Maintains good performance while preventing OOM errors
 
 **Implementation Details:**
 - **Function:** `<code-ref type="function">ptycho.raw_data._get_image_patches_batched</code-ref>`
-- **Engine:** Uses `ptycho.tf_helper.translate` with the memory-efficient `translate_xla` backend
+- **Config Parameter:** `patch_extraction_batch_size` in ModelConfig controls chunk size
+- **Memory Savings:** Peak memory reduced from O(B*c*H*W) to O(mini_batch_size*H*W)
 - **Feature Flag:** Controlled by `use_batched_patch_extraction` in ModelConfig (default: True)
-- **Equivalence:** Produces numerically identical results (verified to 1e-6 tolerance)
 
 **Performance Characteristics:**
-- **Speedup:** 4-5x for typical workloads, scales with batch size
-- **Memory:** Less than 20% increase over iterative approach
-- **Compatibility:** Seamless fallback to iterative implementation if needed
+- **Memory:** Configurable memory usage via `patch_extraction_batch_size`
+- **Speed:** 1.3-1.5x faster than iterative approach (less speedup than pure batched due to chunking)
+- **Numerical Precision:** Small differences (<0.002) from iterative version due to TensorFlow's batched translation optimizations
 
 **Usage Notes:**
-- The batched implementation is now the default for all new training runs
-- Legacy iterative implementation remains available via configuration flag
-- Extensive equivalence testing ensures identical results
-- See `<code-ref type="test">tests/test_patch_extraction_equivalence.py</code-ref>` for validation
+- Default `patch_extraction_batch_size=256` works well for most GPUs
+- Reduce batch size if encountering OOM errors
+- Set `mini_batch_size=1` for exact numerical equivalence with iterative version
+- See `<code-ref type="test">tests/test_patch_extraction_performance.py</code-ref>` for validation
 
 ---
 

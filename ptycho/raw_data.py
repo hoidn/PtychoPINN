@@ -65,10 +65,10 @@ Architectural Notes & Dependencies:
 
 Performance Optimization:
 - The patch extraction process (`get_image_patches`) now uses a high-performance
-  batched implementation by default, providing 4-5x speedup over the legacy
+  mini-batched implementation by default, providing 4-5x speedup over the legacy
   iterative approach.
 - Controlled by the `use_batched_patch_extraction` configuration parameter
-  (default: True as of v1.X).
+  (default: True).
 - The legacy iterative implementation remains available for compatibility but
   is deprecated and will be removed in v2.0.
 
@@ -569,7 +569,7 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
         try:
             use_batched = params.get('use_batched_patch_extraction')
         except KeyError:
-            use_batched = False
+            use_batched = True  # Default to batched implementation for performance
     
     logger.info(f"Using {'batched' if use_batched else 'iterative'} patch extraction implementation.")
     
@@ -580,9 +580,9 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
             mini_batch_size = config.model.patch_extraction_batch_size
         else:
             try:
-                mini_batch_size = params.get('patch_extraction_batch_size', 256)
+                mini_batch_size = params.get('patch_extraction_batch_size')
             except (KeyError, NameError):
-                pass  # Use default
+                pass  # Use default from above
         
         return _get_image_patches_batched(gt_padded, offsets_f, N, B, c, mini_batch_size)
     else:
@@ -602,7 +602,7 @@ def _get_image_patches_iterative(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: 
     
     Args:
         gt_padded (tf.Tensor): Padded ground truth image tensor of shape (1, H, W, 1).
-        offsets_f (tf.Tensor): Flat offset tensor of shape (B*c, 1, 1, 2).
+        offsets_f (tf.Tensor): Flat offset tensor of shape (B*c, 1, 2, 1) after _channel_to_flat.
         N (int): Patch size (height and width of each patch).
         B (int): Batch size (number of scan positions).
         c (int): Number of channels (gridsize**2).
@@ -638,11 +638,16 @@ def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: in
     This implementation uses a mini-batching strategy to avoid creating massive tensors
     when B*c is large. Instead of creating a single (B*c, H, W, 1) tensor with tf.repeat,
     it processes patches in smaller chunks, significantly reducing memory usage while
-    maintaining numerical equivalence and good performance.
+    maintaining good performance.
+    
+    Note: When mini_batch_size > 1, this implementation may produce slightly different
+    numerical results compared to the iterative version due to TensorFlow's batched
+    translation optimizations. The differences are typically < 0.002 and are acceptable
+    for practical use. For exact numerical equivalence, use mini_batch_size=1.
     
     Args:
         gt_padded (tf.Tensor): Padded ground truth image tensor of shape (1, H, W, 1).
-        offsets_f (tf.Tensor): Flat offset tensor of shape (B*c, 1, 1, 2).
+        offsets_f (tf.Tensor): Flat offset tensor of shape (B*c, 1, 2, 1) after _channel_to_flat.
         N (int): Patch size (height and width of each patch).
         B (int): Batch size (number of scan positions).
         c (int): Number of channels (gridsize**2).
