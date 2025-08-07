@@ -2,6 +2,10 @@
 
 This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)". 
 
+## ⚠️ Important: Data File Management
+
+**Never commit data files (NPZ, HDF5, etc.) to this repository!** See [Data Management Guide](./docs/DATA_MANAGEMENT_GUIDE.md) for required practices. Run `./scripts/setup_git_hooks.sh` to install protective git hooks.
+
 ## Overview
 PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI designed to improve upon the speed of conventional reconstruction methods without sacrificing image quality. Compared to prior NN approaches, the main source of improvements in image quality are its combination of the diffraction forward map with real-space overlap constraints.
 
