@@ -574,7 +574,17 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
     logger.info(f"Using {'batched' if use_batched else 'iterative'} patch extraction implementation.")
     
     if use_batched:
-        return _get_image_patches_batched(gt_padded, offsets_f, N, B, c)
+        # Get mini-batch size from config or fall back to default
+        mini_batch_size = 256  # Default value
+        if config and hasattr(config.model, 'patch_extraction_batch_size'):
+            mini_batch_size = config.model.patch_extraction_batch_size
+        else:
+            try:
+                mini_batch_size = params.get('patch_extraction_batch_size', 256)
+            except (KeyError, NameError):
+                pass  # Use default
+        
+        return _get_image_patches_batched(gt_padded, offsets_f, N, B, c, mini_batch_size)
     else:
         return _get_image_patches_iterative(gt_padded, offsets_f, N, B, c)
 
@@ -621,14 +631,14 @@ def _get_image_patches_iterative(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: 
     return tf.convert_to_tensor(canvas)
 
 
-def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: int, B: int, c: int) -> tf.Tensor:
+def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: int, B: int, c: int, mini_batch_size: int = 256) -> tf.Tensor:
     """
-    High-performance batched implementation of patch extraction.
+    Memory-efficient batched implementation of patch extraction using mini-batching.
     
-    This is the primary implementation that leverages TensorFlow's XLA-compiled
-    translation engine for optimal performance. It extracts patches from a padded 
-    ground truth image using a single batched operation, providing 4-5x speedup 
-    over the iterative approach while maintaining numerical equivalence.
+    This implementation uses a mini-batching strategy to avoid creating massive tensors
+    when B*c is large. Instead of creating a single (B*c, H, W, 1) tensor with tf.repeat,
+    it processes patches in smaller chunks, significantly reducing memory usage while
+    maintaining numerical equivalence and good performance.
     
     Args:
         gt_padded (tf.Tensor): Padded ground truth image tensor of shape (1, H, W, 1).
@@ -636,24 +646,45 @@ def _get_image_patches_batched(gt_padded: tf.Tensor, offsets_f: tf.Tensor, N: in
         N (int): Patch size (height and width of each patch).
         B (int): Batch size (number of scan positions).
         c (int): Number of channels (gridsize**2).
+        mini_batch_size (int): Size of mini-batches for memory-efficient processing.
         
     Returns:
         tf.Tensor: Image patches in channel format of shape (B, N, N, c).
     """
-    # Create a batched version of the padded image by repeating it B*c times
-    gt_padded_batch = tf.repeat(gt_padded, B * c, axis=0)
+    # Total number of patches to extract
+    num_patches = B * c
     
-    # The legacy implementation uses offsets_f[i, :, :, 0] on tensor with shape (B*c, 1, 2, 1)
-    # This extracts a tensor of shape (1, 2) for each i
-    # For the batched version, we need to extract all offsets at once
+    # Extract negated offsets for all patches
     # offsets_f has shape (B*c, 1, 2, 1) after _channel_to_flat
     negated_offsets = -offsets_f[:, 0, :, 0]  # Shape: (B*c, 2)
     
-    # Perform a single batched translation
-    translated_patches = hh.translate(gt_padded_batch, negated_offsets)
+    # Process patches in mini-batches to avoid memory exhaustion
+    all_patches_list = []
     
-    # Slice to get only the central N×N region of each patch
-    patches_flat = translated_patches[:, :N, :N, :]  # Shape: (B*c, N, N, 1)
+    for i in range(0, num_patches, mini_batch_size):
+        # Get the current mini-batch slice
+        end_idx = min(i + mini_batch_size, num_patches)
+        current_mini_batch_size = end_idx - i
+        
+        # Slice the offsets for this mini-batch
+        mini_batch_offsets = negated_offsets[i:end_idx]  # Shape: (current_mini_batch_size, 2)
+        
+        # Create a smaller batched tensor for this mini-batch only
+        # This is the key optimization: instead of tf.repeat(gt_padded, B*c, axis=0),
+        # we only repeat for the current mini-batch size
+        gt_padded_mini_batch = tf.repeat(gt_padded, current_mini_batch_size, axis=0)
+        
+        # Perform batched translation on this mini-batch
+        translated_mini_batch = hh.translate(gt_padded_mini_batch, mini_batch_offsets)
+        
+        # Slice to get only the central N×N region of each patch in this mini-batch
+        mini_batch_patches = translated_mini_batch[:, :N, :N, :]  # Shape: (current_mini_batch_size, N, N, 1)
+        
+        # Add to our list of processed patches
+        all_patches_list.append(mini_batch_patches)
+    
+    # Combine all mini-batch results into a single tensor
+    patches_flat = tf.concat(all_patches_list, axis=0)  # Shape: (B*c, N, N, 1)
     
     # Reshape from flat format to channel format
     # The iterative version assigns patches like: canvas[i // c, :, :, i % c]

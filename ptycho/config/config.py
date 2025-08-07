@@ -85,6 +85,7 @@ class ModelConfig:
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0
     use_batched_patch_extraction: bool = True  # Feature flag for high-performance patch extraction
+    patch_extraction_batch_size: int = 256  # Mini-batch size for memory-efficient patch extraction
 
 @dataclass(frozen=True)
 class TrainingConfig:
