@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude when working with the PtychoPINN repository.
 
+## 🚨 CRITICAL: Data File Management
+
+**NEVER commit data files (NPZ, HDF5, etc.) to Git!** See <doc-ref type="critical">docs/DATA_MANAGEMENT_GUIDE.md</doc-ref> for mandatory practices.
+
 ## ⚠️ Core Project Directives
 
 <directive level="critical" purpose="Understand current project focus">
@@ -77,6 +81,7 @@ If the verification run completes and creates files in the `verification_run/` d
 
 This project provides several high-level scripts to automate common tasks. For detailed usage, see the documentation in each script's directory.
 
+- **Data Management:** See <doc-ref type="critical">docs/DATA_MANAGEMENT_GUIDE.md</doc-ref> **⚠️ MUST READ**
 - **Training:** See <doc-ref type="workflow-guide">scripts/training/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>
 - **Inference:** See <doc-ref type="workflow-guide">scripts/inference/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
 - **Simulation:** See <doc-ref type="workflow-guide">scripts/simulation/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/simulation/README.md</doc-ref>
@@ -88,6 +93,7 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Commands Reference:** See <doc-ref type="guide">docs/COMMANDS_REFERENCE.md</doc-ref>
 - **Model Comparison Guide:** See <doc-ref type="guide">docs/MODEL_COMPARISON_GUIDE.md</doc-ref>
 - **Project Organization Guide:** See <doc-ref type="guide">docs/PROJECT_ORGANIZATION_GUIDE.md</doc-ref>
+- **Documentation Generation Guide:** See <doc-ref type="guide">docs/DOCUMENTATION_GENERATION_GUIDE.md</doc-ref>
 - **Initiative Workflow Guide:** See <doc-ref type="workflow-guide">docs/INITIATIVE_WORKFLOW_GUIDE.md</doc-ref>
 - **Gemini-Powered Initiative Commands:** For complex codebases (>5K lines), use `/customplan-gemini-full`, `/implementation-gemini-full`, `/phase-checklist-gemini-full`, and `/complete-phase-gemini-full` for comprehensive codebase analysis and exact code generation
 - **Documentation Navigation:** See <doc-ref type="workflow-guide">docs/CLAUDE.md</doc-ref>
@@ -291,8 +297,28 @@ ptycho_train --train_data datasets/fly64.npz --output_dir my_run --verbose
 - **`prepare_data_tool.py`**: For apodizing, smoothing, or interpolating probes/objects before simulation.
 - **`update_tool.py`**: For updating an NPZ file with a new reconstruction result.
 - **`visualize_dataset.py`**: For generating a comprehensive visualization plot of an NPZ dataset.
+- **`strip_code.py`**: For extracting module-level docstrings from Python files to create documentation-only views.
 
-### 9.3. Automated Testing Framework (`ptycho/autotest/`)
+### 9.3. Documentation Generation Workflow
+
+The project includes tools for creating documentation-only views of the codebase, useful for AI context priming and architectural analysis:
+
+- **`/generate-doc-context` command**: Creates an isolated git worktree with Python files stripped to only their module-level docstrings
+- **`strip_code.py` utility**: The underlying tool that extracts docstrings using Python's AST
+- **`.maskset` files**: Define which files to include in the documentation view (see <doc-ref type="contract">docs/data_contracts.md</doc-ref> section 3)
+
+**Example workflow:**
+```bash
+# Using a maskset file
+/generate-doc-context architecture.maskset
+
+# Using direct patterns
+/generate-doc-context "ptycho/**/*.py" "scripts/workflows/*.py"
+```
+
+This creates a temporary worktree where selected Python files contain only their docstrings, preserving the interface documentation while removing implementation details.
+
+### 9.4. Automated Testing Framework (`ptycho/autotest/`)
 
 - This internal framework provides testing utilities for the project.
 - The `@debug` decorator (imported from `ptycho.autotest.debug`) is used to serialize function inputs and outputs during development for creating regression tests.

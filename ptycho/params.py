@@ -1,28 +1,70 @@
 """Global parameter management and configuration state.
 
 Central parameter registry for the PtychoPINN system providing singleton-like 
-global state container for all configuration parameters.
+global state container for all configuration parameters. This module sits at
+the root of the dependency tree and is consumed by virtually every other module.
 
 Architecture Role:
-    Configuration Loading → params.py (global state) → All consumers
-    Root of dependency tree, consumed by 23+ modules.
+    Configuration Loading → params.py (global state) → All consumers (23+ modules)
+    
+    Critical: This is a legacy system maintained for backward compatibility.
+    Modern code should use ptycho.config dataclasses with update_legacy_dict().
 
 Public Interface:
-    `get(key)` - Retrieve parameters; auto-computes 'bigN' from N/gridsize/offset
-    `set(key, value)` - Update parameters with validation; affects global state
-    `params()` - Complete parameter snapshot including derived values
+    Core Functions:
+        `get(key)` - Retrieve parameter; auto-computes 'bigN' if requested
+        `set(key, value)` - Update parameter with validation; prints debug info
+        `params()` - Complete parameter snapshot including derived values
+    
+    Validation & Debug:
+        `validate()` - Validate current configuration; raises AssertionError
+        `print_params()` - Debug utility displaying all params with array stats
+    
+    Derived Parameter Functions:
+        `get_bigN()` - Compute object coverage: N + (gridsize - 1) * offset
+        `get_padding_size()` - Compute padding for position jitter
+        `get_padded_size()` - Total padded size including buffer
+
+Migration Guide:
+    Modern code should use dataclass configuration:
+    ```python
+    from ptycho.config import TrainingConfig, update_legacy_dict
+    config = TrainingConfig(...)
+    update_legacy_dict(params.cfg, config)  # One-way sync
+    ```
 
 Usage Example:
     ```python
     import ptycho.params as params
-    params.set('N', 64)
-    patch_size = params.get('N')       # 64
-    grid_coverage = params.get('bigN') # Auto-computed from N/gridsize/offset
+    
+    # Basic parameter access
+    params.set('N', 64)                    # Prints: DEBUG: Setting N to 64
+    params.set('gridsize', 2)
+    params.set('offset', 4)
+    
+    # Retrieve parameters
+    patch_size = params.get('N')           # 64
+    grid_coverage = params.get('bigN')     # Auto-computed: 64 + (2-1)*4 = 68
+    
+    # Validation example (will raise AssertionError on invalid data)
+    try:
+        params.set('data_source', 'invalid')  # Not in allowed list
+    except AssertionError:
+        print("Invalid data source")
+    
+    # Debug utilities
+    params.print_params()                   # Display all params with array stats
+    params.validate()                       # Explicit validation check
     ```
 
 Warnings:
-- Mutable global state; values may change during execution
-- Legacy system; prefer explicit config objects for new code
+- Mutable global state that can change during execution
+- set() operations print debug messages to stdout
+- set() includes validation that raises AssertionError on failure
+- Initialization order matters - modules depending on params.cfg must import
+  after proper initialization (see DEVELOPER_GUIDE.md)
+- Legacy system - new code should use explicit dataclass configurations
+- Auto-computed parameters (bigN) recalculated on each get() call
 """
 import numpy as np
 import tensorflow as tf

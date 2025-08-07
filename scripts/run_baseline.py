@@ -1,3 +1,79 @@
+"""
+Wrapper script for training supervised baseline models for ptychographic reconstruction.
+
+This script specifically trains the supervised (non-physics-informed) baseline model,
+which serves as a comparison point against the PINN model. It uses the same modern
+configuration system as the main training script but automatically forces model_type='supervised'
+and ensures proper data handling for the baseline architecture.
+
+Key Differences from Main Training:
+- Always sets model_type='supervised' regardless of configuration
+- Requires ground truth Y patches (object amplitude and phase)
+- Uses MAE loss instead of physics-based Poisson loss
+- Produces baseline_model.h5 specifically for model comparison workflows
+
+Usage:
+    python scripts/run_baseline.py [--config CONFIG_FILE] [ARGUMENTS]
+
+Arguments:
+    --config: Path to YAML configuration file (can specify model_type='pinn', 
+              will be overridden to 'supervised')
+    --train-data-file: Path to training NPZ file with Y patches (required)
+    --test-data-file: Path to test NPZ file for evaluation (required)
+    --output-dir: Directory for outputs (default: auto-generated timestamp)
+    --n-images: Number of training images to use
+    --nepochs: Number of training epochs (default: 50)
+    --batch-size: Batch size for training (default: 16)
+    --gridsize: Grid size for patch extraction (1 or 2 supported)
+    
+    Additional arguments are inherited from the main training configuration.
+
+Examples:
+    # Example 1: Train baseline using prepared datasets
+    python scripts/run_baseline.py \\
+        --train-data-file datasets/train_with_Y.npz \\
+        --test-data-file datasets/test_with_Y.npz \\
+        --n-images 5000 \\
+        --output-dir baseline_results
+
+    # Example 2: Use YAML config (model_type will be overridden)
+    python scripts/run_baseline.py \\
+        --config configs/experiment.yaml \\
+        --output-dir baseline_model_run
+
+    # Example 3: Quick test with minimal data
+    python scripts/run_baseline.py \\
+        --train-data-file datasets/fly/fly001_transposed.npz \\
+        --test-data-file datasets/fly/fly001_transposed.npz \\
+        --n-images 512 \\
+        --nepochs 10
+
+Input Requirements:
+    Training and test data must include ground truth Y patches:
+    - 'Y': Pre-extracted object patches (required for supervised training)
+    - 'diffraction': Amplitude data, shape (n, N, N) 
+    - 'objectGuess': Complex object array (for evaluation)
+    - 'probeGuess': Complex probe array
+    - 'xcoords', 'ycoords': Scan position coordinates
+    
+    The Y patches must match the gridsize setting:
+    - gridsize=1: Y shape is (n, N, N, 1)
+    - gridsize=2: Y shape is (n, N, N, 4)
+    
+    See docs/data_contracts.md for complete specifications.
+
+Output Structure:
+    The output directory will contain:
+    - output_dir/
+        - baseline_model.h5: Trained baseline model (main output)
+        - metrics.csv: Evaluation metrics vs ground truth
+        - recon_amp_supervised.png: Amplitude reconstruction
+        - recon_phase_supervised.png: Phase reconstruction
+        - comparison_supervised.png: Side-by-side comparison with ground truth
+        
+    Note: Output uses 'baseline_gsX' labeling where X is the gridsize value.
+"""
+
 import argparse
 import os
 import sys

@@ -141,6 +141,56 @@ To handle overlapping patches, the codebase uses three primary tensor formats. U
 
 **The Rule:** If you modify the object or probe in any way (e.g., upsampling, smoothing via `prepare_data_tool.py`), the original `diffraction` data is now invalid. You **must** run a new simulation to generate a new, valid `diffraction` array. The `prepare.sh` script correctly models this workflow.
 
+### 4.5 Critical Data Flow: The Patch Extraction Pipeline
+
+The process of extracting patches in `ptycho/raw_data.py` involves a critical coordinate system convention that must be respected. Failure to do so will result in incorrect patch extraction.
+
+1. **Offset Creation:** The `offsets_c` tensor is created by stacking `ycoords` and then `xcoords`. This results in a coordinate order of **`[y_offset, x_offset]`**.
+2. **Translation Function:** The `ptycho.tf_helper.translate` function expects its `translations` argument to be in **`[dx, dy]`** (i.e., `[x_offset, y_offset]`) order.
+3. **The Required Swap:** To ensure correct translation, the coordinate vector **must be swapped** before being passed to the `translate` function.
+
+**Correct Implementation Pattern:**
+```python
+# offsets_yx has shape (batch, 2) and order [y, x]
+offsets_yx = tf.reshape(offsets_f, (-1, 2))
+
+# Swap columns to get [x, y] order for the translate function
+offsets_xy = tf.gather(offsets_yx, [1, 0], axis=1)
+
+# Now pass the correctly ordered offsets to the translate function
+translated_patches = hh.translate(images, -offsets_xy)
+```
+
+The legacy iterative implementation contained a latent bug where this swap was not performed, leading to visually correct but technically transposed translations on symmetric data. All new and refactored code must perform this explicit swap for correctness.
+
+### 4.6. High-Performance Patch Extraction with Memory-Efficient Mini-Batching
+
+The patch extraction process in `ptycho/raw_data.py` has been optimized to use memory-efficient mini-batched operations, solving both performance and memory issues.
+
+**The Problem:** The original batched approach created massive tensors with `tf.repeat(gt_padded, B*c, axis=0)`, causing out-of-memory errors for large datasets (e.g., 4096 patches).
+
+**The Solution:** Mini-batching strategy that processes patches in configurable chunks:
+- Processes patches in chunks of `patch_extraction_batch_size` (default: 256)
+- Avoids creating massive intermediate tensors
+- Maintains good performance while preventing OOM errors
+
+**Implementation Details:**
+- **Function:** `<code-ref type="function">ptycho.raw_data._get_image_patches_batched</code-ref>`
+- **Config Parameter:** `patch_extraction_batch_size` in ModelConfig controls chunk size
+- **Memory Savings:** Peak memory reduced from O(B*c*H*W) to O(mini_batch_size*H*W)
+- **Feature Flag:** Controlled by `use_batched_patch_extraction` in ModelConfig (default: True)
+
+**Performance Characteristics:**
+- **Memory:** Configurable memory usage via `patch_extraction_batch_size`
+- **Speed:** 1.3-1.5x faster than iterative approach (less speedup than pure batched due to chunking)
+- **Numerical Precision:** Small differences (<0.002) from iterative version due to TensorFlow's batched translation optimizations
+
+**Usage Notes:**
+- Default `patch_extraction_batch_size=256` works well for most GPUs
+- Reduce batch size if encountering OOM errors
+- Set `mini_batch_size=1` for exact numerical equivalence with iterative version
+- See `<code-ref type="test">tests/test_patch_extraction_performance.py</code-ref>` for validation
+
 ---
 
 ## 5. Authoritative Methods for Evaluation

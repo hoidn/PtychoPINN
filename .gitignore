@@ -12,5 +12,43 @@ datasets/Run1084_recon3_postPC_shrunk_2.npz
 datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
 .env
 .log
-phase_diff.txt
-tmp*
+
+# Data files - NEVER commit these to git
+*.npz
+*.npy
+*.h5
+*.hdf5
+*.mat
+*.pkl
+*.pickle
+*.dill
+
+# Large data directories
+datasets/
+data/
+outputs/
+results/
+simulations/
+tike_outputs/
+large_generalization_study*/
+multisample_generalization/
+fly64_generalization_study/
+
+# Model weights and checkpoints
+*.h5.zip
+*.ckpt
+*.pb
+checkpoints/
+saved_models/
+
+# Temporary and test files
+test_*.npz
+temp_*.npz
+*_test.npz
+*_train.npz
+*_debug.npz
+
+# BFG and git cleanup
+bfg.jar
+.bfg-report/
+..bfg-report/

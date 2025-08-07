@@ -16,6 +16,7 @@ This directory contains essential tools for preparing ptychography datasets for 
 | `pad_to_even_tool.py` | Dimension padding to even numbers | When arrays have odd dimensions that cause processing issues |
 | `visualize_dataset.py` | Dataset inspection and visualization | For quality assurance and debugging dataset issues |
 | `update_tool.py` | NPZ file updating with new reconstructions | To add reconstruction results to existing datasets |
+| `strip_code.py` | Extract module-level docstrings from Python files | For creating documentation-only views of code for AI context |
 
 ## Essential Preprocessing Pipeline
 
@@ -127,6 +128,34 @@ python scripts/tools/downsample_data_tool.py input.npz output.npz --crop-factor 
 - To reduce computational requirements
 - For creating smaller test datasets
 - When memory constraints require size reduction
+
+### `strip_code.py`
+
+**Purpose:** Extract module-level docstrings from Python files for documentation-only views.
+
+**Operations:**
+- Parses Python files using AST to safely extract docstrings
+- Replaces file contents with only the module-level docstring
+- Supports glob patterns for batch processing
+- Preserves original file structure in git worktrees
+
+**Usage:**
+```bash
+# Process specific files
+python scripts/tools/strip_code.py ptycho/raw_data.py ptycho/model.py
+
+# Use glob patterns
+python scripts/tools/strip_code.py "ptycho/**/*.py" "scripts/**/*.py"
+
+# Dry-run mode to preview changes
+python scripts/tools/strip_code.py "**/*.py" --dry-run
+```
+
+**When to Use:**
+- Creating documentation-only views for AI context priming
+- Architectural review without implementation details
+- Integration with `/generate-doc-context` agent command
+- Reducing context size while preserving interface documentation
 
 ## Common Workflows
 

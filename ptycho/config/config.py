@@ -84,6 +84,8 @@ class ModelConfig:
     pad_object: bool = True
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0
+    use_batched_patch_extraction: bool = True  # Feature flag for high-performance patch extraction
+    patch_extraction_batch_size: int = 256  # Mini-batch size for memory-efficient patch extraction
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -198,7 +200,8 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
         'positions_provided': 'positions.provided',
         'output_dir': 'output_prefix',
         'train_data_file': 'train_data_file_path',
-        'test_data_file': 'test_data_file_path'
+        'test_data_file': 'test_data_file_path',
+        'use_batched_patch_extraction': 'use_batched_patch_extraction'
     }
 
     # Convert dataclass to dict

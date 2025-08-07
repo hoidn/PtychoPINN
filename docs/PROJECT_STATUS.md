@@ -1,8 +1,24 @@
 # Project Status & Initiative Tracker
 
-**Last Updated:** 2025-08-02
+**Last Updated:** 2025-08-06
 
 This document provides a high-level overview of the major development initiatives for the PtychoPINN project. It tracks completed work and outlines the current active initiative.
+
+---
+
+## 📍 **Current Active Initiative**
+
+**Name:** Probe Parameterization Study - Refactoring with Config Separation  
+**Path:** `plans/active/probe-parameterization-refactor/`  
+**Branch:** TBD (to be created from current branch)  
+**Started:** 2025-08-01 (Refactoring approach chosen 2025-08-06)  
+**Current Phase:** Phase 1 - Refactor for Reusability and Modularity  
+**Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready)  
+**Next Milestone:** Create robust tools with proper process isolation to prevent gridsize config bugs  
+**R&D Plan:** <doc-ref type="plan">plans/active/probe-parameterization-refactor/plan.md</doc-ref>  
+**Implementation Plan:** <doc-ref type="plan">plans/active/probe-parameterization-refactor/implementation.md</doc-ref>  
+**Current Checklist:** <doc-ref type="checklist">plans/active/probe-parameterization-refactor/phase_1_checklist.md</doc-ref>  
+**Note:** This refactoring approach was chosen over the 75% complete version due to its superior config-level separation and two-stage architecture that properly prevents gridsize parameter contamination between runs.
 
 ---
 
@@ -27,9 +43,9 @@ This document provides a high-level overview of the major development initiative
     *   Integration into `scripts/compare_models.py` with `--skip-registration` flag
     *   Unified NPZ file format for reconstruction data
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/implementation.md</doc-ref>
-    *   **Context Document:** <doc-ref type="plan">plans/archive/2025-07-registration-refactor/context_priming_registration.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/examples/2025-07-registration-refactor/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/examples/2025-07-registration-refactor/implementation.md</doc-ref>
+    *   **Context Document:** <doc-ref type="plan">plans/examples/2025-07-registration-refactor/context_priming_registration.md</doc-ref>
 
 ### **Initiative: Evaluation Enhancements**
 *   **Status:** ✅ Complete
@@ -61,15 +77,22 @@ This document provides a high-level overview of the major development initiative
 
 ---
 
-## 🚀 **Current Active Initiative**
-
-### **Initiative: None - Ready for Next Initiative**
-
-The Simulation Workflow Unification initiative has been completed. The project is ready for the next initiative.
-
 ---
 
 ## 📋 **Recently Completed Initiatives**
+
+### **Initiative: High-Performance Patch Extraction Refactoring**
+*   **Status:** ✅ **Complete** - Completed 2025-08-06
+*   **Goal:** To optimize patch extraction using batched operations for 4-5x performance improvement
+*   **Key Deliverables:**
+    *   Batched patch extraction implementation with 4-5x speedup ✅
+    *   Feature flag control via `use_batched_patch_extraction` ✅
+    *   Comprehensive equivalence testing to 1e-6 tolerance ✅
+    *   Memory profiling and performance reporting ✅
+    *   Updated documentation and migration guides ✅
+*   **Planning Documents:**
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-high-performance-patch-extraction/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-high-performance-patch-extraction/implementation.md</doc-ref>
 
 ### **Initiative: Simulation Workflow Unification**
 *   **Status:** ✅ **Complete** - Completed 2025-08-03
@@ -80,19 +103,9 @@ The Simulation Workflow Unification initiative has been completed. The project i
     *   Deprecation warnings on legacy `RawData.from_simulation` ✅
     *   Updated documentation with migration guides ✅
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/active/simulation-workflow-unification/implementation.md</doc-ref>
-    *   **Summary:** <doc-ref type="summary">plans/active/simulation-workflow-unification/implementation_summary.md</doc-ref>
-
-### **Initiative: Probe Parameterization Study - Refactoring Phase**
-*   **Status:** 🔄 **Paused** - Ready to resume now that Simulation Workflow Unification is complete
-*   **Goal:** To refactor successful experimental code into robust, reusable tools with proper process isolation to fix gridsize configuration bugs.
-*   **Current Phase:** Phase 1 - Refactor for Reusability and Modularity
-*   **Progress:** ░░░░░░░░░░░░░░░░ 0% (Planning complete, implementation ready to begin)
-*   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-parameterization/implementation.md</doc-ref>
-    *   **Current Checklist:** <doc-ref type="checklist">plans/archive/2025-08-probe-parameterization/phase_1_checklist.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/examples/2025-08-simulation-workflow-unification/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/examples/2025-08-simulation-workflow-unification/implementation.md</doc-ref>
+    *   **Summary:** <doc-ref type="summary">plans/examples/2025-08-simulation-workflow-unification/implementation_summary.md</doc-ref>
 
 ### **Initiative: Remove TensorFlow Addons Dependency**
 *   **Status:** ✅ **Complete** - Completed 2025-07-27
@@ -127,8 +140,8 @@ The Simulation Workflow Unification initiative has been completed. The project i
     *   **Phase 4:** Complete three-way comparison workflow validation ✅
 *   **Final Achievement:** Single-command three-way generalization studies via `./run_complete_generalization_study.sh --add-tike-arm`
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/active/tike-comparison-integration/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/active/tike-comparison-integration/implementation.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/tike-comparison-integration/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/tike-comparison-integration/implementation.md</doc-ref>
     *   **Phase 4 Implementation Log:** <doc-ref type="log">PHASE_4_IMPLEMENTATION_LOG.md</doc-ref>
 
 ### **Initiative: Probe Generalization Study**
@@ -140,8 +153,8 @@ The Simulation Workflow Unification initiative has been completed. The project i
     *   Quantitative comparison report with PSNR, SSIM, and FRC50 metrics
     *   Visualization plots for all four experimental conditions
 *   **Planning Documents:**
-    *   **R&D Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/plan.md</doc-ref>
-    *   **Implementation Plan:** <doc-ref type="plan">plans/active/probe-generalization-study/implementation.md</doc-ref>
+    *   **R&D Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-generalization-study/plan.md</doc-ref>
+    *   **Implementation Plan:** <doc-ref type="plan">plans/archive/2025-08-probe-generalization-study/implementation.md</doc-ref>
 
 ### **Initiative: Grouping-Aware Subsampling for Overlap-Based Training**
 *   **Status:** ✅ Complete
