@@ -1,0 +1,101 @@
+
+# 1. Prepare all datasets (5000 train images, no quick-test mode)
+  python scripts/studies/prepare_2x2_study.py \
+      --output-dir full_2x2_probe_study \
+      --experimental-probe-source datasets/fly64/fly001_64_train_converted.npz
+
+  # 2. Execute training and evaluation for all 4 conditions
+  bash scripts/studies/run_2x2_study.sh \
+      --study-dir full_2x2_probe_study
+
+ Train Data Variants (8 files):
+  - phase2_verification_study/gs2_hybrid/train_data_variants_original.npz
+  - phase2_verification_study/gs2_hybrid/train_data_variants_flipx.npz
+  - phase2_verification_study/gs2_hybrid/train_data_variants_flipy.npz
+  - phase2_verification_study/gs2_hybrid/train_data_variants_flipx_flipy.npz
+  - phase2_verification_study/gs2_hybrid/train_data_variants_swapped.npz
+  - phase2_verification_study/gs2_hybrid/train_data_variants_swapped_flipx.npz
+  - phase2_verification_study/gs2_hybrid/train_data_variants_swapped_flipy.npz
+  - phase2_verification_study/gs2_hybrid/train_data_variants_swapped_flipx_flipy.npz
+
+  Test Data Variants (8 files):
+  - phase2_verification_study/gs2_hybrid/test_data_variants_original.npz
+  - phase2_verification_study/gs2_hybrid/test_data_variants_flipx.npz
+  - phase2_verification_study/gs2_hybrid/test_data_variants_flipy.npz
+  - phase2_verification_study/gs2_hybrid/test_data_variants_flipx_flipy.npz
+  - phase2_verification_study/gs2_hybrid/test_data_variants_swapped.npz
+  - phase2_verification_study/gs2_hybrid/test_data_variants_swapped_flipx.npz
+  - phase2_verification_study/gs2_hybrid/test_data_variants_swapped_flipy.npz
+  - phase2_verification_study/gs2_hybrid/test_data_variants_swapped_flipx_flipy.npz
+
+
+ptycho_train \
+      --train_data_file phase2_verification_study/gs2_hybrid/train_data_variants_original.npz \
+            --test_data_file phase2_verification_study/gs2_hybrid/test_data_variants_original.npz \
+	          --gridsize 2 \
+		        --output_dir gs2_hybrid_single_run
+
+ptycho_train \
+      --train_data_file phase2_verification_study/gs2_hybrid/train_data_variants_swapped_flipx.npz \
+            --test_data_file phase2_verification_study/gs2_hybrid/test_data_variants_swapped_flipx.npz \
+	          --gridsize 2 \
+		        --output_dir gs2_hybrid_single_run
+
+ptycho_train \
+      --train_data_file phase2_verification_study/gs2_hybrid/train_data_variants_swapped_flipy.npz \
+            --test_data_file phase2_verification_study/gs2_hybrid/test_data_variants_swapped_flipy.npz \
+	          --gridsize 2 \
+		        --output_dir gs2_hybrid_single_run
+
+ptycho_train \
+      --train_data_file phase2_verification_study/gs2_hybrid/train_data_variants_swapped_flipy.npz \
+            --test_data_file phase2_verification_study/gs2_hybrid/test_data_variants_swapped_flipy.npz \
+	          --gridsize 2 \
+		        --output_dir gs2_hybrid_single_run
+
+ptycho_train \
+      --train_data_file phase2_verification_study/gs2_hybrid/train_data_variants_flipx_flipy.npz \
+            --test_data_file phase2_verification_study/gs2_hybrid/test_data_variants_flipx_flipy.npz \
+	          --gridsize 2 \
+		        --output_dir gs2_hybrid_single_run
+
+ptycho_train \
+      --train_data_file phase2_verification_study/gs2_hybrid/train_data_variants_swapped_flipx_flipy.npz \
+            --test_data_file phase2_verification_study/gs2_hybrid/test_data_variants_swapped_flipx_flipy.npz \
+	          --gridsize 2 \
+		        --output_dir gs2_hybrid_single_run
+
+ptycho_train \
+      --train_data_file phase2_verification_study/gs2_idealized/train_data.npz \
+            --test_data_file phase2_verification_study/gs2_idealized/test_data.npz \
+	          --gridsize 2 \
+		        --output_dir gs2_idealized_single_run
+
+
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-data "datasets/fly64/fly64_shuffled.npz" \
+        --test-data "datasets/fly64/fly64_shuffled.npz" \
+	    --skip-data-prep \
+	        --train-sizes "1024" \
+		    --test-sizes "1024" \
+		        --num-trials 1 \
+			    --output-dir gs2_random_sample_study
+
+./scripts/run_comparison.sh \
+    "datasets/fly64/fly64_shuffled.npz" \
+        "datasets/fly64/fly64_shuffled.npz" \
+	    "gs2_comparison_run" \
+	        --n-train-images 1024 \
+		    --n-test-images 1024 \
+		     --config configs/comparison_config.yaml
+
+ptycho_train \
+        --train_data_file "datasets/fly64/fly64_shuffled.npz" \
+	    --test_data_file "datasets/fly64/fly64_shuffled.npz" \
+	        --output_dir "gs2_comparison_run/pinn_run" \
+		    --n_images 1024 --gridsize 2
+
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-sizes "1024 2048" \
+        --num-trials 1 \
+	    --output-dir synthetic_generalization_study

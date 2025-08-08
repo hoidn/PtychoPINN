@@ -1,0 +1,241 @@
+[2025-08-07 01:21:58] === Starting Complete Generalization Study ===
+[2025-08-07 01:21:58] Training sizes: 1024 2048
+[2025-08-07 01:21:58] Number of trials per size: 1
+[2025-08-07 01:21:58] Output directory: synthetic_generalization_study
+[2025-08-07 01:21:58] Total training runs planned: 4
+[2025-08-07 01:21:58] Validating environment...
+[2025-08-07 01:21:58] Environment validation passed
+[2025-08-07 01:21:58] Configuration saved to: synthetic_generalization_study/study_config.txt
+[2025-08-07 01:21:58] === STEP 1: Dataset Preparation ===
+[2025-08-07 01:21:58] EXECUTING: Dataset preparation
+[2025-08-07 01:21:58] COMMAND: bash scripts/prepare.sh
+--- Step 0: Padding to Even Dimensions ---
+Error: Input file not found: tike_outputs/fly001/fly001_reconstructed.npz
+--- Processing for even dimensions: tike_outputs/fly001/fly001_reconstructed.npz ---
+[2025-08-07 01:21:58] SUCCESS: Dataset preparation
+[2025-08-07 01:21:58] ERROR: Test data not found after preparation: tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz
+[2025-08-07 01:52:56] === Starting Complete Generalization Study ===
+[2025-08-07 01:52:56] Training sizes: 1024 2048
+[2025-08-07 01:52:56] Number of trials per size: 1
+[2025-08-07 01:52:56] Output directory: synthetic_generalization_study
+[2025-08-07 01:52:56] Total training runs planned: 4
+[2025-08-07 01:52:56] Validating environment...
+[2025-08-07 01:52:56] Environment validation passed
+[2025-08-07 01:52:56] Configuration saved to: synthetic_generalization_study/study_config.txt
+[2025-08-07 01:52:56] === STEP 1: Dataset Preparation ===
+[2025-08-07 01:52:56] EXECUTING: Dataset preparation
+[2025-08-07 01:52:56] COMMAND: bash scripts/prepare.sh
+--- Step 0: Padding to Even Dimensions ---
+Error: Input file not found: tike_outputs/fly001/fly001_reconstructed.npz
+--- Processing for even dimensions: tike_outputs/fly001/fly001_reconstructed.npz ---
+[2025-08-07 01:52:56] SUCCESS: Dataset preparation
+[2025-08-07 01:52:56] ERROR: Test data not found after preparation: tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz
+[2025-08-07 01:56:11] === Starting Complete Generalization Study ===
+[2025-08-07 01:56:11] Training sizes: 1024 2048
+[2025-08-07 01:56:11] Number of trials per size: 1
+[2025-08-07 01:56:11] Output directory: synthetic_generalization_study
+[2025-08-07 01:56:11] Total training runs planned: 4
+[2025-08-07 01:56:11] Validating environment...
+[2025-08-07 01:56:11] Environment validation passed
+[2025-08-07 01:56:11] Configuration saved to: synthetic_generalization_study/study_config.txt
+[2025-08-07 01:56:11] === STEP 1: Dataset Preparation ===
+[2025-08-07 01:56:11] EXECUTING: Dataset preparation
+[2025-08-07 01:56:11] COMMAND: bash scripts/prepare.sh
+--- Step 0: Padding to Even Dimensions ---
+--- Processing for even dimensions: tike_outputs/fly001/fly001_reconstructed.npz ---
+'objectGuess' already has even dimensions. No changes made.
+'probeGuess' already has even dimensions. No changes made.
+Saving processed data to: tike_outputs/fly001_reconstructed_padded/fly001_reconstructed_padded.npz
+--- Padding Complete ---
+
+--- Step 1: Canonicalizing NPZ Format ---
+[2025-08-07 01:56:33] Study interrupted by user
+[2025-08-07 01:57:14] === Starting Complete Generalization Study ===
+[2025-08-07 01:57:14] Training sizes: 1024 2048
+[2025-08-07 01:57:14] Number of trials per size: 1
+[2025-08-07 01:57:14] Output directory: synthetic_generalization_study
+[2025-08-07 01:57:14] Total training runs planned: 4
+[2025-08-07 01:57:14] Validating environment...
+[2025-08-07 01:57:14] Environment validation passed
+[2025-08-07 01:57:14] Configuration saved to: synthetic_generalization_study/study_config.txt
+[2025-08-07 01:57:14] === STEP 1: Dataset Preparation ===
+[2025-08-07 01:57:14] EXECUTING: Dataset preparation
+[2025-08-07 01:57:14] COMMAND: bash scripts/prepare.sh
+--- Step 0: Padding to Even Dimensions ---
+--- Processing for even dimensions: tike_outputs/fly001/fly001_reconstructed.npz ---
+'objectGuess' already has even dimensions. No changes made.
+'probeGuess' already has even dimensions. No changes made.
+Saving processed data to: tike_outputs/fly001_reconstructed_padded/fly001_reconstructed_padded.npz
+--- Padding Complete ---
+
+--- Step 1: Canonicalizing NPZ Format ---
+Loading data from: tike_outputs/fly001_reconstructed_padded/fly001_reconstructed_padded.npz
+Processing 8 arrays...
+✔ Saved consistently formatted data to: tike_outputs/fly001_reconstructed_transposed/fly001_reconstructed_transposed.npz
+
+--- Step 2: Interpolating Data (2x Zoom) ---
+Loading data from: tike_outputs/fly001_reconstructed_transposed/fly001_reconstructed_transposed.npz
+Identified Probe: 'probeGuess' (shape: (64, 64))
+Identified Object: 'objectGuess' (shape: (232, 232))
+Interpolating array from (64, 64) with zoom factor 2.0...
+  New shape: (128, 128)
+Interpolating array from (232, 232) with zoom factor 2.0...
+  New shape: (464, 464)
+Saving new NPZ file to: tike_outputs/fly001_reconstructed_interpolated/fly001_reconstructed_interpolated_2x.npz
+Success! Created tike_outputs/fly001_reconstructed_interpolated/fly001_reconstructed_interpolated_2x.npz
+Saved verification plot to: tike_outputs/fly001_reconstructed_interpolated/fly001_reconstructed_interpolated_2x_verification.png
+
+--- Step 3: Smoothing Probe (No-Op, sigma=0) ---
+Loading data from: tike_outputs/fly001_reconstructed_interpolated/fly001_reconstructed_interpolated_2x.npz
+Identified Probe: 'probeGuess' (shape: (128, 128))
+Identified Object: 'objectGuess' (shape: (464, 464))
+Applying Gaussian filter to complex array of shape (128, 128) (sigma=0.0)...
+- Amplitude and unwrapped phase smoothed.
+Saving new NPZ file to: tike_outputs/fly001_reconstructed_interp_smooth_probe/fly001_reconstructed_interp_smooth_probe.npz
+Success! Created tike_outputs/fly001_reconstructed_interp_smooth_probe/fly001_reconstructed_interp_smooth_probe.npz
+Saved verification plot to: tike_outputs/fly001_reconstructed_interp_smooth_probe/fly001_reconstructed_interp_smooth_probe_verification.png
+
+--- Step 4: Smoothing Object (sigma=0.5) ---
+Loading data from: tike_outputs/fly001_reconstructed_interp_smooth_probe/fly001_reconstructed_interp_smooth_probe.npz
+Identified Probe: 'probeGuess' (shape: (128, 128))
+Identified Object: 'objectGuess' (shape: (464, 464))
+Applying Gaussian filter to complex array of shape (464, 464) (sigma=0.5)...
+- Amplitude and unwrapped phase smoothed.
+Saving new NPZ file to: tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz
+Success! Created tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz
+Saved verification plot to: tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both_verification.png
+
+--- Step 5: Simulating New Diffraction Data ---
+2025-08-07 01:58:20.098594: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1754557100.109858  762246 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1754557100.113325  762246 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1754557100.123666  762246 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754557100.123676  762246 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754557100.123678  762246 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1754557100.123679  762246 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-08-07 01:58:20.126543: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1754557103.154358  762246 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1754557103.155567  762246 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 10429 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1754557103.932133  762246 service.cc:152] XLA service 0x322bd980 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1754557103.932155  762246 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-08-07 01:58:23.959693: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1754557103.980007  762246 cuda_dnn.cc:529] Loaded cuDNN version 90300
+I0000 00:00:1754557104.148882  762246 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-08-07 02:00:19.020014: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 4587520000 exceeds 10% of free system memory.
+2025-08-07 02:00:30.974037: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:359] gpu_async_0 cuMemAllocAsync failed to allocate 2293760000 bytes: RESOURCE_EXHAUSTED: : CUDA_ERROR_OUT_OF_MEMORY: out of memory
+ Reported by CUDA: Free memory/Total memory: 1991507968/25299976192
+2025-08-07 02:00:30.974057: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:364] Stats: Limit:                     10936582144
+InUse:                     11474408468
+MaxInUse:                  11474408468
+NumAllocs:                     1050008
+MaxAllocSize:               4587520000
+Reserved:                            0
+PeakReserved:                        0
+LargestFreeBlock:                    0
+
+2025-08-07 02:00:30.974300: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:68] Histogram of current allocation: (allocation_size_in_bytes, nb_allocation_of_that_sizes), ...;
+2025-08-07 02:00:30.974305: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4, 2
+2025-08-07 02:00:30.974307: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 8, 1
+2025-08-07 02:00:30.974308: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 1028, 1
+2025-08-07 02:00:30.974310: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 131072, 35000
+2025-08-07 02:00:30.974312: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2803712, 2
+2025-08-07 02:00:30.974313: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 2293760000, 1
+2025-08-07 02:00:30.974315: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:71] 4587520000, 1
+2025-08-07 02:00:30.974319: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:104] CU_MEMPOOL_ATTR_RESERVED_MEM_CURRENT: 11643387904
+2025-08-07 02:00:30.974322: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:106] CU_MEMPOOL_ATTR_USED_MEM_CURRENT: 11474408468
+2025-08-07 02:00:30.974324: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:107] CU_MEMPOOL_ATTR_RESERVED_MEM_HIGH: 13623099392
+2025-08-07 02:00:30.974325: E external/local_xla/xla/stream_executor/gpu/gpu_cudamallocasync_allocator.cc:108] CU_MEMPOOL_ATTR_USED_MEM_HIGH: 11474408468
+2025-08-07 02:00:30.974330: W tensorflow/core/framework/op_kernel.cc:1844] RESOURCE_EXHAUSTED: failed to allocate memory
+2025-08-07 02:00:30.974336: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: RESOURCE_EXHAUSTED: failed to allocate memory
+An unexpected error occurred: {{function_node __wrapped__Angle_device_/job:localhost/replica:0/task:0/device:GPU:0}} failed to allocate memory [Op:Angle] name: 
+Loading object and probe from: tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz
+  - Object shape: (464, 464), dtype: complex64
+  - Probe shape: (128, 128), dtype: complex64
+Setting random seed to: 42
+DEBUG: Setting N to 128 in params
+DEBUG: Setting gridsize to 1 in params
+Simulating 35000 diffraction patterns with gridsize=1...
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 525, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 521, in main
+    raise e
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 505, in main
+    simulate_and_save(
+  File "/home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py", line 253, in simulate_and_save
+    Y_phi_flat = tf.math.angle(Y_flat)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/ops/weak_tensor_ops.py", line 88, in wrapper
+    return op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6006, in raise_from_not_ok_status
+    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.ResourceExhaustedError: {{function_node __wrapped__Angle_device_/job:localhost/replica:0/task:0/device:GPU:0}} failed to allocate memory [Op:Angle] name: 
+[2025-08-07 02:00:32] SUCCESS: Dataset preparation
+[2025-08-07 02:00:32] ERROR: Test data not found after preparation: tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz
+[2025-08-07 02:21:23] === Starting Complete Generalization Study ===
+[2025-08-07 02:21:23] Training sizes: 1024 2048
+[2025-08-07 02:21:23] Number of trials per size: 1
+[2025-08-07 02:21:23] Output directory: synthetic_generalization_study
+[2025-08-07 02:21:23] Total training runs planned: 4
+[2025-08-07 02:21:23] Validating environment...
+[2025-08-07 02:21:23] Environment validation passed
+[2025-08-07 02:21:23] Configuration saved to: synthetic_generalization_study/study_config.txt
+[2025-08-07 02:21:23] === STEP 1: Dataset Preparation ===
+[2025-08-07 02:21:23] EXECUTING: Dataset preparation
+[2025-08-07 02:21:23] COMMAND: bash scripts/prepare.sh
+--- Step 0: Padding to Even Dimensions ---
+--- Processing for even dimensions: tike_outputs/fly001/fly001_reconstructed.npz ---
+'objectGuess' already has even dimensions. No changes made.
+'probeGuess' already has even dimensions. No changes made.
+Saving processed data to: tike_outputs/fly001_reconstructed_padded/fly001_reconstructed_padded.npz
+--- Padding Complete ---
+
+--- Step 1: Canonicalizing NPZ Format ---
+[2025-08-07 02:21:44] Study interrupted by user
+[2025-08-07 02:21:52] === Starting Complete Generalization Study ===
+[2025-08-07 02:21:52] Training sizes: 1024 2048
+[2025-08-07 02:21:52] Number of trials per size: 1
+[2025-08-07 02:21:52] Output directory: synthetic_generalization_study
+[2025-08-07 02:21:52] Total training runs planned: 4
+[2025-08-07 02:21:52] Validating environment...
+[2025-08-07 02:21:52] Environment validation passed
+[2025-08-07 02:21:52] Configuration saved to: synthetic_generalization_study/study_config.txt
+[2025-08-07 02:21:52] Skipping dataset preparation (--skip-data-prep)
+[2025-08-07 02:21:52] ERROR: --train-data must be specified when using --skip-data-prep
+[2025-08-07 02:22:42] === Starting Complete Generalization Study ===
+[2025-08-07 02:22:42] Training sizes: 1024 2048
+[2025-08-07 02:22:42] Number of trials per size: 1
+[2025-08-07 02:22:42] Output directory: synthetic_generalization_study
+[2025-08-07 02:22:42] Total training runs planned: 4
+[2025-08-07 02:22:42] Validating environment...
+[2025-08-07 02:22:42] Environment validation passed
+[2025-08-07 02:22:42] Configuration saved to: synthetic_generalization_study/study_config.txt
+[2025-08-07 02:22:42] === STEP 1: Dataset Preparation ===
+[2025-08-07 02:22:42] EXECUTING: Dataset preparation
+[2025-08-07 02:22:42] COMMAND: bash scripts/prepare.sh
+--- Step 0: Padding to Even Dimensions ---
+--- Processing for even dimensions: tike_outputs/fly001/fly001_reconstructed.npz ---
+'objectGuess' already has even dimensions. No changes made.
+'probeGuess' already has even dimensions. No changes made.
+Saving processed data to: tike_outputs/fly001_reconstructed_padded/fly001_reconstructed_padded.npz
+--- Padding Complete ---
+
+--- Step 1: Canonicalizing NPZ Format ---
+Loading data from: tike_outputs/fly001_reconstructed_padded/fly001_reconstructed_padded.npz
+Processing 8 arrays...
+✔ Saved consistently formatted data to: tike_outputs/fly001_reconstructed_transposed/fly001_reconstructed_transposed.npz
+
+--- Step 2: Interpolating Data (2x Zoom) ---
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/scripts/tools/prepare_data_tool.py", line 30, in <module>
+    from skimage.restoration import unwrap_phase
+ModuleNotFoundError: No module named 'skimage'
+[2025-08-07 02:23:08] SUCCESS: Dataset preparation
+[2025-08-07 02:23:08] ERROR: Test data not found after preparation: tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz

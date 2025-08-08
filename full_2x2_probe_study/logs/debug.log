@@ -1,0 +1,76 @@
+2025-08-07 01:50:01,839 - INFO - Starting 2x2 Probe Parameterization Study preparation
+2025-08-07 01:50:01,839 - INFO - Output directory: /home/ollie/Documents/PtychoPINN2/full_2x2_probe_study
+2025-08-07 01:50:01,840 - INFO - Quick test mode: False
+2025-08-07 01:50:01,840 - INFO - Gridsize values: [1, 2]
+2025-08-07 01:50:01,840 - INFO - Created study directory: /home/ollie/Documents/PtychoPINN2/full_2x2_probe_study
+2025-08-07 01:50:01,840 - DEBUG - Created condition directory: gs1_idealized
+2025-08-07 01:50:01,840 - DEBUG - Created condition directory: gs1_hybrid
+2025-08-07 01:50:01,840 - DEBUG - Created condition directory: gs2_idealized
+2025-08-07 01:50:01,840 - DEBUG - Created condition directory: gs2_hybrid
+2025-08-07 01:50:01,840 - INFO - Creating probe variants...
+2025-08-07 01:50:01,840 - INFO - Generating idealized probe (64x64)
+2025-08-07 01:50:01,840 - INFO - Idealized probe saved to: full_2x2_probe_study/idealized_probe.npy
+2025-08-07 01:50:01,840 - DEBUG - Idealized probe - shape: (64, 64), dtype: complex64
+2025-08-07 01:50:01,840 - DEBUG - Idealized probe - amplitude range: [0.000, 1.000]
+2025-08-07 01:50:01,840 - INFO - Loading experimental probe from: datasets/fly64/fly001_64_train_converted.npz
+2025-08-07 01:50:01,840 - DEBUG - Loading probe from NPZ file: datasets/fly64/fly001_64_train_converted.npz
+2025-08-07 01:50:01,841 - INFO - Loaded probe with shape (64, 64), dtype complex64
+2025-08-07 01:50:01,841 - DEBUG - Experimental probe - shape: (64, 64), dtype: complex64
+2025-08-07 01:50:01,841 - INFO - Creating hybrid probe (idealized amplitude + experimental phase)
+2025-08-07 01:50:01,841 - DEBUG - Command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/tools/create_hybrid_probe.py full_2x2_probe_study/idealized_probe.npy datasets/fly64/fly001_64_train_converted.npz --output full_2x2_probe_study/hybrid_probe.npy --log-level INFO
+2025-08-07 01:50:02,134 - INFO - Hybrid probe saved to: full_2x2_probe_study/hybrid_probe.npy
+2025-08-07 01:50:02,134 - DEBUG - Hybrid probe - shape: (64, 64), dtype: complex64
+2025-08-07 01:50:02,134 - DEBUG - Hybrid probe - amplitude range: [0.000, 1.000]
+2025-08-07 01:50:02,134 - INFO - Creating synthetic object (224x224)
+2025-08-07 01:50:02,616 - INFO - DEBUG: Setting
+2025-08-07 01:50:02,616 - INFO - data_source
+2025-08-07 01:50:02,616 - INFO - to
+2025-08-07 01:50:02,616 - INFO - lines
+2025-08-07 01:50:02,616 - INFO - in params
+2025-08-07 01:50:02,616 - INFO - Generating synthetic lines object using sim_object_image
+2025-08-07 01:50:02,705 - INFO - Synthetic object saved to: full_2x2_probe_study/synthetic_input.npz
+2025-08-07 01:50:02,705 - DEBUG - Object shape: (224, 224), probe shape: (64, 64)
+2025-08-07 01:50:02,705 - DEBUG - Using established sim_object_image function with data_source='lines'
+2025-08-07 01:50:02,705 - INFO - Generating datasets for 2x2 experimental matrix...
+2025-08-07 01:50:02,705 - INFO - Full mode: using full-size datasets
+2025-08-07 01:50:02,705 - INFO - Generating data for condition: gs1_idealized
+2025-08-07 01:50:02,705 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file full_2x2_probe_study/synthetic_input.npz --output-file full_2x2_probe_study/gs1_idealized/train_data.npz --probe-file full_2x2_probe_study/idealized_probe.npy --n-images 5000 --gridsize 1 --seed 42
+2025-08-07 01:50:44,234 - INFO - Simulation completed: full_2x2_probe_study/gs1_idealized/train_data.npz
+2025-08-07 01:50:44,234 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file full_2x2_probe_study/synthetic_input.npz --output-file full_2x2_probe_study/gs1_idealized/test_data.npz --probe-file full_2x2_probe_study/idealized_probe.npy --n-images 1000 --gridsize 1 --seed 43
+2025-08-07 01:50:56,601 - INFO - Simulation completed: full_2x2_probe_study/gs1_idealized/test_data.npz
+2025-08-07 01:50:56,601 - INFO - Completed condition: gs1_idealized
+2025-08-07 01:50:56,601 - INFO - Generating data for condition: gs1_hybrid
+2025-08-07 01:50:56,601 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file full_2x2_probe_study/synthetic_input.npz --output-file full_2x2_probe_study/gs1_hybrid/train_data.npz --probe-file full_2x2_probe_study/hybrid_probe.npy --n-images 5000 --gridsize 1 --seed 42
+2025-08-07 01:51:35,943 - INFO - Simulation completed: full_2x2_probe_study/gs1_hybrid/train_data.npz
+2025-08-07 01:51:35,943 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file full_2x2_probe_study/synthetic_input.npz --output-file full_2x2_probe_study/gs1_hybrid/test_data.npz --probe-file full_2x2_probe_study/hybrid_probe.npy --n-images 1000 --gridsize 1 --seed 43
+2025-08-07 01:51:47,881 - INFO - Simulation completed: full_2x2_probe_study/gs1_hybrid/test_data.npz
+2025-08-07 01:51:47,882 - INFO - Completed condition: gs1_hybrid
+2025-08-07 01:51:47,882 - INFO - Generating data for condition: gs2_idealized
+2025-08-07 01:51:47,882 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file full_2x2_probe_study/synthetic_input.npz --output-file full_2x2_probe_study/gs2_idealized/train_data.npz --probe-file full_2x2_probe_study/idealized_probe.npy --n-images 5000 --gridsize 2 --seed 42
+2025-08-07 01:53:28,052 - INFO - Simulation completed: full_2x2_probe_study/gs2_idealized/train_data.npz
+2025-08-07 01:53:28,052 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file full_2x2_probe_study/synthetic_input.npz --output-file full_2x2_probe_study/gs2_idealized/test_data.npz --probe-file full_2x2_probe_study/idealized_probe.npy --n-images 1000 --gridsize 2 --seed 43
+2025-08-07 01:53:53,335 - INFO - Simulation completed: full_2x2_probe_study/gs2_idealized/test_data.npz
+2025-08-07 01:53:53,335 - INFO - Completed condition: gs2_idealized
+2025-08-07 01:53:53,335 - INFO - Generating data for condition: gs2_hybrid
+2025-08-07 01:53:53,335 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file full_2x2_probe_study/synthetic_input.npz --output-file full_2x2_probe_study/gs2_hybrid/train_data.npz --probe-file full_2x2_probe_study/hybrid_probe.npy --n-images 5000 --gridsize 2 --seed 42
+2025-08-07 01:55:18,753 - INFO - Simulation completed: full_2x2_probe_study/gs2_hybrid/train_data.npz
+2025-08-07 01:55:18,754 - DEBUG - Simulation command: /home/ollie/miniconda3/envs/ptycho311/bin/python /home/ollie/Documents/PtychoPINN2/scripts/simulation/simulate_and_save.py --input-file full_2x2_probe_study/synthetic_input.npz --output-file full_2x2_probe_study/gs2_hybrid/test_data.npz --probe-file full_2x2_probe_study/hybrid_probe.npy --n-images 1000 --gridsize 2 --seed 43
+2025-08-07 01:55:41,317 - INFO - Simulation completed: full_2x2_probe_study/gs2_hybrid/test_data.npz
+2025-08-07 01:55:41,318 - INFO - Completed condition: gs2_hybrid
+2025-08-07 01:55:41,318 - INFO - 2x2 Study preparation completed successfully!
+2025-08-07 01:55:41,318 - INFO - Study directory ready: /home/ollie/Documents/PtychoPINN2/full_2x2_probe_study
+2025-08-07 01:55:41,318 - INFO - 
+==================================================
+2025-08-07 01:55:41,318 - INFO - PREPARATION SUMMARY
+2025-08-07 01:55:41,318 - INFO - ==================================================
+2025-08-07 01:55:41,318 - INFO - Study directory: /home/ollie/Documents/PtychoPINN2/full_2x2_probe_study
+2025-08-07 01:55:41,318 - INFO - Gridsize values: [1, 2]
+2025-08-07 01:55:41,318 - INFO - Probe size: 64x64
+2025-08-07 01:55:41,318 - INFO - Object size: 224x224
+2025-08-07 01:55:41,318 - INFO - Quick test mode: False
+2025-08-07 01:55:41,318 - INFO -   gs1_idealized: train=True, test=True
+2025-08-07 01:55:41,318 - INFO -   gs1_hybrid: train=True, test=True
+2025-08-07 01:55:41,318 - INFO -   gs2_idealized: train=True, test=True
+2025-08-07 01:55:41,318 - INFO -   gs2_hybrid: train=True, test=True
+2025-08-07 01:55:41,318 - INFO - Total conditions prepared: 4
+2025-08-07 01:55:41,318 - INFO - ==================================================

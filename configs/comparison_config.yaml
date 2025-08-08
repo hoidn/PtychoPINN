@@ -3,7 +3,7 @@
 
 # Model Architecture Parameters
 N: 64                    # Dimension of input diffraction patterns (64x64 pixels)
-gridsize: 1              # Non-grid data (set to 1)
+gridsize: 2              # Non-grid data (set to 1)
 n_filters_scale: 2       # Multiplier for number of filters in conv layers
 model_type: "pinn"       # For PtychoPINN model (baseline ignores this)
 amp_activation: "sigmoid" # Activation function for amplitude output

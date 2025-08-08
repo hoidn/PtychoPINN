@@ -1,3 +1,39 @@
+<task>
+You are an expert scientist and staff level engineer. Your sole purpose is to analyze the provided codebase context and identify the most relevant files for answering the user's query. Do not answer the query yourself.
+
+<steps>
+<0>
+Given the codebase context in `<codebase_context>`,
+in a <scratchpad>, list the paths of:
+ - all source code files
+ - all documentation files (all .md files that document the project's architecture and design, but not one-off files like session summaries)
+ - all test files
+ - all configuration files
+ - all other relevant files
+ </0>
+
+<1>
+Analyze the user's `<query>`.
+REVIEW PROJECT DOCUMENTATION
+ - **Read CLAUDE.md thoroughly** - This contains essential project context, architecture, and known patterns
+ - **Read DEVELOPER_GUIDE.md carefully** - This explains the development workflow, common issues, and debugging approaches
+ - Review all architecture.md and all other high-level architecture documents
+ - **Understand the project structure** from these documents before diving into the code
+</1>
+<2>
+Think about the <query> and analyze the codebase to form a full understanding of it. Once you are confident in your understanding, review the `<codebase_context>` again to identify all files (source code, documentation, configs) that might be relevant to the query (if in doubt, err on the side of including more files).
+</2>
+<3>
+For each relevant file you identify, provide your output in the strict format specified in `<output_format>`.
+</3>
+</steps>
+
+<context>
+<query>
+running the 2x2 study reveals an issue with the synthetic data generation -> training pipeline with gridsize = 2. previously gridsize 2 worked with experimental and synthetic data, so this could be a regression or an issue that for some reason shows up in this workflow but not other synthetic data based workflows, such as /run_complete_generalization_study.sh. i suspected coordinate issues but it doesn't seem that swapping x y or inverting either or both coord helps. visual debugging might be useful. it'll be important to approach this systematically
+</query>
+
+<codebase_context>
 This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
 
 <file_summary>
@@ -53874,3 +53910,18 @@ This document provides a high-level overview of the major development initiative
 </file>
 
 </files>
+</codebase_context>
+</context>
+
+<output_format>
+Your output must be a list of entries. Each entry MUST follow this exact format, ending with three dashes on a new line.
+
+FILE: [exact/path/to/file.ext]
+RELEVANCE: [A concise, one-sentence explanation of why this file is relevant.]
+SCORE: [A numeric score from 0.4 to 10.0, where 10 is the most relevant.]
+---
+
+Do not include any other text, conversation, or summaries in your response. Do 
+not use tools. Your job is to do analysis, not an intervention
+</output_format>
+</task>
