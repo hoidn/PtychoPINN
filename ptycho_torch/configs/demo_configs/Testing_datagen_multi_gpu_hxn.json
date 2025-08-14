@@ -1,0 +1,54 @@
+{
+  "data_config": {
+    "N": 64,
+    "normalize": "Batch",
+    "n_subsample": 1,
+    "C": 4,
+    "neighbor_function": "4_quadrant",
+    "probe_normalize": true,
+    "probe_scale": 1.0,
+    "x_bounds": [0.05, 0.95],
+    "y_bounds": [0.05, 0.95],
+    "min_neighbor_distance": 1,
+    "max_neighbor_distance": 4,
+    "K_quadrant": 60,
+    "scan_pattern": "Isotropic"
+  },
+  "model_config": {
+    "mode": "Unsupervised",
+    "object_big": true,
+    "probe_big": true,
+    "batch_norm": false,
+    "loss_function": "Poisson",
+    "amp_activation": "silu",
+    "amp_loss": null,
+    "amp_loss_coeff": 2.0,
+    "phase_loss": null,
+    "phase_loss_coeff": 1.0,
+    "decoder_last_c_outer_fraction": 0.125,
+    "decoder_last_amp_channels": 4,
+    "cbam_encoder": true,
+    "eca_decoder": false
+  },
+  "training_config": {
+    "num_workers": 4,
+    "learning_rate": 0.001,
+    "n_devices": 2, 
+    "batch_size": 16,
+    "accum_steps": 1,
+    "epochs_fine_tune": 10,
+    "fine_tune_gamma": 0.5,
+    "epochs": 40,
+    "gradient_clip_val": 5,
+    "stage_1_epochs": 40,
+    "stage_2_epochs": 0,
+    "stage_3_epochs": 0,
+    "stage_3_lr_factor": 0.01,
+    "experiment_name": "PtychoPINN synthetic"
+  },
+  "inference_config": {},
+  "datagen_config": {
+    "object_class": "dead_leaves",
+    "objects_per_probe": 4
+  }
+}
