@@ -24,6 +24,11 @@ python scripts/tools/transpose_rename_convert_tool.py \
 | `fly64_shuffled.npz` | Ready | Complete dataset (10304 images), shuffled | **Recommended for full spatial coverage** |
 | `fly64_top_half_shuffled.npz` | Ready | Upper spatial region (5172 points), shuffled | **Spatial subset studies** |
 | `fly64_bottom_half_shuffled.npz` | Ready | Lower spatial region (5050 points), shuffled | **Spatial subset studies** |
+| **Validation Subsets** | | | |
+| `fly64_sequential_train_800.npz` | Ready | Sequential subset (800 images) for training | **GridSize 2 validation** |
+| `fly64_sequential_test_200.npz` | Ready | Sequential subset (200 images) for testing | **GridSize 2 validation** |
+| `fly64_random_train_800.npz` | Ready | Random subset (800 images) for training | **GridSize 1 validation** |
+| `fly64_random_test_200.npz` | Ready | Random subset (200 images) for testing | **GridSize 1 validation** |
 
 ## Specialized Datasets
 
@@ -128,6 +133,59 @@ data = np.load('datasets/fly64/fly64_top_half_shuffled.npz')
 assert len(data['xcoords']) == 5172, "Must contain exactly 5172 scan points"
 print("✓ fly64_top_half_shuffled.npz ready for spatial bias studies")
 ```
+
+## Validation Subsets
+
+### Quick Validation Datasets
+
+For rapid prototyping and validation experiments, smaller subsets (1000 images) with train/test splits are available:
+
+#### Sequential Subsets (GridSize > 1)
+**Purpose:** Preserve spatial locality for overlap-based training while providing quick validation capability.
+
+**Files:**
+- `fly64_sequential_train_800.npz`: 800 images from a localized region
+- `fly64_sequential_test_200.npz`: 200 images from adjacent region
+
+**Key Properties:**
+- **Spatial locality preserved:** Small Y-range ensures neighbors are truly adjacent
+- **Non-overlapping regions:** Train and test sets are spatially separated
+- **GridSize 2 compatible:** ~200 valid neighbor groups in training set
+
+**Usage:**
+```bash
+ptycho_train --train_data datasets/fly64/fly64_sequential_train_800.npz \
+             --test_data datasets/fly64/fly64_sequential_test_200.npz \
+             --gridsize 2 --n_images 200 --nepochs 10 \
+             --output_dir gs2_validation
+```
+
+#### Random Subsets (GridSize = 1)
+**Purpose:** Provide spatially representative samples for standard training without overlap constraints.
+
+**Files:**
+- `fly64_random_train_800.npz`: 800 randomly sampled images
+- `fly64_random_test_200.npz`: 200 randomly sampled images
+
+**Key Properties:**
+- **Full spatial coverage:** Both subsets span the entire object area
+- **Unbiased sampling:** Pre-shuffled to ensure representativeness
+- **GridSize 1 optimized:** No spatial adjacency requirements
+
+**Usage:**
+```bash
+ptycho_train --train_data datasets/fly64/fly64_random_train_800.npz \
+             --test_data datasets/fly64/fly64_random_test_200.npz \
+             --gridsize 1 --n_images 800 --nepochs 10 \
+             --output_dir gs1_validation
+```
+
+**Creation Process:**
+These subsets were created from properly converted datasets:
+- Sequential: First 1000 images from `fly001_64_train_converted.npz` (format-converted, sequential order), split 80/20
+- Random: First 1000 images from `fly64_shuffled.npz` (format-converted, randomized order), split 80/20
+
+Both source datasets have the correct float32 amplitude format required by PtychoPINN.
 
 ## Format Issues & Solutions
 
