@@ -76,6 +76,7 @@ class TrainingConfig:
     probe_trainable: bool = False
     intensity_scale_trainable: bool = True  # Changed default
     output_dir: Path = Path("training_outputs")
+    sequential_sampling: bool = False  # Use sequential sampling instead of random
 
 @dataclass(frozen=True)
 class InferenceConfig:
