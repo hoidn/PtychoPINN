@@ -653,6 +653,102 @@ class RawData:
             logging.error(f"Failed to find valid groups: {e}")
             raise
 
+    def _generate_groups_efficiently(self, nsamples: int, K: int, C: int, seed: Optional[int] = None) -> np.ndarray:
+        """
+        Efficiently generate coordinate groups using a "sample-then-group" strategy.
+        
+        This method first samples seed points from the dataset, then finds neighbors
+        only for those seed points, drastically reducing computation and memory usage
+        compared to the "group-then-sample" approach.
+        
+        Args:
+            nsamples: Number of groups to generate
+            K: Number of nearest neighbors to consider (including self)
+            C: Number of coordinates per group (typically gridsize^2)
+            seed: Random seed for reproducibility (optional)
+            
+        Returns:
+            np.ndarray: Array of group indices with shape (nsamples, C)
+            
+        Raises:
+            ValueError: If K < C or if dataset is too small
+        """
+        try:
+            # Set random seed if provided
+            if seed is not None:
+                np.random.seed(seed)
+            
+            n_points = len(self.xcoords)
+            logging.info(f"Generating {nsamples} groups efficiently from {n_points} points (K={K}, C={C})")
+            
+            # Validate inputs
+            if n_points < C:
+                raise ValueError(f"Dataset has only {n_points} points but {C} coordinates per group requested.")
+            
+            if K < C:
+                raise ValueError(f"K={K} must be >= C={C} (need at least C neighbors to form a group)")
+            
+            # Handle edge case: more samples requested than available points
+            if nsamples > n_points:
+                logging.warning(f"Requested {nsamples} groups but only {n_points} points available. Using all points as seeds.")
+                n_samples_actual = n_points
+            else:
+                n_samples_actual = nsamples
+            
+            # Step 1: Sample seed points
+            all_indices = np.arange(n_points)
+            if n_samples_actual < n_points:
+                seed_indices = np.random.choice(all_indices, size=n_samples_actual, replace=False)
+                logging.info(f"Sampled {n_samples_actual} seed points from {n_points} total points")
+            else:
+                seed_indices = all_indices
+                logging.info(f"Using all {n_points} points as seeds")
+            
+            # Step 2: Build KDTree for efficient neighbor search
+            coords = np.column_stack([self.xcoords, self.ycoords])
+            tree = cKDTree(coords)
+            
+            # Step 3: Find K nearest neighbors for each seed point
+            seed_coords = coords[seed_indices]
+            # Query K+1 neighbors (including self), then remove self
+            distances, neighbor_indices = tree.query(seed_coords, k=min(K+1, n_points))
+            
+            # Step 4: Generate groups by selecting C coordinates from each seed's neighbors
+            groups = np.zeros((n_samples_actual, C), dtype=np.int32)
+            
+            for i in range(n_samples_actual):
+                # Get this seed's neighbors (excluding self if K+1 was queried)
+                neighbors = neighbor_indices[i]
+                if len(neighbors) > K:
+                    # Remove self (first element) if we queried K+1
+                    neighbors = neighbors[1:K+1]
+                else:
+                    # Use all available neighbors if dataset is small
+                    neighbors = neighbors[:K]
+                
+                # Ensure we have enough neighbors
+                if len(neighbors) < C:
+                    # If not enough neighbors, include the seed point itself
+                    available = np.concatenate([[seed_indices[i]], neighbors])
+                else:
+                    available = neighbors
+                
+                # Randomly select C indices from available neighbors
+                if len(available) >= C:
+                    selected = np.random.choice(available, size=C, replace=False)
+                else:
+                    # If still not enough, allow replacement (edge case for very small datasets)
+                    selected = np.random.choice(available, size=C, replace=True)
+                
+                groups[i] = selected
+            
+            logging.info(f"Successfully generated {n_samples_actual} groups with shape {groups.shape}")
+            return groups
+            
+        except Exception as e:
+            logging.error(f"Failed to generate groups efficiently: {e}")
+            raise
+
     #@debug
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
         """
