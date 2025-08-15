@@ -176,8 +176,11 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
     """
     from ptycho.nbutils import reconstruct_image, crop_to_non_uniform_region_with_buffer
     try:
-        # Set probe guess
-        probe.set_probe_guess(None, test_data.probeGuess)
+        # The model loaded by the caller already contains the correct trained probe.
+        # There is no need to set it again from the test data, as that would be
+        # both misleading and ineffectual - the model's internal tf.Variable probe
+        # is not affected by changes to the global configuration after loading.
+        # [Removed: probe.set_probe_guess(None, test_data.probeGuess)]
 
         # Set random seeds
         tf.random.set_seed(45)
