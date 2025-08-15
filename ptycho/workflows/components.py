@@ -90,6 +90,7 @@ from ptycho.loader import PtychoDataContainer
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho import params
 from ptycho.image import reassemble_patches
+from ptycho.model_manager import ModelManager
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -97,6 +98,90 @@ logger = logging.getLogger(__name__)
 
 from dataclasses import fields
 from ptycho.config.config import ModelConfig, TrainingConfig
+
+def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
+    """Load a trained model bundle for inference from a directory.
+    
+    This is the standard, centralized function for loading a trained model for inference.
+    It expects a directory from a training run containing a 'wts.h5.zip' archive with
+    the 'diffraction_to_obj' inference model.
+    
+    Args:
+        model_dir: Path to the directory containing the trained model artifacts.
+                  This directory should contain 'wts.h5.zip' from a training run.
+    
+    Returns:
+        A tuple containing:
+        - model: The loaded TensorFlow/Keras model ready for inference
+        - config: The configuration dictionary restored from the saved model
+        
+    Raises:
+        ValueError: If model_dir is not a valid directory
+        FileNotFoundError: If 'wts.h5.zip' is not found in the directory
+        KeyError: If 'diffraction_to_obj' model is not found in the archive
+        
+    Example:
+        >>> from pathlib import Path
+        >>> from ptycho.workflows.components import load_inference_bundle
+        >>> 
+        >>> model_dir = Path("outputs/my_training_run")
+        >>> model, config = load_inference_bundle(model_dir)
+        >>> 
+        >>> # Now use the model for inference
+        >>> predictions = model.predict(test_data)
+    """
+    # Validate input directory
+    if not isinstance(model_dir, Path):
+        model_dir = Path(model_dir)
+    
+    if not model_dir.exists():
+        raise ValueError(f"Model directory does not exist: {model_dir}")
+    
+    if not model_dir.is_dir():
+        raise ValueError(f"Model path is not a directory: {model_dir}")
+    
+    # Check for the model archive
+    model_zip = model_dir / "wts.h5"
+    model_zip_file = Path(f"{model_zip}.zip")
+    
+    if not model_zip_file.exists():
+        raise FileNotFoundError(
+            f"Model archive not found at: {model_zip_file}. "
+            f"Expected to find 'wts.h5.zip' in the directory {model_dir}. "
+            f"This file is created during training with ptycho_train."
+        )
+    
+    logger.info(f"Loading model from: {model_dir}")
+    logger.debug(f"Model archive path: {model_zip_file}")
+    
+    try:
+        # Load multiple models from the archive
+        # ModelManager expects the path without the .zip extension
+        models_dict = ModelManager.load_multiple_models(str(model_zip))
+        
+        # Get the diffraction_to_obj model which is needed for inference
+        if 'diffraction_to_obj' not in models_dict:
+            available_models = list(models_dict.keys())
+            raise KeyError(
+                f"No 'diffraction_to_obj' model found in saved models archive. "
+                f"Available models: {available_models}. "
+                f"The 'diffraction_to_obj' model should be created during training."
+            )
+        
+        model = models_dict['diffraction_to_obj']
+        
+        # ModelManager updates the global params.cfg when loading
+        # Return a copy to avoid unintended modifications
+        config = params.cfg.copy()
+        
+        logger.info(f"Successfully loaded model from {model_dir}")
+        logger.debug(f"Model configuration: {config}")
+        
+        return model, config
+        
+    except Exception as e:
+        logger.error(f"Failed to load model from {model_dir}: {str(e)}")
+        raise
 
 def update_config_from_dict(config_updates: dict):
     """

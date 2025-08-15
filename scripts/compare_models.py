@@ -20,8 +20,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import ptycho components
-from ptycho.model_manager import ModelManager
-from ptycho.workflows.components import load_data, create_ptycho_data_container, logger
+from ptycho.workflows.components import load_data, create_ptycho_data_container, logger, load_inference_bundle
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
 from ptycho.tf_helper import reassemble_position
@@ -89,22 +88,13 @@ def parse_args():
 
 
 def load_pinn_model(model_dir: Path) -> tf.keras.Model:
-    """Load the inference-only PtychoPINN model."""
+    """Load the inference-only PtychoPINN model using the centralized loader."""
     logger.info(f"Loading PtychoPINN model from {model_dir}...")
     
-    # ModelManager expects the path *without* the .zip extension
-    model_zip_base_path = model_dir / "wts.h5"
+    # Use the centralized function for loading
+    model, _ = load_inference_bundle(model_dir)
     
-    if not (model_dir / "wts.h5.zip").exists():
-        raise FileNotFoundError(f"PtychoPINN model not found at {model_dir}/wts.h5.zip")
-    
-    models = ModelManager.load_multiple_models(str(model_zip_base_path))
-    pinn_model = models.get('diffraction_to_obj')
-    
-    if pinn_model is None:
-        raise ValueError("Could not find 'diffraction_to_obj' model in PtychoPINN archive.")
-    
-    return pinn_model
+    return model
 
 
 def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
