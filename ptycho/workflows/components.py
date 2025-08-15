@@ -397,7 +397,8 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
             config.model.N, 
             K=4, 
             nsamples=config.n_images,  # Use interpreted n_images
-            dataset_path=str(config.train_data_file) if config.train_data_file else None
+            dataset_path=str(config.train_data_file) if config.train_data_file else None,
+            sequential_sampling=config.sequential_sampling  # Pass sequential sampling flag
         )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
