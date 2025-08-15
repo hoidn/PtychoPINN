@@ -33,6 +33,23 @@ The height and width of the diffraction patterns are equal and determined by the
 
 By default, the training script loads up to 512 images from the input data file. This limit is hardcoded but can be modified in the source code if needed.
 
+### Sampling Modes
+
+The training script supports two data sampling modes:
+
+1. **Random Sampling (default)**: Randomly selects data points from the dataset for training. This provides better coverage of the entire scan region and is recommended for most training scenarios.
+
+2. **Sequential Sampling**: Uses the first `n_images` points from the dataset in sequential order. This is useful for:
+   - Debugging specific scan regions
+   - Analyzing ordered data subsets
+   - Reproducing legacy behavior that relied on ordered data
+   - Testing with controlled data sequences
+
+To enable sequential sampling, use the `--sequential_sampling` flag:
+```bash
+ptycho_train --train_data dataset.npz --sequential_sampling --n_images 100
+```
+
 ## Configuration
 
 The training script uses a configuration file (`config.yaml`) to set various parameters. The configuration system supports both new-style configuration and legacy parameters. Key parameters include:
@@ -63,8 +80,12 @@ You can provide a custom configuration file using the `--config` command-line ar
 2. (Optional) Create a configuration file with the desired training parameters.
 
 3. Run the training script:
-   ```
+   ```bash
+   # Default: Random sampling
    python train.py --train_data_file /path/to/your/train_data.npz [--config /path/to/config.yaml]
+   
+   # Sequential sampling: Use first n_images in order
+   python train.py --train_data_file /path/to/your/train_data.npz --sequential_sampling --n_images 100
    ```
    Note: The script supports both `--train_data_file` and the legacy `--train_data_file_path` arguments.
 
