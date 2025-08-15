@@ -36,9 +36,8 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from ptycho import probe, params
-from ptycho.model_manager import ModelManager
 from ptycho.raw_data import RawData
-from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
+from ptycho.workflows.components import load_data, setup_configuration, parse_arguments, load_inference_bundle
 from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
 
 # Set up logging
@@ -126,35 +125,6 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     print(f"Final inference config - gridsize: {inference_config.model.gridsize}")
     return inference_config
 
-
-def load_model(model_path: Path) -> tuple:
-    """Load the saved model and its configuration."""
-    try:
-        print(f"Attempting to load model from: {model_path}")
-        print(f"Current working directory: {os.getcwd()}")
-        
-        # Check if the path is a directory and contains wts.h5.zip
-        model_zip = os.path.join(model_path, "wts.h5")
-        if not os.path.exists(f"{model_zip}.zip"):
-            raise ValueError(f"Model archive not found at: {model_zip}.zip")
-            
-        # Load multiple models
-        models_dict = ModelManager.load_multiple_models(model_zip)
-        
-        # Get the diffraction_to_obj model which is what we need for inference
-        if 'diffraction_to_obj' not in models_dict:
-            raise ValueError("No diffraction_to_obj model found in saved models")
-            
-        model = models_dict['diffraction_to_obj']
-        config = params.cfg  # ModelManager updates global config when loading
-
-        print(f"Successfully loaded model from {model_path}")
-        print(f"Model configuration: {config}")
-
-        return model, config
-
-    except Exception as e:
-        raise ValueError(f"Failed to load model: {str(e)}")
 
 def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K: int, nsamples: int) -> tuple:
     """
@@ -397,9 +367,9 @@ def main():
         # the authoritative configuration from the saved model artifact, making this
         # initial update redundant. The loaded model's params take precedence.
 
-        # Load model
+        # Load model using centralized function
         print("Loading model...")
-        model, _ = load_model(config.model_path)
+        model, _ = load_inference_bundle(config.model_path)
 
         # Load test data
         print("Loading test data...")
