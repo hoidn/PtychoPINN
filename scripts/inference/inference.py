@@ -385,87 +385,6 @@ def save_probe_visualization(test_data: RawData, output_path: str):
     except OSError as e:
         raise OSError(f"Error saving probe visualization: {str(e)}")
 
-def main(model_prefix: str, test_data_file: str, output_path: str, visualize_probe: bool, K: int, nsamples: int, comparison_plot: bool = False) -> None:
-    """
-    Main function to orchestrate the inference process.
-
-    Args:
-        model_prefix (str): Path prefix for the saved model and its configuration.
-        test_data_file (str): Path to the .npz file containing test data.
-        output_path (str): Path prefix for saving output files and images.
-        visualize_probe (bool): Flag to generate and save probe visualization.
-        K (int): Number of nearest neighbors for grouped data generation.
-        nsamples (int): Number of samples for grouped data generation.
-        comparison_plot (bool): Flag to generate comparison plot.
-
-    Raises:
-        Exception: If any error occurs during the inference process.
-    """
-    print("Starting inference process...")
-    start_time = time.time()
-
-    try:
-        # Load model
-        print("Loading model...")
-        model, config = load_model(model_prefix)
-
-        # Load test data
-        print("Loading test data...")
-        test_data = load_data(test_data_file)
-
-        # Check for shutdown request
-        if shutdown_requested:
-            print("Shutdown requested. Stopping inference process.")
-            return
-
-        # Perform inference
-        print(f"Performing inference with K={K} and nsamples={nsamples}...")
-        reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(model, test_data, config, K, nsamples)
-
-        # Check for shutdown request
-        if shutdown_requested:
-            print("Shutdown requested. Stopping before saving results.")
-            return
-
-        # Save separate reconstruction images
-        print("Saving reconstruction images...")
-        save_reconstruction_images(reconstructed_amplitude, reconstructed_phase, output_path)
-        
-        # Generate comparison plot if requested and ground truth is available
-        if comparison_plot and epie_amplitude is not None and epie_phase is not None:
-            print("Generating comparison plot...")
-            save_comparison_plot(reconstructed_amplitude, reconstructed_phase, 
-                                epie_amplitude, epie_phase, output_path)
-        elif comparison_plot:
-            print("Skipping comparison plot generation - ground truth not available")
-
-        # Save probe visualization if requested
-        if visualize_probe:
-            print("Generating and saving probe visualization...")
-            probe_output_path = os.path.join(output_path, "probe_visualization.png")
-            save_probe_visualization(test_data, probe_output_path)
-
-        print("Inference process completed successfully.")
-
-    except FileNotFoundError as e:
-        print(f"File not found error: {str(e)}")
-        raise
-    except ValueError as e:
-        print(f"Value error: {str(e)}")
-        raise
-    except OSError as e:
-        print(f"OS error: {str(e)}")
-        raise
-    except Exception as e:
-        print(f"An unexpected error occurred: {str(e)}")
-        raise
-    finally:
-        # Perform any necessary cleanup
-        print("Cleaning up resources...")
-        tf.keras.backend.clear_session()
-
-    end_time = time.time()
-    print(f"Total execution time: {end_time - start_time:.2f} seconds")
 
 def main():
     """Main entry point for the ptychography inference script."""
@@ -474,8 +393,9 @@ def main():
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
         
-        # Update global params with new-style config
-        update_legacy_dict(params.cfg, config)
+        # Note: update_legacy_dict() removed - ModelManager.load_model() will restore
+        # the authoritative configuration from the saved model artifact, making this
+        # initial update redundant. The loaded model's params take precedence.
 
         # Load model
         print("Loading model...")
