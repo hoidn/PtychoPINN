@@ -1,79 +1,98 @@
 """Core physics-informed neural network architecture for ptychographic reconstruction.
 
-This module defines the heart of the PtychoPINN system - a U-Net-based deep learning 
-architecture augmented with custom physics-informed Keras layers that embed ptychographic 
-forward modeling constraints directly into the neural network. This unique combination 
-enables rapid, high-resolution reconstruction from scanning coherent diffraction data 
-while maintaining physical consistency.
+**⚠️ CRITICAL GLOBAL STATE WARNING ⚠️**
+This module suffers from a major architectural flaw: it creates model instances (autoencoder, 
+diffraction_to_obj, autoencoder_no_nll) at import time using the global ptycho.params.cfg 
+dictionary. This creates hidden dependencies and makes the models dependent on global state 
+at import time, which is extremely problematic for testing, reproducibility, and concurrent usage.
 
-**Architecture Overview:**
-The PtychoPINN model integrates three key components:
-1. **Encoder-Decoder U-Net**: Learns image-to-image mapping from diffraction to object
-2. **Physics Constraint Layers**: Custom layers implementing differentiable ptychography
-3. **Probabilistic Loss**: Poisson noise modeling for realistic diffraction statistics
+**STRONGLY RECOMMENDED:** Use create_model_with_gridsize() factory function instead of the 
+module-level model instances. This eliminates global state dependencies and provides explicit 
+parameter control.
 
-**CRITICAL: This is a core physics module with stable, validated implementations.**
-The model architecture and physics simulation components should NOT be modified 
-without explicit requirements and thorough validation.
+This module implements a U-Net-based physics-informed neural network that combines deep learning 
+with differentiable ptychographic forward modeling. The architecture integrates encoder-decoder 
+image reconstruction with custom Keras layers that enforce ptychographic physics constraints.
 
-Key Components:
-    - ProbeIllumination: Custom layer applying complex probe illumination with smoothing
-    - IntensityScaler/IntensityScaler_inv: Trainable intensity scaling for normalization  
-    - U-Net Architecture: Resolution-adaptive encoder-decoder with dynamic filter scaling
-    - Physics Integration: Differentiable forward model with Poisson noise simulation
-    - Model Factory: create_model_with_gridsize() for explicit parameter control
+**Public Interface:**
 
-**Primary Models Created:**
-    - autoencoder: Main training model (diffraction -> object, amplitude, intensity)
-    - diffraction_to_obj: Inference-only model (diffraction -> object reconstruction)
+Factory Functions (Recommended):
+    - create_model_with_gridsize(gridsize, N, **kwargs) -> (autoencoder, diffraction_to_obj)
+      Creates models with explicit parameters, avoiding global state dependencies.
+
+Module-Level Models (Legacy - Avoid in New Code):
+    - autoencoder: Main training model with 3 outputs [object, amplitude, intensity]
+    - diffraction_to_obj: Inference-only model with 1 output [object]
     - autoencoder_no_nll: Training model without negative log-likelihood output
 
-**Core Workflows:**
-    - Model Creation: Uses global config or explicit parameters via factory functions
-    - Training Pipeline: Integration with PtychoDataContainer for data formatting
-    - Physics Simulation: Differentiable forward model for end-to-end training
-    - Inference: Direct diffraction-to-object reconstruction
+Utility Functions:
+    - prepare_inputs(train_data: PtychoDataContainer) -> [scaled_diffraction, coordinates]
+    - prepare_outputs(train_data: PtychoDataContainer) -> [object, amplitude, intensity]
 
-Usage Example:
+**Model Input/Output Specifications:**
+
+Inputs (both models):
+    - diffraction: tf.float32, shape (batch_size, N, N, gridsize**2)
+      Measured diffraction amplitudes (sqrt of intensity)
+    - coordinates: tf.float32, shape (batch_size, 1, 2, gridsize**2) 
+      Scanning probe positions in normalized coordinates
+
+Outputs:
+    - autoencoder: [object, amplitude, intensity]
+      * object: tf.complex64, shape (batch_size, N, N, 1) - Complex object reconstruction
+      * amplitude: tf.float32, shape (batch_size, N, N, gridsize**2) - Predicted amplitudes
+      * intensity: tf.float32, shape (batch_size, N, N, gridsize**2) - Squared amplitudes
+    - diffraction_to_obj: [object]
+      * object: tf.complex64, shape (batch_size, N, N, 1) - Complex object reconstruction only
+
+**Architecture Components:**
+
+U-Net Encoder-Decoder:
+    Resolution-adaptive filter scaling based on input size N:
+    - N=64: [32, 64, 128] -> [64, 32] filters (encoder -> decoder)
+    - N=128: [16, 32, 64, 128] -> [128, 64, 32] filters  
+    - N=256: [8, 16, 32, 64, 128] -> [256, 128, 64, 32] filters
+
+Custom Physics Layers:
+    - ProbeIllumination: Complex probe multiplication with Gaussian smoothing
+    - ExtractPatchesPositionLayer: Multi-position patch extraction from object
+    - PadAndDiffractLayer: Differentiable Fourier transform diffraction simulation
+    - IntensityScaler/IntensityScaler_inv: Trainable intensity normalization
+
+**Usage Examples:**
+
+Recommended approach (explicit parameters):
     ```python
-    from ptycho.model import diffraction_to_obj, create_model_with_gridsize
-    from ptycho.loader import PtychoDataContainer
+    # Create models with explicit configuration
+    autoenc, inference_model = create_model_with_gridsize(gridsize=2, N=64)
     
-    # Direct inference using global model (legacy)
-    reconstruction = diffraction_to_obj.predict([diffraction_data, coordinates])
+    # Inference
+    object_reconstruction = inference_model.predict([diffraction_data, coordinates])
     
-    # Create model with explicit parameters (modern approach)
-    autoenc, inference = create_model_with_gridsize(gridsize=2, N=64)
-    result = inference.predict([test_data, test_coords])
-    
-    # Training workflow with data container
-    train_data = PtychoDataContainer(...)
-    inputs = prepare_inputs(train_data)
-    outputs = prepare_outputs(train_data)
-    history = autoencoder.fit(inputs, outputs, epochs=50)
+    # Training
+    history = autoenc.fit(
+        prepare_inputs(train_data),
+        prepare_outputs(train_data), 
+        epochs=50
+    )
     ```
 
-**Architecture Details:**
-The U-Net architecture adapts filter counts based on input resolution (N):
-- N=64: [32, 64, 128] -> [64, 32] filters (encoder -> decoder)  
-- N=128: [16, 32, 64, 128] -> [128, 64, 32] filters
-- N=256: [8, 16, 32, 64, 128] -> [256, 128, 64, 32] filters
+Legacy approach (avoid - uses global state):
+    ```python
+    from ptycho.model import diffraction_to_obj  # Depends on global ptycho.params.cfg
+    reconstruction = diffraction_to_obj.predict([diffraction_data, coordinates])
+    ```
 
-Custom physics layers implement:
-- Complex-valued probe illumination with Gaussian smoothing
-- Patch extraction for multi-position scanning geometry  
-- Differentiable Fourier transform for diffraction simulation
-- Poisson noise modeling for realistic measurement statistics
+**State Dependencies:**
+- ptycho.params.cfg: Global configuration dictionary (legacy dependency)
+- Global probe initialization from ptycho.probe module
+- Import-time model creation with current global parameter values
 
-Dependencies:
-    - ptycho.tf_helper: Core TensorFlow operations and physics simulation functions
-    - ptycho.loader: PtychoDataContainer for structured data handling
-    - ptycho.params: Legacy global configuration system (cfg dictionary)
-    - ptycho.probe: Probe initialization and processing utilities
-
-**Global State Warning:**
-The module creates model instances at import time using global configuration. 
-For new code, prefer create_model_with_gridsize() to avoid global state dependencies.
+**Integration Points:**
+- Training: ptycho.workflows.components orchestrates complete training workflows
+- Data Loading: ptycho.loader.PtychoDataContainer provides structured data interface
+- Physics: ptycho.tf_helper implements core differentiable operations
+- Configuration: ptycho.config provides modern dataclass-based configuration
 """
 
 # TODO s

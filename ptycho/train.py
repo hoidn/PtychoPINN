@@ -1,13 +1,49 @@
 """Legacy training script for PtychoPINN models.
 
-**DEPRECATED**: Uses older configuration system. Use `ptycho_train` command instead.
+.. deprecated:: 
+   This module uses the legacy ``ptycho.params.cfg`` global dictionary pattern
+   and direct ``argparse`` parsing. It has been superseded by the modern 
+   ``ptycho_train`` command-line tool which uses dataclass-based configuration
+   and improved workflow management. **This module should not be used for new 
+   development.**
 
-Orchestrates model training for PINN and supervised approaches using legacy
-`ptycho.params.cfg` system. Generates/loads data, trains model, and saves
-results including weights, history, and reconstruction visualizations.
+.. warning::
+   **DO NOT USE THIS SCRIPT.** Use ``ptycho_train`` instead, which provides:
+   
+   - Modern dataclass-based configuration system
+   - Better error handling and logging
+   - Standardized output directory structure
+   - YAML configuration file support
+   - Integration with current project workflows
 
-Usage (deprecated): python -m ptycho.train --model_type pinn --nepochs 60
-Modern alternative: ptycho_train --config configs/my_config.yaml --output_dir my_run
+This module demonstrates the old architectural pattern where configuration was
+managed through a global ``ptycho.params.cfg`` dictionary and command-line 
+arguments were parsed directly in the training script. The modern approach
+separates concerns through dedicated configuration classes and workflow
+orchestration functions.
+
+**Migration Examples:**
+
+Legacy command::
+
+    python -m ptycho.train --model_type pinn --nepochs 60 --gridsize 2
+
+Modern equivalent::
+
+    ptycho_train --train_data_file datasets/my_data.npz \\
+                 --model_type pinn \\
+                 --nepochs 60 \\
+                 --gridsize 2 \\
+                 --output_dir my_training_run
+
+Or using YAML configuration::
+
+    ptycho_train --config configs/my_experiment.yaml --output_dir my_run
+
+For historical context, this script orchestrated model training for both PINN
+and supervised approaches by: generating/loading synthetic data, configuring
+the model through global state, running training loops, and saving results
+including weights, training history, and reconstruction visualizations.
 """
 # train.py
 

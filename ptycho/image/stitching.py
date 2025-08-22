@@ -1,11 +1,38 @@
-"""Grid-based patch stitching for ptychographic reconstructions.
+"""NumPy-based post-processing utilities for stitching ptychographic reconstruction patches.
 
-Reassembles small NxN patches into full reconstructed images, handling overlapping
-regions and border clipping. Used throughout training/inference to convert patch-based
-neural network outputs into complete reconstructions.
+This module provides CPU-based tools for reassembling small NxN patches into complete 
+reconstructed images after the main TensorFlow-based reconstruction pipeline has produced 
+its output. It handles overlapping regions, border clipping, and format conversions for 
+visualization and saving results.
 
-Example:
-    >>> full_image = stitch_patches(patches, config, part='amp')
+**Key Distinction**: This module provides NumPy-based post-processing functions, distinct 
+from the TensorFlow-based `reassemble_patches()` family in `tf_helper.py` which operates 
+during model training/inference. Use this module for final result assembly and visualization.
+
+**Public Interface**:
+- `stitch_patches()`: Core stitching function with full parameter control
+- `reassemble_patches()`: High-level convenience wrapper
+
+**Config Dictionary Requirements**:
+The config parameter must contain these keys:
+- `N` (int): Size of individual patches (N x N)
+- `gridsize` (int): Number of patches per dimension in the grid
+- `offset` (int): Overlap between adjacent patches in pixels
+- `nimgs_test` (int): Number of test images for batch size calculation
+- `outer_offset_test` (int, optional): Alternative offset for test data
+
+**Data Flow**:
+Input patches → Border clipping → Grid reassembly → Output full image(s)
+- Handles complex-valued patches with flexible part extraction ('amp', 'phase', 'complex')
+- Supports batch processing for multiple reconstructions
+- Manages coordinate transformations and normalization
+
+**Usage Patterns**:
+- Called by training scripts for progress visualization
+- Used by inference pipelines for final result assembly  
+- Integrated into workflow components for automated processing
+
+**Dependencies**: NumPy only (no TensorFlow dependencies for CPU-based processing)
 """
 import numpy as np
 
@@ -45,7 +72,8 @@ def stitch_patches(patches, config, *,
     if hasattr(patches, 'numpy'):
         patches = patches.numpy()
     
-    outer_offset = config.get('outer_offset_test', config['offset'])
+    # For gridsize=1, offset might be None since there's no overlap
+    outer_offset = config.get('outer_offset_test', config.get('offset', 0))
     
     # Calculate number of segments using numpy's size
     nsegments = int(np.sqrt((patches.size / config['nimgs_test']) / (config['N']**2)))
