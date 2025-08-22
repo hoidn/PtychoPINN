@@ -1,41 +1,66 @@
 """
-Modern dataclass-based configuration system replacing legacy params.cfg pattern.
+Modern dataclass-based configuration system for PtychoPINN.
 
-Provides type-safe, structured configuration for PtychoPINN model architecture,
-training workflows, and inference tasks. Maintains backward compatibility through
-automatic legacy dictionary generation for existing modules.
+This module defines the type-safe, structured configuration architecture that replaces
+the legacy params.cfg dictionary pattern. It serves as the single source of truth for
+all configuration while maintaining backward compatibility with 20+ legacy modules
+through a one-way data flow translation system.
+
+Architecture & Data Flow:
+    Modern dataclass → update_legacy_dict() → Legacy params.cfg dictionary
+    
+    The data flow is strictly one-way: configuration originates in structured dataclasses
+    and flows to the legacy dictionary via update_legacy_dict(). This function serves
+    as the critical compatibility bridge, using KEY_MAPPINGS to translate between
+    modern field names (object_big) and legacy parameter names (object.big).
 
 Configuration Classes:
-    ModelConfig: Architecture parameters (N, gridsize, model_type, activations)
-    TrainingConfig: Training workflow (epochs, loss weights, data paths)
-    InferenceConfig: Inference workflow (model paths, output settings)
+    ModelConfig: Core architecture (N, gridsize, model_type, activations, etc.)
+    TrainingConfig: Training workflow (epochs, loss weights, data paths, sampling)
+    InferenceConfig: Inference workflow (model paths, output settings, debug flags)
 
 Core Functions:
-    validate_*_config(config) -> None: Validates configuration constraints
-    load_yaml_config(path) -> Dict: Loads YAML configuration files
-    update_legacy_dict(cfg, dataclass_obj): Updates params.cfg for compatibility
+    update_legacy_dict(cfg, dataclass_obj): THE compatibility bridge function
+        - Translates dataclass fields to legacy parameter names via KEY_MAPPINGS
+        - Updates params.cfg dictionary for consumption by legacy modules
+        - Handles Path object conversion and nested model configurations
+    
+    validate_*_config(config): Validates configuration constraints and dependencies
+    load_yaml_config(path): Loads YAML files for script-based configuration
+    dataclass_to_legacy_dict(obj): Internal translation with KEY_MAPPINGS application
+
+Critical Dependencies:
+    KEY_MAPPINGS dictionary: Defines field name translations (e.g., object_big → object.big)
+    - Required for legacy module compatibility
+    - Handles nested configurations and Path object serialization
+    - Must be maintained when adding new configuration fields
 
 Workflow Integration:
     ```python
-    # Modern configuration with legacy compatibility
+    # 1. Modern configuration creation
     config = TrainingConfig(
         model=ModelConfig(N=128, model_type='pinn'),
         train_data_file='data.npz', nepochs=100)
     
-    # Enable legacy module compatibility
-    import ptycho.params as params
-    update_legacy_dict(params.cfg, config)
+    # 2. Enable legacy module compatibility (CRITICAL STEP)
+    import ptycho.params as params  
+    update_legacy_dict(params.cfg, config)  # One-way data flow
     
-    # YAML loading for scripts
+    # 3. YAML-based configuration for scripts
     yaml_data = load_yaml_config(Path('config.yaml'))
     config = TrainingConfig(**yaml_data)
+    update_legacy_dict(params.cfg, config)  # Always required for legacy compatibility
     ```
 
-Legacy Migration:
-    - Modern workflows use dataclasses directly
-    - Legacy modules continue using params.get() pattern
-    - Configuration updates flow one-way: dataclass → legacy dict
-    - Key mappings handle naming differences (object_big → object.big)
+Migration Pattern:
+    - New code: Uses dataclasses directly (TrainingConfig, ModelConfig, etc.)
+    - Legacy modules: Continue using params.get('key') unchanged
+    - Compatibility: Maintained via update_legacy_dict() calling dataclass_to_legacy_dict()
+    - Translation: KEY_MAPPINGS handles all field name conversions automatically
+
+State Dependencies: 
+    Consumers rely on params.cfg being updated via update_legacy_dict() before
+    legacy module initialization. Over 23 modules depend on this translation.
 """
 
 from dataclasses import dataclass, asdict

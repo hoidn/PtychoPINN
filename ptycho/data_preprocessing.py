@@ -1,37 +1,56 @@
-"""Data preprocessing and transformation utilities for ptychographic datasets.
+"""Data orchestration module coordinating raw data sources with model-ready containers.
 
-This module provides comprehensive data preprocessing operations for PtychoPINN workflows,
-handling multiple data sources (simulated, experimental, generic) and preparing datasets
-for training and inference pipelines.
+This module serves as the high-level data preparation orchestrator for PtychoPINN workflows,
+bridging between raw data sources (raw_data.py), data containers (loader.py), physics
+simulation (diffsim), and probe generation. It provides a unified entry point for creating
+complete training/test datasets from various data sources while handling format consistency
+and preprocessing requirements.
 
-Core Functions:
-    Data Loading:
-        - load_simulated_data(): Generate synthetic ptychographic training/test data
-        - load_experimental_data(): Process real experimental measurements
-        - load_generic_data(): Handle arbitrary .npz dataset files
-        
-    Data Transformation:
-        - shuffle_data(): Randomize dataset ordering with reproducible seeds
-        - get_clipped_object(): Extract ground truth objects with proper clipping
-        - stitch_data(): Reassemble patch-based reconstructions into full images
-        
-    Pipeline Integration:
-        - generate_data(): Main entry point coordinating all preprocessing operations
-        - create_ptycho_dataset(): Package data into standardized containers
+Orchestration Flow:
+    1. Data Source Selection: Routes to appropriate loader based on params.cfg['data_source']
+    2. Format Coordination: Ensures consistent array shapes between raw_data, diffsim, and loader
+    3. Container Packaging: Creates standardized PtychoDataset objects for model consumption
+    4. State Management: Updates global params.cfg with derived values (intensity_scale, etc.)
 
-Architecture Role:
-    Acts as the data preparation layer bridging raw datasets and model training.
-    Coordinates with diffsim for simulation, loader for data containers, and probe
-    generation. Ensures consistent data formats across acquisition sources.
+Public Interface:
+    generate_data(probeGuess=None) -> (X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, 
+                                       Y_phi_test, ground_truth, dataset, full_test, norm)
+        Main orchestration entry point returning 10-element tuple:
+        - X_train, X_test: Diffraction amplitude arrays (n_images, N, N)
+        - Y_I_train, Y_phi_train, Y_I_test, Y_phi_test: Object amplitude/phase arrays
+        - ground_truth: Clipped ground truth object for evaluation (if available)
+        - dataset: Complete PtychoDataset container with train/test splits
+        - full_test: Full-size test object for stitching operations
+        - norm: Test data normalization factor
 
-Usage Example:
-    # Generate preprocessed dataset for training
+Data Source Support:
+    - Simulated ('lines', 'grf', 'points', 'testimg', 'diagonals', 'V'): Uses diffsim
+    - Experimental ('experimental'): Real measurement data with single image constraint  
+    - XPP ('xpp'): LCLS beamline-specific format
+    - Generic ('generic'): Arbitrary .npz files via raw_data.py
+
+State Dependencies:
+    Heavily relies on params.cfg for configuration including:
+    - data_source: Determines loading pathway
+    - N, gridsize, offset: Array dimension parameters  
+    - outer_offset_train/test: Clipping boundaries for grid-based stitching
+    - nimgs_train/test: Dataset size constraints
+    - intensity_scale: Derived normalization factor (updated by this module)
+
+Usage:
+    # Standard workflow - all parameters from params.cfg
+    data_tuple = generate_data()
     X_train, Y_I_train, Y_phi_train, X_test, Y_I_test, Y_phi_test, \
-        ground_truth, dataset, full_test, norm = generate_data()
+        ground_truth, dataset, full_test, norm = data_tuple
     
-    # Manual preprocessing workflow  
-    X_shuffled, Y_I_shuffled, Y_phi_shuffled, indices = shuffle_data(
-        X_train, Y_I_train, Y_phi_train, random_state=42)
+    # Access structured containers
+    _, _, _, _, _, _, _, dataset, _, _ = generate_data()
+    train_container = dataset.train_data  # PtychoDataContainer
+    test_container = dataset.test_data    # PtychoDataContainer
+
+Note:
+    Grid-based stitching operations (stitch_data) only work with gridsize > 1.
+    Non-grid mode (gridsize=1) datasets cannot be reassembled into regular grids.
 """
 
 from sklearn.utils import shuffle

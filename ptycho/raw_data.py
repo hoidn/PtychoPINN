@@ -5,52 +5,70 @@ This module serves as the first stage of the PtychoPINN data pipeline, responsib
 transforming raw NPZ files into structured data containers and performing critical
 coordinate grouping operations for overlap-based training.
 
-Primary Consumer Context:
-Its primary consumers are ptycho.data_preprocessing (3 imports), ptycho.loader (1 import), 
-and ptycho.workflows.components (1 import), which use it to prepare raw ptychographic 
-data for model training and inference.
-
-Key Architecture Integration:
+Architecture Role:
 In the broader PtychoPINN architecture, this module bridges the gap between raw
 experimental data files and the structured data containers needed by the machine
-learning pipeline. The data flows: NPZ files → raw_data.py (RawData) → loader.py 
+learning pipeline. Data flows: NPZ files → raw_data.py (RawData) → loader.py 
 (PtychoDataContainer) → model-ready tensors.
 
-Key Components:
-- `RawData`: Primary data container class with validation and I/O capabilities
-  - `.generate_grouped_data()`: Core grouping method using efficient "sample-then-group" strategy
-  - `.diffraction`: Raw diffraction patterns array (amplitude, not intensity)
-  - `.xcoords, .ycoords`: Scan position coordinates
-  - `.objectGuess`: Full sample object for ground truth patch generation
-  - `.Y`: Pre-computed ground truth patches (optional)
+Primary Components:
+- `RawData`: Core data container class with validation and I/O capabilities
+- `RawData.from_file()`: Static factory method for loading NPZ datasets
+- `RawData.generate_grouped_data()`: Efficient coordinate grouping using "sample-then-group" strategy
 
-Performance Improvements (v2.0):
-The coordinate grouping implementation has been completely rewritten for efficiency:
-- **10-100x faster** first-run performance (no cache generation needed)
+Key Algorithm - Sample-Then-Group Strategy:
+The coordinate grouping implementation uses an efficient "sample-then-group" approach:
+1. Sample seed points from the full dataset (random or sequential)
+2. Find K nearest neighbors only for sampled points (not all points)
+3. Form groups of size C (gridsize²) from neighbors
+4. Generate final dataset with proper coordinate transformations
+
+Performance Characteristics:
+- **10-100x faster** than cache-based approaches (no cache generation needed)
 - **10-100x lower memory usage** (no storage of all possible groups)
-- **Zero cache files** (eliminates disk I/O and storage overhead)
+- **Zero cache files** (eliminates disk I/O overhead)
 - **Deterministic results** via optional seed parameter
+- **O(nsamples * K)** complexity instead of O(n_points * K)
 
 Public Interface:
-    `RawData.generate_grouped_data(N, K, nsamples, dataset_path, seed)`
-        - Purpose: Efficiently generate neighbor groups for training
-        - Strategy: "Sample-then-group" - samples seed points first, then finds neighbors
-        - Key Parameters:
-            - `K` (int): Number of nearest neighbors for grouping (typical: 4-8)
-            - `nsamples` (int): Number of groups to generate
-            - `seed` (int, optional): Random seed for reproducible sampling
-        - Returns: Dictionary with grouped diffraction data and coordinates
-        - Performance: O(nsamples * K) instead of O(n_points * K)
+    `RawData.generate_grouped_data(N, K, nsamples, dataset_path, seed, sequential_sampling)`
+        Returns dictionary with the following structure:
+
+        Required Keys:
+        - 'diffraction': np.ndarray, shape (nsamples, N, N, gridsize²), dtype complex/float
+                        Grouped diffraction patterns in channel format
+        - 'coords_offsets': np.ndarray, shape (nsamples, 1, 2, 1), dtype float
+                           Mean coordinates for each group (global positioning)
+        - 'coords_relative': np.ndarray, shape (nsamples, 1, 2, gridsize²), dtype float
+                            Relative coordinates within each group
+        - 'nn_indices': np.ndarray, shape (nsamples, gridsize²), dtype int
+                       Selected coordinate indices for each group
+        - 'X_full': np.ndarray, shape (nsamples, N, N, gridsize²), dtype complex/float
+                   Normalized diffraction data ready for model input
+
+        Optional Keys (availability depends on input data):
+        - 'Y': np.ndarray, shape (nsamples, N, N, gridsize²), dtype complex
+              Ground truth object patches (if objectGuess provided)
+        - 'coords_start_offsets': np.ndarray, shape (nsamples, 1, 2, 1), dtype float
+                                 Start coordinate offsets (if start coords provided)
+        - 'coords_start_relative': np.ndarray, shape (nsamples, 1, 2, gridsize²), dtype float
+                                  Relative start coordinates (if start coords provided)
+        - 'coords_nn': np.ndarray, shape (nsamples, 1, 2, gridsize²), dtype float
+                      Full coordinate data for groups
+        - 'coords_start_nn': np.ndarray, shape (nsamples, 1, 2, gridsize²), dtype float
+                            Start coordinate data for groups (if available)
+        - 'objectGuess': np.ndarray, shape (M, M), dtype complex
+                        Original full object for reference (if provided)
 
 Usage Example:
     ```python
     from ptycho.raw_data import RawData
     from ptycho import loader
     
-    # 1. Load raw experimental data from NPZ file
-    raw_data = RawData.from_file("/path/to/experimental_data.npz")
+    # Load raw experimental data
+    raw_data = RawData.from_file("/path/to/data.npz")
     
-    # 2. Generate grouped data efficiently (works for any gridsize)
+    # Generate grouped data for training
     grouped_data = raw_data.generate_grouped_data(
         N=64,          # Diffraction pattern size
         K=6,           # Number of nearest neighbors
@@ -58,7 +76,11 @@ Usage Example:
         seed=42        # Optional: for reproducible results
     )
     
-    # 3. Pass to loader for tensor conversion
+    # Access structured outputs
+    diffraction = grouped_data['diffraction']  # (1000, 64, 64, 1) for gridsize=1
+    coordinates = grouped_data['coords_offsets']  # (1000, 1, 2, 1)
+    
+    # Convert to model-ready tensors
     container = loader.load(
         cb=lambda: grouped_data,
         probeGuess=raw_data.probeGuess,
@@ -66,16 +88,23 @@ Usage Example:
     )
     ```
 
-Integration Notes:
-The new implementation unifies the code path for all gridsize values, using the same
-efficient "sample-then-group" strategy. This eliminates the need for caching and
-provides consistent performance regardless of dataset size or gridsize parameter.
+State Dependencies:
+- Depends on params.get('gridsize') for determining group size (C = gridsize²)
+- Uses params.get('N') as fallback for patch size in get_image_patches()
+- Caching behavior eliminated - no dependency on dataset_path for cache files
 
 Data Contract Compliance:
-This module adheres to the data contracts defined in docs/data_contracts.md,
-expecting NPZ files with keys: 'diffraction' (amplitude), 'objectGuess', 
-'probeGuess', 'xcoords', 'ycoords'. Ground truth patches ('Y') are optional
-and generated on-demand from objectGuess when not provided.
+Adheres to data contracts in docs/data_contracts.md, expecting NPZ files with:
+- 'diffraction': amplitude data (not intensity), shape (n_images, N, N)
+- 'objectGuess': full sample object, shape (M, M) where M >> N
+- 'probeGuess': scanning probe, shape (N, N)
+- 'xcoords', 'ycoords': scan positions, shape (n_images,)
+- Optional: 'Y' pre-computed patches, 'xcoords_start', 'ycoords_start'
+
+Primary Consumers:
+- ptycho.data_preprocessing (3 imports): Uses RawData for preprocessing workflows
+- ptycho.loader (1 import): Converts RawData outputs to model-ready tensors
+- ptycho.workflows.components (1 import): High-level workflow orchestration
 """
 import numpy as np
 import tensorflow as tf
@@ -494,43 +523,49 @@ class RawData:
                     seed_indices = all_indices
                     logging.info(f"Using all {n_points} points as seeds")
             
-            # Step 2: Build KDTree for efficient neighbor search
-            coords = np.column_stack([self.xcoords, self.ycoords])
-            tree = cKDTree(coords)
-            
-            # Step 3: Find K nearest neighbors for each seed point
-            seed_coords = coords[seed_indices]
-            # Query K+1 neighbors (including self), then remove self
-            distances, neighbor_indices = tree.query(seed_coords, k=min(K+1, n_points))
-            
-            # Step 4: Generate groups by selecting C coordinates from each seed's neighbors
-            groups = np.zeros((n_samples_actual, C), dtype=np.int32)
-            
-            for i in range(n_samples_actual):
-                # Get this seed's neighbors (excluding self if K+1 was queried)
-                neighbors = neighbor_indices[i]
-                if len(neighbors) > K:
-                    # Remove self (first element) if we queried K+1
-                    neighbors = neighbors[1:K+1]
-                else:
-                    # Use all available neighbors if dataset is small
-                    neighbors = neighbors[:K]
+            # Special case for C=1 (gridsize=1): use seed indices directly without neighbor search
+            if C == 1:
+                # For gridsize=1, we want the seed points themselves, not their neighbors
+                groups = seed_indices.reshape(-1, 1)
+                logging.info(f"Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed")
+            else:
+                # Step 2: Build KDTree for efficient neighbor search
+                coords = np.column_stack([self.xcoords, self.ycoords])
+                tree = cKDTree(coords)
                 
-                # Ensure we have enough neighbors
-                if len(neighbors) < C:
-                    # If not enough neighbors, include the seed point itself
-                    available = np.concatenate([[seed_indices[i]], neighbors])
-                else:
-                    available = neighbors
+                # Step 3: Find K nearest neighbors for each seed point
+                seed_coords = coords[seed_indices]
+                # Query K+1 neighbors (including self), then remove self
+                distances, neighbor_indices = tree.query(seed_coords, k=min(K+1, n_points))
                 
-                # Randomly select C indices from available neighbors
-                if len(available) >= C:
-                    selected = np.random.choice(available, size=C, replace=False)
-                else:
-                    # If still not enough, allow replacement (edge case for very small datasets)
-                    selected = np.random.choice(available, size=C, replace=True)
-                
-                groups[i] = selected
+                # Step 4: Generate groups by selecting C coordinates from each seed's neighbors
+                groups = np.zeros((n_samples_actual, C), dtype=np.int32)
+                # For C > 1, select from neighbors as before
+                for i in range(n_samples_actual):
+                    # Get this seed's neighbors (excluding self if K+1 was queried)
+                    neighbors = neighbor_indices[i]
+                    if len(neighbors) > K:
+                        # Remove self (first element) if we queried K+1
+                        neighbors = neighbors[1:K+1]
+                    else:
+                        # Use all available neighbors if dataset is small
+                        neighbors = neighbors[:K]
+                    
+                    # Ensure we have enough neighbors
+                    if len(neighbors) < C:
+                        # If not enough neighbors, include the seed point itself
+                        available = np.concatenate([[seed_indices[i]], neighbors])
+                    else:
+                        available = neighbors
+                    
+                    # Randomly select C indices from available neighbors
+                    if len(available) >= C:
+                        selected = np.random.choice(available, size=C, replace=False)
+                    else:
+                        # If still not enough, allow replacement (edge case for very small datasets)
+                        selected = np.random.choice(available, size=C, replace=True)
+                    
+                    groups[i] = selected
             
             logging.info(f"Successfully generated {n_samples_actual} groups with shape {groups.shape}")
             return groups

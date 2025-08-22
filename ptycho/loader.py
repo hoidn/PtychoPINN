@@ -1,14 +1,14 @@
 """
-TensorFlow-ready data pipeline finalizer for ptychographic reconstruction.
+NumPy-to-TensorFlow conversion layer for ptychographic neural networks.
 
-This module serves as the final stage in PtychoPINN's data pipeline, converting
-grouped NumPy arrays from ptycho.raw_data into TensorFlow tensors ready for model
-training and inference. As the most heavily used data pipeline module (9 importing
-modules), it bridges the gap between NumPy-based data processing and TensorFlow-based
-neural network training.
+This module serves as the critical NumPy→TensorFlow bridge in PtychoPINN's data pipeline,
+transforming grouped NumPy arrays from ptycho.raw_data into GPU-ready TensorFlow tensors
+for neural network training and inference. As the most heavily used data pipeline module
+(consumed by 9+ modules), it handles the final dtype conversion, tensor shaping, and
+memory layout optimization required for efficient TensorFlow computation.
 
 Architecture Role:
-    NPZ files → raw_data.py (RawData) → loader.py (PtychoDataContainer) → model tensors
+    NPZ files → raw_data.py (RawData/NumPy) → loader.py (TensorFlow tensors) → model.py
 
 Primary Components:
     - PtychoDataContainer: Core data container holding model-ready TensorFlow tensors
@@ -18,12 +18,13 @@ Primary Components:
       via callback mechanism, handling train/test splits and tensor conversion
     - PtychoDataset: Simple wrapper for train/test data pairs
 
-Key Features:
-    - Multi-channel tensor support for gridsize > 1 configurations
-    - Automatic train/test data splitting with fraction-based allocation
-    - Complex tensor handling (amplitude/phase separation)
-    - NPZ serialization of processed tensor data
-    - Comprehensive debug representations with tensor statistics
+Key Tensor Conversion Features:
+    - NumPy float64/complex128 → TensorFlow float32/complex64 dtype optimization
+    - Multi-channel tensor reshaping for gridsize > 1 configurations  
+    - Automatic train/test data splitting with consistent tensor slicing
+    - Complex tensor decomposition (amplitude/phase separation) and recomposition
+    - Memory-efficient lazy evaluation via callback pattern
+    - Comprehensive tensor statistics and shape validation
 
 Public Interface:
     load(cb, probeGuess, which, create_split) -> PtychoDataContainer
@@ -63,11 +64,13 @@ Usage Example:
     # Export for later use
     train_container.to_npz("model_ready_train.npz")
 
-Integration Notes:
-    - Tensors are automatically cast to appropriate TensorFlow dtypes (float32/complex64)
-    - Preserves multi-channel dimensions for advanced gridsize configurations
-    - Handles missing ground truth by creating complex dummy tensors
-    - Primary consumers: model training, inference, and preprocessing workflows
+TensorFlow Integration:
+    - All NumPy arrays undergo dtype conversion: float64→float32, complex128→complex64
+    - Tensor shapes are validated for TensorFlow compatibility and GPU efficiency
+    - Multi-channel dimensions preserved for gridsize > 1 neural network architectures
+    - Missing ground truth handled with properly-shaped complex dummy tensors
+    - Seamless integration with tf.data.Dataset and Keras model.fit() workflows
+    - Primary consumers: ptycho.model, ptycho.train_pinn, ptycho.workflows.components
 """
 
 import numpy as np
@@ -88,7 +91,31 @@ class PtychoDataset:
 
 class PtychoDataContainer:
     """
-    A class to contain ptycho data attributes for easy access and manipulation.
+    TensorFlow tensor container for model-ready ptychographic data.
+    
+    This container holds the final NumPy->TensorFlow converted data structures
+    ready for neural network training and inference. All tensor attributes use
+    appropriate TensorFlow dtypes for efficient GPU computation.
+    
+    Tensor Attributes:
+        X: Diffraction patterns - tf.float32, shape (n_images, N, N, n_channels)
+           where n_channels = gridsize^2 for multi-channel configurations
+        Y_I: Ground truth amplitude patches - tf.float32, shape (n_images, patch_size, patch_size, n_channels)
+        Y_phi: Ground truth phase patches - tf.float32, shape (n_images, patch_size, patch_size, n_channels)
+        Y: Combined complex ground truth - tf.complex64, shape (n_images, patch_size, patch_size, n_channels)
+        coords_nominal: Scan coordinates - tf.float32, shape (n_images, 2)
+        coords_true: True scan coordinates - tf.float32, shape (n_images, 2)
+        probe: Probe function - tf.complex64, shape (N, N)
+        
+    NumPy Attributes (preserved from raw_data grouping):
+        norm_Y_I: Normalization factors for amplitude
+        YY_full: Full object reconstruction (if available)
+        nn_indices: Nearest neighbor indices for patch grouping
+        global_offsets: Global coordinate offsets
+        local_offsets: Local coordinate offsets within patches
+        
+    The container automatically handles complex tensor composition (Y = Y_I * exp(1j * Y_phi))
+    and provides comprehensive debug representations showing tensor statistics.
     """
     @debug
     def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):
@@ -220,7 +247,35 @@ def split_tensor(tensor, frac, which='test'):
 @debug
 def load(cb: Callable, probeGuess: tf.Tensor, which: str, create_split: bool) -> PtychoDataContainer:
     """
-    Load data into a PtychoDataContainer, preserving multi-channel dimensions for gridsize > 1.
+    Convert grouped NumPy data to TensorFlow tensors in a PtychoDataContainer.
+    
+    This is the primary NumPy->TensorFlow conversion function in the data pipeline.
+    It takes a callback that returns grouped data (as produced by raw_data.py) and
+    converts all relevant arrays to appropriately-typed TensorFlow tensors.
+    
+    Args:
+        cb: Callback function that returns grouped data dictionary from raw_data.
+            The callback pattern allows lazy evaluation - data grouping only occurs
+            when needed, which is crucial for memory efficiency with large datasets.
+            Expected return: dict with keys 'X_full', 'Y', 'objectGuess', coordinate
+            keys, and metadata from raw_data.generate_grouped_data().
+        probeGuess: Initial probe function as TensorFlow complex64 tensor, shape (N, N)
+        which: Data split selector - 'train' or 'test' (only used if create_split=True)
+        create_split: If True, expects cb() to return (data_dict, train_fraction) tuple
+                     and applies fraction-based splitting. If False, uses full dataset.
+    
+    Returns:
+        PtychoDataContainer with all arrays converted to appropriate TensorFlow dtypes:
+        - Diffraction data (X) -> tf.float32
+        - Ground truth patches (Y_I, Y_phi) -> tf.float32
+        - Complex ground truth (Y) -> tf.complex64
+        - Coordinates -> tf.float32
+        
+    Notes:
+        - Preserves multi-channel dimensions for gridsize > 1 configurations
+        - Creates dummy complex tensors if ground truth is missing
+        - Validates channel consistency between X and Y tensors
+        - Handles train/test splitting consistently across all tensor arrays
     """
     from . import params as cfg
     from . import probe
