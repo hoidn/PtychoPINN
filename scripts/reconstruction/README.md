@@ -131,3 +131,73 @@ This enables comprehensive evaluation of neural network approaches against tradi
 - **Model Comparison Guide:** `docs/MODEL_COMPARISON_GUIDE.md` - Three-way comparison workflow
 - **Commands Reference:** `docs/COMMANDS_REFERENCE.md` - Quick command reference
 - **Data Contracts:** `docs/data_contracts.md` - NPZ file format specifications
+
+---
+
+## `ptychi_reconstruct_tike.py`
+
+**Purpose:** Pty-chi reconstruction script that provides an alternative reconstruction method using the pty-chi library for ptychographic data.
+
+**Usage:**
+```bash
+python scripts/reconstruction/ptychi_reconstruct_tike.py
+```
+
+**Configuration:** The script uses hardcoded configuration that can be modified directly in the script:
+- `tike_dataset` - Input NPZ file path
+- `output_dir` - Output directory name  
+- `algorithm` - Reconstruction algorithm ('DM', 'LSQML', 'PIE')
+- `num_epochs` - Number of reconstruction epochs
+- `n_images` - Number of images to use (for testing)
+
+**Key Features:**
+- **Algorithm Selection:** DM (Difference Map), LSQML (Least Squares Maximum Likelihood), PIE (Ptychographic Iterative Engine)
+- **Configurable Epochs:** Default 200 epochs for proper convergence
+- **Configurable Image Subset:** Default 2000 images (use subset for faster testing)
+- **GPU Acceleration:** Automatic CUDA detection and usage when available
+- **Data Format Conversion:** Handles amplitude→intensity conversion and coordinate centering
+
+**Example Configuration:**
+```python
+# Edit these values in main() function:
+tike_dataset = "tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz"
+output_dir = "ptychi_tike_reconstruction_converged"
+algorithm = 'DM'  # Can be 'DM', 'LSQML', 'PIE'
+num_epochs = 200  # 200+ recommended for convergence
+n_images = 2000   # Use subset for testing, or None for all
+```
+
+**Input Requirements:**
+Same as Tike reconstruction - NPZ file with:
+- `diffraction` or `diff3d` - Diffraction patterns as amplitude values
+- `probeGuess` - Initial probe estimate (complex)
+- `xcoords`, `ycoords` - Scan coordinates
+- `objectGuess` - Initial object estimate (complex)
+
+**Output Files:**
+- `ptychi_reconstruction.npz` - Main reconstruction result with reconstructed object/probe
+- `reconstruction_visualization.png` - 2×2 amplitude/phase visualization plot
+
+**Algorithm Details:**
+- **Data Conversion:** Amplitude² → intensity, coordinate centering for pty-chi compatibility
+- **Probe Setup:** Automatic dimensionality handling (2D → 4D tensor conversion)
+- **Power Constraints:** Probe power constraint based on median total intensity
+- **Convergence:** 200+ epochs recommended (15-20 epochs insufficient for quality results)
+
+**Dependencies:**
+- `pty-chi` - GPU-accelerated ptychographic reconstruction library (./pty-chi/src)
+- `torch` - PyTorch for tensor operations and GPU acceleration
+- `numpy` - Array operations and data handling
+- `matplotlib` - Result visualization
+
+**Performance:**
+- ~8-15 iterations/second on GPU
+- 200 epochs ≈ 24 seconds processing time
+- Supports both CPU and CUDA GPU acceleration
+
+**Technical Notes:**
+- Requires pty-chi library installation and path configuration
+- Handles coordinate convention differences (PtychoPINN [X,Y] → pty-chi [Y,X])
+- Centers scan positions as required by pty-chi API
+- Converts probe from 2D to required 4D format (n_opr_modes, n_modes, h, w)
+- Uses torch tensors with automatic device selection

@@ -31,8 +31,9 @@ Choose the path that matches your starting point and goal.
 #    Why: Converts uint16 intensity to float32 amplitude and renames keys.
 python scripts/tools/transpose_rename_convert_tool.py raw_data.npz converted_data.npz
 
-# 2. Shuffle the dataset (CRITICAL for random subsampling with gridsize=1)
-#    Why: Ensures that taking the first N images results in a random, representative sample.
+# 2. Shuffle the dataset (OPTIONAL - useful for creating canonical benchmark datasets)
+#    Note: No longer required for gridsize=1 training as of the unified sampling update.
+#    Still useful for creating reproducible, pre-randomized datasets for benchmarking.
 python scripts/tools/shuffle_dataset_tool.py converted_data.npz shuffled_data.npz --seed 42
 
 # 3. Split into train/test sets (optional, but good practice)
@@ -79,8 +80,8 @@ The interpretation of the `--n_images` flag and the correct subsampling method *
 
 | GridSize | `--n_images` Refers To... | Total Patterns Used | Subsampling Method |
 |----------|---------------------------|---------------------|--------------------|
-| 1        | Individual images         | `n_images`          | **Manual Shuffle Required.** You MUST shuffle the dataset with `shuffle_dataset_tool.py` first to get a random subset. |
-| > 1      | **Neighbor groups**       | `n_images` × `gridsize`² | **Safe & Recommended.** The script automatically uses a robust "group-then-sample" strategy. It finds all valid neighbor groups in the entire dataset and then randomly samples from them. **Do not shuffle the dataset beforehand.** |
+| 1        | Individual images         | `n_images`          | **Unified Random Sampling.** The system automatically selects a random subset. Pre-shuffling is no longer required but won't hurt. |
+| > 1      | **Neighbor groups**       | `n_images` × `gridsize`² | **Unified Random Sampling.** The system automatically uses a "sample-then-group" strategy to efficiently select random neighbor groups. |
 
 **Log Message Examples to Watch For:**
 ```
@@ -124,6 +125,20 @@ python scripts/reconstruction/run_tike_reconstruction.py \
     input_data.npz \
     tike_output/ \
     --iterations 100
+```
+
+### Pty-Chi Reconstruction
+
+```bash
+# Basic pty-chi reconstruction (DM algorithm, 200 epochs)
+python scripts/reconstruction/ptychi_reconstruct_tike.py
+
+# High-quality reconstruction with extended convergence
+# Note: Parameters are currently hardcoded in script main() function
+# Modify tike_dataset, algorithm, num_epochs, n_images as needed
+
+# Available algorithms: 'DM', 'LSQML', 'PIE'
+# Default: DM with 200 epochs on 2000 images
 ```
 
 ---
@@ -192,8 +207,8 @@ python scripts/studies/aggregate_and_plot_results.py study_results --output plot
 -   **Always specify `--output_dir`** to avoid accidentally overwriting previous results.
 -   **Match `gridsize`** between training and inference. A model trained with `gridsize=1` cannot be used for inference with `gridsize=2`.
 -   **Verify your data format** before starting a long training run. Use `scripts/tools/visualize_dataset.py`.
--   **For `gridsize=1` subsampling, always shuffle the dataset first** to ensure a random, representative sample.
--   **For `gridsize > 1` subsampling, use the `--n_images` flag directly** on the original, ordered dataset. The system handles randomization automatically.
+-   **Unified sampling for all gridsize values:** As of the latest update, the system uses the same efficient random sampling strategy for all gridsize values. Manual shuffling is no longer required.
+-   **Use `--sequential_sampling` flag** if you need the old sequential behavior (first N images) for debugging or specific scan region analysis.
 -   **Monitor training logs** for parameter interpretation messages to confirm the script is behaving as you expect.
 
 ---

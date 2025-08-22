@@ -83,6 +83,28 @@ Examples:
         default=None,
         help='Number of images to use from dataset (uses all if not specified)'
     )
+    parser.add_argument(
+        '--sequential-sampling',
+        action='store_true',
+        help='Use sequential sampling (first N images) instead of random sampling when using --n-images'
+    )
+    parser.add_argument(
+        '--sampling-seed',
+        type=int,
+        default=42,
+        help='Random seed for sampling when using --n-images (default: 42)'
+    )
+    parser.add_argument(
+        '--force-square-canvas',
+        action='store_true',
+        help='Force the reconstruction canvas to be square (uses max of width/height)'
+    )
+    parser.add_argument(
+        '--min-canvas-size',
+        type=int,
+        default=None,
+        help='Minimum canvas size in pixels (ensures canvas is at least this large)'
+    )
     
     # Visualization control arguments
     parser.add_argument(
@@ -116,7 +138,7 @@ Examples:
     return parser.parse_args()
 
 
-def load_tike_data(npz_path, n_images=None):
+def load_tike_data(npz_path, n_images=None, sequential_sampling=False, sampling_seed=42):
     """
     Load necessary arrays from input NPZ file for Tike reconstruction.
     
@@ -165,10 +187,22 @@ def load_tike_data(npz_path, n_images=None):
                 n_images = total_images
             else:
                 logger.info(f"Subsampling dataset: using {n_images} out of {total_images} images")
-                # Slice per-scan arrays to first n_images entries
-                diffraction = diffraction[:n_images]
-                xcoords = data['xcoords'][:n_images]
-                ycoords = data['ycoords'][:n_images]
+                
+                if sequential_sampling:
+                    # Use first n_images (sequential sampling)
+                    indices = np.arange(n_images)
+                    logger.info(f"Sequential sampling: using first {n_images} images")
+                else:
+                    # Randomly sample n_images from the dataset to get full spatial coverage
+                    np.random.seed(sampling_seed)
+                    indices = np.random.choice(total_images, n_images, replace=False)
+                    indices = np.sort(indices)  # Sort for better memory access patterns
+                    logger.info(f"Random sampling from full dataset (seed={sampling_seed})")
+                
+                # Apply sampling to per-scan arrays
+                diffraction = diffraction[indices]
+                xcoords = data['xcoords'][indices]
+                ycoords = data['ycoords'][indices]
         else:
             xcoords = data['xcoords']
             ycoords = data['ycoords']
@@ -187,7 +221,7 @@ def load_tike_data(npz_path, n_images=None):
     return result
 
 
-def configure_tike_parameters(data_dict, iterations, num_gpu, extra_padding=64):
+def configure_tike_parameters(data_dict, iterations, num_gpu, extra_padding=64, force_square=False, min_canvas_size=None):
     """
     Configure Tike reconstruction parameters based on loaded data.
     
@@ -196,6 +230,8 @@ def configure_tike_parameters(data_dict, iterations, num_gpu, extra_padding=64):
         iterations: Number of iterations to perform
         num_gpu: Number of GPUs to use
         extra_padding: Extra padding pixels for object canvas
+        force_square: If True, force the canvas to be square
+        min_canvas_size: Minimum canvas size in pixels
         
     Returns:
         tuple: (data, tike.ptycho.PtychoParameters) configured for reconstruction
@@ -225,6 +261,43 @@ def configure_tike_parameters(data_dict, iterations, num_gpu, extra_padding=64):
         probe=probe,
         extra=extra_padding,  # Add extra padding to improve reconstruction quality
     )
+    
+    # Apply canvas size adjustments if requested
+    if force_square or min_canvas_size is not None:
+        current_shape = psi_2d.shape
+        target_height, target_width = current_shape
+        
+        # Force square canvas if requested
+        if force_square:
+            target_size = max(target_height, target_width)
+            target_height = target_width = target_size
+            logger.info(f"Forcing square canvas: {target_size}x{target_size}")
+        
+        # Apply minimum canvas size if specified
+        if min_canvas_size is not None:
+            target_height = max(target_height, min_canvas_size)
+            target_width = max(target_width, min_canvas_size)
+            logger.info(f"Applying minimum canvas size: {min_canvas_size}")
+        
+        # Resize if needed
+        if (target_height != current_shape[0]) or (target_width != current_shape[1]):
+            # Create new canvas
+            new_psi = np.ones((target_height, target_width), dtype=psi_2d.dtype)
+            
+            # Calculate centering offsets
+            y_offset = (target_height - current_shape[0]) // 2
+            x_offset = (target_width - current_shape[1]) // 2
+            
+            # Copy existing canvas to center of new canvas
+            new_psi[y_offset:y_offset+current_shape[0], 
+                   x_offset:x_offset+current_shape[1]] = psi_2d
+            
+            # Update scan positions to account for offset
+            scan = scan + np.array([y_offset, x_offset], dtype=scan.dtype)
+            
+            psi_2d = new_psi
+            logger.info(f"Resized canvas from {current_shape} to {psi_2d.shape}")
+    
     psi = psi_2d[np.newaxis, :, :]
     
     logger.info(f"Created padded object with shape: {psi.shape}")
@@ -400,11 +473,15 @@ def main():
     
     try:
         # Load data
-        data_dict = load_tike_data(args.input_npz, args.n_images)
+        data_dict = load_tike_data(args.input_npz, args.n_images, 
+                                   sequential_sampling=args.sequential_sampling,
+                                   sampling_seed=args.sampling_seed)
         
         # Configure parameters
         diffraction, parameters = configure_tike_parameters(
-            data_dict, args.iterations, args.num_gpu, args.extra_padding
+            data_dict, args.iterations, args.num_gpu, args.extra_padding,
+            force_square=args.force_square_canvas,
+            min_canvas_size=args.min_canvas_size
         )
         
         # Run reconstruction with timing
