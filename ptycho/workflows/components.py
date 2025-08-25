@@ -294,19 +294,14 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     if n_images is None:
         n_images = xcoords.shape[0]
     
-    # For gridsize > 1, pass full dataset to enable grouping-aware subsampling
-    # For gridsize = 1, use traditional sequential slicing for backward compatibility
+    # Pass full dataset to enable unified sampling for all gridsize values
+    # The generate_grouped_data method will handle the sampling strategy
     from ptycho import params
     gridsize = params.cfg.get('gridsize', 1)
     
-    if gridsize == 1:
-        # Traditional behavior: sequential slicing
-        logger.info(f"Using sequential slicing for gridsize=1: selecting first {n_images} images")
-        selected_indices = slice(None, n_images)
-    else:
-        # Grouping-aware subsampling behavior: pass full dataset, let generate_grouped_data handle selection
-        logger.info(f"Using grouping-aware subsampling for gridsize={gridsize}: passing full dataset for group-first sampling")
-        selected_indices = slice(None)  # Full dataset
+    # Unified behavior: pass full dataset for all gridsize values
+    logger.info(f"Passing full dataset to RawData for unified sampling (gridsize={gridsize})")
+    selected_indices = slice(None)  # Full dataset
     
     # Create RawData object with appropriate data subset
     ptycho_data = RawData(xcoords[selected_indices], ycoords[selected_indices],

@@ -5,6 +5,13 @@ Shuffle Dataset Tool
 This tool randomizes the order of per-scan arrays in NPZ files while preserving
 global arrays and maintaining data relationships between shuffled arrays.
 
+NOTE: As of the unified sampling update, manual shuffling is no longer required
+for gridsize=1 training. The data pipeline now handles random sampling internally
+for all gridsize values. This tool remains useful for:
+- Creating canonical, reproducible benchmark datasets
+- Data curation and organization tasks
+- Ensuring backwards compatibility with existing workflows
+
 Usage:
     python shuffle_dataset_tool.py --input-file input.npz --output-file output.npz
     python shuffle_dataset_tool.py --input-file input.npz --output-file output.npz --seed 42 --dry-run
