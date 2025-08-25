@@ -102,6 +102,7 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Inference:** See <doc-ref type="workflow-guide">scripts/inference/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
 - **Simulation:** See <doc-ref type="workflow-guide">scripts/simulation/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/simulation/README.md</doc-ref>
 - **Reconstruction (Pty-Chi):** See <doc-ref type="workflow-guide">scripts/reconstruction/ptychi_reconstruct_tike.py</doc-ref> for pty-chi reconstruction workflow
+- **Pty-chi Migration Guide:** See <doc-ref type="guide">docs/PTYCHI_MIGRATION_GUIDE.md</doc-ref> for replacing Tike with faster pty-chi reconstruction
 - **Data Preprocessing Tools:** See <doc-ref type="workflow-guide">scripts/tools/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/tools/README.md</doc-ref>
 - **Model Comparison & Studies:** See <doc-ref type="workflow-guide">scripts/studies/CLAUDE.md</doc-ref>, <doc-ref type="workflow-guide">scripts/studies/README.md</doc-ref> and <doc-ref type="workflow-guide">scripts/studies/QUICK_REFERENCE.md</doc-ref>
 - **Experimental Datasets:** See <doc-ref type="guide">docs/FLY64_DATASET_GUIDE.md</doc-ref>

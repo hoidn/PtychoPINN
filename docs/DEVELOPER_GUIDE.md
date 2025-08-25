@@ -397,21 +397,23 @@ This command will discover and execute all test files following the `test_*.py` 
 
 ---
 
-## 8. Data Handling for Overlap-Based Training (gridsize > 1)
+## 8. Data Handling for Overlap-Based Training
 
-The gridsize parameter controls the use of overlapping scan positions in the physics model. When gridsize is greater than 1 (e.g., gridsize=2 for a 2x2 group of neighbors), the data loading and subsampling behavior is distinct from the gridsize=1 case.
+The gridsize parameter controls the use of overlapping scan positions in the physics model. The data loading pipeline now uses a unified sampling strategy for all gridsize values.
 
-### 8.1. Subsampling Strategy for gridsize > 1
+### 8.1. Unified Sampling Strategy
 
-To create a training subset from a larger dataset (e.g., via the --n_images flag), the pipeline uses a "sample-then-group" strategy. The workflow is as follows:
+As of the latest update, the pipeline uses a consistent "sample-then-group" strategy for all gridsize values:
 
-1. **Random Sampling of Anchor Points**: The system first randomly samples N anchor points from the complete set of scan coordinates.
-2. **Neighbor Grouping**: For each of the N anchor points, it then finds the K-nearest neighbors to form the final training groups.
+1. **Random Sampling of Anchor Points**: The system randomly samples N anchor points from the complete set of scan coordinates.
+2. **Neighbor Grouping**: For gridsize > 1, it finds the K-nearest neighbors for each anchor point to form groups. For gridsize = 1, each anchor point becomes a single-element group.
 
-This method generates a spatially representative set of physically valid neighbor groups.
+This unified approach eliminates the previous special-casing for gridsize=1 and ensures consistent behavior across all configurations.
 
-**Guideline for Data Integrity:**
-Do not pre-shuffle a dataset intended for gridsize > 1 training. The neighbor-finding algorithm requires the original spatial arrangement of coordinates to identify physically adjacent scan positions.
+**Key Changes:**
+- **No manual shuffling required for gridsize=1**: The system now handles random sampling internally for all gridsize values.
+- **Sequential sampling option**: Use the `--sequential_sampling` flag to get the old sequential behavior (first N images) for any gridsize.
+- **Pre-shuffled datasets still work**: Existing shuffled datasets will continue to function correctly.
 
 ### 8.2. Tensor Shape and Configuration
 

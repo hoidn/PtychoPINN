@@ -715,6 +715,8 @@ def translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: st
     # Use XLA-friendly implementation if enabled
     if use_xla:
         return translate_xla(images, translations, interpolation=interpolation, use_jit=True)
+    
+    # If we get here, we're NOT using XLA, so we can try the faster ImageProjectiveTransformV3
     # Ensure translations has correct shape
     translations = tf.ensure_shape(translations, [None, 2])
     
@@ -727,7 +729,7 @@ def translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: st
     
     # For performance, use ImageProjectiveTransformV3 when not using XLA
     # This is much faster than the pure TF implementation
-    if not use_xla_workaround:
+    if not use_xla:  # Fixed: should check use_xla, not use_xla_workaround
         try:
             # Get input shape
             batch_size = tf.shape(images)[0]

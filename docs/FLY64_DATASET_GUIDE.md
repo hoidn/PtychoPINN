@@ -42,7 +42,7 @@ python scripts/tools/transpose_rename_convert_tool.py \
 2. **Shuffle:** Randomize order using `shuffle_dataset_tool.py --seed 42`
 3. **Result:** 10,304 scan points in random order with full spatial coverage
 
-**Use Case:** Recommended for all gridsize=1 training to avoid sequential sampling bias. Provides spatially representative subsets when using `--n_images` parameter.
+**Use Case:** Pre-shuffled dataset useful for creating reproducible benchmarks and comparisons. No longer required for gridsize=1 training (as of unified sampling update), but remains valuable for canonical benchmark datasets.
 
 **Key Properties:**
 - **Full spatial coverage:** x=[33.5, 198.5], y=[33.1, 198.9] (165×166 range)
@@ -88,7 +88,7 @@ print("✓ fly64_bottom_half_shuffled.npz ready for spatial subset studies")
 ```
 
 ### fly64_top_half_shuffled.npz
-**Purpose:** A specialized dataset for studying spatial sampling bias effects in gridsize=1 training.
+**Purpose:** A specialized dataset for studying spatial sampling bias effects in training.
 
 **Created:** From scan points where Y ≥ 114.3 in `fly001_64_train_converted.npz`, randomized with seed 42.
 
@@ -140,8 +140,8 @@ print("✓ fly64_top_half_shuffled.npz ready for spatial bias studies")
 
 For rapid prototyping and validation experiments, smaller subsets (1000 images) with train/test splits are available:
 
-#### Sequential Subsets (GridSize > 1)
-**Purpose:** Preserve spatial locality for overlap-based training while providing quick validation capability.
+#### Sequential Subsets
+**Purpose:** Preserve scan order for experiments requiring specific spatial patterns or debugging.
 
 **Files:**
 - `fly64_sequential_train_800.npz`: 800 images from a localized region
@@ -160,8 +160,8 @@ ptycho_train --train_data datasets/fly64/fly64_sequential_train_800.npz \
              --output_dir gs2_validation
 ```
 
-#### Random Subsets (GridSize = 1)
-**Purpose:** Provide spatially representative samples for standard training without overlap constraints.
+#### Random Subsets
+**Purpose:** Provide spatially representative samples for standard training.
 
 **Files:**
 - `fly64_random_train_800.npz`: 800 randomly sampled images
@@ -170,7 +170,7 @@ ptycho_train --train_data datasets/fly64/fly64_sequential_train_800.npz \
 **Key Properties:**
 - **Full spatial coverage:** Both subsets span the entire object area
 - **Unbiased sampling:** Pre-shuffled to ensure representativeness
-- **GridSize 1 optimized:** No spatial adjacency requirements
+- **General purpose:** Suitable for any gridsize value
 
 **Usage:**
 ```bash
@@ -206,7 +206,7 @@ python scripts/tools/generate_patches_tool.py converted.npz final.npz
 ## Usage Example
 
 ```bash
-# Train with preprocessed FLY64 (recommended: use shuffled dataset)
+# Train with preprocessed FLY64 (shuffled dataset optional but useful for benchmarks)
 ./scripts/studies/run_complete_generalization_study.sh \
     --train-data "datasets/fly64/fly64_shuffled.npz" \
     --test-data "datasets/fly64/fly001_64_train_converted.npz" \
