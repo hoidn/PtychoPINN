@@ -74,6 +74,8 @@ def stitch_patches(patches, config, *,
     
     # For gridsize=1, offset might be None since there's no overlap
     outer_offset = config.get('outer_offset_test', config.get('offset', 0))
+    if outer_offset is None:
+        outer_offset = 0
     
     # Calculate number of segments using numpy's size
     nsegments = int(np.sqrt((patches.size / config['nimgs_test']) / (config['N']**2)))
