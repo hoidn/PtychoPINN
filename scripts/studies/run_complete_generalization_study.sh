@@ -53,6 +53,10 @@ DRY_RUN=false
 N_TEST_IMAGES=""
 ADD_TIKE_ARM=false
 TIKE_ITERATIONS=1000
+ADD_PTYCHI_ARM=false
+PTYCHI_ALGORITHM="ePIE"
+PTYCHI_ITERATIONS=200
+PTYCHI_BATCH_SIZE=8
 TEST_SIZES=""
 STITCH_CROP_SIZE=""
 
@@ -77,6 +81,10 @@ OPTIONS:
     --n-test-images N         Number of test images to use for evaluation (overridden by --test-sizes if provided)
     --add-tike-arm            Add Tike iterative reconstruction as third comparison arm (enables 3-way comparison mode)
     --tike-iterations N       Number of Tike reconstruction iterations (default: 1000)
+    --add-ptychi-arm          Add Pty-chi iterative reconstruction as third comparison arm (enables 3-way comparison mode)
+    --ptychi-algorithm ALG    Pty-chi algorithm: ePIE, rPIE, DM, LSQML (default: ePIE)
+    --ptychi-iterations N     Number of Pty-chi reconstruction iterations (default: 200)
+    --ptychi-batch-size N     Batch size for Pty-chi reconstruction (default: 8)
     --skip-data-prep          Skip dataset preparation step
     --skip-training           Skip model training (use existing models)
     --skip-comparison         Skip model comparison step
@@ -101,6 +109,9 @@ EXAMPLES:
     
     # Three-way comparison including Tike iterative reconstruction
     $0 --add-tike-arm --tike-iterations 500 --train-sizes "512 1024"
+    
+    # Three-way comparison with Pty-chi (faster alternative to Tike)
+    $0 --add-ptychi-arm --ptychi-algorithm ePIE --train-sizes "512 1024"
     
     # Decoupled train/test sizes: train on small sets, test on larger sets
     $0 --train-sizes "256 512 1024" --test-sizes "512 1024 2048"
@@ -201,6 +212,22 @@ while [[ $# -gt 0 ]]; do
             TIKE_ITERATIONS="$2"
             shift 2
             ;;
+        --add-ptychi-arm)
+            ADD_PTYCHI_ARM=true
+            shift
+            ;;
+        --ptychi-algorithm)
+            PTYCHI_ALGORITHM="$2"
+            shift 2
+            ;;
+        --ptychi-iterations)
+            PTYCHI_ITERATIONS="$2"
+            shift 2
+            ;;
+        --ptychi-batch-size)
+            PTYCHI_BATCH_SIZE="$2"
+            shift 2
+            ;;
         --skip-data-prep)
             SKIP_DATA_PREP=true
             shift
@@ -250,6 +277,36 @@ fi
 if ! [[ "$TIKE_ITERATIONS" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: --tike-iterations must be a positive integer, got: '$TIKE_ITERATIONS'"
     exit 1
+fi
+
+if ! [[ "$PTYCHI_ITERATIONS" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: --ptychi-iterations must be a positive integer, got: '$PTYCHI_ITERATIONS'"
+    exit 1
+fi
+
+if ! [[ "$PTYCHI_BATCH_SIZE" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: --ptychi-batch-size must be a positive integer, got: '$PTYCHI_BATCH_SIZE'"
+    exit 1
+fi
+
+# Validate ptychi algorithm
+if [ "$ADD_PTYCHI_ARM" = true ]; then
+    case "$PTYCHI_ALGORITHM" in
+        ePIE|rPIE|PIE|DM|LSQML)
+            ;;
+        *)
+            echo "ERROR: Invalid --ptychi-algorithm: '$PTYCHI_ALGORITHM'"
+            echo "Valid options: ePIE, rPIE, PIE, DM, LSQML"
+            exit 1
+            ;;
+    esac
+fi
+
+# Warn if both Tike and Pty-chi are enabled
+if [ "$ADD_TIKE_ARM" = true ] && [ "$ADD_PTYCHI_ARM" = true ]; then
+    echo "WARNING: Both --add-tike-arm and --add-ptychi-arm are enabled."
+    echo "This will create a 4-way comparison which may be complex to visualize."
+    echo "Consider using only one reconstruction method for clearer results."
 fi
 
 if [ -n "$STITCH_CROP_SIZE" ] && ! [[ "$STITCH_CROP_SIZE" =~ ^[1-9][0-9]*$ ]]; then
@@ -360,6 +417,10 @@ SKIP_TRAINING=$SKIP_TRAINING
 SKIP_COMPARISON=$SKIP_COMPARISON
 ADD_TIKE_ARM=$ADD_TIKE_ARM
 TIKE_ITERATIONS=$TIKE_ITERATIONS
+ADD_PTYCHI_ARM=$ADD_PTYCHI_ARM
+PTYCHI_ALGORITHM=$PTYCHI_ALGORITHM
+PTYCHI_ITERATIONS=$PTYCHI_ITERATIONS
+PTYCHI_BATCH_SIZE=$PTYCHI_BATCH_SIZE
 DRY_RUN=$DRY_RUN
 
 # Environment Info
@@ -489,6 +550,20 @@ train_models() {
             run_cmd "$tike_cmd" "Tike reconstruction (n_images=$test_size, trial=$trial)"
         fi
         
+        # Run Pty-chi reconstruction if requested
+        if [ "$ADD_PTYCHI_ARM" = true ]; then
+            local ptychi_cmd="python scripts/reconstruction/run_ptychi_reconstruction.py \\
+                '$TEST_DATA' \\
+                '$trial_output_dir/ptychi_run' \\
+                --algorithm $PTYCHI_ALGORITHM \\
+                --n-images $test_size \\
+                --iterations $PTYCHI_ITERATIONS \\
+                --batch-size $PTYCHI_BATCH_SIZE \\
+                --quiet"
+                
+            run_cmd "$ptychi_cmd" "Pty-chi reconstruction (algorithm=$PTYCHI_ALGORITHM, n_images=$test_size, trial=$trial)"
+        fi
+        
         log "Completed training for train_size=$train_size (Trial $trial/$NUM_TRIALS)"
     }
     
@@ -601,16 +676,39 @@ compare_models() {
                     compare_cmd="$compare_cmd --tike_recon_path '$tike_recon_path'"
                     # For 3-way comparison, use the test_size for this iteration
                     compare_cmd="$compare_cmd --n-test-images $test_size"
-                    log "Using test subset size $test_size (3-way comparison mode)"
+                    log "Using test subset size $test_size (3-way comparison mode with Tike)"
                 else
                     log "WARNING: Tike reconstruction not found for train_size=$train_size trial=$trial: $tike_recon_path"
                 fi
-            elif [[ -n "$N_TEST_IMAGES" ]]; then
-                # For 2-way comparison, use user-specified test size (if any)
-                compare_cmd="$compare_cmd --n-test-images $N_TEST_IMAGES"
-            else
-                # For 2-way comparison with decoupled sizes, use test_size
-                compare_cmd="$compare_cmd --n-test-images $test_size"
+            fi
+            
+            # Add Pty-chi reconstruction if available (prefer over Tike if both exist)
+            if [ "$ADD_PTYCHI_ARM" = true ]; then
+                local ptychi_recon_path="$trial_output_dir/ptychi_run/ptychi_reconstruction.npz"
+                if [ -f "$ptychi_recon_path" ]; then
+                    # If tike is also enabled, we have 4-way comparison
+                    # For now, prefer pty-chi over tike to keep it 3-way
+                    if [ "$ADD_TIKE_ARM" = true ] && [ -f "$trial_output_dir/tike_run/tike_reconstruction.npz" ]; then
+                        log "Both Tike and Pty-chi reconstructions available. Using Pty-chi for comparison."
+                    fi
+                    compare_cmd="$compare_cmd --tike_recon_path '$ptychi_recon_path'"
+                    # For 3-way comparison, use the test_size for this iteration
+                    compare_cmd="$compare_cmd --n-test-images $test_size"
+                    log "Using test subset size $test_size (3-way comparison mode with Pty-chi)"
+                else
+                    log "WARNING: Pty-chi reconstruction not found for train_size=$train_size trial=$trial: $ptychi_recon_path"
+                fi
+            fi
+            
+            # Handle 2-way comparison test size
+            if [ "$ADD_TIKE_ARM" = false ] && [ "$ADD_PTYCHI_ARM" = false ]; then
+                if [[ -n "$N_TEST_IMAGES" ]]; then
+                    # For 2-way comparison, use user-specified test size (if any)
+                    compare_cmd="$compare_cmd --n-test-images $N_TEST_IMAGES"
+                else
+                    # For 2-way comparison with decoupled sizes, use test_size
+                    compare_cmd="$compare_cmd --n-test-images $test_size"
+                fi
             fi
                 
             run_cmd "$compare_cmd" "Model comparison (train_size=$train_size, trial=$trial)"
