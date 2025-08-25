@@ -663,17 +663,27 @@ def aggregate_results(comparison_files: List[Tuple[int, int, Path]],
         available_metrics = [col.replace('_mean', '') for col in stats_df.columns if col.endswith('_mean')]
         raise ValueError(f"Metric {metric_col} not found. Available metrics: {available_metrics}")
     
-    # Create legacy format DataFrame
+    # Create legacy format DataFrame with ALL metrics preserved
     result_data = []
     for _, row in stats_df.iterrows():
-        result_data.append({
+        row_data = {
             'train_size': row['train_size'],
             'model_type': row['model_type'],
-            'metric_value': row[mean_col]
-        })
+            'metric_value': row[mean_col]  # The metric requested for plotting
+        }
+        
+        # Also include ALL other metrics for export to CSV
+        # Extract all mean values and rename them without the '_mean' suffix
+        for col in stats_df.columns:
+            if col.endswith('_mean') and col not in ['train_size', 'model_type']:
+                metric_name = col.replace('_mean', '')
+                row_data[metric_name] = row[col]
+        
+        result_data.append(row_data)
     
     result_df = pd.DataFrame(result_data)
     logger.info(f"Extracted {len(result_df)} data points for {metric_col} (using mean)")
+    logger.debug(f"DataFrame includes all metrics: {[c for c in result_df.columns if c not in ['train_size', 'model_type', 'metric_value']]}")
     
     return result_df
 
@@ -1060,24 +1070,51 @@ def export_aggregated_results(df: pd.DataFrame, output_path: Path,
         logger.debug("Exporting statistical format results")
         export_statistical_results(df, output_path)
     else:
-        # Use legacy export
-        logger.debug("Exporting legacy format results")
+        # Use legacy export - but export ALL metrics, not just the one used for plotting
+        logger.debug("Exporting legacy format results with all available metrics")
         
-        # Add metadata columns
-        export_df = df.copy()
-        export_df['metric_name'] = f"{metric}_{part}"
-        export_df['generated_at'] = datetime.now().isoformat()
+        # Identify all metric columns (exclude metadata columns)
+        metadata_cols = {'train_size', 'model_type', 'metric_value'}
+        all_metric_cols = [col for col in df.columns if col not in metadata_cols]
+        
+        # Create rows for each metric
+        export_rows = []
+        for _, row in df.iterrows():
+            base_data = {
+                'train_size': row['train_size'],
+                'model_type': row['model_type'],
+                'generated_at': datetime.now().isoformat()
+            }
+            
+            # If there's a 'metric_value' column (from the aggregation for plotting),
+            # add it with the specified metric name
+            if 'metric_value' in df.columns:
+                export_row = base_data.copy()
+                export_row['metric_name'] = f"{metric}_{part}"
+                export_row['metric_value'] = row['metric_value']
+                export_rows.append(export_row)
+            
+            # Add all other available metrics
+            for col in all_metric_cols:
+                if col in row and pd.notna(row[col]):
+                    export_row = base_data.copy()
+                    export_row['metric_name'] = col
+                    export_row['metric_value'] = row[col]
+                    export_rows.append(export_row)
+        
+        # Create DataFrame from rows
+        export_df = pd.DataFrame(export_rows)
         
         # Reorder columns
         cols = ['train_size', 'model_type', 'metric_name', 'metric_value', 'generated_at']
         export_df = export_df[cols]
         
-        # Sort by training size and model type
-        export_df = export_df.sort_values(['train_size', 'model_type'])
+        # Sort by training size, model type, and metric name
+        export_df = export_df.sort_values(['train_size', 'model_type', 'metric_name'])
         
         # Save to CSV
         export_df.to_csv(output_path, index=False)
-        logger.info(f"Results exported to: {output_path}")
+        logger.info(f"Results exported to: {output_path} ({len(export_df)} metric entries)")
 
 
 def export_all_trials_results(all_trials_df: pd.DataFrame, output_path: Path) -> None:
