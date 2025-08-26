@@ -126,7 +126,7 @@ key_coords_relative = 'coords_start_relative'
 class RawData:
     #@debug
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-             scan_index, objectGuess = None, Y = None, norm_Y_I = None):
+             scan_index, objectGuess = None, Y = None, norm_Y_I = None, metadata = None):
         # Sanity checks
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
@@ -167,6 +167,7 @@ class RawData:
         # TODO validity checks
         self.Y = Y
         self.norm_Y_I = norm_Y_I
+        self.metadata = metadata  # Store metadata from NPZ file
 
     @staticmethod
     #@debug
@@ -281,28 +282,53 @@ class RawData:
 
     @staticmethod
     #@debug
-    def from_file(train_data_file_path: str) -> 'RawData':
+    def from_file(train_data_file_path: str, validate_config: bool = False, current_config = None) -> 'RawData':
         """
         Static method to create a RawData instance from a file.
 
         Args:
             train_data_file_path (str): Path to the file containing the data.
+            validate_config (bool): Whether to validate current config against metadata
+            current_config: Optional current configuration for validation
 
         Returns:
             RawData: An instance of the RawData class.
         """
-        # Load training data
-        train_data = np.load(train_data_file_path)
+        from ptycho.metadata import MetadataManager
+        
+        # Load training data with metadata support
+        data_dict, metadata = MetadataManager.load_with_metadata(train_data_file_path)
+        
+        # Validate configuration if requested
+        if validate_config and metadata and current_config:
+            warnings_list = MetadataManager.validate_parameters(metadata, current_config)
+            for warning in warnings_list:
+                import logging
+                logging.warning(f"Parameter mismatch: {warning}")
+        
+        # Handle legacy files that might not have all fields
+        xcoords_start = data_dict.get('xcoords_start', data_dict['xcoords'])
+        ycoords_start = data_dict.get('ycoords_start', data_dict['ycoords'])
+        scan_index = data_dict.get('scan_index', np.zeros(len(data_dict['xcoords']), dtype=int))
+        
         train_raw_data = RawData(
-            xcoords=train_data['xcoords'],
-            ycoords=train_data['ycoords'],
-            xcoords_start=train_data['xcoords_start'],
-            ycoords_start=train_data['ycoords_start'],
-            diff3d=train_data['diff3d'],
-            probeGuess=train_data['probeGuess'],
-            objectGuess=train_data['objectGuess'],
-            scan_index=train_data['scan_index']
+            xcoords=data_dict['xcoords'],
+            ycoords=data_dict['ycoords'],
+            xcoords_start=xcoords_start,
+            ycoords_start=ycoords_start,
+            diff3d=data_dict['diff3d'],
+            probeGuess=data_dict['probeGuess'],
+            objectGuess=data_dict.get('objectGuess'),
+            scan_index=scan_index,
+            metadata=metadata  # Pass metadata to RawData instance
         )
+        
+        # Log if metadata was loaded
+        if metadata:
+            import logging
+            nphotons = MetadataManager.get_nphotons(metadata)
+            logging.debug(f"Loaded dataset with metadata: nphotons={nphotons}")
+        
         return train_raw_data
 
     @staticmethod

@@ -28,6 +28,7 @@ if project_root not in sys.path:
 from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
+from ptycho.metadata import MetadataManager
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import cKDTree
@@ -115,8 +116,23 @@ def simulate_and_save(
         'ground_truth_patches': ground_truth_patches
     }
     
-    np.savez_compressed(output_file_path, **data_dict)
-    print("File saved successfully.")
+    # Create metadata with simulation parameters
+    metadata = MetadataManager.create_metadata(
+        config=config,
+        script_name="simulate_and_save.py",
+        input_file=str(input_file_path),
+        buffer=buffer,
+        seed=seed,
+        simulation_type="coordinate_based"
+    )
+    
+    # Save with metadata
+    MetadataManager.save_with_metadata(
+        str(output_file_path),
+        data_dict,
+        metadata
+    )
+    print(f"File saved successfully with metadata (nphotons={config.nphotons}).")
 
     if visualize:
         print("Generating visualization plot...")
