@@ -205,17 +205,40 @@ class RawData:
         Returns:
             RawData: An instance of the RawData class with simulated data.
         """
-        from ptycho.diffsim import illuminate_and_diffract
+        from ptycho.diffsim import illuminate_and_diffract, scale_nphotons
+        import tensorflow as tf
+        
         xcoords_start = xcoords
         ycoords_start = ycoords
-        global_offsets, local_offsets, nn_indices = calculate_relative_coords(
-                    xcoords, ycoords)
+        
+        # For gridsize=1 simulation, we handle individual coordinates directly
+        # instead of complex grouping. This replaces the missing calculate_relative_coords.
+        gridsize = params.get('gridsize')
+        if gridsize is None:
+            gridsize = 1
+        if gridsize != 1:
+            raise NotImplementedError(
+                "from_simulation currently only supports gridsize=1. "
+                "For gridsize>1, use the modern generate_grouped_data workflow instead."
+            )
+        
+        # Create simple coordinate format for gridsize=1
+        n_images = len(xcoords)
+        nn_indices = np.arange(n_images)  # Each image maps to itself
+        
+        # Format coordinates to match expected shape: (M, 1, 2, 1) for gridsize=1
+        # Each point becomes its own "group" of size 1
+        coords_nn = np.zeros((n_images, 1, 2, 1))
+        coords_nn[:, 0, 0, 0] = xcoords
+        coords_nn[:, 0, 1, 0] = ycoords
+        
+        global_offsets, local_offsets = get_relative_coords(coords_nn)
 
         Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
         Y_I = tf.math.abs(Y_obj)
         Y_phi = tf.math.angle(Y_obj)
         X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
-        norm_Y_I = datasets.scale_nphotons(X)
+        norm_Y_I = scale_nphotons(X)
         assert X.shape[-1] == 1, "gridsize must be set to one when simulating in this mode"
         # TODO RawData should have a method for generating the illuminated ground truth object
         return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
