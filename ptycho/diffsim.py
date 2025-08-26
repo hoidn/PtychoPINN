@@ -91,6 +91,17 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
 
     Returned Y_I and Y_phi are amplitude and phase *after* illumination with the
     probe.
+    
+    Critical invariant: Both X and Y_I are divided by intensity_scale
+    to maintain consistent normalization between input diffraction patterns
+    and target object patches. Breaking this symmetry has caused multiple
+    historical bugs. See tests/test_scaling_regression.py for validation.
+    
+    Returns:
+        X: Diffraction patterns normalized by intensity_scale
+        Y_I: Object intensity normalized by intensity_scale  
+        Y_phi: Object phase (not scaled - phase is scale-invariant)
+        intensity_scale: The normalization factor for physics loss
     """
     # ensure probe is broadcastable
     if len(probe.shape) == 2:
@@ -119,8 +130,21 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
                .map(diffract_obj)
                .cache())
     X = np.vstack(list(iter(X)))
+    
+    # Assertion: intensity_scale must be valid for normalization
+    assert intensity_scale > 0, f"Invalid intensity_scale: {intensity_scale}"
+    assert not np.isnan(intensity_scale), f"intensity_scale is NaN"
+    
+    # Store original X for verification
+    X_before_normalization = X.copy() if isinstance(X, np.ndarray) else X.numpy()
+    
     X, Y_I, Y_phi =\
         X / intensity_scale, Y_I / intensity_scale, Y_phi
+    
+    # Assertion: verify both X and Y_I were scaled
+    # This catches the historical bug where X scaling was removed
+    assert np.allclose(X * intensity_scale, X_before_normalization, rtol=1e-6), \
+        "X scaling verification failed - check line 123"
 
     X, Y_I, Y_phi =\
         hh.togrid(X, Y_I, Y_phi)

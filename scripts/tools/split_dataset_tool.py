@@ -11,6 +11,13 @@ import os
 import sys
 from pathlib import Path
 import numpy as np
+import copy
+
+# Add project root to path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(project_root)
+
+from ptycho.metadata import MetadataManager
 
 def split_dataset(
     input_path: Path,
@@ -45,8 +52,8 @@ def split_dataset(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    with np.load(input_path) as data:
-        data_dict = {key: data[key] for key in data.files}
+    # Load data with metadata support
+    data_dict, metadata = MetadataManager.load_with_metadata(str(input_path))
 
     # 1. Determine the split point
     coord_key = f"{split_axis}coords"
@@ -84,15 +91,45 @@ def split_dataset(
             train_dict[key] = arr
             test_dict[key] = arr
 
-    # 4. Save the new files
+    # 4. Prepare metadata for both outputs
+    train_metadata = copy.deepcopy(metadata) if metadata else None
+    test_metadata = copy.deepcopy(metadata) if metadata else None
+    
+    # Add transformation record
+    transform_params = {
+        "split_fraction": split_fraction,
+        "split_axis": split_axis,
+        "parent_file": str(input_path),
+        "split_point": split_point,
+        "train_count": n_train,
+        "test_count": n_test
+    }
+    
+    if train_metadata:
+        train_metadata = MetadataManager.add_transformation_record(
+            train_metadata, "split_dataset_tool.py", "train_test_split", transform_params
+        )
+    
+    if test_metadata:
+        test_metadata = MetadataManager.add_transformation_record(
+            test_metadata, "split_dataset_tool.py", "train_test_split", transform_params
+        )
+    
+    # 5. Save the new files with metadata
     train_path = output_dir / f"{input_path.stem}_train.npz"
     test_path = output_dir / f"{input_path.stem}_test.npz"
 
     print(f"Saving training set ({len(train_dict['xcoords'])} scans) to: {train_path}")
-    np.savez_compressed(train_path, **train_dict)
+    if train_metadata:
+        MetadataManager.save_with_metadata(str(train_path), train_dict, train_metadata)
+    else:
+        np.savez_compressed(train_path, **train_dict)
     
     print(f"Saving testing set ({len(test_dict['xcoords'])} scans) to: {test_path}")
-    np.savez_compressed(test_path, **test_dict)
+    if test_metadata:
+        MetadataManager.save_with_metadata(str(test_path), test_dict, test_metadata)
+    else:
+        np.savez_compressed(test_path, **test_dict)
     
     print("--- Splitting Complete ---")
 

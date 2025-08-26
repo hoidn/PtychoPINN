@@ -14,6 +14,13 @@ import numpy as np
 import argparse
 from typing import Union
 import os
+import sys
+
+# Add project root to path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(project_root)
+
+from ptycho.metadata import MetadataManager
 
 
 def update_object_guess(
@@ -41,15 +48,15 @@ def update_object_guess(
         KeyError: If required keys are missing from the NPZ file
         ValueError: If array shapes are incompatible
     """
-    # Step 1: Load the original data
+    # Step 1: Load the original data with metadata
     if not os.path.exists(original_npz_path):
         raise FileNotFoundError(f"Original NPZ file not found: {original_npz_path}")
     
     print(f"Loading original data from {original_npz_path}...")
-    with np.load(original_npz_path) as original_data:
-        # Copy all arrays to a standard dictionary (NpzFile is read-only)
-        data_dict = {key: original_data[key].copy() for key in original_data.files}
-        print(f"  Found keys: {list(data_dict.keys())}")
+    data_dict, metadata = MetadataManager.load_with_metadata(original_npz_path)
+    print(f"  Found keys: {list(data_dict.keys())}")
+    if metadata:
+        print(f"  Metadata present: nphotons={MetadataManager.get_nphotons(metadata)}")
     
     # Step 2: Load new object guess if it's a file path
     if isinstance(new_object_guess, str):
@@ -75,9 +82,26 @@ def update_object_guess(
         data_dict['diff3d'] = data_dict['diff3d'].astype(np.float32)
         print(f"  Converted diff3d from {original_dtype} to float32")
     
-    # Step 5: Save the new file
+    # Step 5: Update metadata with transformation record
+    if metadata:
+        metadata = MetadataManager.add_transformation_record(
+            metadata,
+            "update_tool.py",
+            "update_objectGuess",
+            {
+                "original_file": original_npz_path,
+                "new_object_shape": str(new_object_guess.shape),
+                "new_object_dtype": str(new_object_guess.dtype)
+            }
+        )
+    
+    # Step 6: Save the new file with metadata
     print(f"Saving new NPZ file to {output_npz_path}...")
-    np.savez_compressed(output_npz_path, **data_dict)
+    if metadata:
+        MetadataManager.save_with_metadata(output_npz_path, data_dict, metadata)
+        print("  Preserved metadata in output file")
+    else:
+        np.savez_compressed(output_npz_path, **data_dict)
     
     # Verify the save
     file_size_mb = os.path.getsize(output_npz_path) / (1024 * 1024)

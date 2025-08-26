@@ -141,11 +141,30 @@ if __name__ == '__main__':
 - Write descriptive test names that explain what is being tested
 - Use setUp() and tearDown() for test fixtures
 - Clean up temporary files and directories in tearDown()
-- Include docstrings explaining the test's purpose
+- Keep docstrings concise - one line describing the test's purpose
+- Avoid verbose comments - let test names and assertions document intent
 - Use appropriate assertion methods (assertEqual, assertTrue, assertRaises, etc.)
 - Keep unit tests fast and focused
 - Mock external dependencies when appropriate
 - For integration tests, use temporary directories for outputs
+
+### 5. Documentation Style
+
+Tests should be self-documenting through:
+- Clear test method names (e.g., `test_scaling_preserves_physics`)
+- Concise docstrings (one line preferred)
+- Meaningful assertion messages that explain failures
+- Avoid lengthy explanatory comments - the code should be clear
+
+Example:
+```python
+def test_both_arrays_scaled_identically(self):
+    """Regression test for X and Y_I scaling symmetry."""
+    X, Y_I, _, scale = illuminate_and_diffract(...)
+    ratio = np.mean(X) / np.mean(Y_I)
+    self.assertLess(ratio, 10.0, 
+        f"Scaling mismatch: ratio {ratio:.1f} indicates missing scaling")
+```
 
 ## Test Coverage
 
