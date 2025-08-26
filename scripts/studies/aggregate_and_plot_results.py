@@ -409,7 +409,13 @@ def convert_tidy_to_wide_format(df: pd.DataFrame) -> pd.DataFrame:
     # Map model names to expected format
     model_mapping = {
         'PtychoPINN': 'pinn',
-        'Baseline': 'baseline'
+        'Baseline': 'baseline',
+        # Handle various iterative reconstruction variants
+        'Tike': 'iterative',
+        'Pty-chi (ePIE)': 'iterative',
+        'Pty-chi (DM)': 'iterative',
+        'Pty-chi (ML)': 'iterative',
+        'Pty-chi': 'iterative'
     }
     
     # Convert to wide format
@@ -757,7 +763,8 @@ def create_generalization_plot_with_percentiles(stats_df: pd.DataFrame, metric: 
     # Define colors and markers for each model
     model_styles = {
         'pinn': {'color': '#2E86AB', 'marker': 'o', 'label': 'PtychoPINN'},
-        'baseline': {'color': '#A23B72', 'marker': 's', 'label': 'Baseline'}
+        'baseline': {'color': '#A23B72', 'marker': 's', 'label': 'Baseline'},
+        'iterative': {'color': '#F18F01', 'marker': '^', 'label': 'Iterative (Pty-chi/Tike)'}
     }
     
     metric_col = f"{metric}_{part}"
@@ -917,7 +924,8 @@ def create_generalization_plot(df: pd.DataFrame, metric: str, part: str,
         # Define colors and markers for each model
         model_styles = {
             'pinn': {'color': '#2E86AB', 'marker': 'o', 'label': 'PtychoPINN'},
-            'baseline': {'color': '#A23B72', 'marker': 's', 'label': 'Baseline'}
+            'baseline': {'color': '#A23B72', 'marker': 's', 'label': 'Baseline'},
+            'iterative': {'color': '#F18F01', 'marker': '^', 'label': 'Iterative (Pty-chi/Tike)'}
         }
         
         # Plot data for each model type

@@ -136,7 +136,7 @@ def load_tike_reconstruction(tike_path: Path) -> tuple:
     """
     logger.info(f"Loading iterative reconstruction from {tike_path}...")
     
-    with np.load(tike_path) as data:
+    with np.load(tike_path, allow_pickle=True) as data:
         # Check for required key
         if 'reconstructed_object' not in data:
             available_keys = list(data.keys())
@@ -158,24 +158,63 @@ def load_tike_reconstruction(tike_path: Path) -> tuple:
         computation_time = None
         algorithm_name = "Tike"  # Default to Tike for backward compatibility
         
+        # First check for direct 'algorithm' field (used by pty-chi scripts)
+        if 'algorithm' in data:
+            try:
+                algorithm_str = str(data['algorithm'].item() if hasattr(data['algorithm'], 'item') else data['algorithm'])
+                # Map algorithm names to display format
+                if algorithm_str.lower() in ['epie', 'pie']:
+                    algorithm_name = f"Pty-chi (ePIE)"
+                elif algorithm_str.lower() == 'dm':
+                    algorithm_name = f"Pty-chi (DM)"
+                elif algorithm_str.lower() == 'ml':
+                    algorithm_name = f"Pty-chi (ML)"
+                elif algorithm_str.lower().startswith('ptychi'):
+                    algorithm_name = f"Pty-chi ({algorithm_str})"
+                elif algorithm_str.lower() == 'tike':
+                    algorithm_name = "Tike"
+                else:
+                    # Unknown algorithm, use as-is with Pty-chi prefix
+                    algorithm_name = f"Pty-chi ({algorithm_str})"
+                logger.debug(f"Detected algorithm from 'algorithm' field: {algorithm_name}")
+            except Exception as e:
+                logger.debug(f"Could not extract algorithm field: {e}")
+        
+        # Also check for metadata field (alternative format)
         if 'metadata' in data:
             try:
                 metadata = data['metadata'].item()  # Extract from numpy array
-                computation_time = metadata.get('computation_time_seconds', None)
+                if computation_time is None:
+                    computation_time = metadata.get('computation_time_seconds', None)
                 
-                # Detect algorithm type from metadata
-                algorithm = metadata.get('algorithm', 'tike')
-                if algorithm.startswith('ptychi'):
-                    # Extract specific pty-chi algorithm variant if available
-                    variant = metadata.get('parameters', {}).get('algorithm_variant', 'ePIE')
-                    algorithm_name = f"Pty-chi ({variant})"
-                elif algorithm == 'tike':
-                    algorithm_name = "Tike"
+                # Detect algorithm type from metadata (overrides direct algorithm field if present)
+                if 'algorithm' in metadata:
+                    algorithm = metadata.get('algorithm', 'tike')
+                    if algorithm.startswith('ptychi'):
+                        # Extract specific pty-chi algorithm variant if available
+                        variant = metadata.get('parameters', {}).get('algorithm_variant', 'ePIE')
+                        algorithm_name = f"Pty-chi ({variant})"
+                    elif algorithm == 'tike':
+                        algorithm_name = "Tike"
+                    elif '_' in algorithm and 'ptychi' in algorithm.lower():
+                        # Handle formats like 'ptychi_ePIE'
+                        parts = algorithm.split('_')
+                        if len(parts) > 1:
+                            algorithm_name = f"Pty-chi ({parts[-1]})"
+                        else:
+                            algorithm_name = f"Pty-chi ({algorithm})"
                 
                 if computation_time is not None:
                     logger.debug(f"Extracted {algorithm_name} computation time: {computation_time:.2f}s")
             except Exception as e:
                 logger.warning(f"Could not extract metadata: {e}")
+        
+        # Extract reconstruction_time if computation_time not found
+        if computation_time is None and 'reconstruction_time' in data:
+            try:
+                computation_time = float(data['reconstruction_time'].item() if hasattr(data['reconstruction_time'], 'item') else data['reconstruction_time'])
+            except Exception as e:
+                logger.debug(f"Could not extract reconstruction_time: {e}")
         
         logger.info(f"Loaded {algorithm_name} reconstruction: {reconstructed_object.shape} ({reconstructed_object.dtype})")
         
@@ -187,11 +226,12 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
                           pinn_phase_vmin=None, pinn_phase_vmax=None,
                           baseline_phase_vmin=None, baseline_phase_vmax=None,
                           pinn_offset=None, baseline_offset=None,
-                          tike_obj=None, tike_phase_vmin=None, tike_phase_vmax=None, tike_offset=None):
+                          tike_obj=None, tike_phase_vmin=None, tike_phase_vmax=None, tike_offset=None,
+                          algorithm_name=None):
     """Create a 2x3 or 2x4 subplot comparing reconstructions.
     
     Generates a dynamic comparison plot: 2x3 for two-way comparison (PtychoPINN vs. Baseline)
-    or 2x4 for three-way comparison (PtychoPINN vs. Baseline vs. Tike) when Tike data is provided.
+    or 2x4 for three-way comparison (PtychoPINN vs. Baseline vs. iterative reconstruction) when iterative data is provided.
     
     Args:
         pinn_obj: PtychoPINN reconstruction
@@ -206,15 +246,17 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         baseline_phase_vmax: Baseline phase vmax (default: auto from percentiles)
         pinn_offset: Translation offset detected for PtychoPINN (dy, dx)
         baseline_offset: Translation offset detected for Baseline (dy, dx)
-        tike_obj: Tike reconstruction (optional, triggers 2x4 plot)
-        tike_phase_vmin: Tike phase vmin (default: auto from percentiles)
-        tike_phase_vmax: Tike phase vmax (default: auto from percentiles)
-        tike_offset: Translation offset detected for Tike (dy, dx)
+        tike_obj: Iterative reconstruction (optional, triggers 2x4 plot)
+        tike_phase_vmin: Iterative reconstruction phase vmin (default: auto from percentiles)
+        tike_phase_vmax: Iterative reconstruction phase vmax (default: auto from percentiles)
+        tike_offset: Translation offset detected for iterative reconstruction (dy, dx)
+        algorithm_name: Name of the iterative algorithm (e.g., "Pty-chi (ePIE)", "Tike")
     """
     # Dynamic subplot grid: 2x3 for two-way, 2x4 for three-way comparison
     if tike_obj is not None:
         fig, axes = plt.subplots(2, 4, figsize=(20, 10), sharex=True, sharey=True)
-        fig.suptitle("PtychoPINN vs. Baseline vs. Tike Reconstruction", fontsize=16)
+        iterative_label = algorithm_name if algorithm_name else "Iterative"
+        fig.suptitle(f"PtychoPINN vs. Baseline vs. {iterative_label} Reconstruction", fontsize=16)
     else:
         fig, axes = plt.subplots(2, 3, figsize=(15, 10), sharex=True, sharey=True)
         fig.suptitle("PtychoPINN vs. Baseline Reconstruction", fontsize=16)
@@ -230,9 +272,9 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         baseline_title += f"\n(offset: ({baseline_offset[0]:.2f}, {baseline_offset[1]:.2f}))"
     axes[0, 1].set_title(baseline_title)
     
-    # Add Tike title if present
+    # Add iterative reconstruction title if present
     if tike_obj is not None:
-        tike_title = "Tike"
+        tike_title = algorithm_name if algorithm_name else "Iterative"
         if tike_offset is not None:
             tike_title += f"\n(offset: ({tike_offset[0]:.2f}, {tike_offset[1]:.2f}))"
         axes[0, 2].set_title(tike_title)
@@ -273,21 +315,24 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
         baseline_v_phase_min, baseline_v_phase_max = np.percentile(baseline_phases, [p_min, p_max])
         logger.info(f"Baseline phase color scale (vmin, vmax) set to: ({baseline_v_phase_min:.3f}, {baseline_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
 
-    # Determine color limits for Tike if present
+    # Determine color limits for iterative reconstruction if present
     if tike_obj is not None:
-        # Calculate Tike amplitude limits
+        # Calculate iterative reconstruction amplitude limits
         tike_amps = np.abs(tike_obj).ravel()
         tike_v_amp_min, tike_v_amp_max = np.percentile(tike_amps, [p_min, p_max])
-        logger.info(f"Tike amplitude color scale (vmin, vmax) set to: ({tike_v_amp_min:.3f}, {tike_v_amp_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
+        iterative_label = algorithm_name if algorithm_name else "Iterative"
+        logger.info(f"{iterative_label} amplitude color scale (vmin, vmax) set to: ({tike_v_amp_min:.3f}, {tike_v_amp_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
         
-        # Determine phase limits for Tike
+        # Determine phase limits for iterative reconstruction
         if tike_phase_vmin is not None and tike_phase_vmax is not None:
             tike_v_phase_min, tike_v_phase_max = tike_phase_vmin, tike_phase_vmax
-            logger.info(f"Tike phase color scale (vmin, vmax) set to: ({tike_v_phase_min:.3f}, {tike_v_phase_max:.3f}) [manual].")
+            iterative_label = algorithm_name if algorithm_name else "Iterative"
+            logger.info(f"{iterative_label} phase color scale (vmin, vmax) set to: ({tike_v_phase_min:.3f}, {tike_v_phase_max:.3f}) [manual].")
         else:
             tike_phases = np.angle(tike_obj).ravel()
             tike_v_phase_min, tike_v_phase_max = np.percentile(tike_phases, [p_min, p_max])
-            logger.info(f"Tike phase color scale (vmin, vmax) set to: ({tike_v_phase_min:.3f}, {tike_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
+            iterative_label = algorithm_name if algorithm_name else "Iterative"
+            logger.info(f"{iterative_label} phase color scale (vmin, vmax) set to: ({tike_v_phase_min:.3f}, {tike_v_phase_max:.3f}) using {p_min}/{p_max} percentiles [per-panel].")
 
     # Plot PtychoPINN
     im1 = axes[0, 0].imshow(np.angle(pinn_obj), vmin=pinn_v_phase_min, vmax=pinn_v_phase_max)
@@ -297,13 +342,13 @@ def create_comparison_plot(pinn_obj, baseline_obj, ground_truth_obj, output_path
     im3 = axes[0, 1].imshow(np.angle(baseline_obj), vmin=baseline_v_phase_min, vmax=baseline_v_phase_max)
     im4 = axes[1, 1].imshow(np.abs(baseline_obj), cmap='gray', vmin=baseline_v_amp_min, vmax=baseline_v_amp_max)
     
-    # Plot Tike if present
+    # Plot iterative reconstruction if present
     if tike_obj is not None:
         im5 = axes[0, 2].imshow(np.angle(tike_obj), vmin=tike_v_phase_min, vmax=tike_v_phase_max)
         im6 = axes[1, 2].imshow(np.abs(tike_obj), cmap='gray', vmin=tike_v_amp_min, vmax=tike_v_amp_max)
-        gt_col = 3  # Ground truth is in column 3 when Tike is present
+        gt_col = 3  # Ground truth is in column 3 when iterative reconstruction is present
     else:
-        gt_col = 2  # Ground truth is in column 2 when no Tike
+        gt_col = 2  # Ground truth is in column 2 when no iterative reconstruction
     
     # Plot Ground Truth (use its own phase and amplitude scales when auto-scaling)
     if ground_truth_obj is not None:
@@ -392,10 +437,10 @@ def save_frc_curves(frc_tuple, output_path, model_name):
     logger.info(f"FRC curves saved to {output_path}")
 
 
-def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=None, baseline_offset=None, tike_metrics=None, tike_offset=None, pinn_time=None, baseline_time=None, tike_time=None):
+def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=None, baseline_offset=None, tike_metrics=None, tike_offset=None, pinn_time=None, baseline_time=None, tike_time=None, algorithm_name=None):
     """Save metrics to a CSV file in a tidy format.
     
-    Supports 2-way (PtychoPINN vs Baseline) or 3-way comparison (includes Tike)
+    Supports 2-way (PtychoPINN vs Baseline) or 3-way comparison (includes iterative reconstruction)
     when tike_metrics is provided. Includes computation times and registration offsets.
     
     Args:
@@ -404,11 +449,12 @@ def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=No
         output_path: Path to save CSV file
         pinn_offset: PtychoPINN registration offset (dy, dx)
         baseline_offset: Baseline registration offset (dy, dx)  
-        tike_metrics: Tike reconstruction metrics (optional)
-        tike_offset: Tike registration offset (dy, dx) (optional)
+        tike_metrics: Iterative reconstruction metrics (optional)
+        tike_offset: Iterative reconstruction registration offset (dy, dx) (optional)
         pinn_time: PtychoPINN inference time in seconds (optional)
         baseline_time: Baseline inference time in seconds (optional)
-        tike_time: Tike computation time in seconds (optional)
+        tike_time: Iterative reconstruction computation time in seconds (optional)
+        algorithm_name: Name of the iterative algorithm (e.g., "Pty-chi (ePIE)", "Tike") (optional)
     """
     data = []
     
@@ -439,7 +485,9 @@ def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=No
     if baseline_metrics:
         add_metrics('Baseline', baseline_metrics)
     if tike_metrics:
-        add_metrics('Tike', tike_metrics)
+        # Use the actual algorithm name if provided, otherwise default to 'Tike'
+        iterative_name = algorithm_name if algorithm_name else 'Tike'
+        add_metrics(iterative_name, tike_metrics)
     
     # Add registration offset information
     if pinn_offset is not None:
@@ -468,12 +516,12 @@ def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=No
     
     if tike_offset is not None:
         data.append({
-            'model': 'Tike',
+            'model': iterative_name,
             'metric': 'registration_offset_dy',
             'value': float(tike_offset[0])
         })
         data.append({
-            'model': 'Tike',
+            'model': iterative_name,
             'metric': 'registration_offset_dx',
             'value': float(tike_offset[1])
         })
@@ -495,7 +543,7 @@ def save_metrics_csv(pinn_metrics, baseline_metrics, output_path, pinn_offset=No
     
     if tike_time is not None:
         data.append({
-            'model': 'Tike',
+            'model': iterative_name,
             'metric': 'computation_time_s',
             'value': float(tike_time)
         })
@@ -1008,7 +1056,7 @@ def main():
         
         # Save scalar metrics to CSV
         metrics_path = args.output_dir / "comparison_metrics.csv"
-        save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path, pinn_offset, baseline_offset, tike_metrics, tike_offset, pinn_inference_time, baseline_inference_time, tike_computation_time)
+        save_metrics_csv(pinn_metrics, baseline_metrics, metrics_path, pinn_offset, baseline_offset, tike_metrics, tike_offset, pinn_inference_time, baseline_inference_time, tike_computation_time, algorithm_name)
         
         # Save raw FRC curves as separate files for detailed analysis
         if pinn_metrics['frc'][0] is not None:
@@ -1052,7 +1100,7 @@ def main():
                           pinn_phase_vmin=args.pinn_phase_vmin, pinn_phase_vmax=args.pinn_phase_vmax,
                           baseline_phase_vmin=args.baseline_phase_vmin, baseline_phase_vmax=args.baseline_phase_vmax,
                           pinn_offset=pinn_offset, baseline_offset=baseline_offset,
-                          tike_obj=tike_recon_aligned, tike_offset=tike_offset)
+                          tike_obj=tike_recon_aligned, tike_offset=tike_offset, algorithm_name=algorithm_name)
     
     logger.info("\nComparison complete!")
     logger.info(f"Results saved to: {args.output_dir}")
