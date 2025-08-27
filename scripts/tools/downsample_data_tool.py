@@ -14,6 +14,13 @@ import sys
 import numpy as np
 from skimage.measure import block_reduce
 
+# Add the project root to the path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from ptycho.metadata import MetadataManager
+
 def crop_center(img: np.ndarray, new_h: int, new_w: int) -> np.ndarray:
     """Crops the center of a 2D array."""
     h, w = img.shape
@@ -45,9 +52,8 @@ def downsample_npz(
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found: {input_path}")
         
-    with np.load(input_path) as data:
-        # Create a mutable dictionary of all arrays
-        data_dict = {key: data[key] for key in data.files}
+    # Load with metadata support
+    data_dict, metadata = MetadataManager.load_with_metadata(input_path)
 
     # --- 1. Crop Diffraction Data ---
     if 'diff3d' in data_dict:
@@ -111,10 +117,25 @@ def downsample_npz(
         del data_dict['ground_truth_patches']
         print(f"  Binned and renamed to 'Y' with shape: {binned_patches.shape}")
 
-    # --- 5. Save the new file ---
+    # --- 5. Save the new file with metadata ---
     print(f"Saving downsampled data to: {output_path}")
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
-    np.savez_compressed(output_path, **data_dict)
+    
+    # Add transformation record if metadata exists
+    if metadata:
+        transform_params = {
+            'crop_factor': crop_factor,
+            'bin_factor': bin_factor
+        }
+        metadata = MetadataManager.add_transformation_record(
+            metadata, 
+            "downsample_data_tool.py", 
+            "downsample", 
+            transform_params
+        )
+    
+    # Save with metadata
+    MetadataManager.save_with_metadata(output_path, data_dict, metadata)
     print("--- Downsampling Complete ---")
 
 def main():
