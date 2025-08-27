@@ -166,18 +166,21 @@ def _generate_simulated_data_legacy_params(config: TrainingConfig, objectGuess: 
     scan_index = np.zeros(config.n_images, dtype=int)
 
     # This is the non-conforming part: it manipulates global state.
-    # It sets N and gridsize for the duration of the call to from_simulation.
+    # It sets N, gridsize, and nphotons for the duration of the call to from_simulation.
     original_N = p.get('N')
     original_gridsize = p.get('gridsize')
+    original_nphotons = p.get('nphotons')
     try:
-        # Set N to match the probe and gridsize from the modern config
+        # Set parameters to match the modern config
         p.set('N', probeGuess.shape[0])
         p.set('gridsize', config.model.gridsize)
+        p.set('nphotons', config.nphotons)  # Critical: Set nphotons for proper scaling
         raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)
     finally:
         # Ensure global state is restored
         p.set('N', original_N)
         p.set('gridsize', original_gridsize)
+        p.set('nphotons', original_nphotons)
     
     return raw_data
 
