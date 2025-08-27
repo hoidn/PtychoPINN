@@ -157,13 +157,26 @@ def ms_ssim(img1, img2, levels=5, sigma=0.0):
             # This is a simplified implementation - the full MS-SSIM separates these components
             
         # Apply the weight for this level
-        # Handle negative SSIM values (clamp to small positive value to avoid NaN)
-        if ssim_val < 0:
+        # Handle negative or NaN SSIM values
+        if np.isnan(ssim_val):
+            import warnings
+            warnings.warn(f"NaN SSIM value encountered in MS-SSIM calculation at level {level}. "
+                        f"Returning 0.0 for MS-SSIM.", RuntimeWarning)
+            return 0.0  # Return 0 if NaN encountered
+        elif ssim_val < 0:
             import warnings
             warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
                         f"Clamping to 0.0001 to avoid NaN.", RuntimeWarning)
-            ssim_val = 0.0001  # Small positive value to avoid log(0) issues
+            ssim_val = 0.0001  # Small positive value to avoid fractional power issues
+        
         ms_ssim_val *= (ssim_val ** weights[level])
+        
+        # Check if the result became NaN after the power operation
+        if np.isnan(ms_ssim_val):
+            import warnings
+            warnings.warn(f"MS-SSIM became NaN after power operation at level {level}. "
+                        f"SSIM was {ssim_val}, weight was {weights[level]}. Returning 0.0.", RuntimeWarning)
+            return 0.0
         
         # Downsample for next level (except on last iteration)
         if level < levels - 1:
@@ -175,6 +188,12 @@ def ms_ssim(img1, img2, levels=5, sigma=0.0):
             if min(img1.shape) < 7 or min(img2.shape) < 7:
                 # Not enough resolution for more levels
                 break
+    
+    # Final check for NaN before returning
+    if np.isnan(ms_ssim_val):
+        import warnings
+        warnings.warn(f"Final MS-SSIM value is NaN. Returning 0.0.", RuntimeWarning)
+        return 0.0
     
     return ms_ssim_val
 
