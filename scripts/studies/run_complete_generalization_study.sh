@@ -479,14 +479,18 @@ prepare_datasets() {
     
     log "=== STEP 1: Dataset Preparation ==="
     
+    # Note: Currently uses default prepare.sh behavior
+    # TODO: Add support for custom input/output paths when needed
     local prep_cmd="bash scripts/prepare.sh"
     run_cmd "$prep_cmd" "Dataset preparation"
     
     # Set test data path to the specified dataset
+    # Note: This assumes default prepare.sh output structure
     TEST_DATA="tike_outputs/fly001_final_downsampled/fly001_final_downsampled_data_transposed.npz"
     
     if [ ! -f "$TEST_DATA" ]; then
         log "ERROR: Test data not found after preparation: $TEST_DATA"
+        log "Note: This script currently expects default prepare.sh output paths"
         exit 1
     fi
     
