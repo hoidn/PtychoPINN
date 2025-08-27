@@ -157,6 +157,12 @@ def ms_ssim(img1, img2, levels=5, sigma=0.0):
             # This is a simplified implementation - the full MS-SSIM separates these components
             
         # Apply the weight for this level
+        # Handle negative SSIM values (clamp to small positive value to avoid NaN)
+        if ssim_val < 0:
+            import warnings
+            warnings.warn(f"Negative SSIM value ({ssim_val:.4f}) encountered in MS-SSIM calculation. "
+                        f"Clamping to 0.0001 to avoid NaN.", RuntimeWarning)
+            ssim_val = 0.0001  # Small positive value to avoid log(0) issues
         ms_ssim_val *= (ssim_val ** weights[level])
         
         # Downsample for next level (except on last iteration)
