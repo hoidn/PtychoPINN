@@ -81,6 +81,30 @@ def main() -> None:
         #ptycho_data, ptycho_data_train, obj = load_and_prepare_data(config['train_data_file_path'])
         ptycho_data = load_data(str(config.train_data_file), n_images=config.n_images)
         
+        # Check for metadata and override nphotons if present
+        from ptycho.metadata import MetadataManager
+        try:
+            _, metadata = MetadataManager.load_with_metadata(str(config.train_data_file))
+            # Check both top-level and physics_parameters for nphotons
+            metadata_nphotons = None
+            if metadata:
+                if 'nphotons' in metadata:
+                    metadata_nphotons = float(metadata['nphotons'])
+                elif 'physics_parameters' in metadata and 'nphotons' in metadata['physics_parameters']:
+                    metadata_nphotons = float(metadata['physics_parameters']['nphotons'])
+                
+                if metadata_nphotons is not None:
+                    original_nphotons = config.nphotons
+                    # Update config with metadata nphotons value (create new instance for dataclass)
+                    config = config.__class__(
+                        **{**config.__dict__, 'nphotons': metadata_nphotons}
+                    )
+                    logger.info(f"Overriding nphotons from config ({original_nphotons:.1e}) with value from dataset metadata: {metadata_nphotons:.1e}")
+                    # Update the legacy params dict as well
+                    params.cfg['nphotons'] = metadata_nphotons
+        except Exception as e:
+            logger.debug(f"No metadata found or error reading metadata: {e}")
+        
         test_data = None
         if config.test_data_file:
             test_data = load_data(str(config.test_data_file))
