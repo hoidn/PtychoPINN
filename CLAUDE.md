@@ -211,6 +211,52 @@ File: `datasets/fly/fly001_transposed.npz`
 
 **Common Pitfall:** Creating a synthetic `objectGuess` that is the same size as the `probeGuess`. This leaves no room for the probe to scan across the object and will fail. Another common issue is storing intensity instead of amplitude in the `diffraction` array.
 
+## 6.5. Critical: Understanding Normalization Conventions
+
+**⚠️ CRITICAL:** PtychoPINN uses three distinct types of normalization that serve different purposes. Confusing these will lead to incorrect results.
+
+**For complete normalization documentation, see <doc-ref type="guide">docs/DATA_NORMALIZATION_GUIDE.md</doc-ref>**
+
+### The Three Types of Normalization
+
+1. **Physics Normalization (`intensity_scale`)**
+   - **Purpose:** Scales simulated data to realistic photon counts for Poisson noise modeling
+   - **Where:** Applied ONLY in the physics loss layer during training
+   - **Key:** Internal data remains normalized; scaling happens at physics boundary
+   
+2. **Statistical Normalization (`normalize_data`)**
+   - **Purpose:** Preprocesses data for stable neural network training (zero mean, unit variance)
+   - **Where:** Applied to training data before feeding to model
+   - **Key:** Standard ML preprocessing, unrelated to physics
+   
+3. **Display/Comparison Scaling**
+   - **Purpose:** Visual adjustments for plots and metrics
+   - **Where:** Applied only for visualization and comparison
+   - **Key:** Never affects training or physics calculations
+
+### Critical Pipeline Convention
+
+```python
+# CORRECT: Internal pipeline keeps data normalized
+X, Y_I, Y_phi, intensity_scale = illuminate_and_diffract(...)  # Returns normalized
+norm_Y_I = scale_nphotons(X)  # Calculates factor but doesn't apply
+# X remains normalized throughout pipeline
+
+# WRONG: Applying scaling in data pipeline
+X_scaled = X * norm_Y_I  # DON'T DO THIS in raw_data.py!
+# This would break prepare.sh and other workflows
+```
+
+### Common Misunderstandings
+
+- **Misunderstanding 1:** "nphotons should scale the diffraction patterns"
+  - **Reality:** nphotons affects the Poisson noise model, not data values
+  - **Fix:** Set nphotons parameter, but keep data normalized
+
+- **Misunderstanding 2:** "Low photon data should have smaller values"
+  - **Reality:** Data stays normalized; photon effects appear in noise statistics
+  - **Fix:** Use physics loss to model photon statistics correctly
+
 ## 7. High-Level Architecture
 
 -   **Configuration (`ptycho/config/`)**: Dataclass-based system (`ModelConfig`, `TrainingConfig`). This is the modern way to control the model. The source of truth is <code-ref type="config">ptycho/config/config.py</code-ref>. A legacy `params.cfg` dictionary is still used for backward compatibility. **Crucially, this is a one-way street:** at the start of a workflow, the modern `TrainingConfig` object is used to update the legacy `params.cfg` dictionary. This allows older modules that still use `params.get('key')` to receive the correct values from a single, modern source of truth. New code should always accept a configuration dataclass as an argument and avoid using the legacy `params.get()` function.

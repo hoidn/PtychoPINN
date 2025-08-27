@@ -52,8 +52,35 @@ python scripts/tools/visualize_dataset.py output_dir/train.npz train_set_visuali
 **Goal:** To simulate a new, large-scale dataset from a single high-quality object.
 
 ```bash
-# The `prepare.sh` script is the high-level orchestrator for this entire workflow.
+# Basic usage with defaults (backward compatible)
 bash scripts/prepare.sh
+
+# Custom input and output
+bash scripts/prepare.sh --input-file path/to/reconstruction.npz --output-dir experiments/my_study
+
+# Low-photon dataset generation
+bash scripts/prepare.sh --input-file synthetic.npz --output-dir studies/photons_1e4 --sim-photons 1e4 --sim-images 10000
+
+# See all options
+bash scripts/prepare.sh --help
+```
+
+**New Parameters (as of latest update):**
+- `--input-file PATH`: Specify input NPZ file (default: tike_outputs/fly001/fly001_reconstructed.npz)
+- `--output-dir DIR`: Organize all outputs in a single directory (default: uses traditional structure)
+- `--sim-images N`: Number of images to simulate (default: 35000)
+- `--sim-photons P`: Photons per image (default: 1e9)
+
+**Output Structure with `--output-dir`:**
+```
+DIR/
+├── stages/          # All intermediate processing stages
+│   ├── 01_padded/
+│   ├── 02_transposed/
+│   └── ...
+└── dataset/         # Final train/test splits
+    ├── train.npz
+    └── test.npz
 ```
 
 **What `prepare.sh` does internally:**

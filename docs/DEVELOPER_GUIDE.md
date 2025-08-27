@@ -123,6 +123,73 @@ To handle overlapping patches, the codebase uses three primary tensor formats. U
 
 **CRITICAL RULE:** You must use `ptycho.tf_helper._channel_to_flat()` to convert data from Channel Format to Flat Format before passing it to the core physics simulation engine.
 
+### 3.5. Normalization Architecture: Three Distinct Systems
+
+**The Critical Lesson:** PtychoPINN uses three separate normalization systems that must never be confused. Mixing them is a common source of subtle bugs and incorrect results.
+
+**The Discovery:** A critical misunderstanding about where photon scaling should be applied led to attempting to scale data in `raw_data.py`, which would have broken the `prepare.sh` workflow and caused double-scaling issues.
+
+#### The Three Normalization Systems
+
+1. **Physics Normalization (`intensity_scale`)**
+   - **Purpose:** Scales simulated data to match realistic experimental photon counts
+   - **Location:** Applied ONLY in the physics loss layer during training
+   - **Key Module:** `ptycho/diffsim.py` calculates but does NOT apply the scale
+   - **Critical Rule:** Internal pipeline data remains normalized; scaling happens at physics boundary
+
+2. **Statistical Normalization (`normalize_data`)**
+   - **Purpose:** Standard ML preprocessing for stable neural network training
+   - **Location:** Applied in data loader before model input
+   - **Key Module:** `ptycho/loader.py`
+   - **Note:** Completely independent from physics normalization
+
+3. **Display/Comparison Scaling**
+   - **Purpose:** Visual adjustments for plots and metric calculations
+   - **Location:** Applied only in visualization and comparison code
+   - **Key Modules:** `ptycho/image/`, comparison scripts
+   - **Rule:** Never affects training or physics calculations
+
+#### The Correct Data Flow
+
+```python
+# In diffsim.py - Calculate but don't apply
+intensity_scale = scale_nphotons(Y_I * probe_amplitude)
+X = diffract_obj(Y_I * probe)  # Normalized diffraction patterns
+return X, Y_I / intensity_scale, Y_phi, intensity_scale  # Return normalized
+
+# In raw_data.py - Keep data normalized
+norm_Y_I = scale_nphotons(X)  # Calculate normalization factor
+return RawData(..., X, ...)  # Return NORMALIZED X, not X * norm_Y_I
+
+# In model.py - Apply scaling only at physics boundary
+simulated = self.physics_layer(reconstructed) * intensity_scale
+loss = poisson_nll(measured, simulated)
+```
+
+#### Common Anti-Patterns to Avoid
+
+**Anti-Pattern 1: Applying intensity_scale in data pipeline**
+```python
+# WRONG - This breaks prepare.sh and causes double-scaling
+X_scaled = X * norm_Y_I
+return RawData(..., X_scaled, ...)
+```
+
+**Anti-Pattern 2: Confusing nphotons effect**
+```python
+# WRONG - nphotons doesn't directly scale data values
+if nphotons == 1e3:
+    X = X * 0.001  # DON'T DO THIS
+```
+
+**Anti-Pattern 3: Mixing normalization types**
+```python
+# WRONG - Don't mix physics and statistical normalization
+X = normalize_data(X * intensity_scale)  # Confuses two systems
+```
+
+**The Rule:** Always document which normalization you're using, keep them separate, and apply physics scaling only at the model's physics boundary. For complete details, see <doc-ref type="guide">docs/DATA_NORMALIZATION_GUIDE.md</doc-ref>.
+
 ---
 
 ## 4. Physical Consistency in Data Preprocessing
