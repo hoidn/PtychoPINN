@@ -299,9 +299,13 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     from ptycho import params
     gridsize = params.cfg.get('gridsize', 1)
     
-    # Unified behavior: pass full dataset for all gridsize values
-    logger.info(f"Passing full dataset to RawData for unified sampling (gridsize={gridsize})")
-    selected_indices = slice(None)  # Full dataset
+    # Check if n_images was explicitly specified and is less than dataset size
+    if n_images < xcoords.shape[0]:
+        logger.info(f"Using specified subset of {n_images} images from {xcoords.shape[0]} total (gridsize={gridsize})")
+        selected_indices = slice(n_images)  # Use specified subset
+    else:
+        logger.info(f"Passing full dataset to RawData for unified sampling (gridsize={gridsize})")
+        selected_indices = slice(None)  # Full dataset
     
     # Create RawData object with appropriate data subset
     ptycho_data = RawData(xcoords[selected_indices], ycoords[selected_indices],
