@@ -39,6 +39,11 @@ if [ "$#" -lt 3 ]; then
     echo "  --n-train-images N   Number of training images to use (overrides config)"
     echo "  --n-test-images N    Number of test images to use (overrides config)"
     echo ""
+    echo "# TODO: Future enhancement - support both n_images (deprecated) and n_groups parameters"
+    echo "# --n-train-groups N    Number of training groups to generate (new parameter)"
+    echo "# --n-subsample N       Number of images to subsample before grouping"
+    echo "# --neighbor-count K    Number of nearest neighbors for K choose C oversampling"
+    echo ""
     echo "Examples:"
     echo "  $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results"
     echo "  $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results --n-train-images 512"
@@ -202,6 +207,11 @@ echo "Step 1/3: Training PtychoPINN model..."
 echo "----------------------------------------"
 
 # Build PtychoPINN training command
+# TODO: Future enhancement - support both n_images (deprecated) and n_groups parameters
+# Currently using n_images for backward compatibility, but should migrate to:
+# --n_groups (number of groups to generate)
+# --n_subsample (number of images to subsample) 
+# --neighbor_count (K value for K choose C oversampling)
 PINN_CMD="python scripts/training/train.py \
     --config \"$CONFIG_FILE\" \
     --train_data_file \"$TRAIN_DATA\" \
@@ -209,7 +219,7 @@ PINN_CMD="python scripts/training/train.py \
     --output_dir \"$PINN_DIR\" \
     --model_type pinn"
 
-# Add n_images parameter if specified
+# Add n_images parameter if specified (will show deprecation warning)
 if [[ -n "$N_TRAIN_IMAGES" ]]; then
     PINN_CMD="$PINN_CMD --n_images $N_TRAIN_IMAGES"
 fi

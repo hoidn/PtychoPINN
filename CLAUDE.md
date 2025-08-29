@@ -72,7 +72,7 @@ pip install -e .
 # 3. Run a verification test with known-good data
 # This proves the model and environment are set up correctly.
 # It uses a small number of images for a quick test.
-ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_images 512 --output_dir verification_run
+ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_groups 512 --output_dir verification_run
 ```
 
 If the verification run completes and creates files in the `verification_run/` directory, the environment is correct.
@@ -101,6 +101,7 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Training:** See <doc-ref type="workflow-guide">scripts/training/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>
 - **Inference:** See <doc-ref type="workflow-guide">scripts/inference/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
 - **Simulation:** See <doc-ref type="workflow-guide">scripts/simulation/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/simulation/README.md</doc-ref>
+- **Sampling Guide:** See <doc-ref type="guide">docs/SAMPLING_USER_GUIDE.md</doc-ref> for independent sampling control **⚠️ NEW**
 - **Reconstruction (Pty-Chi):** See <doc-ref type="workflow-guide">scripts/reconstruction/ptychi_reconstruct_tike.py</doc-ref> for pty-chi reconstruction workflow
 - **Pty-chi Migration Guide:** See <doc-ref type="guide">docs/PTYCHI_MIGRATION_GUIDE.md</doc-ref> for replacing Tike with faster pty-chi reconstruction
 - **Data Preprocessing Tools:** See <doc-ref type="workflow-guide">scripts/tools/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/tools/README.md</doc-ref>
@@ -117,7 +118,7 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Documentation Navigation:** See <doc-ref type="workflow-guide">docs/CLAUDE.md</doc-ref>
 - **Core Library Development:** See <doc-ref type="workflow-guide">ptycho/CLAUDE.md</doc-ref>
 - **GridSize Inference Troubleshooting:** See <doc-ref type="troubleshooting">docs/GRIDSIZE_INFERENCE_GOTCHAS.md</doc-ref>
-- **GridSize and n_images Interaction:** See <doc-ref type="critical">docs/GRIDSIZE_N_IMAGES_GUIDE.md</doc-ref> **⚠️ CRITICAL**
+- **GridSize and n_groups Interaction:** See <doc-ref type="critical">docs/GRIDSIZE_N_GROUPS_GUIDE.md</doc-ref> **⚠️ CRITICAL**
 
 ## 4. Key Workflows & Commands
 
@@ -128,7 +129,7 @@ This project provides several high-level scripts to automate common tasks. For d
 ptycho_train --config configs/fly_config.yaml
 
 # Train by specifying files and parameters directly
-ptycho_train --train_data_file <path/to/train.npz> --test_data_file <path/to/test.npz> --output_dir <output_path> --n_images 5000
+ptycho_train --train_data_file <path/to/train.npz> --test_data_file <path/to/test.npz> --output_dir <output_path> --n_groups 5000
 ```
 
 ### Running Inference

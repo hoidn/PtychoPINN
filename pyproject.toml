@@ -51,3 +51,28 @@ where = ["."]
 
 [tool.ruff]
 target-version = "py310"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+# Add markers for optional dependencies
+markers = [
+    "torch: marks tests as requiring PyTorch (deselect with '-m \"not torch\"')",
+    "optional: marks tests as requiring optional dependencies",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]
+# Configure test collection to handle import errors gracefully
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--ignore-glob=**/test_*_backup.py",
+    "--ignore-glob=**/*.ipynb",  # Ignore Jupyter notebooks
+    "-ra"  # show extra test summary info for all except passed
+]
+# Configure warnings
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    # Don't show warnings for PyTorch import failures
+    "ignore:PyTorch not available.*:UserWarning"
+]
