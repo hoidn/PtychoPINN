@@ -50,6 +50,54 @@ def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str
         total_patterns = n_images * gridsize * gridsize
         message = f"Parameter interpretation: --n-images={n_images} refers to neighbor groups (gridsize={gridsize}, total patterns={total_patterns})"
         return n_images, message
+
+def interpret_sampling_parameters(config: TrainingConfig) -> tuple[int, int, str]:
+    """
+    Interpret sampling parameters with support for independent control.
+    
+    Priority:
+    1. If n_subsample is specified: use it for data subsampling
+    2. Otherwise: use n_groups for legacy behavior
+    
+    Args:
+        config: Training configuration with sampling parameters
+        
+    Returns:
+        tuple: (n_subsample, n_groups, interpretation_message)
+    """
+    gridsize = config.model.gridsize
+    
+    # Case 1: Independent control with n_subsample
+    if config.n_subsample is not None:
+        n_subsample = config.n_subsample
+        n_groups = config.n_groups
+        
+        if gridsize == 1:
+            message = (f"Independent sampling control: subsampling {n_subsample} images, "
+                      f"using {n_groups} groups for training")
+        else:
+            total_from_groups = n_groups * gridsize * gridsize
+            message = (f"Independent sampling control: subsampling {n_subsample} images, "
+                      f"creating {n_groups} groups (approx {total_from_groups} patterns from groups)")
+        
+        return n_subsample, n_groups, message
+    
+    # Case 2: Legacy behavior - n_groups controls both
+    else:
+        # For backward compatibility, n_groups controls subsampling
+        if gridsize == 1:
+            n_subsample = config.n_groups
+            n_groups = config.n_groups
+            message = f"Legacy mode: using {n_groups} groups (gridsize=1)"
+        else:
+            # For gridsize > 1, we need to subsample enough to create the groups
+            n_subsample = config.n_groups  # This will be interpreted as groups by generate_grouped_data
+            n_groups = config.n_groups
+            total_patterns = n_groups * gridsize * gridsize
+            message = (f"Legacy mode: --n-groups={n_groups} refers to neighbor groups "
+                      f"(gridsize={gridsize}, approx {total_patterns} patterns)")
+        
+        return n_subsample, n_groups, message
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     args = parse_arguments()
@@ -61,25 +109,32 @@ def main() -> None:
         
     config = setup_configuration(args, args.config)
     
-    # Interpret n_images parameter based on gridsize
-    interpreted_n_images, interpretation_message = interpret_n_images_parameter(
-        config.n_images, config.model.gridsize
-    )
+    # Interpret sampling parameters with new independent control support
+    n_subsample, n_groups, interpretation_message = interpret_sampling_parameters(config)
     logger.info(interpretation_message)
     
-    # Update config with interpreted value
-    config = config.__class__(
-        **{**config.__dict__, 'n_images': interpreted_n_images}
-    )
+    # Log warning if potentially problematic configuration
+    if config.n_subsample is not None and config.model.gridsize > 1:
+        min_required = n_groups * config.model.gridsize * config.model.gridsize
+        if n_subsample < min_required:
+            logger.warning(f"n_subsample ({n_subsample}) may be too small to create {n_groups} "
+                         f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
     
     # Update global params with new-style config at entry point
     update_legacy_dict(params.cfg, config)
     
     try:
-        logger.info(f"Starting training with n_images={config.n_images}, stitching={'enabled' if args.do_stitching else 'disabled'}")
+        logger.info(f"Starting training with n_subsample={n_subsample}, n_groups={n_groups}, "
+                   f"stitching={'enabled' if args.do_stitching else 'disabled'}")
 
-        #ptycho_data, ptycho_data_train, obj = load_and_prepare_data(config['train_data_file_path'])
-        ptycho_data = load_data(str(config.train_data_file), n_images=config.n_images)
+        # Load data with new independent sampling parameters
+        # Note: load_data still uses n_images parameter name internally
+        ptycho_data = load_data(
+            str(config.train_data_file), 
+            n_images=n_groups,  # Pass n_groups as n_images to maintain API compatibility
+            n_subsample=n_subsample,
+            subsample_seed=config.subsample_seed
+        )
         
         # Check for metadata and override nphotons if present
         from ptycho.metadata import MetadataManager

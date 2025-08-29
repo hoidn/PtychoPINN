@@ -58,6 +58,8 @@ def parse_args():
                         help="Baseline phase vmax (default: auto from percentiles).")
     parser.add_argument("--skip-registration", action="store_true",
                         help="Skip automatic registration before evaluation (for debugging).")
+    parser.add_argument("--register-ptychi-only", action="store_true",
+                        help="Apply registration ONLY to pty-chi/tike, not to PtychoPINN or Baseline.")
     parser.add_argument("--save-npz", action="store_true", default=True,
                         help="Save NPZ files containing amplitude and phase data for all reconstructions and ground truth (default: enabled).")
     parser.add_argument("--no-save-npz", action="store_true",
@@ -76,6 +78,10 @@ def parse_args():
                         help="Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0).")
     parser.add_argument("--n-test-images", type=int, default=None,
                         help="Number of test images to load from the file (default: all).")
+    parser.add_argument("--n-subsample", type=int, default=None,
+                        help="Number of images to subsample from test data (independent control)")
+    parser.add_argument("--subsample-seed", type=int, default=None,
+                        help="Random seed for reproducible subsampling")
     parser.add_argument("--tike_recon_path", type=Path, default=None,
                         help="Path to Tike reconstruction NPZ file for three-way comparison (optional).")
     parser.add_argument("--stitch-crop-size", type=int, default=20,
@@ -770,29 +776,43 @@ def main():
 
     # CRITICAL FIX: Initialize configuration BEFORE loading data
     # This ensures params.cfg is properly set up when load_data() checks gridsize
-    logger.info("Initializing configuration before data loading...")
+    # Load models FIRST to restore their saved configuration (including gridsize)
+    logger.info("Loading PtychoPINN model to restore configuration...")
+    pinn_model = load_pinn_model(args.pinn_dir)
     
-    # Create a minimal config with gridsize=1 (default for comparison mode)
-    # We'll update N after loading data to get the correct probe size
-    initial_config = TrainingConfig(
-        model=ModelConfig(N=64, gridsize=1),  # Will be updated after loading
-        train_data_file=Path("dummy.npz"),
-        n_images=args.n_test_images or None  # Pass through the CLI parameter
-    )
-    update_legacy_dict(p.cfg, initial_config)
-    logger.info(f"Initialized with gridsize={initial_config.model.gridsize}, n_images={initial_config.n_images}")
-
-    # Load test data (now with proper configuration in place)
-    logger.info(f"Loading test data from {args.test_data}...")
-    test_data_raw = load_data(str(args.test_data), n_images=args.n_test_images)
+    # The model loading should have restored the correct gridsize to params.cfg
+    restored_gridsize = p.cfg.get('gridsize', 1)
+    restored_N = p.cfg.get('N', 64)
+    logger.info(f"Restored configuration from model: gridsize={restored_gridsize}, N={restored_N}")
     
-    # Update config with actual probe size from loaded data
+    # Load test data using the restored gridsize configuration
+    logger.info(f"Loading test data from {args.test_data} with restored gridsize={restored_gridsize}...")
+    
+    # Parameter interpretation: Handle backward compatibility and independent control
+    if args.n_subsample is not None:
+        logger.info(f"Using independent sampling control: n_subsample={args.n_subsample}, n_images={args.n_test_images}")
+        if args.n_test_images is not None and args.n_subsample > args.n_test_images:
+            logger.warning(f"n_subsample ({args.n_subsample}) > n_images ({args.n_test_images}), may use more data than expected")
+    else:
+        if args.n_test_images is not None:
+            logger.info(f"Using legacy mode: n_test_images={args.n_test_images} (controls both subsampling and grouping)")
+        else:
+            logger.info("Using all test data (no subsampling or grouping limit)")
+    
+    test_data_raw = load_data(str(args.test_data), 
+                             n_images=args.n_test_images,
+                             n_subsample=args.n_subsample,
+                             subsample_seed=args.subsample_seed)
+    
+    # Update only non-architecture parameters while preserving gridsize
+    # This ensures we don't overwrite the critical architecture configuration
     final_config = TrainingConfig(
-        model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=1),
+        model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=restored_gridsize),  # Use restored gridsize!
         train_data_file=Path("dummy.npz"),
-        n_images=test_data_raw.diff3d.shape[0]  # Actual loaded size (should match n_test_images if properly applied)
+        n_images=test_data_raw.diff3d.shape[0]
     )
     update_legacy_dict(p.cfg, final_config)
+    logger.info(f"Final configuration: gridsize={restored_gridsize}, N={test_data_raw.probeGuess.shape[0]}, n_images={test_data_raw.diff3d.shape[0]}")
     
     # Validate stitch_crop_size parameter
     N = test_data_raw.probeGuess.shape[0]
@@ -806,8 +826,7 @@ def main():
     # Extract ground truth if available
     ground_truth_obj = test_data_raw.objectGuess[None, ..., None] if test_data_raw.objectGuess is not None else None
 
-    # Load models
-    pinn_model = load_pinn_model(args.pinn_dir)
+    # Load baseline model (pinn_model was already loaded above to restore config)
     baseline_model = load_baseline_model(args.baseline_dir)
 
     # Load Tike/Pty-chi reconstruction if provided
@@ -840,8 +859,23 @@ def main():
     # Run inference for Baseline
     logger.info("Running inference with Baseline model...")
     # Baseline model outputs amplitude and phase separately
+    
+    # CRITICAL FIX: Prepare baseline-specific input data
+    # Baseline models always expect single-channel input (batch, N, N, 1)
+    # When PINN uses gridsize > 1, test data is grouped into multiple channels
+    gridsize = p.cfg.get('gridsize', 1)
+    if gridsize > 1:
+        logger.info(f"Adapting grouped data (gridsize={gridsize}) for baseline model")
+        logger.info(f"Original test data shape: {test_container.X.shape}")
+        # Extract only the first channel for baseline inference
+        baseline_input = test_container.X[..., :1]
+        logger.info(f"Baseline input shape: {baseline_input.shape}")
+    else:
+        logger.info("Using original test data for baseline model (gridsize=1)")
+        baseline_input = test_container.X
+    
     baseline_start = time.time()
-    baseline_output = baseline_model.predict(test_container.X, batch_size=32, verbose=1)
+    baseline_output = baseline_model.predict(baseline_input, batch_size=32, verbose=1)
     baseline_inference_time = time.time() - baseline_start
     logger.info(f"Baseline inference completed in {baseline_inference_time:.2f}s")
     
@@ -858,7 +892,18 @@ def main():
     
     # Reassemble patches
     logger.info("Reassembling baseline patches...")
-    baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
+    
+    # CRITICAL FIX: Handle baseline reconstruction reassembly based on gridsize
+    # When gridsize > 1: baseline processes single-channel data, so patches are already reconstructed
+    # When gridsize = 1: normal reassembly is needed
+    if gridsize > 1:
+        logger.info(f"Baseline used single-channel input with gridsize={gridsize} - patches are already individual reconstructions")
+        # For gridsize > 1, baseline sees individual diffraction patterns, so its output 
+        # represents individual patch reconstructions that need normal reassembly
+        baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
+    else:
+        logger.info("Normal baseline patch reassembly (gridsize=1)")
+        baseline_recon = reassemble_position(baseline_patches_complex, test_container.global_offsets, M=args.stitch_crop_size)
 
     # Save NPZ files of reconstructions (before any alignment/registration) if requested
     if args.save_npz:
@@ -926,52 +971,82 @@ def main():
         
         # 4. Second stage: Fine-scale registration (correct pixel-level shifts)
         if not args.skip_registration:
-            logger.info("Performing fine-scale registration to correct pixel-level misalignments...")
-            
-            try:
-                # Register PINN reconstruction against ground truth  
-                pinn_offset = find_translation_offset(pinn_recon_cropped, cropped_gt, upsample_factor=50)
-                logger.info(f"PtychoPINN detected offset: ({pinn_offset[0]:.3f}, {pinn_offset[1]:.3f})")
-                pinn_recon_aligned, gt_aligned_for_pinn = apply_shift_and_crop(
-                    pinn_recon_cropped, cropped_gt, pinn_offset, border_crop=2
-                )
+            if args.register_ptychi_only:
+                logger.info("Performing selective registration (ONLY for pty-chi/tike)...")
                 
-                # Register Baseline reconstruction against ground truth
-                baseline_offset = find_translation_offset(baseline_recon_cropped, cropped_gt, upsample_factor=50)
-                logger.info(f"Baseline detected offset: ({baseline_offset[0]:.3f}, {baseline_offset[1]:.3f})")
-                baseline_recon_aligned, gt_aligned_for_baseline = apply_shift_and_crop(
-                    baseline_recon_cropped, cropped_gt, baseline_offset, border_crop=2
-                )
+                # Don't register PINN or Baseline
+                pinn_recon_aligned = pinn_recon_cropped
+                baseline_recon_aligned = baseline_recon_cropped
+                pinn_offset = None
+                baseline_offset = None
+                logger.info("PtychoPINN and Baseline: skipping registration (as intended)")
                 
-                # Register Tike reconstruction against ground truth if available
+                # Only register Tike/Pty-chi if available
                 if tike_recon_cropped is not None:
-                    tike_offset = find_translation_offset(tike_recon_cropped, cropped_gt, upsample_factor=50)
-                    logger.info(f"Tike detected offset: ({tike_offset[0]:.3f}, {tike_offset[1]:.3f})")
-                    tike_recon_aligned, gt_aligned_for_tike = apply_shift_and_crop(
-                        tike_recon_cropped, cropped_gt, tike_offset, border_crop=2
-                    )
+                    try:
+                        tike_offset = find_translation_offset(tike_recon_cropped, cropped_gt, upsample_factor=50)
+                        logger.info(f"{algorithm_name} detected offset: ({tike_offset[0]:.3f}, {tike_offset[1]:.3f})")
+                        tike_recon_aligned, gt_aligned_for_tike = apply_shift_and_crop(
+                            tike_recon_cropped, cropped_gt, tike_offset, border_crop=2
+                        )
+                        # Keep original cropped_gt for PINN/Baseline, store aligned GT separately
+                        gt_for_tike_eval = gt_aligned_for_tike
+                    except Exception as e:
+                        logger.warning(f"Registration failed for {algorithm_name}: {e}. Using unregistered version.")
+                        tike_recon_aligned = tike_recon_cropped
+                        tike_offset = None
+                        gt_for_tike_eval = cropped_gt  # Use original GT if registration fails
                 else:
                     tike_recon_aligned = None
                     tike_offset = None
+                    gt_for_tike_eval = cropped_gt
+            else:
+                logger.info("Performing fine-scale registration to correct pixel-level misalignments...")
                 
-                # Use the GT aligned with PINN (both should be nearly identical)
-                cropped_gt = gt_aligned_for_pinn
-                
-                # Log registration results
-                if tike_recon_aligned is not None:
-                    logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}, Baseline offset: {baseline_offset}, {algorithm_name} offset: {tike_offset}")
-                    logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, Baseline: {baseline_recon_aligned.shape}, {algorithm_name}: {tike_recon_aligned.shape}, GT: {cropped_gt.shape}")
-                else:
-                    logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}, Baseline offset: {baseline_offset}")
-                    logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, Baseline: {baseline_recon_aligned.shape}, GT: {cropped_gt.shape}")
-                
-            except Exception as e:
-                logger.warning(f"Registration failed: {e}. Continuing with coordinate-aligned images.")
-                pinn_recon_aligned = pinn_recon_cropped
-                baseline_recon_aligned = baseline_recon_cropped
-                tike_recon_aligned = tike_recon_cropped
-                pinn_offset = baseline_offset = tike_offset = None
-                # cropped_gt already set above
+                try:
+                    # Register PINN reconstruction against ground truth  
+                    pinn_offset = find_translation_offset(pinn_recon_cropped, cropped_gt, upsample_factor=50)
+                    logger.info(f"PtychoPINN detected offset: ({pinn_offset[0]:.3f}, {pinn_offset[1]:.3f})")
+                    pinn_recon_aligned, gt_aligned_for_pinn = apply_shift_and_crop(
+                        pinn_recon_cropped, cropped_gt, pinn_offset, border_crop=2
+                    )
+                    
+                    # Register Baseline reconstruction against ground truth
+                    baseline_offset = find_translation_offset(baseline_recon_cropped, cropped_gt, upsample_factor=50)
+                    logger.info(f"Baseline detected offset: ({baseline_offset[0]:.3f}, {baseline_offset[1]:.3f})")
+                    baseline_recon_aligned, gt_aligned_for_baseline = apply_shift_and_crop(
+                        baseline_recon_cropped, cropped_gt, baseline_offset, border_crop=2
+                    )
+                    
+                    # Register Tike reconstruction against ground truth if available
+                    if tike_recon_cropped is not None:
+                        tike_offset = find_translation_offset(tike_recon_cropped, cropped_gt, upsample_factor=50)
+                        logger.info(f"Tike detected offset: ({tike_offset[0]:.3f}, {tike_offset[1]:.3f})")
+                        tike_recon_aligned, gt_aligned_for_tike = apply_shift_and_crop(
+                            tike_recon_cropped, cropped_gt, tike_offset, border_crop=2
+                        )
+                    else:
+                        tike_recon_aligned = None
+                        tike_offset = None
+                    
+                    # Use the GT aligned with PINN (both should be nearly identical)
+                    cropped_gt = gt_aligned_for_pinn
+                    
+                    # Log registration results
+                    if tike_recon_aligned is not None:
+                        logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}, Baseline offset: {baseline_offset}, {algorithm_name} offset: {tike_offset}")
+                        logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, Baseline: {baseline_recon_aligned.shape}, {algorithm_name}: {tike_recon_aligned.shape}, GT: {cropped_gt.shape}")
+                    else:
+                        logger.info(f"Registration completed. PtychoPINN offset: {pinn_offset}, Baseline offset: {baseline_offset}")
+                        logger.info(f"Final aligned shapes - PINN: {pinn_recon_aligned.shape}, Baseline: {baseline_recon_aligned.shape}, GT: {cropped_gt.shape}")
+                    
+                except Exception as e:
+                    logger.warning(f"Registration failed: {e}. Continuing with coordinate-aligned images.")
+                    pinn_recon_aligned = pinn_recon_cropped
+                    baseline_recon_aligned = baseline_recon_cropped
+                    tike_recon_aligned = tike_recon_cropped
+                    pinn_offset = baseline_offset = tike_offset = None
+                    # cropped_gt already set above
         else:
             logger.info("Skipping registration (--skip-registration specified)")
             pinn_recon_aligned = pinn_recon_cropped
@@ -1032,9 +1107,15 @@ def main():
         # Evaluate Tike reconstruction if available
         if tike_recon_aligned is not None:
             try:
+                # Use appropriate GT based on registration mode
+                if args.register_ptychi_only and 'gt_for_tike_eval' in locals():
+                    eval_gt = gt_for_tike_eval
+                else:
+                    eval_gt = cropped_gt
+                    
                 tike_metrics = eval_reconstruction(
                     tike_recon_aligned[None, ..., None],  # (1, H, W, 1)
-                    cropped_gt[..., None],                # (H, W, 1) - no batch dimension!
+                    eval_gt[..., None],                    # (H, W, 1) - no batch dimension!
                     label=algorithm_name,
                     phase_align_method=args.phase_align_method,
                     frc_sigma=args.frc_sigma,

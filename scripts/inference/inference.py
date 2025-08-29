@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-# TODO needs to be updated to use the new-style config dataclasses
 # MAYBE only generate the comparison plot when ground truth object is provided
 # MAYBE save output to npz file, not just image
 
@@ -82,11 +81,70 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--n_images", type=int, required=False, default=None,
                        help="Number of images/groups to process. Interpretation depends on gridsize: "
                             "gridsize=1 means individual images, gridsize>1 means number of groups")
+    parser.add_argument("--n_subsample", type=int, required=False, default=None,
+                       help="Number of images to subsample from test data (independent control). "
+                            "When provided, controls data selection separately from grouping.")
+    parser.add_argument("--subsample_seed", type=int, required=False, default=None,
+                       help="Random seed for reproducible subsampling")
     parser.add_argument("--phase_vmin", type=float, required=False, default=None,
                        help="Minimum value for phase color scale (default: auto)")
     parser.add_argument("--phase_vmax", type=float, required=False, default=None,
                        help="Maximum value for phase color scale (default: auto)")
     return parser.parse_args()
+
+def interpret_sampling_parameters(config: InferenceConfig) -> tuple:
+    """
+    Interpret sampling parameters for inference based on gridsize and user input.
+    
+    This function determines the actual values for n_subsample and n_images based on:
+    1. If n_subsample is provided: use it for subsampling, n_images for grouping
+    2. Otherwise: use n_images for legacy behavior
+    
+    Args:
+        config: Inference configuration with sampling parameters
+        
+    Returns:
+        tuple: (n_subsample, n_images, interpretation_message)
+    """
+    gridsize = config.model.gridsize
+    
+    # Case 1: Independent control with n_subsample
+    if config.n_subsample is not None:
+        n_subsample = config.n_subsample
+        n_images = config.n_images if config.n_images is not None else config.n_subsample
+        
+        if gridsize == 1:
+            message = (f"Independent sampling control: subsampling {n_subsample} images, "
+                      f"using {n_images} for inference")
+        else:
+            total_from_groups = n_images * gridsize * gridsize
+            message = (f"Independent sampling control: subsampling {n_subsample} images, "
+                      f"creating {n_images} groups (approx {total_from_groups} patterns from groups)")
+        
+        return n_subsample, n_images, message
+    
+    # Case 2: Legacy behavior - n_images controls both
+    else:
+        if config.n_images is not None:
+            # User specified n_images
+            if gridsize == 1:
+                n_subsample = config.n_images
+                n_images = config.n_images
+                message = f"Legacy mode: using {n_images} individual images (gridsize=1)"
+            else:
+                # For gridsize > 1, interpret as groups
+                n_subsample = None  # Use full dataset for subsampling
+                n_images = config.n_images
+                total_patterns = n_images * gridsize * gridsize
+                message = (f"Legacy mode: --n-images={n_images} refers to neighbor groups "
+                          f"(gridsize={gridsize}, approx {total_patterns} patterns)")
+        else:
+            # No n_images specified - use full dataset
+            n_subsample = None
+            n_images = None
+            message = "Using full dataset for inference"
+        
+        return n_subsample, n_images, message
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
     """
@@ -112,11 +170,14 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
     # Create the final ModelConfig object
     final_model_config = ModelConfig(**model_defaults)
 
-    # Create the InferenceConfig object
+    # Create the InferenceConfig object with n_images and n_subsample support
     inference_config = InferenceConfig(
         model=final_model_config,
         model_path=Path(args.model_path),
         test_data_file=Path(args.test_data),
+        n_images=args.n_images,
+        n_subsample=args.n_subsample,
+        subsample_seed=args.subsample_seed,
         debug=args.debug,
         output_dir=Path(args.output_dir)
     )
@@ -363,6 +424,17 @@ def main():
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
         
+        # Interpret sampling parameters with new independent control support
+        n_subsample, n_images, interpretation_message = interpret_sampling_parameters(config)
+        print(interpretation_message)
+        
+        # Log warning if potentially problematic configuration
+        if config.n_subsample is not None and config.model.gridsize > 1 and n_images is not None:
+            min_required = n_images * config.model.gridsize * config.model.gridsize
+            if n_subsample < min_required:
+                print(f"WARNING: n_subsample ({n_subsample}) may be too small to create {n_images} "
+                     f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
+        
         # Note: update_legacy_dict() removed - ModelManager.load_model() will restore
         # the authoritative configuration from the saved model artifact, making this
         # initial update redundant. The loaded model's params take precedence.
@@ -371,25 +443,30 @@ def main():
         print("Loading model...")
         model, _ = load_inference_bundle(config.model_path)
 
-        # Load test data
+        # Load test data with new independent sampling parameters
         print("Loading test data...")
-        test_data = load_data(args.test_data)
+        test_data = load_data(
+            args.test_data,
+            n_images=n_images,
+            n_subsample=n_subsample,
+            subsample_seed=config.subsample_seed
+        )
 
-        # Determine number of samples for inference
+        # Determine number of samples for inference based on loaded data
         gridsize = params.cfg.get('gridsize', 1)
         total_patterns = len(test_data.xcoords)
         
-        if args.n_images is not None:
-            # User specified number of images/groups
+        if n_images is not None:
+            # User specified number of images/groups (already interpreted above)
             if gridsize == 1:
-                nsamples = min(args.n_images, total_patterns)
-                print(f"Inference config: gridsize={gridsize}, using {nsamples} individual patterns (user specified {args.n_images})")
+                nsamples = min(n_images, total_patterns)
+                print(f"Inference config: gridsize={gridsize}, using {nsamples} individual patterns")
             else:
                 max_groups = total_patterns // (gridsize ** 2)
-                nsamples = min(args.n_images, max_groups)
+                nsamples = min(n_images, max_groups)
                 if nsamples == 0:
                     nsamples = 1  # Minimum of 1 group
-                print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns, user specified {args.n_images})")
+                print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns)")
         else:
             # Default behavior: use full dataset
             if gridsize == 1:

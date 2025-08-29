@@ -174,6 +174,138 @@ While we don't enforce strict coverage metrics, aim to test:
 - Error handling and exceptions
 - Critical workflows and data pipelines
 
+## Regression Testing for Feature Development
+
+### Establishing Test Baseline
+
+Before starting any significant feature development, establish a baseline of the current test suite status:
+
+1. **Run the full test suite and save results:**
+   ```bash
+   python -m unittest discover tests/ -v > test_baseline_$(date +%Y%m%d).txt 2>&1
+   ```
+
+2. **Document pre-existing failures:**
+   Create a `TEST_BASELINE.md` file in your feature branch:
+   ```markdown
+   # Test Baseline for [Feature Name]
+   
+   **Date:** [YYYY-MM-DD]
+   **Total Tests:** 172
+   **Passing:** [number]
+   **Failing:** [number]
+   
+   ## Pre-existing Failures
+   - `test_image_registration.py::test_apply_shift_and_crop_basic` - Known issue #XXX
+   - [other pre-existing failures]
+   
+   ## Critical Tests to Monitor
+   - `test_integration_workflow.py::test_train_save_load_infer_cycle`
+   - `test_coordinate_grouping.py::test_backward_compatibility`
+   - [other critical tests for your feature]
+   ```
+
+### During Development
+
+Run targeted test suites after each significant change:
+
+```bash
+# Quick check of critical tests
+python -m unittest tests.test_integration_workflow -v
+
+# Check specific subsystem
+python -m unittest tests.test_coordinate_grouping -v
+
+# Full regression check at milestones
+python -m unittest discover tests/ -v
+```
+
+### Validation Criteria
+
+Before considering your feature complete:
+- No new test failures introduced (same pass/fail count as baseline)
+- All previously passing tests continue to pass
+- New features have comprehensive test coverage
+- Performance tests show no significant regression
+
+## Handling Pre-existing Test Failures
+
+### Decision Framework
+
+When encountering pre-existing test failures during feature development:
+
+1. **Assess relevance:** Does the failing test interact with your feature area?
+2. **Document decision:** Record your approach in the test baseline document
+3. **Take action:**
+   - **Fix if related:** If the failure affects your feature, fix it first
+   - **Work around if unrelated:** Document the workaround and continue
+   - **Flag for later:** Create an issue for unrelated failures that should be fixed
+
+### Example Test Status Tracking
+
+Maintain a test status log throughout development:
+
+```markdown
+## Test Status Log
+
+### Phase 1: Core Infrastructure (2025-08-28)
+- Baseline: 140/172 passing
+- After components.py changes: 140/172 passing ✓
+- After config changes: 140/172 passing ✓
+
+### Phase 2: Training Integration (2025-08-29)
+- After CLI updates: 140/172 passing ✓
+- New subsampling tests: 5/5 passing ✓
+```
+
+## Testing New CLI Parameters
+
+When adding new command-line parameters (like `--n-subsample`):
+
+### Required Test Coverage
+
+1. **Parameter parsing:** Test that the parameter is correctly parsed
+2. **Default behavior:** Verify backward compatibility when parameter not specified
+3. **Edge cases:** Test boundary conditions (e.g., n_subsample > dataset size)
+4. **Integration:** Test parameter interaction with existing options
+5. **Help text:** Ensure help message is clear and accurate
+
+### Example Test Pattern
+
+```python
+class TestSubsamplingParameter(unittest.TestCase):
+    def test_parameter_parsing(self):
+        """Test --n-subsample parameter is correctly parsed."""
+        args = parse_args(['--n-subsample', '1000'])
+        self.assertEqual(args.n_subsample, 1000)
+    
+    def test_backward_compatibility(self):
+        """Test behavior when --n-subsample not specified."""
+        args = parse_args([])
+        self.assertIsNone(args.n_subsample)
+    
+    def test_edge_case_oversample(self):
+        """Test n_subsample > dataset size handling."""
+        # Test implementation
+```
+
+## Backward Compatibility Testing
+
+### Guidelines for Ensuring No Breaking Changes
+
+1. **Test existing workflows:** Run complete workflows with old parameter sets
+2. **Verify saved model compatibility:** Test loading models saved before changes
+3. **Check configuration files:** Ensure old YAML configs still work
+4. **Validate output format:** Confirm output files maintain expected structure
+
+### Backward Compatibility Checklist
+
+- [ ] Existing CLI commands work without new parameters
+- [ ] Old configuration files load successfully
+- [ ] Saved models can be loaded and used for inference
+- [ ] Output file formats unchanged
+- [ ] No performance regression for existing workflows
+
 ## Continuous Integration
 
 Tests are automatically run on pull requests. Ensure all tests pass before merging changes.

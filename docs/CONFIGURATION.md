@@ -60,7 +60,10 @@ These parameters control the training loop, data handling, and loss functions.
 | `realspace_mae_weight` | `float` | `0.0` | Weight for the MAE loss in the object domain. |
 | `realspace_weight` | `float` | `0.0` | General weight for all real-space losses. |
 | `nphotons` | `float` | `1e9` | The target average number of photons per diffraction pattern, used for the Poisson noise model. |
-| `n_images` | `int` | `512` | The number of diffraction patterns to use from the dataset for training. |
+| `n_groups` | `int` | `512` | Number of groups to use from the dataset. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
+| `n_images` | `int` | `None` | **[DEPRECATED]** Legacy parameter name for `n_groups`. Still supported for backward compatibility but will show deprecation warnings. New code should use `n_groups`. |
+| `n_subsample` | `Optional[int]` | `None` | Number of images to subsample from the dataset before grouping (independent control). When provided, controls data selection separately from grouping. |
+| `subsample_seed` | `Optional[int]` | `None` | Random seed for reproducible subsampling. Ensures consistent data selection across runs. |
 | `positions_provided` | `bool` | `True` | If True, use the provided scan positions. |
 | `probe_trainable` | `bool` | `False` | If True, allows the model to learn and update the probe function during training. |
 | `intensity_scale_trainable` | `bool` | `True` | If True, allows the model to learn the global intensity scaling factor. |
@@ -73,10 +76,50 @@ These parameters control inference and evaluation workflows.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `model_path` | `Path` | **Required** | Path to the trained model directory containing `wts.h5.zip`. |
-| `test_data` | `Path` | **Required** | Path to the test dataset (.npz file) for inference. |
+| `test_data_file` | `Path` | **Required** | Path to the test dataset (.npz file) for inference. |
 | `output_dir` | `Path` | `"inference_outputs"` | Directory where inference results will be saved. |
-| `batch_size` | `int` | `16` | Batch size for inference processing. |
-| `n_test_images` | `Optional[int]` | `None` | Number of test images to process. If None, uses all available. |
+| `n_groups` | `Optional[int]` | `None` | Number of groups to use for inference. If None, uses all available. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
+| `n_images` | `Optional[int]` | `None` | **[DEPRECATED]** Legacy parameter name for `n_groups`. Still supported for backward compatibility but will show deprecation warnings. New code should use `n_groups`. |
+| `n_subsample` | `Optional[int]` | `None` | Number of images to subsample from test data (independent control). When provided, controls data selection separately from grouping. |
+| `subsample_seed` | `Optional[int]` | `None` | Random seed for reproducible subsampling during inference. |
+| `debug` | `bool` | `False` | Enable debug mode for additional logging. |
+
+## Understanding Sampling Parameters
+
+The project supports two modes for controlling data sampling:
+
+### Legacy Mode (Backward Compatible)
+When only the deprecated `n_images` parameter is used, it behaves as `n_groups`:
+- **gridsize=1**: `n_images` specifies how many groups of 1 image each to use
+- **gridsize>1**: `n_images` specifies how many neighbor groups to create (total patterns = n_images × gridsize²)
+
+**Note**: New code should use `n_groups` instead of the deprecated `n_images` parameter.
+
+### Independent Control Mode (New)
+When `n_subsample` is provided, you get independent control:
+- **`n_subsample`**: Controls how many images to randomly select from the dataset
+- **`n_groups`**: Controls how many groups to use for training/inference
+- **`subsample_seed`**: Ensures reproducible random selection
+
+**Note**: The deprecated `n_images` parameter can still be used in place of `n_groups` but will show warnings.
+
+#### Example Scenarios:
+```yaml
+# Dense grouping: Use almost all subsampled data in groups
+n_subsample: 1200
+n_groups: 1000  # Creates 1000 groups of 4 images each (gridsize=2)
+gridsize: 2
+
+# Sparse grouping: Subsample large dataset, use subset for groups  
+n_subsample: 10000
+n_groups: 500   # Creates 500 groups of 4 images each (gridsize=2)
+gridsize: 2
+
+# Memory-constrained: Limit data loading
+n_subsample: 5000
+n_groups: 2000  # Creates 2000 groups of 1 image each (gridsize=1)
+gridsize: 1
+```
 
 ## Example YAML Configuration
 
@@ -99,7 +142,7 @@ test_data_file: 'datasets/fly/fly001_prepared_test.npz'
 output_dir: 'results/my_experiment_run_1'
 nepochs: 100
 batch_size: 32
-n_images: 4096  # Use 4096 images for this training run
+n_groups: 4096  # Use 4096 groups for this training run
 
 # Loss Function Weights
 nll_weight: 1.0
@@ -127,7 +170,20 @@ ptycho_train --config configs/my_experiment_config.yaml --nepochs 10
 ## Configuration Best Practices
 
 1. **Use YAML files** for reproducible experiments and parameter sets you want to reuse.
-2. **Override sparingly** from the command line - use it mainly for quick parameter tweaks.
-3. **Document your configs** with comments explaining the experimental purpose.
-4. **Version control** your configuration files alongside your code.
-5. **Test configurations** with small datasets before running full experiments.
+2. **Use `n_groups` instead of deprecated `n_images`** in new configurations.
+3. **Override sparingly** from the command line - use it mainly for quick parameter tweaks.
+4. **Document your configs** with comments explaining the experimental purpose.
+5. **Version control** your configuration files alongside your code.
+6. **Test configurations** with small datasets before running full experiments.
+
+## Parameter Migration
+
+For migrating existing configurations:
+
+```yaml
+# Old (deprecated but still works)
+n_images: 1000
+
+# New (recommended)
+n_groups: 1000  # Always means "number of groups" regardless of gridsize
+```

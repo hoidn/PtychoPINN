@@ -79,7 +79,7 @@ from ptycho import probe
 from ptycho.loader import RawData, PtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
-from typing import Union, Optional, Dict, Any, Tuple, Literal
+from typing import Union, Optional, Dict, Any, Tuple, Literal, get_origin, get_args
 from pathlib import Path
 from ptycho.config.config import TrainingConfig, ModelConfig, dataclass_to_legacy_dict
 from dataclasses import fields
@@ -223,23 +223,26 @@ def update_config_from_dict(config_updates: dict):
     logger.info("Configuration updated programmatically for interactive session.")
     params.print_params()
 
-def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0):
+def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0, subsample_seed=None):
     """
     Load ptychography data from a file and return RawData objects.
 
     Args:
         file_path (str, optional): Path to the data file. Defaults to the package resource 'datasets/Run1084_recon3_postPC_shrunk_3.npz'.
-        n_images (int, optional): Number of data points to include in the training set. Defaults to 512.
+        n_images (int, optional): Number of data points to include in the training set (legacy parameter). Defaults to 512.
+        n_subsample (int, optional): Number of images to subsample from the dataset before grouping. 
+                                     If None, uses n_images for backward compatibility.
         flip_x (bool, optional): If True, flip the sign of x coordinates. Defaults to False.
         flip_y (bool, optional): If True, flip the sign of y coordinates. Defaults to False.
         swap_xy (bool, optional): If True, swap x and y coordinates. Defaults to False.
         n_samples (int, optional): Number of samples to generate. Defaults to 1.
         coord_scale (float, optional): Scale factor for x and y coordinates. Defaults to 1.0.
+        subsample_seed (int, optional): Random seed for reproducible subsampling. If None, uses random selection.
 
     Returns:
         RawData: RawData object containing the dataset.
     """
-    logger.info(f"Loading data from {file_path} with n_images={n_images}")
+    logger.info(f"Loading data from {file_path} with n_images={n_images}, n_subsample={n_subsample}")
     # Load data from file
     data = np.load(file_path)
 
@@ -291,23 +294,40 @@ def load_data(file_path, n_images=None, flip_x=False, flip_y=False, swap_xy=Fals
     # Create scan_index array
     scan_index = np.zeros(diff3d.shape[0], dtype=int)
 
-    if n_images is None:
-        n_images = xcoords.shape[0]
+    # Implement independent subsampling logic
+    dataset_size = xcoords.shape[0]
     
-    # Pass full dataset to enable unified sampling for all gridsize values
-    # The generate_grouped_data method will handle the sampling strategy
-    from ptycho import params
-    gridsize = params.cfg.get('gridsize', 1)
-    
-    # Check if n_images was explicitly specified and is less than dataset size
-    if n_images < xcoords.shape[0]:
-        logger.info(f"Using specified subset of {n_images} images from {xcoords.shape[0]} total (gridsize={gridsize})")
-        selected_indices = slice(n_images)  # Use specified subset
+    # Determine how many images to use for subsampling
+    if n_subsample is not None:
+        # Independent control: n_subsample controls data selection
+        images_to_use = min(n_subsample, dataset_size)
+        logger.info(f"Independent sampling: subsampling {images_to_use} images from {dataset_size} total")
+    elif n_images is not None:
+        # Legacy behavior: n_images controls subsampling
+        images_to_use = min(n_images, dataset_size)
+        logger.info(f"Legacy sampling: using {images_to_use} images from {dataset_size} total")
     else:
-        logger.info(f"Passing full dataset to RawData for unified sampling (gridsize={gridsize})")
-        selected_indices = slice(None)  # Full dataset
+        # Default: use all data
+        images_to_use = dataset_size
+        logger.info(f"Using full dataset of {dataset_size} images")
     
-    # Create RawData object with appropriate data subset
+    # Perform subsampling if needed
+    if images_to_use < dataset_size:
+        if subsample_seed is not None:
+            # Reproducible subsampling with seed
+            np.random.seed(subsample_seed)
+            logger.info(f"Using seed {subsample_seed} for reproducible subsampling")
+        
+        # Random subsampling
+        all_indices = np.arange(dataset_size)
+        selected_indices = np.random.choice(all_indices, size=images_to_use, replace=False)
+        selected_indices = np.sort(selected_indices)  # Sort for consistency
+        logger.info(f"Randomly subsampled {images_to_use} images")
+    else:
+        # Use all data
+        selected_indices = np.arange(dataset_size)
+    
+    # Create RawData object with subsampled data
     ptycho_data = RawData(xcoords[selected_indices], ycoords[selected_indices],
                           xcoords_start[selected_indices], ycoords_start[selected_indices],
                           diff3d[selected_indices], probeGuess,
@@ -365,20 +385,65 @@ def parse_arguments():
                 )
             else:
                 # Special handling for specific parameters to provide better help text
-                if field.name == 'n_images':
+                if field.name == 'n_groups':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
+                        default=field.default,
+                        help="Number of groups to generate. Always means groups regardless of gridsize. "
+                             "Can exceed dataset size when using higher --neighbor_count values."
+                    )
+                elif field.name == 'n_images':
+                    # Keep n_images for backward compatibility but mark as deprecated
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
+                        default=field.default,
+                        help="DEPRECATED: Use --n_groups instead. Number of groups to use from the dataset."
+                    )
+                elif field.name == 'n_subsample':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
+                        default=field.default,
+                        help="Number of images to subsample from dataset before grouping (independent control). "
+                             "When provided, controls data selection separately from grouping."
+                    )
+                elif field.name == 'subsample_seed':
+                    parser.add_argument(
+                        f"--{field.name}",
+                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
+                        default=field.default,
+                        help="Random seed for reproducible subsampling. "
+                             "Use same seed across runs to ensure consistent data selection."
+                    )
+                elif field.name == 'neighbor_count':
                     parser.add_argument(
                         f"--{field.name}",
                         type=field.type,
                         default=field.default,
-                        help=f"Number of images to use from the dataset (default: {field.default})"
+                        help="Number of nearest neighbors (K) for grouping. Use higher values (e.g., 7) "
+                             "to enable more combinations when requesting more groups than available points."
                     )
                 else:
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type,
-                        default=field.default,
-                        help=f"Training parameter: {field.name}"
-                    )
+                    # Handle Optional types
+                    if get_origin(field.type) is Union:
+                        # This is an Optional type (Union[T, None])
+                        args = get_args(field.type)
+                        actual_type = args[0] if args[0] is not type(None) else args[1]
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=actual_type,
+                            default=field.default,
+                            help=f"Training parameter: {field.name}"
+                        )
+                    else:
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=field.type,
+                            default=field.default,
+                            help=f"Training parameter: {field.name}"
+                        )
     
     return parser.parse_args()
 
@@ -400,27 +465,43 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
     try:
-        yaml_config = load_yaml_config(yaml_path) if yaml_path else None
+        yaml_config = load_yaml_config(yaml_path) if yaml_path else {}
         args_config = vars(args)
+        
+        # Start with YAML config as base (if provided)
+        merged_config = yaml_config.copy() if yaml_config else {}
+        
+        # Override with CLI arguments (CLI takes precedence over YAML)
+        for key, value in args_config.items():
+            if value is not None:  # Only override if CLI arg was explicitly provided
+                merged_config[key] = value
         
         # Convert string paths to Path objects
         for key in ['train_data_file', 'test_data_file', 'output_dir']:
-            if key in args_config and args_config[key] is not None:
-                args_config[key] = Path(args_config[key])
+            if key in merged_config and merged_config[key] is not None:
+                merged_config[key] = Path(merged_config[key])
         
-        # Create ModelConfig from args
+        # Handle nested 'model' config from YAML
+        model_config_dict = {}
+        if 'model' in merged_config and isinstance(merged_config['model'], dict):
+            model_config_dict = merged_config['model']
+        
+        # Create ModelConfig from merged values
         model_fields = {f.name for f in fields(ModelConfig)}
-        model_args = {k: v for k, v in args_config.items() if k in model_fields}
+        model_args = {k: v for k, v in merged_config.items() if k in model_fields}
+        # Override with values from nested model config if present
+        model_args.update({k: v for k, v in model_config_dict.items() if k in model_fields})
         model_config = ModelConfig(**model_args)
         
         # Create TrainingConfig
         training_fields = {f.name for f in fields(TrainingConfig)}
-        training_args = {k: v for k, v in args_config.items() 
+        training_args = {k: v for k, v in merged_config.items() 
                         if k in training_fields and k != 'model'}
         
-        # Log the CLI arguments for debugging
+        # Log the configuration sources for debugging
+        logger.debug(f"YAML config: {yaml_config}")
         logger.debug(f"CLI arguments: {args_config}")
-        logger.debug(f"Training arguments: {training_args}")
+        logger.debug(f"Merged config: {merged_config}")
         
         config = TrainingConfig(model=model_config, **training_args)
         
@@ -476,11 +557,11 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        # Use config.n_images for nsamples - this is the interpreted value from the training script
+        # Use config.n_groups for nsamples - this is the interpreted value from the training script
         dataset = data.generate_grouped_data(
             config.model.N, 
-            K=4, 
-            nsamples=config.n_images,  # Use interpreted n_images
+            K=config.neighbor_count,  # Use configurable K value
+            nsamples=config.n_groups,  # Use n_groups (clearer naming)
             dataset_path=str(config.train_data_file) if config.train_data_file else None,
             sequential_sampling=config.sequential_sampling  # Pass sequential sampling flag
         )
