@@ -412,6 +412,10 @@ class RawData:
         
         # Unified efficient logic for all gridsize values
         C = gridsize ** 2  # Number of coordinates per solution region
+        n_points = len(self.xcoords)
+        
+        # Determine if oversampling is needed
+        needs_oversampling = (nsamples > n_points) and (C > 1)
         
         # Determine sampling strategy
         if sequential_sampling:
@@ -422,17 +426,30 @@ class RawData:
         else:
             # Use random sampling (default)
             seed_indices = None
-            print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using efficient random sample-then-group strategy)')
-            logging.info(f"Using efficient random sampling strategy for gridsize={gridsize}")
+            strategy = "K choose C oversampling" if needs_oversampling else "efficient"
+            print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using {strategy} random sample-then-group strategy)')
+            logging.info(f"Using {strategy} random sampling strategy for gridsize={gridsize}")
         
-        # Use the new efficient method for all cases
-        selected_groups = self._generate_groups_efficiently(
-            nsamples=nsamples, 
-            K=K, 
-            C=C, 
-            seed=seed,
-            seed_indices=seed_indices
-        )
+        # Automatically route to appropriate implementation
+        if needs_oversampling:
+            # Use K choose C oversampling when requesting more groups than available points
+            logging.info(f"Automatically using K choose C oversampling: {nsamples} groups requested but only {n_points} points available (K={K}, C={C})")
+            selected_groups = self._generate_groups_with_oversampling(
+                nsamples=nsamples,
+                K=K,
+                C=C,
+                seed=seed,
+                seed_indices=seed_indices
+            )
+        else:
+            # Use the existing efficient method for standard cases
+            selected_groups = self._generate_groups_efficiently(
+                nsamples=nsamples, 
+                K=K, 
+                C=C, 
+                seed=seed,
+                seed_indices=seed_indices
+            )
         
         logging.info(f"Generated {len(selected_groups)} groups efficiently")
         
@@ -621,6 +638,137 @@ class RawData:
             
         except Exception as e:
             logging.error(f"Failed to generate groups efficiently: {e}")
+            raise
+
+    def _generate_groups_with_oversampling(self, nsamples, K, C, seed=None, seed_indices=None):
+        """
+        Generate groups using K choose C combinations for data augmentation.
+        
+        This method enables creating more groups than seed points by generating
+        multiple combinations from each seed's K nearest neighbors.
+        
+        Args:
+            nsamples: Number of groups to generate (can be > number of seed points)
+            K: Number of nearest neighbors to consider
+            C: Number of coordinates per group (gridsize²)
+            seed: Random seed for reproducibility
+            seed_indices: Optional pre-selected seed indices
+            
+        Returns:
+            np.ndarray: Array of shape (nsamples, C) containing selected indices
+        """
+        from itertools import combinations
+        
+        try:
+            if seed is not None:
+                np.random.seed(seed)
+            
+            n_points = len(self.xcoords)
+            logging.info(f"Generating {nsamples} groups with K choose C oversampling from {n_points} points (K={K}, C={C})")
+            
+            # Validate inputs
+            if n_points < C:
+                raise ValueError(f"Dataset has only {n_points} points but {C} coordinates per group requested.")
+            
+            if K < C:
+                raise ValueError(f"K={K} must be >= C={C} (need at least C neighbors to form a group)")
+            
+            # Calculate maximum combinations per seed
+            max_combos_per_seed = 1 if C == 1 else len(list(combinations(range(K), C)))
+            logging.info(f"Each seed point can generate up to {max_combos_per_seed} combinations")
+            
+            # Step 1: Determine how many seed points we need
+            min_seeds_needed = max(1, (nsamples + max_combos_per_seed - 1) // max_combos_per_seed)
+            n_seeds = min(min_seeds_needed * 2, n_points)  # Use 2x seeds for diversity
+            
+            # Step 2: Select seed points
+            if seed_indices is not None and len(seed_indices) >= min_seeds_needed:
+                seed_indices = seed_indices[:n_seeds]
+            else:
+                all_indices = np.arange(n_points)
+                if n_seeds < n_points:
+                    seed_indices = np.random.choice(all_indices, size=n_seeds, replace=False)
+                else:
+                    seed_indices = all_indices
+            
+            logging.info(f"Using {len(seed_indices)} seed points to generate {nsamples} groups")
+            
+            # Special case for C=1 (gridsize=1)
+            if C == 1:
+                # For C=1, just sample with replacement if needed
+                if nsamples <= len(seed_indices):
+                    groups = np.random.choice(seed_indices, size=nsamples, replace=False).reshape(-1, 1)
+                else:
+                    groups = np.random.choice(seed_indices, size=nsamples, replace=True).reshape(-1, 1)
+                logging.info(f"Generated {nsamples} groups for C=1 case")
+                return groups
+            
+            # Step 3: Build KDTree and find neighbors
+            coords = np.column_stack([self.xcoords, self.ycoords])
+            tree = cKDTree(coords)
+            
+            # Step 4: Generate combination pool
+            combination_pool = []
+            seed_mapping = []  # Track which seed each combination came from
+            
+            for seed_idx in seed_indices:
+                # Find K nearest neighbors (including self)
+                seed_coord = coords[seed_idx:seed_idx+1]
+                distances, neighbor_indices = tree.query(seed_coord, k=min(K+1, n_points))
+                
+                # Get neighbors (excluding self)
+                neighbors = neighbor_indices[0]
+                if len(neighbors) > K:
+                    neighbors = neighbors[1:K+1]  # Exclude self
+                else:
+                    neighbors = neighbors[1:] if len(neighbors) > 1 else neighbors  # Handle edge case
+                
+                # Ensure we have enough neighbors
+                if len(neighbors) < C:
+                    # Include seed point if not enough neighbors
+                    available = np.concatenate([[seed_idx], neighbors])
+                else:
+                    available = neighbors[:K]  # Use up to K neighbors
+                
+                # Generate all C-combinations from available points
+                if len(available) >= C:
+                    for combo in combinations(available, C):
+                        combination_pool.append(np.array(combo))
+                        seed_mapping.append(seed_idx)
+                        
+                        # Early stopping if we have enough combinations
+                        if len(combination_pool) >= nsamples * 2:
+                            break
+                
+                if len(combination_pool) >= nsamples * 2:
+                    break
+            
+            # Step 5: Sample from combination pool
+            total_combinations = len(combination_pool)
+            logging.info(f"Generated pool of {total_combinations} combinations")
+            
+            if total_combinations == 0:
+                raise ValueError("No valid combinations could be generated")
+            
+            # Convert pool to array for efficient indexing
+            combination_pool = np.array(combination_pool)
+            
+            # Sample combinations
+            if nsamples <= total_combinations:
+                # Sample without replacement for diversity
+                selected_indices = np.random.choice(total_combinations, size=nsamples, replace=False)
+            else:
+                # Sample with replacement if requesting more than available
+                logging.warning(f"Requested {nsamples} groups but only {total_combinations} unique combinations available. Sampling with replacement.")
+                selected_indices = np.random.choice(total_combinations, size=nsamples, replace=True)
+            
+            groups = combination_pool[selected_indices]
+            
+            logging.info(f"Successfully generated {nsamples} groups with K choose C oversampling")
+            return groups
+            
+        except Exception as e:
+            logging.error(f"Failed to generate groups with oversampling: {e}")
             raise
 
     #@debug
