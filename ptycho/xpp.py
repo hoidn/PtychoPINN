@@ -34,16 +34,20 @@ required by the reconstruction algorithms.
 ## Typical Usage
 
 ```python
-from ptycho.xpp import ptycho_data, ptycho_data_train, obj
+import ptycho.xpp as xpp
 from ptycho.data_preprocessing import process_xpp_data
 
-# Access pre-loaded experimental data
-diffraction_patterns = obj['diffraction']  # Shape: (n_images, N, N)
-probe_estimate = obj['probeGuess']         # Shape: (N, N) complex
-object_estimate = obj['objectGuess']       # Shape: (M, M) complex
+# Access experimental data (loaded on-demand)
+diffraction_patterns = xpp.obj['diffraction']  # Shape: (n_images, N, N)
+probe_estimate = xpp.obj['probeGuess']         # Shape: (N, N) complex
+object_estimate = xpp.obj['objectGuess']       # Shape: (M, M) complex
+
+# Alternative: direct import of the loader function
+from ptycho.xpp import load_ptycho_data
+ptycho_data, ptycho_data_train, obj = load_ptycho_data(data_file_path)
 
 # Integration with preprocessing pipeline
-processed_data = process_xpp_data(ptycho_data_train)
+processed_data = process_xpp_data(xpp.ptycho_data_train)
 ```
 
 ## Configuration Dependencies
@@ -65,8 +69,9 @@ The loaded data follows the standard PtychoPINN data contracts:
 
 - Uses `pkg_resources` for dataset packaging and distribution
 - Hardcoded reference to Run1084 experimental dataset
-- Direct execution of data loading on module import (legacy pattern)
-- Global variables expose loaded data for downstream processing
+- **Lazy loading**: Data loading deferred until first attribute access (import-safe)
+- Module-level attribute access via `__getattr__` for backward compatibility
+- Global variables cache loaded data for downstream processing
 
 This module represents the experimental data entry point into the PtychoPINN
 system and demonstrates the integration patterns required for processing
@@ -87,11 +92,64 @@ def get_data(**kwargs):
     return dset, train_frac
 
 
-data_file_path = pkg_resources.resource_filename(__name__, 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
-ptycho_data, ptycho_data_train, obj = load_ptycho_data(data_file_path)
-print('raw diffraction shape', obj['diffraction'].shape)
-# TODO cast to complex64?
-probeGuess = obj['probeGuess']
-objectGuess = obj['objectGuess']
+# Global variables to cache loaded data
+_ptycho_data = None
+_ptycho_data_train = None
+_obj = None
+_probeGuess = None
+_objectGuess = None
+
+def _ensure_data_loaded():
+    """Lazy loading function to load data only when accessed."""
+    global _ptycho_data, _ptycho_data_train, _obj, _probeGuess, _objectGuess
+    
+    if _ptycho_data is None:
+        data_file_path = pkg_resources.resource_filename(__name__, 'datasets/Run1084_recon3_postPC_shrunk_3.npz')
+        _ptycho_data, _ptycho_data_train, _obj = load_ptycho_data(data_file_path)
+        print('raw diffraction shape', _obj['diffraction'].shape)
+        # TODO cast to complex64?
+        _probeGuess = _obj['probeGuess']
+        _objectGuess = _obj['objectGuess']
+
+def get_ptycho_data():
+    """Access to the full ptycho dataset."""
+    _ensure_data_loaded()
+    return _ptycho_data
+
+def get_ptycho_data_train():
+    """Access to the training subset of ptycho dataset."""
+    _ensure_data_loaded()
+    return _ptycho_data_train
+
+def get_obj():
+    """Access to the loaded data dictionary."""
+    _ensure_data_loaded()
+    return _obj
+
+def get_probeGuess():
+    """Access to the probe guess."""
+    _ensure_data_loaded() 
+    return _probeGuess
+
+def get_objectGuess():
+    """Access to the object guess."""
+    _ensure_data_loaded()
+    return _objectGuess
+
+# For backward compatibility, provide module-level access
+def __getattr__(name):
+    """Module-level attribute access for backward compatibility."""
+    if name == 'ptycho_data':
+        return get_ptycho_data()
+    elif name == 'ptycho_data_train':
+        return get_ptycho_data_train()
+    elif name == 'obj':
+        return get_obj()
+    elif name == 'probeGuess':
+        return get_probeGuess()
+    elif name == 'objectGuess':
+        return get_objectGuess()
+    else:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 ## TODO refactor actual / nominal positions

@@ -95,44 +95,82 @@ DIR/
 
 ```bash
 # Basic training
+ptycho_train --train_data_file dataset.npz --n_groups 2000 --nepochs 50 --output_dir my_run
+
+# Legacy compatibility (deprecated but still works)
 ptycho_train --train_data_file dataset.npz --n_images 2000 --nepochs 50 --output_dir my_run
 
 # With configuration file (recommended)
 ptycho_train --config configs/my_config.yaml
+
+# Independent sampling control (NEW)
+ptycho_train --train_data_file dataset.npz --n_subsample 5000 --n_groups 1000 --nepochs 50 --output_dir my_run
+
+# Reproducible sampling (NEW)
+ptycho_train --train_data_file dataset.npz --n_subsample 3000 --n_groups 500 --subsample_seed 42 --output_dir my_run
 ```
 
-### ⚠️ CRITICAL: Understanding `gridsize` and `--n_images`
+### 📊 NEW: Independent Sampling Control
 
-The interpretation of the `--n_images` flag and the correct subsampling method **change fundamentally** based on the `gridsize` parameter. Using the wrong method will lead to invalid training results.
+The project now supports **independent control** of data subsampling and neighbor grouping:
 
-| GridSize | `--n_images` Refers To... | Total Patterns Used | Subsampling Method |
+- **`--n-subsample`**: Controls how many images to randomly select from the dataset
+- **`--n-groups`**: Controls how many groups to use for training/inference (regardless of gridsize)
+- **`--subsample-seed`**: Ensures reproducible random selection
+
+**Note**: `--n-images` is deprecated but still supported for backward compatibility.
+
+**Example Use Cases:**
+```bash
+# Dense grouping: Use most subsampled data
+ptycho_train --n-subsample 1200 --n-groups 1000 --gridsize 2 ...
+
+# Sparse grouping: Large subsample, fewer groups
+ptycho_train --n-subsample 10000 --n-groups 500 --gridsize 2 ...
+
+# Memory-constrained: Limit data loading
+ptycho_train --n-subsample 5000 --n-groups 2000 --gridsize 1 ...
+```
+
+### ⚠️ CRITICAL: Understanding `gridsize` and `--n-groups`
+
+The `--n-groups` parameter **always** refers to the number of groups to use, regardless of the `gridsize` parameter. This provides consistent behavior and eliminates confusion.
+
+| GridSize | `--n-groups` Refers To... | Total Patterns Used | Subsampling Method |
 |----------|---------------------------|---------------------|--------------------|
-| 1        | Individual images         | `n_images`          | **Unified Random Sampling.** The system automatically selects a random subset. Pre-shuffling is no longer required but won't hurt. |
-| > 1      | **Neighbor groups**       | `n_images` × `gridsize`² | **Unified Random Sampling.** The system automatically uses a "sample-then-group" strategy to efficiently select random neighbor groups. |
+| 1        | **Groups (each with 1 image)**    | `n_groups` × 1      | **Unified Random Sampling.** Each group contains 1 image. |
+| > 1      | **Groups (neighbor groups)**       | `n_groups` × `gridsize`² | **Unified Random Sampling.** Each group contains gridsize² images. |
+
+**Key Insight**: With `--n-groups`, the parameter always means "number of groups" regardless of gridsize. For gridsize=1, each group contains 1 image. For gridsize>1, each group contains multiple neighboring images.
 
 **Log Message Examples to Watch For:**
 ```
-# GridSize=1 (Safe Subsampling after manual shuffle)
-INFO - Parameter interpretation: --n-images=1000 refers to individual images (gridsize=1)
+# GridSize=1 (Unified group interpretation)
+INFO - Parameter interpretation: --n-groups=1000 refers to 1000 groups of 1 image each (gridsize=1)
 
-# GridSize=2 (Safe, Automatic Group-Aware Subsampling)
-INFO - Parameter interpretation: --n-images=250 refers to neighbor groups (gridsize=2, total patterns=1000)
+# GridSize=2 (Unified group interpretation)
+INFO - Parameter interpretation: --n-groups=250 refers to 250 groups of 4 images each (gridsize=2, total patterns=1000)
 INFO - Using grouping-aware subsampling strategy for gridsize=2
 ```
+
+**Backward Compatibility**: The deprecated `--n-images` parameter still works but will show a deprecation warning.
 
 ---
 
 ## Inference
 
 ```bash
-# Basic inference
+# Basic inference (uses all test data)
 ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir inference_out
 
-# With specific number of test patterns
-ptycho_inference --model_path trained_model/ --test_data test.npz --n_images 500 --output_dir inference_out
+# With specific number of test groups
+ptycho_inference --model_path trained_model/ --test_data test.npz --n_groups 500 --output_dir inference_out
+
+# Independent sampling control (NEW)
+ptycho_inference --model_path trained_model/ --test_data test.npz --n_subsample 2000 --n_groups 500 --output_dir inference_out
 
 # GridSize=2 inference (must match the gridsize used for training)
-ptycho_inference --model_path gs2_model/ --test_data test.npz --n_images 125 --gridsize 2 --output_dir gs2_inference
+ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --gridsize 2 --output_dir gs2_inference
 ```
 
 ---
@@ -180,6 +218,15 @@ python scripts/compare_models.py \
     --test_data test.npz \
     --output_dir comparison_out
 
+# With independent sampling control (NEW)
+python scripts/compare_models.py \
+    --pinn_dir pinn_model/ \
+    --baseline_dir baseline_model/ \
+    --test_data test.npz \
+    --n-subsample 3000 \
+    --n-test-groups 500 \
+    --output_dir comparison_out
+
 # Three-way comparison (PtychoPINN vs Baseline vs Tike)
 python scripts/compare_models.py \
     --pinn_dir pinn_model/ \
@@ -191,8 +238,8 @@ python scripts/compare_models.py \
 # Complete training + comparison workflow
 ./scripts/run_comparison.sh train.npz test.npz output_dir
 
-# With specific training/test sizes (see gridsize warning in Training section)
-./scripts/run_comparison.sh train.npz test.npz output_dir --n-train-images 2000 --n-test-images 500
+# With specific training/test sizes
+./scripts/run_comparison.sh train.npz test.npz output_dir --n-train-groups 2000 --n-test-groups 500
 ```
 
 ---

@@ -67,6 +67,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, Any, Optional, Literal
 import yaml
+import warnings
 
 @dataclass(frozen=True)
 class ModelConfig:
@@ -83,7 +84,7 @@ class ModelConfig:
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0
 
-@dataclass(frozen=True)
+@dataclass
 class TrainingConfig:
     """Training specific configuration."""
     model: ModelConfig
@@ -96,21 +97,60 @@ class TrainingConfig:
     realspace_mae_weight: float = 0.0
     realspace_weight: float = 0.0
     nphotons: float = 1e9
-    n_images: int = 512  # Number of images to use from the dataset
+    n_groups: Optional[int] = None  # Number of groups to generate (always means groups, regardless of gridsize)
+    n_images: Optional[int] = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
+    n_subsample: Optional[int] = None  # Number of images to subsample before grouping (independent control)
+    subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
+    neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
     positions_provided: bool = True  
     probe_trainable: bool = False
     intensity_scale_trainable: bool = True  # Changed default
     output_dir: Path = Path("training_outputs")
     sequential_sampling: bool = False  # Use sequential sampling instead of random
+    
+    def __post_init__(self):
+        """Handle backward compatibility for n_images → n_groups migration."""
+        # Handle the deprecated n_images parameter
+        if self.n_images is not None and self.n_groups is None:
+            warnings.warn(
+                "Parameter 'n_images' is deprecated and will be removed in a future version. "
+                "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            # Use object.__setattr__ to modify dataclass (not frozen anymore)
+            object.__setattr__(self, 'n_groups', self.n_images)
+        
+        # Set default if neither was provided
+        if self.n_groups is None:
+            object.__setattr__(self, 'n_groups', 512)
 
-@dataclass(frozen=True)
+@dataclass
 class InferenceConfig:
     """Inference specific configuration."""
     model: ModelConfig
     model_path: Path
     test_data_file: Path
+    n_groups: Optional[int] = None  # Number of groups to use (None = use all)
+    n_images: Optional[int] = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
+    n_subsample: Optional[int] = None  # Number of images to subsample for inference (independent control)
+    subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
+    neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
     debug: bool = False
     output_dir: Path = Path("inference_outputs")
+    
+    def __post_init__(self):
+        """Handle backward compatibility for n_images → n_groups migration."""
+        # Handle the deprecated n_images parameter
+        if self.n_images is not None and self.n_groups is None:
+            warnings.warn(
+                "Parameter 'n_images' is deprecated and will be removed in a future version. "
+                "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            # Use object.__setattr__ to modify dataclass
+            object.__setattr__(self, 'n_groups', self.n_images)
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
