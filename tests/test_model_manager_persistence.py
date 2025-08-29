@@ -17,10 +17,15 @@ from ptycho.probe import get_default_probe
 
 # Initialize probe before importing model to avoid KeyError
 p.set('N', 64)
+p.set('gridsize', 1)
+p.set('default_probe_scale', 0.7)
 p.set('probe.type', 'gaussian')
 p.set('probe.photons', 1e10)
-probe = get_default_probe(64)
-p.params()['probe'] = probe
+p.set('intensity_scale', 1.0)  # Required by model.py import
+probe = get_default_probe(64, fmt='np')
+probe_complex = probe.astype(complex)
+probe_3d = probe_complex[..., np.newaxis]  # Add channel dimension
+p.set('probe', probe_3d)
 
 from ptycho.model_manager import ModelManager
 from ptycho.model import create_model_with_gridsize
