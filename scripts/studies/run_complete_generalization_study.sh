@@ -59,6 +59,7 @@ PTYCHI_ITERATIONS=200
 PTYCHI_BATCH_SIZE=8
 TEST_SIZES=""
 STITCH_CROP_SIZE=""
+CONFIG_FILE=""
 
 # Parse command line arguments
 show_help() {
@@ -79,12 +80,17 @@ OPTIONS:
     --train-data PATH         Path to training dataset (default: auto-generated)
     --test-data PATH          Path to test dataset (default: auto-generated)
     --n-test-images N         Number of test images to use for evaluation (overridden by --test-sizes if provided)
+                              # TODO: Future enhancement - support both n_images (deprecated) and n_groups parameters
+                              # --n-groups N        Number of groups to generate (new parameter)
+                              # --n-subsample N     Number of images to subsample before grouping
+                              # --neighbor-count K  Number of nearest neighbors for K choose C oversampling
     --add-tike-arm            Add Tike iterative reconstruction as third comparison arm (enables 3-way comparison mode)
     --tike-iterations N       Number of Tike reconstruction iterations (default: 1000)
     --add-ptychi-arm          Add Pty-chi iterative reconstruction as third comparison arm (enables 3-way comparison mode)
     --ptychi-algorithm ALG    Pty-chi algorithm: ePIE, rPIE, DM, LSQML (default: ePIE)
     --ptychi-iterations N     Number of Pty-chi reconstruction iterations (default: 200)
     --ptychi-batch-size N     Batch size for Pty-chi reconstruction (default: 8)
+    --config PATH             Path to YAML config file for training (e.g., configs/gridsize2.yaml)
     --skip-data-prep          Skip dataset preparation step
     --skip-training           Skip model training (use existing models)
     --skip-comparison         Skip model comparison step
@@ -226,6 +232,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --ptychi-batch-size)
             PTYCHI_BATCH_SIZE="$2"
+            shift 2
+            ;;
+        --config)
+            CONFIG_FILE="$2"
             shift 2
             ;;
         --skip-data-prep)
@@ -523,7 +533,11 @@ train_models() {
         log "Training models for train_size=$train_size, test_size=$test_size (Trial $trial/$NUM_TRIALS)"
         
         # Train PtychoPINN
-        local pinn_cmd="python scripts/training/train.py \\
+        local pinn_cmd="python scripts/training/train.py"
+        if [ -n "$CONFIG_FILE" ]; then
+            pinn_cmd="$pinn_cmd --config '$CONFIG_FILE'"
+        fi
+        pinn_cmd="$pinn_cmd \\
             --train_data_file '$train_data_path' \\
             --test_data_file '$TEST_DATA' \\
             --n_images $train_size \\
@@ -533,7 +547,11 @@ train_models() {
         run_cmd "$pinn_cmd" "PtychoPINN training (n_images=$train_size, trial=$trial)"
         
         # Train Baseline
-        local baseline_cmd="python scripts/run_baseline.py \\
+        local baseline_cmd="python scripts/run_baseline.py"
+        if [ -n "$CONFIG_FILE" ]; then
+            baseline_cmd="$baseline_cmd --config '$CONFIG_FILE'"
+        fi
+        baseline_cmd="$baseline_cmd \\
             --train_data_file '$train_data_path' \\
             --test_data '$TEST_DATA' \\
             --n_images $train_size \\
@@ -654,6 +672,9 @@ compare_models() {
             local registration_arg=""
             if [ "$SKIP_REGISTRATION" = true ]; then
                 registration_arg="--skip-registration"
+            elif [ "$ADD_PTYCHI_ARM" = true ] || [ "$ADD_TIKE_ARM" = true ]; then
+                # Use selective registration for pty-chi/tike comparisons
+                registration_arg="--register-ptychi-only"
             fi
             
             local stitch_arg=""
