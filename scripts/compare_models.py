@@ -834,6 +834,8 @@ def main():
         train_data_file=Path("dummy.npz"),
         n_images=test_data_raw.diff3d.shape[0]
     )
+    # CRITICAL FIX: Update legacy params BEFORE creating data container
+    # This ensures generate_grouped_data() sees the correct gridsize in params.cfg
     update_legacy_dict(p.cfg, final_config)
     logger.info(f"Final configuration: gridsize={restored_gridsize}, N={test_data_raw.probeGuess.shape[0]}, n_images={test_data_raw.diff3d.shape[0]}")
     
@@ -843,7 +845,7 @@ def main():
         raise ValueError(f"Invalid stitch_crop_size: {args.stitch_crop_size}. Must be 0 < M <= N={N}")
     logger.info(f"Using stitch_crop_size M={args.stitch_crop_size} (N={N})")
     
-    # Create data container
+    # Create data container AFTER legacy params are updated
     test_container = create_ptycho_data_container(test_data_raw, final_config)
     
     # Extract ground truth if available
