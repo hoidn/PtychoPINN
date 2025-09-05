@@ -135,7 +135,8 @@ class TestTranslateSmoothPatterns(unittest.TestCase):
         phase = np.pi * (xx + yy) / 2
         
         complex_pattern = amplitude * np.exp(1j * phase)
-        tf_complex = tf.constant(complex_pattern[np.newaxis, :, :, np.newaxis])
+        # Cast to complex64 for consistent dtype handling with TF 2.19+
+        tf_complex = tf.cast(tf.constant(complex_pattern[np.newaxis, :, :, np.newaxis]), tf.complex64)
         
         offsets = tf.constant([[1.5, -0.7]], dtype=tf.float32)
         
@@ -151,6 +152,7 @@ class TestTranslateSmoothPatterns(unittest.TestCase):
         output_magnitude = tf.abs(result)
         
         # Total energy should be approximately preserved (allowing for boundary effects)
+        # Both energies now have consistent float32 dtype
         input_energy = tf.reduce_sum(input_magnitude**2)
         output_energy = tf.reduce_sum(output_magnitude**2)
         energy_ratio = output_energy / input_energy
