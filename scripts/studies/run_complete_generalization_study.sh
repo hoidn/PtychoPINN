@@ -582,8 +582,7 @@ train_models() {
             --test_data_file '$TEST_DATA' \\
             --n_groups $train_groups --n_subsample $train_subsample \\
             --neighbor_count $NEIGHBOR_COUNT \\
-            --output_dir '$trial_output_dir/pinn_run' \\
-            --nepochs 50"
+            --output_dir '$trial_output_dir/pinn_run'"
             
         run_cmd "$pinn_cmd" "PtychoPINN training (subsample=$train_subsample, groups=$train_groups, trial=$trial)"
         
@@ -597,8 +596,7 @@ train_models() {
             --test_data '$TEST_DATA' \\
             --n_groups $train_groups --n_subsample $train_subsample \\
             --neighbor_count $NEIGHBOR_COUNT \\
-            --output_dir '$trial_output_dir/baseline_run' \\
-            --nepochs 50"
+            --output_dir '$trial_output_dir/baseline_run'"
             
         run_cmd "$baseline_cmd" "Baseline training (subsample=$train_subsample, groups=$train_groups, trial=$trial)"
         
