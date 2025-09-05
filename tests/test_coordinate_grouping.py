@@ -214,7 +214,8 @@ class TestCoordinateGrouping(unittest.TestCase):
                 nsamples=nsamples, K=K, C=C
             )
         
-        self.assertIn("Requested 5 coordinates per group", str(context.exception))
+        # Updated for improved technical error message
+        self.assertIn("K=3 must be >= C=5", str(context.exception))
     
     def test_edge_case_small_dataset(self):
         """Test with very small dataset."""
@@ -264,7 +265,8 @@ class TestCoordinateGrouping(unittest.TestCase):
         # Check shapes
         C = 4  # gridsize^2
         self.assertEqual(result['diffraction'].shape, (nsamples, N, N, C))
-        self.assertEqual(result['coords_offsets'].shape, (nsamples, 1, 2))
+        # Updated for standardized coordinate array format
+        self.assertEqual(result['coords_offsets'].shape, (nsamples, 1, 2, 1))
         self.assertEqual(result['coords_relative'].shape, (nsamples, 1, 2, C))
         self.assertEqual(result['nn_indices'].shape, (nsamples, C))
     

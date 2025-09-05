@@ -145,9 +145,10 @@ class TestAutomaticOversampling(unittest.TestCase):
         
         dataset = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=42)
         
-        # For gridsize=1, should still get requested samples (with replacement)
-        self.assertEqual(dataset['diffraction'].shape[0], nsamples)
-        self.assertEqual(dataset['nn_indices'].shape[0], nsamples)
+        # For gridsize=1, no oversampling - capped at available points
+        expected_samples = min(nsamples, len(self.xcoords))
+        self.assertEqual(dataset['diffraction'].shape[0], expected_samples)
+        self.assertEqual(dataset['nn_indices'].shape[0], expected_samples)
         self.assertEqual(dataset['nn_indices'].shape[1], 1)  # gridsize² = 1
         
     def test_reproducibility_with_seed(self):
