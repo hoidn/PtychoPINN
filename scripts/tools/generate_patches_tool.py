@@ -125,7 +125,8 @@ def generate_patches(
     grouped_data = raw_data.generate_grouped_data(
         N=patch_size,
         K=k_neighbors,
-        nsamples=nsamples
+        nsamples=nsamples,
+        gridsize=1
     )
     
     if 'Y' not in grouped_data:

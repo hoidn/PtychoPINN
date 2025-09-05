@@ -60,7 +60,8 @@ def perform_inference(model: tf.keras.Model, test_data, K: int = 7, nsamples: in
         np.random.seed(45)
 
         # Generate test dataset
-        test_dataset = test_data.generate_grouped_data(params.cfg['N'], K=K, nsamples=nsamples)
+        gridsize = params.cfg.get('gridsize', 1)
+        test_dataset = test_data.generate_grouped_data(params.cfg['N'], K=K, nsamples=nsamples, gridsize=gridsize)
         
         # Create data container
         from ptycho import loader
