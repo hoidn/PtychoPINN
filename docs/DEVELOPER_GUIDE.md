@@ -541,3 +541,73 @@ Multiple interconnected fixes were required:
 
 *This architectural learning was derived from extensive debugging of gridsize>1 inference failures and represents a fundamental understanding of the initialization dependencies in the TensorFlow model loading pipeline.*
 
+---
+
+## 11. Development Methodology & Architectural Principles
+
+This section outlines the project's preferred development methodology and key architectural principles derived from real-world bug fixes.
+
+### 11.1. Methodology: Test-Driven Development (TDD)
+
+This project strongly encourages a Test-Driven Development (TDD) approach for all new features and bug fixes. The methodology follows a "Red-Green-Refactor" cycle:
+
+1.  **RED - Write a Failing Test:** Before writing any implementation code, write a fine-grained, specific test that captures the desired functionality or reproduces the bug. Run the test and watch it fail.
+2.  **GREEN - Write Minimal Code:** Write the simplest, most direct code possible to make the test pass.
+3.  **REFACTOR - Clean Up:** With a passing test as a safety net, refactor the implementation code to improve its design, readability, and efficiency, ensuring the test remains green.
+
+The following case study demonstrates this process in action.
+
+### 11.2. Case Study: Fixing the Baseline Model's `gridsize > 1` Bug
+
+A critical bug was discovered where `scripts/run_baseline.py` would crash when run with `gridsize=2`. The fix for this bug is a canonical example of our TDD process and established a core architectural principle.
+
+**The Problem:** The script failed with a `ValueError` related to shape invariance in a `tf.while_loop` during the patch reassembly step.
+
+**The Diagnosis:** The root cause was a malstructure where the data pipeline fed multi-channel data (e.g., shape `(B, N, N, 4)`) to the baseline model. The model, in turn, incorrectly configured itself to produce multi-channel output, which the single-channel `reassemble_position` function could not handle.
+
+**The TDD Solution - A Two-Cycle Fix:**
+
+1.  **TDD Cycle 1: Hardening the Model Architecture (Red-Green-Refactor)**
+    *   **RED:** We first wrote a unit test in `tests/test_baselines.py` that proved the `build_model` function was architecturally flawed. It created a mock 4-channel input and asserted that the model's output was incorrectly 4-channel. This test failed as expected.
+    *   **GREEN:** We made the minimal change in `<code-ref type="module">ptycho/baselines.py</code-ref>` to make the test pass: we hardcoded the output channel count `c` to `1`.
+    *   **REFACTOR:** We re-ran the test to confirm it passed and added comments to explain the intentional hardcoding, solidifying the model's single-channel contract.
+
+2.  **TDD Cycle 2: Correcting the Data Flow (Red-Green-Refactor)**
+    *   **RED:** With the model hardened, we addressed the data pipeline. We first refactored the data shaping logic in `scripts/run_baseline.py` into a testable helper function. Then, we wrote a new unit test that fed this function multi-channel data and asserted that the output was *not* flattened. This test failed as expected.
+    *   **GREEN:** We then implemented the flattening logic inside the helper function using `<code-ref type="function">ptycho.tf_helper._channel_to_flat</code-ref>`, making the test pass. We also ensured the `global_offsets` tensor was similarly flattened.
+    *   **REFACTOR:** We cleaned up the implementation, added logging to make the transformation explicit, and added a regression test for the `gridsize=1` case.
+
+**Final Validation:** Only after both fine-grained TDD cycles were complete did we write a final integration test to confirm that the end-to-end script now runs successfully.
+
+### 11.3. The Architectural Principle: Separation of Data Shaping and Model Responsibilities
+
+This case study establishes a critical design principle for the project:
+
+**A model's core architecture should be fixed and define a clear data contract. It is the responsibility of the data pipeline or calling script to shape the data to match this contract.**
+
+**The Correct Pattern:**
+The calling script is responsible for data formatting.
+```python
+# In scripts/run_baseline.py
+from ptycho.tf_helper import _channel_to_flat
+
+# If data is multi-channel, flatten it before passing to the model.
+if n_channels > 1:
+    X_train_in = _channel_to_flat(X_train_in)
+    Y_I_train_in = _channel_to_flat(Y_I_train_in)
+    # ...
+model, history = bl.train(X_train_in, Y_I_train_in, ...)
+```
+
+**The Anti-Pattern to Avoid:**
+The model should not dynamically adapt its core I/O structure.
+```python
+# In ptycho/baselines.py (OLD, INCORRECT CODE)
+def build_model(X_train, Y_I_train, Y_phi_train):
+    # This is an anti-pattern. The model's channel depth should not
+    # depend on the input data's shape.
+    c = X_train.shape[-1] # <-- BUG!
+    ...
+    decoded1 = Conv2D(c, (3, 3), padding='same')(x1) # <-- BUG!
+```
+
