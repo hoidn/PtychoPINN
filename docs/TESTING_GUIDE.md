@@ -148,7 +148,19 @@ if __name__ == '__main__':
 - Mock external dependencies when appropriate
 - For integration tests, use temporary directories for outputs
 
-### 5. Documentation Style
+### 5. Test-Driven Development (TDD) Methodology
+
+This project strongly encourages a Test-Driven Development (TDD) approach for all new features and bug fixes. The methodology follows a "Red-Green-Refactor" cycle:
+
+1.  **RED - Write a Failing Test:** Before writing any implementation code, write a fine-grained, specific test that captures the desired functionality or reproduces the bug. Run the test and watch it fail. This proves the test is working and that the feature/fix is not already present.
+2.  **GREEN - Write Minimal Code:** Write the simplest, most direct code possible to make the test pass. Do not worry about elegance or optimization at this stage. The goal is simply to get a passing test.
+3.  **REFACTOR - Clean Up:** With a passing test as a safety net, refactor the implementation code to improve its design, readability, and efficiency. Re-run the test frequently to ensure it remains green.
+
+**Case Study:** For a detailed, real-world example of how this TDD process was used to fix a critical architectural bug in the baseline model, see the case study in the **<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>**.
+
+By following this TDD process, we ensure that all new code is inherently testable, correct by design, and protected against future regressions.
+
+### 6. Documentation Style
 
 Tests should be self-documenting through:
 - Clear test method names (e.g., `test_scaling_preserves_physics`)

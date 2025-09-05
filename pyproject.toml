@@ -40,6 +40,7 @@ dynamic = ["version"]
 [project.scripts]
 ptycho_train = "scripts.training.train:main"
 ptycho_inference = "scripts.inference.inference:main"
+ptycho_evaluate = "scripts.evaluation.evaluate_model:main"
 
 [tool.setuptools.package-data]
 datasets = ["*.npz"]
