@@ -761,7 +761,6 @@ compare_models() {
                 if [[ -n "$N_TEST_IMAGES" ]]; then
                     # For 2-way comparison, use user-specified test size (if any)
                     compare_cmd="$compare_cmd --n-test-images $N_TEST_IMAGES"
-                else
                     # For 2-way comparison with decoupled sizes, use test_size
                     # Test size is handled via TEST_SUBSAMPLE and TEST_GROUPS now
                 fi
