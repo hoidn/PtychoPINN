@@ -41,7 +41,10 @@ PROJECT_ROOT="$( cd "$SCRIPT_DIR/../.." && pwd )"
 cd "$PROJECT_ROOT"
 
 # Default configuration
-DEFAULT_TRAIN_SIZES="512 1024 2048 4096"
+DEFAULT_GROUP_SIZES="512 1024 2048 4096"
+DEFAULT_SUBSAMPLE_SIZES="" # Default: same as group sizes
+DEFAULT_TEST_GROUPS="2048"
+DEFAULT_TEST_SUBSAMPLE="4096"
 DEFAULT_OUTPUT_DIR="complete_generalization_study_$(date +%Y%m%d_%H%M%S)"
 DEFAULT_PARALLEL_JOBS=1
 DEFAULT_NUM_TRIALS=5
@@ -73,8 +76,10 @@ USAGE:
     $0 [OPTIONS]
 
 OPTIONS:
-    --train-sizes SIZES        Space-separated training set sizes (default: "$DEFAULT_TRAIN_SIZES")
-    --test-sizes SIZES         Space-separated test set sizes, must match number of train sizes (default: same as train sizes)
+    --train-group-sizes SIZES  Space-separated list of training group sizes (default: "$DEFAULT_GROUP_SIZES")
+    --train-subsample-sizes SIZES Space-separated list of image subsample sizes. Must match number of group sizes. (default: same as group sizes)
+    --test-groups N            Number of groups for the fixed test set (default: $DEFAULT_TEST_GROUPS)
+    --test-subsample N         Number of images to subsample for the fixed test set (default: $DEFAULT_TEST_SUBSAMPLE)
     --num-trials N            Number of trials per training size (default: $DEFAULT_NUM_TRIALS)
     --output-dir DIRECTORY     Output directory (default: timestamped directory)
     --train-data PATH         Path to training dataset (default: auto-generated)
@@ -172,7 +177,10 @@ EOF
 }
 
 # Initialize variables
-TRAIN_SIZES="$DEFAULT_TRAIN_SIZES"
+TRAIN_GROUP_SIZES="$DEFAULT_GROUP_SIZES"
+TRAIN_SUBSAMPLE_SIZES="$DEFAULT_SUBSAMPLE_SIZES"
+TEST_GROUPS="$DEFAULT_TEST_GROUPS"
+TEST_SUBSAMPLE="$DEFAULT_TEST_SUBSAMPLE"
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
 TRAIN_DATA=""
 TEST_DATA=""
@@ -183,7 +191,16 @@ NUM_TRIALS="$DEFAULT_NUM_TRIALS"
 while [[ $# -gt 0 ]]; do
     case $1 in
         --train-sizes)
-            TRAIN_SIZES="$2"
+            # Legacy compatibility: map to train-group-sizes
+            TRAIN_GROUP_SIZES="$2"
+            shift 2
+            ;;
+        --train-group-sizes)
+            TRAIN_GROUP_SIZES="$2"
+            shift 2
+            ;;
+        --train-subsample-sizes)
+            TRAIN_SUBSAMPLE_SIZES="$2"
             shift 2
             ;;
         --num-trials)
@@ -206,8 +223,17 @@ while [[ $# -gt 0 ]]; do
             N_TEST_IMAGES="$2"
             shift 2
             ;;
+        --test-groups)
+            TEST_GROUPS="$2"
+            shift 2
+            ;;
+        --test-subsample)
+            TEST_SUBSAMPLE="$2"
+            shift 2
+            ;;
         --test-sizes)
-            TEST_SIZES="$2"
+            # Legacy compatibility
+            TEST_GROUPS="$2"
             shift 2
             ;;
         --add-tike-arm)
@@ -324,16 +350,21 @@ if [ -n "$STITCH_CROP_SIZE" ] && ! [[ "$STITCH_CROP_SIZE" =~ ^[1-9][0-9]*$ ]]; t
     exit 1
 fi
 
-# Validate train and test sizes match if test sizes are provided
+# Default train-subsample-sizes to train-group-sizes if not provided
+if [ -z "$TRAIN_SUBSAMPLE_SIZES" ]; then
+    TRAIN_SUBSAMPLE_SIZES="$TRAIN_GROUP_SIZES"
+fi
+
+# Validate train and test sizes match if test sizes are provided (legacy compatibility)
 if [ -n "$TEST_SIZES" ]; then
     # Convert to arrays
-    TRAIN_ARRAY=($TRAIN_SIZES)
+    TRAIN_ARRAY=($TRAIN_GROUP_SIZES)
     TEST_ARRAY=($TEST_SIZES)
     
     # Check lengths match
     if [ ${#TRAIN_ARRAY[@]} -ne ${#TEST_ARRAY[@]} ]; then
         echo "ERROR: Number of train sizes must match number of test sizes."
-        echo "Train sizes (${#TRAIN_ARRAY[@]}): $TRAIN_SIZES"
+        echo "Train group sizes (${#TRAIN_ARRAY[@]}): $TRAIN_GROUP_SIZES"
         echo "Test sizes (${#TEST_ARRAY[@]}): $TEST_SIZES"
         exit 1
     fi
@@ -412,8 +443,10 @@ save_config() {
 # Generated: $(date)
 
 # Training Configuration
-TRAIN_SIZES=$TRAIN_SIZES
-TEST_SIZES=$TEST_SIZES
+TRAIN_GROUP_SIZES=$TRAIN_GROUP_SIZES
+TRAIN_SUBSAMPLE_SIZES=$TRAIN_SUBSAMPLE_SIZES
+TEST_GROUPS=$TEST_GROUPS
+TEST_SUBSAMPLE=$TEST_SUBSAMPLE
 PARALLEL_JOBS=$PARALLEL_JOBS
 
 # Paths
@@ -525,12 +558,12 @@ train_models() {
     
     # Training function for a single size and trial
     train_single_trial() {
-        local train_size=$1
-        local trial=$2
-        local test_size=$3
-        local trial_output_dir="$OUTPUT_DIR/train_$train_size/trial_$trial"
+        local train_groups=$1
+        local train_subsample=$2
+        local trial=$3
+        local trial_output_dir="$OUTPUT_DIR/train_subsample_${train_subsample}_groups_${train_groups}/trial_$trial"
         
-        log "Training models for train_size=$train_size, test_size=$test_size (Trial $trial/$NUM_TRIALS)"
+        log "Training models for train_subsample=$train_subsample, train_groups=$train_groups (Trial $trial/$NUM_TRIALS)"
         
         # Train PtychoPINN
         local pinn_cmd="python scripts/training/train.py"
@@ -540,11 +573,11 @@ train_models() {
         pinn_cmd="$pinn_cmd \\
             --train_data_file '$train_data_path' \\
             --test_data_file '$TEST_DATA' \\
-            --n_images $train_size \\
+            --n_groups $train_size --n_subsample $train_subsample \\
             --output_dir '$trial_output_dir/pinn_run' \\
             --nepochs 50"
             
-        run_cmd "$pinn_cmd" "PtychoPINN training (n_images=$train_size, trial=$trial)"
+        run_cmd "$pinn_cmd" "PtychoPINN training (subsample=$train_subsample, groups=$train_groups, trial=$trial)"
         
         # Train Baseline
         local baseline_cmd="python scripts/run_baseline.py"
@@ -554,22 +587,22 @@ train_models() {
         baseline_cmd="$baseline_cmd \\
             --train_data_file '$train_data_path' \\
             --test_data '$TEST_DATA' \\
-            --n_images $train_size \\
+            --n_groups $train_size --n_subsample $train_subsample \\
             --output_dir '$trial_output_dir/baseline_run' \\
             --nepochs 50"
             
-        run_cmd "$baseline_cmd" "Baseline training (n_images=$train_size, trial=$trial)"
+        run_cmd "$baseline_cmd" "Baseline training (subsample=$train_subsample, groups=$train_groups, trial=$trial)"
         
         # Run Tike reconstruction if requested
         if [ "$ADD_TIKE_ARM" = true ]; then
             local tike_cmd="python scripts/reconstruction/run_tike_reconstruction.py \\
                 '$TEST_DATA' \\
                 '$trial_output_dir/tike_run' \\
-                --n-images $test_size \\
+                --n-images $TEST_SUBSAMPLE \\
                 --iterations $TIKE_ITERATIONS \\
                 --quiet"
                 
-            run_cmd "$tike_cmd" "Tike reconstruction (n_images=$test_size, trial=$trial)"
+            run_cmd "$tike_cmd" "Tike reconstruction (n_images=$TEST_SUBSAMPLE, trial=$trial)"
         fi
         
         # Run Pty-chi reconstruction if requested
@@ -578,42 +611,36 @@ train_models() {
                 '$TEST_DATA' \\
                 '$trial_output_dir/ptychi_run' \\
                 --algorithm $PTYCHI_ALGORITHM \\
-                --n-images $test_size \\
+                --n-images $TEST_SUBSAMPLE \\
                 --iterations $PTYCHI_ITERATIONS \\
                 --batch-size $PTYCHI_BATCH_SIZE \\
                 --quiet"
                 
-            run_cmd "$ptychi_cmd" "Pty-chi reconstruction (algorithm=$PTYCHI_ALGORITHM, n_images=$test_size, trial=$trial)"
+            run_cmd "$ptychi_cmd" "Pty-chi reconstruction (algorithm=$PTYCHI_ALGORITHM, n_images=$TEST_SUBSAMPLE, trial=$trial)"
         fi
         
-        log "Completed training for train_size=$train_size (Trial $trial/$NUM_TRIALS)"
+        log "Completed training for train_groups=$train_groups (Trial $trial/$NUM_TRIALS)"
     }
     
     # Run training sequentially with multiple trials per training size
     log "Training models sequentially with $NUM_TRIALS trials per training size"
     
-    # Convert train sizes to array for indexed access
-    TRAIN_ARRAY=($TRAIN_SIZES)
-    TEST_ARRAY=($TEST_SIZES)
+    # Convert sizes to arrays for indexed access
+    TRAIN_GROUP_ARRAY=($TRAIN_GROUP_SIZES)
+    TRAIN_SUBSAMPLE_ARRAY=($TRAIN_SUBSAMPLE_SIZES)
     
-    # Iterate by index to access both train and test sizes
-    for i in "${!TRAIN_ARRAY[@]}"; do
-        train_size="${TRAIN_ARRAY[$i]}"
-        
-        # Determine test size for this iteration
-        if [ -n "$TEST_SIZES" ]; then
-            test_size="${TEST_ARRAY[$i]}"
-        else
-            test_size="$train_size"
-        fi
+    # Iterate by index to access both group and subsample sizes
+    for i in "${!TRAIN_GROUP_ARRAY[@]}"; do
+        train_groups="${TRAIN_GROUP_ARRAY[$i]}"
+        train_subsample="${TRAIN_SUBSAMPLE_ARRAY[$i]}"
         
         log "Starting training for train_size=$train_size, test_size=$test_size ($NUM_TRIALS trials)"
         
         for trial in $(seq 1 "$NUM_TRIALS"); do
-            train_single_trial "$train_size" "$trial" "$test_size"
+            train_single_trial "$train_groups" "$train_subsample" "$trial"
         done
         
-        log "Completed all trials for train_size=$train_size"
+        log "Completed all trials for train_groups=$train_groups"
     done
     
     log "Model training phase completed"
@@ -628,31 +655,25 @@ compare_models() {
     
     log "=== STEP 3: Model Comparison ==="
     
-    # Convert train sizes to array for indexed access
-    TRAIN_ARRAY=($TRAIN_SIZES)
-    TEST_ARRAY=($TEST_SIZES)
+    # Convert sizes to arrays for indexed access
+    TRAIN_GROUP_ARRAY=($TRAIN_GROUP_SIZES)
+    TRAIN_SUBSAMPLE_ARRAY=($TRAIN_SUBSAMPLE_SIZES)
     
-    # Iterate by index to access both train and test sizes
-    for i in "${!TRAIN_ARRAY[@]}"; do
-        train_size="${TRAIN_ARRAY[$i]}"
+    # Iterate by index to access both group and subsample sizes
+    for i in "${!TRAIN_GROUP_ARRAY[@]}"; do
+        train_groups="${TRAIN_GROUP_ARRAY[$i]}"
+        train_subsample="${TRAIN_SUBSAMPLE_ARRAY[$i]}"
         
-        # Determine test size for this iteration
-        if [ -n "$TEST_SIZES" ]; then
-            test_size="${TEST_ARRAY[$i]}"
-        else
-            test_size="$train_size"
-        fi
-        
-        log "Running comparisons for train_size=$train_size, test_size=$test_size ($NUM_TRIALS trials)"
+        log "Running comparisons for train_subsample=$train_subsample, train_groups=$train_groups ($NUM_TRIALS trials)"
         
         for trial in $(seq 1 "$NUM_TRIALS"); do
-            local trial_output_dir="$OUTPUT_DIR/train_$train_size/trial_$trial"
+            local trial_output_dir="$OUTPUT_DIR/train_subsample_${train_subsample}_groups_${train_groups}/trial_$trial"
             local pinn_dir="$trial_output_dir/pinn_run"
             local baseline_dir="$trial_output_dir/baseline_run"
             
             # Check if models exist
             if [ ! -f "$pinn_dir/wts.h5.zip" ]; then
-                log "WARNING: PtychoPINN model not found for train_size=$train_size trial=$trial: $pinn_dir/wts.h5.zip"
+                log "WARNING: PtychoPINN model not found for trial=$trial: $pinn_dir/wts.h5.zip"
                 continue
             fi
             
@@ -662,7 +683,7 @@ compare_models() {
                 # Look for model in timestamped subdirectory
                 baseline_model_path=$(find "$baseline_dir" -name "baseline_model.h5" -type f 2>/dev/null | head -1)
                 if [ -z "$baseline_model_path" ]; then
-                    log "WARNING: Baseline model not found for train_size=$train_size trial=$trial in $baseline_dir"
+                    log "WARNING: Baseline model not found for trial=$trial in $baseline_dir"
                     continue
                 fi
                 # Update baseline_dir to point to the directory containing the model
@@ -682,7 +703,17 @@ compare_models() {
                 stitch_arg="--stitch-crop-size $STITCH_CROP_SIZE"
             fi
             
-            local compare_cmd="python scripts/compare_models.py --pinn_dir '$pinn_dir' --baseline_dir '$baseline_dir' --test_data '$TEST_DATA' --output_dir '$trial_output_dir'"
+            # Use run_comparison.sh for the comparison with new parameters
+            # Note: when skipping training, we still need to provide train_data for the positional args
+            local compare_cmd="bash scripts/run_comparison.sh \\
+                '$TRAIN_DATA' \\
+                '$TEST_DATA' \\
+                '$trial_output_dir' \\
+                --skip-training \\
+                --pinn-model '$pinn_dir' \\
+                --baseline-model '$baseline_dir' \\
+                --n-test-subsample $TEST_SUBSAMPLE \\
+                --n-test-groups $TEST_GROUPS"
             
             # Add registration flag if needed
             if [ -n "$registration_arg" ]; then
@@ -700,10 +731,10 @@ compare_models() {
                 if [ -f "$tike_recon_path" ]; then
                     compare_cmd="$compare_cmd --tike_recon_path '$tike_recon_path'"
                     # For 3-way comparison, use the test_size for this iteration
-                    compare_cmd="$compare_cmd --n-test-images $test_size"
+                    # Test size is handled via TEST_SUBSAMPLE and TEST_GROUPS now
                     log "Using test subset size $test_size (3-way comparison mode with Tike)"
                 else
-                    log "WARNING: Tike reconstruction not found for train_size=$train_size trial=$trial: $tike_recon_path"
+                    log "WARNING: Tike reconstruction not found for trial=$trial: $tike_recon_path"
                 fi
             fi
             
@@ -718,10 +749,10 @@ compare_models() {
                     fi
                     compare_cmd="$compare_cmd --tike_recon_path '$ptychi_recon_path'"
                     # For 3-way comparison, use the test_size for this iteration
-                    compare_cmd="$compare_cmd --n-test-images $test_size"
+                    # Test size is handled via TEST_SUBSAMPLE and TEST_GROUPS now
                     log "Using test subset size $test_size (3-way comparison mode with Pty-chi)"
                 else
-                    log "WARNING: Pty-chi reconstruction not found for train_size=$train_size trial=$trial: $ptychi_recon_path"
+                    log "WARNING: Pty-chi reconstruction not found for trial=$trial: $ptychi_recon_path"
                 fi
             fi
             
@@ -732,14 +763,14 @@ compare_models() {
                     compare_cmd="$compare_cmd --n-test-images $N_TEST_IMAGES"
                 else
                     # For 2-way comparison with decoupled sizes, use test_size
-                    compare_cmd="$compare_cmd --n-test-images $test_size"
+                    # Test size is handled via TEST_SUBSAMPLE and TEST_GROUPS now
                 fi
             fi
                 
-            run_cmd "$compare_cmd" "Model comparison (train_size=$train_size, trial=$trial)"
+            run_cmd "$compare_cmd" "Model comparison (train_subsample=$train_subsample, train_groups=$train_groups, trial=$trial)"
         done
         
-        log "Completed comparisons for train_size=$train_size"
+        log "Completed comparisons for train_groups=$train_groups"
     done
     
     log "Model comparison phase completed"
@@ -826,11 +857,14 @@ generate_summary() {
 
 **Generated:** $(date)
 **Study Directory:** $OUTPUT_DIR
-**Training Sizes:** $TRAIN_SIZES
+**Training Group Sizes:** $TRAIN_GROUP_SIZES
+**Training Subsample Sizes:** $TRAIN_SUBSAMPLE_SIZES
+**Test Groups:** $TEST_GROUPS
+**Test Subsample:** $TEST_SUBSAMPLE
 **Trials per Size:** $NUM_TRIALS
 
 ## Study Configuration
-- **Total Trials:** $(($(echo $TRAIN_SIZES | wc -w) * NUM_TRIALS))
+- **Total Trials:** $(($(echo $TRAIN_GROUP_SIZES | wc -w) * NUM_TRIALS))
 - **Test Dataset:** $TEST_DATA
 - **Total Runtime:** $(date -d@$(($(date +%s) - start_time)) -u +%H:%M:%S)
 
@@ -876,7 +910,10 @@ $OUTPUT_DIR/
 To reproduce this study:
 \`\`\`bash
 ./scripts/studies/run_complete_generalization_study.sh \\
-    --train-sizes "$TRAIN_SIZES" \\
+    --train-group-sizes "$TRAIN_GROUP_SIZES" \
+    --train-subsample-sizes "$TRAIN_SUBSAMPLE_SIZES" \
+    --test-groups "$TEST_GROUPS" \
+    --test-subsample "$TEST_SUBSAMPLE" \\
     --output-dir custom_study_dir
 \`\`\`
 
@@ -896,12 +933,15 @@ main() {
     local start_time=$(date +%s)
     
     log "=== Starting Complete Generalization Study ==="
-    log "Training sizes: $TRAIN_SIZES"
+    log "Training group sizes: $TRAIN_GROUP_SIZES"
+    log "Training subsample sizes: $TRAIN_SUBSAMPLE_SIZES"
+    log "Test groups: $TEST_GROUPS"
+    log "Test subsample: $TEST_SUBSAMPLE"
     log "Number of trials per size: $NUM_TRIALS"
     log "Output directory: $OUTPUT_DIR"
     
     # Calculate total number of runs
-    read -ra sizes_array <<< "$TRAIN_SIZES"
+    read -ra sizes_array <<< "$TRAIN_GROUP_SIZES"
     local total_runs=$((${#sizes_array[@]} * NUM_TRIALS * 2))  # 2 models per trial
     log "Total training runs planned: $total_runs"
     
@@ -919,9 +959,9 @@ main() {
     local duration=$((end_time - start_time))
     
     log "=== Study Completed Successfully ==="
-    log "Training sizes tested: $(echo $TRAIN_SIZES | wc -w)"
+    log "Training sizes tested: $(echo $TRAIN_GROUP_SIZES | wc -w)"
     log "Trials per size: $NUM_TRIALS"
-    log "Total trials completed: $(($(echo $TRAIN_SIZES | wc -w) * NUM_TRIALS))"
+    log "Total trials completed: $(($(echo $TRAIN_GROUP_SIZES | wc -w) * NUM_TRIALS))"
     log "Total runtime: $(date -d@$duration -u +%H:%M:%S)"
     log "Results directory: $OUTPUT_DIR"
     log "Summary report: $OUTPUT_DIR/STUDY_SUMMARY.md"

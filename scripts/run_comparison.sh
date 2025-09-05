@@ -24,7 +24,7 @@ cd "$PROJECT_ROOT"
 
 # Parse command line arguments
 if [ "$#" -lt 3 ]; then
-    echo "Usage: $0 <train_data.npz> <test_data.npz> <output_dir> [pinn_phase_vmin] [pinn_phase_vmax] [baseline_phase_vmin] [baseline_phase_vmax] [--n-train-images N] [--n-test-images N]"
+    echo "Usage: $0 <train_data.npz> <test_data.npz> <output_dir> [options]"
     echo ""
     echo "Required arguments:"
     echo "  train_data.npz    Path to training dataset"
@@ -36,13 +36,14 @@ if [ "$#" -lt 3 ]; then
     echo "  pinn_phase_vmax   Maximum phase value for PtychoPINN visualization"
     echo "  baseline_phase_vmin  Minimum phase value for baseline visualization"
     echo "  baseline_phase_vmax  Maximum phase value for baseline visualization"
-    echo "  --n-train-images N   Number of training images to use (overrides config)"
-    echo "  --n-test-images N    Number of test images to use (overrides config)"
-    echo ""
-    echo "# TODO: Future enhancement - support both n_images (deprecated) and n_groups parameters"
-    echo "# --n-train-groups N    Number of training groups to generate (new parameter)"
-    echo "# --n-subsample N       Number of images to subsample before grouping"
-    echo "# --neighbor-count K    Number of nearest neighbors for K choose C oversampling"
+    echo "  --n-train-groups N   Number of training groups to generate"
+    echo "  --n-train-subsample N Number of images to subsample for training"
+    echo "  --n-test-groups N    Number of test groups to generate for evaluation"
+    echo "  --n-test-subsample N  Number of images to subsample for testing"
+    echo "  --neighbor-count K   Number of nearest neighbors for K choose C oversampling"
+    echo "  --skip-training      Skip training and use existing models"
+    echo "  --pinn-model PATH    Path to existing PtychoPINN model (with --skip-training)"
+    echo "  --baseline-model PATH Path to existing baseline model (with --skip-training)"
     echo ""
     echo "Examples:"
     echo "  $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results"
@@ -60,8 +61,13 @@ PINN_PHASE_VMIN=""
 PINN_PHASE_VMAX=""
 BASELINE_PHASE_VMIN=""
 BASELINE_PHASE_VMAX=""
-N_TRAIN_IMAGES=""
-N_TEST_IMAGES=""
+N_TRAIN_GROUPS=""
+N_TRAIN_SUBSAMPLE=""
+N_TEST_GROUPS=""
+N_TEST_SUBSAMPLE=""
+SKIP_TRAINING=false
+PINN_MODEL=""
+BASELINE_MODEL=""
 
 # Parse remaining arguments (mix of positional and named)
 shift 3  # Remove the first 3 arguments we already processed
@@ -69,27 +75,41 @@ shift 3  # Remove the first 3 arguments we already processed
 while [[ $# -gt 0 ]]; do
     case $1 in
         --n-train-images)
-            if [[ -z "$2" ]] || [[ "$2" =~ ^-- ]]; then
-                echo "Error: --n-train-images requires a numeric argument"
-                exit 1
-            fi
-            if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -le 0 ]]; then
-                echo "Error: --n-train-images must be a positive integer, got: $2"
-                exit 1
-            fi
-            N_TRAIN_IMAGES="$2"
+            echo "Warning: --n-train-images is deprecated. Use --n-train-groups instead."
+            N_TRAIN_GROUPS="$2"
+            shift 2
+            ;;
+        --n-train-groups)
+            N_TRAIN_GROUPS="$2"
+            shift 2
+            ;;
+        --n-train-subsample)
+            N_TRAIN_SUBSAMPLE="$2"
+            shift 2
+            ;;
+        --n-test-groups)
+            N_TEST_GROUPS="$2"
+            shift 2
+            ;;
+        --n-test-subsample)
+            N_TEST_SUBSAMPLE="$2"
             shift 2
             ;;
         --n-test-images)
-            if [[ -z "$2" ]] || [[ "$2" =~ ^-- ]]; then
-                echo "Error: --n-test-images requires a numeric argument"
-                exit 1
-            fi
-            if ! [[ "$2" =~ ^[0-9]+$ ]] || [[ "$2" -le 0 ]]; then
-                echo "Error: --n-test-images must be a positive integer, got: $2"
-                exit 1
-            fi
-            N_TEST_IMAGES="$2"
+            echo "Warning: --n-test-images is deprecated. Use --n-test-groups instead."
+            N_TEST_GROUPS="$2"
+            shift 2
+            ;;
+        --skip-training)
+            SKIP_TRAINING=true
+            shift
+            ;;
+        --pinn-model)
+            PINN_MODEL="$2"
+            shift 2
+            ;;
+        --baseline-model)
+            BASELINE_MODEL="$2"
             shift 2
             ;;
         *)
@@ -122,8 +142,8 @@ if [ ! -f "$TEST_DATA" ]; then
     exit 1
 fi
 
-# Validate n_images against dataset size if specified
-if [[ -n "$N_TRAIN_IMAGES" ]]; then
+# Validate n_groups/n_subsample against dataset size if specified
+if [[ -n "$N_TRAIN_SUBSAMPLE" ]]; then
     # Get the number of images in the training dataset
     TRAIN_DATASET_SIZE=$(python -c "
 import numpy as np
@@ -133,14 +153,14 @@ print(data[diff_key].shape[0])
 " 2>/dev/null)
     
     if [[ -z "$TRAIN_DATASET_SIZE" ]] || ! [[ "$TRAIN_DATASET_SIZE" =~ ^[0-9]+$ ]]; then
-        echo "Warning: Could not determine training dataset size. Proceeding with specified n_train_images=$N_TRAIN_IMAGES"
-    elif [[ "$N_TRAIN_IMAGES" -gt "$TRAIN_DATASET_SIZE" ]]; then
-        echo "Error: Requested training images ($N_TRAIN_IMAGES) exceeds dataset size ($TRAIN_DATASET_SIZE)"
+        echo "Warning: Could not determine training dataset size. Proceeding with specified n_train_subsample=$N_TRAIN_SUBSAMPLE"
+    elif [[ "$N_TRAIN_SUBSAMPLE" -gt "$TRAIN_DATASET_SIZE" ]]; then
+        echo "Error: Requested training subsample ($N_TRAIN_SUBSAMPLE) exceeds dataset size ($TRAIN_DATASET_SIZE)"
         exit 1
     fi
 fi
 
-if [[ -n "$N_TEST_IMAGES" ]]; then
+if [[ -n "$N_TEST_SUBSAMPLE" ]]; then
     # Get the number of images in the test dataset
     TEST_DATASET_SIZE=$(python -c "
 import numpy as np
@@ -150,9 +170,9 @@ print(data[diff_key].shape[0])
 " 2>/dev/null)
     
     if [[ -z "$TEST_DATASET_SIZE" ]] || ! [[ "$TEST_DATASET_SIZE" =~ ^[0-9]+$ ]]; then
-        echo "Warning: Could not determine test dataset size. Proceeding with specified n_test_images=$N_TEST_IMAGES"
-    elif [[ "$N_TEST_IMAGES" -gt "$TEST_DATASET_SIZE" ]]; then
-        echo "Error: Requested test images ($N_TEST_IMAGES) exceeds dataset size ($TEST_DATASET_SIZE)"
+        echo "Warning: Could not determine test dataset size. Proceeding with specified n_test_subsample=$N_TEST_SUBSAMPLE"
+    elif [[ "$N_TEST_SUBSAMPLE" -gt "$TEST_DATASET_SIZE" ]]; then
+        echo "Error: Requested test subsample ($N_TEST_SUBSAMPLE) exceeds dataset size ($TEST_DATASET_SIZE)"
         exit 1
     fi
 fi
@@ -182,19 +202,25 @@ echo "Test data: $TEST_DATA"
 echo "Output directory: $OUTPUT_DIR"
 echo "Config file: $CONFIG_FILE"
 
-# Display image count information
-if [[ -n "$N_TRAIN_IMAGES" ]]; then
-    echo "Training images: $N_TRAIN_IMAGES (override)"
+# Display sampling information
+if [[ -n "$N_TRAIN_SUBSAMPLE" ]]; then
+    echo "Training subsample: $N_TRAIN_SUBSAMPLE images"
+fi
+if [[ -n "$N_TRAIN_GROUPS" ]]; then
+    echo "Training groups: $N_TRAIN_GROUPS"
 else
     # Extract default from config file
-    DEFAULT_N_IMAGES=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE'))['n_images'])")
-    echo "Training images: $DEFAULT_N_IMAGES (from config)"
+    DEFAULT_N_GROUPS=$(python -c "import yaml; config=yaml.safe_load(open('$CONFIG_FILE')); print(config.get('n_groups', config.get('n_images', 512)))" 2>/dev/null || echo "512")
+    echo "Training groups: $DEFAULT_N_GROUPS (from config)"
 fi
 
-if [[ -n "$N_TEST_IMAGES" ]]; then
-    echo "Test images: $N_TEST_IMAGES (override)"
+if [[ -n "$N_TEST_SUBSAMPLE" ]]; then
+    echo "Test subsample: $N_TEST_SUBSAMPLE images"
+fi
+if [[ -n "$N_TEST_GROUPS" ]]; then
+    echo "Test groups: $N_TEST_GROUPS"
 else
-    echo "Test images: using full test dataset"
+    echo "Test groups: using full test dataset"
 fi
 
 if [ -n "$PINN_PHASE_VMIN" ] || [ -n "$PINN_PHASE_VMAX" ] || [ -n "$BASELINE_PHASE_VMIN" ] || [ -n "$BASELINE_PHASE_VMAX" ]; then
@@ -202,61 +228,76 @@ if [ -n "$PINN_PHASE_VMIN" ] || [ -n "$PINN_PHASE_VMAX" ] || [ -n "$BASELINE_PHA
 fi
 echo ""
 
-# Step 1: Train PtychoPINN model
-echo "Step 1/3: Training PtychoPINN model..."
-echo "----------------------------------------"
+# Handle skip-training mode
+if [ "$SKIP_TRAINING" = true ]; then
+    if [ -n "$PINN_MODEL" ]; then
+        PINN_DIR="$PINN_MODEL"
+    fi
+    if [ -n "$BASELINE_MODEL" ]; then
+        BASELINE_DIR="$BASELINE_MODEL"
+    fi
+    echo "Skipping training, using existing models:"
+    echo "  PtychoPINN: $PINN_DIR"
+    echo "  Baseline: $BASELINE_DIR"
+    echo ""
+else
+    # Step 1: Train PtychoPINN model
+    echo "Step 1/3: Training PtychoPINN model (subsample=$N_TRAIN_SUBSAMPLE, groups=$N_TRAIN_GROUPS)..."
+    echo "----------------------------------------"
 
-# Build PtychoPINN training command
-# TODO: Future enhancement - support both n_images (deprecated) and n_groups parameters
-# Currently using n_images for backward compatibility, but should migrate to:
-# --n_groups (number of groups to generate)
-# --n_subsample (number of images to subsample) 
-# --neighbor_count (K value for K choose C oversampling)
-PINN_CMD="python scripts/training/train.py \
-    --config \"$CONFIG_FILE\" \
-    --train_data_file \"$TRAIN_DATA\" \
-    --test_data_file \"$TEST_DATA\" \
-    --output_dir \"$PINN_DIR\" \
-    --model_type pinn"
+    # Build PtychoPINN training command
+    PINN_CMD="python scripts/training/train.py \\
+        --config \"$CONFIG_FILE\" \\
+        --train_data_file \"$TRAIN_DATA\" \\
+        --test_data_file \"$TEST_DATA\" \\
+        --output_dir \"$PINN_DIR\" \\
+        --model_type pinn"
 
-# Add n_images parameter if specified (will show deprecation warning)
-if [[ -n "$N_TRAIN_IMAGES" ]]; then
-    PINN_CMD="$PINN_CMD --n_images $N_TRAIN_IMAGES"
-fi
+    # Add training sampling parameters
+    if [[ -n "$N_TRAIN_SUBSAMPLE" ]]; then
+        PINN_CMD="$PINN_CMD --n_subsample $N_TRAIN_SUBSAMPLE"
+    fi
+    if [[ -n "$N_TRAIN_GROUPS" ]]; then
+        PINN_CMD="$PINN_CMD --n_groups $N_TRAIN_GROUPS"
+    fi
 
-# Execute PtychoPINN training
-eval $PINN_CMD
+    # Execute PtychoPINN training
+    eval $PINN_CMD
 
-echo ""
-echo "PtychoPINN training complete!"
-echo ""
+    echo ""
+    echo "PtychoPINN training complete!"
+    echo ""
 
-# Step 2: Train Baseline model
-echo "Step 2/3: Training Baseline model..."
-echo "------------------------------------"
+    # Step 2: Train Baseline model
+    echo "Step 2/3: Training Baseline model (subsample=$N_TRAIN_SUBSAMPLE, groups=$N_TRAIN_GROUPS)..."
+    echo "------------------------------------"
 
-# Build baseline training command
-BASELINE_CMD="python scripts/run_baseline.py \
-    --config \"$CONFIG_FILE\" \
-    --train_data_file \"$TRAIN_DATA\" \
-    --test_data_file \"$TEST_DATA\" \
-    --output_dir \"$BASELINE_DIR\" \
-    --gridsize \"$GRIDSIZE_OVERRIDE\""
+    # Build baseline training command
+    BASELINE_CMD="python scripts/run_baseline.py \\
+        --config \"$CONFIG_FILE\" \\
+        --train_data_file \"$TRAIN_DATA\" \\
+        --test_data_file \"$TEST_DATA\" \\
+        --output_dir \"$BASELINE_DIR\" \\
+        --gridsize \"$GRIDSIZE_OVERRIDE\""
 
-# Add n_images parameter if specified
-if [[ -n "$N_TRAIN_IMAGES" ]]; then
-    BASELINE_CMD="$BASELINE_CMD --n_images $N_TRAIN_IMAGES"
-fi
+    # Add training sampling parameters for baseline
+    if [[ -n "$N_TRAIN_SUBSAMPLE" ]]; then
+        BASELINE_CMD="$BASELINE_CMD --n_subsample $N_TRAIN_SUBSAMPLE"
+    fi
+    if [[ -n "$N_TRAIN_GROUPS" ]]; then
+        BASELINE_CMD="$BASELINE_CMD --n_groups $N_TRAIN_GROUPS"
+    fi
 
-# Execute baseline training
-eval $BASELINE_CMD
+    # Execute baseline training
+    eval $BASELINE_CMD
 
-echo ""
-echo "Baseline training complete!"
-echo ""
+    echo ""
+    echo "Baseline training complete!"
+    echo ""
+fi  # End of training block
 
 # Step 3: Run comparison analysis
-echo "Step 3/3: Running comparison analysis..."
+echo "Step 3/3: Running comparison analysis (subsample=$N_TEST_SUBSAMPLE, groups=$N_TEST_GROUPS)..."
 echo "---------------------------------------"
 
 # Build the command with optional phase parameters
@@ -267,9 +308,12 @@ COMPARE_CMD="python scripts/compare_models.py \
     --output_dir \"$OUTPUT_DIR\" \
     --stitch-crop-size \"$M_STITCH_SIZE\""
 
-# Add n-test-images parameter if specified
-if [[ -n "$N_TEST_IMAGES" ]]; then
-    COMPARE_CMD="$COMPARE_CMD --n-test-images $N_TEST_IMAGES"
+# Add test sampling parameters
+if [[ -n "$N_TEST_SUBSAMPLE" ]]; then
+    COMPARE_CMD="$COMPARE_CMD --n-test-subsample $N_TEST_SUBSAMPLE"
+fi
+if [[ -n "$N_TEST_GROUPS" ]]; then
+    COMPARE_CMD="$COMPARE_CMD --n-test-groups $N_TEST_GROUPS"
 fi
 
 # Add phase control parameters if provided
