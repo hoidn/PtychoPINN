@@ -267,6 +267,13 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
 def update_legacy_dict(cfg: Dict[str, Any], dataclass_obj: Any) -> None:
     """Update legacy dictionary with dataclass values.
     
+    ⚠️ CRITICAL: Call this BEFORE any data loading operations!
+    
+    Common failure scenario:
+    - Symptom: Shape (*, 64, 64, 1) instead of (*, 64, 64, 4) with gridsize=2  
+    - Cause: This function wasn't called before generate_grouped_data()
+    - Fix: Call immediately after config setup, before load_data()
+    
     Updates all values from the dataclass, adding new keys if needed.
     
     Args:
