@@ -7,7 +7,7 @@ This directory contains tools and workflows for conducting systematic studies of
 > The current data loading pipeline selects training images **sequentially**. When using a `gridsize` greater than 1, this means the model is trained on a small, spatially localized (and therefore biased) region of the object.
 >
 > - **Do not** shuffle the dataset before subsampling, as this will create physically meaningless neighbor groups.
-> - For rigorous results with `gridsize > 1`, it is strongly recommended to prepare separate, smaller, but complete datasets for each training size, rather than relying on the `--n-train-images` flag.
+> - For rigorous results with `gridsize > 1`, it is strongly recommended to prepare separate, smaller, but complete datasets for each training size, rather than relying on the `--train-group-sizes` parameter with subsampling.
 > - Results from studies using this flag with `gridsize > 1` should be interpreted as measuring performance on a localized subset, not general performance across the entire object.
 
 ## Overview
@@ -39,8 +39,10 @@ Master orchestration script that automates the complete generalization study wor
 ```
 
 **Key Options:**
-- `--train-sizes "512 1024 2048"`: Space-separated list of training set sizes to test
-- `--test-sizes "1024 2048 4096"`: **NEW** Space-separated list of test set sizes (must match number of train sizes)
+- `--train-group-sizes "512 1024 2048"`: Space-separated list of training group sizes to test (replaces deprecated `--train-sizes`)
+- `--train-subsample-sizes "512 1024 2048"`: Space-separated list of training subsample sizes (default: same as group sizes)
+- `--test-groups N`: **NEW** Number of groups for the fixed test set evaluation
+- `--test-subsample N`: **NEW** Number of images to subsample for the fixed test set
 - `--num-trials N`: Number of trials per training size for statistical robustness (default: 5)
 - `--train-data PATH`: Path to training dataset (for experimental data mode)
 - `--test-data PATH`: Path to test dataset (for experimental data mode)
@@ -78,7 +80,7 @@ Automatically generates large-scale synthetic datasets for controlled studies.
 
 # Custom synthetic study
 ./scripts/studies/run_complete_generalization_study.sh \
-    --train-sizes "512 1024 2048 4096" \
+    --train-group-sizes "512 1024 2048 4096" \
     --num-trials 3 \
     --output-dir my_synthetic_study
 ```
@@ -94,7 +96,7 @@ Uses existing experimental datasets for real-world validation studies.
     --train-data "datasets/fly64/fly001_64_train_converted.npz" \
     --test-data "datasets/fly64/fly001_64_train_converted.npz" \
     --skip-data-prep \
-    --train-sizes "512 1024" \
+    --train-group-sizes "512 1024" \
     --output-dir experimental_study
 
 # Multi-trial experimental study for robust statistics
@@ -102,7 +104,7 @@ Uses existing experimental datasets for real-world validation studies.
     --train-data "datasets/fly64/fly64_top_half_shuffled.npz" \
     --test-data "datasets/fly64/fly001_64_train_converted.npz" \
     --skip-data-prep \
-    --train-sizes "512 1024 2048" \
+    --train-group-sizes "512 1024 2048" \
     --num-trials 3 \
     --output-dir robust_experimental_study
 ```
@@ -117,7 +119,7 @@ Compare PtychoPINN, Baseline, and Tike iterative reconstruction for comprehensiv
 ./scripts/studies/run_complete_generalization_study.sh \
     --add-tike-arm \
     --tike-iterations 100 \
-    --train-sizes "512 1024" \
+    --train-group-sizes "512 1024" \
     --num-trials 2 \
     --output-dir quick_3way_study
 
@@ -125,7 +127,7 @@ Compare PtychoPINN, Baseline, and Tike iterative reconstruction for comprehensiv
 ./scripts/studies/run_complete_generalization_study.sh \
     --add-tike-arm \
     --tike-iterations 1000 \
-    --train-sizes "512 1024 2048 4096" \
+    --train-group-sizes "512 1024 2048 4096" \
     --num-trials 3 \
     --train-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz" \
     --test-data "datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz" \
@@ -145,13 +147,13 @@ Compare PtychoPINN, Baseline, and Tike iterative reconstruction for comprehensiv
 ```bash
 # Full publication-quality study with synthetic data
 ./scripts/studies/run_complete_generalization_study.sh \
-    --train-sizes "512 1024 2048 4096" \
+    --train-group-sizes "512 1024 2048 4096" \
     --num-trials 5 \
     --output-dir publication_study_$(date +%Y%m%d)
 
 # Results: publication_study_YYYYMMDD/
-# -> train_512/trial_1/, trial_2/, ..., trial_5/
-# -> train_1024/trial_1/, trial_2/, ..., trial_5/
+# -> train_groups_512/trial_1/, trial_2/, ..., trial_5/
+# -> train_groups_1024/trial_1/, trial_2/, ..., trial_5/
 # -> psnr_phase_generalization.png (with uncertainty bands)
 # -> STUDY_SUMMARY.md
 ```
@@ -163,12 +165,12 @@ Compare PtychoPINN, Baseline, and Tike iterative reconstruction for comprehensiv
     --train-data "datasets/fly64/fly001_64_train_converted.npz" \
     --test-data "datasets/fly64/fly001_64_train_converted.npz" \
     --skip-data-prep \
-    --train-sizes "512 1024 2048" \
+    --train-group-sizes "512 1024 2048" \
     --num-trials 3 \
     --output-dir fly64_study
 
 # Results: fly64_study/
-# -> train_512/trial_1/, trial_2/, trial_3/
+# -> train_groups_512/trial_1/, trial_2/, trial_3/
 # -> generalization plots with experimental data validation
 ```
 
@@ -178,7 +180,7 @@ After running a generalization study, the output directory will contain:
 
 ```
 study_output/
-├── train_512/                      # Results for 512 training images
+├── train_groups_512/               # Results for 512 training groups (may use different subsample size)
 │   ├── trial_1/                    # First training run
 │   │   ├── pinn_run/               # PtychoPINN model outputs
 │   │   │   ├── wts.h5.zip          # Trained model weights
@@ -190,10 +192,10 @@ study_output/
 │   │   └── comparison_metrics.csv  # Quantitative metrics
 │   ├── trial_2/                    # Second training run (if --num-trials > 1)
 │   └── trial_N/                    # Additional trials
-├── train_1024/                     # Results for 1024 training images
+├── train_groups_1024/              # Results for 1024 training groups
 │   ├── trial_1/
 │   └── trial_N/
-├── train_2048/                     # Results for 2048 training images
+├── train_groups_2048/              # Results for 2048 training groups
 │   ├── trial_1/
 │   └── trial_N/
 ├── psnr_phase_generalization.png   # 📊 Primary generalization plot (mean ± percentiles)
@@ -248,14 +250,15 @@ The study tracks comprehensive metrics across training set sizes with statistica
 - **Training Set Sizes**: Choose sizes that span 1-2 orders of magnitude to observe clear trends
 - **Multi-Trial Robustness**: Use `--num-trials 3-5` for publication-quality results
 - **Resource Planning**: Each trial can take 1-2 hours; plan accordingly for multiple trials
-- **Decoupled Train/Test Sizes**: **NEW** Use `--test-sizes` to evaluate models on different test set sizes than training:
+- **Independent Train/Test Control**: **NEW** Use `--test-groups` and `--test-subsample` for independent test set control:
   ```bash
-  # Train on small sets, test on larger sets to assess generalization
+  # Train on small groups, test on larger test set to assess generalization
   ./run_complete_generalization_study.sh \
-      --train-sizes "256 512 1024" \
-      --test-sizes "512 1024 2048"
+      --train-group-sizes "256 512 1024" \
+      --test-groups 2048 \
+      --test-subsample 4096
   ```
-  This allows studying how models trained on limited data perform on larger test sets
+  This allows studying how models trained on limited groups perform on larger test sets
 
 ### Performance Optimization  
 - **Parallel Jobs**: Use `--parallel-jobs` carefully to avoid GPU memory conflicts

@@ -223,7 +223,7 @@ python scripts/compare_models.py \
     --pinn_dir pinn_model/ \
     --baseline_dir baseline_model/ \
     --test_data test.npz \
-    --n-subsample 3000 \
+    --n-test-subsample 3000 \
     --n-test-groups 500 \
     --output_dir comparison_out
 
@@ -238,27 +238,43 @@ python scripts/compare_models.py \
 # Complete training + comparison workflow
 ./scripts/run_comparison.sh train.npz test.npz output_dir
 
-# With specific training/test sizes
-./scripts/run_comparison.sh train.npz test.npz output_dir --n-train-groups 2000 --n-test-groups 500
+# With specific training/test sizes and independent control
+./scripts/run_comparison.sh train.npz test.npz output_dir \
+    --n-train-groups 2000 \
+    --n-train-subsample 5000 \
+    --n-test-groups 500 \
+    --n-test-subsample 2000 \
+    --skip-training
 ```
 
 ---
 
 ## Studies
 
+> **Parameter Migration Notice**: The generalization study script now uses `--train-group-sizes` instead of the deprecated `--train-sizes`. The old parameter is still supported but will show deprecation warnings.
+
 ```bash
 # Synthetic data generalization study (auto-generates datasets)
 ./scripts/studies/run_complete_generalization_study.sh \
-    --train-sizes "512 1024 2048 4096" \
+    --train-group-sizes "512 1024 2048 4096" \
     --num-trials 3 \
     --output-dir synthetic_study
+
+# Independent training/test control with new parameters  
+./scripts/studies/run_complete_generalization_study.sh \
+    --train-group-sizes "512 1024" \
+    --train-subsample-sizes "1024 2048" \
+    --test-groups 500 \
+    --test-subsample 1500 \
+    --num-trials 2 \
+    --output-dir independent_control_study
 
 # Experimental data generalization study (uses existing datasets)
 ./scripts/studies/run_complete_generalization_study.sh \
     --train-data "datasets/fly64/fly001_64_train_converted.npz" \
     --test-data "datasets/fly64/fly001_64_train_converted.npz" \
     --skip-data-prep \
-    --train-sizes "512 1024 2048" \
+    --train-group-sizes "512 1024 2048" \
     --num-trials 3 \
     --output-dir experimental_study
 
@@ -267,7 +283,9 @@ python scripts/compare_models.py \
     --train-data "datasets/fly64/fly64_top_half_shuffled.npz" \
     --test-data "datasets/fly64/fly001_64_train_converted.npz" \
     --skip-data-prep \
-    --train-sizes "512 1024 2048" \
+    --train-group-sizes "512 1024 2048" \
+    --test-groups 1000 \
+    --test-subsample 2048 \
     --output-dir spatial_bias_study
 
 # Plot results from a completed study
