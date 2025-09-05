@@ -147,3 +147,41 @@ ptycho_train --train_data dataset.npz --output_dir my_run --console-level WARNIN
 
 This centralized approach ensures logs are organized within each training run's output directory, making it easier to debug specific runs and keep the project root clean.
 
+## Next Steps After Training
+
+Once training completes successfully, you can evaluate your trained model's performance:
+
+### Model Evaluation
+
+Evaluate your trained model with comprehensive metrics and visualizations:
+
+```bash
+# Basic evaluation against ground truth
+ptycho_evaluate --model-dir <output_dir> --test-data <test.npz> --output-dir <evaluation_results>
+
+# Example: Evaluate the verification run
+ptycho_evaluate --model-dir verification_run --test-data datasets/fly/fly001_transposed.npz --output-dir verification_eval
+```
+
+### What Evaluation Provides
+
+- **Quantitative Metrics**: MAE, MSE, PSNR, SSIM, MS-SSIM, and FRC values
+- **Visual Comparisons**: Amplitude/phase reconstruction plots vs ground truth
+- **Error Analysis**: Pixel-wise error maps and distribution histograms  
+- **CSV Export**: All metrics saved to `results.csv` for further analysis
+
+### Complete Workflow Example
+
+```bash
+# Step 1: Train a model
+ptycho_train --train_data_file datasets/train.npz --test_data_file datasets/test.npz --output_dir my_model --nepochs 50
+
+# Step 2: Evaluate the trained model
+ptycho_evaluate --model-dir my_model --test-data datasets/test.npz --output-dir my_model_eval
+
+# Step 3: (Optional) Compare with other models
+python scripts/compare_models.py --pinn_dir my_model --baseline_dir other_model --test_data datasets/test.npz --output_dir comparison_results
+```
+
+For more advanced evaluation options and detailed command references, see [docs/COMMANDS_REFERENCE.md](../../docs/COMMANDS_REFERENCE.md#model-evaluation).
+
