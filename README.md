@@ -29,11 +29,13 @@ Developers looking to contribute to the codebase or understand its deeper archit
 
 ## Usage
 ### Training
-`python scripts/training/train.py --train_data_file <train_path.npz> --test_data_file <test_path.npz>`
+`ptycho_train --train_data_file <train_path.npz> --test_data_file <test_path.npz> --output_dir <my_run>`
 
+### Evaluation
+`ptycho_evaluate --model-dir <my_run> --test-data <test_path.npz> --output-dir <eval_results>`
 
 ### Inference 
-`python scripts/inference/inference.py --model_path <model artifact directory path> --test_data <test_path.npz>`
+`ptycho_inference --model_path <my_run> --test_data <test_path.npz> --output_dir <inference_out>`
 
 See examples and READMEs under scripts/.
 

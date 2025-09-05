@@ -49,6 +49,16 @@ This file provides guidance to Claude when working with the PtychoPINN repositor
   3.  **Use XML Tags for Links:** All new links that you add for discoverability **MUST** use the `<doc-ref>` or `<code-ref>` XML tagging system to ensure they are machine-parsable.
 </directive>
 
+<directive level="critical" purpose="Enforce Test-Driven Development">
+  For any task involving new feature implementation or bug fixing, you **MUST** follow a Test-Driven Development (TDD) methodology. Your implementation plan should explicitly detail the Red-Green-Refactor cycles.
+
+  1.  **RED:** First, propose and write a fine-grained unit test that will fail but would pass if the feature were implemented or the bug were fixed.
+  2.  **GREEN:** Then, propose and write the minimal implementation code required to make that specific test pass.
+  3.  **REFACTOR:** Finally, propose any refactoring to clean up the code while ensuring the test still passes.
+
+  For a canonical example of this process, refer to the case study on fixing the baseline model's `gridsize > 1` bug in the `<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>`.
+</directive>
+
 ## Project Overview
 
 PtychoPINN is a TensorFlow-based implementation of physics-informed neural networks (PINNs) for ptychographic reconstruction. It combines a U-Net-like deep learning model with a differentiable physics layer to achieve rapid, high-resolution reconstruction from scanning coherent diffraction data.
@@ -100,6 +110,7 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Testing Guide:** See <doc-ref type="guide">docs/TESTING_GUIDE.md</doc-ref> **⚠️ NEW**
 - **Training:** See <doc-ref type="workflow-guide">scripts/training/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>
 - **Inference:** See <doc-ref type="workflow-guide">scripts/inference/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
+- **Evaluation:** See <doc-ref type="workflow-guide">scripts/evaluation/README.md</doc-ref> **⚠️ NEW - Single model evaluation with metrics**
 - **Simulation:** See <doc-ref type="workflow-guide">scripts/simulation/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/simulation/README.md</doc-ref>
 - **Sampling Guide:** See <doc-ref type="guide">docs/SAMPLING_USER_GUIDE.md</doc-ref> for independent sampling control **⚠️ NEW**
 - **Reconstruction (Pty-Chi):** See <doc-ref type="workflow-guide">scripts/reconstruction/ptychi_reconstruct_tike.py</doc-ref> for pty-chi reconstruction workflow
@@ -109,6 +120,7 @@ This project provides several high-level scripts to automate common tasks. For d
 - **Experimental Datasets:** See <doc-ref type="guide">docs/FLY64_DATASET_GUIDE.md</doc-ref>
 - **Configuration Guide:** See <doc-ref type="guide">docs/CONFIGURATION_GUIDE.md</doc-ref>
 - **Tool Selection Guide:** See <doc-ref type="guide">docs/TOOL_SELECTION_GUIDE.md</doc-ref>
+- **Complete Workflow Guide:** See <doc-ref type="guide">docs/WORKFLOW_GUIDE.md</doc-ref>
 - **Commands Reference:** See <doc-ref type="guide">docs/COMMANDS_REFERENCE.md</doc-ref>
 - **Model Comparison Guide:** See <doc-ref type="guide">docs/MODEL_COMPARISON_GUIDE.md</doc-ref>
 - **Project Organization Guide:** See <doc-ref type="guide">docs/PROJECT_ORGANIZATION_GUIDE.md</doc-ref>
@@ -137,6 +149,16 @@ ptycho_train --train_data_file <path/to/train.npz> --test_data_file <path/to/tes
 ```bash
 # Run inference on a test dataset using a trained model
 ptycho_inference --model_path <path/to/model_dir> --test_data <path/to/test.npz> --output_dir <inference_output>
+```
+
+### Evaluating a Single Model
+
+```bash
+# Evaluate a trained model with comprehensive metrics
+ptycho_evaluate --model-dir <path/to/model_dir> --test-data <path/to/test.npz> --output-dir <evaluation_output>
+
+# Example with sampling and custom settings
+ptycho_evaluate --model-dir my_model --test-data test.npz --output-dir eval_results --n-test-groups 1000 --phase-align-method plane
 ```
 
 ### Simulating a Dataset
