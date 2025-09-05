@@ -573,7 +573,7 @@ train_models() {
         pinn_cmd="$pinn_cmd \\
             --train_data_file '$train_data_path' \\
             --test_data_file '$TEST_DATA' \\
-            --n_groups $train_size --n_subsample $train_subsample \\
+            --n_groups $train_groups --n_subsample $train_subsample \\
             --output_dir '$trial_output_dir/pinn_run' \\
             --nepochs 50"
             
@@ -587,7 +587,7 @@ train_models() {
         baseline_cmd="$baseline_cmd \\
             --train_data_file '$train_data_path' \\
             --test_data '$TEST_DATA' \\
-            --n_groups $train_size --n_subsample $train_subsample \\
+            --n_groups $train_groups --n_subsample $train_subsample \\
             --output_dir '$trial_output_dir/baseline_run' \\
             --nepochs 50"
             
