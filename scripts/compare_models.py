@@ -829,10 +829,13 @@ def main():
     
     # Update only non-architecture parameters while preserving gridsize
     # This ensures we don't overwrite the critical architecture configuration
+    # Use n_test_groups if specified, otherwise use number of available images
+    n_groups_to_use = args.n_test_groups if args.n_test_groups else test_data_raw.diff3d.shape[0]
     final_config = TrainingConfig(
         model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=restored_gridsize),  # Use restored gridsize!
         train_data_file=Path("dummy.npz"),
-        n_images=test_data_raw.diff3d.shape[0]
+        n_groups=n_groups_to_use,  # Use requested test groups for oversampling
+        neighbor_count=7  # Enable K-choose-C oversampling
     )
     # CRITICAL FIX: Update legacy params BEFORE creating data container
     # This ensures generate_grouped_data() sees the correct gridsize in params.cfg
