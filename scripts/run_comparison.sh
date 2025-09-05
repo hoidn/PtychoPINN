@@ -68,6 +68,10 @@ N_TEST_SUBSAMPLE=""
 SKIP_TRAINING=false
 PINN_MODEL=""
 BASELINE_MODEL=""
+SKIP_REGISTRATION=""
+REGISTER_PTYCHI_ONLY=""
+TIKE_RECON_PATH=""
+STITCH_CROP_SIZE=""
 
 # Parse remaining arguments (mix of positional and named)
 shift 3  # Remove the first 3 arguments we already processed
@@ -110,6 +114,22 @@ while [[ $# -gt 0 ]]; do
             ;;
         --baseline-model)
             BASELINE_MODEL="$2"
+            shift 2
+            ;;
+        --skip-registration)
+            SKIP_REGISTRATION="--skip-registration"
+            shift
+            ;;
+        --register-ptychi-only)
+            REGISTER_PTYCHI_ONLY="--register-ptychi-only"
+            shift
+            ;;
+        --tike_recon_path|--tike-recon-path)
+            TIKE_RECON_PATH="$2"
+            shift 2
+            ;;
+        --stitch-crop-size)
+            STITCH_CROP_SIZE="$2"
             shift 2
             ;;
         *)
@@ -328,6 +348,20 @@ if [ ! -z "$BASELINE_PHASE_VMIN" ]; then
 fi
 if [ ! -z "$BASELINE_PHASE_VMAX" ]; then
     COMPARE_CMD="$COMPARE_CMD --baseline_phase_vmax $BASELINE_PHASE_VMAX"
+fi
+
+# Add additional parameters if provided
+if [ ! -z "$SKIP_REGISTRATION" ]; then
+    COMPARE_CMD="$COMPARE_CMD $SKIP_REGISTRATION"
+fi
+if [ ! -z "$REGISTER_PTYCHI_ONLY" ]; then
+    COMPARE_CMD="$COMPARE_CMD $REGISTER_PTYCHI_ONLY"
+fi
+if [ ! -z "$TIKE_RECON_PATH" ]; then
+    COMPARE_CMD="$COMPARE_CMD --tike_recon_path $TIKE_RECON_PATH"
+fi
+if [ ! -z "$STITCH_CROP_SIZE" ]; then
+    COMPARE_CMD="$COMPARE_CMD --stitch-crop-size $STITCH_CROP_SIZE"
 fi
 
 # Execute the comparison command
