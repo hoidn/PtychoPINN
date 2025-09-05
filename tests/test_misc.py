@@ -3,7 +3,9 @@ from ptycho.nongrid_simulation import generate_simulated_data
 from ptycho.loader import RawData
 import os
 import shutil
+import unittest
 
+@unittest.skip("Deprecated: generate_simulated_data API changed from (obj,probe,nimages) to (config,obj,probe) and memoization disabled")
 def test_memoize_simulated_data():
     # Create sample input data
     objectGuess = np.random.rand(128, 128) + 1j * np.random.rand(128, 128)
