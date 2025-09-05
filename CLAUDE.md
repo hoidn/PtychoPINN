@@ -87,11 +87,29 @@ ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_groups 512
 
 If the verification run completes and creates files in the `verification_run/` directory, the environment is correct.
 
+## ⚠️ CRITICAL: Parameter Initialization
+
+**Before calling any data loading functions**, you MUST initialize the legacy params:
+
+```python
+from ptycho.config.config import update_legacy_dict
+config = setup_configuration(args, yaml_path)
+update_legacy_dict(params.cfg, config)  # ← REQUIRED before data operations!
+```
+
+**Common failure:** Shape `(*, 64, 64, 1)` instead of `(*, 64, 64, 4)` with gridsize=2
+**Cause:** `params.cfg['gridsize']` not initialized
+**Solution:** See <doc-ref type="troubleshooting">docs/TROUBLESHOOTING.md#shape-mismatch-errors</doc-ref>
+
 ## 2. Development & Testing Strategy
 
 ### Automated Testing
 
 The project maintains a comprehensive suite of automated tests located in the top-level `tests/` directory. All new tests should be added there following the `test_*.py` naming convention.
+
+**Test Templates:**
+- **GridSize Testing:** Use `tests/test_template_gridsize.py` as a template for tests involving different gridsize values
+- Shows proper `params.cfg` initialization to avoid shape mismatch bugs
 
 To run all tests, execute the following command from the project root:
 ```bash
@@ -108,6 +126,8 @@ This project provides several high-level scripts to automate common tasks. For d
 
 - **Data Management:** See <doc-ref type="critical">docs/DATA_MANAGEMENT_GUIDE.md</doc-ref> **⚠️ MUST READ**
 - **Testing Guide:** See <doc-ref type="guide">docs/TESTING_GUIDE.md</doc-ref> **⚠️ NEW**
+- **Troubleshooting:** See <doc-ref type="guide">docs/TROUBLESHOOTING.md</doc-ref> **⚠️ NEW - Debug shape mismatches & config issues**
+- **Params Quick Reference:** See <doc-ref type="guide">docs/QUICK_REFERENCE_PARAMS.md</doc-ref> **⚠️ NEW - params.cfg initialization cheatsheet**
 - **Training:** See <doc-ref type="workflow-guide">scripts/training/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>
 - **Inference:** See <doc-ref type="workflow-guide">scripts/inference/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
 - **Evaluation:** See <doc-ref type="workflow-guide">scripts/evaluation/README.md</doc-ref> **⚠️ NEW - Single model evaluation with metrics**

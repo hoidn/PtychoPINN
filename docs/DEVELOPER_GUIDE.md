@@ -4,6 +4,12 @@
 
 This document summarizes key architectural principles, data pipeline best practices, and non-obvious implementation details discovered during the development and debugging of the PtychoPINN project. It is intended as a **canonical guide for all developers** to ensure future work is robust, maintainable, and consistent with the project's design.
 
+## Related Documentation
+
+- **<doc-ref type="guide">docs/TROUBLESHOOTING.md</doc-ref>** - Debug common issues like shape mismatches and config problems
+- **<doc-ref type="guide">docs/QUICK_REFERENCE_PARAMS.md</doc-ref>** - Quick reference for params.cfg initialization patterns
+- **`tests/test_template_gridsize.py`** - Template for writing tests with proper params initialization
+
 ---
 
 ## 1. The Core Concept: A "Two-System" Architecture
@@ -415,11 +421,58 @@ setup_logging(output_dir)
 
 ---
 
-## 7. Testing Conventions
+## 7. Code Review Checklist
+
+Before merging any PR that touches data loading or configuration:
+
+### 7.1. Configuration Flow
+- [ ] Does the code access `params.get()` or `params.cfg`?
+  - If yes: Is `update_legacy_dict()` called before this access?
+  - If yes: Is there a fallback if params not initialized?
+- [ ] Are there hidden dependencies on global state?
+  - Check for: `params.get()`, `params.cfg`, global variables
+  - Solution: Pass as explicit parameters instead
+- [ ] Is the initialization order documented?
+  - Add comments explaining when params must be set
+  - Reference `docs/TROUBLESHOOTING.md` for common issues
+
+### 7.2. Shape Validation  
+- [ ] For gridsize-dependent code, are there tests for gridsize=1 AND gridsize=2?
+- [ ] Do integration tests verify expected output shapes?
+- [ ] Is there validation that catches shape mismatches early?
+
+### 7.3. Error Messages
+- [ ] Do error messages include context about configuration state?
+  ```python
+  # Good
+  raise ValueError(f"Expected shape (*,*,*,4) for gridsize=2, got {shape}. "
+                  f"Check params.cfg['gridsize']={params.cfg.get('gridsize')}")
+  
+  # Bad  
+  raise ValueError("Shape mismatch")
+  ```
+
+### 7.4. Documentation
+- [ ] Are all params.cfg dependencies documented in docstrings?
+- [ ] Do functions with hidden dependencies have warning boxes?
+- [ ] Is there a link to TROUBLESHOOTING.md for complex issues?
+
+### 7.5. Example Review Comments
+
+**Flagging hidden dependencies:**
+> ⚠️ This function reads `params.cfg['gridsize']` but doesn't document this dependency. Please add to docstring and ensure callers initialize params correctly.
+
+**Suggesting explicit parameters:**
+> 🔧 Consider accepting `gridsize` as an explicit parameter instead of reading from `params.cfg`. This would make the dependency clear and improve testability.
+
+**Requesting shape validation:**
+> 🧪 Please add a test verifying this works with gridsize=2 (multi-channel data). The baseline had a similar bug that was caught by testing.
+
+## 8. Testing Conventions
 
 **The Principle:** All tests for the PtychoPINN project must follow a standardized, conventional structure to ensure maintainability, discoverability, and consistency.
 
-### 7.1. Test Directory Structure
+### 8.1. Test Directory Structure
 
 **The Rule:** All tests for the `ptycho` library code must reside in the top-level `tests/` directory, with a structure that mirrors the `ptycho/` package organization.
 
