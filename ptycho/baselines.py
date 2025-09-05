@@ -95,7 +95,10 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
 
 def build_model(X_train, Y_I_train, Y_phi_train):
     tf.keras.backend.clear_session()
-    c = X_train.shape[-1]
+    # Baseline model is fundamentally a single-channel operator
+    # Always use c=1 regardless of input data shape, as multi-channel data
+    # should be flattened to independent samples before training
+    c = 1  # Hardcoded: baseline model always processes single-channel data
     # Get dimensions from actual training data rather than global params
     h, w = X_train.shape[1], X_train.shape[2]
     input_img = Input(shape=(h, w, c))
