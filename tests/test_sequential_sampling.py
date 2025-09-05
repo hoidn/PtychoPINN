@@ -208,18 +208,39 @@ class TestSequentialSampling(unittest.TestCase):
     
     def test_sequential_sampling_handles_edge_cases(self):
         """Test sequential sampling with edge cases."""
-        # Case 1: Request more samples than available points
+        # Case 1: Request more samples than available points with gridsize=1 (no oversampling)
+        n_points = len(self.xcoords)
+        
+        # Temporarily set gridsize=1 to avoid K choose C oversampling
+        original_gridsize = params.cfg['gridsize']
+        params.cfg['gridsize'] = 1
+        
+        try:
+            result = self.raw_data.generate_grouped_data(
+                N=64, K=7, nsamples=n_points + 10,  # More than available
+                sequential_sampling=True
+            )
+            
+            # With gridsize=1, should cap at available points
+            nn_indices = result['nn_indices']
+            self.assertLessEqual(len(nn_indices), n_points)
+        finally:
+            # Restore original gridsize
+            params.cfg['gridsize'] = original_gridsize
+        
+        # Case 2: Request more samples than available points with gridsize > 1 (oversampling)
         n_points = len(self.xcoords)
         result = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=n_points + 10,  # More than available
             sequential_sampling=True
         )
         
-        # Should use all available points
+        # With gridsize=2 (C=4), should use K choose C oversampling to generate the requested number
         nn_indices = result['nn_indices']
-        self.assertLessEqual(len(nn_indices), n_points)
+        self.assertEqual(len(nn_indices), n_points + 10, 
+                        "K choose C oversampling should generate the exact number of requested groups")
         
-        # Case 2: Request exactly the number of available points
+        # Case 3: Request exactly the number of available points
         result = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=n_points,
             sequential_sampling=True

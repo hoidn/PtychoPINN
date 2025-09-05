@@ -204,15 +204,31 @@ class TestInferenceBenchmarkIntegration(unittest.TestCase):
     
     @patch('scripts.benchmark_inference_throughput.loader.load')
     @patch('scripts.benchmark_inference_throughput.load_inference_bundle')
-    @patch('ptycho.raw_data.RawData.from_file')
-    def test_load_model_and_data(self, mock_from_file, mock_load_bundle, mock_loader_load):
+    @patch('scripts.benchmark_inference_throughput.RawData')
+    @patch('numpy.load')
+    def test_load_model_and_data(self, mock_np_load, mock_raw_data_class, mock_load_bundle, mock_loader_load):
         """Test loading model and data."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Setup mocks
             mock_model = Mock()
-            mock_load_bundle.return_value = (mock_model, 232, 232, 1.0)
+            mock_config = {
+                'obj_w': 232,
+                'obj_h': 232, 
+                'intensity_scale': 1.0
+            }
+            mock_load_bundle.return_value = (mock_model, mock_config)
             
-            # Setup mock raw data
+            # Setup mock numpy.load to return data structure expected by RawData
+            mock_npz_data = {
+                'diffraction': np.random.randn(100, 64, 64),
+                'xcoords': np.random.randn(100),
+                'ycoords': np.random.randn(100),
+                'probeGuess': np.random.randn(64, 64),
+                'objectGuess': np.random.randn(232, 232)
+            }
+            mock_np_load.return_value = mock_npz_data
+            
+            # Setup mock raw data instance
             mock_raw_data = Mock()
             mock_raw_data.diffraction = np.random.randn(100, 64, 64)
             mock_raw_data.xcoords = np.random.randn(100)
@@ -226,7 +242,9 @@ class TestInferenceBenchmarkIntegration(unittest.TestCase):
                 'nn_indices': np.random.randint(0, 100, (50, 1)),
                 'X_full': np.random.randn(50, 64, 64, 1)
             })
-            mock_from_file.return_value = mock_raw_data
+            
+            # Configure RawData class constructor to return mock instance
+            mock_raw_data_class.return_value = mock_raw_data
             
             # Setup mock test data container
             mock_test_data = Mock()
