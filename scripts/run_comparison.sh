@@ -317,16 +317,16 @@ if [[ -n "$N_TEST_GROUPS" ]]; then
 fi
 
 # Add phase control parameters if provided
-if [ -n "$PINN_PHASE_VMIN" ]; then
+if [ ! -z "$PINN_PHASE_VMIN" ]; then
     COMPARE_CMD="$COMPARE_CMD --pinn_phase_vmin $PINN_PHASE_VMIN"
 fi
-if [ -n "$PINN_PHASE_VMAX" ]; then
+if [ ! -z "$PINN_PHASE_VMAX" ]; then
     COMPARE_CMD="$COMPARE_CMD --pinn_phase_vmax $PINN_PHASE_VMAX"
 fi
-if [ -n "$BASELINE_PHASE_VMIN" ]; then
+if [ ! -z "$BASELINE_PHASE_VMIN" ]; then
     COMPARE_CMD="$COMPARE_CMD --baseline_phase_vmin $BASELINE_PHASE_VMIN"
 fi
-if [ -n "$BASELINE_PHASE_VMAX" ]; then
+if [ ! -z "$BASELINE_PHASE_VMAX" ]; then
     COMPARE_CMD="$COMPARE_CMD --baseline_phase_vmax $BASELINE_PHASE_VMAX"
 fi
 
