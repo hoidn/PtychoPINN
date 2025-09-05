@@ -76,12 +76,19 @@ def parse_args():
                         help="Save debug images for MS-SSIM and FRC preprocessing visualization.")
     parser.add_argument("--ms-ssim-sigma", type=float, default=1.0,
                         help="Gaussian smoothing sigma for MS-SSIM amplitude calculation (default: 1.0).")
+    parser.add_argument("--n-test-groups", type=int, default=None,
+                        help="Number of test groups to load from the file (default: all).")
+    parser.add_argument("--n-test-subsample", type=int, default=None,
+                        help="Number of images to subsample from test data for evaluation.")
+    parser.add_argument("--test-subsample-seed", type=int, default=None,
+                        help="Random seed for reproducible test subsampling")
+    # Legacy compatibility
     parser.add_argument("--n-test-images", type=int, default=None,
-                        help="Number of test images to load from the file (default: all).")
+                        help="DEPRECATED: Use --n-test-groups instead.")
     parser.add_argument("--n-subsample", type=int, default=None,
-                        help="Number of images to subsample from test data (independent control)")
+                        help="DEPRECATED: Use --n-test-subsample instead.")
     parser.add_argument("--subsample-seed", type=int, default=None,
-                        help="Random seed for reproducible subsampling")
+                        help="DEPRECATED: Use --test-subsample-seed instead.")
     parser.add_argument("--tike_recon_path", type=Path, default=None,
                         help="Path to Tike reconstruction NPZ file for three-way comparison (optional).")
     parser.add_argument("--stitch-crop-size", type=int, default=20,
@@ -788,21 +795,37 @@ def main():
     # Load test data using the restored gridsize configuration
     logger.info(f"Loading test data from {args.test_data} with restored gridsize={restored_gridsize}...")
     
-    # Parameter interpretation: Handle backward compatibility and independent control
+    # Handle backward compatibility for deprecated arguments
+    if args.n_test_images is not None:
+        logger.warning("--n-test-images is deprecated. Use --n-test-groups instead.")
+        if args.n_test_groups is None:
+            args.n_test_groups = args.n_test_images
+    
     if args.n_subsample is not None:
-        logger.info(f"Using independent sampling control: n_subsample={args.n_subsample}, n_images={args.n_test_images}")
-        if args.n_test_images is not None and args.n_subsample > args.n_test_images:
-            logger.warning(f"n_subsample ({args.n_subsample}) > n_images ({args.n_test_images}), may use more data than expected")
+        logger.warning("--n-subsample is deprecated. Use --n-test-subsample instead.")
+        if args.n_test_subsample is None:
+            args.n_test_subsample = args.n_subsample
+    
+    if args.subsample_seed is not None:
+        logger.warning("--subsample-seed is deprecated. Use --test-subsample-seed instead.")
+        if args.test_subsample_seed is None:
+            args.test_subsample_seed = args.subsample_seed
+    
+    # Parameter interpretation: Handle backward compatibility and independent control
+    if args.n_test_subsample is not None:
+        logger.info(f"Using independent sampling control: n_subsample={args.n_test_subsample}, n_groups={args.n_test_groups}")
+        if args.n_test_groups is not None and args.n_test_subsample > args.n_test_groups:
+            logger.warning(f"n_test_subsample ({args.n_test_subsample}) > n_test_groups ({args.n_test_groups}), may use more data than expected")
     else:
-        if args.n_test_images is not None:
-            logger.info(f"Using legacy mode: n_test_images={args.n_test_images} (controls both subsampling and grouping)")
+        if args.n_test_groups is not None:
+            logger.info(f"Using n_test_groups={args.n_test_groups} (controls grouping)")
         else:
             logger.info("Using all test data (no subsampling or grouping limit)")
     
     test_data_raw = load_data(str(args.test_data), 
-                             n_images=args.n_test_images,
-                             n_subsample=args.n_subsample,
-                             subsample_seed=args.subsample_seed)
+                             n_images=args.n_test_groups,  # n_images in load_data corresponds to groups
+                             n_subsample=args.n_test_subsample,
+                             subsample_seed=args.test_subsample_seed)
     
     # Update only non-architecture parameters while preserving gridsize
     # This ensures we don't overwrite the critical architecture configuration
