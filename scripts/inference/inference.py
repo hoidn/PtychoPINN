@@ -219,7 +219,7 @@ def perform_inference(model: tf.keras.Model, test_data: RawData, config: dict, K
 
         # Generate grouped data
         print(f"DEBUG: Using gridsize={config.get('gridsize', 'NOT_SET')} for data generation")
-        test_dataset = test_data.generate_grouped_data(config['N'], K=K, nsamples=nsamples)
+        test_dataset = test_data.generate_grouped_data(config['N'], K=K, nsamples=nsamples, gridsize=config.get('gridsize', 1))
         
         # Debug: check the shape of the generated data
         if 'diffraction' in test_dataset:

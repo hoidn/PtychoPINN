@@ -362,7 +362,7 @@ class RawData:
         return train_raw_data, test_raw_data
 
     #@debug
-    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, seed: Optional[int] = None, sequential_sampling: bool = False):
+    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, seed: Optional[int] = None, sequential_sampling: bool = False, gridsize: Optional[int] = None):
         """
         Generate nearest-neighbor solution region grouping with efficient sampling.
         
@@ -388,6 +388,9 @@ class RawData:
             sequential_sampling (bool, optional): If True, uses the first nsamples points sequentially
                                                  instead of random sampling. Useful for debugging or
                                                  analyzing specific scan regions. Defaults to False.
+            gridsize (int, optional): Grid size for patch grouping. If None, falls back to
+                                     params.get('gridsize', 1). Explicit parameter takes precedence
+                                     for better dependency injection and testing.
 
         Returns:
             dict: Dictionary containing grouped data with keys:
@@ -405,17 +408,40 @@ class RawData:
             The new efficient implementation eliminates the need for caching.
             Performance is fast enough that first-run and subsequent runs
             have similar execution times.
+
+        ⚠️ CRITICAL DEPENDENCY WARNING ⚠️
+        This method requires params.cfg['gridsize'] to be initialized.
+
+        Initialization requirements:
+        - For training: Call update_legacy_dict(params.cfg, config) first
+        - For inference: Ensure params.cfg is populated from saved model
+        - For testing: Set params.cfg['gridsize'] explicitly
+
+        Common failure scenario:
+        - Symptom: Getting shape (*, 64, 64, 1) instead of (*, 64, 64, 4)
+        - Cause: params.cfg['gridsize'] not set, defaults to 1
+        - Fix: Ensure update_legacy_dict() called before this method
+
+        See: docs/TROUBLESHOOTING.md#shape-mismatch-errors
         """
-        gridsize = params.get('gridsize')
+        # Use explicit gridsize parameter if provided, otherwise fallback to params
         if gridsize is None:
-            gridsize = 1
+            gridsize = params.get('gridsize', 1)
+        # gridsize now comes from explicit parameter, maintaining backward compatibility
         
         # Unified efficient logic for all gridsize values
         C = gridsize ** 2  # Number of coordinates per solution region
         n_points = len(self.xcoords)
         
+        # Debug logging for method entry
+        logging.info(f"[OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples={nsamples}, n_points={n_points}, C={C}, K={K}")
+        logging.info(f"[OVERSAMPLING DEBUG] Parameters: gridsize={gridsize}, N={N}, sequential_sampling={sequential_sampling}")
+        
         # Determine if oversampling is needed
         needs_oversampling = (nsamples > n_points) and (C > 1)
+        logging.info(f"[OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = {nsamples} > {n_points} = {nsamples > n_points}")
+        logging.info(f"[OVERSAMPLING DEBUG] Oversampling check: C > 1 = {C} > 1 = {C > 1}")
+        logging.info(f"[OVERSAMPLING DEBUG] needs_oversampling = {needs_oversampling}")
         
         # Determine sampling strategy
         if sequential_sampling:
@@ -433,6 +459,7 @@ class RawData:
         # Automatically route to appropriate implementation
         if needs_oversampling:
             # Use K choose C oversampling when requesting more groups than available points
+            logging.info(f"[OVERSAMPLING DEBUG] Taking oversampling branch: K choose C oversampling")
             logging.info(f"Automatically using K choose C oversampling: {nsamples} groups requested but only {n_points} points available (K={K}, C={C})")
             selected_groups = self._generate_groups_with_oversampling(
                 nsamples=nsamples,
@@ -443,6 +470,7 @@ class RawData:
             )
         else:
             # Use the existing efficient method for standard cases
+            logging.info(f"[OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group")
             selected_groups = self._generate_groups_efficiently(
                 nsamples=nsamples, 
                 K=K, 
@@ -451,6 +479,7 @@ class RawData:
                 seed_indices=seed_indices
             )
         
+        logging.info(f"[OVERSAMPLING DEBUG] Generated {len(selected_groups)} groups in total")
         logging.info(f"Generated {len(selected_groups)} groups efficiently")
         
         # Generate the final dataset from the selected groups
@@ -491,7 +520,7 @@ class RawData:
             Y4d_nn = np.transpose(self.Y[nn_indices], [0, 2, 3, 1])
         elif self.objectGuess is not None:
             print("INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.")
-            Y4d_nn = get_image_patches(self.objectGuess, coords_offsets, coords_relative)
+            Y4d_nn = get_image_patches(self.objectGuess, coords_offsets, coords_relative, N=N, gridsize=gridsize)
         else:
             print("INFO: No ground truth data ('Y' array or 'objectGuess') found.")
             print("INFO: This is expected for PINN training which doesn't require ground truth.")
@@ -555,6 +584,7 @@ class RawData:
                 np.random.seed(seed)
             
             n_points = len(self.xcoords)
+            logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples={nsamples}, K={K}, C={C}")
             logging.info(f"Generating {nsamples} groups efficiently from {n_points} points (K={K}, C={C})")
             
             # Validate inputs
@@ -569,24 +599,29 @@ class RawData:
                 # Sequential sampling: use provided indices
                 n_samples_actual = min(len(seed_indices), n_points)
                 seed_indices = seed_indices[:n_samples_actual]
+                logging.info(f"[OVERSAMPLING DEBUG] Using sequential sampling with {n_samples_actual} seed indices")
                 logging.info(f"Using provided {n_samples_actual} sequential seed indices")
                 # Set a fixed seed for neighbor selection to ensure determinism
                 np.random.seed(0)
             else:
                 # Random sampling: handle edge case where more samples requested than available points
                 if nsamples > n_points:
+                    logging.info(f"[OVERSAMPLING DEBUG] Capping groups: requested {nsamples} but only {n_points} points available")
                     logging.warning(f"Requested {nsamples} groups but only {n_points} points available. Using all points as seeds.")
                     n_samples_actual = n_points
                 else:
                     n_samples_actual = nsamples
+                    logging.info(f"[OVERSAMPLING DEBUG] Standard case: using {n_samples_actual} groups from {n_points} points")
                 
                 # Sample seed points randomly
                 all_indices = np.arange(n_points)
                 if n_samples_actual < n_points:
                     seed_indices = np.random.choice(all_indices, size=n_samples_actual, replace=False)
+                    logging.info(f"[OVERSAMPLING DEBUG] Randomly sampled {n_samples_actual} seed points")
                     logging.info(f"Sampled {n_samples_actual} seed points from {n_points} total points")
                 else:
                     seed_indices = all_indices
+                    logging.info(f"[OVERSAMPLING DEBUG] Using all {n_points} points as seeds (no sampling needed)")
                     logging.info(f"Using all {n_points} points as seeds")
             
             # Special case for C=1 (gridsize=1): use seed indices directly without neighbor search
@@ -633,6 +668,7 @@ class RawData:
                     
                     groups[i] = selected
             
+            logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated {n_samples_actual} groups")
             logging.info(f"Successfully generated {n_samples_actual} groups with shape {groups.shape}")
             return groups
             
@@ -664,6 +700,7 @@ class RawData:
                 np.random.seed(seed)
             
             n_points = len(self.xcoords)
+            logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_with_oversampling called with: nsamples={nsamples}, K={K}, C={C}")
             logging.info(f"Generating {nsamples} groups with K choose C oversampling from {n_points} points (K={K}, C={C})")
             
             # Validate inputs
@@ -675,21 +712,26 @@ class RawData:
             
             # Calculate maximum combinations per seed
             max_combos_per_seed = 1 if C == 1 else len(list(combinations(range(K), C)))
+            logging.info(f"[OVERSAMPLING DEBUG] Max combinations per seed: {max_combos_per_seed} (C={C}, K={K})")
             logging.info(f"Each seed point can generate up to {max_combos_per_seed} combinations")
             
             # Step 1: Determine how many seed points we need
             min_seeds_needed = max(1, (nsamples + max_combos_per_seed - 1) // max_combos_per_seed)
             n_seeds = min(min_seeds_needed * 2, n_points)  # Use 2x seeds for diversity
+            logging.info(f"[OVERSAMPLING DEBUG] Calculated seed requirements: min_seeds_needed={min_seeds_needed}, using n_seeds={n_seeds}")
             
             # Step 2: Select seed points
             if seed_indices is not None and len(seed_indices) >= min_seeds_needed:
                 seed_indices = seed_indices[:n_seeds]
+                logging.info(f"[OVERSAMPLING DEBUG] Using provided seed_indices (first {n_seeds})")
             else:
                 all_indices = np.arange(n_points)
                 if n_seeds < n_points:
                     seed_indices = np.random.choice(all_indices, size=n_seeds, replace=False)
+                    logging.info(f"[OVERSAMPLING DEBUG] Randomly selected {n_seeds} seed points from {n_points}")
                 else:
                     seed_indices = all_indices
+                    logging.info(f"[OVERSAMPLING DEBUG] Using all {n_points} points as seeds")
             
             logging.info(f"Using {len(seed_indices)} seed points to generate {nsamples} groups")
             
@@ -745,6 +787,7 @@ class RawData:
             
             # Step 5: Sample from combination pool
             total_combinations = len(combination_pool)
+            logging.info(f"[OVERSAMPLING DEBUG] Generated combination pool: {total_combinations} total combinations")
             logging.info(f"Generated pool of {total_combinations} combinations")
             
             if total_combinations == 0:
@@ -757,13 +800,16 @@ class RawData:
             if nsamples <= total_combinations:
                 # Sample without replacement for diversity
                 selected_indices = np.random.choice(total_combinations, size=nsamples, replace=False)
+                logging.info(f"[OVERSAMPLING DEBUG] Sampling {nsamples} from {total_combinations} combinations (without replacement)")
             else:
                 # Sample with replacement if requesting more than available
+                logging.info(f"[OVERSAMPLING DEBUG] Need {nsamples} groups but only {total_combinations} combinations available - using replacement")
                 logging.warning(f"Requested {nsamples} groups but only {total_combinations} unique combinations available. Sampling with replacement.")
                 selected_indices = np.random.choice(total_combinations, size=nsamples, replace=True)
             
             groups = combination_pool[selected_indices]
             
+            logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_with_oversampling completed: generated {nsamples} groups")
             logging.info(f"Successfully generated {nsamples} groups with K choose C oversampling")
             return groups
             

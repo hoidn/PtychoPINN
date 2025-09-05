@@ -51,7 +51,8 @@ Usage Example:
     
     # Generate grouped data and convert to tensors
     def data_callback():
-        return raw_data.generate_grouped_data(N=64, K=7)
+        gridsize = params.get('gridsize', 1)
+        return raw_data.generate_grouped_data(N=64, K=7, gridsize=gridsize)
     
     train_container = load(data_callback, probe_tensor, 'train', True)
     test_container = load(data_callback, probe_tensor, 'test', True)
@@ -177,7 +178,8 @@ class PtychoDataContainer:
             N = cfg.get('N')
         train_raw = RawData.from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
         
-        dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples)
+        gridsize = cfg.get('gridsize', 1)
+        dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples, gridsize=gridsize)
 
         # Use loader.load() to handle the conversion to PtychoData
         return load(lambda: dset_train, probeGuess, which=None, create_split=False)

@@ -65,6 +65,7 @@ N_TRAIN_GROUPS=""
 N_TRAIN_SUBSAMPLE=""
 N_TEST_GROUPS=""
 N_TEST_SUBSAMPLE=""
+NEIGHBOR_COUNT=""
 SKIP_TRAINING=false
 PINN_MODEL=""
 BASELINE_MODEL=""
@@ -97,6 +98,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --n-test-subsample)
             N_TEST_SUBSAMPLE="$2"
+            shift 2
+            ;;
+        --neighbor-count)
+            NEIGHBOR_COUNT="$2"
             shift 2
             ;;
         --n-test-images)
@@ -280,6 +285,9 @@ else
     if [[ -n "$N_TRAIN_GROUPS" ]]; then
         PINN_CMD="$PINN_CMD --n_groups $N_TRAIN_GROUPS"
     fi
+    if [[ -n "$NEIGHBOR_COUNT" ]]; then
+        PINN_CMD="$PINN_CMD --neighbor_count $NEIGHBOR_COUNT"
+    fi
 
     # Execute PtychoPINN training
     eval $PINN_CMD
@@ -306,6 +314,9 @@ else
     fi
     if [[ -n "$N_TRAIN_GROUPS" ]]; then
         BASELINE_CMD="$BASELINE_CMD --n_groups $N_TRAIN_GROUPS"
+    fi
+    if [[ -n "$NEIGHBOR_COUNT" ]]; then
+        BASELINE_CMD="$BASELINE_CMD --neighbor_count $NEIGHBOR_COUNT"
     fi
 
     # Execute baseline training

@@ -48,6 +48,7 @@ DEFAULT_TEST_SUBSAMPLE="4096"
 DEFAULT_OUTPUT_DIR="complete_generalization_study_$(date +%Y%m%d_%H%M%S)"
 DEFAULT_PARALLEL_JOBS=1
 DEFAULT_NUM_TRIALS=5
+DEFAULT_NEIGHBOR_COUNT=7  # Good default for oversampling with gridsize=2 (C=4)
 SKIP_DATA_PREP=false
 SKIP_TRAINING=false
 SKIP_COMPARISON=false
@@ -81,6 +82,7 @@ OPTIONS:
     --test-groups N            Number of groups for the fixed test set (default: $DEFAULT_TEST_GROUPS)
     --test-subsample N         Number of images to subsample for the fixed test set (default: $DEFAULT_TEST_SUBSAMPLE)
     --num-trials N            Number of trials per training size (default: $DEFAULT_NUM_TRIALS)
+    --neighbor-count K        Number of nearest neighbors (K) for grouping (default: $DEFAULT_NEIGHBOR_COUNT)
     --output-dir DIRECTORY     Output directory (default: timestamped directory)
     --train-data PATH         Path to training dataset (default: auto-generated)
     --test-data PATH          Path to test dataset (default: auto-generated)
@@ -180,6 +182,7 @@ EOF
 TRAIN_GROUP_SIZES="$DEFAULT_GROUP_SIZES"
 TRAIN_SUBSAMPLE_SIZES="$DEFAULT_SUBSAMPLE_SIZES"
 TEST_GROUPS="$DEFAULT_TEST_GROUPS"
+NEIGHBOR_COUNT="$DEFAULT_NEIGHBOR_COUNT"
 TEST_SUBSAMPLE="$DEFAULT_TEST_SUBSAMPLE"
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
 TRAIN_DATA=""
@@ -205,6 +208,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --num-trials)
             NUM_TRIALS="$2"
+            shift 2
+            ;;
+        --neighbor-count)
+            NEIGHBOR_COUNT="$2"
             shift 2
             ;;
         --output-dir)
@@ -574,6 +581,7 @@ train_models() {
             --train_data_file '$train_data_path' \\
             --test_data_file '$TEST_DATA' \\
             --n_groups $train_groups --n_subsample $train_subsample \\
+            --neighbor_count $NEIGHBOR_COUNT \\
             --output_dir '$trial_output_dir/pinn_run' \\
             --nepochs 50"
             
@@ -588,6 +596,7 @@ train_models() {
             --train_data_file '$train_data_path' \\
             --test_data '$TEST_DATA' \\
             --n_groups $train_groups --n_subsample $train_subsample \\
+            --neighbor_count $NEIGHBOR_COUNT \\
             --output_dir '$trial_output_dir/baseline_run' \\
             --nepochs 50"
             
@@ -634,7 +643,7 @@ train_models() {
         train_groups="${TRAIN_GROUP_ARRAY[$i]}"
         train_subsample="${TRAIN_SUBSAMPLE_ARRAY[$i]}"
         
-        log "Starting training for train_size=$train_size, test_size=$test_size ($NUM_TRIALS trials)"
+        log "Starting training with train_groups=$train_groups, train_subsample=$train_subsample ($NUM_TRIALS trials)"
         
         for trial in $(seq 1 "$NUM_TRIALS"); do
             train_single_trial "$train_groups" "$train_subsample" "$trial"
@@ -713,7 +722,8 @@ compare_models() {
                 --pinn-model '$pinn_dir' \\
                 --baseline-model '$baseline_dir' \\
                 --n-test-subsample $TEST_SUBSAMPLE \\
-                --n-test-groups $TEST_GROUPS"
+                --n-test-groups $TEST_GROUPS \\
+                --neighbor-count $NEIGHBOR_COUNT"
             
             # Add registration flag if needed
             if [ -n "$registration_arg" ]; then
@@ -732,7 +742,7 @@ compare_models() {
                     compare_cmd="$compare_cmd --tike_recon_path '$tike_recon_path'"
                     # For 3-way comparison, use the test_size for this iteration
                     # Test size is handled via TEST_SUBSAMPLE and TEST_GROUPS now
-                    log "Using test subset size $test_size (3-way comparison mode with Tike)"
+                    log "Using test subset with $TEST_SUBSAMPLE images and $TEST_GROUPS groups (3-way comparison mode with Tike)"
                 else
                     log "WARNING: Tike reconstruction not found for trial=$trial: $tike_recon_path"
                 fi
@@ -750,7 +760,7 @@ compare_models() {
                     compare_cmd="$compare_cmd --tike_recon_path '$ptychi_recon_path'"
                     # For 3-way comparison, use the test_size for this iteration
                     # Test size is handled via TEST_SUBSAMPLE and TEST_GROUPS now
-                    log "Using test subset size $test_size (3-way comparison mode with Pty-chi)"
+                    log "Using test subset with $TEST_SUBSAMPLE images and $TEST_GROUPS groups (3-way comparison mode with Pty-chi)"
                 else
                     log "WARNING: Pty-chi reconstruction not found for trial=$trial: $ptychi_recon_path"
                 fi

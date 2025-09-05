@@ -105,8 +105,9 @@ def load_generic_data(probeGuess, N):
     train_raw = RawData.from_file(train_data_file_path)
     test_raw = RawData.from_file(test_data_file_path)
 
-    dset_train = train_raw.generate_grouped_data(N, K=7, nsamples=1)
-    dset_test = test_raw.generate_grouped_data(N, K=7, nsamples=1)
+    gridsize = params.get('gridsize', 1)
+    dset_train = train_raw.generate_grouped_data(N, K=7, nsamples=1, gridsize=gridsize)
+    dset_test = test_raw.generate_grouped_data(N, K=7, nsamples=1, gridsize=gridsize)
 
     train_data_container = loader.load(lambda: dset_train, probeGuess, which=None, create_split=False)
     test_data_container = loader.load(lambda: dset_test, probeGuess, which=None, create_split=False)

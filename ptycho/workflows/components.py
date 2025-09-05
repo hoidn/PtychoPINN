@@ -563,7 +563,8 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
             K=config.neighbor_count,  # Use configurable K value
             nsamples=config.n_groups,  # Use n_groups (clearer naming)
             dataset_path=str(config.train_data_file) if config.train_data_file else None,
-            sequential_sampling=config.sequential_sampling  # Pass sequential sampling flag
+            sequential_sampling=config.sequential_sampling,  # Pass sequential sampling flag
+            gridsize=config.model.gridsize  # Pass gridsize explicitly (replaces global params dependency)
         )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
