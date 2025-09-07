@@ -483,9 +483,9 @@ class RawData:
         logging.info(f"Generated {len(selected_groups)} groups efficiently")
         
         # Generate the final dataset from the selected groups
-        return self._generate_dataset_from_groups(selected_groups, N, K)
+        return self._generate_dataset_from_groups(selected_groups, N, K, gridsize)
 
-    def _generate_dataset_from_groups(self, selected_groups: np.ndarray, N: int, K: int) -> dict:
+    def _generate_dataset_from_groups(self, selected_groups: np.ndarray, N: int, K: int, gridsize: int) -> dict:
         """
         Generate the final dataset from selected group indices.
         
