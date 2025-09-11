@@ -60,9 +60,19 @@ class TestBaselineGridsize2Integration(unittest.TestCase):
                         f"stderr: {result.stderr}")
         
         # Verify output files were created
+        # The script creates a timestamped subdirectory, so we need to find it
+        timestamped_dirs = [d for d in self.output_dir.iterdir() if d.is_dir() and 'baseline_gs' in d.name]
+        self.assertTrue(len(timestamped_dirs) > 0, 
+                       f"No timestamped baseline directory found in {self.output_dir}")
+        
+        # Use the first (and should be only) timestamped directory
+        baseline_dir = timestamped_dirs[0]
+        
+        # Check for files that the baseline script actually creates
         expected_files = [
-            self.output_dir / "baseline_model.h5",
-            self.output_dir / "baseline_reconstruction.png"
+            baseline_dir / "baseline_model.h5",
+            baseline_dir / "amp_recon.png",  # This is what save_recons() actually creates
+            baseline_dir / "phi_recon.png"   # This too
         ]
         
         for expected_file in expected_files:
@@ -75,7 +85,7 @@ class TestBaselineGridsize2Integration(unittest.TestCase):
         self.assertNotIn("ValueError", result.stderr)
         
         # Verify the log mentions flattening for gridsize=2
-        log_file = self.output_dir / "logs" / "debug.log"
+        log_file = baseline_dir / "logs" / "debug.log"
         if log_file.exists():
             with open(log_file, 'r') as f:
                 log_content = f.read()

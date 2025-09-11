@@ -26,6 +26,7 @@ sys.path.insert(0, str(project_root))
 # Initialize params before any imports that might need them
 from ptycho import params as p
 from ptycho.probe import get_default_probe
+from ptycho.config.config import update_legacy_dict, TrainingConfig, ModelConfig
 
 # Set required parameters 
 p.set('N', 64)
@@ -50,6 +51,13 @@ class TestTorchTFHelper(unittest.TestCase):
     
     def setUp(self):
         """Ensure params are properly set for each test."""
+        # Clear and properly initialize params to avoid validation errors
+        p.cfg.clear()
+        config = TrainingConfig(model=ModelConfig(gridsize=2, N=64))
+        update_legacy_dict(p.cfg, config)
+        # Set required params that aren't in modern config
+        p.cfg['data_source'] = 'generic'
+        p.cfg['offset'] = 4
         p.set('N', 64)
         p.set('gridsize', 2)  
         p.set('default_probe_scale', 0.7)

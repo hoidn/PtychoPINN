@@ -115,11 +115,17 @@ def set(key, value):
     cfg[key] = value
     assert validate()
 
-def get(key):
+# Sentinel value to distinguish between no default and None as default
+_NO_DEFAULT = object()
+
+def get(key, default=_NO_DEFAULT):
     if key == 'bigN':
         cfg['bigN'] = get_bigN()
         return cfg['bigN']
-    return cfg[key]
+    # If no default provided, raise KeyError for backward compatibility
+    if default is _NO_DEFAULT:
+        return cfg[key]  # Will raise KeyError if key doesn't exist
+    return cfg.get(key, default)
 
 def print_params():
     """Print all parameters with special handling for arrays/tensors"""
