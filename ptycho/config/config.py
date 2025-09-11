@@ -274,7 +274,8 @@ def update_legacy_dict(cfg: Dict[str, Any], dataclass_obj: Any) -> None:
     - Cause: This function wasn't called before generate_grouped_data()
     - Fix: Call immediately after config setup, before load_data()
     
-    Updates all values from the dataclass, adding new keys if needed.
+    Updates values from the dataclass, but skips None values to preserve
+    existing parameter values when new configuration doesn't specify them.
     
     Args:
         cfg: Legacy dictionary to update
@@ -282,5 +283,7 @@ def update_legacy_dict(cfg: Dict[str, Any], dataclass_obj: Any) -> None:
     """
     new_values = dataclass_to_legacy_dict(dataclass_obj)
     
-    # Update all values from dataclass
-    cfg.update(new_values)
+    # Update values from dataclass, but skip None values to preserve existing params
+    for key, value in new_values.items():
+        if value is not None:
+            cfg[key] = value

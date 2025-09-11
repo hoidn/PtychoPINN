@@ -124,6 +124,8 @@ For more detailed information on the testing strategy, different test types, and
 
 This project provides several high-level scripts to automate common tasks. For detailed usage, see the documentation in each script's directory.
 
+**📚 For comprehensive documentation navigation, see <doc-ref type="index">docs/index.md</doc-ref>**
+
 - **Data Management:** See <doc-ref type="critical">docs/DATA_MANAGEMENT_GUIDE.md</doc-ref> **⚠️ MUST READ**
 - **Testing Guide:** See <doc-ref type="guide">docs/TESTING_GUIDE.md</doc-ref> **⚠️ NEW**
 - **Troubleshooting:** See <doc-ref type="guide">docs/TROUBLESHOOTING.md</doc-ref> **⚠️ NEW - Debug shape mismatches & config issues**

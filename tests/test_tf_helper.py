@@ -19,6 +19,7 @@ if project_root not in sys.path:
 
 from ptycho.tf_helper import reassemble_position, translate_core, translate
 from ptycho import params as p
+from ptycho.config.config import update_legacy_dict, TrainingConfig, ModelConfig
 # tensorflow_addons removed in TF 2.19 migration
 # import tensorflow_addons as tfa
 
@@ -35,6 +36,13 @@ class TestReassemblePosition(unittest.TestCase):
         """Set a random seed for deterministic tests and default config."""
         np.random.seed(42)
         tf.random.set_seed(42)
+        # Clear and properly initialize params to avoid validation errors
+        p.cfg.clear()
+        config = TrainingConfig(model=ModelConfig(gridsize=2, N=64))
+        update_legacy_dict(p.cfg, config)
+        # Set required params that aren't in modern config
+        p.cfg['data_source'] = 'generic'
+        p.cfg['offset'] = 4
         # Set gridsize=2 to mimic real-world multi-channel conditions
         p.set('gridsize', 2)
 
