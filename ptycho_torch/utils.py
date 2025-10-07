@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 import torch
 import mlflow
 #Custom functions
-from ptychopinn_torch.config_params import update_existing_config
-from ptychopinn_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
+from ptycho_torch.config_params import update_existing_config
+from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
 
 #Set mlflow directory
 

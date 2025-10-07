@@ -2,7 +2,7 @@ import math
 
 #Type helpers
 from typing import Tuple, Optional, Union, Callable, Any, List
-from ptychopinn_torch.dataloader_old import PtychoDataset, TensorDictDataLoader
+from ptycho_torch.dataloader_old import PtychoDataset, TensorDictDataLoader
 import torch.nn as nn
 
 #Pytorch-related
@@ -10,17 +10,17 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
-import ptychopinn_torch.helper as hh
-from ptychopinn_torch.dataloader import Collate
+import ptycho_torch.helper as hh
+from ptycho_torch.dataloader import Collate
 
 #Other useful libraries
 import time
 import gc
 
 #Configurations
-from ptychopinn_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
 
-from ptychopinn_torch.helper import reassemble_patches_position_real
+from ptycho_torch.helper import reassemble_patches_position_real
 
 
 

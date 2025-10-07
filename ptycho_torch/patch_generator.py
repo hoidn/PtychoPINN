@@ -2,7 +2,7 @@
 import numpy as np
 from scipy.spatial import cKDTree, KDTree
 from scipy.sparse import coo_matrix
-from ptychopinn_torch.config_params import DataConfig, ModelConfig # Removed TrainingConfig
+from ptycho_torch.config_params import DataConfig, ModelConfig # Removed TrainingConfig
 from typing import Tuple, Optional
 #All methods for patch generation that used to be in loader will go here
 #Will be imported into dset_loader for generating patches of grid_size ** 2

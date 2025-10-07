@@ -17,13 +17,13 @@ import torch.distributed as dist
 from tensordict import MemoryMappedTensor, TensorDict
 
 #Patch generation
-from ptychopinn_torch.patch_generator import group_coords, get_relative_coords, get_neighbor_indices, get_neighbors_indices_within_bounds
+from ptycho_torch.patch_generator import group_coords, get_relative_coords, get_neighbor_indices, get_neighbors_indices_within_bounds
 
 #Parameters
-from ptychopinn_torch.config_params import TrainingConfig, DataConfig, ModelConfig
+from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 
 #Helper methods
-import ptychopinn_torch.helper as hh
+import ptycho_torch.helper as hh
 
 # --- Helper functions for the dataloader ---
 def npz_headers(npz):

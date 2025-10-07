@@ -8,9 +8,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from ptychopinn_torch.dataloader_old import PtychoDataset, TensorDictDataLoader
-from ptychopinn_torch.dataloader import Collate
-from ptychopinn_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
+from ptycho_torch.dataloader_old import PtychoDataset, TensorDictDataLoader
+from ptycho_torch.dataloader import Collate
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
 
 torch.set_default_dtype(torch.float32)
 
