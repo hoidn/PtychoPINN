@@ -10,10 +10,10 @@ import math
 from typing import Optional
 
 #Helper
-from ptychopinn_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
-import ptychopinn_torch.helper as hh
-from ptychopinn_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
-from ptychopinn_torch.train_utils import MultiStageLRScheduler, AdaptiveLRScheduler
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
+import ptycho_torch.helper as hh
+from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
+from ptycho_torch.train_utils import MultiStageLRScheduler, AdaptiveLRScheduler
 import copy
 
 #Lightning
@@ -929,7 +929,7 @@ class PtychoPINN_Lightning(L.LightningModule):
     Stage 3: Physics-based normalization only
     Stage 4: Fine-tune decoder only
     
-    Requires import: from ptychopinn_torch.schedulers import MultiStageLRScheduler, AdaptiveLRScheduler
+    Requires import: from ptycho_torch.schedulers import MultiStageLRScheduler, AdaptiveLRScheduler
     '''
     def __init__(self, model_config: ModelConfig,
                        data_config: DataConfig,
