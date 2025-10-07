@@ -9,7 +9,7 @@ import warnings
 
 #Typing
 from dataclasses import asdict
-from ptychopinn_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
+from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
 
 #ML libraries
 import numpy as np
@@ -30,10 +30,10 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.strategies import DDPStrategy
 
 #Dataloader
-from ptychopinn_torch.dataloader import TensorDictDataLoader, PtychoDataset, Collate_Lightning
+from ptycho_torch.dataloader import TensorDictDataLoader, PtychoDataset, Collate_Lightning
 
 #Custom modules
-from ptychopinn_torch.utils import config_to_json_serializable_dict
+from ptycho_torch.utils import config_to_json_serializable_dict
 
 
 #Helper function for mlflow

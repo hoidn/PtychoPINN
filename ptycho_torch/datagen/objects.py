@@ -9,9 +9,9 @@ import noise
 import time
 
 #Other functions
-import ptychopinn_torch.helper as hh
+import ptycho_torch.helper as hh
 
-from ptychopinn_torch.config_params import TrainingConfig, DataConfig, ModelConfig
+from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 from skimage.draw import line_aa, disk, rectangle, ellipse, circle_perimeter_aa
 import scipy.ndimage as ndi
 from scipy.ndimage import gaussian_filter # For blurring the 2D noise

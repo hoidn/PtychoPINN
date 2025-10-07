@@ -1,23 +1,23 @@
 import importlib
-import ptychopinn_torch.datagen
-import ptychopinn_torch.reassembly
-import ptychopinn_torch.helper
-import ptychopinn_torch.dataloader
-import ptychopinn_torch.patch_generator
+import ptycho_torch.datagen
+import ptycho_torch.reassembly
+import ptycho_torch.helper
+import ptycho_torch.dataloader
+import ptycho_torch.patch_generator
 import os
 from collections import defaultdict
 
-from ptychopinn_torch.reassembly import reconstruct_image, reassemble_multi_channel
-from ptychopinn_torch.patch_generator import get_fixed_quadrant_neighbors_c4
+from ptycho_torch.reassembly import reconstruct_image, reassemble_multi_channel
+from ptycho_torch.patch_generator import get_fixed_quadrant_neighbors_c4
 
-from ptychopinn_torch.eval.frc import frc_preprocess_images, _match_phases_least_squares
-from ptychopinn_torch.eval.eval_metrics import FSC
+from ptycho_torch.eval.frc import frc_preprocess_images, _match_phases_least_squares
+from ptycho_torch.eval.eval_metrics import FSC
 from scipy.ndimage import fourier_shift
-from ptychopinn_torch.utils import load_all_configs_from_mlflow
-from ptychopinn_torch.config_params import update_existing_config
-from ptychopinn_torch.helper import center_crop
-from ptychopinn_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
-from ptychopinn_torch.dataloader import TensorDictDataLoader, PtychoDataset, Collate
+from ptycho_torch.utils import load_all_configs_from_mlflow
+from ptycho_torch.config_params import update_existing_config
+from ptycho_torch.helper import center_crop
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
+from ptycho_torch.dataloader import TensorDictDataLoader, PtychoDataset, Collate
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle

@@ -12,12 +12,12 @@ import numpy as np
 
 
 #Custom
-from ptychopinn_torch.utils import load_all_configs_from_mlflow
-from ptychopinn_torch.reassembly import reconstruct_image_barycentric
-from ptychopinn_torch.config_params import update_existing_config
-from ptychopinn_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
-from ptychopinn_torch.utils import load_config_from_json, validate_and_process_config, remove_all_files
-from ptychopinn_torch.dataloader import PtychoDataset
+from ptycho_torch.utils import load_all_configs_from_mlflow
+from ptycho_torch.reassembly import reconstruct_image_barycentric
+from ptycho_torch.config_params import update_existing_config
+from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
+from ptycho_torch.utils import load_config_from_json, validate_and_process_config, remove_all_files
+from ptycho_torch.dataloader import PtychoDataset
 
 def load_all_configs(config_path, file_index):
     """

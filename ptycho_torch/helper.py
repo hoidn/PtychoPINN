@@ -10,7 +10,7 @@ import numpy as np
 import gc
 
 #Configurations
-from ptychopinn_torch.config_params import ModelConfig, DataConfig # Removed TrainingConfig as it's not used here
+from ptycho_torch.config_params import ModelConfig, DataConfig # Removed TrainingConfig as it's not used here
 
 #Complex functions
 #---------------------

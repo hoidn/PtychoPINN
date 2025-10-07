@@ -10,7 +10,7 @@ from glob import glob
 
 #Typing
 from dataclasses import asdict
-from ptychopinn_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
+from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
 
 #ML libraries
 import numpy as np
@@ -31,16 +31,16 @@ import mlflow.pytorch
 from mlflow import MlflowClient
 
 #Configs/Params
-from ptychopinn_torch.config_params import update_existing_config
+from ptycho_torch.config_params import update_existing_config
 
 #Custom modules
-from ptychopinn_torch.model import PtychoPINN_Lightning
-from ptychopinn_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config, remove_all_files
-from ptychopinn_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
-from ptychopinn_torch.train_utils import ModelFineTuner, PtychoDataModule
-from ptychopinn_torch.datagen.datagen import simulate_multiple_experiments, generate_simulated_data
-from ptychopinn_torch.datagen.datagen import assemble_precomputed_images, simulate_synthetic_objects, simulate_synthetic_probes
-from ptychopinn_torch.train import main
+from ptycho_torch.model import PtychoPINN_Lightning
+from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config, remove_all_files
+from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
+from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule
+from ptycho_torch.datagen.datagen import simulate_multiple_experiments, generate_simulated_data
+from ptycho_torch.datagen.datagen import assemble_precomputed_images, simulate_synthetic_objects, simulate_synthetic_probes
+from ptycho_torch.train import main
 
 # mlflow.set_tracking_uri("http://127.0.0.1:5000")
 # mlflow.set_experiment("PtychoPINN")
