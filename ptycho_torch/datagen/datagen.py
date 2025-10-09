@@ -97,7 +97,8 @@ def simulate_multiple_experiments(obj_list,
                                   img_shape,
                                   data_config,
                                   probe_arg,
-                                  save_dir):
+                                  save_dir,
+                                  save_bool = True):
     """
     Generates multiple simulated ptychography experiments using randomized probes
 
@@ -132,20 +133,22 @@ def simulate_multiple_experiments(obj_list,
                                            images_per_experiment,
                                            data_config, probe_arg)
         
-        save_name = "synthetic_" + str(i)
-        save_path = save_dir + '/' + save_name
 
-        np.savez(save_path,
-                 diff3d = raw_data['diff3d'],
-                 label = raw_data['label'],
-                 objectGuess = raw_data['objectGuess'],
-                 probeGuess = raw_data['probeGuess'].squeeze(),
-                 xcoords = raw_data['xcoords'],
-                 ycoords = raw_data['ycoords'],
-                 probeName = probe_name_i,
-                 )
-        end = time.time()
-        print(f"----Finished saving for experiment {i} in {end-start} seconds----")
+        if save_bool:
+            save_name = "synthetic_" + str(i)
+            save_path = save_dir + '/' + save_name
+            
+            np.savez(save_path,
+                    diff3d = raw_data['diff3d'],
+                    label = raw_data['label'],
+                    objectGuess = raw_data['objectGuess'],
+                    probeGuess = raw_data['probeGuess'].squeeze(),
+                    xcoords = raw_data['xcoords'],
+                    ycoords = raw_data['ycoords'],
+                    probeName = probe_name_i,
+                    )
+            end = time.time()
+            print(f"----Finished saving for experiment {i} in {end-start} seconds----")
 
 def assemble_precomputed_images(dir_list, mode, single_dir = False):
     """

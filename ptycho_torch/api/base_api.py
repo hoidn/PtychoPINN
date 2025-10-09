@@ -3,6 +3,7 @@ from dataclasses import dataclass, replace
 import json
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig, update_existing_config
 from ptycho_torch.utils import load_all_configs_from_mlflow, load_config_from_json, validate_and_process_config
+import os
 
 
 class ConfigManager:
@@ -140,6 +141,16 @@ class ConfigManager:
             self.inference_config,
             self.datagen_config
         )
+    @staticmethod
+    def _parse_config(self, config: Optional[Union[Any, Dict]], ConfigClass):
+        if config is None:
+            return ConfigClass()
+        elif isinstance(config, dict):
+            instance = ConfigClass()
+            update_existing_config(instance, config)
+            return instance
+        else:
+            return config
 
 from ptycho_torch.train_utils import PtychoDataModule
 from typing import Iterator
@@ -179,24 +190,15 @@ class PtychoDataLoader:
             self.model_config = config_manager.model_config
             self.training_config = config_manager.training_config
         else:
-            self.data_config = self._parse_config(data_config, DataConfig)
-            self.model_config = self._parse_config(model_config, ModelConfig)
-            self.training_config = self._parse_config(training_config, TrainingConfig)
+            self.data_config = ConfigManager._parse_config(data_config, DataConfig)
+            self.model_config = ConfigManager._parse_config(model_config, ModelConfig)
+            self.training_config = ConfigManager._parse_config(training_config, TrainingConfig)
         
         self.data_dir = data_dir
 
         if data_module_bool:
             self._setup_datamodule()
-        
-    def _parse_config(self, config: Optional[Union[Any, Dict]], ConfigClass):
-        if config is None:
-            return ConfigClass()
-        elif isinstance(config, dict):
-            instance = ConfigClass()
-            update_existing_config(instance, config)
-            return instance
-        else:
-            return config
+
 
     def _setup_datamodule(self):
         """
@@ -264,10 +266,10 @@ class PtychoModel:
             self.training_config = config_manager.training_config
             self.inference_config = config_manager.inference_config
         else:
-            self.data_config = self._parse_config(data_config, DataConfig)
-            self.model_config = self._parse_config(model_config, ModelConfig)
-            self.training_config = self._parse_config(training_config, TrainingConfig)
-            self.inference_config = self._parse_config(inference_config, InferenceConfig)
+            self.data_config = ConfigManager._parse_config(data_config, DataConfig)
+            self.model_config = ConfigManager._parse_config(model_config, ModelConfig)
+            self.training_config = ConfigManager._parse_config(training_config, TrainingConfig)
+            self.inference_config = ConfigManager._parse_config(inference_config, InferenceConfig)
 
         self.model = model(
             self.model_config,
@@ -277,18 +279,6 @@ class PtychoModel:
         )
 
         self.run_id = run_id
-
-    def _parse_config(self, config, ConfigClass):
-        """
-        Convert dict to config class without config manager
-        """
-        if config is None:
-            return ConfigClass()
-        elif isinstance(config, dict):
-            instance = ConfigClass()
-            update_existing_config(instance, config)
-            return instance
-        return config
 
     def save(
         self,
@@ -501,7 +491,7 @@ class Trainer:
                        config_manager: Optional[ConfigManager] = None,
                        training_config: Optional[Union[TrainingConfig, Dict]] = None) -> 'Trainer':
         
-        parsed_config = cls._parse_training_config(config_manager, training_config)
+        parsed_config = ConfigManager._parse_config()
 
         instance = cls(model = model,
                        dataloader = dataloader,
@@ -520,21 +510,6 @@ class Trainer:
                      config_manager: Optional[ConfigManager] = None,
                      training_config: Optional[Union[TrainingConfig, Dict]] = None) -> 'Trainer':
         pass #TBD
-
-    @staticmethod
-    def _parse_training_config(config_manager: Optional[ConfigManager],
-                               training_config = Optional[Union[TrainingConfig, Dict]]):
-        if config_manager is not None:
-            return config_manager.training_config
-        elif training_config is not None:
-            if isinstance(training_config, dict):
-                config = TrainingConfig()
-                update_existing_config(config, training_config)
-                return config
-            else:
-                return training_config
-            
-        return TrainingConfig() #Defaults to vanilla training config if nothing works
     
     def _setup_lightning_trainer(self):
         """
@@ -638,6 +613,116 @@ class Trainer:
             print(f"Fine tune run_id: {run_ids.get('fine_tune')}")
 
         return run_ids
+
+class Datagen:
+    """
+    Supports synthetic data generation in easy-to-access way
+    Creates new synthetic data directory with provided probes
+
+    Inherently contains a list of probes. Can then be used to simulate objects and then save them via a directory
+    """
+    def __init__(self,
+                 probe_list: Tuple,
+                 probe_arg: Dict,
+                 datagen_config: DatagenConfig,
+                 data_config: DataConfig):
+        
+        self.datagen_config = datagen_config
+        self.data_config = data_config
+        self.probe_list = probe_list
+        self.probe_arg = probe_arg
+
+    @classmethod
+    def from_npz(cls,
+                 npz_path,
+                 config_manager: Optional[ConfigManager] = None,
+                 datagen_config: Optional[Union[DatagenConfig, Dict]] = None) -> 'Datagen':
+        """
+        Abstracted class method to generate a new instance of datagen
+        """
+        from ptycho_torch.datagen.datagen import assemble_precomputed_images
+
+        if config_manager is not None:
+            datagen_config = config_manager.datagen_config
+            data_config = config_manager.data_config
+        elif datagen_config is not None:
+            datagen_config = ConfigManager._parse_config(datagen_config,
+                                                         DatagenConfig)
+            data_config = ConfigManager._parse_config(data_config,
+                                                         DataConfig)       
+        # Only rank 0 does the actual data generation
+        print("Rank 0: Preparing synthetic data...")
+        
+        # Legacy object argument, unused for now but allows for easy prototyping
+        probe_arg = {}
+        
+        # Assemble probe lists
+        exp_probe_list = assemble_precomputed_images(npz_path, 'probe', True)
+        probe_list = [item for item in exp_probe_list for _ in range(datagen_config.objects_per_probe)]
+        probe_name_idx = [idx for idx in list(range(len(exp_probe_list))) for _ in range(datagen_config.objects_per_probe)]
+        probe_arg['probe_name_idx'] = probe_name_idx
+
+        return cls(probe_list, probe_arg,
+                   datagen_config, data_config)
+    
+    def _create_synthetic_objects(self):
+        from ptycho_torch.datagen.datagen import simulate_synthetic_objects
+
+        #Dummy argument: Deprecated for now
+        obj_arg = {}
+        # Try creating synthetic object
+        try:
+            print(f"Creating objects for class: {self.datagen_config.object_class}")
+            image_size = self.datagen_config.image_size
+            objects_per_probe = self.datagen_config.objects_per_probe
+            object_class = self.datagen_config.object_class
+            #Dataconfig currently unused, so just passing vanilla DataConfig class instance
+            self.object_list = simulate_synthetic_objects(image_size, DataConfig(), objects_per_probe,
+                                                            object_class, obj_arg)
+        except:
+            raise ValueError("Inputted synthetic object class not valid")
+    
+    def _generate_simulated_data(self,
+                                 synthetic_path):
+        
+        from ptycho_torch.utils import remove_all_files
+        from ptycho_torch.datagen.datagen import simulate_multiple_experiments
+
+        # Remove all existing files from directory
+        if not os.path.exists(synthetic_path):
+            os.mkdir(synthetic_path)
+        else:
+            remove_all_files(synthetic_path)
+
+        # Simulate and fill directory
+        print("Simulating experiments...")
+
+        self.probe_arg['beamstop_diameter'] = self.datagen_config.beamstop_diameter
+        image_size = self.datagen_config.image_size
+        diff_per_object = self.datagen_config.diff_per_object
+
+        simulate_multiple_experiments(self.object_list, self.probe_list,
+                                      diff_per_object,
+                                      image_size, self.data_config, self.probe_arg,
+                                      synthetic_path)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    
+    @staticmethod
+    def _parse_datagen_config(config_manager: Optional[ConfigManager],
+                               datagen_config = Optional[Union[DatagenConfig, Dict]]):
+        if config_manager is not None:
+            return config_manager.datagen_config
+        elif datagen_config is not None:
+            if isinstance(datagen_config, dict):
+                config = DatagenConfig()
+                update_existing_config(config, datagen_config)
+                return config
+            else:
+                return datagen_config
+            
+        return DatagenConfig() #Defaults to vanilla training config if nothing works
+        
 
         
 
