@@ -1,6 +1,6 @@
 #Type helpers
 from typing import Tuple, Optional, Union, Callable, Any, List
-from ptycho_torch.dataloader_old import PtychoDataset, TensorDictDataLoader
+from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader
 import torch.nn as nn
 
 #Pytorch-related

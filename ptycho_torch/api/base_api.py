@@ -240,7 +240,7 @@ class PtychoDataLoader:
         self.val_split = 0.05
 
         if isinstance(data_format, str):
-            data_format = Orchestration(data_format)
+            data_format = DataloaderFormats(data_format)
 
         if data_format == DataloaderFormats.LIGHTNING_MODULE:
             self._setup_lightning_datamodule()
@@ -879,13 +879,13 @@ class InferenceEngine:
     Class designed to perform inference using api-level calls
     """
     def __init__(self,
-                 config_manager: Optional[ConfigManager],
-                 data_config: Optional[DataConfig],
-                 model_config: Optional[ModelConfig],
-                 training_config: Optional[TrainingConfig],
-                 inference_config: Optional[InferenceConfig],
                  ptycho_model: PtychoModel,
-                 ptycho_dataloader: PtychoDataLoader):
+                 config_manager: Optional[ConfigManager] = None,
+                 model_config: Optional[Union[ModelConfig, Dict]] = None,
+                 data_config: Optional[Union[DataConfig, Dict]] = None,
+                 training_config: Optional[Union[TrainingConfig, Dict]] = None,
+                 inference_config: Optional[Union[InferenceConfig, Dict]] = None,
+                 ):
         """
         Instantiates base class with just configurations. Other methods will set up the data
         """
@@ -902,11 +902,11 @@ class InferenceEngine:
             self.inference_config = ConfigManager._parse_config(inference_config, InferenceConfig)
 
         self.model = ptycho_model.model
-        self.ptycho_dataloader = ptycho_dataloader
-
 
     def predict(self,
-                device = 'cuda') -> torch.Tensor:
+                ptycho_dataloader: PtychoDataLoader,
+                device = 'cuda'
+                ) -> torch.Tensor:
         """
         Runs feed-forward prediction without stitching
         """
@@ -914,7 +914,7 @@ class InferenceEngine:
         res = []
         
         with torch.no_grad():
-            for batch in self.ptycho_dataloader.dataloader:
+            for batch in ptycho_dataloader.dataloader:
                 batch = batch.to(device)
                 output = self.model.forward_predict(batch)
                 res.append(output.cpu())
@@ -923,7 +923,8 @@ class InferenceEngine:
         
         return final_output
     
-    def predict_and_stitch(self) -> torch.Tensor:
+    def predict_and_stitch(self,
+                           ptycho_dataloader: PtychoDataLoader) -> torch.Tensor:
         """
         Calls on predict + stitch methods already in ptychopinn_torch library. Automatically handles multi-gpu inference (if available)
         as well as cpu if gpus not available.
@@ -937,7 +938,7 @@ class InferenceEngine:
         from ptycho_torch.reassembly import reconstruct_image_barycentric
 
         result, _, _ = reconstruct_image_barycentric(model = self.model,
-                                                     dset = self.ptycho_dataloader.dataset,
+                                                     ptycho_dset = ptycho_dataloader.dataset,
                                                      training_config = self.training_config,
                                                      data_config = self.data_config,
                                                      model_config = self.model_config,
