@@ -12,7 +12,7 @@ def setup_lightning_trainer(ptycho_model: PtychoModel,
 
     checkpoint_callback = ModelCheckpoint(
         monitor = val_loss_label,
-        mod = 'min',
+        mode = 'min',
         save_top_k = 1,
         filename = 'best-checkpoint'
     )

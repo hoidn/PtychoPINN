@@ -225,7 +225,8 @@ class PtychoDataModule(L.LightningDataModule):
     """
     def __init__(self, ptycho_dir: str, model_config: ModelConfig, data_config: DataConfig,
                  training_config: TrainingConfig, initial_remake_map: bool = True,
-                 val_split: float = 0.1, val_seed: int = 42):
+                 val_split: float = 0.1, val_seed: int = 42,
+                 memory_map_dir: str = 'data/memmap'):
         super().__init__()
         self.ptycho_dir = ptycho_dir
         self.model_config = model_config
@@ -234,6 +235,7 @@ class PtychoDataModule(L.LightningDataModule):
         self.initial_remake_map = initial_remake_map # Flag for the very first creation
         self.val_split = val_split  # Fraction of data to use for validation
         self.val_seed = val_seed    # Seed for reproducible train/val split
+        self.memory_map_dir = memory_map_dir
 
     def prepare_data(self):
         # Called once per node on global rank 0.
@@ -256,7 +258,8 @@ class PtychoDataModule(L.LightningDataModule):
                         ptycho_dir=self.ptycho_dir,
                         model_config=self.model_config,
                         data_config=self.data_config,
-                        remake_map=remake_flag_for_this_setup # Always False here, map should exist
+                        remake_map=remake_flag_for_this_setup, # Always False here, map should exist
+                        data_dir = self.memory_map_dir
                     )
 
                     # Create train/validation split

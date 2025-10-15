@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any, Tuple, Union, Protocol
+from enum import Enum
 from dataclasses import dataclass, replace
 import json
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig, update_existing_config
@@ -34,7 +35,7 @@ class ConfigManager:
             self.datagen_config = datagen_config or DatagenConfig()
 
     @classmethod
-    def from_mlflow(
+    def _from_mlflow(
           cls,
           run_id: str,
           mlflow_tracking_uri: Optional[str] = None
@@ -45,6 +46,7 @@ class ConfigManager:
 
         try:
             configs = load_all_configs_from_mlflow(run_id, mlflow_tracking_uri)
+            print(f"Successfully loaded configuration from run {run_id} from tracking uri {mlflow_tracking_uri}")
         except Exception as e:
             print("Failed to load configs from MlFlow. Defaulting to vanilla...")
             configs = (None, None, None, None, None)
@@ -52,7 +54,7 @@ class ConfigManager:
         return cls(*configs)
     
     @classmethod
-    def from_json(
+    def _from_json(
         cls,
         json_path: str
     ) -> 'ConfigManager':
@@ -84,7 +86,7 @@ class ConfigManager:
         return cls(data_config, model_config, training_config, inference_config, datagen_config), json_loaded
 
     @classmethod
-    def flexible_load(
+    def _flexible_load(
          cls,
          run_id: Optional[str],
          json_path: str,
@@ -95,10 +97,10 @@ class ConfigManager:
          """
 
          #Start with mlflow
-         mlflow_manager = cls.from_mlflow(run_id, mlflow_tracking_uri)
+         mlflow_manager = cls._from_mlflow(run_id, mlflow_tracking_uri)
 
          #Return setup with json
-         json_manager, json_loaded = cls.from_json(json_path)
+         json_manager, json_loaded = cls._from_json(json_path)
 
          #Apply overrides
          if json_loaded:
@@ -142,7 +144,10 @@ class ConfigManager:
             self.datagen_config
         )
     @staticmethod
-    def _parse_config(self, config: Optional[Union[Any, Dict]], ConfigClass):
+    def _parse_config(config: Optional[Union[Any, Dict]], ConfigClass):
+        """
+        Parses a single config to ensure that the format abides by 
+        """
         if config is None:
             return ConfigClass()
         elif isinstance(config, dict):
@@ -151,6 +156,26 @@ class ConfigManager:
             return instance
         else:
             return config
+    @classmethod
+    def from_configs(
+        cls,
+        model_config: Optional[Union[ModelConfig,Dict]] = None,
+        data_config: Optional[Union[ModelConfig,Dict]] = None,
+        training_config: Optional[Union[ModelConfig,Dict]] = None,
+        inference_config: Optional[Union[ModelConfig,Dict]] = None,
+        datagen_config: Optional[Union[ModelConfig,Dict]] = None
+    ) -> 'ConfigManager':
+        """
+        Creates a ConfigManager from individual config objects or dicts.
+        Provides flexibility for users who want to specify configs individually.
+        """
+        return cls(
+            data_config=cls._parse_config(data_config, DataConfig),
+            model_config=cls._parse_config(model_config, ModelConfig),
+            training_config=cls._parse_config(training_config, TrainingConfig),
+            inference_config=cls._parse_config(inference_config, InferenceConfig),
+            datagen_config=cls._parse_config(datagen_config, DatagenConfig)
+        )
 
 from ptycho_torch.train_utils import PtychoDataModule
 from typing import Iterator
@@ -167,6 +192,17 @@ class DataLoaderProtocol(Protocol):
     def __len__(self) -> int:
         ...
 
+class DataloaderFormats(Enum):
+    """
+    Different dataloader approaches depending on desired outcome
+    
+    Lightning_module is used for training with the datamodule from pytorch lightning
+    Tensordict is the custom dataloader used in Albert's publication, used for inference
+    """
+    LIGHTNING_MODULE = 'lightning_module'
+    TENSORDICT = 'tensordict'
+    DATALOADER = 'pytorch'
+
 class PtychoDataLoader:
     """
     Wrapper around custom PtychoDataLoader as well as data module.
@@ -179,7 +215,8 @@ class PtychoDataLoader:
         data_config: Optional[Union[DataConfig, Dict[str, Any]]] = None,
         model_config: Optional[Union[ModelConfig, Dict[str, Any]]] = None,
         training_config: Optional[Union[TrainingConfig, Dict[str, Any]]] = None,
-        data_module_bool: bool = True
+        data_format: Union[DataloaderFormats, str] = DataloaderFormats.LIGHTNING_MODULE,
+        memory_map_dir: Optional[str] = 'data/memmap'
     ):
         """
         Args:
@@ -195,14 +232,27 @@ class PtychoDataLoader:
             self.training_config = ConfigManager._parse_config(training_config, TrainingConfig)
         
         self.data_dir = data_dir
+        self.data_format = data_format
+        self.memory_map_dir = memory_map_dir
 
-        if data_module_bool:
-            self._setup_datamodule()
+        #Can expose these later if need be, or integrate into training configs
+        self.val_seed = 42
+        self.val_split = 0.05
 
+        if isinstance(data_format, str):
+            data_format = Orchestration(data_format)
 
-    def _setup_datamodule(self):
+        if data_format == DataloaderFormats.LIGHTNING_MODULE:
+            self._setup_lightning_datamodule()
+        elif data_format == DataloaderFormats.TENSORDICT:
+            self._setup_tensordict_dataloader()
+        elif data_format == DataloaderFormats.DATALOADER:
+            pass # Not implemented yet
+
+    def _setup_lightning_datamodule(self):
         """
-        Initialize PtychoDataModule (flexible for multi-instanced gpu training)
+        Initialize PtychoDataModule for training specifically(flexible for multi-instanced gpu training)
+        Specifically needs comptability with lightning
         Needs more complex handling 
         """
         self.data_module = PtychoDataModule(
@@ -212,14 +262,53 @@ class PtychoDataLoader:
             self.training_config,
             initial_remake_map = True,
             val_split=0.05,
-            val_seed=42
+            val_seed=self.val_seed,
+            memory_map_dir=self.memory_map_dir
         )
 
-    def train_dataloader(self):
+        print("Set up lightning datamodule")
+
+    def _setup_tensordict_dataloader(self):
+        from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader, Collate_Lightning
+
+        self.dataset = PtychoDataset(
+                        ptycho_dir=self.data_dir,
+                        model_config=self.model_config,
+                        data_config=self.data_config,
+                        data_dir = self.memory_map_dir,
+                        remake_map= True
+                    )
+        dataset_size = len(self.dataset)
+        val_size = int(self.val_split * dataset_size)
+        train_size = dataset_size - val_size
+        #Seeding for dataloader
+        generator = torch.Generator().manual_seed(self.val_seed)
+        self.train_dataset, self.val_dataset = torch.utils.data.random_split(
+            self.dataset, [train_size, val_size], generator=generator
+        )
+
+        print("Setup ptycho dataset")
+
+        #Note, collate function is currently integrated with pytorch lightning for multi gpu inference.
+        self.dataloader = TensorDictDataLoader(
+                self.train_dataset,
+                batch_size=self.training_config.batch_size,
+                shuffle=True,
+                num_workers=self.training_config.num_workers,
+                collate_fn=Collate_Lightning(pin_memory_if_cuda=True), # Lightning handles device placement
+                pin_memory=True, # Lightning DDP often benefits from this
+                persistent_workers=True,
+                prefetch_factor = 4,
+            )
+        
+        print("Setup ptycho dataloader")
+        
+
+    def module_train_dataloader(self):
         """Training dataloader"""
         return self.data_module.train_dataloader()
     
-    def val_dataloader(self):
+    def module_val_dataloader(self):
         """Validation dataloader"""
         return self.data_module.val_dataloader()
 
@@ -230,14 +319,16 @@ class PtychoDataLoader:
         return len(self.data_module.train_dataloader())
 
 from torch.nn import Module
-from typing import Enum
 import mlflow
 from mlflow.tracking import MlflowClient
 import shutil
 from pathlib import Path
 
 class Orchestration(Enum):
-    """Enumeration of supported orchestration strategies"""
+    """
+    Enumeration of supported orchestration strategies
+    Used specifically for dataloading and training
+    """
     MLFLOW = "mlflow"
     PYTORCH = "pytorch"
 
@@ -247,43 +338,26 @@ class PtychoModel:
     """
     def __init__(
         self,
-        config_manager: Optional[ConfigManager] = None,
         model_config: Optional[Union[ModelConfig,Dict]] = None,
         data_config: Optional[Union[ModelConfig,Dict]] = None,
         training_config: Optional[Union[ModelConfig,Dict]] = None,
-        inference_config: Optional[Union[ModelConfig,Dict]] = None,
-        model: Optional[Any] = None,
-        run_id: Optional[str] = None
+        inference_config: Optional[Union[ModelConfig,Dict]] = None
     ):
         """
-        Loads model with configs using config manager
-        model is generic, can handle PtychoPINN_Lightning (for PtychoPINN_torch).
-        Includes a run_id parameter in case it was instantiated from a trained model
+        Initializes with just settings, will load model with methods later (since they're setting-dependent)
+        Model is generic, can handle PtychoPINN_Lightning (for PtychoPINN_torch).
+        Parse config is called here in case someone wants to instantiate the model without class methods
         """
-        if config_manager is not None:
-            self.data_config = config_manager.data_config
-            self.model_config = config_manager.model_config
-            self.training_config = config_manager.training_config
-            self.inference_config = config_manager.inference_config
-        else:
-            self.data_config = ConfigManager._parse_config(data_config, DataConfig)
-            self.model_config = ConfigManager._parse_config(model_config, ModelConfig)
-            self.training_config = ConfigManager._parse_config(training_config, TrainingConfig)
-            self.inference_config = ConfigManager._parse_config(inference_config, InferenceConfig)
 
-        self.model = model(
-            self.model_config,
-            self.data_config,
-            self.training_config,
-            self.inference_config
-        )
-
-        self.run_id = run_id
+        self.data_config = ConfigManager._parse_config(data_config, DataConfig)
+        self.model_config = ConfigManager._parse_config(model_config, ModelConfig)
+        self.training_config = ConfigManager._parse_config(training_config, TrainingConfig)
+        self.inference_config = ConfigManager._parse_config(inference_config, InferenceConfig)
 
     def save(
         self,
         path: str,
-            strategy: Union[Orchestration, str] = Orchestration.MLFLOW,
+        strategy: Union[Orchestration, str] = Orchestration.MLFLOW,
         **kwargs
     ) -> str:
         """
@@ -301,18 +375,21 @@ class PtychoModel:
             strategy = Orchestration(strategy)
         
         if strategy == Orchestration.MLFLOW:
-            return self._save_mlflow(path, **kwargs)
+            return self.save_mlflow(path, **kwargs)
         elif strategy == Orchestration.PYTORCH:
-            return self._save_pytorch(path, **kwargs)
+            return self.save_pytorch(path, **kwargs)
         else:
             raise ValueError(f"Unknown save strategy: {strategy}")
-        
+    
     @classmethod
-    def load(
+    def _load(
         cls,
-        path: str,
+        config_manager: Optional[ConfigManager] = None,
+        model_config: Optional[Union[ModelConfig,Dict]] = None,
+        data_config: Optional[Union[ModelConfig,Dict]] = None,
+        training_config: Optional[Union[ModelConfig,Dict]] = None,
+        inference_config: Optional[Union[ModelConfig,Dict]] = None,
         strategy: Union[Orchestration, str] = Orchestration.MLFLOW,
-        model: Optional[Any] = None,
         **kwargs
     ) -> 'PtychoModel':
         """
@@ -327,38 +404,92 @@ class PtychoModel:
         Returns:
             Loaded PtychoModel instance
         """
+        if config_manager is None:
+            config_manager = ConfigManager.from_configs(
+                model_config = model_config,
+                data_config = data_config,
+                training_config = training_config,
+                inference_config = inference_config
+            )
+        
         if isinstance(strategy, str):
             strategy = Orchestration(strategy)
+
+        instance = cls(model_config = config_manager.model_config,
+                       data_config = config_manager.data_config,
+                       training_config = config_manager.training_config,
+                       inference_config = config_manager.inference_config)
         
         if strategy == Orchestration.MLFLOW:
-            return cls._load_mlflow(path, model=model, **kwargs)
+            instance.model, instance.run_id = cls.load_from_mlflow(**kwargs)
+            instance.mlflow_tracking_uri = kwargs.get('mlflow_tracking_uri')
+            return instance
         elif strategy == Orchestration.PYTORCH:
-            return cls._load_pytorch(path, model=model, **kwargs)
+            instance.model = cls.load_from_pytorch(**kwargs)
+            return instance
         else:
             raise ValueError(f"Unknown load strategy: {strategy}")
 
-    @classmethod
-    def load_from_mlflow(
+    @classmethod    
+    def _new_model(
         cls,
-        run_id: str,
-        mlflow_tracking_uri: Optional[str] = None,
-        model: Optional[Any] = None
+        model=None,
+        config_manager: Optional[ConfigManager] = None,
+        model_config: Optional[Union[ModelConfig, Dict]] = None,
+        data_config: Optional[Union[DataConfig, Dict]] = None,
+        training_config: Optional[Union[TrainingConfig, Dict]] = None,
+        inference_config: Optional[Union[InferenceConfig, Dict]] = None
+    ) -> 'PtychoModel': 
+        """
+        Creates PtychoModel class with new specified model
+        """
+        if config_manager is None:
+            config_manager = ConfigManager.from_configs(
+                model_config=model_config,
+                data_config=data_config,
+                training_config=training_config,
+                inference_config=inference_config
+            )
+
+        model_instance = model(
+            config_manager.model_config,
+            config_manager.data_config,
+            config_manager.training_config,
+            config_manager.inference_config
+        )
+
+        instance = cls(
+            model_config=config_manager.model_config,
+            data_config=config_manager.data_config,
+            training_config=config_manager.training_config,
+            inference_config=config_manager.inference_config
+        )
+        
+        instance.model = model_instance
+        
+        return instance
+    
+    @staticmethod
+    def load_from_mlflow(
+        run_id: str = None,
+        mlflow_tracking_uri: Optional[str] = None
     ) -> 'PtychoModel':
         """
         Loads model from mlflow run. Requires underlying model to be integrated with mlflow infra
-        """
-        config_manager = ConfigManager.from_mlflow(run_id, mlflow_tracking_uri)
-        loaded_model = cls(config_manager = config_manager,
-                           model = model,
-                           run_id = run_id)
+        """       
+        #Getting mlflow to read the correc path
+        tracking_uri = f"file:{os.path.abspath(mlflow_tracking_uri)}"
+        mlflow.set_tracking_uri(tracking_uri)
+        model_uri = f"runs:/{run_id}/model"
 
-        return loaded_model
+        model = mlflow.pytorch.load_model(model_uri)
+        run_id = run_id
 
-    @classmethod
-    def _load_pytorch(
-        cls,
-        path: str,
-        model: Optional[Any] = None,
+        return model, run_id
+    
+    @staticmethod
+    def load_from_pytorch(
+        path: str = None,
         config_path: Optional[str] = None
     ) -> 'PtychoModel':
         pass #TBD
@@ -369,82 +500,114 @@ class PtychoModel:
         config_path: Optional[str] = None
     ):
         pass
-        
-
-    def save_mlflow(self, destination_path: str,
-            mlflow_tracking_uri: Optional[str] = None
-        ):
+    
+    def save_mlflow(
+        self,
+        destination_path: str,
+        current_mlflow_tracking_uri: Optional[str] = None
+    ):
+        """
+        Copies MLflow run while preserving both experiment ID and run ID.
+        Works across storage backends.
+        """
+        import tempfile
+        import yaml
         
         if self.run_id is None:
-            raise ValueError("No run id associated with this model, cannot save to new location. See MlFlow documentation")
+            raise ValueError("No run_id associated with this model.")
         
-        #Set up mlflow run
-        if mlflow_tracking_uri:
-            mlflow.set_tracking_uri(mlflow_tracking_uri)
-
-        client = MlflowClient()
-        run = client.get_run(self.run_id)
-
-        #Destination details
+        # Set source
+        source_uri = self.mlflow_tracking_uri or current_mlflow_tracking_uri
+        if source_uri:
+            mlflow.set_tracking_uri(source_uri)
+        
+        source_client = MlflowClient()
+        run = source_client.get_run(self.run_id)
+        exp_id = run.info.experiment_id
+        
+        # Setup destination paths
         dest_path = Path(destination_path)
-        mlruns_path = dest_path / "mlruns"
-        experiment_id = run.info.experiment_id
-        run_path = mlruns_path / experiment_id / self.run_id
-
-        run_path.mkdir(parents=True, exist_ok = True)
-
-        #Download artifacts
-        artifacts_path = run_path / "artifacts"
-        if run.info.artifact_uri:
-            try:
-                client.download_artifacts(self.run_id, "",
-                                          dst_path = str(artifacts_path))
-            except Exception as e:
-                print(f"Warning. Could not download artifacts because of {e}")
-
-        meta_path = run_path / "meta.yaml"
-
-        #Saving run metadata at destination
-        with open(meta_path, 'w') as f:
-            import yaml
-            meta = {
-            'run_id': self.run_id,
-            'experiment_id': experiment_id,
-            'status': run.info.status,
-            'start_time': run.info.start_time,
+        dest_mlruns = dest_path / "mlruns"
+        dest_exp_dir = dest_mlruns / exp_id
+        dest_run_dir = dest_exp_dir / self.run_id
+        
+        # Create directory structure
+        dest_run_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Copy experiment metadata
+        source_exp = source_client.get_experiment(exp_id)
+        exp_meta = {
+            'experiment_id': exp_id,
+            'name': source_exp.name,
+            'artifact_location': str(dest_exp_dir / "artifacts"),
+            'lifecycle_stage': source_exp.lifecycle_stage,
+        }
+        
+        with open(dest_exp_dir / 'meta.yaml', 'w') as f:
+            yaml.dump(exp_meta, f)
+        
+        # Download artifacts to correct location
+        artifacts_dir = dest_run_dir / "artifacts"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            source_client.download_artifacts(self.run_id, "", dst_path=str(artifacts_dir))
+        except Exception as e:
+            print(f"Warning: Could not download artifacts: {e}")
+        
+        # Save run metadata with preserved IDs
+        from mlflow.entities import RunStatus
+        
+        meta = {
+            'artifact_uri': str(artifacts_dir.absolute()),
             'end_time': run.info.end_time,
-            'artifact_uri': str(artifacts_path),
-            }
-
-            yaml.dump(meta, f)
+            'entry_point_name': '',
+            'experiment_id': exp_id,
+            'lifecycle_stage': 'active',
+            'run_id': self.run_id, 
+            'run_name': run.data.tags.get('mlflow.runName', ''),
+            'run_uuid': self.run_id, 
+            'source_name': '',
+            'source_type': 4,
+            'source_version': '',
+            'start_time': run.info.start_time,
+            'status': RunStatus.from_string(run.info.status),  # Convert to int
+            'tags': [],
+            'user_id': run.info.user_id,
+        }
         
-        #Saving artifacts at destination
-
+        with open(dest_run_dir / 'meta.yaml', 'w') as f:
+            yaml.dump(meta, f, default_flow_style=False)
+        
         # Save params
-        params_path = run_path / "params"
-        params_path.mkdir(exist_ok=True)
+        params_dir = dest_run_dir / "params"
+        params_dir.mkdir(exist_ok=True)
         for key, value in run.data.params.items():
-            with open(params_path / key, 'w') as f:
-                f.write(value)
+            with open(params_dir / key, 'w') as f:
+                f.write(str(value))
         
-        # Save metrics
-        metrics_path = run_path / "metrics"
-        metrics_path.mkdir(exist_ok=True)
-        for key, value in run.data.metrics.items():
-            with open(metrics_path / key, 'w') as f:
-                f.write(f"{run.info.start_time} {value} 0\n")
+        # Save metrics with full history
+        metrics_dir = dest_run_dir / "metrics"
+        metrics_dir.mkdir(exist_ok=True)
+        for key in run.data.metrics.keys():
+            metric_history = source_client.get_metric_history(self.run_id, key)
+            with open(metrics_dir / key, 'w') as f:
+                for metric in metric_history:
+                    f.write(f"{metric.timestamp} {metric.value} {metric.step}\n")
         
         # Save tags
-        tags_path = run_path / "tags"
-        tags_path.mkdir(exist_ok=True)
+        tags_dir = dest_run_dir / "tags"
+        tags_dir.mkdir(exist_ok=True)
         for key, value in run.data.tags.items():
-            with open(tags_path / key, 'w') as f:
-                f.write(value)
+            safe_key = key.replace('/', '_').replace('\\', '_')
+            with open(tags_dir / safe_key, 'w') as f:
+                f.write(str(value))
         
-        print(f"Saved MLflow run {self.run_id} to {run_path}")
-        print(f"New tracking URI: file://{mlruns_path.absolute()}")
+        dest_uri = f"file://{dest_mlruns.absolute()}"
         
-        return str(mlruns_path.absolute())
+        print(f"✓ New tracking URI: {dest_uri}")
+        
+        return dest_uri
 
     def save_pytorch(self, destination_path = str):
         pass
@@ -485,18 +648,21 @@ class Trainer:
         
 
     @classmethod
-    def from_lightning(cls,
+    def _from_lightning(cls,
                        model: PtychoModel,
                        dataloader: PtychoDataLoader, 
                        config_manager: Optional[ConfigManager] = None,
                        training_config: Optional[Union[TrainingConfig, Dict]] = None) -> 'Trainer':
         
-        parsed_config = ConfigManager._parse_config()
+        if config_manager is not None:
+            parsed_config = config_manager.training_config
+        else:
+            parsed_config = ConfigManager._parse_config(training_config, TrainingConfig)
 
         instance = cls(model = model,
                        dataloader = dataloader,
                        config_manager = config_manager,
-                       parsed_config = parsed_config,
+                       training_config = parsed_config,
                        strategy = TrainStrategy.LIGHTNING)
         
         instance._setup_lightning_trainer()
@@ -504,7 +670,7 @@ class Trainer:
         return instance
     
     @classmethod
-    def from_pytorch(cls,
+    def _from_pytorch(cls,
                      model: PtychoModel,
                      dataloader: PtychoDataLoader, 
                      config_manager: Optional[ConfigManager] = None,
@@ -517,7 +683,7 @@ class Trainer:
         """
         from ptycho_torch.api.trainer_api import setup_lightning_trainer
 
-        self._trainer = setup_lightning_trainer(self.model,
+        self._trainer = setup_lightning_trainer(self.ptycho_model,
                                                 self.training_config)
         
     def _setup_pytorch_trainer(self):
@@ -534,7 +700,7 @@ class Trainer:
             result - Arbitrary dictionary containing useful metadata
         """
         if isinstance(orchestration, str):
-            strategy = Orchestration(strategy)
+            strategy = Orchestration(orchestration)
 
         if strategy == Orchestration.MLFLOW:
             result = self._train_with_mlflow(experiment_name)
@@ -633,7 +799,7 @@ class Datagen:
         self.probe_arg = probe_arg
 
     @classmethod
-    def from_npz(cls,
+    def _from_npz(cls,
                  npz_path,
                  config_manager: Optional[ConfigManager] = None,
                  datagen_config: Optional[Union[DatagenConfig, Dict]] = None) -> 'Datagen':
@@ -707,23 +873,99 @@ class Datagen:
                                       synthetic_path)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-    
-    @staticmethod
-    def _parse_datagen_config(config_manager: Optional[ConfigManager],
-                               datagen_config = Optional[Union[DatagenConfig, Dict]]):
+        
+class InferenceEngine:
+    """
+    Class designed to perform inference using api-level calls
+    """
+    def __init__(self,
+                 config_manager: Optional[ConfigManager],
+                 data_config: Optional[DataConfig],
+                 model_config: Optional[ModelConfig],
+                 training_config: Optional[TrainingConfig],
+                 inference_config: Optional[InferenceConfig],
+                 ptycho_model: PtychoModel,
+                 ptycho_dataloader: PtychoDataLoader):
+        """
+        Instantiates base class with just configurations. Other methods will set up the data
+        """
+        
         if config_manager is not None:
-            return config_manager.datagen_config
-        elif datagen_config is not None:
-            if isinstance(datagen_config, dict):
-                config = DatagenConfig()
-                update_existing_config(config, datagen_config)
-                return config
-            else:
-                return datagen_config
-            
-        return DatagenConfig() #Defaults to vanilla training config if nothing works
+            self.data_config = config_manager.data_config
+            self.model_config = config_manager.model_config
+            self.training_config = config_manager.training_config
+            self.inference_config = config_manager.inference_config
+        else:
+            self.data_config = ConfigManager._parse_config(data_config, DataConfig)
+            self.model_config = ConfigManager._parse_config(model_config, ModelConfig)
+            self.training_config = ConfigManager._parse_config(training_config, TrainingConfig)
+            self.inference_config = ConfigManager._parse_config(inference_config, InferenceConfig)
+
+        self.model = ptycho_model.model
+        self.ptycho_dataloader = ptycho_dataloader
+
+
+    def predict(self,
+                device = 'cuda') -> torch.Tensor:
+        """
+        Runs feed-forward prediction without stitching
+        """
+        self.model.to(device)
+        res = []
+        
+        with torch.no_grad():
+            for batch in self.ptycho_dataloader.dataloader:
+                batch = batch.to(device)
+                output = self.model.forward_predict(batch)
+                res.append(output.cpu())
+
+        final_output = torch.cat(res, dim=0)
+        
+        return final_output
+    
+    def predict_and_stitch(self) -> torch.Tensor:
+        """
+        Calls on predict + stitch methods already in ptychopinn_torch library. Automatically handles multi-gpu inference (if available)
+        as well as cpu if gpus not available.
+
+        Should work on most data formats given that they provide positional data and diffraction data
+
+        If there are multiple files in the inference directory that exist in the dataloader, then one must modify
+        the "experiment_number" parameter in the inference_configs. This will predict only on a subset of the PtychoDataset class,
+        which corresponds to one specific .npz file within the inference directory
+        """
+        from ptycho_torch.reassembly import reconstruct_image_barycentric
+
+        result, _, _ = reconstruct_image_barycentric(model = self.model,
+                                                     dset = self.ptycho_dataloader.dataset,
+                                                     training_config = self.training_config,
+                                                     data_config = self.data_config,
+                                                     model_config = self.model_config,
+                                                     inference_config = self.inference_config,
+                                                     gpu_ids = None,
+                                                     use_mixed_precision=True, verbose = False)
+
+        #Save results
+        result_cpu = result.to('cpu')
+
+        return result_cpu
+    
+#Usage examples
+
+#1.a Instantiate ConfigManager instance, either using json file, mlflow load or existing settings
+# config_manager = ConfigManager._flexible_load(run_id run_id) <- load from mlflow
+# config_manager = ConfigManager._flexible_load(json_path = '/path/to/config.json') <- load from json
+#1.b Update ConfigManager parameters using update function if using user interface to modify any values
+# config_manager.update(data_config = new_data_config_dict) <- Example of updating certain parameters in data_config for any keys in the dict
+
+#2.a Instantiate PtychoDataloader instance, using built in class methods depending on dataloader format.
+
+#3. Instantiate PtychoModel instance, using built in class methods depending on model format
+
+#4. Training only: Instantiate trainer based on orchestration
         
 
+        
         
 
 
