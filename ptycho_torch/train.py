@@ -202,12 +202,27 @@ def main(ptycho_dir,
         if is_effectively_global_rank_zero():
             run_ids['fine-tune'] = fine_tuning_run_id
     
+    # if is_effectively_global_rank_zero():
+    #     print(f"Training run_id: {run_ids['training']}")
+    #     print(f"Fine_tune run_id: {run_ids['fine-tune']}")
+        
+    #     return run_ids
+    # else:
+    #     return None
+
+    # CRITICAL: Final synchronization before returning
+    if dist.is_initialized():
+        print(f'[Rank {trainer.global_rank}] Waiting at final barrier before return...')
+        dist.barrier()
+        print(f'[Rank {trainer.global_rank}] ✓ Passed final barrier, about to return')
+
     if is_effectively_global_rank_zero():
         print(f"Training run_id: {run_ids['training']}")
-        print(f"Fine_tune run_id: {run_ids['fine-tune']}")
-        
+        if 'fine-tune' in run_ids:
+            print(f"Fine_tune run_id: {run_ids['fine-tune']}")
         return run_ids
     else:
+        print(f'[Rank {trainer.global_rank}] Non-zero rank returning None')
         return None
 
 

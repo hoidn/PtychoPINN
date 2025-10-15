@@ -134,7 +134,7 @@ class PtychoDataset(Dataset):
         # --- File paths and initial attribute setup ---
         self.ptycho_dir = ptycho_dir
         if not os.path.exists(data_dir):
-            os.mkdir(data_dir)
+            os.makedirs(data_dir, exist_ok = True)
         self.data_dir = data_dir # Storing the string if needed, otherwise data_dir_path is primary
         self.data_dir_path = Path(data_dir)
         data_prefix_path = self.data_dir_path.parent
