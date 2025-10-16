@@ -47,6 +47,17 @@ wts.h5.zip
 baseline_model.h5
 *.pb
 
+# Orchestration / study artifacts generated locally
+3way_*/
+3way*/
+3way_*/**/results*.csv
+3way_*/**/metrics.csv
+3way_*/**/comparison_metrics.csv
+3way_*/**/baseline_frc_curves.csv
+3way_*/**/pinn_frc_curves.csv
+3way_*/**/study_log.txt
+3way_*/**/reconstruction_visualization.png
+
 # Notebooks
 notebooks/untracked_notebooks*
 untracked*
@@ -59,4 +70,3 @@ docs/_build/
 datasets/Run1084_recon3_postPC_shrunk.npz
 datasets/Run1084_recon3_postPC_shrunk_2.npz
 datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
-
