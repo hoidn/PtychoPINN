@@ -1,0 +1,30 @@
+# Complete Generalization Study Configuration
+# Generated: Sat Jul 26 08:47:23 PM PDT 2025
+
+# Training Configuration
+TRAIN_SIZES=512
+PARALLEL_JOBS=1
+
+# Paths
+OUTPUT_DIR=3way_bottomhalf
+TRAIN_DATA=datasets/fly64/fly64_top_half_shuffled.npz
+TEST_DATA=datasets/fly64/fly64_bottom_half_shuffled.npz
+
+# Workflow Flags
+SKIP_DATA_PREP=true
+SKIP_TRAINING=false
+SKIP_COMPARISON=false
+ADD_TIKE_ARM=true
+TIKE_ITERATIONS=300
+DRY_RUN=false
+
+# Environment Info
+PROJECT_ROOT=/home/ollie/Documents/PtychoPINN
+USER=ollie
+HOSTNAME=ollie-System-Product-Name
+PWD=/home/ollie/Documents/PtychoPINN
+
+# System Info
+PYTHON_VERSION=Python 3.10.18
+CONDA_ENV=ptycho-tf
+GPU_INFO=NVIDIA GeForce RTX 3090, 24576

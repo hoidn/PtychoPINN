@@ -1,0 +1,4 @@
+nbsphinx
+sphinx ==5.*
+sphinx_book_theme
+sphinxcontrib-bibtex
