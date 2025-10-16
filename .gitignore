@@ -59,3 +59,9 @@ docs/_build/
 datasets/Run1084_recon3_postPC_shrunk.npz
 datasets/Run1084_recon3_postPC_shrunk_2.npz
 datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
+ptycho_torch/notebooks/manuscript_figures.ipynb
+ptycho_torch/mlruns/*
+ptycho_torch/configs/publication_configs/*
+ptycho_torch/configs/testing_configs/*
+.env
+.log

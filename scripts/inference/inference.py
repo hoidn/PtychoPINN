@@ -423,18 +423,18 @@ def main():
         print("Starting ptychography inference script...")
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
-        
+
         # Interpret sampling parameters with new independent control support
         n_subsample, n_images, interpretation_message = interpret_sampling_parameters(config)
         print(interpretation_message)
-        
+
         # Log warning if potentially problematic configuration
         if config.n_subsample is not None and config.model.gridsize > 1 and n_images is not None:
             min_required = n_images * config.model.gridsize * config.model.gridsize
             if n_subsample < min_required:
                 print(f"WARNING: n_subsample ({n_subsample}) may be too small to create {n_images} "
                      f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
-        
+
         # Note: update_legacy_dict() removed - ModelManager.load_model() will restore
         # the authoritative configuration from the saved model artifact, making this
         # initial update redundant. The loaded model's params take precedence.
