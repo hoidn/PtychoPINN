@@ -19,7 +19,7 @@
   - The test passes, confirming the basic viability of the PyTorch persistence layer.
 
 ## [INTEGRATE-PYTORCH-001] Prepare for PyTorch Backend Integration with Ptychodus
-- Spec/AT: `docs/ptychodus_api_spec.md` and `plans/ptychodus_pytorch_integration_plan.md`.
+- Spec/AT: `specs/ptychodus_api_spec.md` and `plans/ptychodus_pytorch_integration_plan.md`.
 - Priority: High
 - Status: pending
 - Owner/Date: Codex Agent/2025-10-16
