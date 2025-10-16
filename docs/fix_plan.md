@@ -1,7 +1,25 @@
 # PtychoPINN Fix Plan Ledger
 
 **Last Updated:** 2025-10-16
-**Active Focus:** Bootstrapping the agentic workflow and PyTorch backend development.
+**Active Focus:** Restore pytest signal; PyTorch integration follows once green baseline returns.
+
+
+---
+
+## [TEST-SUITE-TRIAGE] Restore pytest signal and triage failures
+- Spec/AT: `docs/TESTING_GUIDE.md`, `docs/debugging/debugging.md`, `specs/data_contracts.md`
+- Plan: `plans/active/TEST-SUITE-TRIAGE/plan.md`
+- Priority: Critical (Do Now)
+- Status: planning
+- Owner/Date: Galph Supervisor/2025-10-16
+- Reproduction: `pytest tests/ -vv`
+- Attempts History:
+  * [2025-10-16] Attempt #0 — Planning: Established multi-phase triage plan, awaiting execution.
+- Exit Criteria:
+  - Pytest sweep captured in timestamped report with failure ledger per Phase A.
+  - Each failure classified (bug vs deprecated/flake) with references in plan summary (Phase B).
+  - docs/fix_plan.md updated with delegated fix items per failure cluster and input.md prepared for execution (Phase C).
+
 
 ---
 
