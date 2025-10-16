@@ -6,7 +6,7 @@
 ---
 
 ## [TEST-PYTORCH-001] Build Minimal Test Suite for PyTorch Backend
-- Spec/AT: Corresponds to existing TensorFlow integration test `tests/test_integration_workflow.py`.
+- Spec/AT: Corresponds to existing TensorFlow integration test `tests/test_integration_workflow.py` and guidance in `plans/pytorch_integration_test_plan.md`.
 - Priority: Critical
 - Status: pending
 - Owner/Date: Codex Agent/2025-10-16

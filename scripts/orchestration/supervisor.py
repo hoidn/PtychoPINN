@@ -205,7 +205,8 @@ def main() -> int:
     if not args.sync_via_git:
         # Legacy async mode: run N iterations back-to-back
         for _ in range(args.sync_loops):
-            rc = tee_run([args.codex_cmd, "exec", "-m", "gpt-5-codex", "-c", "model_reasoning_effort=high", "--dangerously-bypass-approvals-and-sandbox"], Path("prompts/supervisor.md"), log_path)
+            iter_log_path = _log_file("supervisor-legacy-")
+            rc = tee_run([args.codex_cmd, "exec", "-m", "gpt-5-codex", "-c", "model_reasoning_effort=high", "--dangerously-bypass-approvals-and-sandbox"], Path("prompts/supervisor.md"), iter_log_path)
             if rc != 0:
                 return rc
         return 0
