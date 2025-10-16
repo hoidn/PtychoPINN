@@ -1,3 +1,70 @@
+"""
+PyTorch implementation of the PtychoPINN architecture and physics layers.
+
+This module mirrors the design described in <doc-ref type="guide">docs/architecture.md</doc-ref>
+and the TensorFlow reference implementation in `ptycho/model.py`, but rewritten with PyTorch
+building blocks and helper functions from `ptycho_torch.helper`. The intent is to provide a
+drop-in alternative that can be trained with Lightning while reusing the same data contracts.
+
+Core components
+---------------
+Autoencoder:
+    Encoder/decoder stack that predicts amplitude and phase patches. Filter dimensions adapt
+    to `DataConfig().get('N')` and `ModelConfig().get('object.big')` in the same way as the
+    TensorFlow U-Net.
+
+ForwardModel:
+    Applies probe illumination, diffraction simulation, and intensity scaling to enforce the
+    ptychographic physics constraints. Helper functions (`ptycho_torch.helper`) are wrapped so
+    that the Lightning training loop can trace them.
+
+CombineComplex:
+    Utility that reconstructs complex-valued tensors from the amplitude/phase branches for
+    downstream FFT operations.
+
+Tensor contracts
+----------------
+Inputs follow the conventions established in <doc-ref type="contract">docs/data_contracts.md</doc-ref>.
+The training dataloader yields TensorDict tuples `(images, coords_relative, probe, scale_factor)` with
+the shapes:
+    - images: `(batch, channels, N, N)` real amplitudes.
+    - coords_relative: `(batch, channels, 1, 2)` scan offsets in pixel units.
+    - probe: `(channels?, N, N)` complex probe patches (broadcast across the batch).
+    - scale_factor: `(batch,)` intensity normalization factors.
+
+Outputs:
+    - Autoencoder returns amplitude and phase tensors with the same `(batch, channels, N, N)` layout.
+    - ForwardModel returns amplitude predictions in experimental units.
+    - `PtychoPINN` returns either complex reconstructions (in inference mode) or physics-consistent
+      diffraction amplitudes for loss computation (training mode).
+
+Configuration
+-------------
+Unlike the TensorFlow package, which uses dataclasses (`ptycho.config`), the PyTorch path relies on
+singleton settings (`ModelConfig`, `TrainingConfig`, `DataConfig`). Each class must be seeded via
+`set_settings(...)` before instantiating modules in this file. See the docstring in
+`ptycho_torch/config_params.py` for usage patterns.
+
+Entry points
+------------
+Exported symbols are consumed by the Lightning wrapper in `ptycho_torch/train.py`:
+    - `Autoencoder` — direct use in custom experiments.
+    - `ForwardModel` — physics-only inference.
+    - `PtychoPINN` — end-to-end network used by the TensorDict dataloader.
+    - `PoissonLoss` and `MAELoss` — loss functions matching TensorFlow behaviour.
+
+Differences vs. TensorFlow
+--------------------------
+The helper API mirrors TensorFlow semantics, but a few behavioural differences exist:
+    - Default dtype is `torch.float32`; complex math is handled via explicit amplitude/phase branches.
+    - Probe reassembly is optional (`ModelConfig().get('probe.big')`).
+    - Poisson loss is implemented with `torch.distributions` to avoid custom kernels.
+
+Use this module as the authoritative reference for PyTorch-side architecture decisions and keep it
+in sync with the design notes in the high-level docs when introducing new physics layers or data
+formats.
+"""
+
 #Torch
 import torch
 from torch import nn

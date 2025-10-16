@@ -1,3 +1,43 @@
+"""
+Lightning training harness for the PyTorch PtychoPINN implementation.
+
+This module orchestrates the data pipeline, configuration bootstrap, model construction, and
+experiment tracking that mirror the TensorFlow workflows documented in
+<doc-ref type="guide">docs/COMMANDS_REFERENCE.md</doc-ref>. It provides a minimal LightningModule
+(`PtychoPINN`) that wraps the architectures defined in `ptycho_torch/model.py` and exposes a
+`main(ptycho_dir, probe_dir)` helper for script or notebook execution.
+
+Workflow
+--------
+1. Configuration: `ModelConfig`, `TrainingConfig`, and `DataConfig` are seeded with dictionaries
+   (see `ptycho_torch/config_params.py`) so that downstream modules can read the runtime contract.
+2. Data: `PtychoDataset` memory-maps diffraction stacks and probe guesses, while
+   `TensorDictDataLoader` emits batches in the tuple format expected by the Lightning module.
+3. Model: The Lightning module owns `Autoencoder`, `ForwardModel`, and the chosen loss (Poisson or
+   MAE) from `ptycho_torch/model.py`.
+4. Trainer: `lightning.Trainer` handles device placement, gradient clipping, and checkpointing. The
+   script uses `mlflow.pytorch.autolog` to mirror the TensorFlow experiment tracking defaults.
+
+Usage
+-----
+Programmatic call:
+    ```python
+    from ptycho_torch import train
+    train.main("/path/to/ptycho_npz", "/path/to/probes_npz")
+    ```
+Command-line integration can be added by wiring `argparse` to call `main`; the imported argparse
+module is reserved for that future enhancement.
+
+Outputs
+-------
+The Lightning trainer writes checkpoints under `TrainingConfig().get('default_root_dir')` (default:
+repository root). MLflow artifacts include model checkpoints and scalar metrics using the same tag
+conventions as the TensorFlow pipeline.
+
+Keep this file aligned with the workflow guide in <doc-ref type="guide">docs/workflows/pytorch.md</doc-ref>
+so that operational instructions and executable code stay synchronized.
+"""
+
 #Most basic modules
 import sys
 import argparse

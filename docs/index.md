@@ -19,6 +19,11 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** workflow, training, evaluation, model-comparison, troubleshooting  
 **Use this when:** Starting a new project, planning experiments, or need to understand the complete train→evaluate→compare workflow.
 
+### [PyTorch Workflow Guide](workflows/pytorch.md)
+**Description:** End-to-end instructions for configuring, training, and running inference with the PyTorch implementation, highlighting differences from the TensorFlow pipelines and reusing the shared data contracts.  
+**Keywords:** pytorch, lightning, mlflow, configuration, training  
+**Use this when:** Working on the `ptycho_torch/` stack or porting TensorFlow workflows to PyTorch.
+
 ## Project Management
 
 ### [PROJECT_STATUS](PROJECT_STATUS.md)

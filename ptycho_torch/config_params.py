@@ -1,3 +1,41 @@
+"""
+Singleton-based configuration layer for the PyTorch implementation.
+
+The TensorFlow code path uses typed dataclasses (`ptycho.config`) to pass settings into models.
+For the PyTorch stack we instead expose three singletons — `ModelConfig`, `TrainingConfig`, and
+`DataConfig` — that can be populated once per process and queried anywhere in the module graph.
+This mirrors the legacy `ptycho.params.cfg` behaviour while remaining explicit about the expected
+keys.
+
+Usage pattern
+-------------
+    ```python
+    from ptycho_torch.config_params import ModelConfig, model_config_default
+
+    model_cfg = ModelConfig()
+    model_cfg.set_settings(model_config_default)
+    model_cfg.add("loss_function", "Poisson")
+    ```
+Access is read-only thereafter: calling `.get("loss_function")` in a downstream module returns the
+same value until `.set_settings` is invoked again.
+
+Integration points
+------------------
+- `ptycho_torch/model.py` reads runtime decisions (e.g., `object.big`, `n_filters_scale`, `offset`).
+- `ptycho_torch/dset_loader_pt_mmap.py` inspects `DataConfig` to decide how to build memory-mapped
+  tensors.
+- `ptycho_torch/train.py` seeds all three singletons before constructing datasets or models.
+
+Caveats
+-------
+- The singleton instances are process-global; re-seeding them midway through training is not safe.
+- Keys are not validated. Keep the canonical defaults (`*_config_default`) synchronized with the
+  data contracts in <doc-ref type="contract">docs/data_contracts.md</doc-ref> and update both when new
+  parameters are introduced.
+- When porting features from the TensorFlow path, map dataclass fields to these settings explicitly
+  and document the mapping in the module-level docstrings.
+"""
+
 #Configuration singleton class
 
 #Typical config values (need to be declared separately in __main__ or jupyter notebook)
