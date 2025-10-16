@@ -1,0 +1,9 @@
+{
+  "iteration": 1,
+  "expected_actor": "galph",
+  "status": "idle",
+  "last_update": "2025-10-16T23:00:42Z",
+  "lease_expires_at": "2025-10-16T23:10:42Z",
+  "galph_commit": null,
+  "ralph_commit": null
+}
