@@ -112,6 +112,6 @@ update_legacy_dict(params.cfg, config)  # You forgot this!
 - Prefer explicit parameters
 
 ## Links
-- Full details: `docs/TROUBLESHOOTING.md#shape-mismatch-errors`
+- Full details: `docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors`
 - Migration guide: `docs/DEVELOPER_GUIDE.md#configuration-migration`
 - Test template: `tests/test_template_gridsize.py`

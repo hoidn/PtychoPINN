@@ -24,7 +24,7 @@ CombineComplex:
 
 Tensor contracts
 ----------------
-Inputs follow the conventions established in <doc-ref type="contract">docs/data_contracts.md</doc-ref>.
+Inputs follow the conventions established in <doc-ref type="contract">specs/data_contracts.md</doc-ref>.
 The training dataloader yields TensorDict tuples `(images, coords_relative, probe, scale_factor)` with
 the shapes:
     - images: `(batch, channels, N, N)` real amplitudes.

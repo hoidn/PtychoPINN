@@ -12,7 +12,7 @@ PyTorch-specific configuration and tooling choices.
   `ptycho_torch/config_params.py` instead of dataclasses.
 - Execution engine: training uses PyTorch Lightning with optional MLflow autologging.
 - Data contract: identical `.npz` requirements as documented in
-  <doc-ref type="contract">docs/data_contracts.md</doc-ref>.
+  <doc-ref type="contract">specs/data_contracts.md</doc-ref>.
 
 ## 2. Prerequisites
 
@@ -50,7 +50,7 @@ Keep overrides consistent with the high-level guidelines in
 3. The `PtychoDataset` class memory-maps the diffraction stack into
    `data/memmap/`. Use `remake_map=True` to rebuild the map when upstream data changes.
 4. Inspect `ptycho_torch/dset_loader_pt_mmap.py` for tensor shapes and ensure they align with the
-   expectations in `docs/data_contracts.md`.
+   expectations in `specs/data_contracts.md`.
 
 ## 5. Launch Training
 

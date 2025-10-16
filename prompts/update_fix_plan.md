@@ -38,7 +38,7 @@ Each item SHALL use the following template. When updating, keep bullet text conc
 - Attempts History (append per loop):
   * [YYYY‑MM‑DD] Attempt #N — Result: success|partial|failed; Summary (1–3 lines)
   * Metrics: corr=..., RMSE=..., MSE=..., max|Δ|=..., sums (C/Py) & ratio=..., peaks if relevant
-  * Artifacts: c_trace.log, py_trace.log, diff_heatmap.png, summary.json (paths)
+  * Artifacts: plans/active/<ID>/reports/<timestamp>/{c_trace.log,py_trace.log,diff_heatmap.png,summary.json}
   * Observations/Hypotheses: bullets (ranked)
   * Next Actions: 1–3 surgical steps for the next loop
 - Risks/Assumptions: bullets
@@ -97,7 +97,7 @@ Example (abbreviated)
 - Attempts History:
   * [2025‑09‑29] Attempt #1 — Result: failed. corr(0.4mm)=0.94; max|Δ| large; peaks drift.
     Metrics: corr=0.94, RMSE=..., max|Δ|=..., sum_ratio=...
-    Artifacts: reports/debug/2025‑09‑29‑1203/{c_trace.log,py_trace.log,diff_heatmap.png,summary.json}
+    Artifacts: plans/active/MY-INITIATIVE/reports/2025-09-29-1203/{summary.md,pytest.log,diff.png}
     Observations/Hypotheses: (+0.5 pixel offset misapplied; unit mix in omega)
     Next Actions: Verify MOSFLM F/S mapping and +0.5; recheck omega units; ensure cache invalidation.
 - Risks/Assumptions: none

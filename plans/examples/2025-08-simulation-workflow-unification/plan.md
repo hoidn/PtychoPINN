@@ -65,7 +65,7 @@ A new integration test suite (`tests/simulation/test_simulate_and_save.py`) will
 
 4. **Content Sanity Check:** Perform basic checks on the output data to ensure it is physically plausible (e.g., non-zero, correct data types).
 
-5. **Data Contract Compliance:** Verify that all output files strictly adhere to the specifications in `docs/data_contracts.md`:
+5. **Data Contract Compliance:** Verify that all output files strictly adhere to the specifications in `specs/data_contracts.md`:
    - `diffraction` is `float32` amplitude (not intensity)
    - `Y` patches (if generated) are `complex64` and 3D
    - All required keys are present with correct shapes

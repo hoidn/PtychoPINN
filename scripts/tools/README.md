@@ -256,6 +256,6 @@ print('Diffraction dtype:', data['diffraction'].dtype)
 
 ## See Also
 
-- <doc-ref type="contract">docs/data_contracts.md</doc-ref> - Official data format specifications
+- <doc-ref type="contract">specs/data_contracts.md</doc-ref> - Official data format specifications
 - <doc-ref type="guide">docs/FLY64_DATASET_GUIDE.md</doc-ref> - Experimental dataset preprocessing guide
 - <doc-ref type="workflow-guide">scripts/studies/GENERALIZATION_STUDY_GUIDE.md</doc-ref> - Model evaluation workflows

@@ -41,6 +41,9 @@ your-project/
     └── archive/              # Completed work
 ```
 
+### Artifact Storage Standard
+All generated reports, logs, plots, and other loop artifacts belong alongside their initiative. Create timestamped directories under `plans/active/<initiative-id>/reports/` (for example, `plans/active/TEST-PYTORCH-001/reports/2025-10-16T153000Z/`). Record the exact path in `docs/fix_plan.md` after every loop so future agents can replay the work, and keep the directory clean by pruning large raw datasets before commits. Git automatically ignores these report folders via `plans/**/reports/` in `.gitignore`.
+
 ### PROJECT_STATUS.md Template
 ```markdown
 # Project Status Tracker

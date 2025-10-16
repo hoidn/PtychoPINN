@@ -44,7 +44,7 @@ This file provides guidance to Claude when working with the PtychoPINN repositor
       *   **For R&D/Implementation Plans:** The primary link **MUST** be added to `<doc-ref type="status">docs/PROJECT_STATUS.md</doc-ref>` under the relevant initiative.
       *   **For Workflow Guides:** A link **MUST** be added to the "Key Workflows & Scripts" section in `<doc-ref type="guide">CLAUDE.md</doc-ref>`.
       *   **For Core Architectural Guides:** A link **MUST** be added to either `<doc-ref type="guide">CLAUDE.md</doc-ref>` or `<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>`, whichever is more contextually appropriate.
-      *   **For Data Contract Changes:** You **MUST** update `<doc-ref type="contract">docs/data_contracts.md</doc-ref>`.
+      *   **For Data Contract Changes:** You **MUST** update `<doc-ref type="contract">specs/data_contracts.md</doc-ref>`.
 
   3.  **Use XML Tags for Links:** All new links that you add for discoverability **MUST** use the `<doc-ref>` or `<code-ref>` XML tagging system to ensure they are machine-parsable.
 </directive>
@@ -57,6 +57,22 @@ This file provides guidance to Claude when working with the PtychoPINN repositor
   3.  **REFACTOR:** Finally, propose any refactoring to clean up the code while ensuring the test still passes.
 
   For a canonical example of this process, refer to the case study on fixing the baseline model's `gridsize > 1` bug in the `<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>`.
+</directive>
+
+<directive level="critical" purpose="Consult the knowledge base">
+  Before starting analysis or debugging, search the consolidated findings ledger: 
+  <doc-ref type="findings">docs/findings.md</doc-ref>. 
+  If the issue already exists there, follow the documented resolution and update the status/logs instead of re-investigating from scratch.
+</directive>
+
+<directive level="critical" purpose="Follow the debugging methodology">
+  For all new defects, execute the standard procedure documented in 
+  <doc-ref type="debugging">docs/debugging/debugging.md</doc-ref> (verify data contracts → sync configuration → isolate component → capture failing test). 
+  Record each step in the active task notes (e.g., `<doc-ref type="plan">docs/fix_plan.md</doc-ref>`).
+</directive>
+
+<directive level="guidance" purpose="Store generated artifacts correctly">
+  All generated reports, logs, plots, and other artifacts from a development loop MUST be saved to a timestamped subdirectory within `plans/active/<initiative-name>/reports/`. This path MUST be recorded in <doc-ref type="plan">docs/fix_plan.md</doc-ref> before the loop ends so future agents can trace the work.
 </directive>
 
 ## Project Overview
@@ -99,7 +115,7 @@ update_legacy_dict(params.cfg, config)  # ← REQUIRED before data operations!
 
 **Common failure:** Shape `(*, 64, 64, 1)` instead of `(*, 64, 64, 4)` with gridsize=2
 **Cause:** `params.cfg['gridsize']` not initialized
-**Solution:** See <doc-ref type="troubleshooting">docs/TROUBLESHOOTING.md#shape-mismatch-errors</doc-ref>
+**Solution:** See <doc-ref type="troubleshooting">docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors</doc-ref>
 
 ## 2. Development & Testing Strategy
 
@@ -128,8 +144,8 @@ This project provides several high-level scripts to automate common tasks. For d
 
 - **Data Management:** See <doc-ref type="critical">docs/DATA_MANAGEMENT_GUIDE.md</doc-ref> **⚠️ MUST READ**
 - **Testing Guide:** See <doc-ref type="guide">docs/TESTING_GUIDE.md</doc-ref> **⚠️ NEW**
-- **Troubleshooting:** See <doc-ref type="guide">docs/TROUBLESHOOTING.md</doc-ref> **⚠️ NEW - Debug shape mismatches & config issues**
-- **Params Quick Reference:** See <doc-ref type="guide">docs/QUICK_REFERENCE_PARAMS.md</doc-ref> **⚠️ NEW - params.cfg initialization cheatsheet**
+- **Troubleshooting:** See <doc-ref type="guide">docs/debugging/TROUBLESHOOTING.md</doc-ref> **⚠️ NEW - Debug shape mismatches & config issues**
+- **Params Quick Reference:** See <doc-ref type="guide">docs/debugging/QUICK_REFERENCE_PARAMS.md</doc-ref> **⚠️ NEW - params.cfg initialization cheatsheet**
 - **Training:** See <doc-ref type="workflow-guide">scripts/training/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/training/README.md</doc-ref>
 - **Inference:** See <doc-ref type="workflow-guide">scripts/inference/CLAUDE.md</doc-ref> and <doc-ref type="workflow-guide">scripts/inference/README.md</doc-ref>
 - **Evaluation:** See <doc-ref type="workflow-guide">scripts/evaluation/README.md</doc-ref> **⚠️ NEW - Single model evaluation with metrics**
@@ -235,7 +251,7 @@ Parameters are controlled via YAML files (see `configs/`) or command-line argume
 
 **This is the most common source of errors.** A mismatch here will cause low-level TensorFlow errors that are hard to debug.
 
-**Authoritative Source:** For all tasks involving the creation or modification of `.npz` datasets, you **MUST** consult and adhere to the specifications in the **<doc-ref type="contract">docs/data_contracts.md</doc-ref>**. This file defines the required key names, array shapes, and data types.
+**Authoritative Source:** For all tasks involving the creation or modification of `.npz` datasets, you **MUST** consult and adhere to the specifications in the **<doc-ref type="contract">specs/data_contracts.md</doc-ref>**. This file defines the required key names, array shapes, and data types.
 
 -   **`probeGuess`**: The scanning beam. A complex `(N, N)` array.
 -   **`objectGuess`**: The full sample being scanned. A complex `(M, M)` array, where `M` is typically 3-5 times `N`.
@@ -421,7 +437,7 @@ The project includes tools for creating documentation-only views of the codebase
 
 - **`/generate-doc-context` command**: Creates an isolated git worktree with Python files stripped to only their module-level docstrings
 - **`strip_code.py` utility**: The underlying tool that extracts docstrings using Python's AST
-- **`.maskset` files**: Define which files to include in the documentation view (see <doc-ref type="contract">docs/data_contracts.md</doc-ref> section 3)
+- **`.maskset` files**: Define which files to include in the documentation view (see <doc-ref type="contract">specs/data_contracts.md</doc-ref> section 3)
 
 **Example workflow:**
 ```bash

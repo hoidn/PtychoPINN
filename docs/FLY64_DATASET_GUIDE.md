@@ -246,4 +246,4 @@ print("✓ FLY64 dataset ready for PtychoPINN")
 
 - <doc-ref type="workflow-guide">scripts/tools/README.md</doc-ref> - Preprocessing tools
 - <doc-ref type="workflow-guide">docs/studies/GENERALIZATION_STUDY_GUIDE.md</doc-ref> - Other datasets
-- <doc-ref type="contract">docs/data_contracts.md</doc-ref> - Data format specifications
+- <doc-ref type="contract">specs/data_contracts.md</doc-ref> - Data format specifications

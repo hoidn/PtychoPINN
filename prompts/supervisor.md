@@ -245,12 +245,15 @@ Header:
 - Focus: <plan item ID/title from docs/fix_plan.md>
 - Branch: <expected branch>
 - Mapped tests: <validated list | none — evidence‑only>
-- Artifacts: <key paths to produce under reports/>
+- Artifacts: <timestamped artifact directory under plans/active/<initiative-id>/reports/>
+  - Always derive <initiative-id> from the current Do Now focus item (e.g., TEST-PYTORCH-001).
+  - Use ISO timestamps (YYYY-MM-DDTHHMMSSZ) and include representative filenames, e.g.,
+    `plans/active/TEST-PYTORCH-001/reports/2025-10-16T153000Z/{summary.md,pytest.log}`.
 - Do Now: 1 line naming the exact docs/fix_plan.md item (ID and title) to execute this loop, plus the exact pytest command/env to reproduce it (only when an authoritative mapping exists). If no such test exists, the Do Now MUST be to author the minimal targeted test first and then run it. If you intend to delegate the choice, write “Do Now: delegate” and provide decision guidance below.
   - Note: If operating in supervisor <Evidence collection>, do not run the full suite. Allowed: running pytest on a relevant subset of the test suite (no more than 10 modules in tests/) specified in input.md or judged as relevant by ralph.
   - in TDD mode only, galph runs one targeted selector to confirm a new failing test. Subsequent test execution is deferred to Ralph. Do not include any Phase label in input.md.
 <Do Now guidelines>
-Verification scripts: You may run nb-compare and scripts/validation/* to collect metrics and artifacts (no code changes). Record outputs under reports/.
+Verification scripts: You may run nb-compare and scripts/validation/* to collect metrics and artifacts (no code changes). Record outputs under the initiative reports/ directory specified above.
 Mapped tests under supervisor evidence mode: Include exact selectors in input.md. 
 Command Sourcing (tests): Only include an exact pytest command in Do Now when sourced from an authoritative mapping (e.g., docs/development/testing_strategy.md) or an existing, known test file/identifier. If no authoritative mapping exists, set the Do Now task to author the minimal targeted test first; do not guess at a pytest selector here.
 

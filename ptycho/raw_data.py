@@ -94,7 +94,7 @@ State Dependencies:
 - Caching behavior eliminated - no dependency on dataset_path for cache files
 
 Data Contract Compliance:
-Adheres to data contracts in docs/data_contracts.md, expecting NPZ files with:
+Adheres to data contracts in specs/data_contracts.md, expecting NPZ files with:
 - 'diffraction': amplitude data (not intensity), shape (n_images, N, N)
 - 'objectGuess': full sample object, shape (M, M) where M >> N
 - 'probeGuess': scanning probe, shape (N, N)
@@ -422,7 +422,7 @@ class RawData:
         - Cause: params.cfg['gridsize'] not set, defaults to 1
         - Fix: Ensure update_legacy_dict() called before this method
 
-        See: docs/TROUBLESHOOTING.md#shape-mismatch-errors
+        See: docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors
         """
         # Use explicit gridsize parameter if provided, otherwise fallback to params
         if gridsize is None:

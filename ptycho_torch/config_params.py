@@ -30,7 +30,7 @@ Caveats
 -------
 - The singleton instances are process-global; re-seeding them midway through training is not safe.
 - Keys are not validated. Keep the canonical defaults (`*_config_default`) synchronized with the
-  data contracts in <doc-ref type="contract">docs/data_contracts.md</doc-ref> and update both when new
+  data contracts in <doc-ref type="contract">specs/data_contracts.md</doc-ref> and update both when new
   parameters are introduced.
 - When porting features from the TensorFlow path, map dataclass fields to these settings explicitly
   and document the mapping in the module-level docstrings.

@@ -155,6 +155,6 @@ This final stage prepares the data for TensorFlow by converting the grouped NumP
 
 -   **Explicit over Implicit**: New code should favor passing configuration and data as explicit arguments rather than relying on global state. This principle is explained in detail in the **<doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>**.
 
--   **Data Contracts**: All data exchange between components must adhere to the formats defined in the **<doc-ref type="contract">docs/data_contracts.md</doc-ref>**.
+-   **Data Contracts**: All data exchange between components must adhere to the formats defined in the **<doc-ref type="contract">specs/data_contracts.md</doc-ref>**.
 
 -   **Separation of Concerns**: Physics simulation (`diffsim`), model architecture (`model`), and data handling (`loader`) are kept in separate, specialized modules.

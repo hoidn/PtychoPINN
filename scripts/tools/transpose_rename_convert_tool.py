@@ -6,7 +6,7 @@ This tool processes an NPZ file to create a standardized version.
 
 Its primary purpose is to ensure that the output file conforms to the
 specifications laid out in the project's official Data Contracts document.
-See `docs/data_contracts.md` for details on required shapes and keys.
+See `specs/data_contracts.md` for details on required shapes and keys.
 
 Key Operations:
 1. Renames 'diff3d' to 'diffraction'.

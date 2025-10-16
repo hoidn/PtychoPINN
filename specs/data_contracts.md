@@ -161,7 +161,7 @@ scripts/workflows/*.py
 
 # Documentation
 docs/DEVELOPER_GUIDE.md
-docs/data_contracts.md
+specs/data_contracts.md
 ```
 
 #### Data Pipeline Maskset
@@ -175,7 +175,7 @@ ptycho/image/**/*.py
 scripts/tools/*_tool.py
 
 # Data contracts
-docs/data_contracts.md
+specs/data_contracts.md
 ```
 
 #### Study-Specific Maskset

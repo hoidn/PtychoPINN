@@ -86,4 +86,4 @@ python scripts/simulation/simulate_and_save.py \
 
 ## Output Data Format
 
-The final output of the simulation workflow is an `.npz` file that conforms to the project's data standard. For full details on the required keys and array shapes, see the [Data Contracts Document](../../docs/data_contracts.md).
+The final output of the simulation workflow is an `.npz` file that conforms to the project's data standard. For full details on the required keys and array shapes, see the [Data Contracts Document](../../specs/data_contracts.md).

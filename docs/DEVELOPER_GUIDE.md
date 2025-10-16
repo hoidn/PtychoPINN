@@ -6,8 +6,8 @@ This document summarizes key architectural principles, data pipeline best practi
 
 ## Related Documentation
 
-- **<doc-ref type="guide">docs/TROUBLESHOOTING.md</doc-ref>** - Debug common issues like shape mismatches and config problems
-- **<doc-ref type="guide">docs/QUICK_REFERENCE_PARAMS.md</doc-ref>** - Quick reference for params.cfg initialization patterns
+- **<doc-ref type="guide">docs/debugging/TROUBLESHOOTING.md</doc-ref>** - Debug common issues like shape mismatches and config problems
+- **<doc-ref type="guide">docs/debugging/QUICK_REFERENCE_PARAMS.md</doc-ref>** - Quick reference for params.cfg initialization patterns
 - **`tests/test_template_gridsize.py`** - Template for writing tests with proper params initialization
 
 ---
@@ -76,7 +76,7 @@ Until the codebase is fully refactored, all modern scripts must follow this orde
 
 A data pipeline's file formats and loading logic constitute a public API. Its behavior must be explicit and robust.
 
-**The Canonical Data Format:** All tools that produce or consume ptychography datasets for training or evaluation **MUST** adhere to the format defined in the official **<doc-ref type="contract">Data Contracts Document (docs/data_contracts.md)</doc-ref>**. This document is the single source of truth for array shapes, key names, and data types.
+**The Canonical Data Format:** All tools that produce or consume ptychography datasets for training or evaluation **MUST** adhere to the format defined in the official **<doc-ref type="contract">Data Contracts Document (specs/data_contracts.md)</doc-ref>**. This document is the single source of truth for array shapes, key names, and data types.
 
 ### 3.1. Lesson: Implicit `dtype` is a Time Bomb (The Deepest Bug)
 
@@ -434,7 +434,7 @@ Before merging any PR that touches data loading or configuration:
   - Solution: Pass as explicit parameters instead
 - [ ] Is the initialization order documented?
   - Add comments explaining when params must be set
-  - Reference `docs/TROUBLESHOOTING.md` for common issues
+  - Reference `docs/debugging/TROUBLESHOOTING.md` for common issues
 
 ### 7.2. Shape Validation  
 - [ ] For gridsize-dependent code, are there tests for gridsize=1 AND gridsize=2?

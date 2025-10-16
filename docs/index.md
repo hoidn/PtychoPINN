@@ -9,7 +9,7 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** installation, overview, setup, quickstart  
 **Use this when:** First time setting up PtychoPINN or need basic installation instructions.
 
-### [Quick Reference: Parameters](QUICK_REFERENCE_PARAMS.md) CRITICAL
+### [Quick Reference: Parameters](debugging/QUICK_REFERENCE_PARAMS.md) CRITICAL
 **Description:** Essential cheatsheet for params.cfg initialization - covers the critical `update_legacy_dict()` call required before data operations and debugging shape mismatch errors.  
 **Keywords:** params.cfg, initialization, gridsize, shape-mismatch, troubleshooting  
 **Use this when:** Getting shape mismatch errors, debugging configuration issues, or need to understand params.cfg initialization pattern.
@@ -23,6 +23,11 @@ This index provides a comprehensive overview of all available documentation with
 **Description:** End-to-end instructions for configuring, training, and running inference with the PyTorch implementation, highlighting differences from the TensorFlow pipelines and reusing the shared data contracts.  
 **Keywords:** pytorch, lightning, mlflow, configuration, training  
 **Use this when:** Working on the `ptycho_torch/` stack or porting TensorFlow workflows to PyTorch.
+
+### [Knowledge Base Ledger](findings.md)
+**Description:** Centralized record of critical discoveries, conventions, and recurring bugs, maintained as the agent's long-term memory.  
+**Keywords:** knowledge-base, lessons-learned, debugging, conventions  
+**Use this when:** Investigating an issue, planning a change, or verifying whether a problem has prior art.
 
 ## Project Management
 
@@ -60,10 +65,20 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** testing, TDD, integration, regression, CLI-testing  
 **Use this when:** Writing new tests, running the test suite, implementing TDD cycles, or ensuring backward compatibility.
 
-#### [Troubleshooting Guide](TROUBLESHOOTING.md)
+#### [Troubleshooting Guide](debugging/TROUBLESHOOTING.md)
 **Description:** Practical debugging guide for common issues including shape mismatch errors, configuration precedence problems, oversampling setup, and quick debugging commands with solutions.  
 **Keywords:** debugging, shape-mismatch, configuration, oversampling, quick-fixes  
 **Use this when:** Encountering shape mismatch errors (especially gridsize-related), debugging configuration issues, or need quick diagnostic commands.
+
+#### [Debugging Methodology](debugging/debugging.md)
+**Description:** Standard four-step process (verify contracts → sync configuration → isolate component → capture failing test) required for all new investigations.  
+**Keywords:** methodology, workflow, testing, triage  
+**Use this when:** Beginning any new bug hunt or postmortem to ensure consistent, auditable steps.
+
+#### [Undocumented Conventions](debugging/undocumented_conventions.md)
+**Description:** Living list of subtle behaviors (e.g., two-system assumptions, legacy sync order) that commonly cause regressions when overlooked.  
+**Keywords:** conventions, gotchas, params.cfg, legacy-system  
+**Use this when:** Reviewing legacy code, onboarding new teammates, or double-checking implicit assumptions.
 
 ### Configuration & Data
 
@@ -72,7 +87,7 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** configuration, parameters, dataclass, YAML, command-line  
 **Use this when:** Setting up training or inference runs, understanding parameter precedence, or creating reproducible experiment configurations.
 
-#### [Data Contracts](data_contracts.md) CRITICAL
+#### [Data Contracts](../specs/data_contracts.md) CRITICAL
 **Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.  
 **Keywords:** NPZ-format, data-contracts, normalization, diffraction, amplitude  
 **Use this when:** Creating or validating datasets, troubleshooting data format errors, or understanding amplitude vs intensity requirements.
@@ -248,9 +263,9 @@ This index provides a comprehensive overview of all available documentation with
 ### By Task
 - **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Initiative Workflow](INITIATIVE_WORKFLOW_GUIDE.md)
 - **Running experiments**: [Workflow Guide](WORKFLOW_GUIDE.md) → [Commands Reference](COMMANDS_REFERENCE.md)
-- **Debugging issues**: [Troubleshooting](TROUBLESHOOTING.md) → [Quick Reference Params](QUICK_REFERENCE_PARAMS.md)
-- **Understanding data**: [Data Contracts](data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
-- **Fixing shape mismatches**: [Quick Reference Params](QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](TROUBLESHOOTING.md)
+- **Debugging issues**: [Troubleshooting](debugging/TROUBLESHOOTING.md) → [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md)
+- **Understanding data**: [Data Contracts](../specs/data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
+- **Fixing shape mismatches**: [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](debugging/TROUBLESHOOTING.md)
 - **Training models**: [Training README](../scripts/training/README.md) → [Configuration Guide](CONFIGURATION.md)
 - **Evaluating models**: [Evaluation README](../scripts/evaluation/README.md) → [Model Comparison](../scripts/studies/README.md)
 
