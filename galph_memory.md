@@ -710,3 +710,10 @@
 - Added `[TEST-PYTORCH-001]` entry to docs/fix_plan.md referencing the existing charter (`plans/pytorch_integration_test_plan.md`) and spelling out dependencies, exit criteria, and need to migrate into `plans/active/TEST-PYTORCH-001/implementation.md`.
 - No additional plan artifacts created this loop; flagged active-plan migration as prerequisite in Working Plan field.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T235324Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS (Phase D2 baseline follow-up)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes: Beginning audit of baseline artifacts/log discipline before advancing to Phase B guidance.
+- <Action State>: [gathering_evidence]
