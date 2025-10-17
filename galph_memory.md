@@ -397,3 +397,16 @@
 - Flagged stray `train_debug.log` for relocation next loop to maintain artifact storage policy.
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T112200Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D3.C persistence loader
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Dependencies D3.A evidence + D3.B archive writer confirmed complete; proceeding to prep loader directive.
+
+## 2025-10-17T113300Z: D3.C Loader Prep Summary
+- Reviewed Attempt #51 artifacts (`reports/2025-10-17T110500Z/`) and marked D3.B complete in `phase_d_workflow.md`; implementation plan D3 row now [P].
+- Added docs/fix_plan.md Attempt #52 capturing loader prep scope + upcoming artifact path `reports/2025-10-17T113200Z/`.
+- Rewrote input.md for Parity mode to direct D3.C red tests, loader implementation, and evidence capture; mapped selectors for new TestLoadTorchBundle cases.
+- No tests run this loop (documentation/steering only).
+- <Action State>: [ready_for_implementation]
