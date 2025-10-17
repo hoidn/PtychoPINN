@@ -80,3 +80,17 @@
 - Rewrote `input.md` directing Ralph to author the stakeholder brief (`stakeholder_brief.md`) and capture open questions for Phase C.C2.
 - Next steps for Ralph: produce the stakeholder brief, update docs/fix_plan Attempt #5 with evidence, and cascade key asks into `plans/active/INTEGRATE-PYTORCH-001/implementation.md` once ready.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T032109Z: Pre-loop Focus Selection
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B1 configuration schema audit
+- Action type: Evidence collection
+- Mode: Docs
+
+## 2025-10-17T032344Z: Supervisory Evidence Directive
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B1 configuration schema audit; prepped evidence loop for Ralph.
+- Key references: specs/ptychodus_api_spec.md:61-149, ptycho/config/config.py:72-178, ptycho_torch/config_params.py:8-128, plans/active/INTEGRATE-PYTORCH-001/implementation.md:46, and stakeholder brief delta 1.
+- Updated input.md to point Ralph at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T032218Z/` for `config_schema_map.md` + `scope_notes.md`; clarified use of KEY_MAPPINGS and params.cfg dotted keys.
+- Logged Attempt #4 in docs/fix_plan.md noting this evidence prep and artifact expectations.
+- Next supervisor check: confirm artifacts exist, review MVP vs parity decisions, then green-light Phase B.B2 failing test authoring.
+- <Action State>: [gathering_evidence]
+
