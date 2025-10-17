@@ -540,3 +540,14 @@
 - Next steps for Ralph: follow input.md Do Now checklist (torch suite run, stub-based no-torch validation, summary + ledger update).
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T202134Z: Phase F3.4 directive
+- Focus issue: INTEGRATE-PYTORCH-001 Phase F3.4 regression verification
+- Action type: Review or housekeeping
+- Mode: Parity
+- Findings check: `rg "PyTorch" docs/findings.md` returned none; no conflicting ledger entries.
+- Reviewed migration blueprint F3.4 gate and skip_rewrite_summary expectations; confirmed dependencies F3.1–F3.3 closed in phase_f_torch_mandatory.md:42-47.
+- Coin flip (heads): inspected recent commits (`git log -n 10`, `git show a32dfaf`, `git show 04f62f8`) — Ralph’s guard removal + skip rewrite work looks healthy, no regressions spotted.
+- Authored new `input.md` targeting regression validation with artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T201922Z/`; mapped torch suite and full regression commands with known ignores and documented summary/update requirements.
+- Expect Ralph to capture torch/ and full-suite logs, update phase_f_torch_mandatory.md & implementation plan, and log Attempt #72 in docs/fix_plan.md.
+- <Action State>: [ready_for_implementation]
