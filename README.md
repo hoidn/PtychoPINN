@@ -27,6 +27,8 @@ Developers looking to contribute to the codebase or understand its deeper archit
 
 `pip install .`
 
+**Note:** This will automatically install PyTorch >= 2.2 as a required dependency. For GPU acceleration with specific CUDA versions, you may want to install PyTorch manually first following the [official PyTorch installation guide](https://pytorch.org/get-started/locally/), then run `pip install .`
+
 ## Usage
 ### Training
 `ptycho_train --train_data_file <train_path.npz> --test_data_file <test_path.npz> --output_dir <my_run>`

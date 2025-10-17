@@ -54,8 +54,8 @@ This file provides the core instructions for the Claude AI agent working on the 
   A primary goal of this project is the development of a PyTorch backend. Tasks related to `ptycho_torch/` and the integration plan at `plans/ptychodus_pytorch_integration_plan.md` are of high priority.
 </directive>
 
-<directive level="critical" purpose="Keep PyTorch parity tests torch-optional">
-  Parity and adapter tests must remain runnable when PyTorch is unavailable. Use documented shims or skip rules in `tests/conftest.py`, avoid hard `import torch` statements in modules that only need type aliases, and capture any fallback behavior in the loop artifacts.
+<directive level="critical" purpose="Enforce PyTorch Requirement">
+  PyTorch is a required dependency for this project as of Phase F (INTEGRATE-PYTORCH-001). All code in `ptycho_torch/` and `tests/torch/` assumes PyTorch is installed. The package specifies `torch>=2.2` in `setup.py` install_requires. Tests in `tests/torch/` are automatically skipped in TensorFlow-only CI environments via directory-based pytest collection rules in `tests/conftest.py`, but will fail with actionable ImportError messages if PyTorch is missing in local development. Migration rationale and evidence documented in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md` and Phase F implementation logs (`docs/fix_plan.md` INTEGRATE-PYTORCH-001 history).
 </directive>
 
 ---

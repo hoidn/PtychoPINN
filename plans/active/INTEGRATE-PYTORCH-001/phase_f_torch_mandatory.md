@@ -55,7 +55,7 @@ Exit Criteria: Documentation, specs, and downstream plans updated; open risks lo
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F4.1 | Update developer-facing docs | [ ] | Execute checklist in `phase_f4_doc_sync.md` (F4.1 rows). Use `reports/2025-10-17T203640Z/doc_updates.md` for inventory + change log. |
+| F4.1 | Update developer-facing docs | [x] | ✅ 2025-10-17 — Completed F4.1.A+B+C: updated CLAUDE.md directive (line 57-59), docs/workflows/pytorch.md prerequisites (lines 17-22), and README.md installation (lines 28-30). All torch-optional language replaced with torch-required policy. Artifacts: `reports/2025-10-17T203640Z/doc_updates.md`. |
 | F4.2 | Sync specs & findings | [ ] | Follow `phase_f4_doc_sync.md` F4.2 guidance to edit `specs/ptychodus_api_spec.md` and append POLICY finding; record rationale in `reports/2025-10-17T203640Z/spec_sync.md`. |
 | F4.3 | Coordinate initiative handoffs | [ ] | Complete `phase_f4_doc_sync.md` F4.3 tasks; capture downstream owner notes in `reports/2025-10-17T203640Z/handoff_notes.md` and update ledger accordingly. |
 

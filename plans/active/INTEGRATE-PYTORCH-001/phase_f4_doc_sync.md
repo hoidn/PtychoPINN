@@ -15,9 +15,9 @@ Exit Criteria: CLAUDE.md, docs/workflows/pytorch.md, README (PyTorch usage secti
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F4.1.A | Inventory torch-optional language across docs | [ ] | Run `rg "torch-optional" docs/ README.md` and catalog affected sections in `reports/<timestamp>/doc_updates.md`. Include page anchors for CLAUDE.md and any other docs referencing the old policy. |
-| F4.1.B | Update CLAUDE.md directives | [ ] | Rewrite §2 critical directives to remove "Keep PyTorch parity tests torch-optional" requirement. Replace with torch-required guidance, citing Phase F migrations and expected skip behavior. Capture diff rationale in `doc_updates.md`. |
-| F4.1.C | Refresh workflow guides & README | [ ] | Update `docs/workflows/pytorch.md` and README training/inference instructions to state PyTorch dependency (include install instructions referencing setup.py). Note any other docs touched and summarize updates in `doc_updates.md`. |
+| F4.1.A | Inventory torch-optional language across docs | [x] | ✅ 2025-10-17 — Searched docs/ and README.md; zero active torch-optional references (all in fix_plan.md history). Identified CLAUDE.md:57, pytorch.md:17-22, README.md:23-28 requiring updates. Inventory documented in `reports/2025-10-17T203640Z/doc_updates.md`. |
+| F4.1.B | Update CLAUDE.md directives | [x] | ✅ 2025-10-17 — Replaced §2 directive (lines 57-59) from "Keep PyTorch parity tests torch-optional" to "Enforce PyTorch Requirement". New text references Phase F governance, setup.py specification, and conftest.py skip behavior. |
+| F4.1.C | Refresh workflow guides & README | [x] | ✅ 2025-10-17 — Updated docs/workflows/pytorch.md prerequisites (bold "REQUIRED", setup.py reference, PyTorch install link) and README.md installation (auto-install note, GPU/CUDA guidance). All changes logged in `doc_updates.md`. |
 
 ---
 

@@ -16,10 +16,10 @@ PyTorch-specific configuration and tooling choices.
 
 ## 2. Prerequisites
 
-- PyTorch >= 2.2 with CUDA support (if training on GPU).
-- `lightning`, `mlflow`, and `tensordict` installed.
-- Input NPZ files generated according to the project data contract.
-- Optional: running MLflow tracking server (set `MLFLOW_TRACKING_URI` if using a remote instance).
+- **PyTorch >= 2.2 (REQUIRED)**: Installed automatically via `setup.py` when running `pip install .` or `pip install -e .`. If you need a specific CUDA version, install PyTorch manually first following [PyTorch installation instructions](https://pytorch.org/get-started/locally/) before installing this package.
+- `lightning`, `mlflow`, and `tensordict`: Also installed automatically as package dependencies.
+- Input NPZ files generated according to the project data contract (see <doc-ref type="contract">specs/data_contracts.md</doc-ref>).
+- Optional: Running MLflow tracking server (set `MLFLOW_TRACKING_URI` environment variable if using a remote instance; defaults to local file storage).
 
 ## 3. Configure Runtime Parameters
 
