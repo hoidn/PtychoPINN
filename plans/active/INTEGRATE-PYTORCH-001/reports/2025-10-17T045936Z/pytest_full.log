@@ -1,0 +1,38 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: not available (/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/lib/libtorch_cuda.so: undefined symbol: ncclCommWindowRegister)
+
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 161 items / 2 errors / 2 skipped
+
+==================================== ERRORS ====================================
+_____________ ERROR collecting tests/test_benchmark_throughput.py ______________
+ImportError while importing test module '/home/ollie/Documents/PtychoPINN2/tests/test_benchmark_throughput.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../miniconda3/envs/ptycho311/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_benchmark_throughput.py:21: in <module>
+    from scripts.benchmark_inference_throughput import (
+E   ModuleNotFoundError: No module named 'scripts.benchmark_inference_throughput'
+_________________ ERROR collecting tests/test_run_baseline.py __________________
+ImportError while importing test module '/home/ollie/Documents/PtychoPINN2/tests/test_run_baseline.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../miniconda3/envs/ptycho311/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_run_baseline.py:13: in <module>
+    from tests.test_utilities import _prepare_baseline_data_inputs
+E   ModuleNotFoundError: No module named 'tests.test_utilities'
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_pytorch_tf_wrapper.py:21: PyTorch not available
+SKIPPED [1] tests/torch/test_tf_helper.py:20: PyTorch not available
+ERROR tests/test_benchmark_throughput.py
+ERROR tests/test_run_baseline.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+========================= 2 skipped, 2 errors in 3.56s =========================
