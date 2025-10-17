@@ -41,7 +41,7 @@ Exit Criteria: Codebase free of torch-optional guards, tests updated, CI green u
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F3.1 | Update dependency management | [ ] | Promote PyTorch extras to core requirement in packaging (setup.cfg/pyproject), ensure development tooling installs PyTorch by default. Document environment changes in `reports/.../dependency_update.md`. |
+| F3.1 | Update dependency management | [x] | ✅ 2025-10-17 — Added `torch>=2.2` to `setup.py` install_requires (line 42, alphabetized). PyTorch 2.8.0+cu128 verified available; pytest collection confirmed 70 tests in `tests/torch/`. Artifacts: `reports/2025-10-17T193400Z/{dependency_update.md,pytest_collect.log}`. |
 | F3.2 | Remove guarded imports & flags | [ ] | Refactor modules to drop `TORCH_AVAILABLE`, unconditionalize imports, and simplify code paths. Ensure config adapters, data bridges, and workflows now import torch directly. Capture diffs + rationale in `reports/.../code_changes.md`. |
 | F3.3 | Rewrite pytest skip logic | [ ] | Simplify `tests/conftest.py` (remove torch skip whitelist) and adjust tests depending on fallbacks. Record new selectors + expected runtime in `reports/.../pytest_update.md`. |
 | F3.4 | Regression verification | [ ] | Run targeted parity + integration suites (`pytest tests/torch`, `pytest tests/test_integration_workflow.py -k torch`). Archive logs under `reports/.../pytest_green.log` with summary metrics. |
