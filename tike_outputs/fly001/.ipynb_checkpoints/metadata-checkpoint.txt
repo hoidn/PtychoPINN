@@ -1,0 +1,10 @@
+Tike Reconstruction Metadata
+============================
+Input file: datasets/fly/fly001.npz
+Algorithm: RPIE
+Iterations: 1000
+Batch size: 10
+Noise model: Poisson
+Object shape: (231, 231)
+Probe shape: (64, 64)
+Number of scan positions: 10304
