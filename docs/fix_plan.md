@@ -5,7 +5,7 @@
 
 ---
 
-TODO: create an item for removing the torch-optional behavior in ## [INTEGRATE-PYTORCH-001] Prepare for PyTorch Backend Integration with Ptychodus - instead assume that pytorch is installed and working
+TODO HIGH PRIORITY: galph: create a fix list item for removing the torch-optional behavior in ## [INTEGRATE-PYTORCH-001] Prepare for PyTorch Backend Integration with Ptychodus - instead assume that pytorch is installed and working - get rid of dual TORCH_AVAILABLE paths
 
 ## [INTEGRATE-PYTORCH-000] Pre-refresh Planning for PyTorch Backend Integration
 - Spec/AT: `plans/ptychodus_pytorch_integration_plan.md`, commit bfc22e7 (PyTorch tree rebase), and `specs/ptychodus_api_spec.md` for contractual alignment.
