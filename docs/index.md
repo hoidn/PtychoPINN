@@ -65,6 +65,11 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** testing, TDD, integration, regression, CLI-testing  
 **Use this when:** Writing new tests, running the test suite, implementing TDD cycles, or ensuring backward compatibility.
 
+#### <doc-ref type="test-index">docs/development/TEST_SUITE_INDEX.md</doc-ref>
+**Description:** Machine-generated catalog of every `tests/` module with purpose statements, key test names, and direct execution commands.  
+**Keywords:** test-coverage, discovery, regression, navigation  
+**Use this when:** Locating the right test to extend, auditing coverage during code reviews, or coordinating TDD cycles across the suite.
+
 #### [Troubleshooting Guide](debugging/TROUBLESHOOTING.md)
 **Description:** Practical debugging guide for common issues including shape mismatch errors, configuration precedence problems, oversampling setup, and quick debugging commands with solutions.  
 **Keywords:** debugging, shape-mismatch, configuration, oversampling, quick-fixes  

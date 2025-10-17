@@ -1,0 +1,27 @@
+# Complete Generalization Study Configuration
+# Generated: Sun Jul 13 11:05:10 PM PDT 2025
+
+# Training Configuration
+TRAIN_SIZES=512
+PARALLEL_JOBS=1
+
+# Paths
+OUTPUT_DIR=complete_generalization_study_20250713_230510
+TEST_DATA=
+
+# Workflow Flags
+SKIP_DATA_PREP=true
+SKIP_TRAINING=true
+SKIP_COMPARISON=true
+DRY_RUN=true
+
+# Environment Info
+PROJECT_ROOT=/home/ollie/Documents/PtychoPINN
+USER=ollie
+HOSTNAME=ollie-System-Product-Name
+PWD=/home/ollie/Documents/PtychoPINN
+
+# System Info
+PYTHON_VERSION=Python 3.10.18
+CONDA_ENV=ptycho-tf
+GPU_INFO=NVIDIA GeForce RTX 3090, 24576

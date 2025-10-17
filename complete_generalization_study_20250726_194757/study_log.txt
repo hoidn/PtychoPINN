@@ -1,0 +1,10 @@
+[2025-07-26 19:47:57] === Starting Complete Generalization Study ===
+[2025-07-26 19:47:57] Training sizes: 512
+[2025-07-26 19:47:57] Number of trials per size: 1
+[2025-07-26 19:47:57] Output directory: complete_generalization_study_20250726_194757
+[2025-07-26 19:47:57] Total training runs planned: 2
+[2025-07-26 19:47:57] Validating environment...
+[2025-07-26 19:47:57] Environment validation passed
+[2025-07-26 19:47:57] Configuration saved to: complete_generalization_study_20250726_194757/study_config.txt
+[2025-07-26 19:47:57] Skipping dataset preparation (--skip-data-prep)
+[2025-07-26 19:47:57] ERROR: --train-data must be specified when using --skip-data-prep

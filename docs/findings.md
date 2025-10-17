@@ -1,0 +1,16 @@
+# PtychoPINN Knowledge Base (NanoBragg Standard)
+
+This ledger captures the most important lessons, conventions, and recurring issues discovered across the project. Before starting new work—or especially when debugging—consult this table to avoid repeating known mistakes.
+
+| Finding ID | Date | Keywords | Synopsis | Evidence Pointer | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| CONVENTION-001 | 2025-10-16 | architecture, legacy, global-state | The codebase consists of a legacy grid-based system tied to `params.cfg` and a modern coordinate-based system; pick the right side before changing anything. | [Link](docs/DEVELOPER_GUIDE.md#1-the-core-concept-a-two-system-architecture) | Active |
+| ANTIPATTERN-001 | 2025-10-16 | imports, side-effects, debugging | Import-time side effects (e.g., loading data in module scope) caused hidden crashes; always push work into functions with explicit arguments. | [Link](docs/DEVELOPER_GUIDE.md#21-anti-pattern-side-effects-on-import) | Active |
+| CONFIG-001 | 2025-10-16 | params.cfg, initialization-order | `update_legacy_dict(params.cfg, config)` must run before any legacy module executes; missing this broke gridsize sync and legacy interop. | [Link](docs/debugging/QUICK_REFERENCE_PARAMS.md#⚠️-the-golden-rule) | Active |
+| BUG-TF-001 | 2025-10-16 | shape-mismatch, gridsize, tests | Gridsize > 1 yields channel mismatches unless `params.cfg['gridsize']` is populated before `generate_grouped_data`; verify config vs params values. | [Link](docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors) | Active |
+| DATA-001 | 2025-10-16 | data-contract, npz, io | All NPZ datasets must follow the canonical specification (keys, dtypes, normalization); deviations caused silent inference failures. | [Link](specs/data_contracts.md) | Active |
+| NORMALIZATION-001 | 2025-10-16 | scaling, physics, preprocessing | Three independent normalization systems (physics, statistical, display) must never be mixed; applying scaling in the wrong stage created double-scaling bugs. | [Link](docs/DEVELOPER_GUIDE.md#35-normalization-architecture-three-distinct-systems) | Active |
+| STUDY-001 | 2025-10-16 | fly64, baseline, generalization | On fly64 experiments the baseline model outperformed PtychoPINN by ~6–10 dB, contradicting expectations and motivating architecture review. | [Link](docs/FLY64_GENERALIZATION_STUDY_ANALYSIS.md#key-findings) | Active |
+| OVERSAMPLING-001 | 2025-10-16 | oversampling, gridsize, combinatorics | Oversampling only works when `gridsize > 1` and `K > C`; otherwise requested groups can never exceed raw images. | [Link](docs/debugging/TROUBLESHOOTING.md#oversampling-not-working) | Active |
+| MIGRATION-001 | 2025-10-16 | params-removal, refactor, strategy | 66+ files still depend on `params.cfg`; migration plan is to eliminate new uses, document remaining ones, then remove the dependency. | [Link](docs/debugging/QUICK_REFERENCE_PARAMS.md#the-66-file-problem) | Active |
+| PROCEDURE-001 | 2025-10-16 | review, defensive-coding | Flag hidden `params` reads and undocumented dependencies during code review; insist on explicit parameters or documented prerequisites. | [Link](docs/debugging/QUICK_REFERENCE_PARAMS.md#red-flags-in-code-review-🚩) | Active |

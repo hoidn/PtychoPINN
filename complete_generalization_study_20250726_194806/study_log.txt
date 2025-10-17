@@ -1,0 +1,75 @@
+[2025-07-26 19:48:06] === Starting Complete Generalization Study ===
+[2025-07-26 19:48:06] Training sizes: 512
+[2025-07-26 19:48:06] Number of trials per size: 1
+[2025-07-26 19:48:06] Output directory: complete_generalization_study_20250726_194806
+[2025-07-26 19:48:06] Total training runs planned: 2
+[2025-07-26 19:48:06] Validating environment...
+[2025-07-26 19:48:06] Environment validation passed
+[2025-07-26 19:48:06] Configuration saved to: complete_generalization_study_20250726_194806/study_config.txt
+[2025-07-26 19:48:06] Skipping dataset preparation (--skip-data-prep)
+[2025-07-26 19:48:06] Skipping model training (--skip-training)
+[2025-07-26 19:48:06] === STEP 3: Model Comparison ===
+[2025-07-26 19:48:06] Running comparisons for train_size=512 (1 trials)
+[2025-07-26 19:48:06] WARNING: PtychoPINN model not found for train_size=512 trial=1: complete_generalization_study_20250726_194806/train_512/trial_1/pinn_run/wts.h5.zip
+[2025-07-26 19:48:06] Completed comparisons for train_size=512
+[2025-07-26 19:48:07] Model comparison phase completed
+[2025-07-26 19:48:07] === STEP 4: Results Aggregation ===
+[2025-07-26 19:48:07] EXECUTING: PSNR phase generalization plot
+[2025-07-26 19:48:07] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'complete_generalization_study_20250726_194806' \
+        --metric psnr \
+        --part phase \
+        --output psnr_phase_generalization.png
+[2025-07-26 19:48:07] DRY-RUN: Would execute command
+[2025-07-26 19:48:07] EXECUTING: FRC amplitude generalization plot
+[2025-07-26 19:48:07] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'complete_generalization_study_20250726_194806' \
+        --metric frc50 \
+        --part amp \
+        --output frc50_amp_generalization.png
+[2025-07-26 19:48:07] DRY-RUN: Would execute command
+[2025-07-26 19:48:07] EXECUTING: MAE amplitude generalization plot
+[2025-07-26 19:48:07] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'complete_generalization_study_20250726_194806' \
+        --metric mae \
+        --part amp \
+        --output mae_amp_generalization.png
+[2025-07-26 19:48:07] DRY-RUN: Would execute command
+[2025-07-26 19:48:07] EXECUTING: SSIM amplitude generalization plot
+[2025-07-26 19:48:07] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'complete_generalization_study_20250726_194806' \
+        --metric ssim \
+        --part amp \
+        --output ssim_amp_generalization.png
+[2025-07-26 19:48:07] DRY-RUN: Would execute command
+[2025-07-26 19:48:07] EXECUTING: SSIM phase generalization plot
+[2025-07-26 19:48:07] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'complete_generalization_study_20250726_194806' \
+        --metric ssim \
+        --part phase \
+        --output ssim_phase_generalization.png
+[2025-07-26 19:48:07] DRY-RUN: Would execute command
+[2025-07-26 19:48:07] EXECUTING: MS-SSIM amplitude generalization plot
+[2025-07-26 19:48:07] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'complete_generalization_study_20250726_194806' \
+        --metric ms_ssim \
+        --part amp \
+        --output ms_ssim_amp_generalization.png
+[2025-07-26 19:48:07] DRY-RUN: Would execute command
+[2025-07-26 19:48:07] EXECUTING: MS-SSIM phase generalization plot
+[2025-07-26 19:48:07] COMMAND: python scripts/studies/aggregate_and_plot_results.py \
+        'complete_generalization_study_20250726_194806' \
+        --metric ms_ssim \
+        --part phase \
+        --output ms_ssim_phase_generalization.png
+[2025-07-26 19:48:07] DRY-RUN: Would execute command
+[2025-07-26 19:48:07] Results aggregation completed
+[2025-07-26 19:48:07] === Generating Summary Report ===
+[2025-07-26 19:48:07] Summary report generated: complete_generalization_study_20250726_194806/STUDY_SUMMARY.md
+[2025-07-26 19:48:07] === Study Completed Successfully ===
+[2025-07-26 19:48:07] Training sizes tested: 1
+[2025-07-26 19:48:07] Trials per size: 1
+[2025-07-26 19:48:07] Total trials completed: 1
+[2025-07-26 19:48:07] Total runtime: 00:00:01
+[2025-07-26 19:48:07] Results directory: complete_generalization_study_20250726_194806
+[2025-07-26 19:48:07] Summary report: complete_generalization_study_20250726_194806/STUDY_SUMMARY.md

@@ -75,6 +75,10 @@ This file provides guidance to Claude when working with the PtychoPINN repositor
   All generated reports, logs, plots, and other artifacts from a development loop MUST be saved to a timestamped subdirectory within `plans/active/<initiative-name>/reports/`. This path MUST be recorded in <doc-ref type="plan">docs/fix_plan.md</doc-ref> before the loop ends so future agents can trace the work.
 </directive>
 
+<directive level="guidance" purpose="Understand test coverage and find validation code">
+  To understand the existing test suite, find specific tests, or determine where to add new tests, you MUST consult the <doc-ref type="test-index">docs/development/TEST_SUITE_INDEX.md</doc-ref>.
+</directive>
+
 ## Project Overview
 
 PtychoPINN is a TensorFlow-based implementation of physics-informed neural networks (PINNs) for ptychographic reconstruction. It combines a U-Net-like deep learning model with a differentiable physics layer to achieve rapid, high-resolution reconstruction from scanning coherent diffraction data.

@@ -1,0 +1,45 @@
+# Dependency Report for PtychoPINN Modules
+
+## Phase 1: Configuration & State
+
+### ptycho/params.py
+- **Dependencies (Internal):** None
+- **Consumers (Internal):** Over 23 modules, including tf_helper.py, raw_data.py, model.py, loader.py, workflows/components.py
+
+### ptycho/config/config.py
+- **Dependencies (Internal):** None
+- **Consumers (Internal):** ptycho/workflows/components.py and modern scripts/workflows
+
+## Phase 2: Data Ingestion Pipeline
+
+### ptycho/raw_data.py
+- **Dependencies (Internal):** ptycho.params, ptycho.diffsim, ptycho.tf_helper
+- **Consumers (Internal):** ptycho.loader, ptycho.data_preprocessing, ptycho.workflows.components
+
+### ptycho/loader.py
+- **Dependencies (Internal):** ptycho.params, ptycho.diffsim, ptycho.tf_helper, ptycho.raw_data
+- **Consumers (Internal):** ptycho.workflows.components, ptycho.train_pinn, ptycho.data_preprocessing
+
+### ptycho/data_preprocessing.py
+- **Dependencies (Internal):** ptycho.params, ptycho.diffsim, ptycho.loader, ptycho.probe, ptycho.raw_data
+- **Consumers (Internal):** High-level training scripts and notebooks
+
+## Phase 3: Core Model & Physics
+
+### ptycho/model.py
+- **Dependencies (Internal):** ptycho.params, ptycho.tf_helper, ptycho.loader, ptycho.probe, ptycho.custom_layers
+- **Consumers (Internal):** ptycho.train_pinn, ptycho.model_manager
+
+## Phase 4: High-Level Workflows & Utilities
+
+### ptycho/workflows/components.py
+- **Dependencies (Internal):** ptycho.params, ptycho.probe, ptycho.loader, ptycho.config.config, ptycho.image, ptycho.model_manager, ptycho.train_pinn, ptycho.tf_helper, ptycho.raw_data
+- **Consumers (Internal):** Top-level executable scripts and Jupyter notebooks
+
+### ptycho/image/stitching.py
+- **Dependencies (Internal):** None
+- **Consumers (Internal):** ptycho/train_supervised.py, ptycho/train_pinn.py, ptycho/inference.py, ptycho/workflows/components.py
+
+### ptycho/train.py
+- **Dependencies (Internal):** ptycho.params, ptycho.model_manager, ptycho.generate_data, ptycho.train_pinn
+- **Consumers (Internal):** None (legacy script)

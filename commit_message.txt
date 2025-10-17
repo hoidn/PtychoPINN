@@ -1,0 +1,38 @@
+feat: Add sequential sampling mode for deterministic data selection
+
+Restores the ability to use sequential (ordered) data subsets during training,
+which was lost when the efficient coordinate grouping was implemented. This
+feature is essential for debugging specific scan regions and reproducing
+legacy training behaviors.
+
+Changes:
+- Add `sequential_sampling` flag to RawData.generate_grouped_data()
+- Add `seed_indices` parameter to _generate_groups_efficiently() for explicit control
+- Add `sequential_sampling` field to TrainingConfig dataclass  
+- Pass flag through workflow from CLI to data generation
+- Ensure deterministic behavior when sequential sampling is enabled
+
+Key behaviors:
+- Default mode remains random sampling (no behavior change)
+- Sequential mode uses first n_images points in dataset order
+- Sequential sampling is fully deterministic (ignores seed parameter)
+- Works with all gridsize values
+
+Usage:
+```bash
+# Random sampling (default)
+ptycho_train --train_data dataset.npz --n_images 100
+
+# Sequential sampling (first 100 points)
+ptycho_train --train_data dataset.npz --sequential_sampling --n_images 100
+```
+
+Testing:
+- Added comprehensive test suite (tests/test_sequential_sampling.py)
+- All integration tests pass with no regression
+- Verified deterministic behavior and correct ordering
+
+Documentation:
+- Updated scripts/training/README.md with sampling modes section
+- Added usage examples for both modes
+- Documented use cases for sequential sampling
