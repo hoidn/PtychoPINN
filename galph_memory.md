@@ -94,3 +94,20 @@
 - Next supervisor check: confirm artifacts exist, review MVP vs parity decisions, then green-light Phase B.B2 failing test authoring.
 - <Action State>: [gathering_evidence]
 
+
+## 2025-10-17T033138Z: Pre-loop Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B2 failing test directive
+- Action type: Review or housekeeping
+- Mode: TDD
+
+## 2025-10-17T033500Z: Loop 7 Supervisory Update
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B2 failing test directive
+- Action type: Review or housekeeping
+- Mode: TDD
+- Findings check: `grep -n "CONFIG" docs/findings.md` → confirmed CONFIG-001 remains the key guardrail for params bridge.
+- Coin flip = heads → Reviewed latest engineer commit (`f6224fa`) to confirm config schema mapping artifacts landed; work remains documentation-focused with no regressions observed.
+- Plan upkeep: Marked Phase B.B1 complete and expanded B2 guidance in `plans/active/INTEGRATE-PYTORCH-001/implementation.md:44-49`, defining the expected `ptycho_torch.config_bridge` adapter API.
+- Ledger update: Added Attempt #6 in `docs/fix_plan.md` detailing this TDD directive and the target artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T033500Z/`.
+- Steering memo: Rewrote `input.md` instructing Ralph to author the failing test with xfail guard, capture pytest output, and document the red state per TDD.
+- Next engineer steps: create `tests/torch/test_config_bridge.py`, run targeted pytest (expect fail), populate `failing_test.md` + `pytest.log`, and document any blocking decisions in scope_notes.md.
+- <Action State>: [ready_for_implementation]
