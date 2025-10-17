@@ -91,6 +91,54 @@ from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule
 # mlflow.set_tracking_uri("http://127.0.0.1:5000")
 # mlflow.set_experiment("PtychoPINN")
 
+#----- Helper Functions -------
+
+def _infer_probe_size(npz_file):
+    """
+    Infer probe size (N) from NPZ metadata without loading full arrays.
+
+    This function reads the probeGuess array header from an NPZ file using the
+    zipfile approach, following the pattern established in ptycho_torch/dataloader.py:npz_headers().
+
+    Args:
+        npz_file (str or Path): Path to NPZ file containing probeGuess key
+
+    Returns:
+        int or None: First dimension of probeGuess shape (N), or None if probeGuess key missing
+
+    References:
+        - specs/data_contracts.md §1 — probeGuess is required key for canonical NPZ format
+        - ptycho_torch/dataloader.py:29-83 — npz_headers() implementation pattern
+        - INTEGRATE-PYTORCH-001-PROBE-SIZE — Probe size mismatch resolution
+
+    Example:
+        >>> N = _infer_probe_size("datasets/Run1084_recon3_postPC_shrunk_3.npz")
+        >>> print(N)  # 64 (for this dataset)
+    """
+    import zipfile
+    import numpy as np
+
+    try:
+        with zipfile.ZipFile(npz_file) as archive:
+            # Search for probeGuess key in NPZ archive
+            for name in archive.namelist():
+                if name.startswith('probeGuess') and name.endswith('.npy'):
+                    # Open the .npy file inside the archive
+                    npy = archive.open(name)
+                    # Read array header without loading data
+                    version = np.lib.format.read_magic(npy)
+                    shape, _, _ = np.lib.format._read_array_header(npy, version)
+                    # Return first dimension (probe is typically N x N)
+                    return shape[0]
+
+            # probeGuess key not found - return None for fallback to default
+            return None
+
+    except (zipfile.BadZipFile, FileNotFoundError, KeyError) as e:
+        # If NPZ is invalid or missing, return None
+        # Caller can decide whether to use default or raise error
+        return None
+
 #----- Main -------
 
 def main(ptycho_dir,
@@ -416,9 +464,17 @@ Examples:
         # Create PyTorch config singletons
         print("Creating PyTorch configuration objects...")
 
+        # Infer probe size from training NPZ metadata (INTEGRATE-PYTORCH-001-PROBE-SIZE)
+        inferred_N = _infer_probe_size(train_data_file)
+        if inferred_N is None:
+            print(f"WARNING: Could not infer probe size from {train_data_file}, using default N=64")
+            inferred_N = 64  # Use default from ModelConfig spec
+        else:
+            print(f"✓ Inferred probe size from NPZ: N={inferred_N}")
+
         # DataConfig: Configure data pipeline parameters
         data_config = DataConfig(
-            N=128,  # Default crop size - will be overridden by NPZ metadata if needed
+            N=inferred_N,  # Derived from probeGuess.shape[0] in NPZ
             grid_size=(args.gridsize, args.gridsize),
             K=7,  # Default neighbor count
             nphotons=1e9,  # Use TensorFlow default to avoid divergence
