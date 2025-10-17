@@ -1,0 +1,21 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 6 items
+
+tests/torch/test_backend_selection.py::TestBackendSelection::test_defaults_to_tensorflow_backend PASSED [ 16%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_selects_pytorch_backend PASSED [ 33%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_backend_calls_update_legacy_dict XFAIL [ 50%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_unavailable_raises_error XFAIL [ 66%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_inference_config_supports_backend_selection PASSED [ 83%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_backend_selection_preserves_api_parity PASSED [100%]
+
+=========================== short test summary info ============================
+XFAIL tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_backend_calls_update_legacy_dict - Backend selection not yet implemented (Phase E1.C pending)
+XFAIL tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_unavailable_raises_error - Backend selection not yet implemented (Phase E1.C pending)
+========================= 4 passed, 2 xfailed in 3.37s =========================
