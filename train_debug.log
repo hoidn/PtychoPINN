@@ -618,3 +618,313 @@
 2025-10-17 10:10:06,084 - INFO - Skipping image stitching (disabled or no test data available)
 2025-10-17 10:10:06,099 - DEBUG - Creating converter from 5 to 3
 2025-10-17 10:10:07,197 - INFO - Outputs saved to /tmp/tmprru5dk4g/training/training_mismatch_test
+2025-10-17 10:23:45,550 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-10-17 10:23:45,721 - DEBUG - Creating converter from 7 to 5
+2025-10-17 10:23:45,721 - DEBUG - Creating converter from 5 to 7
+2025-10-17 10:23:45,721 - DEBUG - Creating converter from 7 to 5
+2025-10-17 10:23:45,721 - DEBUG - Creating converter from 5 to 7
+2025-10-17 10:23:46,326 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
+2025-10-17 10:23:46,334 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-10-17 10:23:46,334 - DEBUG - interactive is False
+2025-10-17 10:23:46,335 - DEBUG - platform is linux
+2025-10-17 10:23:46,364 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-10-17 10:23:46,365 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-10-17 10:23:47,403 - DEBUG - Field: train_data_file
+2025-10-17 10:23:47,404 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-10-17 10:23:47,404 - DEBUG - Field default: None
+2025-10-17 10:23:47,404 - DEBUG - Field: test_data_file
+2025-10-17 10:23:47,404 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-10-17 10:23:47,404 - DEBUG - Field default: None
+2025-10-17 10:23:47,404 - DEBUG - Field: output_dir
+2025-10-17 10:23:47,404 - DEBUG - Field type: <class 'pathlib.Path'>
+2025-10-17 10:23:47,404 - DEBUG - Field default: training_outputs
+2025-10-17 10:23:47,404 - DEBUG - Converting path value: /home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
+2025-10-17 10:23:47,404 - DEBUG - Converting path value: /home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
+2025-10-17 10:23:47,404 - DEBUG - Converting path value: /tmp/tmp0wpfghff/training_outputs
+2025-10-17 10:23:47,404 - DEBUG - YAML config: {}
+2025-10-17 10:23:47,404 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': True, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_groups': None, 'n_images': 64, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('/tmp/tmp0wpfghff/training_outputs'), 'sequential_sampling': False}
+2025-10-17 10:23:47,404 - DEBUG - Merged config: {'do_stitching': False, 'quiet': True, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'test_data_file': PosixPath('/home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'n_images': 64, 'neighbor_count': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('/tmp/tmp0wpfghff/training_outputs'), 'sequential_sampling': False}
+2025-10-17 10:23:47,404 - INFO - Configuration setup complete
+2025-10-17 10:23:47,404 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), test_data_file=PosixPath('/home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz'), batch_size=16, nepochs=2, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000000.0, n_groups=64, n_images=64, n_subsample=None, subsample_seed=None, neighbor_count=4, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('/tmp/tmp0wpfghff/training_outputs'), sequential_sampling=False)
+2025-10-17 10:23:47,404 - INFO - Legacy mode: using 64 groups (gridsize=1)
+2025-10-17 10:23:47,405 - INFO - Starting training with n_subsample=64, n_groups=64, stitching=disabled
+2025-10-17 10:23:47,405 - INFO - Loading data from /home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=64, n_subsample=64
+2025-10-17 10:23:47,420 - INFO - Independent sampling: subsampling 64 images from 1087 total
+2025-10-17 10:23:47,420 - INFO - Randomly subsampled 64 images
+2025-10-17 10:23:47,437 - INFO - Loading data from /home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz with n_images=None, n_subsample=None
+2025-10-17 10:23:47,452 - INFO - Using full dataset of 1087 images
+2025-10-17 10:23:47,467 - INFO - Loaded test data from /home/ollie/Documents/PtychoPINN2/ptycho/datasets/Run1084_recon3_postPC_shrunk_3.npz
+2025-10-17 10:23:47,467 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=64, n_points=64, C=1, K=4
+2025-10-17 10:23:47,467 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-10-17 10:23:47,467 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 64 > 64 = False
+2025-10-17 10:23:47,468 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-10-17 10:23:47,468 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-10-17 10:23:47,468 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-10-17 10:23:47,468 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-10-17 10:23:47,468 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=64, K=4, C=1
+2025-10-17 10:23:47,468 - INFO - Generating 64 groups efficiently from 64 points (K=4, C=1)
+2025-10-17 10:23:47,468 - INFO - [OVERSAMPLING DEBUG] Standard case: using 64 groups from 64 points
+2025-10-17 10:23:47,468 - INFO - [OVERSAMPLING DEBUG] Using all 64 points as seeds (no sampling needed)
+2025-10-17 10:23:47,468 - INFO - Using all 64 points as seeds
+2025-10-17 10:23:47,468 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-10-17 10:23:47,468 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 64 groups
+2025-10-17 10:23:47,468 - INFO - Successfully generated 64 groups with shape (64, 1)
+2025-10-17 10:23:47,468 - INFO - [OVERSAMPLING DEBUG] Generated 64 groups in total
+2025-10-17 10:23:47,468 - INFO - Generated 64 groups efficiently
+2025-10-17 10:23:49,081 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=64, n_points=1087, C=1, K=4
+2025-10-17 10:23:49,081 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-10-17 10:23:49,081 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 64 > 1087 = False
+2025-10-17 10:23:49,081 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-10-17 10:23:49,081 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-10-17 10:23:49,081 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-10-17 10:23:49,081 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-10-17 10:23:49,081 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=64, K=4, C=1
+2025-10-17 10:23:49,081 - INFO - Generating 64 groups efficiently from 1087 points (K=4, C=1)
+2025-10-17 10:23:49,081 - INFO - [OVERSAMPLING DEBUG] Standard case: using 64 groups from 1087 points
+2025-10-17 10:23:49,082 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 64 seed points
+2025-10-17 10:23:49,082 - INFO - Sampled 64 seed points from 1087 total points
+2025-10-17 10:23:49,082 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-10-17 10:23:49,082 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 64 groups
+2025-10-17 10:23:49,082 - INFO - Successfully generated 64 groups with shape (64, 1)
+2025-10-17 10:23:49,082 - INFO - [OVERSAMPLING DEBUG] Generated 64 groups in total
+2025-10-17 10:23:49,082 - INFO - Generated 64 groups efficiently
+2025-10-17 10:23:51,134 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:23:52,985 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:24:00,222 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:24:02,207 - INFO - Skipping image stitching (disabled or no test data available)
+2025-10-17 10:24:02,422 - DEBUG - Creating converter from 5 to 3
+2025-10-17 10:24:03,556 - INFO - Outputs saved to /tmp/tmp0wpfghff/training_outputs
+2025-10-17 10:24:27,813 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-10-17 10:24:27,987 - DEBUG - Creating converter from 7 to 5
+2025-10-17 10:24:27,987 - DEBUG - Creating converter from 5 to 7
+2025-10-17 10:24:27,987 - DEBUG - Creating converter from 7 to 5
+2025-10-17 10:24:27,987 - DEBUG - Creating converter from 5 to 7
+2025-10-17 10:24:28,599 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
+2025-10-17 10:24:28,606 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-10-17 10:24:28,607 - DEBUG - interactive is False
+2025-10-17 10:24:28,607 - DEBUG - platform is linux
+2025-10-17 10:24:28,636 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-10-17 10:24:28,637 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-10-17 10:24:29,693 - DEBUG - Field: train_data_file
+2025-10-17 10:24:29,693 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-10-17 10:24:29,693 - DEBUG - Field default: None
+2025-10-17 10:24:29,693 - DEBUG - Field: test_data_file
+2025-10-17 10:24:29,693 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-10-17 10:24:29,693 - DEBUG - Field default: None
+2025-10-17 10:24:29,693 - DEBUG - Field: output_dir
+2025-10-17 10:24:29,693 - DEBUG - Field type: <class 'pathlib.Path'>
+2025-10-17 10:24:29,693 - DEBUG - Field default: training_outputs
+2025-10-17 10:24:29,693 - DEBUG - Converting path value: /tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz
+2025-10-17 10:24:29,693 - DEBUG - Converting path value: /tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz
+2025-10-17 10:24:29,693 - DEBUG - Converting path value: /tmp/tmppj09oany/training/training_nphotons_500000.0_e2e
+2025-10-17 10:24:29,694 - DEBUG - YAML config: {}
+2025-10-17 10:24:29,694 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': True, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz'), 'test_data_file': PosixPath('/tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 500000.0, 'n_groups': None, 'n_images': 50, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('/tmp/tmppj09oany/training/training_nphotons_500000.0_e2e'), 'sequential_sampling': False}
+2025-10-17 10:24:29,694 - DEBUG - Merged config: {'do_stitching': False, 'quiet': True, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz'), 'test_data_file': PosixPath('/tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 500000.0, 'n_images': 50, 'neighbor_count': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('/tmp/tmppj09oany/training/training_nphotons_500000.0_e2e'), 'sequential_sampling': False}
+2025-10-17 10:24:29,694 - INFO - Configuration setup complete
+2025-10-17 10:24:29,694 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz'), test_data_file=PosixPath('/tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz'), batch_size=16, nepochs=2, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=500000.0, n_groups=50, n_images=50, n_subsample=None, subsample_seed=None, neighbor_count=4, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('/tmp/tmppj09oany/training/training_nphotons_500000.0_e2e'), sequential_sampling=False)
+2025-10-17 10:24:29,694 - INFO - Legacy mode: using 50 groups (gridsize=1)
+2025-10-17 10:24:29,694 - INFO - Starting training with n_subsample=50, n_groups=50, stitching=disabled
+2025-10-17 10:24:29,694 - INFO - Loading data from /tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz with n_images=50, n_subsample=50
+2025-10-17 10:24:29,700 - INFO - Independent sampling: subsampling 50 images from 100 total
+2025-10-17 10:24:29,700 - INFO - Randomly subsampled 50 images
+2025-10-17 10:24:29,712 - DEBUG - Loaded metadata from /tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz
+2025-10-17 10:24:29,712 - INFO - Overriding nphotons from config (5.0e+05) with value from dataset metadata: 5.0e+05
+2025-10-17 10:24:29,712 - INFO - Loading data from /tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz with n_images=None, n_subsample=None
+2025-10-17 10:24:29,717 - INFO - Using full dataset of 100 images
+2025-10-17 10:24:29,717 - INFO - Loaded test data from /tmp/tmppj09oany/simulation/simulated_data_nphotons_500000.0_e2e.npz
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=50, n_points=50, C=1, K=4
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 50 > 50 = False
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-10-17 10:24:29,718 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=50, K=4, C=1
+2025-10-17 10:24:29,718 - INFO - Generating 50 groups efficiently from 50 points (K=4, C=1)
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] Standard case: using 50 groups from 50 points
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] Using all 50 points as seeds (no sampling needed)
+2025-10-17 10:24:29,718 - INFO - Using all 50 points as seeds
+2025-10-17 10:24:29,718 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 50 groups
+2025-10-17 10:24:29,718 - INFO - Successfully generated 50 groups with shape (50, 1)
+2025-10-17 10:24:29,718 - INFO - [OVERSAMPLING DEBUG] Generated 50 groups in total
+2025-10-17 10:24:29,718 - INFO - Generated 50 groups efficiently
+2025-10-17 10:24:31,239 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=50, n_points=100, C=1, K=4
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 50 > 100 = False
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-10-17 10:24:31,240 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=50, K=4, C=1
+2025-10-17 10:24:31,240 - INFO - Generating 50 groups efficiently from 100 points (K=4, C=1)
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] Standard case: using 50 groups from 100 points
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 50 seed points
+2025-10-17 10:24:31,240 - INFO - Sampled 50 seed points from 100 total points
+2025-10-17 10:24:31,240 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 50 groups
+2025-10-17 10:24:31,240 - INFO - Successfully generated 50 groups with shape (50, 1)
+2025-10-17 10:24:31,240 - INFO - [OVERSAMPLING DEBUG] Generated 50 groups in total
+2025-10-17 10:24:31,240 - INFO - Generated 50 groups efficiently
+2025-10-17 10:24:33,223 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:24:35,069 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:24:42,371 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:24:45,470 - INFO - Skipping image stitching (disabled or no test data available)
+2025-10-17 10:24:45,486 - DEBUG - Creating converter from 5 to 3
+2025-10-17 10:24:46,627 - INFO - Outputs saved to /tmp/tmppj09oany/training/training_nphotons_500000.0_e2e
+2025-10-17 10:25:04,880 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-10-17 10:25:05,054 - DEBUG - Creating converter from 7 to 5
+2025-10-17 10:25:05,054 - DEBUG - Creating converter from 5 to 7
+2025-10-17 10:25:05,055 - DEBUG - Creating converter from 7 to 5
+2025-10-17 10:25:05,055 - DEBUG - Creating converter from 5 to 7
+2025-10-17 10:25:05,663 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
+2025-10-17 10:25:05,670 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-10-17 10:25:05,671 - DEBUG - interactive is False
+2025-10-17 10:25:05,671 - DEBUG - platform is linux
+2025-10-17 10:25:05,699 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-10-17 10:25:05,701 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-10-17 10:25:06,761 - DEBUG - Field: train_data_file
+2025-10-17 10:25:06,761 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-10-17 10:25:06,761 - DEBUG - Field default: None
+2025-10-17 10:25:06,761 - DEBUG - Field: test_data_file
+2025-10-17 10:25:06,761 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-10-17 10:25:06,761 - DEBUG - Field default: None
+2025-10-17 10:25:06,761 - DEBUG - Field: output_dir
+2025-10-17 10:25:06,761 - DEBUG - Field type: <class 'pathlib.Path'>
+2025-10-17 10:25:06,761 - DEBUG - Field default: training_outputs
+2025-10-17 10:25:06,761 - DEBUG - Converting path value: /tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz
+2025-10-17 10:25:06,761 - DEBUG - Converting path value: /tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz
+2025-10-17 10:25:06,761 - DEBUG - Converting path value: /tmp/tmp3lo1g457/training/training_nphotons_1000000.0_single
+2025-10-17 10:25:06,762 - DEBUG - YAML config: {}
+2025-10-17 10:25:06,762 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': True, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz'), 'test_data_file': PosixPath('/tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000.0, 'n_groups': None, 'n_images': 50, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('/tmp/tmp3lo1g457/training/training_nphotons_1000000.0_single'), 'sequential_sampling': False}
+2025-10-17 10:25:06,762 - DEBUG - Merged config: {'do_stitching': False, 'quiet': True, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz'), 'test_data_file': PosixPath('/tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000.0, 'n_images': 50, 'neighbor_count': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('/tmp/tmp3lo1g457/training/training_nphotons_1000000.0_single'), 'sequential_sampling': False}
+2025-10-17 10:25:06,762 - INFO - Configuration setup complete
+2025-10-17 10:25:06,762 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz'), test_data_file=PosixPath('/tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz'), batch_size=16, nepochs=2, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000.0, n_groups=50, n_images=50, n_subsample=None, subsample_seed=None, neighbor_count=4, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('/tmp/tmp3lo1g457/training/training_nphotons_1000000.0_single'), sequential_sampling=False)
+2025-10-17 10:25:06,762 - INFO - Legacy mode: using 50 groups (gridsize=1)
+2025-10-17 10:25:06,762 - INFO - Starting training with n_subsample=50, n_groups=50, stitching=disabled
+2025-10-17 10:25:06,762 - INFO - Loading data from /tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz with n_images=50, n_subsample=50
+2025-10-17 10:25:06,768 - INFO - Independent sampling: subsampling 50 images from 100 total
+2025-10-17 10:25:06,769 - INFO - Randomly subsampled 50 images
+2025-10-17 10:25:06,780 - DEBUG - Loaded metadata from /tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz
+2025-10-17 10:25:06,780 - INFO - Overriding nphotons from config (1.0e+06) with value from dataset metadata: 1.0e+06
+2025-10-17 10:25:06,780 - INFO - Loading data from /tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz with n_images=None, n_subsample=None
+2025-10-17 10:25:06,786 - INFO - Using full dataset of 100 images
+2025-10-17 10:25:06,786 - INFO - Loaded test data from /tmp/tmp3lo1g457/simulation/simulated_data_nphotons_1000000.0_single.npz
+2025-10-17 10:25:06,786 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=50, n_points=50, C=1, K=4
+2025-10-17 10:25:06,786 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-10-17 10:25:06,786 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 50 > 50 = False
+2025-10-17 10:25:06,786 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-10-17 10:25:06,786 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-10-17 10:25:06,786 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-10-17 10:25:06,786 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-10-17 10:25:06,787 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=50, K=4, C=1
+2025-10-17 10:25:06,787 - INFO - Generating 50 groups efficiently from 50 points (K=4, C=1)
+2025-10-17 10:25:06,787 - INFO - [OVERSAMPLING DEBUG] Standard case: using 50 groups from 50 points
+2025-10-17 10:25:06,787 - INFO - [OVERSAMPLING DEBUG] Using all 50 points as seeds (no sampling needed)
+2025-10-17 10:25:06,787 - INFO - Using all 50 points as seeds
+2025-10-17 10:25:06,787 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-10-17 10:25:06,787 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 50 groups
+2025-10-17 10:25:06,787 - INFO - Successfully generated 50 groups with shape (50, 1)
+2025-10-17 10:25:06,787 - INFO - [OVERSAMPLING DEBUG] Generated 50 groups in total
+2025-10-17 10:25:06,787 - INFO - Generated 50 groups efficiently
+2025-10-17 10:25:08,348 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=50, n_points=100, C=1, K=4
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 50 > 100 = False
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-10-17 10:25:08,349 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=50, K=4, C=1
+2025-10-17 10:25:08,349 - INFO - Generating 50 groups efficiently from 100 points (K=4, C=1)
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] Standard case: using 50 groups from 100 points
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 50 seed points
+2025-10-17 10:25:08,349 - INFO - Sampled 50 seed points from 100 total points
+2025-10-17 10:25:08,349 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 50 groups
+2025-10-17 10:25:08,349 - INFO - Successfully generated 50 groups with shape (50, 1)
+2025-10-17 10:25:08,349 - INFO - [OVERSAMPLING DEBUG] Generated 50 groups in total
+2025-10-17 10:25:08,349 - INFO - Generated 50 groups efficiently
+2025-10-17 10:25:10,327 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:25:12,189 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:25:19,476 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:25:22,673 - INFO - Skipping image stitching (disabled or no test data available)
+2025-10-17 10:25:22,689 - DEBUG - Creating converter from 5 to 3
+2025-10-17 10:25:23,825 - INFO - Outputs saved to /tmp/tmp3lo1g457/training/training_nphotons_1000000.0_single
+2025-10-17 10:25:59,686 - DEBUG - Falling back to TensorFlow client; we recommended you install the Cloud TPU client directly with pip install cloud-tpu-client.
+2025-10-17 10:25:59,862 - DEBUG - Creating converter from 7 to 5
+2025-10-17 10:25:59,862 - DEBUG - Creating converter from 5 to 7
+2025-10-17 10:25:59,862 - DEBUG - Creating converter from 7 to 5
+2025-10-17 10:25:59,862 - DEBUG - Creating converter from 5 to 7
+2025-10-17 10:26:00,467 - DEBUG - matplotlib data path: /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/matplotlib/mpl-data
+2025-10-17 10:26:00,474 - DEBUG - CONFIGDIR=/home/ollie/.config/matplotlib
+2025-10-17 10:26:00,475 - DEBUG - interactive is False
+2025-10-17 10:26:00,475 - DEBUG - platform is linux
+2025-10-17 10:26:00,504 - DEBUG - CACHEDIR=/home/ollie/.cache/matplotlib
+2025-10-17 10:26:00,505 - DEBUG - Using fontManager instance from /home/ollie/.cache/matplotlib/fontlist-v390.json
+2025-10-17 10:26:01,566 - DEBUG - Field: train_data_file
+2025-10-17 10:26:01,566 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-10-17 10:26:01,566 - DEBUG - Field default: None
+2025-10-17 10:26:01,566 - DEBUG - Field: test_data_file
+2025-10-17 10:26:01,566 - DEBUG - Field type: typing.Optional[pathlib.Path]
+2025-10-17 10:26:01,566 - DEBUG - Field default: None
+2025-10-17 10:26:01,567 - DEBUG - Field: output_dir
+2025-10-17 10:26:01,567 - DEBUG - Field type: <class 'pathlib.Path'>
+2025-10-17 10:26:01,567 - DEBUG - Field default: training_outputs
+2025-10-17 10:26:01,567 - DEBUG - Converting path value: /tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz
+2025-10-17 10:26:01,567 - DEBUG - Converting path value: /tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz
+2025-10-17 10:26:01,567 - DEBUG - Converting path value: /tmp/tmpo8p0sera/training/training_mismatch_test
+2025-10-17 10:26:01,567 - DEBUG - YAML config: {}
+2025-10-17 10:26:01,567 - DEBUG - CLI arguments: {'config': None, 'do_stitching': False, 'quiet': True, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz'), 'test_data_file': PosixPath('/tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000.0, 'n_groups': None, 'n_images': 50, 'n_subsample': None, 'subsample_seed': None, 'neighbor_count': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('/tmp/tmpo8p0sera/training/training_mismatch_test'), 'sequential_sampling': False}
+2025-10-17 10:26:01,567 - DEBUG - Merged config: {'do_stitching': False, 'quiet': True, 'verbose': False, 'console_level': 'INFO', 'N': 64, 'gridsize': 1, 'n_filters_scale': 2, 'model_type': 'pinn', 'amp_activation': 'sigmoid', 'object_big': True, 'probe_big': True, 'probe_mask': False, 'pad_object': True, 'probe_scale': 4.0, 'gaussian_smoothing_sigma': 0.0, 'train_data_file': PosixPath('/tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz'), 'test_data_file': PosixPath('/tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz'), 'batch_size': 16, 'nepochs': 2, 'mae_weight': 0.0, 'nll_weight': 1.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000.0, 'n_images': 50, 'neighbor_count': 4, 'positions_provided': True, 'probe_trainable': False, 'intensity_scale_trainable': True, 'output_dir': PosixPath('/tmp/tmpo8p0sera/training/training_mismatch_test'), 'sequential_sampling': False}
+2025-10-17 10:26:01,567 - INFO - Configuration setup complete
+2025-10-17 10:26:01,567 - INFO - Final configuration: TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', object_big=True, probe_big=True, probe_mask=False, pad_object=True, probe_scale=4.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz'), test_data_file=PosixPath('/tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz'), batch_size=16, nepochs=2, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=1000000.0, n_groups=50, n_images=50, n_subsample=None, subsample_seed=None, neighbor_count=4, positions_provided=True, probe_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('/tmp/tmpo8p0sera/training/training_mismatch_test'), sequential_sampling=False)
+2025-10-17 10:26:01,567 - INFO - Legacy mode: using 50 groups (gridsize=1)
+2025-10-17 10:26:01,567 - INFO - Starting training with n_subsample=50, n_groups=50, stitching=disabled
+2025-10-17 10:26:01,567 - INFO - Loading data from /tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz with n_images=50, n_subsample=50
+2025-10-17 10:26:01,573 - INFO - Independent sampling: subsampling 50 images from 100 total
+2025-10-17 10:26:01,573 - INFO - Randomly subsampled 50 images
+2025-10-17 10:26:01,583 - DEBUG - Loaded metadata from /tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz
+2025-10-17 10:26:01,583 - INFO - Overriding nphotons from config (1.0e+06) with value from dataset metadata: 1.0e+04
+2025-10-17 10:26:01,583 - INFO - Loading data from /tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz with n_images=None, n_subsample=None
+2025-10-17 10:26:01,587 - INFO - Using full dataset of 100 images
+2025-10-17 10:26:01,588 - INFO - Loaded test data from /tmp/tmpo8p0sera/simulation/simulated_data_nphotons_10000.0_train_mismatch.npz
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=50, n_points=50, C=1, K=4
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 50 > 50 = False
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-10-17 10:26:01,588 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=50, K=4, C=1
+2025-10-17 10:26:01,588 - INFO - Generating 50 groups efficiently from 50 points (K=4, C=1)
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] Standard case: using 50 groups from 50 points
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] Using all 50 points as seeds (no sampling needed)
+2025-10-17 10:26:01,588 - INFO - Using all 50 points as seeds
+2025-10-17 10:26:01,588 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 50 groups
+2025-10-17 10:26:01,588 - INFO - Successfully generated 50 groups with shape (50, 1)
+2025-10-17 10:26:01,588 - INFO - [OVERSAMPLING DEBUG] Generated 50 groups in total
+2025-10-17 10:26:01,588 - INFO - Generated 50 groups efficiently
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples=50, n_points=100, C=1, K=4
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] Parameters: gridsize=1, N=64, sequential_sampling=False
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = 50 > 100 = False
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] Oversampling check: C > 1 = 1 > 1 = False
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] needs_oversampling = False
+2025-10-17 10:26:03,174 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples=50, K=4, C=1
+2025-10-17 10:26:03,174 - INFO - Generating 50 groups efficiently from 100 points (K=4, C=1)
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] Standard case: using 50 groups from 100 points
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] Randomly sampled 50 seed points
+2025-10-17 10:26:03,174 - INFO - Sampled 50 seed points from 100 total points
+2025-10-17 10:26:03,174 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated 50 groups
+2025-10-17 10:26:03,174 - INFO - Successfully generated 50 groups with shape (50, 1)
+2025-10-17 10:26:03,174 - INFO - [OVERSAMPLING DEBUG] Generated 50 groups in total
+2025-10-17 10:26:03,174 - INFO - Generated 50 groups efficiently
+2025-10-17 10:26:05,151 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:26:07,022 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:26:14,233 - WARNING - You are casting an input of type complex64 to an incompatible dtype float32.  This will discard the imaginary part and may not be what you intended.
+2025-10-17 10:26:17,381 - INFO - Skipping image stitching (disabled or no test data available)
+2025-10-17 10:26:17,399 - DEBUG - Creating converter from 5 to 3
+2025-10-17 10:26:18,521 - INFO - Outputs saved to /tmp/tmpo8p0sera/training/training_mismatch_test
