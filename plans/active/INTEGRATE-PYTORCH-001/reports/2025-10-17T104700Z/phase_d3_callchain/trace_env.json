@@ -1,0 +1,58 @@
+{
+  "analysis_timestamp": "2025-10-17T104700Z",
+  "initiative_id": "INTEGRATE-PYTORCH-001",
+  "phase": "D3.A",
+  "analysis_type": "static_callgraph",
+  "git_commit_sha": "360afa81",
+  "git_branch": "feature/torchapi",
+  "os": "Linux 6.14.0-29-generic",
+  "os_distribution": "Ubuntu 24.04.1 LTS",
+  "architecture": "x86_64",
+  "python_version": "3.10+",
+  "tensorflow_version": "2.x (Keras 3)",
+  "pytorch_version": "2.2+ (optional, not imported in this analysis)",
+  "lightning_version": "2.x+ (detected in ptycho_torch/train.py)",
+  "mlflow_version": "2.x+ (detected in ptycho_torch/train.py)",
+  "tools_used": [
+    "Read tool (targeted file inspection)",
+    "Grep tool (pattern search across codebase)",
+    "Manual code analysis"
+  ],
+  "scope_filter": "ptycho, ptycho_torch (persistence-related modules only)",
+  "time_budget_minutes": 30,
+  "time_actual_minutes": 25,
+  "dynamic_trace_executed": false,
+  "dynamic_trace_reason": "Evidence-only loop per input.md directive; no production code modification allowed",
+  "roi_case_executed": false,
+  "roi_case_reason": "Static analysis sufficient for callgraph + archive schema documentation",
+  "environment_variables": {
+    "note": "No critical environment variables detected for persistence path (TensorFlow/PyTorch runtime-agnostic analysis)"
+  },
+  "key_files_analyzed": [
+    "ptycho/model_manager.py (lines 1-467)",
+    "ptycho/workflows/components.py (lines 102-184, 573-723)",
+    "ptycho_torch/train.py (lines 100-220)",
+    "specs/ptychodus_api_spec.md (sections 4.5-4.6)",
+    "docs/workflows/pytorch.md"
+  ],
+  "artifacts_produced": [
+    "static.md (comprehensive callgraph with file:line anchors)",
+    "summary.md (executive summary + next actions)",
+    "tap_points.md (7 tap point specifications for D3.B/C validation)",
+    "trace_env.json (this file)"
+  ],
+  "next_phase": "D3.B (archive writer implementation)",
+  "blocking_issues": [],
+  "open_questions": [
+    "Does ptycho_torch/model.py need custom_objects.dill serialization?",
+    "Where is intensity_scale computed in PyTorch training loop?",
+    "Should PyTorch reuse ModelManager or create TorchModelManager?"
+  ],
+  "confidence_level": "HIGH for TensorFlow persistence contract; MEDIUM for PyTorch delta (requires validation)",
+  "evidence_quality": {
+    "static_analysis": "complete",
+    "dynamic_validation": "deferred to Phase D3.C",
+    "spec_compliance_check": "complete",
+    "cross_backend_comparison": "conceptual (requires actual PyTorch training run)"
+  }
+}
