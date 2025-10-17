@@ -62,8 +62,8 @@ Detailed checklist: `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md
 | C1 | Specify data contract expectations | [x] | ✅ 2025-10-17 — Phase C.A1–C.A3 artifacts (`reports/2025-10-17T070200Z/{data_contract.md,torch_gap_matrix.md}`) document TensorFlow requirements, PyTorch gaps, and ROI guidance ahead of test work. |
 | C2 | Draft failing loader test | [x] | Completed 2025-10-17 — see `reports/2025-10-17T071836Z/{pytest_raw_data_red.log,pytest_data_container_red.log,notes.md}` for red-phase artifacts and guidance. |
 | C3 | Implement `RawDataTorch` wrapper | [x] | ✅ 2025-10-17 — See `reports/2025-10-17T073640Z/{implementation_notes.md,pytest_raw_data_green.log}` for delegation strategy and passing selector. Wrapper now importable without torch and auto-initializes params.cfg. |
-| C4 | Implement `PtychoDataContainerTorch` | [ ] | Complete Phase C.C tasks (C.C2-C.C3) ensuring tensor API parity; reference contract captured in C.A1. |
-| C5 | Verify memmap + cache lifecycles | [ ] | Use Phase C.D (C.D1-C.D3) validation steps; capture pytest logs + cache evidence in reports and update ledger/documents per plan. |
+| C4 | Implement `PtychoDataContainerTorch` | [x] | ✅ 2025-10-17 — See `reports/2025-10-17T080500Z/{summary.md,pytest_data_container_green.log,pytest_y_dtype_green.log}` for torch-optional container parity evidence (DATA-001 enforcement, 13-attribute API). |
+| C5 | Verify memmap + cache lifecycles | [ ] | Use Phase C.D (C.D1-C.D3) validation steps; leverage `reports/2025-10-17T082035Z/memmap_bridge_analysis.md` for cache strategy before capturing pytest logs + cache evidence and updating ledger per plan. |
 
 ---
 

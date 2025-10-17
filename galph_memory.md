@@ -293,3 +293,17 @@
 - Updated docs/fix_plan.md with Attempt #34 (evidence) and closed dependency INTEGRATE-PYTORCH-000 (status=done, Attempt #6). Phase C plan row C.C2 now references new evidence; implementation plan marks C3 complete.
 - input.md instructs Ralph to build torch-optional container, rerun targeted selectors, and log results; expect green logs under the same report directory.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T081848Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase C.C3 memory-mapped data bridge
+- Action type: Evidence collection
+- Mode: Parity
+- Notes: Dependencies satisfied (INTEGRATE-PYTORCH-000 done); C.C2 implementation artifacts logged "plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T080500Z/summary.md". Proceeding with doc review.
+- <Action State>: [gathering_evidence]
+
+## 2025-10-17T082257Z: Phase C.C3 Evidence Summary
+- Captured memmap bridge analysis at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T082035Z/memmap_bridge_analysis.md`; documented delegation strategy, config bridge gaps, and cache validation plan.
+- Updated `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md` (C.C2 ✅, C.C3 guidance now references new artifact) and `implementation.md` (C4 ✅).
+- Logged Attempt #36 in `docs/fix_plan.md` and rewrote `input.md` to direct Phase C.C3 test-first memmap refactor with targeted selectors + cache evidence.
+- Pending: Ralph to author memmap parity tests, refactor dataset to delegate to RawDataTorch, capture cache reuse logs, and update ledger after execution.
+- <Action State>: [ready_for_implementation]
