@@ -204,3 +204,15 @@
 - Follow-up for Ralph: Add n_subsample parity tests, capture red/green selectors, enforce override validation in adapter, and log outcomes per parity plan Phase C.
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T060944Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D.D1 baseline comparison test
+- Action type: Evidence collection
+- Mode: Parity
+- Notes: Selection logged prior to artifact edits; detailed summary to follow.
+
+- Evidence summary: Authored baseline-comparison blueprint at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061152Z/supervisor_summary.md` covering canonical PyTorch config inputs, override dictionaries, and the params normalization helper required for `test_params_cfg_matches_baseline`.
+- Plan updates: Refreshed implementation plan B5 row to reference the new blueprint and updated `parity_green_plan.md` D1 guidance. Logged Attempt #23 in `docs/fix_plan.md`.
+- Steering: Rewrote `input.md` directing Ralph to implement the baseline comparison test, capture targeted pytest output in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061500Z/`, and document diffs if the comparison fails.
+- Follow-up for Ralph: Add the pytest case per blueprint, run the targeted selector, archive logs/diffs under the new timestamp, and update the ledger.
+- <Action State>: [ready_for_implementation]

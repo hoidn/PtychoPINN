@@ -1,34 +1,34 @@
-Summary: Lock in the n_subsample override requirement in the config bridge parity suite.
+Summary: Add the params.cfg baseline comparison test for the config bridge and capture targeted pytest evidence.
 Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 — Phase B.B5 parity follow-through (Phase C kickoff)
+Focus: INTEGRATE-PYTORCH-001 — Phase B.B5.D1 baseline comparison
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_config_bridge.py -k "n_subsample" -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T055335Z/{summary.md,pytest_n_subsample_red.log,pytest_n_subsample.log}
-Do Now: INTEGRATE-PYTORCH-001 Attempt #22 — Add n_subsample parity tests to the config bridge suite, capture the failing selector, implement the adapter guard, then rerun `pytest tests/torch/test_config_bridge.py -k "n_subsample" -vv`
-If Blocked: Store the failing selector output in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T055335Z/blocked.log`, document the blocker in summary.md, and record the attempt in docs/fix_plan.md.
+Mapped tests: pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_params_cfg_matches_baseline -vv
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061500Z/{summary.md,pytest_baseline.log,params_diff.json}
+Do Now:
+1. INTEGRATE-PYTORCH-001 Attempt #24 — Implement `test_params_cfg_matches_baseline` (B5.D1 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md, blueprint @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061152Z/supervisor_summary.md); wire up the canonical PyTorch config inputs, helper to canonicalize `params.cfg`, and JSON baseline loader — tests: pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_params_cfg_matches_baseline -vv
+2. INTEGRATE-PYTORCH-001 Attempt #24 — Run the targeted selector after authoring the test, capture output to `pytest_baseline.log`, and if comparison fails store a diff as `params_diff.json`; update docs/fix_plan.md with results — tests: pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_params_cfg_matches_baseline -vv
+If Blocked: Record the failing pytest output under the artifact directory and dump the actual vs baseline dictionaries into `params_diff.json`; note the blocker and diff summary in `summary.md` before updating docs/fix_plan.md.
 Priorities & Rationale:
-- parity_green_plan Phase C highlights n_subsample as the next override-required field; closing it unblocks remaining parity matrix rows (plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md).
-- field_matrix.md flags `n_subsample` as override_required in both Training and Inference configs; tests must assert the spec contract (plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/field_matrix.md).
-- specs/ptychodus_api_spec.md §5.2-§5.3 require explicit override handling to keep PyTorch and TensorFlow sampling semantics in sync.
-- CONFIG-001 finding mandates params.cfg consistency; adding the guard prevents silent divergence when overrides are omitted (docs/findings.md).
+- parity_green_plan D1 keeps the config bridge aligned with the canonical TensorFlow baseline; the new supervisor blueprint defines required overrides and assertions (plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061152Z/supervisor_summary.md).
+- `specs/ptychodus_api_spec.md §5.1-§5.3` require legacy params parity before progressing to PyTorch data pipeline work.
+- Existing parity suite covers per-field translation; this test closes the loop on holistic params.cfg equality to guard against regression when overrides or KEY_MAPPINGS change.
 How-To Map:
-- Extend `tests/torch/test_config_bridge.py` with pytest cases covering missing vs explicit `n_subsample` overrides for both TrainingConfig and InferenceConfig; reuse `params_cfg_snapshot` to keep globals clean.
-- Run the targeted selector red to confirm the new tests fail before implementation: `pytest tests/torch/test_config_bridge.py -k "n_subsample" -vv 2>&1 | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T055335Z/pytest_n_subsample_red.log`.
-- Update `ptycho_torch/config_bridge.py` so both `to_training_config` and `to_inference_config` reject missing `n_subsample` overrides with actionable ValueErrors, then regenerate spec-side dataclasses with the override applied.
-- Re-run the selector for the green pass and capture the log as `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T055335Z/pytest_n_subsample.log`; verify the message copy matches the field matrix guidance.
-- Summarize decisions, error message text, and any deferred scope in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T055335Z/summary.md`, then update docs/fix_plan.md Attempts.
+- Author helper `canonicalize_params(cfg)` inside the test module to convert Path → str and serialize primitives; reuse the existing `params_cfg_snapshot` fixture to isolate global state.
+- Instantiate PyTorch configs and override dictionaries exactly as detailed in the supervisor summary (DataConfig N=128, grid_size=(3,3), nphotons=5e8, probe_scale=2.0; ModelConfig overrides for probe_mask/pad_object/gaussian_smoothing_sigma; Training/Inference overrides for paths, counts, seeds, weights, booleans).
+- Load the baseline with `baseline_path = PROJECT_ROOT / 'plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/baseline_params.json'` and compare against the normalized params dict.
+- Run the targeted command: `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_params_cfg_matches_baseline -vv 2>&1 | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061500Z/pytest_baseline.log`.
+- Summarize outcomes in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061500Z/summary.md` (include pass/fail status, unexpected keys, and follow-ups) before updating docs/fix_plan.md Attempts.
 Pitfalls To Avoid:
-- Do not introduce hard torch dependencies—parity suite must run in torch-free environments.
-- Keep overrides dict construction explicit; avoid mutating shared dictionaries between tests.
-- Preserve existing parity selectors and markers; no broad `pytest` runs beyond the scoped command.
-- Ensure params.cfg snapshots restore state even when tests raise errors.
-- Keep error message strings actionable and spec-aligned; include override syntax examples.
-- Avoid touching unrelated adapter fields (probe_mask, nphotons) this loop.
+- Do not rely on torch tensors for `probe_mask`; set the override to keep tests torch-optional.
+- Remember to clear `params.cfg` before populating to avoid stale keys from previous tests.
+- Keep path handling deterministic (convert to `Path` before calling adapter; comparisons expect stringified outputs from `canonicalize_params`).
+- Limit pytest execution to the singled-out selector; no full-suite runs this loop.
+- Capture artifacts under the specified timestamped directory; avoid littering repo root with logs.
+- Preserve existing parity tests — append new helper/tests without breaking current parametrization or markers.
 Pointers:
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061152Z/supervisor_summary.md
 - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/field_matrix.md
-- specs/ptychodus_api_spec.md:1
-- docs/findings.md:9
+- ptycho_torch/config_bridge.py:1
 - tests/torch/test_config_bridge.py:1
-- ptycho_torch/config_bridge.py:200
-Next Up: 1) Extend parity coverage to subsample_seed overrides (parity plan Phase C), 2) Draft params.cfg baseline comparison test (Phase D1) once n_subsample guard is green.
+- specs/ptychodus_api_spec.md:213
+Next Up: Draft the override matrix summary for Phase D2 once the baseline test passes.

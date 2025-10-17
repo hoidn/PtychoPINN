@@ -58,7 +58,7 @@ Exit Criteria: New test `test_params_cfg_matches_baseline` passes; override matr
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Implement baseline comparison test | [ ] | Add `test_params_cfg_matches_baseline` leveraging `baseline_params.json` to assert adapter + overrides reproduce canonical params.cfg. Place helper loader in test file. |
+| D1 | Implement baseline comparison test | [ ] | Use blueprint in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061152Z/supervisor_summary.md` to add `test_params_cfg_matches_baseline` comparing adapter-populated `params.cfg` against `baseline_params.json`. Capture red/green pytest logs under the new timestamp. |
 | D2 | Capture override matrix | [ ] | Create `override_matrix.md` summarizing required overrides, default behaviours, and failure modes. Link to docs/fix_plan.md attempt. |
 | D3 | Validate override warnings | [ ] | Extend tests to assert missing overrides raise warnings/errors with guidance; reference override matrix. |
 
