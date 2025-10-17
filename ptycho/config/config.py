@@ -107,7 +107,7 @@ class TrainingConfig:
     intensity_scale_trainable: bool = True  # Changed default
     output_dir: Path = Path("training_outputs")
     sequential_sampling: bool = False  # Use sequential sampling instead of random
-
+    
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
         # Handle the deprecated n_images parameter
@@ -120,7 +120,7 @@ class TrainingConfig:
             )
             # Use object.__setattr__ to modify dataclass (not frozen anymore)
             object.__setattr__(self, 'n_groups', self.n_images)
-
+        
         # Set default if neither was provided
         if self.n_groups is None:
             object.__setattr__(self, 'n_groups', 512)
@@ -266,24 +266,29 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
 
 def update_legacy_dict(cfg: Dict[str, Any], dataclass_obj: Any) -> None:
     """Update legacy dictionary with dataclass values.
-    
+
     ⚠️ CRITICAL: Call this BEFORE any data loading operations!
-    
+
     Common failure scenario:
-    - Symptom: Shape (*, 64, 64, 1) instead of (*, 64, 64, 4) with gridsize=2  
+    - Symptom: Shape (*, 64, 64, 1) instead of (*, 64, 64, 4) with gridsize=2
     - Cause: This function wasn't called before generate_grouped_data()
     - Fix: Call immediately after config setup, before load_data()
-    
+
     Updates values from the dataclass, but skips None values to preserve
     existing parameter values when new configuration doesn't specify them.
-    
+
     Args:
         cfg: Legacy dictionary to update
         dataclass_obj: Dataclass instance containing new values
     """
     new_values = dataclass_to_legacy_dict(dataclass_obj)
-    
+
     # Update values from dataclass, but skip None values to preserve existing params
+    # Convert any remaining Path objects to strings for legacy compatibility
     for key, value in new_values.items():
         if value is not None:
-            cfg[key] = value
+            # Convert Path to string if not already done by KEY_MAPPINGS
+            if isinstance(value, Path):
+                cfg[key] = str(value)
+            else:
+                cfg[key] = value

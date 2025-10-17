@@ -1,6 +1,16 @@
 from dataclasses import dataclass, field
-from typing import Tuple, Optional, Literal, Dict, Union, List
-import torch
+from typing import Tuple, Optional, Literal, Dict, Union, List, Any, TYPE_CHECKING
+
+# Optional torch import for environments where PyTorch may not be available
+# This allows config_bridge tests to run without PyTorch installed
+try:
+    import torch
+    TORCH_AVAILABLE = True
+    TensorType = torch.Tensor
+except ImportError:
+    torch = None
+    TORCH_AVAILABLE = False
+    TensorType = Any  # Fallback type for environments without torch
 
 # Configuration dataclasses for PtychoNN (PyTorch version)
 
@@ -49,7 +59,7 @@ class ModelConfig:
     n_filters_scale: int = 2 # Shrinking factor for channels in network layers
     amp_activation: str = 'silu' # Activation function for amplitude part
     batch_norm: bool = False # Whether to use batch normalization
-    probe_mask: Optional[torch.Tensor] = None # Optional probe mask tensor
+    probe_mask: Optional[TensorType] = None # Optional probe mask tensor
     
     #Module-specific
     edge_pad: int = 10 #For padding the decoder_last reconstruction

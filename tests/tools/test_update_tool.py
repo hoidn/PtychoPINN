@@ -38,47 +38,47 @@ def create_test_npz(filepath):
 
 class TestUpdateTool(unittest.TestCase):
     """Test suite for update_tool.py functions."""
-
+    
     def test_update_function(self):
         """Test the update_object_guess function"""
         print("Testing update_object_guess function...")
-
+        
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test files
             original_path = os.path.join(tmpdir, 'original.npz')
             recon_path = os.path.join(tmpdir, 'reconstruction.npy')
             output_path = os.path.join(tmpdir, 'updated.npz')
-
+            
             # Create original NPZ
             original_data = create_test_npz(original_path)
             print(f"Created test NPZ: {original_path}")
-
+            
             # Create new reconstruction (3D format like from Tike)
             new_recon = np.random.rand(1, 256, 256).astype(np.complex128)
             np.save(recon_path, new_recon)
             print(f"Created test reconstruction: {recon_path}")
-
+            
             # Test 1: Update with file path
             print("\nTest 1: Update with file path")
             update_object_guess(original_path, recon_path, output_path)
-
+            
             # Verify the update
             with np.load(output_path) as updated:
                 self.assertIn('objectGuess', updated.files)
                 self.assertEqual(updated['objectGuess'].shape, (256, 256))  # Should be squeezed
                 self.assertEqual(updated['diff3d'].dtype, np.float32)  # Should be converted
                 print("✓ File path update successful")
-
+            
             # Test 2: Update with numpy array directly
             print("\nTest 2: Update with numpy array")
             output_path2 = os.path.join(tmpdir, 'updated2.npz')
             new_recon_2d = np.random.rand(256, 256).astype(np.complex128)
             update_object_guess(original_path, new_recon_2d, output_path2)
-
+            
             with np.load(output_path2) as updated:
                 self.assertTrue(np.array_equal(updated['objectGuess'], new_recon_2d))
                 print("✓ Direct array update successful")
-
+            
             # Test 3: Verify all other data is preserved
             print("\nTest 3: Verify data preservation")
             with np.load(output_path) as updated:
@@ -86,7 +86,7 @@ class TestUpdateTool(unittest.TestCase):
                     if key not in ['objectGuess', 'diff3d']:
                         self.assertTrue(np.array_equal(updated[key], original_data[key]))
                 print("✓ All other data preserved correctly")
-
+        
         print("\nAll tests passed! ✓")
 
 
@@ -95,10 +95,10 @@ def test_update_function():
     suite = unittest.TestSuite()
     test_case = TestUpdateTool('test_update_function')
     suite.addTest(test_case)
-
+    
     runner = unittest.TextTestRunner()
     result = runner.run(suite)
-
+    
     if result.wasSuccessful():
         print("Update tool test passed")
     else:

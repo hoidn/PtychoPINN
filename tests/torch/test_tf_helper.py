@@ -28,17 +28,17 @@ from ptycho import params as p
 from ptycho.probe import get_default_probe
 from ptycho.config.config import update_legacy_dict, TrainingConfig, ModelConfig
 
-# Set required parameters
+# Set required parameters 
 p.set('N', 64)
 p.set('gridsize', 2)  # This test uses gridsize=2
 p.set('default_probe_scale', 0.7)
 
-# Initialize probe
+# Initialize probe 
 probe = get_default_probe(N=64, fmt='np')
 p.params()['probe'] = probe
 
 # This test file appears to test PyTorch versions of TensorFlow functions
-# Since there's no actual tf_helper.py module in this directory,
+# Since there's no actual tf_helper.py module in this directory, 
 # this test is likely broken or incomplete
 try:
     from .tf_helper import *
@@ -48,7 +48,7 @@ except ImportError:
 
 class TestTorchTFHelper(unittest.TestCase):
     """Test suite for torch versions of TF helper functions."""
-
+    
     def setUp(self):
         """Ensure params are properly set for each test."""
         # Clear and properly initialize params to avoid validation errors
@@ -59,7 +59,7 @@ class TestTorchTFHelper(unittest.TestCase):
         p.cfg['data_source'] = 'generic'
         p.cfg['offset'] = 4
         p.set('N', 64)
-        p.set('gridsize', 2)
+        p.set('gridsize', 2)  
         p.set('default_probe_scale', 0.7)
         if 'probe' not in p.params():
             probe = get_default_probe(N=64, fmt='np')
@@ -81,7 +81,7 @@ class TestTorchTFHelper(unittest.TestCase):
 
     # All other test methods are skipped because the torch tf_helper module is not available
     # If the module becomes available, these tests can be enabled by removing the skip decorator
-
+    
     def test_placeholder_torch_functions(self):
         """Placeholder test that will always pass when torch tf_helper is not available."""
         if not TF_HELPER_AVAILABLE or not TORCH_AVAILABLE:
@@ -91,3 +91,4 @@ class TestTorchTFHelper(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

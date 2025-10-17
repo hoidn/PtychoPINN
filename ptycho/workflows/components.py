@@ -559,7 +559,7 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     elif isinstance(data, RawData):
         # Use config.n_groups for nsamples - this is the interpreted value from the training script
         dataset = data.generate_grouped_data(
-            config.model.N,
+            config.model.N, 
             K=config.neighbor_count,  # Use configurable K value
             nsamples=config.n_groups,  # Use n_groups (clearer naming)
             dataset_path=str(config.train_data_file) if config.train_data_file else None,
