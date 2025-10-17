@@ -18,3 +18,18 @@
 - Noted missing docs referenced in global instructions (`specs/spec-a.md`, `arch.md`, `docs/development/*`); no action yet beyond awareness.
 
 <Action State>[ready_for_implementation]</Action State>
+
+## 2025-10-17T003029Z: Loop start notes
+- Focus issue: VECTORIZE-TRICUBIC plan refresh
+- Action type: Planning
+- Mode: Perf
+- Pending Actions: doc review + plan drafting before delegating.
+
+## 2025-10-17T003514Z: Vectorization plan established
+- Created <doc-ref type="plan">plans/active/vectorization.md</doc-ref> with phased approach for tricubic/absorption vectorization; artifacts directory seeded at plans/active/VECTOR-TRICUBIC/reports/.
+- Added [VECTOR-TRICUBIC-001] entry to docs/fix_plan.md with doc-ref link and baseline exit criteria.
+- Updated input.md to direct Phase A evidence capture (pytest selectors + microbench) under Perf mode.
+- Noted missing global docs (specs/spec-a.md, arch.md, docs/development/*) and absent docs/PROJECT_STATUS.md; cannot cross-link per CLAUDE directive until upstream restores them.
+
+<Action State>[ready_for_implementation]</Action State>
+

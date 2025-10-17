@@ -61,3 +61,22 @@
   - All gaps identified in the "TensorFlow ↔ PyTorch Parity Map" within `plans/ptychodus_pytorch_integration_plan.md` are addressed with a concrete implementation plan.
   - A `RawDataTorch` shim and `PtychoDataContainerTorch` class are implemented.
   - Configuration parity (Phase 1 of the integration plan) is complete and tested.
+
+---
+
+## [VECTOR-TRICUBIC-001] Vectorize tricubic interpolation & detector absorption (nanoBragg PyTorch)
+- Spec/AT: `../nanoBragg/specs/spec-a.md`, `../nanoBragg/tests/test_at_str_002.py`, `../nanoBragg/tests/test_at_abs_001.py`
+- Plan: <doc-ref type="plan">plans/active/vectorization.md</doc-ref>
+- Priority: High
+- Status: pending
+- Owner/Date: Galph/2025-10-17
+- Reproduction:
+  - `cd ../nanoBragg && pytest tests/test_at_str_002.py -vv`
+  - `cd ../nanoBragg && pytest tests/test_at_abs_001.py -vv`
+- Attempts History:
+  * [2025-10-17T00:34:06Z] Attempt #0 — Planning: Authored phased vectorization plan; baseline characterization pending.
+- Exit Criteria:
+  - Baseline performance + acceptance artifacts recorded under `plans/active/VECTOR-TRICUBIC/reports/`.
+  - New RED tests capture batched tricubic and absorption vectorization requirements.
+  - Vectorized implementations pass GREEN tests (`pytest tests/test_tricubic_vectorized.py tests/test_at_str_002.py tests/test_at_abs_001.py -vv`).
+  - Documented ≥2× speedup on CPU and GPU with knowledge base update.
