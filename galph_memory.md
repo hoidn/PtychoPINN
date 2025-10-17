@@ -631,3 +631,14 @@
 - Next steps for Ralph: follow new input.md checklist (pip install, pytest rerun, summary/plan updates, docs/fix_plan Attempt).
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T222544Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-DATALOADER (new)
+- Action type: Debug
+- Mode: TDD
+- Notes: Selection logged prior to drafting fix-plan entry or plan updates.
+- Document review: DATA-001 finding (docs/findings.md#DATA-001), `specs/data_contracts.md`, `specs/ptychodus_api_spec.md` §4.5, `docs/workflows/pytorch.md` §4, `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`, and parity summary at `reports/2025-10-17T221500Z/phase_e_parity_summary.md` underpin the canonical-key requirement.
+- Evidence artifact: Authored `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T223200Z/dataloader_triage.md` recording hypotheses (H1 confirmed, H2/H3 refuted) plus next steps.
+- Ledger update: Added `[INTEGRATE-PYTORCH-001-DATALOADER]` entry to docs/fix_plan.md with Attempt #0 referencing triage artifact.
+- Steering: Rewrote `input.md` for TDD loop directing Ralph to add pytest regression, implement canonical-first loader fallback, rerun targeted selectors, and refresh parity summary/logs under 2025-10-17T224500Z.
+- <Action State>: [ready_for_implementation]

@@ -1,49 +1,51 @@
-Summary: Finish Phase E2.D by installing torch extras and capturing the passing PyTorch integration log
-Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 – Phase E2 Integration Regression & Parity Harness (E2.D2)
+Summary: Restore PyTorch dataloader DATA-001 compliance and document the green integration run
+Mode: TDD
+Focus: INTEGRATE-PYTORCH-001-DATALOADER — Restore PyTorch dataloader DATA-001 compliance
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_integration_workflow_torch.py -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T221500Z/{pip_install.log,phase_e_torch_run.log,phase_e_parity_summary.md}
+Mapped tests: pytest tests/torch/test_dataloader.py::test_loads_canonical_diffraction -vv; pytest tests/torch/test_dataloader.py -vv; pytest tests/torch/test_integration_workflow_torch.py -vv
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/{pytest_dataloader_red.log,pytest_dataloader_green.log,pytest_integration_green.log,parity_summary.md}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001 E2.D2 @ plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md — run pip install -e .[torch] | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T221500Z/pip_install.log (tests: none)
-2. INTEGRATE-PYTORCH-001 E2.D2 @ plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md — run pytest tests/torch/test_integration_workflow_torch.py -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T221500Z/phase_e_torch_run.log (tests: targeted)
-3. INTEGRATE-PYTORCH-001 E2.D3 @ plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md — update phase_e_parity_summary.md with new results, flip E2.D2 rows to [x], sync implementation.md + docs/fix_plan.md (tests: none)
+1. INTEGRATE-PYTORCH-001-DATALOADER @ docs/fix_plan.md — Author pytest regression `tests/torch/test_dataloader.py::test_loads_canonical_diffraction` (canonical+legacy fixture) per plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T223200Z/dataloader_triage.md; run `pytest tests/torch/test_dataloader.py::test_loads_canonical_diffraction -vv` (expect fail) | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/pytest_dataloader_red.log (tests: targeted)
+2. INTEGRATE-PYTORCH-001-DATALOADER @ docs/fix_plan.md — Update `ptycho_torch/dataloader.py` to prefer DATA-001 `diffraction` key, fall back to `diff3d`, and share helper across calculate_length/memory_map paths; keep dtype conversions identical (tests: none)
+3. INTEGRATE-PYTORCH-001-DATALOADER @ docs/fix_plan.md — Re-run unit coverage `pytest tests/torch/test_dataloader.py -vv` | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/pytest_dataloader_green.log; capture assertions for canonical + legacy keys (tests: targeted)
+4. INTEGRATE-PYTORCH-001-DATALOADER @ docs/fix_plan.md — Execute parity log `pytest tests/torch/test_integration_workflow_torch.py -vv` | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/pytest_integration_green.log; update parity summary + plan checkboxes + docs/fix_plan Attempts with new artifact (tests: targeted)
+5. INTEGRATE-PYTORCH-001-DATALOADER @ docs/fix_plan.md — Refresh `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/parity_summary.md`, flip relevant plan rows to [x], and sync docs/fix_plan.md Attempts history noting green run + DATA-001 fix (tests: none)
 
-If Blocked: Preserve pip/test logs under the artifact directory, note the failure reason + next hypothesis in the summary, revert any premature plan checkbox flips, and document the blocker in docs/fix_plan.md Attempts history.
+If Blocked: Preserve red logs under the artifact directory, document failure + hypothesis in parity summary, leave plan checkbox unchecked, and note blocker in docs/fix_plan.md Attempts history.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md: D2 remains ⚠️ until PyTorch run succeeds after installing extras.
-- plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md: E2.D rows depend on capturing the green PyTorch log and documenting parity.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_parity_summary.md: baseline evidence pinpointed the missing mlflow dependency; needs refresh after rerun.
-- specs/ptychodus_api_spec.md §4.5: reconstructor contract requires PyTorch CLI parity with TensorFlow workflow.
-- docs/workflows/pytorch.md §2: PyTorch extras (mlflow, lightning, tensordict) are mandatory for backend parity.
+- docs/fix_plan.md#L23 — New [INTEGRATE-PYTORCH-001-DATALOADER] entry requires canonical key support before broader parity work continues.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T223200Z/dataloader_triage.md — Confirms root cause and lays out fallback strategy.
+- specs/data_contracts.md§1 — Canonical NPZ schema mandates `diffraction` key; loader must comply.
+- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md — E2.D2 evidence depends on passing PyTorch integration log.
+- specs/ptychodus_api_spec.md§4.5 — ptychodus reconstructor users expect canonical dataset compatibility.
 
 How-To Map:
-- export timestamp=2025-10-17T221500Z; mkdir -p plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp
-- pip install -e .[torch] | tee plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp/pip_install.log
-- pytest tests/torch/test_integration_workflow_torch.py -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp/phase_e_torch_run.log
-- Capture runtime + key metrics from the passing test in plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp/phase_e_parity_summary.md (reference prior summary; highlight new success + parity checks)
-- Update plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md (set D2 → [x]), plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md (E2.D2/E2 row → [x]), and plans/active/INTEGRATE-PYTORCH-001/implementation.md (E2 row → [x])
-- Append docs/fix_plan.md Attempt entry with selector results, pip command, artifact paths, and note that Phase E2.D is complete
+- export timestamp=2025-10-17T224500Z; mkdir -p plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp
+- pytest tests/torch/test_dataloader.py::test_loads_canonical_diffraction -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp/pytest_dataloader_red.log  # expect failure pre-fix
+- After implementation, pytest tests/torch/test_dataloader.py -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp/pytest_dataloader_green.log
+- pytest tests/torch/test_integration_workflow_torch.py -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp/pytest_integration_green.log
+- Summarize key metrics + DATA-001 compliance in plans/active/INTEGRATE-PYTORCH-001/reports/$timestamp/parity_summary.md; cite CONFIG-001 + DATA-001 findings
+- Update plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md (D2 row commentary), phase_e_integration.md, implementation.md, and docs/fix_plan.md Attempts referencing the new timestamp
 
 Pitfalls To Avoid:
-- Do not skip pip install; mlflow/lightning must import before rerunning pytest.
-- Run commands from repo root so editable install resolves correctly.
-- Keep all logs inside the timestamped reports directory; no stray files under repo root.
-- Avoid rerunning the TensorFlow baseline unless PyTorch rerun forces shared fixture reset.
-- If pytest still fails, do not mark plan rows complete; leave detailed blocker notes instead.
-- Don’t delete prior 2025-10-18T093500Z artifacts—they document the red run.
-- Ensure parity summary cites CONFIG-001 and POLICY-001 for compliance.
-- After pip install, confirm command succeeded (exit code 0) before launching pytest.
-- Use native pytest style if follow-up tests are required; do not mix unittest classes.
-- Capture PyTorch runtime stats (epochs, checkpoint path) in the summary for parity comparison.
+- Do not remove legacy `diff3d` support; provide fallback with clear error when neither key exists.
+- Preserve dtype conversions (float32 amplitude) and rounding behavior to avoid regressions.
+- Keep new tests pure pytest (no unittest.TestCase mix-ins) and isolate temporary NPZ fixtures via tmp_path.
+- Ensure logs live inside the timestamped reports directory; no stray files at repo root.
+- Run targeted selectors from repo root to use editable install and torch deps.
+- Avoid touching stable core TensorFlow modules (model.py, diffsim.py, tf_helper.py).
+- Re-run integration test only after unit tests pass to save time.
+- Capture red test output before implementing fix to satisfy TDD evidence.
+- If pytest fails after fix, do not mark plan rows complete; document blocker and leave entry open.
+- Check docs/findings.md for DATA-001 references when writing parity summary.
 
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md
-- plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_parity_summary.md
+- docs/fix_plan.md#L12
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T223200Z/dataloader_triage.md
+- specs/data_contracts.md#L1
 - specs/ptychodus_api_spec.md#L1
-- docs/workflows/pytorch.md#L1
+- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md#L46
 
-Next Up: Phase E3 documentation/spec sync or reopen `[INTEGRATE-PYTORCH-001-STUBS]` once parity evidence is green.
+Next Up: Revisit [INTEGRATE-PYTORCH-001-STUBS] once integration parity is green.

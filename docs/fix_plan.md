@@ -20,6 +20,21 @@
   - Lightning orchestration path initializes probe inputs, respects deterministic seeding, and exposes train/test containers identical to TensorFlow structure; validated via new pytest coverage in `tests/torch/test_workflows_components.py`.
   - All Phase D2 TODO/NotImplemented markers in `ptycho_torch/workflows/components.py` are resolved or formally retired, and associated regression tests pass in torch-enabled environments.
 
+## [INTEGRATE-PYTORCH-001-DATALOADER] Restore PyTorch dataloader DATA-001 compliance
+- Depends on: INTEGRATE-PYTORCH-001 (Phase E2.D2 parity evidence)
+- Spec/AT: `specs/data_contracts.md` §1 (canonical diffraction key), `specs/ptychodus_api_spec.md` §4.5 (dataset contract for reconstructor), `docs/workflows/pytorch.md` §4 (dataset parity requirements)
+- Priority: High
+- Status: pending
+- Owner/Date: Codex Agent/2025-10-17
+- Reproduction: `pytest tests/torch/test_integration_workflow_torch.py -vv` fails with `ValueError: Could not determine image shape from any NPZ file.` when dataset exposes canonical `diffraction` key.
+- Working Plan: Prefer canonical `diffraction` key when loading diffraction stacks, fall back to legacy `diff3d` for raw datasets, and add regression coverage ensuring both branches work. Reference triage at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T223200Z/dataloader_triage.md`.
+- Attempts History:
+  * [2025-10-17] Attempt #0 — Supervisor triage: Confirmed loader only reads `diff3d` (`ptycho_torch/dataloader.py:40-66,533-538`), refuted alternative hypotheses (data absence, integer-only assumption), and recommended canonical-first fallback strategy. Artifact: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T223200Z/dataloader_triage.md`.
+- Exit Criteria:
+  - PyTorch dataloader successfully ingests canonical DATA-001 NPZ files (`diffraction` key) and gracefully falls back to `diff3d` when required, with informative error if neither key exists.
+  - Targeted regression tests cover canonical + legacy key paths (new pytest module or expanded integration test assertions).
+  - `pytest tests/torch/test_integration_workflow_torch.py -vv` passes using canonical dataset; parity summary updated with green evidence and documents restored compliance.
+
 ## [INTEGRATE-PYTORCH-000] Pre-refresh Planning for PyTorch Backend Integration
 - Spec/AT: `plans/ptychodus_pytorch_integration_plan.md`, commit bfc22e7 (PyTorch tree rebase), and `specs/ptychodus_api_spec.md` for contractual alignment.
 - Priority: High
