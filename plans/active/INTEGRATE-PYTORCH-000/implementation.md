@@ -29,7 +29,7 @@ Exit Criteria: Revised integration plan checked into repo, annotated with fresh 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | B1 | Draft revised outline incorporating new subsystems | [x] | Use `delta_log.md` to insert/update sections for `api/`, `datagen/`, Lightning persistence, etc. Capture draft in `reports/2025-10-17T025633Z/plan_redline.md` before editing the canonical plan. |
-| B2 | Update canonical integration plan | [ ] | Edit `plans/ptychodus_pytorch_integration_plan.md` with phased structure mirroring current initiatives (Phase 0→E). Cross-link new sections to module inventory + spec hits. |
+| B2 | Update canonical integration plan | [x] | Edit `plans/ptychodus_pytorch_integration_plan.md` with phased structure mirroring current initiatives (Phase 0→E). Cross-link new sections to module inventory + spec hits. |
 | B3 | Peer-ready review notes | [x] | Summarize key revisions and open questions in `reports/2025-10-17T025633Z/summary.md` to brief downstream initiatives (INTEGRATE-PYTORCH-001, TEST-PYTORCH-001). |
 
 ---
@@ -41,9 +41,9 @@ Exit Criteria: docs/fix_plan.md updated with latest attempts, pointer to refresh
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Update fix plan entry & attempts history | [ ] | Note completion of Phase B with artifact paths; keep status accurate. |
-| C2 | Notify INTEGRATE-PYTORCH-001 plan owners | [ ] | Append note to `plans/active/INTEGRATE-PYTORCH-001/implementation.md` (if needed) or galph_memory referencing new plan sections to consume. |
-| C3 | Confirm input.md alignment | [ ] | Ensure supervisor directives for subsequent loops reference the refreshed plan before moving focus back to execution tasks. |
+| C1 | Update fix plan entry & attempts history | [x] | Note completion of Phase B with artifact paths; keep status accurate. |
+| C2 | Notify INTEGRATE-PYTORCH-001 plan owners | [ ] | Draft stakeholder brief in `reports/<timestamp>/stakeholder_brief.md` summarizing canonical plan deltas, then update `plans/active/INTEGRATE-PYTORCH-001/implementation.md` or galph_memory with key calls to action. |
+| C3 | Confirm input.md alignment | [x] | Ensure supervisor directives for subsequent loops reference the refreshed plan before moving focus back to execution tasks. |
 
 ---
 

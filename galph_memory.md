@@ -63,3 +63,20 @@
 - Next directives for Ralph: Execute Phase B.B2 canonical edits using the redline outline, then prepare stakeholder brief (B.B3).
 - Open questions: Need decisions on API surface vs low-level integration and persistence format (captured in redline D1-D3).
 - <Action State>: [planning] — Next supervisor loop must advance to [ready_for_implementation] or shift focus.
+
+## 2025-10-17T031028Z: Loop 6 Pre-Work Notes
+- Focus issue: INTEGRATE-PYTORCH-000 — Phase C governance handoff alignment.
+- Action type: Review or housekeeping.
+- Mode: Docs.
+- Status: Pre-analysis checkpoint recorded before edits.
+- Findings ledger check: `grep -n "CONFIG" docs/findings.md` → CONFIG-001 (params bridge) remains only relevant entry; no PyTorch-specific records yet.
+- Documentation review anchored on:
+  - `plans/active/INTEGRATE-PYTORCH-000/implementation.md:24` (Phase B/C tasks)
+  - `plans/ptychodus_pytorch_integration_plan.md:3` (scope + deltas)
+  - `plans/active/INTEGRATE-PYTORCH-001/implementation.md:24` (downstream needs)
+  - `specs/ptychodus_api_spec.md:1` (bridge contract)
+- Updated governance plan status: marked B2 complete and C1/C3 done; expanded C2 guidance to require stakeholder brief before notifying other initiatives.
+- Logged Attempt #4 in `docs/fix_plan.md:21` documenting this loop's prep; created artifact stub `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/brief_outline.md` to guide B.B3 execution.
+- Rewrote `input.md` directing Ralph to author the stakeholder brief (`stakeholder_brief.md`) and capture open questions for Phase C.C2.
+- Next steps for Ralph: produce the stakeholder brief, update docs/fix_plan Attempt #5 with evidence, and cascade key asks into `plans/active/INTEGRATE-PYTORCH-001/implementation.md` once ready.
+- <Action State>: [ready_for_implementation]

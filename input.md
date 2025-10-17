@@ -1,37 +1,38 @@
-Summary: Apply the Phase B redline to refresh `plans/ptychodus_pytorch_integration_plan.md` for the rebased PyTorch backend.
+Summary: Capture the Phase C stakeholder brief so INTEGRATE-PYTORCH-001 can act on the refreshed integration plan.
 Mode: Docs
 Focus: INTEGRATE-PYTORCH-000 — Pre-refresh Planning for PyTorch Backend Integration
 Branch: feature/torchapi
 Mapped tests: none — docs-only
-Artifacts: plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/{plan_redline.md,summary.md}
-Do Now: INTEGRATE-PYTORCH-000 — Phase B.B2 canonical plan update; edit `plans/ptychodus_pytorch_integration_plan.md` to implement the redline items (sections 0–5, deliverables, risks) and cite the refreshed sources.
-If Blocked: Capture unresolved decisions in `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/summary.md`, add a note under Attempts History in docs/fix_plan.md, and stop.
+Artifacts: plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/{brief_outline.md,stakeholder_brief.md}
+Do Now: INTEGRATE-PYTORCH-000 — Phase C.C2 stakeholder brief; author `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/stakeholder_brief.md` summarizing canonical plan deltas and actionable asks for INTEGRATE-PYTORCH-001 and TEST-PYTORCH-001.
+If Blocked: Log roadblocks in `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/open_questions.md`, update docs/fix_plan.md Attempts History, and stop.
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-000/implementation.md:24 — Phase B exit requires the canonical plan edits before governance handoff.
-- plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/plan_redline.md:1 — Outlines the exact changes demanded by Critical Deltas 1‑5.
-- plans/ptychodus_pytorch_integration_plan.md:1 — Source document to align with rebased PyTorch modules and parity map.
-- specs/ptychodus_api_spec.md:20 — Contract citations that must stay referenced when updating configuration and workflow sections.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/summary.md:18 — Ensures the refreshed plan speaks to the Phase B blockers identified by the execution initiative.
+- `plans/active/INTEGRATE-PYTORCH-000/implementation.md:42` — Phase C requires a stakeholder brief before notifying downstream initiatives.
+- `docs/fix_plan.md:9` — Attempt #4 documents the governance kickoff and expects this brief next.
+- `plans/ptychodus_pytorch_integration_plan.md:3` — Scope highlights dual-backend goals the brief must communicate.
+- `plans/active/INTEGRATE-PYTORCH-001/implementation.md:24` — Upcoming Phase B work depends on clear configuration-bridge directives from the brief.
+- `specs/ptychodus_api_spec.md:1` — Configuration bridge rules that must be cited when framing the asks.
 How-To Map:
-- Review `plan_redline.md` and list its five revision bullets; keep it open while editing the canonical plan.
-- Update Phase 0–4 subsections in `plans/ptychodus_pytorch_integration_plan.md` to document the API layer choice, config bridge work, data pipeline shims, reassembly parity, and persistence strategy; add cross-references to specs and reports.
-- Refresh the deliverables list and risks section to mention Lightning/MLflow policy, RawDataTorch shim, and persistence adapter decisions.
-- Run `git diff plans/ptychodus_pytorch_integration_plan.md` to verify edits are scoped to documentation and capture key decisions in commit message notes for supervisor review.
+- Re-read the updated canonical plan focusing on Sections 1–4 to extract the five major deltas (API surface, config schema, data adapters, orchestration, persistence).
+- Summarize each delta into `stakeholder_brief.md` with subsections: Context, Required Action (per initiative), and Outstanding Questions; cite `CONFIG-001` for the configuration bridge urgency.
+- Include a checklist table mapping delta → initiative → due diligence, leveraging the outline in `brief_outline.md`.
+- Close with explicit next steps for INTEGRATE-PYTORCH-001 Phase B (config design + failing test) and TEST-PYTORCH-001 fixture alignment, referencing relevant plan rows.
+- When complete, note the artifact path in docs/fix_plan.md under Attempt #5 and mention key highlights in `plans/active/INTEGRATE-PYTORCH-001/implementation.md` if decisions alter that plan.
 Pitfalls To Avoid:
-- Do not modify any production Python modules this loop.
-- Keep the plan in phased form; retain tables and headings while updating content.
-- Avoid removing existing TensorFlow references—add PyTorch context alongside them.
-- Cite spec sections (`specs/ptychodus_api_spec.md`) when describing contracts to prevent drift.
-- Do not invent new directory structures for artifacts; reference existing report paths.
-- Leave `plan_redline.md` untouched; only consume it.
-- Note open questions rather than resolving them silently.
-- Maintain ASCII characters only when editing docs.
-- Ensure parity risks mention testing coordination with TEST-PYTORCH-001.
-- Verify links and file paths remain accurate after edits.
+- Do not modify production code or non-doc assets this loop.
+- Keep edits within the artifact folder and docs ledger; avoid touching canonical plan unless inaccuracies surface.
+- Maintain ASCII formatting; no fancy bullets beyond Markdown standard.
+- Cite spec/plan line numbers when asserting requirements to prevent drift.
+- Highlight open questions rather than resolving them silently.
+- Avoid inventing new initiative IDs; reuse existing plan labels.
+- Keep stakeholder brief actionable—no narrative fluff or rehash of entire plan.
+- Confirm artifact filenames match the ones listed above before finishing.
+- If referencing tests, quote selectors from authoritative docs only.
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/plan_redline.md:1
-- plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/summary.md:1
-- plans/ptychodus_pytorch_integration_plan.md:1
-- specs/ptychodus_api_spec.md:20
-- plans/active/INTEGRATE-PYTORCH-001/implementation.md:24
-Next Up: 1) Phase B.B3 stakeholder brief (summarize decisions + open questions); 2) Phase C governance updates once canonical plan lands.
+- `plans/active/INTEGRATE-PYTORCH-000/implementation.md:37`
+- `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/brief_outline.md`
+- `plans/ptychodus_pytorch_integration_plan.md:20`
+- `plans/active/INTEGRATE-PYTORCH-001/implementation.md:29`
+- `docs/fix_plan.md:21`
+- `specs/ptychodus_api_spec.md:61`
+Next Up: 1) Update `plans/active/INTEGRATE-PYTORCH-001/implementation.md` with stakeholder brief actions; 2) Shift focus to TEST-PYTORCH-001 fixture planning if bandwidth remains.
