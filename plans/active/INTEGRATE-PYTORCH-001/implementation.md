@@ -6,6 +6,13 @@
 - Dependencies: specs/ptychodus_api_spec.md (contract for lifecycle + persistence); docs/workflows/pytorch.md (current backend behaviour); docs/architecture.md (module map for touchpoints); docs/DEVELOPER_GUIDE.md §1-3 (two-system guidance + params bridge); plans/pytorch_integration_test_plan.md (parallel guardrail effort).
 - Artifact storage: capture evidence, callgraphs, and validation logs under `plans/active/INTEGRATE-PYTORCH-001/reports/` using ISO timestamps (e.g., `.../2025-10-17T013000Z/{summary.md,pytest.log}`). Link each run from docs/fix_plan.md Attempts History.
 
+**CRITICAL UPDATE [2025-10-17]:** INTEGRATE-PYTORCH-000 Phase C.C2 stakeholder brief is now available. Review `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/stakeholder_brief.md` for:
+- 5 major architectural deltas from canonical plan updates
+- Configuration bridge (Delta 1) confirmed as #1 blocker — field schema mismatches documented
+- Immediate action items for Phase B (this plan) with specific task breakdowns
+- 8 open governance questions requiring decisions (see `open_questions.md` in same directory)
+- TEST-PYTORCH-001 coordination requirements for fixture design
+
 ---
 
 ### Phase A — Refresh Parity Baseline
@@ -23,15 +30,23 @@ Exit Criteria: Consolidated parity document saved under `plans/active/INTEGRATE-
 
 ### Phase B — Configuration & Legacy Bridge Alignment
 Goal: Replace singleton config usage with dataclass-driven state that updates `ptycho.params.cfg` per spec.
-Prereqs: Completed parity map highlighting configuration deltas.
+Prereqs: Completed parity map highlighting configuration deltas; reviewed stakeholder brief Delta 1.
 Exit Criteria: PyTorch training/inference paths ingest `TrainingConfig`/`InferenceConfig`, call `update_legacy_dict`, and unit tests confirm params parity.
+
+**Stakeholder Brief Guidance (Delta 1):** Configuration schema divergence is #1 blocker. Key mismatches:
+- `grid_size: Tuple[int, int]` → spec requires `gridsize: int`
+- `mode: 'Supervised' | 'Unsupervised'` → spec requires `model_type: 'pinn' | 'supervised'`
+- Missing fields: `gaussian_smoothing_sigma`, `probe_scale`, `pad_object`
+- No KEY_MAPPINGS translation layer for legacy dot-separated keys
+
+**Open Question Q1:** Decide whether to refactor PyTorch config to shared dataclasses (recommended) or maintain dual schemas with translation (see `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/open_questions.md` Q1).
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Design dataclass ingestion plan | [ ] | Draft adapter design in `reports/<timestamp>/config_bridge.md`, mapping current `ptycho_torch/config_params.py` keys (e.g., `ModelConfig().get('n_filters_scale')`) to dataclass fields; cross-reference `specs/ptychodus_api_spec.md §2` and `ptycho/config/config.py:1-210`. |
-| B2 | Author minimal failing test capturing legacy bridge gap | [ ] | Follow TDD (docs/DEVELOPER_GUIDE.md §4); add pytest selector under `tests/torch/` that asserts legacy dict fields (e.g., `n_groups`, `probe.mask`) match dataclass inputs. |
-| B3 | Implement adapter + transition script | [ ] | Guide Ralph to introduce `load_training_config_from_dataclasses()` etc.; ensure call order respects params initialization pattern (docs/debugging/QUICK_REFERENCE_PARAMS.md). |
-| B4 | Validate against TensorFlow baseline | [ ] | Run parity check comparing `ptycho.params.cfg` dumps from both backends; store diff in `reports/<timestamp>/cfg_diff.txt`. |
+| B1 | Complete field-by-field schema audit | [ ] | **Per stakeholder brief:** Create configuration schema mapping table documenting every PyTorch config field → spec-required field transformation. Input sources: `ptycho_torch/config_params.py`, `specs/ptychodus_api_spec.md §5.1-5.3` (75+ documented fields). Output: `reports/<timestamp>/config_schema_map.md` with columns: [PyTorch Field, TensorFlow Dataclass Field, Legacy params.cfg Key, Transformation Notes]. |
+| B2 | Author minimal failing test (TDD) | [ ] | **Critical:** Write test demonstrating config bridge failure BEFORE implementation. Test should: (1) Instantiate PyTorch config singleton; (2) Call `update_legacy_dict(ptycho.params.cfg, config)`; (3) Assert specific fields populate correctly (e.g., `params.cfg['gridsize']`, `params.cfg['model_type']`, `params.cfg['probe.scale']`). Expected: test fails due to missing KEY_MAPPINGS and field mismatches. Follow TDD methodology per `docs/DEVELOPER_GUIDE.md §4`. Selector: `pytest tests/torch/test_config_bridge.py -v`. |
+| B3 | Implement schema harmonization | [ ] | **Decision-dependent (Q1):** If refactor approach (recommended): migrate PyTorch to import and use `ptycho.config.config.{ModelConfig,TrainingConfig,InferenceConfig}`. If dual-schema approach: implement translation layer + KEY_MAPPINGS for PyTorch config → legacy keys. Ensure call order respects params initialization pattern (docs/debugging/QUICK_REFERENCE_PARAMS.md, CONFIG-001 finding). |
+| B4 | Extend parity tests (75+ fields) | [ ] | **Per stakeholder brief:** Implement parameterized tests validating all config fields propagate correctly through dataclass → `update_legacy_dict` → `params.cfg` → downstream consumers. Reference spec §5.1-5.3 for complete field inventory. Test strategy: compare `params.cfg` snapshots from TensorFlow and PyTorch backends for matrix of representative configurations. Store test results in `reports/<timestamp>/parity_test_results.md`. |
 
 ---
 

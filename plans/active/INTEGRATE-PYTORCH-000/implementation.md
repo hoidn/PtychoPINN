@@ -42,7 +42,7 @@ Exit Criteria: docs/fix_plan.md updated with latest attempts, pointer to refresh
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | C1 | Update fix plan entry & attempts history | [x] | Note completion of Phase B with artifact paths; keep status accurate. |
-| C2 | Notify INTEGRATE-PYTORCH-001 plan owners | [ ] | Draft stakeholder brief in `reports/<timestamp>/stakeholder_brief.md` summarizing canonical plan deltas, then update `plans/active/INTEGRATE-PYTORCH-001/implementation.md` or galph_memory with key calls to action. |
+| C2 | Notify INTEGRATE-PYTORCH-001 plan owners | [x] | Draft stakeholder brief in `reports/<timestamp>/stakeholder_brief.md` summarizing canonical plan deltas, then update `plans/active/INTEGRATE-PYTORCH-001/implementation.md` or galph_memory with key calls to action. Completed 2025-10-17: authored `reports/2025-10-17T031500Z/stakeholder_brief.md` and updated INTEGRATE-PYTORCH-001 Phase B guidance with Delta 1 specifics. |
 | C3 | Confirm input.md alignment | [x] | Ensure supervisor directives for subsequent loops reference the refreshed plan before moving focus back to execution tasks. |
 
 ---
