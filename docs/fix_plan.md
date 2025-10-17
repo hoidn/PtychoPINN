@@ -24,13 +24,14 @@
 ## [INTEGRATE-PYTORCH-001] Prepare for PyTorch Backend Integration with Ptychodus
 - Spec/AT: `specs/ptychodus_api_spec.md` and `plans/ptychodus_pytorch_integration_plan.md`.
 - Priority: High
-- Status: pending
+- Status: in_progress
 - Owner/Date: Codex Agent/2025-10-16
 - Reproduction: N/A (new feature)
 - Working Plan: plans/active/INTEGRATE-PYTORCH-001/implementation.md
 - Attempts History:
   * [2025-10-16] Attempt #0 — Planning: Initial task creation.
   * [2025-10-17] Attempt #1 — Planning: Authored phased implementation plan (`plans/active/INTEGRATE-PYTORCH-001/implementation.md`).
+  * [2025-10-17] Attempt #2 — Evidence (Phase A): Completed parity baseline inventory. Artifacts: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/{parity_map.md,summary.md,glossary_and_ownership.md}`. Key findings: 7 critical gaps identified across configuration, data pipeline, workflows, and persistence. Configuration dataclass bridge is the #1 blocker (Phase B). All Phase A tasks (A1-A3) completed. Evidence-only loop; no code changes. Next: Phase B — Configuration & Legacy Bridge Alignment.
 - Exit Criteria:
   - All gaps identified in the "TensorFlow ↔ PyTorch Parity Map" within `plans/ptychodus_pytorch_integration_plan.md` are addressed with a concrete implementation plan.
   - A `RawDataTorch` shim and `PtychoDataContainerTorch` class are implemented.
