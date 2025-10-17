@@ -1,36 +1,42 @@
-Summary: Scaffold torch workflows module with update_legacy_dict parity guard
+Summary: Stage PyTorch training orchestration (D2.B) via TDD before implementation.
 Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 / Phase D2.A — Scaffold orchestration module
+Focus: INTEGRATE-PYTORCH-001 / Phase D2.B – Implement training path
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_workflows_components.py::test_run_cdi_example_calls_update_legacy_dict -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T091450Z/{phase_d2_scaffold.md,pytest_scaffold.log}
+Mapped tests: none — author targeted pytest first
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T094500Z/{phase_d2_training.md,pytest_red.log,pytest_green.log}
+
 Do Now:
-- INTEGRATE-PYTORCH-001 (D2.A) — Author failing parity test ensuring `run_cdi_example_torch` invokes `update_legacy_dict` @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md (tests: pytest tests/torch/test_workflows_components.py::test_run_cdi_example_calls_update_legacy_dict -vv)
-- INTEGRATE-PYTORCH-001 (D2.A) — Implement torch-optional `ptycho_torch/workflows/components.py` scaffold + export update @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md (tests: pytest tests/torch/test_workflows_components.py::test_run_cdi_example_calls_update_legacy_dict -vv)
-If Blocked: Capture the failure (stack trace, environment notes) in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T091450Z/blocker.md`, log Attempt in docs/fix_plan.md, and halt implementation pending supervisor review.
+1. INTEGRATE-PYTORCH-001 D2.B @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — Author red-phase pytest (`TestWorkflowsComponentsTraining`) covering `_ensure_container` + Lightning delegation skeleton; tests: `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_cdi_model_torch_invokes_lightning -vv`.
+2. INTEGRATE-PYTORCH-001 D2.B @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T093500Z/phase_d2_training_analysis.md — Implement `_ensure_container` helper + `train_cdi_model_torch` Lightning path to turn test green; tests: `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_cdi_model_torch_invokes_lightning -vv`.
+3. INTEGRATE-PYTORCH-001 D2.B @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — Capture training summary + pytest logs in `phase_d2_training.md`; tests: none.
+
+If Blocked: Document the obstacle and captured pytest output in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T094500Z/blocked.md`, then update docs/fix_plan.md Attempts with failure details before pausing.
+
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md:187 mandates `run_cdi_example` lifecycle parity, so the torch entry point must align before adding behaviour.
-- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md:24-33 keeps Phase D2 scoped; completing D2.A unblocks training/inference adapters.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/phase_d_decision.md:1 commits us to Option B shims, making scaffold design the next dependency.
-- docs/workflows/pytorch.md:9 highlights parity expectations and torch-optional constraints we must respect in new modules.
+- `specs/ptychodus_api_spec.md:186-189` mandates backend parity for train/infer orchestration; D2.B delivers the training half.
+- `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` lists D2.B as next dependency before persistence (D3).
+- `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T093500Z/phase_d2_training_analysis.md` catalogs TF baseline + PyTorch gaps; following it keeps CONFIG-001/ DATA-001 protections intact.
+
 How-To Map:
-1. Create `tests/torch/test_workflows_components.py` defining `test_run_cdi_example_calls_update_legacy_dict`; use `monkeypatch` to spy on `ptycho.config.config.update_legacy_dict`, construct minimal dummy config via `TrainingConfig(...)`, and xfail-skip guard when torch unavailable (`pytest.importorskip("torch", reason="torch backend unavailable")`). Document rationale and inputs in `phase_d2_scaffold.md`.
-2. Run `pytest tests/torch/test_workflows_components.py::test_run_cdi_example_calls_update_legacy_dict -vv` to confirm red state; save console output to `pytest_scaffold.log` within the artifact directory.
-3. Add new module `ptycho_torch/workflows/components.py` exposing `run_cdi_example_torch`, `train_cdi_model_torch`, and `load_inference_bundle_torch` stubs. Ensure module imports guard torch availability, call `update_legacy_dict(params.cfg, config)` before delegating, and raise `NotImplementedError` for paths that Phase D2.B/C will fill. Update `ptycho_torch/__init__.py` to export the new helpers.
-4. Re-run the targeted pytest command; expect pass via captured flag. Update `phase_d2_scaffold.md` with design notes (entry signatures, placeholder decisions, follow-on TODOs) and reference Option B doc sections.
-5. Record outcomes in docs/fix_plan.md Attempt log and keep artifacts under the timestamped directory.
+- Red phase: `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_cdi_model_torch_invokes_lightning -vv > plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T094500Z/pytest_red.log 2>&1`
+- Green phase: rerun the same selector, save to `pytest_green.log`; append summary + decision notes to `phase_d2_training.md`.
+- Keep artifacts torch-optional: stub Lightning trainer/model inside the test using monkeypatch, per analysis doc §TDD.
+
 Pitfalls To Avoid:
-- Do not import `torch` at module top level; rely on guarded availability checks to preserve optional backend (ANTIPATTERN-001).
-- Avoid invoking heavy data loaders inside tests; keep fixtures minimal to preserve speed and torch-optional behaviour.
-- Ensure `update_legacy_dict` receives the dataclass config object, not a dict, to stay aligned with CONFIG-001.
-- Leave training/inference implementations raising `NotImplementedError` (or delegating to stubs) so later phases can replace them cleanly.
-- Do not mutate global state besides the sanctioned `params.cfg` update; no singletons or MLflow calls yet.
-- Keep new tests pure pytest style (no unittest mixins) and honour existing skip markers for missing torch.
-- Document each decision in the artifact markdown so Phase D2.B/C have traceability.
+- Do not import real Lightning components in tests without guarding for `TORCH_AVAILABLE`; use monkeypatch stubs.
+- Keep `_ensure_container` torch-optional—rely on Phase C adapters, no direct torch.tensor creation.
+- No full training runs or subprocess calls; D2.B unit test should remain fast and CPU-only.
+- Do not bypass `update_legacy_dict`; ensure test keeps existing parity guard intact.
+- Avoid writing artifacts outside the timestamped reports directory.
+- Preserve existing exports in `ptycho_torch/workflows/__init__.py`; update cautiously.
+- Keep MLflow disabled in tests to prevent network side effects.
+- Leave `NotImplementedError` in inference path (D2.C) untouched this loop.
+
 Pointers:
-- specs/ptychodus_api_spec.md:187
-- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md:24-33
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/phase_d_decision.md:1
-- ptycho/workflows/components.py:676
-- docs/workflows/pytorch.md:9
-Next Up: D2.B — implement training path adapter and add targeted Lightning orchestration tests once scaffold is stable.
+- docs/fix_plan.md (INTEGRATE-PYTORCH-001 attempts #43-44)
+- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md (D2 checklist)
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T093500Z/phase_d2_training_analysis.md
+- ptycho/workflows/components.py:535-666 (TensorFlow reference)
+- ptycho_torch/workflows/components.py:1-213 (Scaffold to extend)
+
+Next Up: D2.C inference/stitching path once training orchestration is green.

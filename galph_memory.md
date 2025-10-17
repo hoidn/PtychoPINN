@@ -352,3 +352,11 @@
 - Follow-up for Ralph: 1) add targeted pytest to confirm `update_legacy_dict` call, 2) create guarded scaffolding module + exports, 3) capture logs/notes in new report folder.
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T093650Z: Phase D2.B Evidence Capture
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D2.B (training orchestration)
+- Action type: Evidence collection | Mode: Parity
+- Artifacts: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T093500Z/phase_d2_training_analysis.md`
+- Highlights: mapped TensorFlow baseline (`ptycho/workflows/components.py:535-666`), inventoried Lightning assets (`ptycho_torch/train.py:1-170`, `train_utils.py:217-320`), and distilled gap list for `_ensure_container` helper + MLflow disable toggle. Updated `phase_d_workflow.md` D2.B row with these pointers.
+- Steering for Ralph: follow new analysis doc, TDD red test via `TestWorkflowsComponentsTraining`, then implement Lightning delegation storing logs under `2025-10-17T094500Z/` per input.md.
+- <Action State>: [ready_for_implementation]
