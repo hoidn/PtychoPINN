@@ -47,7 +47,7 @@ This file provides the core instructions for the Claude AI agent working on the 
 </directive>
 
 <directive level="guidance" purpose="Store generated artifacts correctly">
-  All generated reports, logs, and artifacts from a development loop **MUST** be saved to a timestamped subdirectory within `plans/active/<initiative-name>/reports/`. Do **not** leave artifacts (e.g., `*.log`, JSON dumps) at the repository root. The artifact path **MUST** be recorded in <doc-ref type="plan">docs/fix_plan.md</doc-ref> for traceability.
+  All generated reports, logs, and artifacts from a development loop **MUST** be saved to a timestamped subdirectory within `plans/active/<initiative-name>/reports/`. Do **not** leave artifacts (e.g., `*.log`, JSON dumps) at the repository root. Rule of thumb: if a file helps explain work from a loop, put it under that loop’s `plans/active/<initiative>/reports/<timestamp>/`; if it’s temporary scratch data, keep it under `tmp/` and delete before committing. The artifact path **MUST** be recorded in <doc-ref type="plan">docs/fix_plan.md</doc-ref> for traceability.
 </directive>
 
 <directive level="critical" purpose="Acknowledge the PyTorch Backend Initiative">

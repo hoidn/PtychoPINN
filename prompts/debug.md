@@ -11,7 +11,7 @@ Autonomy & Interaction Policy (No‑Question Mode)
 - If an item is already `in_progress`, continue it OR switch to the `input.md` Do Now if provided and justified; in either case, ensure exactly one item is attempted this loop.
 - Produce brief preambles and then act: read files, search, run tests, generate traces, update plan, and commit per gates.
 - Only two messages per loop: a short “next action” preamble before the first command, and the final Loop Output checklist. No idle greetings.
- - Include the exact pytest command(s) in the Do Now and use them for reproduction; if no test exists, write the minimal targeted test first and then run it.
+ - Include the exact pytest command(s) in the Do Now and use them for reproduction; if no test exists, write the minimal targeted test first and then run it. Author or refactor tests in native pytest style—do not inherit from `unittest.TestCase` or mix pytest parametrization/fixtures with unittest APIs.
  - Prefer using `scripts/validation/*` scripts for reproducible validations when available.
 
 Use When (Triggers)
