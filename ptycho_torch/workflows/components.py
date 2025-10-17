@@ -74,13 +74,18 @@ if TORCH_AVAILABLE:
     try:
         from ptycho_torch.raw_data_bridge import RawDataTorch
         from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
     except ImportError:
-        # Fallback if Phase C modules not yet implemented
+        # Fallback if Phase C/D3 modules not yet implemented
         RawDataTorch = None
         PtychoDataContainerTorch = None
+        save_torch_bundle = None
+        load_torch_bundle = None
 else:
     RawDataTorch = None
     PtychoDataContainerTorch = None
+    save_torch_bundle = None
+    load_torch_bundle = None
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -178,7 +183,28 @@ def run_cdi_example_torch(
     else:
         logger.info("Skipping image stitching (do_stitching=False or no test data available)")
 
-    # Step 4: Return tuple matching TensorFlow baseline signature
+    # Step 4: Optional persistence (Phase D4.C1 — save models when output_dir specified)
+    # Mirrors TensorFlow baseline ptycho/workflows/components.py:709-723
+    if config.output_dir and 'models' in train_results and train_results['models']:
+        logger.info(f"Saving trained models to {config.output_dir} via save_torch_bundle")
+        if save_torch_bundle is None:
+            logger.warning(
+                "save_torch_bundle not available (torch unavailable or model_manager not imported). "
+                "Skipping persistence."
+            )
+        else:
+            # Build archive path following TensorFlow convention (wts.h5.zip)
+            archive_path = Path(config.output_dir) / "wts.h5"
+            save_torch_bundle(
+                models_dict=train_results['models'],
+                base_path=str(archive_path),
+                config=config
+            )
+            logger.info(f"Models saved successfully to {archive_path}.zip")
+    else:
+        logger.debug("Skipping model persistence (no output_dir or no models in train_results)")
+
+    # Step 5: Return tuple matching TensorFlow baseline signature
     # (amplitude, phase, results) per specs/ptychodus_api_spec.md §4.5
     return recon_amp, recon_phase, train_results
 
@@ -413,44 +439,67 @@ def train_cdi_model_torch(
     return results
 
 
-def load_inference_bundle_torch(model_dir: Path) -> Tuple[Any, dict]:
+def load_inference_bundle_torch(bundle_dir: Union[str, Path], model_name: str = 'diffraction_to_obj') -> Tuple[Any, dict]:
     """
     Load a trained PyTorch model bundle for inference from a directory.
 
     This function provides API parity with ptycho.workflows.components.load_inference_bundle,
     enabling transparent backend selection for model loading.
 
+    CRITICAL: This function delegates to load_torch_bundle, which MUST restore params.cfg
+    before model reconstruction (CONFIG-001 requirement). The params.cfg restoration ensures
+    downstream modules observe correct training-time configuration.
+
     Args:
-        model_dir: Path to the directory containing the trained model artifacts.
-                   Expects Lightning checkpoint or TorchModelManager archive format.
+        bundle_dir: Path to the directory containing the wts.h5.zip archive.
+                   Expects TorchModelManager archive format matching TensorFlow baseline.
+        model_name: Name of model to load from dual-model bundle (default: 'diffraction_to_obj')
 
     Returns:
         Tuple containing:
-        - model: Loaded Lightning module ready for inference
-        - config: Configuration dictionary restored from saved model
+        - models_dict: Dictionary with loaded model (or sentinel when torch unavailable)
+        - params_dict: Configuration dictionary restored from saved bundle
 
     Raises:
-        NotImplementedError: Phase D3 not yet implemented (scaffold only)
-        ValueError: If model_dir is not a valid directory
-        FileNotFoundError: If model archive is not found
+        ImportError: If load_torch_bundle not available (torch unavailable)
+        ValueError: If bundle archive not found or params.dill incomplete
+        FileNotFoundError: If bundle_dir does not contain wts.h5.zip
 
-    Phase D2.A Scaffold Status:
-        - Entry signature: ✅ COMPLETE (matches TensorFlow)
-        - Placeholder logic: ✅ COMPLETE (raises NotImplementedError)
-        - Torch-optional: ✅ COMPLETE (importable without torch)
+    Phase D4.C2 Implementation:
+        - Delegates to load_torch_bundle (Phase D3.C persistence shim)
+        - Returns (models_dict, params_dict) matching TensorFlow signature
+        - CONFIG-001 gate executed inside load_torch_bundle (params.cfg.update)
 
-    Phase D3 TODO:
-        - Validate model_dir structure (check for .ckpt or .h5.zip)
-        - Load Lightning checkpoint OR unpack TorchModelManager archive
-        - Restore params.cfg from bundled metadata
-        - Return (lightning_module, config_dict)
-
-    Example (Post D3):
-        >>> model, config = load_inference_bundle_torch(Path("outputs/run_001"))
-        >>> # Use model.forward() or lightning_module.predict() for inference
+    Example:
+        >>> models_dict, params_dict = load_inference_bundle_torch("outputs/run_001")
+        >>> # params.cfg now restored with training-time N, gridsize, nphotons
+        >>> # Use models_dict['diffraction_to_obj'] for inference
     """
-    raise NotImplementedError(
-        "PyTorch persistence loader not yet implemented. "
-        "Phase D3 will implement Lightning checkpoint or TorchModelManager restoration. "
-        "See plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md D3 for archive schema."
-    )
+    if load_torch_bundle is None:
+        raise ImportError(
+            "load_torch_bundle not available. PyTorch backend or model_manager module not available. "
+            "Ensure ptycho_torch.model_manager is implemented and torch is installed."
+        )
+
+    # Normalize bundle_dir to string for Path compatibility
+    bundle_dir_str = str(bundle_dir)
+
+    # Build archive path following TensorFlow convention (wts.h5.zip in bundle_dir)
+    # TensorFlow baseline: load_inference_bundle expects model_dir containing wts.h5.zip
+    # PyTorch mirrors this: bundle_dir/wts.h5.zip → pass bundle_dir/wts.h5 to load_torch_bundle
+    archive_path = Path(bundle_dir_str) / "wts.h5"
+
+    logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip via load_torch_bundle")
+
+    # Delegate to load_torch_bundle (CONFIG-001 params restoration happens inside)
+    # Returns (model, params_dict) tuple
+    model, params_dict = load_torch_bundle(str(archive_path), model_name=model_name)
+
+    # Wrap model in dict for TensorFlow API parity
+    # TensorFlow load_inference_bundle returns dict of models; PyTorch mirrors this
+    models_dict = {model_name: model}
+
+    logger.info(f"Inference bundle loaded successfully. Model: {model_name}, Params keys: {list(params_dict.keys())[:5]}...")
+
+    # Return (models_dict, params_dict) matching TensorFlow baseline signature
+    return models_dict, params_dict

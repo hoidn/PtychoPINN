@@ -76,8 +76,8 @@ Exit Criteria: `ptychodus` can call into PyTorch backend for train/infer; artifa
 | --- | --- | --- | --- |
 | D1 | Design PyTorch equivalents of `run_cdi_example` + `ModelManager` | [x] | ✅ 2025-10-17 — See `reports/2025-10-17T085431Z/{phase_d_callchain.md,phase_d_asset_inventory.md,phase_d_decision.md}` for callchain, asset inventory, and Option B decision. |
 | D2 | Implement orchestration entry points | [x] | ✅ 2025-10-17 — D2.A–D2.C complete. See `reports/2025-10-17T091450Z/phase_d2_scaffold.md`, `reports/2025-10-17T094500Z/phase_d2_training.md`, and `reports/2025-10-17T101500Z/phase_d2c_green.md` for scaffold, training stub, and inference orchestration. Phase D3 persistence bridge is next. |
-| D3 | Implement persistence shim | [P] | D3.A evidence complete; D3.B save_torch_bundle shipped in Attempt #51 (`reports/2025-10-17T110500Z/{phase_d3b_summary.md,pytest_archive_structure_red.log,pytest_params_snapshot_red.log,pytest_green.log}`). Focus now on D3.C loader implementation — follow `phase_d_workflow.md` guidance to author failing tests, implement `load_torch_bundle`, and capture round-trip artifacts under next report timestamp. |
-| D4 | Add regression tests | [P] | See `phase_d4_regression.md` for phased checklist (Alignment → Red tests → Green tests). D4.A + D4.B complete (`reports/2025-10-17T111700Z/`, `reports/2025-10-17T112849Z/`); focus now on D4.C1–C3 to turn selectors green and assemble TEST-PYTORCH-001 handoff. |
+| D3 | Implement persistence shim | [x] | ✅ 2025-10-17 — Phase D3 complete. D3.A/B/C shipped: callchain evidence (`reports/2025-10-17T104700Z/`), save_torch_bundle (`reports/2025-10-17T110500Z/`), load_torch_bundle (`reports/2025-10-17T113200Z/`). CONFIG-001 params restoration validated. Archive format matches TensorFlow baseline. |
+| D4 | Add regression tests | [x] | ✅ 2025-10-17 — Phase D4 complete (Attempt #56). All regression tests green (D4.A/B/C complete). Artifacts: `reports/2025-10-17T121930Z/phase_d4c_summary.md` (handoff document for TEST-PYTORCH-001). Full regression: 197 passed, 13 skipped, 1 xfailed (no new failures). Phase D (PyTorch workflow & persistence) is complete. |
 
 ---
 
