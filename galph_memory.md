@@ -599,3 +599,13 @@
 - Logged docs/fix_plan.md Attempt #78 describing the planning refresh; rewritten `input.md` directs Ralph to complete E2.A1–E2.B2 with artifacts under `reports/2025-10-17T213500Z/`.
 - Next steps for Ralph: capture fixture sync note, author torch-optional integration red tests, and archive pytest logs per new plan.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T214900Z: Phase E2.C Planning
+- Focus issue: INTEGRATE-PYTORCH-001 Phase E2.C (PyTorch integration green phase)
+- Action type: Planning
+- Mode: Parity
+- Docs consulted: `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md`, `reports/2025-10-17T213500Z/phase_e_fixture_sync.md`, `reports/2025-10-17T213500Z/red_phase.md`, `reports/2025-10-17T180500Z/phase_e_backend_design.md`, `specs/ptychodus_api_spec.md` §4.5, `docs/workflows/pytorch.md`.
+- Authored new execution plan `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` plus planning brief `reports/2025-10-17T214800Z/phase_e2_green_brief.md`; updated phase_e_integration.md rows E2.C1–E2.D3 and logged Attempt #80 in docs/fix_plan.md.
+- Rewrote `input.md` directing Ralph to complete plan tasks C1–C5 with logs under `reports/2025-10-17T215500Z/`.
+- Next steps for Ralph: implement training/inference CLI, add lightning dependency + MLflow flag, run targeted pytest, then proceed to parity evidence per Phase D.
+- <Action State>: [ready_for_implementation]
