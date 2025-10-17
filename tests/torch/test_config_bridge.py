@@ -17,8 +17,8 @@ Test Strategy:
 3. Use update_legacy_dict() to populate params.cfg
 4. Assert params.cfg contains expected keys with correct values
 
-Expected Failure: Adapter module (ptycho_torch.config_bridge) does not exist yet.
-This test is marked xfail and will be converted to normal test once implementation completes.
+Implementation Status: Adapter module (ptycho_torch.config_bridge) implemented in Phase B.B3.
+This test validates the MVP translation functions convert PyTorch configs to TensorFlow dataclasses.
 """
 
 import unittest
@@ -47,7 +47,6 @@ class TestConfigBridgeMVP(unittest.TestCase):
         params.cfg.clear()
         params.cfg.update(self.params_snapshot)
 
-    @pytest.mark.xfail(strict=True, reason="PyTorch config bridge missing MVP translations")
     def test_mvp_config_bridge_populates_params_cfg(self):
         """Test that PyTorch configs populate params.cfg with MVP fields via bridge adapter.
 
@@ -57,8 +56,8 @@ class TestConfigBridgeMVP(unittest.TestCase):
         3. Call update_legacy_dict() to populate params.cfg
         4. Verify all MVP fields present with correct values and types
 
-        Expected failure mode: ImportError/ModuleNotFoundError when attempting to import
-        ptycho_torch.config_bridge module (does not exist yet).
+        Note: This test will be automatically skipped if PyTorch runtime is unavailable
+        (handled by tests/conftest.py). When PyTorch is available, validates full workflow.
         """
         # Import PyTorch configs (existing implementation)
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig
@@ -92,65 +91,60 @@ class TestConfigBridgeMVP(unittest.TestCase):
             batch_size=1
         )
 
-        # 2. Attempt to import and use the adapter module (expected to fail)
-        try:
-            from ptycho_torch import config_bridge
+        # 2. Import and use the adapter module
+        from ptycho_torch import config_bridge
 
-            # Call adapter functions to translate PyTorch → TensorFlow dataclasses
-            spec_model = config_bridge.to_model_config(pt_data, pt_model)
+        # Call adapter functions to translate PyTorch → TensorFlow dataclasses
+        spec_model = config_bridge.to_model_config(pt_data, pt_model)
 
-            spec_train = config_bridge.to_training_config(
-                spec_model,
-                pt_data,
-                pt_train,
-                overrides=dict(
-                    train_data_file=Path('train.npz'),
-                    n_groups=512,
-                    neighbor_count=7,
-                    nphotons=1e9
-                )
+        spec_train = config_bridge.to_training_config(
+            spec_model,
+            pt_data,
+            pt_train,
+            overrides=dict(
+                train_data_file=Path('train.npz'),
+                n_groups=512,
+                neighbor_count=7,
+                nphotons=1e9
             )
+        )
 
-            spec_infer = config_bridge.to_inference_config(
-                spec_model,
-                pt_data,
-                pt_infer,
-                overrides=dict(
-                    model_path=Path('model_dir'),
-                    test_data_file=Path('test.npz'),
-                    n_groups=512,
-                    neighbor_count=7
-                )
+        spec_infer = config_bridge.to_inference_config(
+            spec_model,
+            pt_data,
+            pt_infer,
+            overrides=dict(
+                model_path=Path('model_dir'),
+                test_data_file=Path('test.npz'),
+                n_groups=512,
+                neighbor_count=7
             )
+        )
 
-            # 3. Call update_legacy_dict to populate params.cfg
-            update_legacy_dict(params.cfg, spec_train)
-            update_legacy_dict(params.cfg, spec_infer)
+        # 3. Call update_legacy_dict to populate params.cfg
+        update_legacy_dict(params.cfg, spec_train)
+        update_legacy_dict(params.cfg, spec_infer)
 
-            # 4. Assert MVP fields populated correctly
-            # Model essentials
-            self.assertEqual(params.cfg['N'], 128, "N should match DataConfig.N")
-            self.assertEqual(params.cfg['gridsize'], 2, "gridsize should be extracted from grid_size tuple")
-            self.assertEqual(params.cfg['model_type'], 'pinn', "model_type should map from mode='Unsupervised'")
+        # 4. Assert MVP fields populated correctly
+        # Model essentials
+        self.assertEqual(params.cfg['N'], 128, "N should match DataConfig.N")
+        self.assertEqual(params.cfg['gridsize'], 2, "gridsize should be extracted from grid_size tuple")
+        self.assertEqual(params.cfg['model_type'], 'pinn', "model_type should map from mode='Unsupervised'")
 
-            # Lifecycle paths (KEY_MAPPINGS translation)
-            self.assertEqual(params.cfg['train_data_file_path'], 'train.npz',
-                           "train_data_file should map via KEY_MAPPINGS")
-            self.assertEqual(params.cfg['test_data_file_path'], 'test.npz',
-                           "test_data_file should map via KEY_MAPPINGS")
-            self.assertEqual(params.cfg['model_path'], 'model_dir',
-                           "model_path should be converted to string")
+        # Lifecycle paths (KEY_MAPPINGS translation)
+        self.assertEqual(params.cfg['train_data_file_path'], 'train.npz',
+                       "train_data_file should map via KEY_MAPPINGS")
+        self.assertEqual(params.cfg['test_data_file_path'], 'test.npz',
+                       "test_data_file should map via KEY_MAPPINGS")
+        self.assertEqual(params.cfg['model_path'], 'model_dir',
+                       "model_path should be converted to string")
 
-            # Data grouping
-            self.assertEqual(params.cfg['n_groups'], 512, "n_groups should pass through")
-            self.assertEqual(params.cfg['neighbor_count'], 7, "neighbor_count should map from K")
+        # Data grouping
+        self.assertEqual(params.cfg['n_groups'], 512, "n_groups should pass through")
+        self.assertEqual(params.cfg['neighbor_count'], 7, "neighbor_count should map from K")
 
-            # Physics scaling
-            self.assertEqual(params.cfg['nphotons'], 1e9, "nphotons should match")
-
-        except (ModuleNotFoundError, AttributeError, ImportError) as e:
-            # Expected failure: adapter module or functions don't exist yet
-            pytest.xfail(f"Config bridge adapter not yet implemented: {type(e).__name__}: {e}")
+        # Physics scaling
+        self.assertEqual(params.cfg['nphotons'], 1e9, "nphotons should match")
 
 
 if __name__ == '__main__':
