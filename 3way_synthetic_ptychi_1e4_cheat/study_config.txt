@@ -1,0 +1,35 @@
+# Complete Generalization Study Configuration
+# Generated: Tue Aug 26 05:22:21 PM PDT 2025
+
+# Training Configuration
+TRAIN_SIZES=128
+TEST_SIZES=128
+PARALLEL_JOBS=1
+
+# Paths
+OUTPUT_DIR=3way_synthetic_ptychi_1e4_cheat
+TRAIN_DATA=prepare_1e4_photons_5k/dataset/train.npz
+TEST_DATA=prepare_1e4_photons_5k/dataset/train.npz
+
+# Workflow Flags
+SKIP_DATA_PREP=true
+SKIP_TRAINING=false
+SKIP_COMPARISON=false
+ADD_TIKE_ARM=false
+TIKE_ITERATIONS=1000
+ADD_PTYCHI_ARM=true
+PTYCHI_ALGORITHM=ePIE
+PTYCHI_ITERATIONS=200
+PTYCHI_BATCH_SIZE=8
+DRY_RUN=false
+
+# Environment Info
+PROJECT_ROOT=/home/ollie/Documents/PtychoPINN
+USER=ollie
+HOSTNAME=ollie-System-Product-Name
+PWD=/home/ollie/Documents/PtychoPINN
+
+# System Info
+PYTHON_VERSION=Python 3.11.13
+CONDA_ENV=ptycho311
+GPU_INFO=NVIDIA GeForce RTX 3090, 24576
