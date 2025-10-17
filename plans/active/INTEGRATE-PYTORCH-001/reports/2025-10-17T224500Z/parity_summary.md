@@ -149,7 +149,7 @@ Memory map length: 722
 ### Immediate (Priority: High)
 1. **Fix probe size mismatch** — Integration test now blocked on `N=128` vs `probe.shape=(64,64)` mismatch
    - Root cause: Configuration bridge or dataset probe size mismatch
-   - Create new fix_plan.md entry: `[INTEGRATE-PYTORCH-001-PROBE-SIZE]`
+   - ✅ Ledger entry created: `[INTEGRATE-PYTORCH-001-PROBE-SIZE]` (docs/fix_plan.md)
 
 2. **Update phase_e2_implementation.md** — Mark D2 task complete, document dataloader green status
 
