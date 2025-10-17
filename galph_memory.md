@@ -111,3 +111,13 @@
 - Steering memo: Rewrote `input.md` instructing Ralph to author the failing test with xfail guard, capture pytest output, and document the red state per TDD.
 - Next engineer steps: create `tests/torch/test_config_bridge.py`, run targeted pytest (expect fail), populate `failing_test.md` + `pytest.log`, and document any blocking decisions in scope_notes.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T034900Z: B3 Implementation Directive
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B3 config bridge implementation; Action type: Review/housekeeping; Mode: TDD.
+- Ran findings check (`rg "PyTorch" docs/findings.md`) — no prior ledger entries; proceeded using spec + plan sources.
+- Marked B.B2 complete and refreshed Phase B table (`plans/active/INTEGRATE-PYTORCH-001/implementation.md:31-48`) so the plan reflects the authored failing test.
+- Logged Attempt #8 in docs/fix_plan.md noting the upcoming implementation loop and pointing to artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T034800Z/`.
+- Rewrote input.md directing Ralph to implement `ptycho_torch.config_bridge` against the MVP nine-field contract (see failing_test.md) and to capture pytest output + bridge notes.
+- Created report stub `bridge_notes.md` under the new timestamped directory for implementation artifacts.
+- Expectation for Ralph: ship adapter, remove test xfail, run targeted pytest (accept skip if torch unavailable), document decisions in bridge_notes.md.
+- <Action State>: [ready_for_implementation]

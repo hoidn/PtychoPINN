@@ -1,44 +1,39 @@
-Summary: Author a minimal failing PyTorch↔spec config bridge test covering the 9 MVP fields.
+Summary: Implement the MVP PyTorch→spec config bridge so the Phase B.B2 test goes green.
 Mode: TDD
 Focus: INTEGRATE-PYTORCH-001 — Prepare for PyTorch Backend Integration with Ptychodus
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_config_bridge.py -k mvp -v (expected FAIL)
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T033500Z/{failing_test.md,pytest.log}
-Do Now: INTEGRATE-PYTORCH-001 Attempt #6 — Phase B.B2 failing test; author `tests/torch/test_config_bridge.py::test_mvp_config_bridge_populates_params_cfg` that exercises the PyTorch configs via the expected adapter stubs, then run `pytest tests/torch/test_config_bridge.py -k mvp -v` to confirm it fails.
-If Blocked: Capture decisions + partial attempts in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T033500Z/failing_test.md`, update scope_notes.md with the blocker, and log it under Attempt #6 in docs/fix_plan.md before stopping.
+Mapped tests: pytest tests/torch/test_config_bridge.py -k mvp -v
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T034800Z/{bridge_notes.md,pytest.log}
+Do Now: INTEGRATE-PYTORCH-001 Attempt #8 — Phase B.B3 implement `ptycho_torch.config_bridge` so `tests/torch/test_config_bridge.py::TestConfigBridgeMVP::test_mvp_config_bridge_populates_params_cfg` passes; run `pytest tests/torch/test_config_bridge.py -k mvp -v` and capture output to the artifact log.
+If Blocked: Document partial results + blockers in bridge_notes.md, keep pytest output (even if skipped) in pytest.log, and update docs/fix_plan Attempt #8 before stopping.
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/implementation.md:44-49 — Phase B.B2 mandates a failing test before bridge implementation, including the new adapter API.
-- specs/ptychodus_api_spec.md:61-149 — Defines how `update_legacy_dict` must populate `params.cfg`; the test locks in that contract.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T032218Z/scope_notes.md:38-170 — Source of the 9-field MVP checklist and open questions to document if assertions need clarification.
-- docs/TESTING_GUIDE.md:153-161 — Reinforces the Red-Green-Refactor loop we must follow.
-- docs/findings.md:9 — CONFIG-001 highlights why params.cfg population is critical; the test should currently fail on that gap.
+- plans/active/INTEGRATE-PYTORCH-001/implementation.md:31-48 — Phase B.B3 is now the top priority and depends on the B.B2 test you just authored.
+- specs/ptychodus_api_spec.md:61-149 — Spec mandates that `update_legacy_dict` is the only supported way to program params.cfg; the adapter must satisfy this contract.
+- plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/open_questions.md:11-26 — Q1 favours eventual shared dataclasses, so keep the bridge modular for a future handoff.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T033500Z/failing_test.md:11-118 — Failing test spells out the nine MVP fields and override flow you must support.
+- docs/findings.md:9 — CONFIG-001 reminds us to populate params.cfg via the bridge before any legacy caller runs.
 How-To Map:
-- Add `tests/torch/test_config_bridge.py` and import at module scope: `Path` (pathlib), `pytest`, `ptycho.params`, `update_legacy_dict`, `ModelConfig`, `TrainingConfig`, `InferenceConfig` (from `ptycho.config.config`), plus the PyTorch configs `DataConfig`, `ModelConfig as PTModelConfig`, `TrainingConfig as PTTrainingConfig`, `InferenceConfig as PTInferenceConfig` (from `ptycho_torch.config_params`). Keep adapter imports inside the test body to avoid module-level ImportError.
-- Within `test_mvp_config_bridge_populates_params_cfg()`, instantiate PyTorch configs with MVP-aligned values: `pt_data = DataConfig(N=128, grid_size=(2, 2), nphotons=1e9, K=7)`, `pt_model = PTModelConfig(mode='Unsupervised')`, `pt_train = PTTrainingConfig(epochs=1)`, `pt_infer = PTInferenceConfig(batch_size=1)`.
-- Inside the test, attempt to import the adapter module: `from ptycho_torch import config_bridge` (wrap in try/except so the failure happens under xfail). Expect helper functions `to_model_config`, `to_training_config`, `to_inference_config`; call them as follows:
-  - `spec_model = config_bridge.to_model_config(pt_data, pt_model)`
-  - `spec_train = config_bridge.to_training_config(spec_model, pt_data, pt_train, overrides=dict(train_data_file=Path('train.npz'), n_groups=512, neighbor_count=7, nphotons=1e9))`
-  - `spec_infer = config_bridge.to_inference_config(spec_model, pt_data, pt_infer, overrides=dict(model_path=Path('model_dir'), test_data_file=Path('test.npz'), n_groups=512, neighbor_count=7))`
-- Use `params_snapshot = dict(params.cfg)` and `try/finally` to restore global state after assertions. Call `update_legacy_dict(params.cfg, spec_train)` followed by `update_legacy_dict(params.cfg, spec_infer)`.
-- Assert that `params.cfg` matches MVP expectations (values and types) for keys: `'N'`, `'gridsize'`, `'model_type'`, `'train_data_file_path'`, `'test_data_file_path'`, `'model_path'`, `'n_groups'`, `'neighbor_count'`, `'nphotons'`.
-- Decorate the test with `@pytest.mark.xfail(strict=True, reason="PyTorch config bridge missing MVP translations")`; inside the `except ModuleNotFoundError` / `AttributeError` block call `pytest.xfail` with the caught error to register the current failure pathway.
-- Run `pytest tests/torch/test_config_bridge.py -k mvp -v` from repo root and pipe output to `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T033500Z/pytest.log` (e.g., `pytest ... | tee plans/.../pytest.log`).
-- Summarize the failure mode (ImportError or assertion diffs), command, and exit code in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T033500Z/failing_test.md`.
+- Add `ptycho_torch/config_bridge.py` that exposes `to_model_config`, `to_training_config`, and `to_inference_config` helpers. Each should accept the existing singleton configs plus `overrides: dict | None`, consolidate values into kwargs, and return the corresponding TensorFlow dataclass (`ModelConfig`, `TrainingConfig`, `InferenceConfig`).
+- Implement tuple/enum translations: convert `DataConfig.grid_size` to `gridsize`, map `ModelConfig.mode` to `model_type` (`'Unsupervised'→'pinn'`, `'Supervised'→'supervised'`), lift `TrainingConfig.epochs` into `nepochs`, and pass `DataConfig.K` through to `neighbor_count`. Ensure overrides win last.
+- Keep bridge functions side-effect free; defer all `update_legacy_dict` calls to the caller (the test will run them). Use helper functions or dataclasses.replace to avoid mutating the PyTorch singletons.
+- Update `tests/torch/test_config_bridge.py` by removing the xfail marker so the test enforces the new implementation; retain params.cfg snapshot/restore logic. Add a `pytest.mark.torch` marker if you want the skip reasoning to stay explicit.
+- Run `pytest tests/torch/test_config_bridge.py -k mvp -v 2>&1 | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T034800Z/pytest.log` once. If PyTorch is still unavailable, note the skip message and confirm adapter import by a smoke check in bridge_notes.md.
+- Summarize design decisions, mapping tables, and any follow-up (e.g., prep for full dataclass refactor) in `bridge_notes.md`.
 Pitfalls To Avoid:
-- Don’t implement the adapter functions yet; this loop must remain red.
-- Avoid mutating existing PyTorch or TensorFlow config definitions.
-- Do not leave `params.cfg` dirty—restore the snapshot in the finally block.
-- Skip broad pytest runs; execute only the targeted selector.
-- Don’t bypass the adapter by instantiating TensorFlow configs directly—the test must exercise the PyTorch entry path.
-- Keep artifact names and timestamp directory exactly as specified.
-- Capture the full traceback in the report instead of paraphrasing it.
-- Avoid GPU/device assumptions; keep the test CPU-only.
-- Ensure the test lives under `tests/torch/` and follows naming conventions for discovery.
-- Leave the xfail in place until implementation completes in a later loop.
+- Do not mutate `ptycho_torch/config_params.py` singletons in place; build dataclass kwargs from copies.
+- Don’t call `update_legacy_dict` inside the bridge helpers—callers manage ordering.
+- Keep params.cfg clean; rely on the existing test fixture snapshot/restore behaviour.
+- Avoid baking in non-square grid assumptions beyond what the spec already enforces (document any limitations).
+- No broad pytest runs or CI suite—just the targeted selector above.
+- Preserve ASCII-only content and adhere to repo formatting conventions.
+- Leave the MVP scope intact; defer additional fields to Phase B.B4.
+- Respect the existing artifact path and don’t rename files.
+- Capture actual command output even if pytest skips so we can spot environment gaps.
+- Keep the module import-safe (no heavy imports at module scope beyond what’s required for typing).
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/implementation.md:44-49
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T032218Z/config_schema_map.md:1-307
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T032218Z/scope_notes.md:38-170
-- specs/ptychodus_api_spec.md:61-147
-- docs/DEVELOPER_GUIDE.md:603-640
-Next Up: Phase B.B3 — implement the MVP adapter + bridge once the failing test is documented.
+- plans/active/INTEGRATE-PYTORCH-001/implementation.md:31-48
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T033500Z/failing_test.md:11-199
+- specs/ptychodus_api_spec.md:61-149
+- plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/open_questions.md:11-26
+- tests/torch/test_config_bridge.py:20-153
+Next Up: Once green, move to Phase B.B4 to extend parity coverage across the remaining config fields.
