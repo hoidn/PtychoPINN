@@ -1,0 +1,276 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models FAILED [100%]
+
+=================================== FAILURES ===================================
+_______ TestWorkflowsComponentsRun.test_run_cdi_example_persists_models ________
+
+obj = <module 'ptycho_torch.workflows.components' from '/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py'>
+name = 'save_torch_bundle', ann = 'ptycho_torch.workflows.components'
+
+    def annotated_getattr(obj: object, name: str, ann: str) -> object:
+        try:
+>           obj = getattr(obj, name)
+                  ^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'ptycho_torch.workflows.components' has no attribute 'save_torch_bundle'
+
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/monkeypatch.py:90: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_workflows_components.TestWorkflowsComponentsRun object at 0x7e5cbd3b0ad0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7e5cca5b7f10>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-576/test_run_cdi_example_persists_0')
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...e_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False)
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7e5bfc1f9f50>
+
+    def test_run_cdi_example_persists_models(
+        self,
+        monkeypatch,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        REGRESSION TEST: run_cdi_example_torch must persist models when config.output_dir set.
+    
+        Requirement: Phase D4.B2 — validate PyTorch orchestration maintains persistence
+        parity with TensorFlow baseline per specs/ptychodus_api_spec.md:§4.6.
+    
+        TensorFlow baseline (ptycho/workflows/components.py:709-723):
+        - When config.output_dir is provided, calls save_model() or ModelManager.save()
+        - Produces wts.h5.zip archive in output_dir with dual-model bundle
+        - Persistence happens after training completes successfully
+    
+        Red-phase expectation:
+        - run_cdi_example_torch currently does NOT call save_torch_bundle
+        - Once Phase D4.C1 complete, SHOULD invoke save_torch_bundle when output_dir set
+        - Test will FAIL until orchestration wiring is complete
+    
+        Test mechanism:
+        - Monkeypatch save_torch_bundle to spy on invocation
+        - Set config.output_dir to tmp_path
+        - Call run_cdi_example_torch
+        - Validate save_torch_bundle was called with correct models dict + base_path
+        """
+        # Import the module under test
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import TrainingConfig, ModelConfig
+    
+        # Spy flag to track save_torch_bundle invocation
+        save_torch_bundle_called = {"called": False, "args": None, "kwargs": None}
+    
+        def mock_save_torch_bundle(models_dict, base_path, config, **kwargs):
+            """Spy that records save_torch_bundle invocation."""
+            save_torch_bundle_called["called"] = True
+            save_torch_bundle_called["args"] = (models_dict, base_path, config)
+            save_torch_bundle_called["kwargs"] = kwargs
+    
+        # Monkeypatch save_torch_bundle
+>       monkeypatch.setattr(
+            "ptycho_torch.workflows.components.save_torch_bundle",
+            mock_save_torch_bundle
+        )
+
+tests/torch/test_workflows_components.py:531: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/monkeypatch.py:104: in derive_importpath
+    annotated_getattr(target, attr, ann=module)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+obj = <module 'ptycho_torch.workflows.components' from '/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py'>
+name = 'save_torch_bundle', ann = 'ptycho_torch.workflows.components'
+
+    def annotated_getattr(obj: object, name: str, ann: str) -> object:
+        try:
+            obj = getattr(obj, name)
+        except AttributeError as e:
+>           raise AttributeError(
+                f"{type(obj).__name__!r} object at {ann} has no attribute {name!r}"
+            ) from e
+E           AttributeError: 'module' object at ptycho_torch.workflows.components has no attribute 'save_torch_bundle'
+
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/monkeypatch.py:92: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+No GPU found, using CPU instead.
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+---------------------------- Captured stderr setup -----------------------------
+2025-10-17 10:03:16.822052: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760720596.833150 3754617 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760720596.836835 3754617 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760720596.847640 3754617 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760720596.847657 3754617 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760720596.847659 3754617 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760720596.847661 3754617 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 10:03:16.850341: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-17 10:03:19.071546: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-17 10:03:19.071586: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-17 10:03:19.071592: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-17 10:03:19.071596: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-17 10:03:19.071600: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-17 10:03:19.071602: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-17 10:03:19.071627: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-17 10:03:19.071643: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-17 10:03:19.071646: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models - AttributeError: 'module' object at ptycho_torch.workflows.components has no attribute 'save_torch_bundle'
+============================== 1 failed in 3.72s ===============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_load_inference_bundle_handles_bundle FAILED [100%]
+
+=================================== FAILURES ===================================
+_____ TestWorkflowsComponentsRun.test_load_inference_bundle_handles_bundle _____
+
+obj = <module 'ptycho_torch.workflows.components' from '/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py'>
+name = 'load_torch_bundle', ann = 'ptycho_torch.workflows.components'
+
+    def annotated_getattr(obj: object, name: str, ann: str) -> object:
+        try:
+>           obj = getattr(obj, name)
+                  ^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'ptycho_torch.workflows.components' has no attribute 'load_torch_bundle'
+
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/monkeypatch.py:90: AttributeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_workflows_components.TestWorkflowsComponentsRun object at 0x70f045f797d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f04a3a0710>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-577/test_load_inference_bundle_han0')
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...e_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False)
+
+    def test_load_inference_bundle_handles_bundle(
+        self,
+        monkeypatch,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config
+    ):
+        """
+        REGRESSION TEST: load_inference_bundle_torch must delegate to load_torch_bundle.
+    
+        Requirement: Phase D4.B2 — validate PyTorch inference loading maintains parity
+        with TensorFlow baseline per specs/ptychodus_api_spec.md:§4.5.
+    
+        TensorFlow baseline (ptycho/workflows/components.py:94-174):
+        - load_inference_bundle unpacks wts.h5.zip via ModelManager.load_multiple_models
+        - Restores params.cfg before model reconstruction (CONFIG-001)
+        - Returns (models_dict, params_dict) tuple
+    
+        Red-phase expectation:
+        - load_inference_bundle_torch currently raises NotImplementedError
+        - Once Phase D4.C2 complete, SHOULD invoke load_torch_bundle shim
+        - Test will FAIL until loader delegation is wired
+    
+        Test mechanism:
+        - Monkeypatch load_torch_bundle to spy on invocation
+        - Call load_inference_bundle_torch with bundle path
+        - Validate load_torch_bundle was called with correct base_path
+        - Validate params.cfg was updated via CONFIG-001 gate
+        """
+        # Import the module under test
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho import params
+    
+        # Spy flag to track load_torch_bundle invocation
+        load_torch_bundle_called = {"called": False, "args": None}
+    
+        def mock_load_torch_bundle(base_path, model_name='diffraction_to_obj'):
+            """Spy that records load_torch_bundle invocation."""
+            load_torch_bundle_called["called"] = True
+            load_torch_bundle_called["args"] = (base_path, model_name)
+    
+            # Simulate params.cfg restoration (CONFIG-001 requirement)
+            restored_params = {
+                'N': 64,
+                'gridsize': 2,
+                'model_type': 'pinn',
+                'nphotons': 1e9,
+            }
+            params.cfg.update(restored_params)
+    
+            # Return sentinel model + params
+            return (
+                {'_sentinel': 'loaded_model'},
+                restored_params
+            )
+    
+        # Monkeypatch load_torch_bundle
+>       monkeypatch.setattr(
+            "ptycho_torch.workflows.components.load_torch_bundle",
+            mock_load_torch_bundle
+        )
+
+tests/torch/test_workflows_components.py:662: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/monkeypatch.py:104: in derive_importpath
+    annotated_getattr(target, attr, ann=module)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+obj = <module 'ptycho_torch.workflows.components' from '/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py'>
+name = 'load_torch_bundle', ann = 'ptycho_torch.workflows.components'
+
+    def annotated_getattr(obj: object, name: str, ann: str) -> object:
+        try:
+            obj = getattr(obj, name)
+        except AttributeError as e:
+>           raise AttributeError(
+                f"{type(obj).__name__!r} object at {ann} has no attribute {name!r}"
+            ) from e
+E           AttributeError: 'module' object at ptycho_torch.workflows.components has no attribute 'load_torch_bundle'
+
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/monkeypatch.py:92: AttributeError
+---------------------------- Captured stderr setup -----------------------------
+2025-10-17 10:03:30.463589: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760720610.474742 3754786 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760720610.478561 3754786 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760720610.489380 3754786 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760720610.489403 3754786 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760720610.489406 3754786 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760720610.489408 3754786 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 10:03:30.492053: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-10-17 10:03:32.575005: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-17 10:03:32.575044: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-17 10:03:32.575051: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-17 10:03:32.575055: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-17 10:03:32.575059: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-17 10:03:32.575062: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-17 10:03:32.575089: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-17 10:03:32.575104: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-17 10:03:32.575108: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_load_inference_bundle_handles_bundle - AttributeError: 'module' object at ptycho_torch.workflows.components has no attribute 'load_torch_bundle'
+============================== 1 failed in 3.73s ===============================
