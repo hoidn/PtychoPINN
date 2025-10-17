@@ -245,29 +245,84 @@ class TestDataContainerParity:
         assert tf_container.X.shape == (10, 64, 64, 4), "TensorFlow X shape mismatch"
         assert tf_container.Y.dtype == tf.complex64, "TensorFlow Y dtype mismatch"
 
-        # TODO (Phase C.C2): Implement PtychoDataContainerTorch
-        # Expected implementation:
-        #   from ptycho_torch.data_container import PtychoDataContainerTorch
-        #   pt_container = PtychoDataContainerTorch.from_raw_data(...)
-        #
-        # Expected assertions (API parity):
-        #   assert hasattr(pt_container, 'X')
-        #   assert hasattr(pt_container, 'Y')
-        #   assert hasattr(pt_container, 'coords_nominal')
-        #   assert pt_container.X.shape == tf_container.X.shape
-        #   if TORCH_AVAILABLE:
-        #       assert isinstance(pt_container.X, torch.Tensor)
-        #   else:
-        #       assert isinstance(pt_container.X, np.ndarray)
+        # Phase C.C2: Implement PtychoDataContainerTorch
+        from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
-        pytest.fail(
-            "PtychoDataContainerTorch not yet implemented (Phase C.C2). "
-            "Expected module: ptycho_torch/data_container.py or loader_bridge.py. "
-            "Required attributes per data_contract.md §3: "
-            "X, Y, Y_I, Y_phi, coords_nominal, probe, nn_indices, global_offsets. "
-            "See plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md §3 "
-            "for complete attribute table with shapes and dtypes."
+        # Create configuration for adapter
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9
         )
+
+        # Create PyTorch adapter and generate grouped data
+        pt_raw = RawDataTorch(
+            xcoords=minimal_raw_data.xcoords,
+            ycoords=minimal_raw_data.ycoords,
+            diff3d=minimal_raw_data.diff3d,
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=np.arange(len(minimal_raw_data.xcoords), dtype=np.int32),
+            objectGuess=minimal_raw_data.objectGuess,
+            config=config
+        )
+        pt_grouped = pt_raw.generate_grouped_data(N=64, K=4, nsamples=10, gridsize=2)
+
+        # Create PyTorch container
+        pt_container = PtychoDataContainerTorch(pt_grouped, minimal_raw_data.probeGuess)
+
+        # API parity assertions: PyTorch container must expose same attributes
+        assert hasattr(pt_container, 'X'), "PyTorch container missing X"
+        assert hasattr(pt_container, 'Y'), "PyTorch container missing Y"
+        assert hasattr(pt_container, 'Y_I'), "PyTorch container missing Y_I"
+        assert hasattr(pt_container, 'Y_phi'), "PyTorch container missing Y_phi"
+        assert hasattr(pt_container, 'coords_nominal'), "PyTorch container missing coords_nominal"
+        assert hasattr(pt_container, 'coords_true'), "PyTorch container missing coords_true"
+        assert hasattr(pt_container, 'coords'), "PyTorch container missing coords (alias)"
+        assert hasattr(pt_container, 'probe'), "PyTorch container missing probe"
+        assert hasattr(pt_container, 'nn_indices'), "PyTorch container missing nn_indices"
+        assert hasattr(pt_container, 'global_offsets'), "PyTorch container missing global_offsets"
+        assert hasattr(pt_container, 'local_offsets'), "PyTorch container missing local_offsets"
+
+        # Shape parity
+        assert pt_container.X.shape == (10, 64, 64, 4), \
+            f"PyTorch X shape mismatch: {pt_container.X.shape}"
+        assert pt_container.Y.shape == (10, 64, 64, 4), \
+            f"PyTorch Y shape mismatch: {pt_container.Y.shape}"
+        assert pt_container.Y_I.shape == (10, 64, 64, 4), \
+            f"PyTorch Y_I shape mismatch: {pt_container.Y_I.shape}"
+        assert pt_container.Y_phi.shape == (10, 64, 64, 4), \
+            f"PyTorch Y_phi shape mismatch: {pt_container.Y_phi.shape}"
+        assert pt_container.coords_nominal.shape == (10, 1, 2, 4), \
+            f"PyTorch coords_nominal shape mismatch: {pt_container.coords_nominal.shape}"
+        assert pt_container.probe.shape == (64, 64), \
+            f"PyTorch probe shape mismatch: {pt_container.probe.shape}"
+        assert pt_container.nn_indices.shape == (10, 4), \
+            f"PyTorch nn_indices shape mismatch: {pt_container.nn_indices.shape}"
+        assert pt_container.global_offsets.shape == (10, 1, 2, 1), \
+            f"PyTorch global_offsets shape mismatch: {pt_container.global_offsets.shape}"
+
+        # Dtype parity (torch-optional)
+        if TORCH_AVAILABLE:
+            assert isinstance(pt_container.X, (torch.Tensor, np.ndarray)), \
+                f"PyTorch X type mismatch: {type(pt_container.X)}"
+            assert isinstance(pt_container.Y, (torch.Tensor, np.ndarray)), \
+                f"PyTorch Y type mismatch: {type(pt_container.Y)}"
+        else:
+            assert isinstance(pt_container.X, np.ndarray), \
+                f"NumPy fallback X type mismatch: {type(pt_container.X)}"
+            assert isinstance(pt_container.Y, np.ndarray), \
+                f"NumPy fallback Y type mismatch: {type(pt_container.Y)}"
+
+        # Critical DATA-001 validation: Y must be complex64
+        if TORCH_AVAILABLE and isinstance(pt_container.Y, torch.Tensor):
+            assert pt_container.Y.dtype == torch.complex64, \
+                f"DATA-001 violation: PyTorch Y dtype must be torch.complex64, got {pt_container.Y.dtype}"
+        else:
+            assert pt_container.Y.dtype == np.complex64, \
+                f"DATA-001 violation: NumPy Y dtype must be complex64, got {pt_container.Y.dtype}"
 
 
 class TestGroundTruthLoading:
@@ -310,16 +365,39 @@ class TestGroundTruthLoading:
         assert tf_container.Y.dtype == tf.complex64, \
             "TensorFlow Y dtype violated data contract (CRITICAL)"
 
-        # TODO (Phase C.C2/C.C3): Validate PyTorch container Y dtype
-        # Expected assertion:
-        #   if TORCH_AVAILABLE:
-        #       assert pt_container.Y.dtype == torch.complex64
-        #   else:
-        #       assert pt_container.Y.dtype == np.complex64
+        # Phase C.C2/C.C3: Validate PyTorch container Y dtype
+        from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
-        pytest.fail(
-            "PyTorch container Y dtype validation not yet implemented (Phase C.C2/C.C3). "
-            "CRITICAL requirement per DATA-001 finding: Y MUST be complex64. "
-            "Historical silent float64 conversion caused major training failure. "
-            "See docs/findings.md:DATA-001 and specs/data_contracts.md:19."
+        # Create configuration and adapter
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9
         )
+
+        pt_raw = RawDataTorch(
+            xcoords=minimal_raw_data.xcoords,
+            ycoords=minimal_raw_data.ycoords,
+            diff3d=minimal_raw_data.diff3d,
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=np.arange(len(minimal_raw_data.xcoords), dtype=np.int32),
+            objectGuess=minimal_raw_data.objectGuess,
+            config=config
+        )
+        pt_grouped = pt_raw.generate_grouped_data(N=64, K=4, nsamples=10, gridsize=2)
+        pt_container = PtychoDataContainerTorch(pt_grouped, minimal_raw_data.probeGuess)
+
+        # CRITICAL DATA-001 validation
+        if TORCH_AVAILABLE and isinstance(pt_container.Y, torch.Tensor):
+            assert pt_container.Y.dtype == torch.complex64, \
+                f"DATA-001 violation: PyTorch Y must be torch.complex64, got {pt_container.Y.dtype}. " \
+                f"Historical silent float64 conversion caused major training failure. " \
+                f"See docs/findings.md:DATA-001 and specs/data_contracts.md:19."
+        else:
+            assert pt_container.Y.dtype == np.complex64, \
+                f"DATA-001 violation: NumPy Y must be complex64, got {pt_container.Y.dtype}. " \
+                f"Historical silent float64 conversion caused major training failure. " \
+                f"See docs/findings.md:DATA-001 and specs/data_contracts.md:19."

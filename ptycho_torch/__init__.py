@@ -9,6 +9,7 @@ Public Exports:
 ---------------
 - config_bridge: Configuration translation utilities (PyTorch to TensorFlow dataclasses)
 - raw_data_bridge: Torch-optional RawDataTorch adapter
+- data_container_bridge: Torch-optional PtychoDataContainerTorch for model-ready tensors
 """
 
 # Torch-optional imports (per CLAUDE.md:57-59)
@@ -29,10 +30,14 @@ from ptycho_torch.config_bridge import (
 # Always export raw_data_bridge (torch-optional per Phase C.C1)
 from ptycho_torch.raw_data_bridge import RawDataTorch
 
+# Always export data_container_bridge (torch-optional per Phase C.C2)
+from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+
 __all__ = [
     'to_model_config',
     'to_training_config',
     'to_inference_config',
     'RawDataTorch',
+    'PtychoDataContainerTorch',
     'TORCH_AVAILABLE',
 ]
