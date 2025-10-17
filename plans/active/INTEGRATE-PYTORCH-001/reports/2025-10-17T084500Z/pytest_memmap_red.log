@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 5 items / 3 deselected / 2 selected
+
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_memmap_loader_matches_raw_data_torch SKIPPED [ 50%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_cache_reuse_validation SKIPPED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_data_pipeline.py:451: TBD: Implementation pending - memmap bridge adapter not yet created
+SKIPPED [1] tests/torch/test_data_pipeline.py:508: TBD: Implementation pending - memmap bridge adapter not yet created
+======================= 2 skipped, 3 deselected in 3.69s =======================

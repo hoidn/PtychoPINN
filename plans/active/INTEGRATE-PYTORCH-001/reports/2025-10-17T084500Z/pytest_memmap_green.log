@@ -1,0 +1,91 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 5 items / 3 deselected / 2 selected
+
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_memmap_loader_matches_raw_data_torch PASSED [ 50%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_cache_reuse_validation FAILED [100%]
+
+=================================== FAILURES ===================================
+______________ TestMemmapBridgeParity.test_cache_reuse_validation ______________
+
+self = <test_data_pipeline.TestMemmapBridgeParity object at 0x78fc2bf0ded0>
+params_cfg_snapshot = None
+minimal_npz_file = PosixPath('/tmp/pytest-of-ollie/pytest-560/test_cache_reuse_validation0/test_dataset.npz')
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-560/test_cache_reuse_validation0')
+
+    def test_cache_reuse_validation(self, params_cfg_snapshot, minimal_npz_file, tmp_path):
+        """
+        Validate cache reuse across dataset instantiations.
+    
+        Expected behavior (Phase C.D2):
+        - First instantiation creates .groups_cache.npz (via TensorFlow RawData)
+        - Second instantiation reuses existing cache without recomputation
+        - Cache validation: timestamp comparison demonstrates reuse
+    
+        Test source: memmap_bridge_analysis.md §5, phase_c_data_pipeline.md C.D2
+        """
+        from ptycho_torch.memmap_bridge import MemmapDatasetBridge
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        import time
+    
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9
+        )
+    
+        # First instantiation - creates cache
+        bridge1 = MemmapDatasetBridge(
+            npz_path=minimal_npz_file,
+            config=config,
+            memmap_dir=str(tmp_path / "memmap_cache")
+        )
+        grouped1 = bridge1.get_grouped_data(N=64, K=4, nsamples=10, gridsize=2, seed=42)
+    
+        # Capture cache state
+        # Note: TensorFlow RawData creates .groups_cache.npz in the same directory as the NPZ file
+        cache_path = minimal_npz_file.parent / f"{minimal_npz_file.stem}.g2k4.groups_cache.npz"
+    
+        # Verify cache was created
+>       assert cache_path.exists(), \
+            f"Cache file not created at {cache_path}. TensorFlow RawData should create .groups_cache.npz"
+E       AssertionError: Cache file not created at /tmp/pytest-of-ollie/pytest-560/test_cache_reuse_validation0/test_dataset.g2k4.groups_cache.npz. TensorFlow RawData should create .groups_cache.npz
+E       assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-560/test_cache_reuse_validation0/test_dataset.g2k4.groups_cache.npz').exists
+
+tests/torch/test_data_pipeline.py:549: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (100, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (100,)
+objectGuess shape: (128, 128)
+xcoords shape: (100,)
+ycoords shape: (100,)
+xcoords_start shape: (100,)
+ycoords_start shape: (100,)
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+=========================== short test summary info ============================
+FAILED tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_cache_reuse_validation - AssertionError: Cache file not created at /tmp/pytest-of-ollie/pytest-560/test_cache_reuse_validation0/test_dataset.g2k4.groups_cache.npz. TensorFlow RawData should create .groups_cache.npz
+assert False
+ +  where False = exists()
+ +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-560/test_cache_reuse_validation0/test_dataset.g2k4.groups_cache.npz').exists
+================== 1 failed, 1 passed, 3 deselected in 5.51s ===================
