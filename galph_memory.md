@@ -157,3 +157,14 @@
 - Ledger: Added Attempt #14 documenting the planning handoff; refreshed `input.md` directing Ralph to execute Phase A and capture `pytest_phaseA.log`.
 - Follow-up for Ralph: Implement torch-optional import shim, update pytest gating per plan, run targeted selector, then proceed with probe_mask/nphotons fixes per Phase B.
 - <Action State>: [planning]
+
+## 2025-10-17T050007Z: Phase B.B5 P0 Evidence Pass
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B5 (probe_mask/nphotons blockers)
+- Action type: Evidence collection
+- Mode: Parity
+- Coin flip (heads): Reviewed last commits (`70b4c60`, `ecdd8a9`) — Ralph landed torch-optional shim + pytest log capture; parity tests now run but still failing, no regressions observed.
+- Findings: Captured new artifacts in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T045706Z/` (evidence_summary.md, pytest_param_failure.log, bridge_probe_mask_check.log). Verified parametrized tests fail due to unittest inheritance; confirmed `params.cfg['model_path']` stays `PosixPath`; noted probe_mask hardcoded False and nphotons default not enforced.
+- Plan updates: `plans/active/INTEGRATE-PYTORCH-001/implementation.md` B5 row now references the evidence summary; docs/fix_plan.md logged Attempt #16 with artifact links.
+- Steering: Reissued `input.md` directing Ralph to convert parity tests to pytest style, normalize path/probe_mask/nphotons handling, and capture green pytest logs under `2025-10-17T045936Z`.
+- Follow-up for Ralph: Implement P0 fixes per evidence summary, rerun targeted selectors, update reports + ledger, then proceed to n_subsample semantics once green.
+- <Action State>: [ready_for_implementation]
