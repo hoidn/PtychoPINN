@@ -216,3 +216,17 @@
 - Steering: Rewrote `input.md` directing Ralph to implement the baseline comparison test, capture targeted pytest output in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061500Z/`, and document diffs if the comparison fails.
 - Follow-up for Ralph: Add the pytest case per blueprint, run the targeted selector, archive logs/diffs under the new timestamp, and update the ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T062734Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D.D2 override matrix alignment
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections before doc updates per instructions.
+
+- Verified Attempt #24 artifacts; baseline comparison test is green and confirms config bridge parity across spec §§5.1–5.3.
+- Updated `plans/active/INTEGRATE-PYTORCH-001/implementation.md` (B5 row) and `parity_green_plan.md` (Phase D + checklist) to mark D1 complete and point D2 at new artifacts.
+- Authored supervisor note `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T062820Z/plan_update.md` capturing surviving overrides and documentation goals for D2/D3.
+- Reissued `input.md` directing Ralph to produce `override_matrix.md` and warning notes under `2025-10-17T063400Z/` in preparation for parity plan D2.
+- docs/fix_plan.md now logs Attempt #25 with links to the new plan update; no tests run this loop.
+- Follow-up for Ralph: populate override_matrix.md, document warning repro steps, then proceed to D3 warning tests once matrix exists.
+- <Action State>: [ready_for_implementation]
