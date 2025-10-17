@@ -113,9 +113,9 @@ class TestRawDataTorchAdapter:
         Test source: data_contract.md:110-176
         ROI: N=64, gridsize=2, nsamples=10, K=4
         """
-        # Create TensorFlow baseline reference
+        # Create TensorFlow baseline reference (with seed for reproducibility)
         tf_grouped = minimal_raw_data.generate_grouped_data(
-            N=64, K=4, nsamples=10, gridsize=2
+            N=64, K=4, nsamples=10, gridsize=2, seed=42
         )
 
         # Validate baseline conforms to contract (data_contract.md §2)
@@ -126,23 +126,67 @@ class TestRawDataTorchAdapter:
         assert tf_grouped['nn_indices'].shape == (10, 4), \
             "TensorFlow nn_indices shape mismatch"
 
-        # TODO (Phase C.C1): Implement RawDataTorch adapter
-        # Expected implementation:
-        #   from ptycho_torch.raw_data_bridge import RawDataTorch
-        #   pt_raw = RawDataTorch(xcoords, ycoords, diff3d, probe, obj)
-        #   pt_grouped = pt_raw.generate_grouped_data(N=64, K=4, nsamples=10, gridsize=2)
-        #
-        # Expected assertions (parity):
-        #   np.testing.assert_array_equal(tf_grouped['nn_indices'], pt_grouped['nn_indices'])
-        #   np.testing.assert_allclose(tf_grouped['diffraction'], pt_grouped['diffraction'])
-        #   assert tf_grouped['X_full'].shape == pt_grouped['X_full'].shape
+        # Phase C.C1: RawDataTorch adapter implementation
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
-        pytest.fail(
-            "RawDataTorch adapter not yet implemented (Phase C.C1). "
-            "Expected module: ptycho_torch/raw_data_bridge.py. "
-            "Expected delegation: wrapper calls ptycho.raw_data.RawData.generate_grouped_data(). "
-            "See plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md §2 "
-            "for required output dict structure."
+        # Create configuration for adapter (per data_contract.md §6)
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9  # Required per Phase B nphotons validation
+        )
+
+        # Create PyTorch adapter
+        pt_raw = RawDataTorch(
+            xcoords=minimal_raw_data.xcoords,
+            ycoords=minimal_raw_data.ycoords,
+            diff3d=minimal_raw_data.diff3d,
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=np.arange(len(minimal_raw_data.xcoords), dtype=np.int32),
+            objectGuess=minimal_raw_data.objectGuess,
+            config=config  # Initializes params.cfg automatically
+        )
+
+        # Generate grouped data via adapter (with same seed for exact parity)
+        pt_grouped = pt_raw.generate_grouped_data(N=64, K=4, nsamples=10, gridsize=2, seed=42)
+
+        # Parity assertions: PyTorch adapter should match TensorFlow baseline exactly
+        # (per data_contract.md §2 and test_blueprint.md §3)
+
+        # Check shapes (critical for downstream model compatibility)
+        assert tf_grouped['diffraction'].shape == pt_grouped['diffraction'].shape, \
+            f"Diffraction shape mismatch: TF={tf_grouped['diffraction'].shape}, PT={pt_grouped['diffraction'].shape}"
+        assert tf_grouped['X_full'].shape == pt_grouped['X_full'].shape, \
+            f"X_full shape mismatch: TF={tf_grouped['X_full'].shape}, PT={pt_grouped['X_full'].shape}"
+        assert tf_grouped['coords_offsets'].shape == pt_grouped['coords_offsets'].shape, \
+            f"coords_offsets shape mismatch"
+        assert tf_grouped['coords_relative'].shape == pt_grouped['coords_relative'].shape, \
+            f"coords_relative shape mismatch"
+        assert tf_grouped['nn_indices'].shape == pt_grouped['nn_indices'].shape, \
+            f"nn_indices shape mismatch"
+
+        # Check dtypes (DATA-001: complex64 for Y, float32 for diffraction)
+        assert tf_grouped['diffraction'].dtype == pt_grouped['diffraction'].dtype, \
+            "Diffraction dtype mismatch"
+        assert tf_grouped['nn_indices'].dtype == pt_grouped['nn_indices'].dtype, \
+            "nn_indices dtype mismatch"
+
+        # Check exact data parity (delegation should produce identical results)
+        np.testing.assert_array_equal(
+            tf_grouped['nn_indices'], pt_grouped['nn_indices'],
+            err_msg="nn_indices mismatch - delegation failed"
+        )
+        np.testing.assert_allclose(
+            tf_grouped['diffraction'], pt_grouped['diffraction'],
+            rtol=1e-6, atol=1e-9,
+            err_msg="Diffraction values mismatch - delegation failed"
+        )
+        np.testing.assert_allclose(
+            tf_grouped['coords_offsets'], pt_grouped['coords_offsets'],
+            rtol=1e-6, atol=1e-9,
+            err_msg="coords_offsets mismatch"
         )
 
 
