@@ -55,14 +55,15 @@ Exit Criteria: PyTorch training/inference paths ingest `TrainingConfig`/`Inferen
 Goal: Provide PyTorch-ready `RawDataTorch` and `PtychoDataContainerTorch` that satisfy grouping and tensor layout contracts.
 Prereqs: Phase B completed; dataclasses drive configuration.
 Exit Criteria: PyTorch data pipeline outputs match spec shapes/dtypes and pass targeted loader tests.
+Detailed checklist: `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md`.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Specify data contract expectations | [ ] | Summarize required keys/shapes from `specs/data_contracts.md` and `specs/ptychodus_api_spec.md §3` in `reports/<timestamp>/data_contract.md`. |
-| C2 | Draft failing loader test | [ ] | Add pytest case under `tests/torch/test_data_container.py` ensuring amplitude/complex dtype handling and neighbor grouping reuse cached outputs. |
-| C3 | Implement `RawDataTorch` wrapper | [ ] | Mirror `ptycho/raw_data.py:120-380` behaviour; ensure caching semantics align with `docs/architecture.md` data flow figure. |
-| C4 | Implement `PtychoDataContainerTorch` | [ ] | Provide API-compatible tensors for training/inference; document shapes vs. TensorFlow `PtychoDataContainer` in plan. |
-| C5 | Verify memmap + cache lifecycles | [ ] | Capture test run output (expected command `pytest tests/torch/test_data_container.py -k cache`) into reports. |
+| C1 | Specify data contract expectations | [ ] | Execute Phase C.A (tasks C.A1-C.A3) in `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md`; publish `data_contract.md` + `torch_gap_matrix.md` under timestamped reports before writing tests. |
+| C2 | Draft failing loader test | [ ] | Follow Phase C.B (C.B1-C.B3) blueprint in `phase_c_data_pipeline.md`; author torch-optional pytest red cases and archive logs under the same timestamp directory. |
+| C3 | Implement `RawDataTorch` wrapper | [ ] | Deliverables defined in Phase C.C (C.C1) — wrap legacy `ptycho.raw_data.RawData`, enforce config bridge usage, document notes in `implementation_notes.md`. |
+| C4 | Implement `PtychoDataContainerTorch` | [ ] | Complete Phase C.C tasks (C.C2-C.C3) ensuring tensor API parity; reference contract captured in C.A1. |
+| C5 | Verify memmap + cache lifecycles | [ ] | Use Phase C.D (C.D1-C.D3) validation steps; capture pytest logs + cache evidence in reports and update ledger/documents per plan. |
 
 ---
 

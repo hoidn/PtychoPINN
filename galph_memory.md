@@ -242,3 +242,16 @@
 - Summary: Documented train→infer layering diff, captured override behaviour table, and logged targeted pytest evidence for existing guards. Updated implementation B5 row and parity green plan D2 to reflect completion.
 - Next actions for Ralph: execute Phase B.B5.D3 warning coverage per input.md (author failing tests, implement warnings, rerun parity suite).
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T065634Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase C data pipeline parity plan
+- Action type: Planning
+- Mode: Docs
+- Notes: Preparing detailed Phase C execution plan before delegating implementation.
+- <Action State>: [planning]
+
+## 2025-10-17T065926Z: Phase C Plan Ready
+- Created `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md` with phased checklist (C.A–C.E).
+- Updated implementation plan Phase C rows to reference the new checklist; summary recorded in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T065816Z/plan_update.md`.
+- Next directives for Ralph: execute Phase C.A1-C.A2 (data_contract.md + torch_gap_matrix.md) and Phase C.B1 blueprint per `input.md`.
+- <Action State>: [ready_for_implementation]

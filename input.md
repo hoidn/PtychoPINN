@@ -1,36 +1,43 @@
-Summary: Add warning coverage for config fields still lacking override enforcement.
-Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 Phase B.B5.D3 override warnings
-Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_config_bridge.py -k "probe_scale or n_groups" -vv; pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -v
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T064700Z/{summary.md,pytest_probe_scale.log,pytest_parity.log}
+Summary: Capture TensorFlow vs PyTorch data pipeline contract and gap analysis for Phase C kickoff.
+Mode: Docs
+Focus: INTEGRATE-PYTORCH-001 — Phase C.A data pipeline baseline
+Branch: main
+Mapped tests: none — evidence-only
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/{data_contract.md,torch_gap_matrix.md,test_blueprint.md}
 Do Now:
-1. INTEGRATE-PYTORCH-001 B.B5.D3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md — add failing pytest cases covering probe_scale default divergence, missing n_groups override, and missing training test_data_file warning; record red log to plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T064700Z/pytest_probe_scale.log (tests: pytest tests/torch/test_config_bridge.py -k "probe_scale or n_groups or test_data_file" -vv).
-2. INTEGRATE-PYTORCH-001 B.B5.D3 @ plans/active/INTEGRATE-PYTORCH-001/implementation.md — implement adapter warnings/errors so new tests pass; rerun targeted selector and overwrite pytest_probe_scale.log (tests: pytest tests/torch/test_config_bridge.py -k "probe_scale or n_groups or test_data_file" -vv).
-3. INTEGRATE-PYTORCH-001 B.B5.D3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md — capture full parity suite after warnings land and save summary.md + pytest_parity.log (tests: pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -v).
-If Blocked: Capture reproduction script showing which overrides remain `None` using plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T063613Z/train_vs_final_diff.json and log blockers in docs/fix_plan.md Attempts History.
+1. INTEGRATE-PYTORCH-001 (Phase C.A1+C.A2 @ plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md) — produce `data_contract.md` + `torch_gap_matrix.md` in the artifact directory; tests: none.
+2. INTEGRATE-PYTORCH-001 (Phase C.B1 @ plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md) — draft `test_blueprint.md` describing torch-optional pytest structure; tests: none.
+If Blocked: Capture findings and open questions in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/blocked.md`, then log Attempt in docs/fix_plan.md with blockers noted.
 Priorities & Rationale:
-- Override gaps flagged in override_matrix.md (plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T063613Z/override_matrix.md) risk silent divergence.
-- Spec §§5.1–5.3 (specs/ptychodus_api_spec.md) require explicit handling of lifecycle paths (`train_data_file`, `n_groups`).
-- Existing parity plan D3 checklist expects warning coverage before Phase E (plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md).
-- CONFIG-001 finding (docs/findings.md) emphasises keeping params.cfg aligned; missing overrides violate this.
+- specs/data_contracts.md — authoritative NPZ key/dtype contract that Phase C must honor.
+- specs/ptychodus_api_spec.md:§4 — defines RawData/PtychoDataContainer behaviour consumed by Ptychodus.
+- docs/architecture.md:§3 — visual map of RawData → loader pipeline informing parity requirements.
+- plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md — checklist IDs C.A1-C.A3 and C.B1 to complete this loop.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/parity_map.md — Gap #2 context for data pipeline shortfalls.
 How-To Map:
-- Clone new tests from existing parity patterns; prefer pytest-style functions with descriptive ids.
-- Commands: `pytest tests/torch/test_config_bridge.py -k "probe_scale or n_groups or test_data_file" -vv` (red then green), `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -v`.
-- Store logs under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T064700Z/` (red log before fixes, overwrite after green run, plus summary.md capturing warnings implemented and message text).
-- Update `summary.md` with warnings added, message strings, and any follow-up gaps.
-- When adding warnings, keep adapter torch-optional and reuse existing validation patterns (`pytest.raises` with explicit message checks).
+- Read specs/data_contracts.md and specs/ptychodus_api_spec.md to extract required keys, shapes, and cache expectations; summarize in `data_contract.md`.
+- Inspect `ptycho/raw_data.py` and `ptycho/loader.py` to document TensorFlow runtime behaviours (grouping, caching, dtype conversion) in the same file.
+- Review `ptycho_torch/dset_loader_pt_mmap.py`, `ptycho_torch/patch_generator.py`, and config singletons to populate `torch_gap_matrix.md` with actual tensor names/shapes and highlight deltas vs TensorFlow contract.
+- In `test_blueprint.md`, outline module/fixture structure for upcoming pytest module per Phase C.B guidance (torch-optional guards, ROI, expected selectors).
+- Keep notes concise; prefer tables mirroring plan IDs (C.A1-C.A3, C.B1). No tests to run in this loop.
 Pitfalls To Avoid:
-- Do not hard-import torch inside adapter or tests (keep fallback mode working).
-- Avoid mutating global params.cfg outside controlled test fixtures.
-- Keep warning/error messages actionable (specify override syntax as in existing nphotons guard).
-- Do not regress previously green parity tests; rerun full selector after changes.
-- Maintain ASCII in new files; avoid accidental notebook artefacts.
-- Do not remove or relax existing validations (probe_mask, nphotons) while adding new ones.
+- Do not run or modify PyTorch training scripts yet; evidence-only loop.
+- Avoid adding torch imports at module top level in future test designs.
+- Respect canonical NPZ normalization rules (amplitude data only) when proposing fixtures.
+- Do not invent new cache formats—document reuse of `.groups_cache.npz` expectations.
+- Ensure all artifacts live under the specified timestamped directory.
+- Keep docs/fix_plan.md untouched until artifacts are ready to log next attempt.
+- Maintain one focus per loop; defer implementation details to future phases.
+- When quoting spec requirements, cite exact key names to prevent drift.
+- Flag any uncertainties about dataset availability instead of guessing values.
+- Do not mix unittest-style patterns into upcoming pytest blueprint.
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T063613Z/override_matrix.md
-- plans/active/INTEGRATE-PYTORCH-001/implementation.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md
-- ptycho_torch/config_bridge.py
-- tests/torch/test_config_bridge.py
-Next Up: After warning coverage lands, move to Phase D.E1 full parity log capture or pivot to data pipeline parity (Phase C) if still pending.
+- specs/data_contracts.md
+- specs/ptychodus_api_spec.md
+- docs/architecture.md
+- ptycho/raw_data.py
+- ptycho/loader.py
+- ptycho_torch/dset_loader_pt_mmap.py
+- plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md
+Next Up:
+- Phase C.B2-C.B3 — author failing torch-optional tests once the blueprint is approved.
