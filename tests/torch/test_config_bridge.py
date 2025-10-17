@@ -100,6 +100,7 @@ class TestConfigBridgeMVP(unittest.TestCase):
         spec_train = config_bridge.to_training_config(
             spec_model,
             pt_data,
+            pt_model,  # PyTorch ModelConfig for intensity_scale_trainable
             pt_train,
             overrides=dict(
                 train_data_file=Path('train.npz'),

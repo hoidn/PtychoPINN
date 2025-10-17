@@ -37,13 +37,13 @@ Usage:
 
     # Instantiate PyTorch configs
     pt_data = DataConfig(N=128, grid_size=(2, 2), nphotons=1e9, K=7)
-    pt_model = ModelConfig(mode='Unsupervised')
+    pt_model = ModelConfig(mode='Unsupervised', amp_activation='silu')
     pt_train = TrainingConfig(epochs=50)
 
     # Translate to TensorFlow dataclasses
     tf_model = to_model_config(pt_data, pt_model)
     tf_train = to_training_config(
-        tf_model, pt_data, pt_train,
+        tf_model, pt_data, pt_model, pt_train,
         overrides=dict(train_data_file=Path('data.npz'), n_groups=512)
     )
 
@@ -87,6 +87,7 @@ def to_model_config(
     Performs critical field transformations:
     - grid_size tuple → gridsize int (extracts first element, assumes square grids)
     - mode enum → model_type enum ('Unsupervised'→'pinn', 'Supervised'→'supervised')
+    - amp_activation normalization (silu→swish, SiLU→swish)
     - Merges fields from both PyTorch configs into single TensorFlow ModelConfig
 
     Args:
@@ -98,7 +99,7 @@ def to_model_config(
         TensorFlow ModelConfig instance with translated fields
 
     Raises:
-        ValueError: If grid_size is non-square or mode has invalid value
+        ValueError: If grid_size is non-square, mode has invalid value, or activation unknown
     """
     overrides = overrides or {}
 
@@ -122,7 +123,25 @@ def to_model_config(
         )
     model_type = mode_to_model_type[model.mode]
 
+    # Map PyTorch activation names to TensorFlow equivalents
+    activation_mapping = {
+        'silu': 'swish',
+        'SiLU': 'swish',
+        'sigmoid': 'sigmoid',
+        'swish': 'swish',
+        'softplus': 'softplus',
+        'relu': 'relu'
+    }
+    if model.amp_activation not in activation_mapping:
+        raise ValueError(
+            f"Unknown activation '{model.amp_activation}'. "
+            f"Supported values: {list(activation_mapping.keys())}"
+        )
+    amp_activation = activation_mapping[model.amp_activation]
+
     # Build kwargs from PyTorch configs
+    # CRITICAL: Only include fields that exist in TensorFlow ModelConfig
+    # intensity_scale_trainable belongs in TrainingConfig, NOT ModelConfig
     kwargs = {
         # From DataConfig
         'N': data.N,
@@ -131,10 +150,9 @@ def to_model_config(
         # From ModelConfig
         'n_filters_scale': model.n_filters_scale,
         'model_type': model_type,
-        'amp_activation': model.amp_activation,
+        'amp_activation': amp_activation,  # Normalized activation
         'object_big': model.object_big,
         'probe_big': model.probe_big,
-        'intensity_scale_trainable': model.intensity_scale_trainable,
 
         # Default values for fields missing in PyTorch (spec-required)
         'probe_mask': False,  # PyTorch has Optional[Tensor], TensorFlow has bool
@@ -152,6 +170,7 @@ def to_model_config(
 def to_training_config(
     model: TFModelConfig,
     data: DataConfig,
+    pt_model: ModelConfig,
     training: TrainingConfig,
     overrides: Optional[Dict[str, Any]] = None
 ) -> TFTrainingConfig:
@@ -162,11 +181,13 @@ def to_training_config(
     - epochs → nepochs (field rename)
     - K → neighbor_count (semantic mapping)
     - nll bool → nll_weight float (True→1.0, False→0.0)
+    - intensity_scale_trainable from PyTorch ModelConfig (moved to TrainingConfig)
     - Accepts overrides for fields missing in PyTorch (train_data_file, n_groups, etc.)
 
     Args:
         model: TensorFlow ModelConfig (already translated via to_model_config)
         data: PyTorch DataConfig instance (provides K, nphotons)
+        pt_model: PyTorch ModelConfig instance (provides intensity_scale_trainable)
         training: PyTorch TrainingConfig instance (provides epochs, batch_size, nll)
         overrides: Required dict containing train_data_file, n_groups, and other missing fields
 
@@ -174,7 +195,7 @@ def to_training_config(
         TensorFlow TrainingConfig instance with translated fields
 
     Raises:
-        ValueError: If required override fields are missing
+        ValueError: If required override fields (train_data_file) are missing
     """
     overrides = overrides or {}
 
@@ -193,6 +214,9 @@ def to_training_config(
         # From DataConfig
         'neighbor_count': data.K,    # Semantic mapping
         'nphotons': data.nphotons,
+
+        # From PyTorch ModelConfig (belongs in TrainingConfig in TensorFlow)
+        'intensity_scale_trainable': pt_model.intensity_scale_trainable,
 
         # Default values for fields missing in PyTorch
         'mae_weight': 0.0,
@@ -218,6 +242,13 @@ def to_training_config(
     for path_field in ['train_data_file', 'test_data_file', 'output_dir']:
         if path_field in kwargs and isinstance(kwargs[path_field], str):
             kwargs[path_field] = Path(kwargs[path_field])
+
+    # Validate required overrides with actionable error messages
+    if kwargs['train_data_file'] is None:
+        raise ValueError(
+            "train_data_file is required in overrides for TrainingConfig. "
+            "Provide as: overrides=dict(train_data_file=Path('train.npz'))"
+        )
 
     return TFTrainingConfig(**kwargs)
 
@@ -276,10 +307,16 @@ def to_inference_config(
         if path_field in kwargs and isinstance(kwargs[path_field], str):
             kwargs[path_field] = Path(kwargs[path_field])
 
-    # Validate required fields
+    # Validate required overrides with actionable error messages
     if kwargs['model_path'] is None:
-        raise ValueError("model_path is required in overrides for InferenceConfig")
+        raise ValueError(
+            "model_path is required in overrides for InferenceConfig. "
+            "Provide as: overrides=dict(model_path=Path('model_dir'))"
+        )
     if kwargs['test_data_file'] is None:
-        raise ValueError("test_data_file is required in overrides for InferenceConfig")
+        raise ValueError(
+            "test_data_file is required in overrides for InferenceConfig. "
+            "Provide as: overrides=dict(test_data_file=Path('test.npz'))"
+        )
 
     return TFInferenceConfig(**kwargs)
