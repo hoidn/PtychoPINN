@@ -148,7 +148,7 @@ declare:
 <step 6>
 - **Comprehensive Testing (Hard Gate)**: After implementing your change and running any new targeted tests, you MUST run the **entire `pytest` suite** from the project root (`pytest -v`).
    a. The entire suite MUST pass without any `FAILED` or `ERROR` statuses.
-   b. **Test collection itself MUST succeed.** An `ImportError` or any other collection error is a CRITICAL blocking failure that you must fix immediately.
+   b. **Test collection itself MUST succeed.** An `ImportError` or any other collection error is a CRITICAL blocking failure that you must fix immediately. Either (i) repair the missing dependency within this loop, or (ii) add an explicit `pytest.skip/xfail` with a clear rationale and log a fix-plan item tracking the follow-up. Do not rely on `pytest --ignore` to hide broken tests.
    c. An iteration is only considered successful if this full regression check passes cleanly.
    d. Run the full suite at most once in this loop; when iterating, re-run only targeted tests until ready for the final full run. 
    When reporting results, cite the Acceptance Test numbers covered (e.g., "AT-28, AT-33").
