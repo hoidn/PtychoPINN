@@ -77,7 +77,7 @@ Exit Criteria: `ptychodus` can call into PyTorch backend for train/infer; artifa
 | D1 | Design PyTorch equivalents of `run_cdi_example` + `ModelManager` | [x] | ✅ 2025-10-17 — See `reports/2025-10-17T085431Z/{phase_d_callchain.md,phase_d_asset_inventory.md,phase_d_decision.md}` for callchain, asset inventory, and Option B decision. |
 | D2 | Implement orchestration entry points | [x] | ✅ 2025-10-17 — D2.A–D2.C complete. See `reports/2025-10-17T091450Z/phase_d2_scaffold.md`, `reports/2025-10-17T094500Z/phase_d2_training.md`, and `reports/2025-10-17T101500Z/phase_d2c_green.md` for scaffold, training stub, and inference orchestration. Phase D3 persistence bridge is next. |
 | D3 | Implement persistence shim | [P] | D3.A evidence complete; D3.B save_torch_bundle shipped in Attempt #51 (`reports/2025-10-17T110500Z/{phase_d3b_summary.md,pytest_archive_structure_red.log,pytest_params_snapshot_red.log,pytest_green.log}`). Focus now on D3.C loader implementation — follow `phase_d_workflow.md` guidance to author failing tests, implement `load_torch_bundle`, and capture round-trip artifacts under next report timestamp. |
-| D4 | Add regression tests | [ ] | See `phase_d4_regression.md` for phased checklist (Alignment → Red tests → Green tests). Next actions: finish D4.A1–A3 alignment artifacts, then drive failing selectors before implementation. Coordinate handoff with TEST-PYTORCH-001 ledger once D4.B evidence captured. |
+| D4 | Add regression tests | [P] | See `phase_d4_regression.md` for phased checklist (Alignment → Red tests → Green tests). D4.A + D4.B complete (`reports/2025-10-17T111700Z/`, `reports/2025-10-17T112849Z/`); focus now on D4.C1–C3 to turn selectors green and assemble TEST-PYTORCH-001 handoff. |
 
 ---
 

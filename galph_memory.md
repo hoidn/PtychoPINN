@@ -434,3 +434,15 @@
 - Steering artifacts: Rewrote input.md for red-test loop, set artifact path `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T112849Z/`, and logged Attempt #55 in fix_plan.md.
 - Next steps for Ralph: add torch-optional failing tests (persistence + orchestration), capture logs, update plan checklists, and draft `phase_d4_red_summary.md`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T121500Z: Phase D4.C Prep Summary
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D4.C regression fixes
+- Action type: Review or housekeeping
+- Mode: Parity
+- Findings check: `rg "CONFIG-001" docs/findings.md` → CONFIG-001 (params.cfg restoration) remains the governing requirement for loader wiring; no persistence-specific historical findings.
+- Documentation reviewed: `specs/ptychodus_api_spec.md` (§4.5–4.6 persistence contract), `plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md` (C1–C3 checklist), `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` (Phase D status), `tests/torch/test_workflows_components.py` (new persistence + loader regressions), `tests/torch/test_model_manager.py` (round-trip expectations), `ptycho_torch/workflows/components.py` + `ptycho_torch/model_manager.py` (targets for wiring).
+- Housekeeping: Marked plan tables to reflect D4.A/B completion (phase_d_workflow.md D4 rows → [x]/[x]/[ ] and implementation plan D4 → [P]); flipped phase_d4_regression.md D4.B1–B3 to [x] with artifact references.
+- Steering: Rewrote `input.md` directing Ralph through D4.C1–C3 with artifact path `reports/2025-10-17T121930Z/{phase_d4_green_persistence.log,phase_d4_green_workflows.log,phase_d4_handoff.md}`, mapped selectors, and highlighted required code touchpoints (`save_torch_bundle`/`load_torch_bundle` delegation plus finishing `load_torch_bundle` return path or documenting residual XFAIL).
+- Ledger: Added Attempt #57 in docs/fix_plan.md summarizing plan updates + D4.C directive.
+- Open considerations: Loader implementation may still defer full model reconstruction; handoff summary must document any remaining XFAIL on `test_load_round_trip_returns_model_stub`.
+- <Action State>: [ready_for_implementation]

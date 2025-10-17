@@ -56,8 +56,8 @@ Exit Criteria: Tasks in `phase_d4_regression.md` (D4.A1–D4.C3) completed with 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D4.A | Planning alignment & selector map | [ ] | Execute D4.A1–A3 in `phase_d4_regression.md`. Produce alignment narrative + selector map under `reports/<ts>/phase_d4_alignment.md` and `phase_d4_selector_map.md`; update implementation/ledger links. |
-| D4.B | Author failing regression tests (TDD red) | [ ] | Follow D4.B1–B3 guidance. Capture persistence + orchestration failing logs in `phase_d4_red_*.log` directories; ensure tests remain torch-optional (reuse skip guards from `tests/conftest.py`). |
+| D4.A | Planning alignment & selector map | [x] | ✅ 2025-10-17 — Alignment narrative + selector map captured under `reports/2025-10-17T111700Z/{phase_d4_alignment.md,phase_d4_selector_map.md}`; implementation + ledger links refreshed. |
+| D4.B | Author failing regression tests (TDD red) | [x] | ✅ 2025-10-17 — Torch-optional red tests + summary logged at `reports/2025-10-17T112849Z/phase_d4_red_*`; see `phase_d4_regression.md` D4.B table for selectors and failure modes. |
 | D4.C | Turn regression tests green & hand off | [ ] | Complete D4.C1–C3. Implement required fixes, capture green logs, and assemble handoff summary (`phase_d4_handoff.md`) feeding TEST-PYTORCH-001 activation. |
 
 ---
