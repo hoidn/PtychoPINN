@@ -307,3 +307,11 @@
 - Logged Attempt #36 in `docs/fix_plan.md` and rewrote `input.md` to direct Phase C.C3 test-first memmap refactor with targeted selectors + cache evidence.
 - Pending: Ralph to author memmap parity tests, refactor dataset to delegate to RawDataTorch, capture cache reuse logs, and update ledger after execution.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T083928Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase C.D validation (tasks C.D1–C.D3)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Dependencies (Phase C.C1–C.C3) marked complete via Attempt #37 artifacts; preparing to audit reports and refresh plan checkpoints before issuing next directive.
+- Updates: Marked C.C3/C.C4/C.D1/C.D2 complete in phase_c_data_pipeline.md, set C5 → [P] in implementation.md, logged Attempt #38 in docs/fix_plan.md, and authored review note `reports/2025-10-17T083928Z/phase_c_cd_review.md`. input.md now targets C.D3 documentation refresh.
+- <Action State>: [ready_for_implementation]

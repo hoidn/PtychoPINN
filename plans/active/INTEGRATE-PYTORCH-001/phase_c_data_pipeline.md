@@ -43,8 +43,8 @@ Exit Criteria: All new tests green against the wrappers; adapters documented; pr
 | --- | --- | --- | --- |
 | C.C1 | Implement `RawDataTorch` adapter | [x] | ✅ 2025-10-17 — Implemented `ptycho_torch/raw_data_bridge.py` (324 lines) with delegation strategy. Wraps `ptycho.raw_data.RawData.from_coords_without_pc()` + `generate_grouped_data()`. Config bridge integration via constructor (auto `update_legacy_dict()` call). NumPy-first returns. Test green: `pytest -k raw_data -vv` → 1/1 PASSED. Artifacts: `reports/2025-10-17T073640Z/{pytest_raw_data_green.log,implementation_notes.md}`. Full regression: 184 passed, 0 new failures. |
 | C.C2 | Implement `PtychoDataContainerTorch` | [x] | ✅ 2025-10-17 — Green artifacts `reports/2025-10-17T080500Z/{summary.md,pytest_data_container_green.log,pytest_y_dtype_green.log}` document torch-optional container parity (13 attributes, DATA-001 enforcement). |
-| C.C3 | Bridge memory-mapped dataset usage | [ ] | Evidence baseline `reports/2025-10-17T082035Z/memmap_bridge_analysis.md` outlines delegation strategy to RawDataTorch, cache reuse expectations, and open questions on TensorDict retention. Implement adapter + document cache semantics. |
-| C.C4 | Update config bridge touchpoints | [ ] | Ensure new pipeline pulls configuration (N, gridsize, n_groups, neighbor_count, n_subsample) from dataclasses via existing adapter (`ptycho_torch/config_bridge.py`). Record callchain snippet in `implementation_notes.md`. |
+| C.C3 | Bridge memory-mapped dataset usage | [x] | ✅ 2025-10-17 — Implemented `ptycho_torch/memmap_bridge.py`; see `reports/2025-10-17T084500Z/{implementation_strategy.md,pytest_memmap_green_final.log}` for adapter design + green selectors. |
+| C.C4 | Update config bridge touchpoints | [x] | ✅ 2025-10-17 — Memmap bridge constructor requires dataclass configs and delegates through RawDataTorch (`config_bridge` auto-sync). Evidence: `reports/2025-10-17T084500Z/implementation_strategy.md` (Implementation Details). |
 
 ---
 
@@ -55,9 +55,9 @@ Exit Criteria: Targeted pytest selectors green, cached artifacts recorded, and d
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C.D1 | Run targeted pytest selectors | [ ] | Execute `pytest tests/torch/test_data_pipeline.py -k "raw_data or data_container" -vv` with torch available and `PYTHONWARNINGS=default`. Save logs under `reports/<ts>/pytest_green.log`. |
-| C.D2 | Verify cache reuse semantics | [ ] | Capture before/after timestamps or hash of `.groups_cache.npz` demonstrating cross-backend reuse; document in `reports/<ts>/cache_validation.md` with commands. |
-| C.D3 | Update parity ledger & docs | [ ] | Refresh `plans/active/INTEGRATE-PYTORCH-001/implementation.md` Phase C rows to reflect completion, add summary bullet to `parity_map.md`, and note findings in docs/fix_plan.md Attempts History. |
+| C.D1 | Run targeted pytest selectors | [x] | ✅ 2025-10-17 — Selector `pytest tests/torch/test_data_pipeline.py -k "memmap" -vv` captured in `reports/2025-10-17T084500Z/pytest_memmap_green_final.log` (delegation + deterministic generation). |
+| C.D2 | Verify cache reuse semantics | [x] | ✅ 2025-10-17 — Documented cache-free deterministic behaviour in `reports/2025-10-17T084500Z/cache_semantics.md`; replaces `.groups_cache` check with deterministic-generation validation. |
+| C.D3 | Update parity ledger & docs | [ ] | Pending — apply findings to `parity_map.md`, refresh implementation plan C5 state, and log Attempt #38 in docs/fix_plan.md. Reference `reports/2025-10-17T083928Z/phase_c_cd_review.md` for checklist. |
 
 ---
 
