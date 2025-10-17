@@ -3,7 +3,6 @@
 **Last Updated:** 2025-10-17
 **Active Focus:** Stand up PyTorch backend parity (integration + minimal test harness).
 
-
 ---
 
 ## [INTEGRATE-PYTORCH-000] Pre-refresh Planning for PyTorch Backend Integration
@@ -25,8 +24,8 @@
   - `plans/ptychodus_pytorch_integration_plan.md` updated to reflect rebased PyTorch stack. ✅ [Phase B.B2 complete — all redline items applied]
   - docs/fix_plan.md and downstream initiatives link to refreshed plan with current action state noted. ✅ [Phase C.C1 complete — attempt #5 logged; C.C2 complete — stakeholder brief authored; C.C3 pending — downstream plan updates]
 
-
 ## [TEST-PYTORCH-001] Build Minimal Test Suite for PyTorch Backend
+- Depends on: INTEGRATE-PYTORCH-001
 - Spec/AT: Corresponds to existing TensorFlow integration test `tests/test_integration_workflow.py` and guidance in `plans/pytorch_integration_test_plan.md`.
 - Priority: Critical
 - Status: pending
@@ -41,6 +40,7 @@
   - The test passes, confirming the basic viability of the PyTorch persistence layer.
 
 ## [LEGACY-TESTS-001] Restore throughput/baseline pytest modules
+
 - Spec/AT: tests/test_benchmark_throughput.py, tests/test_run_baseline.py (legacy throughput/baseline coverage)
 - Priority: Medium
 - Status: pending
@@ -53,8 +53,8 @@
   - Provide/import replacement for scripts.benchmark_inference_throughput and shared test utilities, or demote the test modules with explicit xfail/skip and documented rationale.
   - `pytest tests/test_benchmark_throughput.py` and `pytest tests/test_run_baseline.py` collect and pass (or are formally xfailed) without ModuleNotFoundError.
 
-
 ## [INTEGRATE-PYTORCH-001] Prepare for PyTorch Backend Integration with Ptychodus
+- Depends on: INTEGRATE-PYTORCH-000
 - Spec/AT: `specs/ptychodus_api_spec.md` and `plans/ptychodus_pytorch_integration_plan.md`.
 - Priority: High
 - Status: in_progress

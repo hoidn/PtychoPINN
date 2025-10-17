@@ -11,6 +11,7 @@ You will get invoked repeatedly, for multiple iterations. Use galph_memory.md to
 
 Loop focus discipline:
 - Pick exactly one <focus issue> per invocation (typically one docs/fix_plan.md entry/phase).
+- Before committing to a focus, inspect its "Depends on" list in docs/fix_plan.md. If any dependency is not marked `done`, treat the current item as blocked, record the block in galph_memory.md, and either shift focus to the dependency or document why it cannot proceed.
 - You may bundle multiple plan checklist IDs that belong to that focus when it is more efficient to tackle them together, provided the bundle is scope-bounded, has clear dependencies, and can realistically finish inside the loop.
 - When you bundle, note in galph_memory.md which checklist IDs are in play and ensure docs/fix_plan.md Attempts History reflects every row touched.
 
