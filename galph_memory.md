@@ -642,3 +642,22 @@
 - Ledger update: Added `[INTEGRATE-PYTORCH-001-DATALOADER]` entry to docs/fix_plan.md with Attempt #0 referencing triage artifact.
 - Steering: Rewrote `input.md` for TDD loop directing Ralph to add pytest regression, implement canonical-first loader fallback, rerun targeted selectors, and refresh parity summary/logs under 2025-10-17T224500Z.
 - <Action State>: [ready_for_implementation]
+
+
+## 2025-10-17T224242Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-PROBE-SIZE (new parity blocker)
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections prior to Step <3.2>; goal is to codify probe size mismatch blocker discovered in 2025-10-17T224500Z parity summary and correct ledger exit criteria. No artifact edits yet.
+- <Action State>: [planning]
+
+## 2025-10-17T224430Z: Focus Declaration
+- Focus issue: ADR-003-BACKEND-API (new)
+- Action type: Planning
+- Mode: Docs
+- Notes: Kicking off plan + fix-plan entry for the accepted-with-changes ADR.
+- Plan artifacts: Created `plans/active/ADR-003-BACKEND-API/implementation.md` and `reports/2025-10-17T224444Z/plan_summary.md` capturing phases A–E, execution config strategy, and governance steps.
+- Fix ledger: Added `[ADR-003-BACKEND-API]` entry referencing the new plan and exit criteria.
+- Key references: specs/ptychodus_api_spec.md §4, docs/workflows/pytorch.md, ptycho_torch/workflows/components.py, config_bridge + config_params modules.
+- <Action State>: [ready_for_implementation]
+- Pending local changes (not ours): `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` and `reports/2025-10-17T224500Z/parity_summary.md` remain unstaged to preserve Ralph’s in-progress edits.

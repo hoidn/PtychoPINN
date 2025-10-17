@@ -34,7 +34,38 @@
 - Exit Criteria:
   - PyTorch dataloader successfully ingests canonical DATA-001 NPZ files (`diffraction` key) and gracefully falls back to `diff3d` when required, with informative error if neither key exists. ✅
   - Targeted regression tests cover canonical + legacy key paths (new pytest module or expanded integration test assertions). ✅
-  - `pytest tests/torch/test_integration_workflow_torch.py -vv` passes using canonical dataset; parity summary updated with green evidence and documents restored compliance. ✅ (Integration test progresses past dataloader; blocked on separate probe size issue)
+  - `pytest tests/torch/test_integration_workflow_torch.py -vv` reaches the training stage without DATA-001 failures; residual probe size mismatch is documented under [INTEGRATE-PYTORCH-001-PROBE-SIZE]. ✅
+
+## [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003
+- Depends on: INTEGRATE-PYTORCH-001 (Phases C–E alignment)
+- Spec/AT: `specs/ptychodus_api_spec.md` §4 (reconstructor contract), `docs/workflows/pytorch.md`, ADR-003 proposal (`docs/architecture/adr/ADR-003.md`)
+- Priority: High
+- Status: pending
+- Owner/Date: Codex Agent/2025-10-17
+- Working Plan: `plans/active/ADR-003-BACKEND-API/implementation.md`
+- Attempts History:
+  * [2025-10-17] Attempt #0 — Planning: Authored phased implementation plan with execution config + factory strategy and stored summary at `plans/active/ADR-003-BACKEND-API/reports/2025-10-17T224444Z/plan_summary.md`.
+- Exit Criteria:
+  - `ptycho_torch/config_factory.py` exposes shared factory functions for training and inference dataclass construction with unit tests covering override validation.
+  - `PyTorchExecutionConfig` dataclass added and consumed across workflow entry points (training, inference, bundle load) with targeted pytest coverage.
+  - `ptycho_torch/workflows/components.py` delegates orchestration via canonical configs + execution config while preserving CONFIG-001 guard and parity documentation.
+  - CLI scripts (`train.py`, `inference.py`) reduced to thin wrappers calling factories/workflows; CLI acceptance tests updated; documentation refreshed.
+  - `ptycho_torch/api/` deprecated or refactored to delegate to new workflows; ADR-003 marked Accepted with governance artefacts recorded.
+
+## [INTEGRATE-PYTORCH-001-PROBE-SIZE] Resolve PyTorch probe size mismatch in integration test
+- Depends on: INTEGRATE-PYTORCH-001-DATALOADER; INTEGRATE-PYTORCH-001 (Phase E2.D2 parity evidence)
+- Spec/AT: `specs/data_contracts.md` §1 (object/probe dimensionality), `specs/ptychodus_api_spec.md` §4.5 (ModelConfig.N / gridsize contract), `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/parity_summary.md` (Next Steps §Immediate #1)
+- Priority: High
+- Status: pending
+- Owner/Date: Codex Agent/2025-10-17
+- Reproduction: `pytest tests/torch/test_integration_workflow_torch.py -vv` now fails with `RuntimeError: The expanded size of the tensor (128) must match the existing size (64)` during `ptycho_torch.dataloader.PtychoDataset.memory_map_data` when loading `probeGuess` from `datasets/Run1084_recon3_postPC_shrunk_3.npz`.
+- Working Plan: Trace probe sizing through the PyTorch config bridge and dataloader preallocation (`self.data_dict['probes']` uses `N` from config). Align dataset probe dimensions with configured `N` either by harmonizing the config bridge defaults or adapting the dataloader to derive probe tensor shapes from NPZ metadata before allocation. Update parity summary + plans once the integration test runs end-to-end.
+- Attempts History:
+  * [2025-10-17] Attempt #0 — Detection via dataloader parity loop: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/pytest_integration_green.log` captured the new failure after DATA-001 fix. Parity summary documented blocker and recommended this ledger entry. No fix yet (evidence-only loop).
+- Exit Criteria:
+  - `pytest tests/torch/test_integration_workflow_torch.py -vv` completes without probe dimension errors, producing checkpoint + inference artifacts for the canonical dataset.
+  - Updated parity summary (new timestamp) records the green run and references the fixing commit/artifacts.
+  - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` and related checklists mark the blocker resolved with guidance for future runs.
 
 ## [INTEGRATE-PYTORCH-000] Pre-refresh Planning for PyTorch Backend Integration
 - Spec/AT: `plans/ptychodus_pytorch_integration_plan.md`, commit bfc22e7 (PyTorch tree rebase), and `specs/ptychodus_api_spec.md` for contractual alignment.
