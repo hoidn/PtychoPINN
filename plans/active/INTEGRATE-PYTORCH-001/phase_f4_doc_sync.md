@@ -28,9 +28,9 @@ Exit Criteria: `specs/ptychodus_api_spec.md` explicitly lists PyTorch as require
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F4.2.A | Update spec prerequisites | [ ] | Edit `specs/ptychodus_api_spec.md` (overview + configuration sections) to document PyTorch runtime requirement and reference adapter parity guarantees. Summarize key paragraphs in `spec_sync.md`. |
-| F4.2.B | Add knowledge-base entry | [ ] | Append new finding (e.g., POLICY-001) to `docs/findings.md` capturing torch-required transition, impacted areas, and artifact references (Phase F1 governance decision, F3 regression logs). Document ID + synopsis in `spec_sync.md`. |
-| F4.2.C | Verify cross-references | [ ] | Ensure updated docs link back to spec/finding (e.g., CLAUDE.md directive now references POLICY-001). Record verification checklist in `spec_sync.md`. |
+| F4.2.A | Update spec prerequisites | [x] | ✅ 2025-10-17 — Updated `specs/ptychodus_api_spec.md` Section 1 (line 14, PyTorch requirement paragraph), Section 2.3 (lines 75-81, config bridge adapters), Section 4.2 (line 162, fail-fast imports). Summarized in `reports/2025-10-17T205413Z/spec_sync.md`. |
+| F4.2.B | Add knowledge-base entry | [x] | ✅ 2025-10-17 — Added POLICY-001 row to `docs/findings.md` (line 8) capturing torch-required transition with governance link. Documented in `spec_sync.md`. |
+| F4.2.C | Verify cross-references | [x] | ✅ 2025-10-17 — Updated CLAUDE.md directive (line 58) to reference POLICY-001 via doc-ref tag. Verification checklist recorded in `spec_sync.md`. |
 
 **Prep Note:** See `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T204818Z/spec_sync_brief.md` for supervisor guidance before editing.
 

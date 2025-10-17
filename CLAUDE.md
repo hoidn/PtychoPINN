@@ -55,7 +55,7 @@ This file provides the core instructions for the Claude AI agent working on the 
 </directive>
 
 <directive level="critical" purpose="Enforce PyTorch Requirement">
-  PyTorch is a required dependency for this project as of Phase F (INTEGRATE-PYTORCH-001). All code in `ptycho_torch/` and `tests/torch/` assumes PyTorch is installed. The package specifies `torch>=2.2` in `setup.py` install_requires. Tests in `tests/torch/` are automatically skipped in TensorFlow-only CI environments via directory-based pytest collection rules in `tests/conftest.py`, but will fail with actionable ImportError messages if PyTorch is missing in local development. Migration rationale and evidence documented in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md` and Phase F implementation logs (`docs/fix_plan.md` INTEGRATE-PYTORCH-001 history).
+  PyTorch is a required dependency for this project as of Phase F (INTEGRATE-PYTORCH-001). All code in `ptycho_torch/` and `tests/torch/` assumes PyTorch is installed. The package specifies `torch>=2.2` in `setup.py` install_requires. Tests in `tests/torch/` are automatically skipped in TensorFlow-only CI environments via directory-based pytest collection rules in `tests/conftest.py`, but will fail with actionable ImportError messages if PyTorch is missing in local development. Migration rationale and evidence documented in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md` and Phase F implementation logs (`docs/fix_plan.md` INTEGRATE-PYTORCH-001 history). This policy is captured in <doc-ref type="findings">docs/findings.md#policy-001</doc-ref>.
 </directive>
 
 ---

@@ -11,6 +11,8 @@ The API is built around a **one-way data flow**: parameters are defined in the m
 
 The central function that bridges these two systems is `ptycho.config.config.update_legacy_dict()`. Any external system, like `ptychodus`, **must** use this bridge to configure `ptychopinn` correctly.
 
+**⚠️ PyTorch Requirement:** As of Phase F (INTEGRATE-PYTORCH-001), PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The package specifies `torch>=2.2` in `setup.py` install_requires. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure PyTorch is available; the system will raise an actionable `RuntimeError` if torch cannot be imported. This policy is documented in <doc-ref type="findings">docs/findings.md#policy-001</doc-ref> and reflects the governance decision archived at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md`. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
+
 ### 2. Core Components
 
 #### 2.1. Modern Configuration Dataclasses
@@ -69,6 +71,14 @@ This is the most critical part of the configuration API. It translates modern da
     2.  If the dataclass contains a nested `model` field, it flattens the structure by merging the `ModelConfig` parameters into the main dictionary.
     3.  It applies the `KEY_MAPPINGS` dictionary to translate modern, snake_case field names to legacy dot.separated names (e.g., `object_big` -> `object.big`).
     4.  It automatically converts `pathlib.Path` objects to strings, as the legacy system expects string paths.
+
+- **PyTorch Configuration Adapters (`ptycho_torch.config_bridge`):**
+  - **Purpose**: Translate PyTorch singleton configuration objects to TensorFlow dataclass instances, enabling PyTorch workflows to populate `params.cfg` via the standard `update_legacy_dict` function.
+  - **Key Functions**:
+    - `to_model_config(data: DataConfig, model: ModelConfig, overrides=None) -> TFModelConfig`: Converts PyTorch `DataConfig` and `ModelConfig` to TensorFlow `ModelConfig`, handling critical transformations such as `grid_size` tuple → `gridsize` int, `mode` enum → `model_type` enum, and activation name normalization.
+    - `to_training_config(model: TFModelConfig, data: DataConfig, pt_model: ModelConfig, training: TrainingConfig, overrides=None) -> TFTrainingConfig`: Translates PyTorch training parameters to TensorFlow `TrainingConfig`, converting `epochs` → `nepochs`, `K` → `neighbor_count`, `nll` bool → `nll_weight` float, and requiring explicit `overrides` for fields missing in PyTorch configs (e.g., `train_data_file`, `n_groups`).
+    - `to_inference_config(model: TFModelConfig, data: DataConfig, inference: InferenceConfig, overrides=None) -> TFInferenceConfig`: Converts PyTorch inference parameters to TensorFlow `InferenceConfig`, mapping `K` → `neighbor_count` and requiring `overrides` for `model_path` and `test_data_file`.
+  - **Contract**: These adapters MUST produce dataclasses compatible with `update_legacy_dict` and maintain behavioral parity with direct TensorFlow dataclass instantiation. Consumers (e.g., `ptychodus` PyTorch integration) MUST call these adapters before invoking `update_legacy_dict` to ensure correct params.cfg population. Implementation details and field mappings are documented in `ptycho_torch/config_bridge.py:1-380` and tested via `tests/torch/test_config_bridge.py`.
 
 ### 3. API Specification and Data Flow
 
@@ -149,6 +159,7 @@ following behavioural contract in addition to the configuration bridge.
   `ptycho.model`) observe consistent values.
 - Loaded models overwrite `params.cfg` via `load_inference_bundle`, so a backend must either replicate that side
   effect or provide an alternative hook (`ptycho/workflows/components.py:94-174`).
+- **PyTorch Import Requirement (Phase F)**: The PyTorch backend (`ptycho_torch/`) **must** raise an actionable `RuntimeError` with installation guidance if `torch` cannot be imported. Silent fallbacks or optional import guards are prohibited per <doc-ref type="findings">docs/findings.md#policy-001</doc-ref>. All modules in `ptycho_torch/` assume PyTorch availability and will fail fast with clear error messages directing users to install `torch>=2.2`. Test suites automatically skip `tests/torch/` in TensorFlow-only CI environments via directory-based pytest collection rules (`tests/conftest.py`), but local development expects PyTorch to be present.
 
 #### 4.3. Data Ingestion and Grouping
 
