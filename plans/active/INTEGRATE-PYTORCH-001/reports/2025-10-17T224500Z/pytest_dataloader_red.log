@@ -1,0 +1,122 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_loads_canonical_diffraction FAILED [100%]
+
+=================================== FAILURES ===================================
+______ TestDataloaderCanonicalKeySupport.test_loads_canonical_diffraction ______
+
+self = <test_dataloader.TestDataloaderCanonicalKeySupport testMethod=test_loads_canonical_diffraction>
+
+    def test_loads_canonical_diffraction(self):
+        """
+        Test dataloader can load NPZ files with canonical 'diffraction' key.
+    
+        Red Phase: Expected to fail because npz_headers() only searches for 'diff3d'.
+        Green Phase: Should pass after implementing canonical key preference.
+        """
+        # Arrange
+        from ptycho_torch.dataloader import npz_headers
+    
+        canonical_npz = self._create_minimal_npz("canonical_dataset.npz", use_canonical_key=True)
+    
+        # Act & Assert
+        try:
+>           shape, xcoords, ycoords = npz_headers(canonical_npz)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_dataloader.py:108: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+npz = PosixPath('/tmp/tmp7heqin1w/canonical_dataset.npz')
+
+    def npz_headers(npz):
+        """
+        Takes a path to an .npz file, which is a Zip archive of .npy files.
+        We can use this to determine shape of the scan tensor in the npz file without loading it
+        This will be useful in the __len__ method for the dataset
+    
+        Taken from: https://stackoverflow.com/questions/68224572/how-to-determine-the-shape-size-of-npz-file
+        Modified to quickly grab dimension we care about
+        """
+        with zipfile.ZipFile(npz) as archive:
+            npy_header_found = False
+            diff3d_shape = None
+            xcoords = None
+            ycoords = None
+    
+            # First pass for diff3d shape
+            for name in archive.namelist():
+                if name.startswith('diff3d') and name.endswith('.npy'):
+                    npy = archive.open(name)
+                    version = np.lib.format.read_magic(npy)
+                    shape, _, _ = np.lib.format._read_array_header(npy, version)
+                    diff3d_shape = shape
+                    npy_header_found = True
+                    break # Found the primary data shape
+    
+            if not npy_header_found:
+>                raise ValueError(f"Could not find diff3d data in {npz}")
+E                ValueError: Could not find diff3d data in /tmp/tmp7heqin1w/canonical_dataset.npz
+
+ptycho_torch/dataloader.py:55: ValueError
+
+During handling of the above exception, another exception occurred:
+
+self = <test_dataloader.TestDataloaderCanonicalKeySupport testMethod=test_loads_canonical_diffraction>
+
+    def test_loads_canonical_diffraction(self):
+        """
+        Test dataloader can load NPZ files with canonical 'diffraction' key.
+    
+        Red Phase: Expected to fail because npz_headers() only searches for 'diff3d'.
+        Green Phase: Should pass after implementing canonical key preference.
+        """
+        # Arrange
+        from ptycho_torch.dataloader import npz_headers
+    
+        canonical_npz = self._create_minimal_npz("canonical_dataset.npz", use_canonical_key=True)
+    
+        # Act & Assert
+        try:
+            shape, xcoords, ycoords = npz_headers(canonical_npz)
+    
+            # Verify shape extraction worked
+            self.assertEqual(len(shape), 3, "Diffraction shape should be 3D (n_images, H, W)")
+            self.assertEqual(shape[0], 10, "Expected 10 images in fixture")
+            self.assertEqual(shape[1], 64, "Expected H=64")
+            self.assertEqual(shape[2], 64, "Expected W=64")
+    
+            # Verify coordinates loaded
+            self.assertEqual(len(xcoords), 10, "Expected 10 x-coordinates")
+            self.assertEqual(len(ycoords), 10, "Expected 10 y-coordinates")
+    
+        except ValueError as e:
+>           self.fail(
+                f"npz_headers() failed to load canonical 'diffraction' key. "
+                f"Error: {e}. This indicates DATA-001 non-compliance."
+            )
+E           AssertionError: npz_headers() failed to load canonical 'diffraction' key. Error: Could not find diff3d data in /tmp/tmp7heqin1w/canonical_dataset.npz. This indicates DATA-001 non-compliance.
+
+tests/torch/test_dataloader.py:121: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2025-10-17 15:30:42.293757: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760740242.304824 3994009 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760740242.308594 3994009 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760740242.319315 3994009 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760740242.319336 3994009 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760740242.319339 3994009 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760740242.319341 3994009 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 15:30:42.321973: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+=========================== short test summary info ============================
+FAILED tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_loads_canonical_diffraction - AssertionError: npz_headers() failed to load canonical 'diffraction' key. Error: Could not find diff3d data in /tmp/tmp7heqin1w/canonical_dataset.npz. This indicates DATA-001 non-compliance.
+============================== 1 failed in 4.50s ===============================
