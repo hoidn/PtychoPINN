@@ -618,3 +618,16 @@
 - Summary: Updated Phase E plans to acknowledge E2.C completion (`plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`, `phase_e_integration.md`, `implementation.md`), added ledger item `[INTEGRATE-PYTORCH-001-STUBS]` for remaining D2 TODOs, and rewrote `input.md` directing E2.D1–E2.D3 evidence capture with artifacts under `reports/2025-10-18T093500Z/`. Logged Attempt #82 in docs/fix_plan.md capturing these housekeeping changes.
 - Next steps for Ralph: follow new input.md—run TensorFlow baseline + PyTorch integration selectors, archive logs, author parity summary, and update plan/ledger states.
 - <Action State>: [ready_for_implementation]
+## 2025-10-17T221048Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase E2.D2 (PyTorch integration parity log)
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections prior to Step <3.2>; dependencies E2.C1–E2.D1 satisfied per phase_e2_implementation.md.
+
+- Findings check: docs/findings.md IDs POLICY-001 (torch mandatory) and CONFIG-001 (legacy bridge) govern E2.D2; no conflicting entries.
+- Documents reviewed: `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` (D2 guidance), `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` (E2 status), `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_parity_summary.md` (blocking analysis), `docs/workflows/pytorch.md` §2 (extras requirement), `specs/ptychodus_api_spec.md` §4.5 (CLI contract).
+- Coin flip (heads) review of recent Ralph commits (`9b174c8`, `0c76da0`, `aa133eb0`, `9b69637`): parity evidence captured correctly; no regressions detected; key blocker is missing mlflow/lightning extras, so progress now depends on environment setup.
+- Decisions: keep D2 marked [⚠], direct Ralph to install torch extras (`pip install -e .[torch]`), rerun `pytest tests/torch/test_integration_workflow_torch.py -vv`, log outputs under `reports/2025-10-17T221500Z/`, and refresh parity summary + plan/ledger states once green.
+- Next steps for Ralph: follow new input.md checklist (pip install, pytest rerun, summary/plan updates, docs/fix_plan Attempt).
+- <Action State>: [ready_for_implementation]
+
