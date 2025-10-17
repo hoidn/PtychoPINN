@@ -1,0 +1,130 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 47 items / 43 deselected / 4 selected
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[probe_scale-divergence] PASSED [ 25%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_probe_scale_default_divergence_warning FAILED [ 50%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning FAILED [ 75%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning FAILED [100%]
+
+=================================== FAILURES ===================================
+______ TestConfigBridgeParity.test_probe_scale_default_divergence_warning ______
+
+self = <test_config_bridge.TestConfigBridgeParity object at 0x77ef8b89f150>
+params_cfg_snapshot = None
+
+    def test_probe_scale_default_divergence_warning(self, params_cfg_snapshot):
+        """
+        Test that using PyTorch default probe_scale without override raises warning/error.
+    
+        From override_matrix.md: PyTorch default (1.0) diverges from TensorFlow default (4.0).
+        The adapter should enforce explicit override to avoid silent divergence.
+    
+        Spec coverage: §5.1:10 (probe_scale MEDIUM risk divergence)
+        Phase: B.B5.D3 override warning coverage
+        Reference: override_matrix.md row for probe_scale
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+    
+        # Use PyTorch default probe_scale (1.0)
+        pt_data = DataConfig(probe_scale=1.0)
+        pt_model = ModelConfig()
+    
+>       with pytest.raises(ValueError) as exc_info:
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/torch/test_config_bridge.py:851: Failed
+________ TestConfigBridgeParity.test_n_groups_missing_override_warning _________
+
+self = <test_config_bridge.TestConfigBridgeParity object at 0x77ef8b89fb90>
+params_cfg_snapshot = None
+
+    def test_n_groups_missing_override_warning(self, params_cfg_snapshot):
+        """
+        Test that missing n_groups override in TrainingConfig raises warning/error.
+    
+        From override_matrix.md: n_groups training stage with no override leaves
+        params.cfg['n_groups'] = None if inference also omits value, breaking
+        downstream workflows that expect a valid integer.
+    
+        Spec coverage: §5.2:10 (n_groups override_required)
+        Phase: B.B5.D3 override warning coverage
+        Reference: override_matrix.md row for n_groups
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+    
+        pt_data = DataConfig()
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+    
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+    
+>       with pytest.raises(ValueError) as exc_info:
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+tests/torch/test_config_bridge.py:884: Failed
+_____ TestConfigBridgeParity.test_test_data_file_training_missing_warning ______
+
+self = <test_config_bridge.TestConfigBridgeParity object at 0x77ef8b89f7d0>
+params_cfg_snapshot = None
+
+    def test_test_data_file_training_missing_warning(self, params_cfg_snapshot):
+        """
+        Test that missing test_data_file in TrainingConfig emits warning (optional field).
+    
+        From override_matrix.md: test_data_file (training stage) remains None until
+        inference override applied. Consider warning to surface absent evaluation data.
+    
+        Note: This is a softer validation than train_data_file (which is required).
+        The warning helps callers understand inference update is needed for evaluation flows.
+    
+        Spec coverage: §5.2:2 (test_data_file optional)
+        Phase: B.B5.D3 override warning coverage
+        Reference: override_matrix.md row for test_data_file (training)
+        """
+        import warnings
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+    
+        pt_data = DataConfig()
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+    
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+    
+        # Should emit warning when test_data_file omitted
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+    
+            tf_train = config_bridge.to_training_config(
+                tf_model, pt_data, pt_model, pt_train,
+                overrides=dict(
+                    train_data_file=Path('train.npz'),
+                    n_groups=512,
+                    nphotons=1e9
+                    # Missing test_data_file - should emit warning
+                )
+            )
+    
+            # Assert warning was issued
+>           assert len(w) == 1, "Should emit exactly one warning for missing test_data_file"
+E           AssertionError: Should emit exactly one warning for missing test_data_file
+E           assert 0 == 1
+E            +  where 0 = len([])
+
+tests/torch/test_config_bridge.py:942: AssertionError
+=========================== short test summary info ============================
+FAILED tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_probe_scale_default_divergence_warning - Failed: DID NOT RAISE <class 'ValueError'>
+FAILED tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning - Failed: DID NOT RAISE <class 'ValueError'>
+FAILED tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning - AssertionError: Should emit exactly one warning for missing test_data_file
+assert 0 == 1
+ +  where 0 = len([])
+================== 3 failed, 1 passed, 43 deselected in 3.35s ==================

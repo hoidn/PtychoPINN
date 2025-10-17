@@ -1,0 +1,277 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 47 items / 43 deselected / 4 selected
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[probe_scale-divergence] PASSED [ 25%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_probe_scale_default_divergence_warning PASSED [ 50%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning FAILED [ 75%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning FAILED [100%]
+
+=================================== FAILURES ===================================
+________ TestConfigBridgeParity.test_n_groups_missing_override_warning _________
+
+self = <test_config_bridge.TestConfigBridgeParity object at 0x774fbae649d0>
+params_cfg_snapshot = None
+
+    def test_n_groups_missing_override_warning(self, params_cfg_snapshot):
+        """
+        Test that missing n_groups override in TrainingConfig raises warning/error.
+    
+        From override_matrix.md: n_groups training stage with no override leaves
+        params.cfg['n_groups'] = None if inference also omits value, breaking
+        downstream workflows that expect a valid integer.
+    
+        Spec coverage: §5.2:10 (n_groups override_required)
+        Phase: B.B5.D3 override warning coverage
+        Reference: override_matrix.md row for n_groups
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+    
+        pt_data = DataConfig()
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+    
+>       tf_model = config_bridge.to_model_config(pt_data, pt_model)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_config_bridge.py:882: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data = DataConfig(nphotons=100000.0, N=64, C=4, K=6, K_quadrant=30, n_subsample=7, grid_size=(2, 2), neighbor_function='Neare...e=1.0, probe_normalize=True, data_scaling='Parseval', phase_subtraction=True, x_bounds=(0.1, 0.9), y_bounds=(0.1, 0.9))
+model = ModelConfig(mode='Unsupervised', intensity_scale_trainable=False, intensity_scale=10000.0, max_position_jitter=10, C_m...fset=6, C_forward=4, loss_function='Poisson', amp_loss=None, phase_loss=None, amp_loss_coeff=1.0, phase_loss_coeff=1.0)
+overrides = {}
+
+    def to_model_config(
+        data: DataConfig,
+        model: ModelConfig,
+        overrides: Optional[Dict[str, Any]] = None
+    ) -> TFModelConfig:
+        """
+        Translate PyTorch DataConfig and ModelConfig to TensorFlow ModelConfig.
+    
+        Performs critical field transformations:
+        - grid_size tuple → gridsize int (extracts first element, assumes square grids)
+        - mode enum → model_type enum ('Unsupervised'→'pinn', 'Supervised'→'supervised')
+        - amp_activation normalization (silu→swish, SiLU→swish)
+        - Merges fields from both PyTorch configs into single TensorFlow ModelConfig
+    
+        Args:
+            data: PyTorch DataConfig instance (provides N, grid_size, nphotons)
+            model: PyTorch ModelConfig instance (provides mode, architecture params)
+            overrides: Optional dict of additional fields to override defaults
+    
+        Returns:
+            TensorFlow ModelConfig instance with translated fields
+    
+        Raises:
+            ValueError: If grid_size is non-square, mode has invalid value, or activation unknown
+        """
+        overrides = overrides or {}
+    
+        # Extract gridsize from grid_size tuple (assumes square grids)
+        grid_h, grid_w = data.grid_size
+        if grid_h != grid_w:
+            raise ValueError(
+                f"Non-square grids not supported by TensorFlow backend: "
+                f"grid_size={data.grid_size}. Use square grids (e.g., (2, 2))."
+            )
+        gridsize = grid_h
+    
+        # Map mode enum to model_type enum
+        mode_to_model_type = {
+            'Unsupervised': 'pinn',
+            'Supervised': 'supervised'
+        }
+        if model.mode not in mode_to_model_type:
+            raise ValueError(
+                f"Invalid mode '{model.mode}'. Must be 'Unsupervised' or 'Supervised'."
+            )
+        model_type = mode_to_model_type[model.mode]
+    
+        # Map PyTorch activation names to TensorFlow equivalents
+        activation_mapping = {
+            'silu': 'swish',
+            'SiLU': 'swish',
+            'sigmoid': 'sigmoid',
+            'swish': 'swish',
+            'softplus': 'softplus',
+            'relu': 'relu'
+        }
+        if model.amp_activation not in activation_mapping:
+            raise ValueError(
+                f"Unknown activation '{model.amp_activation}'. "
+                f"Supported values: {list(activation_mapping.keys())}"
+            )
+        amp_activation = activation_mapping[model.amp_activation]
+    
+        # Translate probe_mask from Optional[Tensor] to bool
+        # None → False (no masking), non-None tensor → True (masking enabled)
+        # Can be overridden explicitly via overrides dict
+        probe_mask_value = False  # Default when None
+        if TORCH_AVAILABLE and model.probe_mask is not None:
+            # If torch available and probe_mask is a tensor, enable masking
+            probe_mask_value = True
+    
+        # Validate probe_scale: PyTorch default (1.0) differs from TensorFlow default (4.0)
+        # Require explicit override to avoid silent divergence (Phase B.B5.D3)
+        pytorch_default_probe_scale = 1.0
+        tensorflow_default_probe_scale = 4.0
+        if 'probe_scale' not in overrides and data.probe_scale == pytorch_default_probe_scale:
+>           raise ValueError(
+                f"probe_scale default divergence detected: PyTorch default ({pytorch_default_probe_scale}) "
+                f"differs from TensorFlow default ({tensorflow_default_probe_scale}). "
+                f"Provide explicit probe_scale override to resolve: "
+                f"overrides=dict(..., probe_scale={tensorflow_default_probe_scale})"
+            )
+E           ValueError: probe_scale default divergence detected: PyTorch default (1.0) differs from TensorFlow default (4.0). Provide explicit probe_scale override to resolve: overrides=dict(..., probe_scale=4.0)
+
+ptycho_torch/config_bridge.py:157: ValueError
+_____ TestConfigBridgeParity.test_test_data_file_training_missing_warning ______
+
+self = <test_config_bridge.TestConfigBridgeParity object at 0x774fbae65050>
+params_cfg_snapshot = None
+
+    def test_test_data_file_training_missing_warning(self, params_cfg_snapshot):
+        """
+        Test that missing test_data_file in TrainingConfig emits warning (optional field).
+    
+        From override_matrix.md: test_data_file (training stage) remains None until
+        inference override applied. Consider warning to surface absent evaluation data.
+    
+        Note: This is a softer validation than train_data_file (which is required).
+        The warning helps callers understand inference update is needed for evaluation flows.
+    
+        Spec coverage: §5.2:2 (test_data_file optional)
+        Phase: B.B5.D3 override warning coverage
+        Reference: override_matrix.md row for test_data_file (training)
+        """
+        import warnings
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+    
+        pt_data = DataConfig()
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+    
+>       tf_model = config_bridge.to_model_config(pt_data, pt_model)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_config_bridge.py:925: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data = DataConfig(nphotons=100000.0, N=64, C=4, K=6, K_quadrant=30, n_subsample=7, grid_size=(2, 2), neighbor_function='Neare...e=1.0, probe_normalize=True, data_scaling='Parseval', phase_subtraction=True, x_bounds=(0.1, 0.9), y_bounds=(0.1, 0.9))
+model = ModelConfig(mode='Unsupervised', intensity_scale_trainable=False, intensity_scale=10000.0, max_position_jitter=10, C_m...fset=6, C_forward=4, loss_function='Poisson', amp_loss=None, phase_loss=None, amp_loss_coeff=1.0, phase_loss_coeff=1.0)
+overrides = {}
+
+    def to_model_config(
+        data: DataConfig,
+        model: ModelConfig,
+        overrides: Optional[Dict[str, Any]] = None
+    ) -> TFModelConfig:
+        """
+        Translate PyTorch DataConfig and ModelConfig to TensorFlow ModelConfig.
+    
+        Performs critical field transformations:
+        - grid_size tuple → gridsize int (extracts first element, assumes square grids)
+        - mode enum → model_type enum ('Unsupervised'→'pinn', 'Supervised'→'supervised')
+        - amp_activation normalization (silu→swish, SiLU→swish)
+        - Merges fields from both PyTorch configs into single TensorFlow ModelConfig
+    
+        Args:
+            data: PyTorch DataConfig instance (provides N, grid_size, nphotons)
+            model: PyTorch ModelConfig instance (provides mode, architecture params)
+            overrides: Optional dict of additional fields to override defaults
+    
+        Returns:
+            TensorFlow ModelConfig instance with translated fields
+    
+        Raises:
+            ValueError: If grid_size is non-square, mode has invalid value, or activation unknown
+        """
+        overrides = overrides or {}
+    
+        # Extract gridsize from grid_size tuple (assumes square grids)
+        grid_h, grid_w = data.grid_size
+        if grid_h != grid_w:
+            raise ValueError(
+                f"Non-square grids not supported by TensorFlow backend: "
+                f"grid_size={data.grid_size}. Use square grids (e.g., (2, 2))."
+            )
+        gridsize = grid_h
+    
+        # Map mode enum to model_type enum
+        mode_to_model_type = {
+            'Unsupervised': 'pinn',
+            'Supervised': 'supervised'
+        }
+        if model.mode not in mode_to_model_type:
+            raise ValueError(
+                f"Invalid mode '{model.mode}'. Must be 'Unsupervised' or 'Supervised'."
+            )
+        model_type = mode_to_model_type[model.mode]
+    
+        # Map PyTorch activation names to TensorFlow equivalents
+        activation_mapping = {
+            'silu': 'swish',
+            'SiLU': 'swish',
+            'sigmoid': 'sigmoid',
+            'swish': 'swish',
+            'softplus': 'softplus',
+            'relu': 'relu'
+        }
+        if model.amp_activation not in activation_mapping:
+            raise ValueError(
+                f"Unknown activation '{model.amp_activation}'. "
+                f"Supported values: {list(activation_mapping.keys())}"
+            )
+        amp_activation = activation_mapping[model.amp_activation]
+    
+        # Translate probe_mask from Optional[Tensor] to bool
+        # None → False (no masking), non-None tensor → True (masking enabled)
+        # Can be overridden explicitly via overrides dict
+        probe_mask_value = False  # Default when None
+        if TORCH_AVAILABLE and model.probe_mask is not None:
+            # If torch available and probe_mask is a tensor, enable masking
+            probe_mask_value = True
+    
+        # Validate probe_scale: PyTorch default (1.0) differs from TensorFlow default (4.0)
+        # Require explicit override to avoid silent divergence (Phase B.B5.D3)
+        pytorch_default_probe_scale = 1.0
+        tensorflow_default_probe_scale = 4.0
+        if 'probe_scale' not in overrides and data.probe_scale == pytorch_default_probe_scale:
+>           raise ValueError(
+                f"probe_scale default divergence detected: PyTorch default ({pytorch_default_probe_scale}) "
+                f"differs from TensorFlow default ({tensorflow_default_probe_scale}). "
+                f"Provide explicit probe_scale override to resolve: "
+                f"overrides=dict(..., probe_scale={tensorflow_default_probe_scale})"
+            )
+E           ValueError: probe_scale default divergence detected: PyTorch default (1.0) differs from TensorFlow default (4.0). Provide explicit probe_scale override to resolve: overrides=dict(..., probe_scale=4.0)
+
+ptycho_torch/config_bridge.py:157: ValueError
+=========================== short test summary info ============================
+FAILED tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning - ValueError: probe_scale default divergence detected: PyTorch default (1.0) differs from TensorFlow default (4.0). Provide explicit probe_scale override to resolve: overrides=dict(..., probe_scale=4.0)
+FAILED tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning - ValueError: probe_scale default divergence detected: PyTorch default (1.0) differs from TensorFlow default (4.0). Provide explicit probe_scale override to resolve: overrides=dict(..., probe_scale=4.0)
+================== 2 failed, 2 passed, 43 deselected in 3.22s ==================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 47 items / 43 deselected / 4 selected
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[probe_scale-divergence] PASSED [ 25%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_probe_scale_default_divergence_warning PASSED [ 50%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning PASSED [ 75%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning PASSED [100%]
+
+======================= 4 passed, 43 deselected in 3.23s =======================
