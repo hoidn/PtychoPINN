@@ -15,9 +15,9 @@ Exit Criteria: Consolidated parity document saved under `plans/active/INTEGRATE-
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| A1 | Inventory current TensorFlow workflow touchpoints used by Ptychodus | [ ] | Use `specs/ptychodus_api_spec.md:127-291` and `ptycho/workflows/components.py` to list every API call; capture findings in parity_map.md. |
-| A2 | Audit PyTorch equivalents and gaps | [ ] | Compare `ptycho_torch/*` modules to TensorFlow entries; flag missing shims (`RawDataTorch`, persistence hooks) referencing `plans/ptychodus_pytorch_integration_plan.md`. |
-| A3 | Define initiative glossary + owner map | [ ] | Document terminology (e.g., "group-then-sample", "legacy params bridge") and tentative ownership for each gap; store alongside parity_map.md to align future loops. |
+| A1 | Inventory current TensorFlow workflow touchpoints used by Ptychodus | [x] | Completed 2025-10-17 — see `reports/2025-10-17T020000Z/parity_map.md` for catalogued touchpoints. |
+| A2 | Audit PyTorch equivalents and gaps | [x] | Completed 2025-10-17 — gaps recorded in parity_map.md and summarized in `reports/2025-10-17T020000Z/summary.md`. |
+| A3 | Define initiative glossary + owner map | [x] | Completed 2025-10-17 — glossary captured in `plans/active/INTEGRATE-PYTORCH-001/glossary_and_ownership.md`. |
 
 ---
 
@@ -28,7 +28,7 @@ Exit Criteria: PyTorch training/inference paths ingest `TrainingConfig`/`Inferen
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Design dataclass ingestion plan | [ ] | Draft adapter design in `reports/<timestamp>/config_bridge.md`, mapping current `config_params.py` keys to dataclasses (`specs/ptychodus_api_spec.md §2`). |
+| B1 | Design dataclass ingestion plan | [ ] | Draft adapter design in `reports/<timestamp>/config_bridge.md`, mapping current `ptycho_torch/config_params.py` keys (e.g., `ModelConfig().get('n_filters_scale')`) to dataclass fields; cross-reference `specs/ptychodus_api_spec.md §2` and `ptycho/config/config.py:1-210`. |
 | B2 | Author minimal failing test capturing legacy bridge gap | [ ] | Follow TDD (docs/DEVELOPER_GUIDE.md §4); add pytest selector under `tests/torch/` that asserts legacy dict fields (e.g., `n_groups`, `probe.mask`) match dataclass inputs. |
 | B3 | Implement adapter + transition script | [ ] | Guide Ralph to introduce `load_training_config_from_dataclasses()` etc.; ensure call order respects params initialization pattern (docs/debugging/QUICK_REFERENCE_PARAMS.md). |
 | B4 | Validate against TensorFlow baseline | [ ] | Run parity check comparing `ptycho.params.cfg` dumps from both backends; store diff in `reports/<timestamp>/cfg_diff.txt`. |
@@ -86,4 +86,3 @@ Exit Criteria: Ptychodus integration tests (existing + new for PyTorch) pass on 
 - Lightning + MLflow dependence may complicate CI runs → plan fallback configuration (`MLFLOW_TRACKING_URI= `, disable autolog) before Phase D.
 - Data fixture availability for PyTorch tests unknown → coordinate with TEST-PYTORCH-001 to build shared minimal dataset.
 - Persistence parity may require schema changes; ensure spec updates accompany any semantic shifts.
-

@@ -27,3 +27,15 @@
 - Authored phased plan at `plans/active/INTEGRATE-PYTORCH-001/implementation.md`; captured dependencies, deliverables, and phase checklists.
 - Updated docs/fix_plan.md to reference new plan and note Attempt #1.
 - <Action State>: [ready_for_implementation]
+
+
+## 2025-10-17T015135Z: Loop 3 — INTEGRATE-PYTORCH-001 housekeeping
+- Focus issue: INTEGRATE-PYTORCH-001
+- Action type: Review or housekeeping
+- Mode: Docs
+- Findings: Confirmed Phase A artifacts in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/{parity_map.md,summary.md}` and glossary at `plans/active/INTEGRATE-PYTORCH-001/glossary_and_ownership.md`; docs/findings.md has only CONFIG-001/MIGRATION-001 relevant to bridge.
+- Plan upkeep: Marked Phase A checklist complete and expanded B1 guidance in `plans/active/INTEGRATE-PYTORCH-001/implementation.md`; corrected fix plan Attempt #2 artifact path and logged Attempt #3 review entry.
+- Steering: Rewrote `input.md` directing Ralph to draft Phase B config-bridge design under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T021100Z/`, including mapping table + open questions log.
+- Coin flip (heads): Reviewed Ralph commits (`git show e29e41d`, `git show 1a8a856`) — progress is documentation-centric, no regressions detected, but PyTorch code remains untouched.
+- Open questions: Need a field-by-field singleton inventory for B2 failing test; expect Ralph to capture in new report.
+- <Action State>: [ready_for_implementation]
