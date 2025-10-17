@@ -526,3 +526,17 @@
 - Logged Attempt #69 in docs/fix_plan.md and rewrote input.md directing Ralph to execute F3.2 with targeted pytest selectors.
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T195433Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase F3.2 guard removal closure
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections prior to Step <3.2>; verifying guard removal artifacts, logging attempt, prepping next directives.
+
+## 2025-10-17T195808Z: F3.2 closure review
+- Verified guard_removal_summary.md and pytest_guard_removal.log; log shows expected import errors for legacy throughput/baseline harness when run without ignores.
+- Added Attempt #70 to docs/fix_plan.md documenting guard removal completion and noting outstanding full-suite errors slated for F3.3 skip rewrite.
+- Updated phase_f_torch_mandatory.md F3.3 guidance with new artifact hub 2025-10-17T195624Z and rewrote input.md directing Ralph to execute skip logic rewrite with torch-present/absent validation commands.
+- Next steps for Ralph: follow input.md Do Now checklist (torch suite run, stub-based no-torch validation, summary + ledger update).
+- <Action State>: [ready_for_implementation]
+

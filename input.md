@@ -1,39 +1,49 @@
-Summary: Remove remaining TORCH_AVAILABLE guards now that PyTorch is mandatory.
+Summary: Rewrite pytest skip logic to enforce torch-required policy and capture skip-behavior evidence.
 Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 / Phase F3.2 Guard Removal
+Focus: INTEGRATE-PYTORCH-001 / Phase F3.3 Skip Logic Rewrite
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_config_bridge.py -q; pytest tests/torch/test_data_pipeline.py -q; pytest tests/torch/test_model_manager.py -q; pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_not_implemented -q
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193753Z/{guard_removal_summary.md,pytest_guard_removal.log}
+Mapped tests: pytest tests/torch/ -vv; PYTHONPATH=$PWD/tmp/no_torch_stub python -m pytest tests/ -q
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T195624Z/{skip_rewrite_summary.md,pytest_torch.log,pytest_no_torch.log}
 Do Now:
-- INTEGRATE-PYTORCH-001 Phase F3 — F3.2 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: pytest tests/torch/test_config_bridge.py -q && pytest tests/torch/test_data_pipeline.py -q && pytest tests/torch/test_model_manager.py -q && pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_not_implemented -q): implement guard removal per f3_2_guard_removal_brief.md across the six listed modules, then rerun the targeted torch selectors.
-- INTEGRATE-PYTORCH-001 Phase F3 — F3.2 docs @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: none): capture guard_removal_summary.md + pytest_guard_removal.log, update phase_f_torch_mandatory.md state, and log Attempt #70 in docs/fix_plan.md.
-If Blocked: Stop before partial guard removal; document failing module, stack trace, and pytest output in guard_removal_summary.md, note the blocker in docs/fix_plan.md, and leave code untouched for escalation.
+- INTEGRATE-PYTORCH-001 Phase F3 — F3.3 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:46 (tests: pytest tests/torch/ -vv): remove the torch whitelist in tests/conftest.py, clear TORCH_AVAILABLE guards from the torch test modules called out in test_skip_audit.md §10, decide on tests/test_pytorch_tf_wrapper.py relevance, then run the torch suite and tee output to pytest_torch.log.
+- INTEGRATE-PYTORCH-001 Phase F3 — F3.3 validation (no torch) @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:46 (tests: PYTHONPATH=$PWD/tmp/no_torch_stub python -m pytest tests/ -q): create a temporary tmp/no_torch_stub/torch/__init__.py that raises ImportError to simulate torch absence, rerun pytest to verify skip counts, capture output to pytest_no_torch.log, and delete the stub afterward.
+- INTEGRATE-PYTORCH-001 Phase F3 — F3.3 docs @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:46 (tests: none): summarize edits and validation in skip_rewrite_summary.md, update phase_f_torch_mandatory.md (mark F3.3 complete with selectors), and log Attempt #71 in docs/fix_plan.md with artifact links.
+If Blocked: Stop before partial conftest rewrites; restore the original skip logic, stash error traces in skip_rewrite_summary.md, and document the blocker in docs/fix_plan.md Attempt notes for Phase F3.3.
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:41 — F3.2 instructions and parity test list.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193753Z/f3_2_guard_removal_brief.md — module-by-module removal guidance.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/migration_plan.md#phase-f32-—-guard-removal — authoritative sequence and rollback notes.
-- docs/fix_plan.md:133-150 — Latest attempts show F3.1 complete; next gate is guard removal.
-- specs/ptychodus_api_spec.md:192-275 — Persistence + workflow requirements that must stay intact after guard removal.
+- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:42-47 — Phase F checklist shows F3.3 as the next gating task.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/test_skip_audit.md:1-120 — Inventory of skip mechanisms and explicit F3.3 implementation checklist.
+- docs/findings.md — CONFIG-001 / DATA-001 guardrails still apply when editing tests touching config bridge and data pipeline.
+- specs/ptychodus_api_spec.md:192-275 — Workflow contract references ensuring backend dispatch remains torch-first after skip cleanup.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193753Z/guard_removal_summary.md confirms production modules now require torch; tests must match this policy before Phase F3.4.
 How-To Map:
-- For each module listed in the brief remove `try/except ImportError` patterns, delete `TORCH_AVAILABLE` flags, and make torch imports unconditional (`ptycho_torch/config_params.py:1-25`, `ptycho_torch/config_bridge.py:70-165`, `ptycho_torch/data_container_bridge.py:1-260`, `ptycho_torch/memmap_bridge.py:1-70`, `ptycho_torch/model_manager.py:1-240`, `ptycho_torch/workflows/components.py:1-220`). Replace any fallback branches with direct torch usage or explicit RuntimeError messaging that instructs users to install torch.
-- Ensure `ptycho_torch/data_container_bridge.PtychoDataContainerTorch` always returns torch tensors; drop NumPy fallback branch and adjust `__repr__` to inspect dtypes without `TORCH_AVAILABLE`.
-- Simplify `ptycho_torch/model_manager.save_torch_bundle` and `load_torch_bundle` to require `nn.Module` inputs, removing sentinel dict logic and ImportError fallback.
-- Update `ptycho_torch/workflows/components` imports to pull RawDataTorch/DataContainerTorch/save_torch_bundle/load_torch_bundle at module scope; add explicit RuntimeError in entry points if those dependencies are missing unexpectedly.
-- After editing, reinstall the package (`pip install -e .`) if dependency resolution demands it, then run the four targeted pytest selectors in the order listed; tee combined output to `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193753Z/pytest_guard_removal.log`.
-- Summarize code touchpoints, command transcript, and test outcomes in `guard_removal_summary.md`; update `phase_f_torch_mandatory.md` (mark F3.2 [x]) and append Attempt #70 in `docs/fix_plan.md` with artifact links.
+- Edit tests/conftest.py to drop TORCH_OPTIONAL_MODULES and consolidate skip logic to a simple torch-available check; remove the unused torch_available fixture per test_skip_audit.md Section 10.
+- In tests/torch/test_data_pipeline.py and tests/torch/test_tf_helper.py, delete try/except ImportError guards and @unittest.skipUnless decorators, updating assertions to unconditionally expect torch tensors.
+- Review tests/test_pytorch_tf_wrapper.py; either remove torch guards to keep the test or delete the file if obsolete, documenting the decision in skip_rewrite_summary.md.
+- Run `pytest tests/torch/ -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T195624Z/pytest_torch.log` after code edits.
+- Simulate torch absence by creating the stub:
+  ```bash
+  mkdir -p tmp/no_torch_stub/torch
+  cat <<'STUB' > tmp/no_torch_stub/torch/__init__.py
+  raise ImportError("torch intentionally disabled for Phase F3.3 validation")
+  STUB
+  PYTHONPATH=$PWD/tmp/no_torch_stub python -m pytest tests/ -q | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T195624Z/pytest_no_torch.log
+  rm -rf tmp/no_torch_stub
+  ```
+- Capture a narrative of edits, skip counts, and outstanding issues in skip_rewrite_summary.md (note both torch-present and torch-missing behaviors).
 Pitfalls To Avoid:
-- Do not leave partial NumPy fallback paths—guard removal must be all-or-nothing for each module.
-- Avoid introducing circular imports when moving torch imports to module scope; verify modules still import cleanly.
-- Keep RuntimeError messaging precise (`pip install torch>=2.2`) instead of silent failure.
-- Maintain TensorType alias compatibility in config_params without relying on Any.
-- Do not adjust F3.3 skip logic yet; that work remains for the following loop.
-- Ensure pytest selectors run after code edits; no skipped validation allowed.
-- Preserve existing docstrings/comments unless they only describe guard behavior being removed.
+- Do not leave tmp/no_torch_stub in the tree; it must be deleted before finishing the loop.
+- Avoid reintroducing TORCH_AVAILABLE flags or conditional paths in production modules—changes should stay within tests/conftest.py and the torch test files.
+- Keep new or updated tests in native pytest style; do not add unittest.TestCase wrappers around pytest fixtures.
+- Ensure pytest_torch.log records the exact command output (include the command in the log header for clarity).
+- When simulating torch absence, confirm the command fails via skips—not by importing the stubbed module successfully.
+- Do not change CLAUDE.md or docs/findings.md yet; documentation updates belong to Phase F4.
+- Re-run formatting hooks if large deletions leave trailing whitespace in tests.
+- Update docs/fix_plan.md only once with consolidated Attempt #71 details to avoid duplicate entries.
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:41
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193753Z/f3_2_guard_removal_brief.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/migration_plan.md#phase-f32-—-guard-removal
-- ptycho_torch/config_params.py:1-35
-- ptycho_torch/data_container_bridge.py:1-260
-- ptycho_torch/model_manager.py:1-240
-Next Up: F3.3 pytest skip rewrite once guard removal lands cleanly.
+- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:42-47
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/test_skip_audit.md:1-220
+- tests/conftest.py:1-120
+- tests/torch/test_data_pipeline.py:1-320
+- tests/torch/test_tf_helper.py:1-180
+- tests/test_pytorch_tf_wrapper.py:1-160
+Next Up: Phase F3.4 regression verification once skip logic succeeds.
