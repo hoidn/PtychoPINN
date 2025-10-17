@@ -269,3 +269,16 @@
 - Rewrote input.md (Mode=TDD) instructing Ralph to author C.B2/C.B3 failing tests and capture red pytest logs; emphasized torch-optional patterns from blueprint.
 - Follow-up for Ralph: add torch-optional red tests in `tests/torch/test_data_pipeline.py`, run targeted pytest selectors, stash logs/notes under 2025-10-17T071836Z, then update ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T073451Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase C.C1 RawDataTorch adapter implementation
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes: Selections recorded prior to document review per instructions. Detailed summary to follow.
+
+- Reviewed data pipeline artifacts (`data_contract.md`, `torch_gap_matrix.md`, `notes.md`) and refreshed plan state; docs/findings.md search highlighted ANTIPATTERN-001/BUG-TF-001/DATA-001 as relevant guardrails.
+- Updated Phase C plan (C.B2/C.B3 ✅) and implementation plan (C2 ✅); logged Attempt #32 in docs/fix_plan.md.
+- Authored supervisor summary at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T073640Z/supervisor_summary.md` and rewrote input.md directing Ralph to build `RawDataTorch` per C.C1.
+- Follow-up for Ralph: implement RawDataTorch wrapper, capture green raw-data pytest log, document decisions in implementation_notes.md, then update fix plan.
+- <Action State>: [ready_for_implementation]
+

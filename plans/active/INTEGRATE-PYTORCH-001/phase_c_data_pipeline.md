@@ -29,8 +29,8 @@ Exit Criteria: New pytest module(s) under `tests/torch/` with targeted selectors
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | C.B1 | Blueprint test module structure | [x] | ✅ 2025-10-17 — Torch-optional harness blueprint documented in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/test_blueprint.md`, covering fixtures, skip guards, and ROI guidance. |
-| C.B2 | Author failing RawData parity test | [ ] | Create `tests/torch/test_data_pipeline.py::test_raw_data_torch_matches_tensorflow` asserting that grouped keys/values from new wrapper match TensorFlow RawData outputs for ROI. Capture red log via `pytest tests/torch/test_data_pipeline.py -k raw_data -vv`. |
-| C.B3 | Author failing data-container test | [ ] | Extend same module with `test_data_container_shapes_and_dtypes` verifying `PtychoDataContainerTorch` exposes tensor attributes equivalent to `ptycho.loader.PtychoDataContainer`. Ensure tests run without torch installed by guarding creation logic. Store red log. |
+| C.B2 | Author failing RawData parity test | [x] | Completed 2025-10-17 — see `reports/2025-10-17T071836Z/pytest_raw_data_red.log` capturing red-phase failure for `test_raw_data_torch_matches_tensorflow`. |
+| C.B3 | Author failing data-container test | [x] | Completed 2025-10-17 — see `reports/2025-10-17T071836Z/pytest_data_container_red.log` documenting failing coverage for `test_data_container_shapes_and_dtypes` + Y dtype check. |
 
 ---
 
