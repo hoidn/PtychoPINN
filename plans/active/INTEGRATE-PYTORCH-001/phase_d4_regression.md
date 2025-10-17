@@ -35,9 +35,9 @@ Exit Criteria: New pytest cases exist, fail for current implementation, and arti
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D4.B1 | Persistence regression red tests | [ ] | Extend `tests/torch/test_model_manager.py` (or new module) with torch-optional tests covering full archive round-trip + manifest validation for multiple models. Store failing logs under `reports/<ts>/phase_d4_red_persistence.log`. |
-| D4.B2 | Orchestration regression red tests | [ ] | Author torch-optional tests targeting `ptycho_torch/workflows/components.py` to ensure train/inference wrappers call CONFIG-001 bridge and reassemble stub. Log outputs to `phase_d4_red_workflows.log`. |
-| D4.B3 | Integration hand-off prep | [ ] | Draft `reports/<ts>/phase_d4_red_summary.md` summarizing failures, prerequisites for green phase, and any blockers needing TEST-PYTORCH-001 coordination. |
+| D4.B1 | Persistence regression red tests | [P] | ✅ 2025-10-17 — Extended `tests/torch/test_model_manager.py::TestLoadTorchBundle` with `test_load_round_trip_returns_model_stub` (torch-optional round-trip test). Test status: XFAIL (NotImplementedError expected until D3.C model reconstruction complete). Log: `reports/2025-10-17T112849Z/phase_d4_red_persistence.log` (6 lines, 1 xfailed). |
+| D4.B2 | Orchestration regression red tests | [P] | ✅ 2025-10-17 — Authored 2 torch-optional tests in `tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun`: (1) `test_run_cdi_example_persists_models` validates save_torch_bundle invocation when config.output_dir set; (2) `test_load_inference_bundle_handles_bundle` validates loader delegation. Both tests FAILED (AttributeError during monkeypatch setup — save/load functions not yet imported in workflows.components). Log: `reports/2025-10-17T112849Z/phase_d4_red_workflows.log` (276 lines, 2 FAILED). |
+| D4.B3 | Integration hand-off prep | [P] | ✅ 2025-10-17 — Authored `reports/2025-10-17T112849Z/phase_d4_red_summary.md` (210 lines) documenting: failing assertions summary table, environment config (CUDA_VISIBLE_DEVICES="", MLFLOW_TRACKING_URI=memory), follow-up actions for D4.C1/C2 (persistence wiring + loader delegation), selector commands, and TEST-PYTORCH-001 coordination notes. No blockers identified; all tests torch-optional and fail gracefully. |
 
 ---
 
@@ -72,6 +72,6 @@ Exit Criteria: Tests pass locally, artifacts recorded, and follow-up actions for
 
 ### Exit Checklist
 - [x] D4.A1–A3 marked complete with linked artifacts (`reports/2025-10-17T111700Z/`)
-- [ ] D4.B1–B3 produce failing evidence (yet torch-optional) before implementation
+- [x] D4.B1–B3 produce failing evidence (yet torch-optional) before implementation — ✅ 2025-10-17 Completed with 3 red tests (1 XFAIL, 2 FAILED), logs captured under `reports/2025-10-17T112849Z/`
 - [ ] D4.C1–C3 mark tests green and document hand-off package
 - [ ] docs/fix_plan.md Attempts History references each artifact with timestamp + checklist IDs

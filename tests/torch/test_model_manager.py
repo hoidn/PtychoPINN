@@ -565,3 +565,86 @@ class TestLoadTorchBundle:
         assert 'Cannot reconstruct model architecture' in error_msg or 'cannot reconstruct' in error_msg.lower(), (
             "ValueError MUST explain consequence (model reconstruction failure)"
         )
+
+    def test_load_round_trip_returns_model_stub(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_torch_models
+    ):
+        """
+        REGRESSION TEST: save → load round-trip must return saved sentinel model and params.
+
+        Requirement: Phase D4.B1 — validate PyTorch persistence layer maintains round-trip
+        parity with TensorFlow baseline without raising NotImplementedError when model
+        reconstruction is complete.
+
+        This test documents the expected end state after persistence implementation:
+        - save_torch_bundle serializes sentinel models + config snapshot
+        - load_torch_bundle restores the saved models and params without errors
+        - Returned model structure matches what was saved
+
+        Red-phase expectation:
+        - Currently SHOULD raise NotImplementedError("load_torch_bundle model reconstruction not yet implemented")
+        - Once Phase D3.C complete, SHOULD return (model, params) tuple successfully
+
+        Test mechanism:
+        - Save bundle with sentinel models (torch-optional stubs)
+        - Load the same bundle
+        - Validate (model, params) returned match saved state
+        - If NotImplementedError raised, document it as expected during red phase
+        """
+        pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
+
+        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+
+        # Save bundle with known config
+        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
+        base_path = tmp_path / "d4b1_round_trip"
+
+        save_torch_bundle(
+            models_dict=dummy_torch_models,
+            base_path=str(base_path),
+            config=minimal_training_config
+        )
+
+        # Clear params.cfg to simulate fresh process
+        params.cfg.clear()
+
+        # Attempt round-trip load
+        # Red phase: expect NotImplementedError
+        # Green phase: expect successful return
+        try:
+            model, loaded_params = load_torch_bundle(str(base_path), model_name='autoencoder')
+
+            # Green phase assertions (once Phase D3.C complete)
+            assert model is not None, (
+                "load_torch_bundle MUST return non-None model after successful load"
+            )
+            assert loaded_params is not None, (
+                "load_torch_bundle MUST return params dict"
+            )
+
+            # Validate params match saved config
+            assert loaded_params['N'] == 64, f"Expected N=64, got {loaded_params['N']}"
+            assert loaded_params['gridsize'] == 2, f"Expected gridsize=2, got {loaded_params['gridsize']}"
+            assert loaded_params['model_type'] == 'pinn', f"Expected model_type='pinn', got {loaded_params['model_type']}"
+
+            # Validate params.cfg was updated (CONFIG-001 requirement)
+            assert params.cfg.get('N') == 64, (
+                "CONFIG-001: params.cfg['N'] must be restored during load"
+            )
+
+        except NotImplementedError as e:
+            # Red phase: document expected failure
+            if 'load_torch_bundle model reconstruction not yet implemented' in str(e):
+                pytest.xfail(
+                    "Phase D4.B1 red phase: load_torch_bundle model reconstruction pending. "
+                    "Expected NotImplementedError raised. This test will pass once Phase D3.C "
+                    "implements model reconstruction logic."
+                )
+            else:
+                raise  # Unexpected NotImplementedError, re-raise

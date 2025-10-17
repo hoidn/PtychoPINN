@@ -483,3 +483,228 @@ class TestWorkflowsComponentsRun:
             "When do_stitching=False, recon_phase should be None"
         )
         assert "history" in results, "results dict must contain training history"
+
+    def test_run_cdi_example_persists_models(
+        self,
+        monkeypatch,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        REGRESSION TEST: run_cdi_example_torch must persist models when config.output_dir set.
+
+        Requirement: Phase D4.B2 — validate PyTorch orchestration maintains persistence
+        parity with TensorFlow baseline per specs/ptychodus_api_spec.md:§4.6.
+
+        TensorFlow baseline (ptycho/workflows/components.py:709-723):
+        - When config.output_dir is provided, calls save_model() or ModelManager.save()
+        - Produces wts.h5.zip archive in output_dir with dual-model bundle
+        - Persistence happens after training completes successfully
+
+        Red-phase expectation:
+        - run_cdi_example_torch currently does NOT call save_torch_bundle
+        - Once Phase D4.C1 complete, SHOULD invoke save_torch_bundle when output_dir set
+        - Test will FAIL until orchestration wiring is complete
+
+        Test mechanism:
+        - Monkeypatch save_torch_bundle to spy on invocation
+        - Set config.output_dir to tmp_path
+        - Call run_cdi_example_torch
+        - Validate save_torch_bundle was called with correct models dict + base_path
+        """
+        # Import the module under test
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        # Spy flag to track save_torch_bundle invocation
+        save_torch_bundle_called = {"called": False, "args": None, "kwargs": None}
+
+        def mock_save_torch_bundle(models_dict, base_path, config, **kwargs):
+            """Spy that records save_torch_bundle invocation."""
+            save_torch_bundle_called["called"] = True
+            save_torch_bundle_called["args"] = (models_dict, base_path, config)
+            save_torch_bundle_called["kwargs"] = kwargs
+
+        # Monkeypatch save_torch_bundle
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components.save_torch_bundle",
+            mock_save_torch_bundle
+        )
+
+        # Monkeypatch train_cdi_model_torch to return minimal results with models
+        def mock_train_cdi_model_torch(train_data, test_data, config):
+            """Return stub results including models dict for persistence."""
+            return {
+                "history": {"train_loss": [0.5, 0.3]},
+                "train_container": {"sentinel": "train"},
+                "test_container": None,
+                "models": {
+                    'autoencoder': {'_sentinel': 'trained_autoencoder'},
+                    'diffraction_to_obj': {'_sentinel': 'trained_diffraction'},
+                },
+            }
+
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components.train_cdi_model_torch",
+            mock_train_cdi_model_torch
+        )
+
+        # Create config with output_dir set
+        model_config = ModelConfig(N=64, gridsize=2, model_type='pinn')
+        config_with_output = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            output_dir=tmp_path,  # Enable persistence
+        )
+
+        # Call run_cdi_example_torch
+        recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
+            train_data=dummy_raw_data,
+            test_data=None,
+            config=config_with_output,
+            flip_x=False,
+            flip_y=False,
+            transpose=False,
+            M=20,
+            do_stitching=False,
+        )
+
+        # Validate save_torch_bundle was called
+        # Red phase: this assertion WILL FAIL because persistence wiring not yet implemented
+        assert save_torch_bundle_called["called"], (
+            "run_cdi_example_torch MUST call save_torch_bundle when config.output_dir is set. "
+            "Phase D4.B2 red phase: persistence wiring not yet implemented. This test documents "
+            "the expected behavior and will pass once Phase D4.C1 adds persistence call."
+        )
+
+        # Validate correct arguments passed (green phase validation)
+        if save_torch_bundle_called["called"]:
+            models_dict_arg, base_path_arg, config_arg = save_torch_bundle_called["args"]
+
+            assert 'autoencoder' in models_dict_arg, (
+                "save_torch_bundle MUST receive models dict with 'autoencoder' key"
+            )
+            assert 'diffraction_to_obj' in models_dict_arg, (
+                "save_torch_bundle MUST receive models dict with 'diffraction_to_obj' key"
+            )
+
+            assert str(tmp_path) in str(base_path_arg), (
+                "save_torch_bundle base_path MUST be within config.output_dir"
+            )
+
+            assert config_arg is config_with_output, (
+                "save_torch_bundle MUST receive the TrainingConfig instance"
+            )
+
+    def test_load_inference_bundle_handles_bundle(
+        self,
+        monkeypatch,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config
+    ):
+        """
+        REGRESSION TEST: load_inference_bundle_torch must delegate to load_torch_bundle.
+
+        Requirement: Phase D4.B2 — validate PyTorch inference loading maintains parity
+        with TensorFlow baseline per specs/ptychodus_api_spec.md:§4.5.
+
+        TensorFlow baseline (ptycho/workflows/components.py:94-174):
+        - load_inference_bundle unpacks wts.h5.zip via ModelManager.load_multiple_models
+        - Restores params.cfg before model reconstruction (CONFIG-001)
+        - Returns (models_dict, params_dict) tuple
+
+        Red-phase expectation:
+        - load_inference_bundle_torch currently raises NotImplementedError
+        - Once Phase D4.C2 complete, SHOULD invoke load_torch_bundle shim
+        - Test will FAIL until loader delegation is wired
+
+        Test mechanism:
+        - Monkeypatch load_torch_bundle to spy on invocation
+        - Call load_inference_bundle_torch with bundle path
+        - Validate load_torch_bundle was called with correct base_path
+        - Validate params.cfg was updated via CONFIG-001 gate
+        """
+        # Import the module under test
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho import params
+
+        # Spy flag to track load_torch_bundle invocation
+        load_torch_bundle_called = {"called": False, "args": None}
+
+        def mock_load_torch_bundle(base_path, model_name='diffraction_to_obj'):
+            """Spy that records load_torch_bundle invocation."""
+            load_torch_bundle_called["called"] = True
+            load_torch_bundle_called["args"] = (base_path, model_name)
+
+            # Simulate params.cfg restoration (CONFIG-001 requirement)
+            restored_params = {
+                'N': 64,
+                'gridsize': 2,
+                'model_type': 'pinn',
+                'nphotons': 1e9,
+            }
+            params.cfg.update(restored_params)
+
+            # Return sentinel model + params
+            return (
+                {'_sentinel': 'loaded_model'},
+                restored_params
+            )
+
+        # Monkeypatch load_torch_bundle
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components.load_torch_bundle",
+            mock_load_torch_bundle
+        )
+
+        # Clear params.cfg to simulate fresh process
+        params.cfg.clear()
+        assert params.cfg.get('N') is None, "Sanity check: params.cfg should be empty"
+
+        # Call load_inference_bundle_torch
+        # Red phase: expect NotImplementedError
+        # Green phase: expect successful return
+        try:
+            models_dict, params_dict = torch_components.load_inference_bundle_torch(
+                bundle_dir=str(tmp_path / "test_bundle")
+            )
+
+            # Green phase assertions (once Phase D4.C2 complete)
+            assert load_torch_bundle_called["called"], (
+                "load_inference_bundle_torch MUST delegate to load_torch_bundle"
+            )
+
+            base_path_arg, model_name_arg = load_torch_bundle_called["args"]
+            assert str(tmp_path / "test_bundle") in str(base_path_arg), (
+                "load_torch_bundle MUST receive correct bundle_dir path"
+            )
+
+            # Validate params.cfg was updated (CONFIG-001 requirement)
+            assert params.cfg.get('N') == 64, (
+                "CONFIG-001: params.cfg['N'] must be restored during load"
+            )
+            assert params.cfg.get('gridsize') == 2, (
+                "CONFIG-001: params.cfg['gridsize'] must be restored"
+            )
+
+            # Validate return values
+            assert models_dict is not None, "load_inference_bundle_torch MUST return models_dict"
+            assert params_dict is not None, "load_inference_bundle_torch MUST return params_dict"
+
+        except NotImplementedError as e:
+            # Red phase: document expected failure
+            if 'load_inference_bundle_torch' in str(e) or 'not yet implemented' in str(e):
+                pytest.xfail(
+                    "Phase D4.B2 red phase: load_inference_bundle_torch delegation not yet wired. "
+                    "Expected NotImplementedError raised. This test will pass once Phase D4.C2 "
+                    "implements loader delegation."
+                )
+            else:
+                raise  # Unexpected NotImplementedError, re-raise
