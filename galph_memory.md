@@ -168,3 +168,17 @@
 - Steering: Reissued `input.md` directing Ralph to convert parity tests to pytest style, normalize path/probe_mask/nphotons handling, and capture green pytest logs under `2025-10-17T045936Z`.
 - Follow-up for Ralph: Implement P0 fixes per evidence summary, rerun targeted selectors, update reports + ledger, then proceed to n_subsample semantics once green.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T051640Z: Focus Setup
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B5 parity harness alignment
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections before artifact edits per instructions; full summary to follow after review.
+
+- Review summary: Confirmed adapter P0 fixes landed (Attempt #17) but parity plan still showed Phase A open. Updated `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md` (Phase A marked complete, new B0 harness gate) and `plans/active/INTEGRATE-PYTORCH-001/implementation.md` (B3 marked ✅, B5 guidance refreshed).
+- Captured supervisor notes at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T051750Z/status_review.md`; highlights pytest harness refactor + probe_mask/nphotons verification as next actions.
+- Logged Attempt #18 in docs/fix_plan.md tying to the revised plan; rewrote input.md to focus Ralph on pytest refactor → targeted selectors (`pytest ...TestConfigBridgeParity`).
+- Reminder: `train_debug.log` still at repo root from earlier loop—flagged in status review for relocation during implementation.
+- Follow-up for Ralph: execute parity_green_plan Phase B0 conversion, capture logs in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T052500Z/`, then advance B2/B4 once pytest harness passes.
+- <Action State>: [ready_for_implementation]
+

@@ -4,7 +4,7 @@
 - Initiative: INTEGRATE-PYTORCH-001 (Configuration & Legacy Bridge Alignment)
 - Phase Goal: Flip the red-phase parity matrix green by implementing the remaining adapter logic and running the expanded tests end-to-end.
 - Dependencies: `specs/ptychodus_api_spec.md §5.1-5.3` (field contract), `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/{field_matrix.md,summary.md}` (coverage + priority ranking), `ptycho_torch/config_bridge.py` (current adapter), `tests/torch/test_config_bridge.py` (red-phase parity suite), `ptycho/config/config.py` (KEY_MAPPINGS + defaults), and finding CONFIG-001 (update params.cfg first).
-- Current State: Attempt #13 captured the complete red matrix (38 spec fields) with all tests SKIPPED when PyTorch is absent. Critical blockers: (1) `probe_mask` Tensor→bool handling, (2) enforcing explicit `nphotons` overrides, (3) targeted pytest skip due to hard torch dependency in config singletons.
+- Current State: Phase A is complete (Attempt #15) — parity selectors execute without torch; adapter P0 fixes (probe_mask translation, nphotons override enforcement, path normalization) landed in Attempt #17. Parity suite remains red because `TestConfigBridgeParity` still inherits `unittest.TestCase`, so parameterized cases raise `TypeError` until the harness is converted to pytest style (blocking B2/B4).
 - Artifact storage: Capture design notes, diffs, and pytest logs under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/` (e.g., `implementation_notes.md`, `adapter_diff.md`, `pytest_green.log`). Reference each artifact from docs/fix_plan.md attempts.
 
 ---
@@ -16,10 +16,10 @@ Exit Criteria: Targeted selector `pytest tests/torch/test_config_bridge.py::Test
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| A1 | Audit skip mechanics | [ ] | Document how `tests/conftest.py` applies skip markers (file path contains `torch`, explicit `@pytest.mark.torch`). Capture notes in `implementation_notes.md` summarizing required changes. |
-| A2 | Introduce optional torch shim | [ ] | Implement guarded import layer (e.g., new module `ptycho_torch/_torch_optional.py` or lazy attribute) so `config_params.py` can be imported without torch. Provide minimal `TensorStub` for typing or gate out features requiring real tensors. Record design + risks in notes. |
-| A3 | Adjust pytest gating | [ ] | Update `tests/conftest.py` (or parity tests) so config-bridge selectors opt out of the blanket skip while still respecting `@pytest.mark.torch` for true torch-dependent cases. Ensure guidance includes revert steps if torch becomes available. |
-| A4 | Add fallback verification | [ ] | Extend tests to assert fallback path emits informative warning/log entry; store any helper fixture under `tests/torch/conftest_helpers.py` if needed. |
+| A1 | Audit skip mechanics | [x] | Completed 2025-10-17 — see `reports/2025-10-17T050930Z/implementation_notes.md` (Phase A.A1) for skip logic summary. |
+| A2 | Introduce optional torch shim | [x] | Completed 2025-10-17 — guarded import + `TORCH_AVAILABLE` flag added to `ptycho_torch/config_params.py`; details in `implementation_notes.md` Phase A.A2. |
+| A3 | Adjust pytest gating | [x] | Completed 2025-10-17 — `tests/conftest.py` now exempts config bridge tests when torch missing (Phase A.A3 notes). |
+| A4 | Add fallback verification | [x] | Completed 2025-10-17 — pytest log `reports/2025-10-17T050930Z/pytest_phaseA.log` shows execution without skip; fallback verified. |
 
 ---
 
@@ -30,10 +30,11 @@ Exit Criteria: `pytest tests/torch/test_config_bridge.py -k "probe_mask or nphot
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Implement probe_mask conversion | [ ] | Translate `ModelConfig.probe_mask` (Optional[torch.Tensor]) into a boolean flag or explicit override consistent with spec §5.1:8. Options: detect `None`→False, tensor with any non-zero→True, allow override for explicit bool. Document conversion in `adapter_diff.md` with rationale. |
-| B2 | Extend tests for probe_mask | [ ] | Add targeted parity test (probable new parameterization) ensuring both default (`None`→False) and manual override paths are covered. Mark with `@pytest.mark.parametrize` per `field_matrix` guidance. |
-| B3 | Enforce nphotons override | [ ] | Update adapter to require explicit `nphotons` value in overrides when PyTorch default differs. Ensure failure message references spec requirement. Verify training config uses override instead of PyTorch default. |
-| B4 | Tighten default divergence test | [ ] | Adjust `test_default_divergence_detection` expectations so absence of override fails with actionable message, and presence passes. Capture failing log before fix in `pytest_red.log` (Phase A) and passing log after fix in `pytest_green.log`. |
+| B0 | Refactor parity harness to pytest style | [ ] | Convert `tests/torch/test_config_bridge.py::TestConfigBridgeParity` into pytest-style tests (drop `unittest.TestCase`, use fixtures) so parameterized cases run. Required before B2/B4; capture log under new reports directory. |
+| B1 | Implement probe_mask conversion | [x] | Completed 2025-10-17 — adapter logic landed in `reports/2025-10-17T045936Z/adapter_diff.md`; defaults verified in `bridge_probe_mask_check.md`. |
+| B2 | Extend tests for probe_mask | [ ] | After B0 lands, re-enable parameterized parity cases covering default (`None`→False) and explicit override paths per `field_matrix.md`. Use pytest-style assertions; capture results in new pytest log. |
+| B3 | Enforce nphotons override | [x] | Completed 2025-10-17 — adapter now raises ValueError when overrides missing; see `adapter_diff.md` + Attempt #17 summary. |
+| B4 | Tighten default divergence test | [ ] | Once pytest harness executes, assert ValueError message text for missing overrides and green-case success; store red vs green logs as planned. |
 
 ---
 
@@ -77,7 +78,7 @@ Exit Criteria: All parity tests green (or justified xfails), artifacts recorded,
 ---
 
 ## Verification Checklist
-- [ ] Tests no longer skipped when torch absent; fallback strategy documented.
+- [x] Tests no longer skipped when torch absent; fallback strategy documented (see pytest_phaseA.log).
 - [ ] P0 probe_mask/nphotons tests green with explicit overrides enforced.
 - [ ] params.cfg baseline comparison test added and passing, with override matrix recorded.
 - [ ] `pytest_green.log` stored under the new timestamped directory capturing the first green run.
