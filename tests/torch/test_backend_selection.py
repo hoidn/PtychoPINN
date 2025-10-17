@@ -56,7 +56,6 @@ class TestBackendSelection:
     # Test 1: Default Backend Behavior (Backward Compatibility)
     # ============================================================================
 
-    @pytest.mark.xfail(reason="Backend selection not yet implemented (Phase E1.C pending)", strict=True)
     def test_defaults_to_tensorflow_backend(self, params_cfg_snapshot):
         """
         Test that system defaults to TensorFlow when backend parameter unspecified.
@@ -93,7 +92,6 @@ class TestBackendSelection:
     # Test 2: PyTorch Backend Selection
     # ============================================================================
 
-    @pytest.mark.xfail(reason="Backend selection not yet implemented (Phase E1.C pending)", strict=True)
     def test_selects_pytorch_backend(self, params_cfg_snapshot):
         """
         Test that backend='pytorch' routes to PyTorch workflow module.
@@ -216,7 +214,6 @@ class TestBackendSelection:
     # Test 4: InferenceConfig Backend Selection
     # ============================================================================
 
-    @pytest.mark.xfail(reason="Backend selection not yet implemented (Phase E1.C pending)", strict=True)
     def test_inference_config_supports_backend_selection(self, params_cfg_snapshot):
         """
         Test that InferenceConfig also supports backend parameter.
@@ -251,7 +248,6 @@ class TestBackendSelection:
     # Test 5: API Parity Between Backends
     # ============================================================================
 
-    @pytest.mark.xfail(reason="Backend selection not yet implemented (Phase E1.C pending)", strict=True)
     def test_backend_selection_preserves_api_parity(self, params_cfg_snapshot):
         """
         Test that both backends accept identical config signatures.

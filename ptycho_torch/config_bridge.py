@@ -235,6 +235,9 @@ def to_training_config(
         # From PyTorch ModelConfig (belongs in TrainingConfig in TensorFlow)
         'intensity_scale_trainable': pt_model.intensity_scale_trainable,
 
+        # Backend selection: propagate PyTorch backend
+        'backend': 'pytorch',  # E1.C2: Mark this config as coming from PyTorch stack
+
         # Default values for fields missing in PyTorch
         'mae_weight': 0.0,
         'realspace_mae_weight': 0.0,
@@ -338,6 +341,9 @@ def to_inference_config(
 
         # From DataConfig
         'neighbor_count': data.K,  # Semantic mapping
+
+        # Backend selection: propagate PyTorch backend
+        'backend': 'pytorch',  # E1.C2: Mark this config as coming from PyTorch stack
 
         # Default values for fields missing in PyTorch
         'debug': False,

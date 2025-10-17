@@ -102,11 +102,12 @@ class TrainingConfig:
     n_subsample: Optional[int] = None  # Number of images to subsample before grouping (independent control)
     subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
     neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    positions_provided: bool = True  
+    positions_provided: bool = True
     probe_trainable: bool = False
     intensity_scale_trainable: bool = True  # Changed default
     output_dir: Path = Path("training_outputs")
     sequential_sampling: bool = False  # Use sequential sampling instead of random
+    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
@@ -138,6 +139,7 @@ class InferenceConfig:
     neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
     debug: bool = False
     output_dir: Path = Path("inference_outputs")
+    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
