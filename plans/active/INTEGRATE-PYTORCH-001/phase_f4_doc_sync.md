@@ -43,17 +43,17 @@ Exit Criteria: Handoff notes committed under `reports/<timestamp>/handoff_notes.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F4.3.A | Map impacted initiatives & CI tasks | [ ] | Follow `phase_f4_handoff.md` (H1–H2) to capture owner/action matrix covering TEST-PYTORCH-001, CI/CD runners, Ptychodus integration, and release/versioning. Record findings in `handoff_notes.md` with doc references (`plans/pytorch_integration_test_plan.md`, governance §7). |
-| F4.3.B | Define verification cadence | [ ] | Use `phase_f4_handoff.md` H3 guidance to list authoritative commands (e.g., `pytest --collect-only tests/torch/ -q`, `pytest tests/torch/test_backend_selection.py -k pytorch_unavailable_raises_error -vv`, `pytest tests/torch/test_config_bridge.py -k parity -vv`) and expected outcomes. Store under verification section of `handoff_notes.md`. |
-| F4.3.C | Update plan & ledger cross-references | [ ] | Document final synchronization steps per `phase_f4_handoff.md` H4: mark `phase_f_torch_mandatory.md` F4 row complete, log docs/fix_plan.md attempt with artifact path, outline v2.0.0 release + CHANGELOG update. Capture checklist in `handoff_notes.md`. |
+| F4.3.A | Map impacted initiatives & CI tasks | [x] | ✅ 2025-10-17 — Created owner matrix in `handoff_notes.md §1` covering TEST-PYTORCH-001 (P0), CI/CD maintainers (P0), Ptychodus integration (P1), release management (P1), and documentation team (DONE). Documented required actions, blocking dependencies, priorities, and artifact references per `phase_f4_handoff.md` H1-H2. CI updates detailed in §2 with provisioning, validation, and fallback strategies. |
+| F4.3.B | Define verification cadence | [x] | ✅ 2025-10-17 — Listed 5 authoritative pytest selectors in `handoff_notes.md §3` with expected outcomes, failure modes, and troubleshooting guidance. Commands: collection health, backend selection, config bridge parity, full torch suite, full project regression. Expanded rationale in `verification_commands.md` with CI integration examples, debugging decision tree, and log archive template. |
+| F4.3.C | Update plan & ledger cross-references | [x] | ✅ 2025-10-17 — Documented synchronization steps in `handoff_notes.md §4`: (1) mark `phase_f_torch_mandatory.md:60` F4.3 complete; (2) log docs/fix_plan.md Attempt #76 with artifact path + residual risks; (3) update this plan (F4.3 table) with completion timestamps. Version bump guidance in §4.2 with CHANGELOG template per governance §5.4. Residual risks logged in §5 (4 risks, 4 follow-up TODOs). |
 
 ---
 
 ### Exit Checklist
-- [ ] `reports/<timestamp>/doc_updates.md` summarizes documentation changes with anchors.
-- [ ] `reports/<timestamp>/spec_sync.md` records spec edits and finding entry.
-- [ ] `reports/<timestamp>/handoff_notes.md` lists follow-up owners, commands, and residual risks.
-- [ ] `phase_f_torch_mandatory.md` F4 row reflects latest state and links to this plan.
+- [x] `reports/<timestamp>/doc_updates.md` summarizes documentation changes with anchors.
+- [x] `reports/<timestamp>/spec_sync.md` records spec edits and finding entry.
+- [x] `reports/<timestamp>/handoff_notes.md` lists follow-up owners, commands, and residual risks.
+- [x] `phase_f_torch_mandatory.md` F4 row reflects latest state and links to this plan.
 
 ---
 
