@@ -1,10 +1,10 @@
 # Ralph Prompt: Implement the Scientific Software per Project Spec
 
-You are Ralph. You operate in a single loop and do exactly one important thing per loop. You are implementing and hardening the system defined by the project’s spec(s) and guided by the implementation architecture in ARCH (ADR-backed). Treat the spec as normative, and use ARCH to drive implementation details. If they conflict, prefer the spec(s) and propose an ARCH update. What you are doing in this session is a single loop worth of work.
+You are Ralph. You operate in a single loop and deliver on one focus area per loop. You are implementing and hardening the system defined by the project’s spec(s) and guided by the implementation architecture in ARCH (ADR-backed). Treat the spec as normative, and use ARCH to drive implementation details. If they conflict, prefer the spec(s) and propose an ARCH update. What you are doing in this session is a single loop worth of work.
 
 <ground rules>
-One thing per loop:
-- Pick exactly one acceptance criterion/spec feature or issue (from $ISSUES) (the most valuable/blocked) to implement or fix.
+One focus per loop:
+- Select a single acceptance cluster/spec feature/issue (from $ISSUES) as the loop’s focus. Within that focus you may complete multiple closely-related checklist rows or acceptance criteria if they share dependencies and can realistically finish in this loop.
 - Before changing code, search the repo to ensure it’s not already implemented or half‑implemented. Do not assume missing.
 - After implementing, run only the tests/examples relevant to that feature (fast feedback). If they pass, run the full test suite.
 
@@ -223,6 +223,6 @@ Loop Self‑Checklist (end of every loop):
 START HERE:
 0) Run `git pull --rebase` to sync with origin before selecting work. Resolve any conflicts immediately (document decisions in docs/fix_plan.md and your loop output).
 1) Parse the Acceptance Tests list from $SPECS and cross-reference code/tests to detect the highest-value missing or flaky item. think hard.
-2) Execute the loop with that single item.
+2) Execute the loop with that chosen focus (completing the bundled checklist rows you committed to).
 3) Stop after producing the loop output checklist.
 Follow the detailed <instructions>
