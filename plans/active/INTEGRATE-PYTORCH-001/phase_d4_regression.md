@@ -22,9 +22,9 @@ Exit Criteria: Updated documentation with cross-references + checklist sign-off 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D4.A1 | Annotate TEST-PYTORCH-001 plan activation strategy | [ ] | Summarize which portions of `plans/pytorch_integration_test_plan.md` move into `plans/active/TEST-PYTORCH-001` once D4.B hits green. Document owner expectations in new artifact `reports/<ts>/phase_d4_alignment.md`. |
+| D4.A1 | Annotate TEST-PYTORCH-001 plan activation strategy | [x] | ✅ 2025-10-17 — Alignment narrative authored at `reports/2025-10-17T111700Z/phase_d4_alignment.md` documenting TEST-PYTORCH-001 activation strategy, ownership matrix, dependency gating criteria, and open questions resolution plan. |
 | D4.A2 | Update parity/workflow docs | [x] | ✅ 2025-10-17 — `phase_d_workflow.md` and `implementation.md` updated to reference `phase_d4_regression.md` and new checklist IDs. |
-| D4.A3 | Define artifact & selector map | [ ] | Produce `reports/<ts>/phase_d4_selector_map.md` capturing authoritative pytest selectors (`tests/torch/test_model_manager.py`, future integration tests), required env vars (e.g., `CUDA_VISIBLE_DEVICES=""`), and storage locations for logs/archives. |
+| D4.A3 | Define artifact & selector map | [x] | ✅ 2025-10-17 — Selector map authored at `reports/2025-10-17T111700Z/phase_d4_selector_map.md` capturing 5 selector categories (config bridge, data pipeline, workflows, persistence, regression), environment overrides (CUDA_VISIBLE_DEVICES, MLFLOW_TRACKING_URI), torch-optional patterns, and artifact storage conventions. |
 
 ---
 
@@ -71,7 +71,7 @@ Exit Criteria: Tests pass locally, artifacts recorded, and follow-up actions for
 - JSON snapshots (if needed) should mirror naming from Phase D3 (`params_snapshot_before.json`, etc.) and live beside logs
 
 ### Exit Checklist
-- [ ] D4.A1–A3 marked complete with linked artifacts
+- [x] D4.A1–A3 marked complete with linked artifacts (`reports/2025-10-17T111700Z/`)
 - [ ] D4.B1–B3 produce failing evidence (yet torch-optional) before implementation
 - [ ] D4.C1–C3 mark tests green and document hand-off package
 - [ ] docs/fix_plan.md Attempts History references each artifact with timestamp + checklist IDs
