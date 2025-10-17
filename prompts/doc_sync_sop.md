@@ -9,12 +9,12 @@ When To Use
 - When links, commands, or examples in docs feel stale.
 
 Scope & Assumptions
-- Repo has structured docs (e.g., `docs/architecture`, `docs/debugging`, `docs/development`, `docs/user`).
-- Acceptance tests and a mapping (“Parallel Validation Matrix”) exist (or can be authored) in `docs/development/testing_strategy.md`.
+- Repo has structured docs (e.g., `docs/architecture.md`, `docs/debugging/`, `docs/development/`, `docs/workflows/`).
+- Acceptance tests and a mapping (“Parallel Validation Matrix”) exist (or can be authored) in `docs/TESTING_GUIDE.md` or `docs/development/TEST_SUITE_INDEX.md`.
 - Debugging flows produce C↔Py traces and an end‑to‑end parity harness under `scripts/`.
 
 Inputs
-- `docs/**` shards, `scripts/**`, `tests/**`, `golden_suite_generator/**`, `specs/**`, `reports/**`.
+- `docs/**` shards, `scripts/**`, `tests/**`, `plans/**`, `specs/**`, `datasets/**`, `examples/**`.
 - Acceptance tests and thresholds from specs/testing strategy.
 
 Process (single pass; repeat if needed)
@@ -22,9 +22,9 @@ Process (single pass; repeat if needed)
 - List doc shards and anchors:
   - `rg -n "^#|^## |Last Updated|Verified Against" docs`
 - Inventory cross‑references to code/assets:
-  - `rg -n "scripts/|tests/|golden_suite_generator/|specs/|reports/" docs`
+  - `rg -n "scripts/|tests/|plans/|specs/|datasets/|examples/" docs`
 - Locate the AT→tests mapping (“Parallel Validation Matrix”):
-  - Open `docs/development/testing_strategy.md` and verify section is present.
+  - Open `docs/TESTING_GUIDE.md` (and, if needed, `docs/development/TEST_SUITE_INDEX.md`) and verify the section is present.
 
 2) Cross‑Reference Audit (detect broken/missing links)
 - Verify referenced files exist:
@@ -40,8 +40,8 @@ Process (single pass; repeat if needed)
   - Ensure a Trace Schema exists (names, units, precision, prefixes) in the primary debugging doc.
 - Convention/pivot/unit rules:
   - Confirm they’re documented once in specs/architecture and referenced from debugging checklists.
-- Golden artifacts:
-  - Confirm pixel coordinates, units, and file names match across docs and `tests/golden_data/*`.
+- Dataset & artifact references:
+  - Confirm NPZ dataset names, coordinate conventions, and output paths match across docs, `datasets/`, and test fixtures.
 
 4) Prioritize Fixes (in this order)
 - Broken/missing references and wrong paths.
@@ -51,25 +51,25 @@ Process (single pass; repeat if needed)
 - Placeholder metadata that undermines credibility.
 
 5) Patch Patterns (surgical, minimal)
-- Replace dead links with authoritative sources (e.g., point to `docs/development/testing_strategy.md`).
+- Replace dead links with authoritative sources (e.g., point to `docs/TESTING_GUIDE.md` or `docs/COMMANDS_REFERENCE.md`).
 - Add/normalize a “Trace Schema” block in `docs/debugging/debugging.md`.
 - Align golden examples (canonical pixel, units) across docs and golden logs.
 - Update checklists to reference existing helpers or provide a generic `diff` fallback.
-- Add a “CI Gates” section to testing strategy (visual parity + trace parity).
+- Add a “CI Gates” section to the testing guide (e.g., integration workflow + parity checks).
 - Require explicit convention selection in tests/harnesses to avoid hidden switching.
 
 6) Verification (fast, scriptable)
 - Re‑scan for broken links/placeholders.
   - `rg -n "\[DATE\]|\[VERSION\]" docs`
-  - `rg -n "scripts/|tests/|golden_suite_generator/|specs/|reports/" docs | awk '{print $2}' | while read p; do [ -e "$p" ] || echo MISSING "$p"; done`
-- Grep for canonical pixel and golden file consistency:
-  - `rg -n "simple_cubic_pixel_trace.log|Target Pixel" docs tests`
+  - `rg -n "scripts/|tests/|plans/|specs/|datasets/|examples/" docs | awk '{print $2}' | while read p; do [ -e "$p" ] || echo MISSING "$p"; done`
+- Grep for dataset and artifact consistency (e.g., fly64 datasets, nphotons studies):
+  - `rg -n "fly64|nphotons|generalization" docs tests`
 - Ensure SOPs cite acceptance thresholds and give canonical repro commands.
 
 7) CI Integration (prevent drift)
 - Document and implement two light‑weight gates:
-  - Visual parity gate: run `scripts/verify_detector_geometry.py`; fail if correlation < threshold; save PNG + metrics JSON.
-  - Trace parity gate: generate C and Py traces for the canonical pixel; fail on first difference at named checkpoints; attach `c_trace.log`/`py_trace.log`.
+  - Visual regression gate: run the integration workflow test (e.g., `python -m unittest tests.test_integration_workflow`) or an equivalent scripted workflow, fail if generated reconstructions diverge beyond documented thresholds, and save key artifacts under `plans/active/<initiative>/reports/`.
+  - Metric/trace gate: execute the authoritative parity or evaluation selector documented in `docs/TESTING_GUIDE.md` (or the relevant report script) and fail on the first metrics/trace deviation; capture logs under the same reports directory.
 
 Deliverables
 - List of patched files and brief change notes.
@@ -85,14 +85,14 @@ Success Criteria
 
 Reusable Checklists
 - Cross‑Ref Health
-  - [ ] Every `docs/**` path to `scripts/**`, `tests/**`, `golden_suite_generator/**`, `specs/**` exists.
+  - [ ] Every `docs/**` path to `scripts/**`, `tests/**`, `plans/**`, `specs/**`, `datasets/**` exists.
   - [ ] No `[DATE]` or `[VERSION]` placeholders remain.
 - Debug SOP Quality
   - [ ] SOP cites ATs and Parallel Validation Matrix.
   - [ ] Trace Schema defined (names, units, precision, prefixes).
   - [ ] Canonical repro commands present.
 - Consistency
-  - [ ] Golden pixel and units align across docs and `tests/golden_data`.
+  - [ ] Dataset names, pixel conventions, and units align across docs, `datasets/`, and test fixtures.
   - [ ] Convention/pivot rules documented once; checklists link back.
 - CI Gates
   - [ ] Visual parity gate defined.
@@ -103,4 +103,3 @@ Maintenance Cadence
 
 Notes
 - Keep changes minimal and focused. When in doubt, point to authoritative sources rather than duplicating logic across multiple docs.
-

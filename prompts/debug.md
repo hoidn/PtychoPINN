@@ -31,7 +31,7 @@ Callchain Tracing Prerequisite (when locus is unclear)
 
 Non‑Negotiable Guardrails
 1) Never change tests, tolerances, or acceptance thresholds to “pass.” Do not weaken spec gates.
-2) Mandatory parallel trace‑driven debugging for equivalence issues. Produce both C and PyTorch traces and identify the FIRST DIVERGENCE. Instrumentation must log the exact values computed by the production helpers (see docs/architecture/README.md) rather than re‑deriving physics in the trace path.
+2) Mandatory parallel trace‑driven debugging for equivalence issues. Produce both C and PyTorch traces and identify the FIRST DIVERGENCE. Instrumentation must log the exact values computed by the production helpers (see docs/architecture.md) rather than re‑deriving physics in the trace path.
 3) Geometry‑first triage: units, conventions, pivots, MOSFLM +0.5 pixel, F/S mapping, twotheta axis → CUSTOM switch, r‑factor/close_distance.
 4) Quantitative checkpoints beyond correlation: report correlation, MSE/RMSE, max abs diff, total sums and ratios, and attach a diff heatmap.
 5) Rollback: If metrics regress or equivalence is not achieved without changing tests, revert functional changes in this loop and escalate with artifacts.
@@ -42,14 +42,14 @@ Non‑Negotiable Guardrails
     - Start Gate: Do not proceed to reproduction until `docs/fix_plan.md` shows the chosen item set to `Status: in_progress` and contains Reproduction commands.
     - End Gate: Do not commit unless `docs/fix_plan.md` shows a NEW “Attempts History” entry for this loop with lines starting with `Metrics:` and `Artifacts:` (real, dated paths), and `First Divergence:` if found.
 8) Bootstrap Parity Harness (blocking):
-   - If either `tests/parity_cases.yaml` or `tests/test_parity_matrix.py` is missing, PAUSE. Add a fix_plan item, generate both files (shared pytest harness + YAML case definitions), and rerun Step 0 before touching the failing AT. Use the canonical structure: parameterised pytest that runs the C binary (`NB_C_BIN`) and PyTorch CLI (`sys.executable -m nanobrag_torch`), enforces corr/MSE/RMSE/max|Δ|/sum ratios, and writes `metrics.json` artifacts on failure.
+   - If the documented parity harness (see `docs/TESTING_GUIDE.md` / `docs/development/TEST_SUITE_INDEX.md`) is missing for the targeted AT, PAUSE. Add a fix_plan item, author the shared pytest harness + case definitions, and rerun Step 0 before touching the failing AT. The harness should be parameterised to exercise both reference and candidate pipelines (e.g., TensorFlow vs PyTorch entry points), enforce corr/MSE/RMSE/max|Δ|/sum ratios, and write `metrics.json` artifacts on failure.
    - Minimal YAML entry for the failing AT must include `id`, `base_args`, `thresholds`, `runs:[name, extra_args]` (and seeds where needed). Do not continue until the files exist and are referenced by the matrix.
 9) Matrix Gate — Canonical Parity First:
     - In equivalence loops, the FIRST command MUST be the mapped C↔Py parity path (pytest node from the Matrix or the canonical harness listed next to it). Do not begin with PyTorch‑only tests.
-    - Honor `tests/parity_cases.yaml`: if the AT has an entry there, run the corresponding case via `tests/test_parity_matrix.py` before any auxiliary diagnostics.
+    - Honor the documented parity matrix: if the AT has an entry in the mapping, run the corresponding harness/test before any auxiliary diagnostics.
     - Confirm `tests/test_parity_matrix.py` imports cleanly; if the import fails or the file is missing, return to Step 0 and bootstrap the harness before proceeding.
 10) Test cadence: run targeted tests first; execute the full test suite at most once per loop at the end if code changed. For prompt/docs‑only loops, use `pytest --collect-only -q`.
-   - If NB_C_BIN is unset/invalid, resolve to `./golden_suite_generator/nanoBragg` or fallback `./nanoBragg` if the former is absent; verify it exists before running tests.
+- If the parity harness depends on external artifacts (baseline binaries, datasets, model bundles), resolve them via project docs (e.g., `docs/TESTING_GUIDE.md` or plan artifacts). Verify the expected path exists (datasets under `datasets/`, models under `plans/active/<initiative>/reports/`) before running tests; otherwise record a TODO and stop.
 11) Contradiction Rule — Parity Wins:
    - **⚠️⚠️⚠️ IMPORTANT — STOP IMMEDIATELY IF PARITY FAILS!**
    - If any mapped parity path (pytest or harness) reports under‑threshold metrics for an AT with a parity threshold, the loop is a **FAILURE** regardless of pytest green on PyTorch‑only tests.
@@ -57,11 +57,12 @@ Non‑Negotiable Guardrails
 
 Authoritative Inputs (consult before acting)
 - CLAUDE.md (core rules, detector gotchas, “Parallel Trace Debugging is Mandatory”)
-- specs/spec‑a.md, specs/spec‑a‑core.md, specs/spec‑a‑parallel.md, specs/spec‑a‑cli.md
-- docs/development/testing_strategy.md (parallel trace SOP; golden parity)
-- Project Parity Profile (required for equivalence loops): the documentation section that maps Acceptance Tests to concrete test files, required environment, and commands (e.g., a "Parallel Validation Matrix" in testing strategy docs)
-- docs/debugging/*: detector_geometry_checklist.md, debugging.md, convention_selection_flowchart.md
-- docs/architecture/*: detector.md, c_to_pytorch_config_map.md, c_code_overview.md
+- specs/ptychodus_api_spec.md and specs/data_contracts.md (normative API/data requirements)
+- docs/TESTING_GUIDE.md (parallel trace SOP; golden parity)
+- docs/development/TEST_SUITE_INDEX.md (map selectors to concrete test modules)
+- Project Parity Profile (required for equivalence loops): whichever documentation section maps Acceptance Tests to concrete test files, required environment, and commands (e.g., a "Parallel Validation Matrix" entry in testing docs)
+- docs/debugging/debugging.md, docs/debugging/QUICK_REFERENCE_PARAMS.md, docs/debugging/TROUBLESHOOTING.md (known failure patterns, geometry/params gotchas)
+- docs/DEVELOPER_GUIDE.md and docs/architecture.md (architectural intent, two-system model, trace helpers)
 - prompts/main.md (loop mechanics). For debugging loops, this prompt supersedes where stricter.
 
 Loop Objective (single loop)
@@ -77,7 +78,7 @@ Subagents Playbook (required delegation)
 <ground rules>
 - Autonomy (No‑Question Mode): Do not ask the user what to work on. Select work from `docs/fix_plan.md`. If an item is `in_progress`, continue it; otherwise pick the highest‑priority `pending` item and set it `in_progress`.
 - One thing per loop. No placeholders. Never change tests/thresholds to pass.
-- Parity Profile: Use the project’s mapping (docs/development/testing_strategy.md → “Parallel Validation Matrix”) to resolve AT→pytest and required env. If missing, search tests for the AT ID and record the doc gap.
+- Parity Profile: Use the project’s mapping (docs/TESTING_GUIDE.md → “Parallel Validation Matrix”) to resolve AT→pytest and required env. If missing, search tests for the AT ID and record the doc gap.
 - Mandatory parallel trace‑driven debugging; geometry‑first triage.
 - Authoritative validation = the mapped parity path (pytest via Matrix or documented harness). PyTorch‑only scripts remain supportive diagnostics.
 - Version control hygiene: PASS → commit code+docs; FAIL/PARTIAL (with rollback) → commit docs/spec/prompt only; never commit runtime artifacts.
@@ -85,14 +86,14 @@ Subagents Playbook (required delegation)
 
 <instructions>
 <step 0>
-- Read: `./docs/index.md`, `./specs/spec-a.md`, `./arch.md`, `./docs/development/testing_strategy.md`
+- Read: `./docs/index.md`, `./specs/ptychodus_api_spec.md`, `./specs/data_contracts.md`, `./docs/architecture.md`, `./docs/TESTING_GUIDE.md`
 - Read `docs/fix_plan.md`; confirm a single active item is `in_progress` (else pick highest‑priority `pending` and set it)
-- Locate the Parity Profile section (Parallel Validation Matrix) **and** confirm the matching case exists in `tests/parity_cases.yaml` **and** `tests/test_parity_matrix.py`. If any of these are missing or if the file fails to import, STOP: add a fix_plan item to bootstrap the parity harness, create/repair the missing file(s), then restart Step 0. Do **not** proceed to reproduction until the parity harness entry exists and maps to the target AT.
+- Locate the Parity Profile section (Parallel Validation Matrix) **and** confirm the matching case exists in the documented harness/tests (see `docs/TESTING_GUIDE.md` / `docs/development/TEST_SUITE_INDEX.md`). If any required test module or case definition is missing or fails to import, STOP: add a fix_plan item to bootstrap the parity harness, create/repair the missing asset(s), then restart Step 0. Do **not** proceed to reproduction until the parity harness entry exists and maps to the target AT.
 - Start Gate: Ensure `docs/fix_plan.md` shows the chosen item as `in_progress` with reproduction commands before proceeding.
 </step 0>
 
 <step 1>
-- Map AT→parity command and required env from the Parity Profile / `tests/parity_cases.yaml`. Export env; run the mapped parity path (pytest node or documented harness) first. If the command fails because the harness/case is missing, immediately bootstrap it (see Step 0 mandate) before rerunning. Capture stdout/stderr, executed case ID, metrics, and save a diff heatmap if relevant.
+- Map AT→parity command and required env from the Parity Profile / harness definition. Export env; run the mapped parity path (pytest node or documented harness) first. If the command fails because the harness/case is missing, immediately bootstrap it (see Step 0 mandate) before rerunning. Capture stdout/stderr, executed case ID, metrics, and save a diff heatmap if relevant.
 - Subagent: test‑failure‑analyzer (when failures present) to cluster errors and produce focused repro.
 </step 1>
 
@@ -146,7 +147,7 @@ SOP — Step‑by‑Step (follow in order)
      • Fallback: derive mapping by searching tests for the AT identifier or symptom keywords; record the derived mapping and note the documentation gap.
    - If this loop addresses external equivalence (e.g., C↔Py/golden parity), derive the required environment variables and test commands from the Parity Profile and record them in the plan’s Reproduction section.
    - Matrix Gate (hard preflight):
-     • Resolve the mapped pytest node(s) for the AT and verify `NB_C_BIN` exists; if `./golden_suite_generator/nanoBragg` is absent, fallback to `./nanoBragg`.
+    • Resolve the mapped pytest node(s) for the AT and verify any required reference artifacts (datasets, baseline outputs, cached models) exist. If they are missing, halt and add a TODO in the plan to regenerate or document the source before proceeding.
      • Prohibition: Do not run PyTorch‑only tests in parity loops before the mapped C‑parity run.
      • Subagent handoff: invoke test-failure-analyzer to emit the exact command lines to run and debugger to plan trace generation for a specific pixel.
      • Missing mapping (blocking): If the Matrix lacks a parity mapping for an AT with a parity threshold, first add the mapping (pytest or harness with pass/fail) or treat the harness as the mapped path, then rerun parity.
@@ -201,7 +202,7 @@ SOP — Step‑by‑Step (follow in order)
    - Subagent (pre‑commit): code-reviewer — Run on the changed scope to catch security/performance/config risks introduced by the fix; address high/critical findings before committing.
    - Version control hygiene:
      • PASS: `git add -A && git commit -m "<AT-ids> debug: <concise summary> (suite: pass)"`
-     • FAIL/PARTIAL with rollback: stage only plan/docs/prompt changes (no reverted code), then `git add docs/fix_plan.md prompts/*.md docs/development/testing_strategy.md specs/*.md 2>/dev/null || true` and commit with `git commit -m "<AT-ids> debug: attempt #N failed/partial; metrics recorded; code reverted"`
+     • FAIL/PARTIAL with rollback: stage only plan/docs/prompt changes (no reverted code), then `git add docs/fix_plan.md prompts/*.md docs/TESTING_GUIDE.md specs/*.md 2>/dev/null || true` and commit with `git commit -m "<AT-ids> debug: attempt #N failed/partial; metrics recorded; code reverted"`
      • Never commit runtime artifacts (e.g., heatmaps, binaries). Keep them under run‑local artifacts directories only.
      • After any commit (success or documented rollback), run `git push`. If the push is rejected, immediately `git pull --rebase`, resolve conflicts (capture decisions in docs/fix_plan.md and loop output), then push again before ending the loop.
 
@@ -230,7 +231,7 @@ Guarded Anti‑Patterns (block)
 
 Commit & PR Notes (when loop succeeds)
 - Commit message MUST mention the AT(s) fixed and FIRST DIVERGENCE. Include a short metrics line (corr/RMSE/max|Δ|/sum_ratio) and artifact paths.
-- Do not include runtime artifacts in the repo; store under reports/ or a temp artifacts folder per the project’s convention.
+- Do not include runtime artifacts in the repo; store under `plans/active/<initiative>/reports/<timestamp>/` or a temp artifacts folder per the project’s convention.
 
 Rollback Conditions (hard requirements)
 - If correlation or metrics regress for any previously passing AT‑PARALLEL within this loop, revert code changes and document in fix_plan. Do not merge.

@@ -17,7 +17,7 @@ Ground Rules
 
 Instructions
 <step 0>
-- Read `docs/index.md`, `docs/development/testing_strategy.md`, and `docs/fix_plan.md`.
+- Read `docs/index.md`, `docs/TESTING_GUIDE.md`, and `docs/fix_plan.md`.
 - Ensure `docs/fix_plan.md` contains or append a `## Suite Failures` section to host TODOs from this run.
 </step 0>
 
@@ -53,7 +53,7 @@ Instructions
 
 Process Hints
 - Use `rg "FAILED" -n` on the pytest log to locate module names quickly.
-- Store raw pytest output under `reports/YYYY-MM-DD/full-suite/pytest.log` and reference the path in plan entries.
+- Store raw pytest output under `plans/active/<initiative>/reports/<timestamp>/pytest.log` (ISO timestamp) and reference the path in plan entries.
 
 Output Checklist
 - Command run and counts (pass/fail/skip)

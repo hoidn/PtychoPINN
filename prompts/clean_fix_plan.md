@@ -40,7 +40,7 @@ Each item SHALL use the following template. When updating, keep bullet text conc
 ```
 
 4) Completed (optional archive)
-- Move fully completed/validated items here (keep metrics & artifact links). For very long plans, you MAY create `docs/fix_plan_archive.md` and move closed items there.
+- Move fully completed/validated items here (keep metrics & artifact links). For very long plans, you MAY create `archive/<date>_fix_plan_archive.md` and move closed items there.
 
 Update Semantics 
 
@@ -70,30 +70,31 @@ E) Never “Gloss Over” Failed Attempts
 - The plan is a ledger. If an attempt did not resolve the issue, record it with enough detail that a future loop can reproduce and continue.
 
 F) Sorting & Archival
-- Keep “in_progress” and “High” priority items at the top. Archive only “done” items (either in a dedicated Completed section or `fix_plan_archive.md`), and when archiving condense the summary to a few lines while preserving key metrics and artifact links.
-- Enforce a hard **1000-line maximum** for `docs/fix_plan.md`. Before saving, run `wc -l docs/fix_plan.md`; if the count is ≥1000, STOP the loop and move the least relevant or completed material to `docs/fix_plan_archive.md` (include a short summary + link) before committing. Never push a fix_plan.md longer than 999 lines.
+- Keep “in_progress” and “High” priority items at the top. Archive only “done” items (either in a dedicated Completed section or an `archive/<date>_fix_plan_archive.md` entry), and when archiving condense the summary to a few lines while preserving key metrics and artifact links.
+- Enforce a hard **1000-line maximum** for `docs/fix_plan.md`. Before saving, run `wc -l docs/fix_plan.md`; if the count is ≥1000, STOP the loop and move the least relevant or completed material to `archive/<date>_fix_plan_archive.md` (include a short summary + link) before committing. Never push a fix_plan.md longer than 999 lines.
 - When pruning a bloated plan, preserve essential context. If the starting file exceeds 1000 lines, target a trimmed size around ~500 lines (not dramatically less) so active work, recent attempts, and high-value history stay in the main ledger. Document any major removals in the archive.
 
 Example (abbreviated)
 
 ```
-## [AT‑PARALLEL‑002] Pixel Size Independence @ 256×256
-- Spec/AT: AT‑PARALLEL‑002
+## [AT-WORKFLOW-001] Integration Workflow Regression
+- Spec/AT: AT‑WORKFLOW‑001
 - Priority: High
 - Status: in_progress
-- Owner/Date: alice/2025‑09‑29
+- Owner/Date: alex/2025‑09‑29
 - Reproduction:
-  * C: ./nanoBragg -detpixels 256 -pixel {0.05,0.1,0.2,0.4} -distance 100 -Xbeam 25.6 -Ybeam 25.6 ...
-  * Py: nanoBragg -detpixels 256 -pixel {0.05,0.1,0.2,0.4} -distance 100 -Xbeam 25.6 -Ybeam 25.6 ...
-- First Divergence: Fbeam/Sbeam mapping → src/nanobrag_torch/models/detector.py:_calculate_pix0_vector:XXX
+  * CLI: `python -m unittest tests.test_integration_workflow`
+  * Dataset: `datasets/fly/fly001_transposed.npz`
+  * Shapes/ROI: full dataset (64×64 diffraction, gridsize=1)
+- First Divergence: pending — integration workflow fails during model load (see Latest Attempt)
 - Attempts History:
-  * [2025‑09‑29] Attempt #1 — Result: failed. corr(0.4mm)=0.94; max|Δ| large; peaks drift.
-    Metrics: corr=0.94, RMSE=..., max|Δ|=..., sum_ratio=...
-    Artifacts: reports/debug/2025‑09‑29‑1203/{c_trace.log,py_trace.log,diff_heatmap.png,summary.json}
-    Observations/Hypotheses: (+0.5 pixel offset misapplied; unit mix in omega)
-    Next Actions: Verify MOSFLM F/S mapping and +0.5; recheck omega units; ensure cache invalidation.
+  * [2025‑09‑29] Attempt #1 — Result: failed. Training subprocess exited 1; model bundle missing `params.json`.
+    Metrics: train subprocess log captured; no evaluation metrics produced.
+    Artifacts: plans/active/AT-WORKFLOW-001/reports/2025-09-29T120300Z/{pytest.log,train_stdout.txt}
+    Observations/Hypotheses: packaging step no longer writes `params.json`; CLI flag `--save_params` dropped in recent refactor.
+    Next Actions: inspect `scripts/training/train.py` for the artifact write, add regression test for bundle contents, confirm `tests/test_integration_workflow` passes.
 - Risks/Assumptions: none
-- Exit Criteria: corr≥0.9999; beam center px = 25.6/pixel_size ±0.1; inverse peak scaling verified.
+- Exit Criteria: integration workflow passes with bundle containing `wts.h5.zip` and `params.json`; reproduction command exits 0 twice consecutively.
 ```
 
 Routing Notes
@@ -102,4 +103,3 @@ Routing Notes
 
 Commit Guidance
 - Changes to `docs/fix_plan.md` should summarize the attempt succinctly, include metrics and artifact paths, and reflect the true outcome. Do not add runtime artifacts themselves to the repo unless the project standards say so.
-

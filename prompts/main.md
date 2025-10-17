@@ -28,7 +28,7 @@ IMPORTANT
 
 
 Callchain Snapshot (analysis aid)
-- If `input.md` includes an `analysis_question`, or the factor/order relevant to your selected item is unclear, you MAY run `prompts/callchain.md` first to build a minimal, question‑driven callgraph and propose numeric tap points — without editing production code. Keep the ROI minimal and write artifacts to `reports/<initiative_id>/`.
+- If `input.md` includes an `analysis_question`, or the factor/order relevant to your selected item is unclear, you MAY run `prompts/callchain.md` first to build a minimal, question‑driven callgraph and propose numeric tap points — without editing production code. Keep the ROI minimal and write artifacts to `plans/active/<initiative_id>/reports/`.
 - Example variables:
   analysis_question: "<what are you trying to understand or fix?>"
   initiative_id: "<short‑slug>"
@@ -61,9 +61,9 @@ Callchain Snapshot (analysis aid)
 - Determinism & seeds (scientific): Ensure reproducible runs. Use the project’s specified RNG/seed behavior; fix seeds in tests; verify repeatability locally.
 - Numeric tolerances (scientific): Use appropriate precision (often float64). Specify atol/rtol in tests; avoid silent dtype downcasts.
 - Reference parity (when available): If a trusted reference implementation/data exists, use it for focused parity checks on representative cases.
-- Instrumentation/Tracing: When emitting trace or debug output, reuse the production helpers/cached intermediates (see docs/architecture/README.md) instead of re-deriving physics.
+- Instrumentation/Tracing: When emitting trace or debug output, reuse the production helpers/cached intermediates (see docs/architecture.md and docs/DEVELOPER_GUIDE.md) instead of re-deriving physics.
 - PyTorch device discipline: Keep tensor operations device/dtype agnostic. Avoid `.cpu()`/`.cuda()` in production paths and run CPU + CUDA smoke checks whenever you touch PyTorch math.
-- Tooling hygiene: Place new benchmarks/profilers under `scripts/` (e.g., `scripts/benchmarks/`) and honour the documented env contract (`KMP_DUPLICATE_LIB_OK`, `NB_C_BIN` precedence, editable install).
+- Tooling hygiene: Place new benchmarks/profilers under `scripts/` (e.g., `scripts/benchmarks/`) and honour the documented env contract (`KMP_DUPLICATE_LIB_OK`, editable install, CUDA/PYTHONPATH settings documented in `CLAUDE.md`).
 
 - Reconcile $SPEC vs. architecture: if behavior is underspecified in the $SPEC but captured in $ARCH follow $ARCH If there is a conflict, prefer the $SPEC for external contracts and propose an $ARCH patch (record in `docs/fix_plan.md`).
 
@@ -101,19 +101,20 @@ IMPORTANT:
 READ the following files (read them yourself. you may delegate exploration of other files, but not these, to subagents):
 - Index of project documentation: `./docs/index.md`
  - Supervisor steering memo (if present): `./input.md` — use its "Do Now" to steer selection and execution for this loop. You MAY switch the active in_progress item in docs/fix_plan.md to match the Do Now; record the switch in Attempts History.
-- $SPECS: `./specs/spec-a.md`
-- $ARCH: `./arch.md` (ADR-backed implementation architecture; reconcile design with spec, surface conflicts)
-- docs/development/c_to_pytorch_config_map.md — C↔Py config parity and implicit rules
--- docs/debugging/debugging.md — Parallel trace-driven debugging SOP
+- $SPECS: `./specs/ptychodus_api_spec.md` and `./specs/data_contracts.md` (normative API + data format requirements)
+- $ARCH: `./docs/architecture.md` (ADR-backed implementation architecture; reconcile design with spec, surface conflicts)
+- docs/workflows/pytorch.md — PyTorch configuration and parity guidance
+- docs/debugging/debugging.md — Parallel trace-driven debugging SOP
+- Knowledge ledger: `./docs/findings.md` (prior lessons, conventions, recurring bugs)
 - $PLAN: `./docs/fix_plan.md` (living, prioritized to‑do; keep it up to date)
-- $ISSUES: `./issues/*.md`
 - $AGENTS: `./CLAUDE.md` (concise how‑to run/build/test; keep it accurate)
-- $TESTS: `./docs/development/testing_strategy.md` (testing philosophy, tiers, seeds/tolerances, commands)
+- $TESTS: `./docs/TESTING_GUIDE.md` (testing philosophy, tiers, seeds/tolerances, commands)
+- Test index: `./docs/development/TEST_SUITE_INDEX.md` (map selectors to files)
 <step 0>
 - Ensure exactly one high-value item is chosen for this loop’s execution. If `input.md` provides a "Do Now", prefer that selection and mark it `in_progress` (multiple items may be `in_progress` in the ledger, but execute only one this loop). Record/refresh its reproduction commands before proceeding.
 </step 0>
 <step 1>
-- Map to the exact pytest command from `./input.md` Do Now (or derive it from `./docs/development/testing_strategy.md`). Run that targeted command to reproduce a baseline. If no such test exists, write the minimal targeted test first and then run it.
+- Map to the exact pytest command from `./input.md` Do Now (or derive it from `./docs/TESTING_GUIDE.md` or `./docs/development/TEST_SUITE_INDEX.md`). Run that targeted command to reproduce a baseline. If no such test exists, write the minimal targeted test first and then run it.
 - Do not run the full test suite at this stage.
 </step 1>
 <step 2>
@@ -157,7 +158,7 @@ declare:
 <step 8>
 update docs:
 - If applicable, update `CLAUDE.md` with any new, brief run/build/test command or easily-avoidable quirk that caused issues during this loop. Do not put runtime status into `CLAUDE.md`.
-- if docs/fix_plan.md is longer than 500 lines, move its least-currently relevant completed sections into archive/fix_plan_archive.md
+- if docs/fix_plan.md is longer than 500 lines, move its least-currently relevant completed sections into the `archive/` directory (e.g., create `archive/2025-XX-XX_fix_plan_archive.md` with a short summary and cross-reference).
 </step 8>
 <step 9>
 Version control hygiene: after each loop, stage and commit all intended changes. Use a descriptive message including acceptance IDs and module scope. Do not use emojis or make any references to claude code in the commit message. Always include `docs/fix_plan.md` and any updated prompts/docs. After committing, run `git push`; if it fails, `git pull --rebase`, resolve conflicts (documenting resolutions in docs/fix_plan.md and loop output), then push again.
@@ -173,7 +174,7 @@ Validation & safety notes:
 
 Spec/Architecture points you must implement and/or verify (select one per loop):
 - CLI contract (see specs and / or architecture)
-- Architecture ADRs: implement behaviors documented in `arch.md` and keep `arch.md` updated when code reveals new decisions.
+- Architecture ADRs: implement behaviors documented in `docs/architecture.md` and keep `docs/architecture.md` updated when code reveals new decisions.
 - Acceptance tests (see spec)
 - bug fixes
 
@@ -194,14 +195,14 @@ Output:
 <output format>
 Loop output checklist (produce these in each loop):
 - Brief problem statement with quoted spec lines you implemented.
-- Relevant `arch.md` ADR(s) or sections you aligned with (quote).
+- Relevant `docs/architecture.md` ADR(s) or sections you aligned with (quote).
 - Search summary (what exists/missing; file pointers).
 - Diff or file list of changes.
 - Targeted test or example workflow updated/added and its result.
 - Exact pytest command(s) executed for reproduction and (if applicable) the single full-suite run.
 - `docs/fix_plan.md` delta (items done/new).
 - Any CLAUDE.md updates (1–3 lines max).
-- Any `arch.md` updates you made or propose (1–3 lines; rationale).
+- Any `docs/architecture.md` updates you made or propose (1–3 lines; rationale).
 - Next most‑important item you would pick if you had another loop.
 </output format>
 

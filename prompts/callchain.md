@@ -5,13 +5,13 @@ These instructions drive an active, question‑oriented exploration of the codeb
 ## Inputs (provided at invocation)
 
 - <analysis_question> (required): Free‑text description of the behavior/bug/perf issue to investigate.
-- <initiative_id> (required): Short slug for the output folder under `reports/` (e.g., `cli-scaling`).
+- <initiative_id> (required): Short slug for the output folder under `plans/active/<initiative_id>/reports/` (e.g., `cli-scaling`).
 - <scope_hints> (optional): Hints like “CLI flags”, “normalization/scaling”, “IO”, “perf”, “latency hotspot”.
 - `roi_hint` (optional): Minimal input/ROI to exercise the path (e.g., a single pixel, a tiny record, or a 1‑request sample).
 - `namespace_filter` (optional): Primary module/package prefix for dynamic tracing/profiling (reduces noise).
 - `time_budget_minutes` (optional, default 30): Cap exploration and dynamic tracing accordingly.
 
-All outputs MUST be written under `reports/<initiative_id>/…` and follow the deliverable formats below.
+All outputs MUST be written under `plans/active/<initiative_id>/reports/…` and follow the deliverable formats below.
 
 ---
 
@@ -20,10 +20,10 @@ All outputs MUST be written under `reports/<initiative_id>/…` and follow the d
 Resolve anchors through documentation first — do not hardcode source paths in this prompt. Use:
 
 - `docs/index.md` — canonical map to the rest of the docs.
-- `docs/architecture/README.md` — component boundaries and high‑level flow.
-- `docs/development/testing_strategy.md` — parity/trace SOP; when/how to capture evidence.
-- Component contracts under `docs/architecture/*` or `docs/components/*` (if present).
-- CLI/runner overview under `docs/cli/*`, `README.md`, or user guides.
+- `docs/architecture.md` and `docs/DEVELOPER_GUIDE.md` — component boundaries, high‑level flow, and two-system architecture notes.
+- `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` — parity/trace SOP and test discovery.
+- Component contracts referenced from the architecture/dev guides (e.g., `docs/CONFIGURATION.md`, `docs/debugging/*`).
+- CLI/runner overview in `docs/COMMANDS_REFERENCE.md`, `README.md`, or workflow guides under `docs/workflows/` and `docs/WORKFLOW_GUIDE.md`.
 
 If the relevant page is missing, fall back to the heuristics in this prompt and RECORD assumptions explicitly in your outputs.
 
@@ -94,7 +94,7 @@ Taps MUST read already‑computed values via public APIs or cached intermediates
 ## Constraints & Guardrails
 
 - Evidence‑only: no production hot‑path edits. Use a harness or script if needed.
-- Respect Protected Assets: do not delete/rename any documented, protected files; write under `reports/<initiative_id>/…` only.
+- Respect Protected Assets: do not delete/rename any documented, protected files; write under `plans/active/<initiative_id>/reports/…` only.
 - Keep device/dtype/runtime neutrality (no hidden transfers or precision assumptions); use minimal ROI.
 - Reference all findings with `path:line` anchors; avoid copying code blocks.
 - Stable key names across traces/taps to enable diff tooling later.
@@ -103,7 +103,7 @@ Taps MUST read already‑computed values via public APIs or cached intermediates
 
 ## Deliverables (standard format)
 
-Write the following files under `reports/<initiative_id>/`:
+Write the following files under `plans/active/<initiative_id>/reports/`:
 
 1) `callchain/static.md`
    - Analysis Question
@@ -177,5 +177,4 @@ namespace_filter: "<project primary package>"
 time_budget_minutes: 30
 ```
 
-Then follow the Procedure sections above, producing the Deliverables exactly under `reports/cli-scaling/…`.
-
+Then follow the Procedure sections above, producing the Deliverables exactly under `plans/active/cli-scaling/reports/…`.

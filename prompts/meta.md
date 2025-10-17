@@ -23,9 +23,9 @@ Required Sections for Every Loop Prompt
 2) Authoritative Inputs
 - Plan: `docs/fix_plan.md` (single source of loop work)
 - Supervisor steering memo: `./input.md` (written by galph each run; use its "Do Now" to steer which single item to execute this loop)
-- Specs: `specs/*.md` (Acceptance Tests and contracts)
-- Parity Profile: where AT→tests/env/commands mapping lives (e.g., `docs/development/testing_strategy.md`, section “Parallel Validation Matrix”)
-- Architecture docs as needed
+- Specs: `specs/ptychodus_api_spec.md` and `specs/data_contracts.md` (Acceptance Tests, API, and data contracts)
+- Parity Profile: where AT→tests/env/commands mapping lives (e.g., `docs/TESTING_GUIDE.md`, section “Parallel Validation Matrix”, or `docs/development/TEST_SUITE_INDEX.md`)
+- Architecture docs as needed (`docs/architecture.md`, `docs/DEVELOPER_GUIDE.md`)
 
 3) Minimal Actions Per Loop (hard rule)
 - Read `./input.md` (if present); prefer its "Do Now" selection while maintaining one-item execution per loop.
@@ -65,12 +65,12 @@ IMPORTANT ROUTING
 
 <instructions>
 <step 0>
-- Read ./docs/index.md, specs/spec-a.md, arch.md, docs/development/testing_strategy.md
+- Read ./docs/index.md, specs/ptychodus_api_spec.md, specs/data_contracts.md, docs/architecture.md, docs/TESTING_GUIDE.md
 - Read docs/fix_plan.md; confirm one item is in_progress (else pick highest‑priority pending and set it)
 </step>
 
 <step 1>
-- Map the Acceptance Test(s) to exact pytest command via docs/development/testing_strategy.md (Acceptance Mapping) or spec “Implementation:” lines
+- Map the Acceptance Test(s) to exact pytest command via docs/TESTING_GUIDE.md (Acceptance Mapping), docs/development/TEST_SUITE_INDEX.md, or spec “Implementation:” lines
 - Run the mapped test(s); capture baseline; save metrics/artifacts
 </step>
 
@@ -115,7 +115,7 @@ IMPORTANT ROUTING
 <instructions>
 <step 0>
 - Read docs; set item to in_progress in docs/fix_plan.md
-- Locate Parity Profile in docs/development/testing_strategy.md (Parallel Validation Matrix)
+- Locate Parity Profile in docs/TESTING_GUIDE.md (Parallel Validation Matrix)
 </step>
 
 <step 1>
