@@ -121,3 +121,17 @@
 - Created report stub `bridge_notes.md` under the new timestamped directory for implementation artifacts.
 - Expectation for Ralph: ship adapter, remove test xfail, run targeted pytest (accept skip if torch unavailable), document decisions in bridge_notes.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T040158Z: Loop 8 Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B3 config bridge MVP regression (ModelConfig/params mismatch)
+- Action type: Debug
+- Mode: none
+- Notes: Beginning triage for config bridge implementation issues; detailed findings and next steps to follow before loop close.
+- Evidence:
+  - Confirmed `ModelConfig(**{'intensity_scale_trainable': False})` raises `TypeError` (`ptycho/config/config.py:96`); current adapter still forwards this kwarg.
+  - Documented activation mismatch (`amp_activation='silu'`) referencing `ptycho_torch/config_params.py:45` and `ptycho/model.py:406-418`.
+  - Captured findings + remediation checklist in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T040158Z/config_bridge_debug.md`.
+- Plan updates: Added Attempt #10 to `docs/fix_plan.md` and annotated B3 row in `plans/active/INTEGRATE-PYTORCH-001/implementation.md` to point at the new debug report.
+- Steering: Rewrote `input.md` directing Ralph to strip unsupported kwargs, normalize activation mapping, tighten override validation, and modify the test so it runs without needing real torch.
+- Follow-up for Ralph: implement the bridge/test fixes, run the targeted pytest (capture output in the new artifact directory), and append a resolution section to the debug note.
+- <Action State>: [ready_for_implementation]
