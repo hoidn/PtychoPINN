@@ -1,0 +1,102 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items / 2 deselected / 1 selected
+
+tests/torch/test_data_pipeline.py::TestRawDataTorchAdapter::test_raw_data_torch_matches_tensorflow FAILED [100%]
+
+=================================== FAILURES ===================================
+________ TestRawDataTorchAdapter.test_raw_data_torch_matches_tensorflow ________
+
+self = <test_data_pipeline.TestRawDataTorchAdapter object at 0x79cd66af2190>
+params_cfg_snapshot = None
+minimal_raw_data = <ptycho.raw_data.RawData object at 0x79cd6d95d5d0>
+
+    def test_raw_data_torch_matches_tensorflow(self, params_cfg_snapshot, minimal_raw_data):
+        """
+        RawDataTorch should produce identical grouped data outputs to RawData.
+    
+        Expected behavior (from data_contract.md §2):
+        - Wrapper delegates to ptycho.raw_data.RawData
+        - Returns dict with keys: diffraction, X_full, coords_offsets, coords_relative, nn_indices
+        - Shapes: diffraction (nsamples, N, N, gridsize²), coords_offsets (nsamples, 1, 2, 1)
+        - Dtypes: diffraction float32, nn_indices int32
+    
+        Test source: data_contract.md:110-176
+        ROI: N=64, gridsize=2, nsamples=10, K=4
+        """
+        # Create TensorFlow baseline reference
+        tf_grouped = minimal_raw_data.generate_grouped_data(
+            N=64, K=4, nsamples=10, gridsize=2
+        )
+    
+        # Validate baseline conforms to contract (data_contract.md §2)
+        assert tf_grouped['diffraction'].shape == (10, 64, 64, 4), \
+            "TensorFlow baseline shape mismatch"
+        assert tf_grouped['diffraction'].dtype == np.float32, \
+            "TensorFlow baseline dtype mismatch"
+        assert tf_grouped['nn_indices'].shape == (10, 4), \
+            "TensorFlow nn_indices shape mismatch"
+    
+        # TODO (Phase C.C1): Implement RawDataTorch adapter
+        # Expected implementation:
+        #   from ptycho_torch.raw_data_bridge import RawDataTorch
+        #   pt_raw = RawDataTorch(xcoords, ycoords, diff3d, probe, obj)
+        #   pt_grouped = pt_raw.generate_grouped_data(N=64, K=4, nsamples=10, gridsize=2)
+        #
+        # Expected assertions (parity):
+        #   np.testing.assert_array_equal(tf_grouped['nn_indices'], pt_grouped['nn_indices'])
+        #   np.testing.assert_allclose(tf_grouped['diffraction'], pt_grouped['diffraction'])
+        #   assert tf_grouped['X_full'].shape == pt_grouped['X_full'].shape
+    
+>       pytest.fail(
+            "RawDataTorch adapter not yet implemented (Phase C.C1). "
+            "Expected module: ptycho_torch/raw_data_bridge.py. "
+            "Expected delegation: wrapper calls ptycho.raw_data.RawData.generate_grouped_data(). "
+            "See plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md §2 "
+            "for required output dict structure."
+        )
+E       Failed: RawDataTorch adapter not yet implemented (Phase C.C1). Expected module: ptycho_torch/raw_data_bridge.py. Expected delegation: wrapper calls ptycho.raw_data.RawData.generate_grouped_data(). See plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md §2 for required output dict structure.
+
+tests/torch/test_data_pipeline.py:140: Failed
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (100, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (100,)
+objectGuess shape: (128, 128)
+xcoords shape: (100,)
+ycoords shape: (100,)
+xcoords_start shape: (100,)
+ycoords_start shape: (100,)
+---------------------------- Captured stderr setup -----------------------------
+2025-10-17 00:24:35.859922: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760685875.871319 3427074 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760685875.875044 3427074 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760685875.885821 3427074 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760685875.885835 3427074 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760685875.885838 3427074 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760685875.885840 3427074 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 00:24:35.888551: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+----------------------------- Captured stdout call -----------------------------
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+----------------------------- Captured stderr call -----------------------------
+I0000 00:00:1760685878.647592 3427074 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1760685878.648981 3427074 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22111 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1760685879.611341 3427074 service.cc:152] XLA service 0x463c5880 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1760685879.611368 3427074 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-10-17 00:24:39.624726: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1760685879.644320 3427074 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1760685879.771382 3427074 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+=========================== short test summary info ============================
+FAILED tests/torch/test_data_pipeline.py::TestRawDataTorchAdapter::test_raw_data_torch_matches_tensorflow - Failed: RawDataTorch adapter not yet implemented (Phase C.C1). Expected module: ptycho_torch/raw_data_bridge.py. Expected delegation: wrapper calls ptycho.raw_data.RawData.generate_grouped_data(). See plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md §2 for required output dict structure.
+======================= 1 failed, 2 deselected in 5.26s ========================
