@@ -1,0 +1,7 @@
+2025-07-25 17:07:32,898 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-07-25 17:07:32,898 - INFO - Registration: enabled
+2025-07-25 17:07:32,898 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-07-25 17:07:32,898 - INFO - Initializing configuration before data loading...
+2025-07-25 17:07:32,898 - INFO - Initialized with gridsize=1, n_images=512
+2025-07-25 17:07:32,898 - INFO - Loading test data from datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz...
+2025-07-25 17:07:32,898 - INFO - Loading data from datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_test.npz with n_images=512
