@@ -50,7 +50,6 @@
   - `PyTorchExecutionConfig` dataclass added and consumed across workflow entry points (training, inference, bundle load) with targeted pytest coverage.
   - `ptycho_torch/workflows/components.py` delegates orchestration via canonical configs + execution config while preserving CONFIG-001 guard and parity documentation.
   - CLI scripts (`train.py`, `inference.py`) reduced to thin wrappers calling factories/workflows; CLI acceptance tests updated; documentation refreshed.
-  - `ptycho_torch/api/` deprecated or refactored to delegate to new workflows; ADR-003 marked Accepted with governance artefacts recorded.
 
 ## [INTEGRATE-PYTORCH-001-PROBE-SIZE] Resolve PyTorch probe size mismatch in integration test
 - Depends on: INTEGRATE-PYTORCH-001-DATALOADER; INTEGRATE-PYTORCH-001 (Phase E2.D2 parity evidence)
