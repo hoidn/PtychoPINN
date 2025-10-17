@@ -1,0 +1,13 @@
+
+    Figure X. Robustness of physics-informed vs supervised models to probe distribution shift.
+    (a) Comparison of probe functions between training datasets. The fly64 probe (left) has 
+    significantly lower amplitude (μ=0.086) compared to Run1084 probe (right, μ=0.322), 
+    representing a 3.7× amplitude increase. Ground truth phase reconstruction shown in center.
+    (b) Schematic of out-of-distribution generalization challenge.
+    (c) Phase reconstructions from models trained and tested on different datasets. 
+    In-distribution performance (diagonal) shows both models perform well when tested on 
+    their training distribution. Out-of-distribution performance reveals PtychoPINN maintains 
+    reconstruction quality when trained on fly64 and tested on Run1084, while the baseline 
+    U-Net shows significant degradation with quantized output values, demonstrating the 
+    importance of physics-based inductive bias for generalization.
+    

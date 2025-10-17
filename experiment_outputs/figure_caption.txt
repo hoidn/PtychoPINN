@@ -1,0 +1,12 @@
+
+    Figure X. Robustness to distribution shift in ptychographic reconstruction.
+    (a) Comparison of probe functions between training (fly64) and test (Run1084) datasets, 
+    showing significant differences in amplitude (μ: 0.086→0.322) and phase distributions.
+    (b) Ground truth object reconstruction from Run1084 dataset showing amplitude and phase.
+    (c) Reconstruction quality comparison between PtychoPINN (physics-informed) and 
+    baseline U-Net (supervised) models on in-distribution and out-of-distribution data.
+    While both models perform comparably on in-distribution data (SSIM > 0.89), 
+    the baseline model exhibits catastrophic mode collapse on out-of-distribution data 
+    (σ < 0.01, 6 unique phase values), whereas PtychoPINN maintains reconstruction 
+    fidelity (SSIM = 0.84) due to physics-based constraints. Scale bar: 10 μm.
+    
