@@ -17,6 +17,7 @@
 - Working Plan: `plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md`
 - Attempts History:
   * [2025-10-17] Attempt #0 — Catalogued remaining stubs in `ptycho_torch/workflows/components.py` (probe init lines 304-312, `_reassemble_cdi_image_torch` lines 332-352). No implementation yet.
+  * [2025-10-17] Attempt #1 — Authored phased completion plan at `plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md` covering Lightning training, stitching, and parity verification tasks; baseline + reproduction guidance captured for upcoming loops.
 - Exit Criteria:
   - `_reassemble_cdi_image_torch` returns `(recon_amp, recon_phase, results)` without raising `NotImplementedError`.
   - Lightning orchestration path initializes probe inputs, respects deterministic seeding, and exposes train/test containers identical to TensorFlow structure; validated via `tests/torch/test_workflows_components.py`.

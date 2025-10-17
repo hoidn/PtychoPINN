@@ -684,3 +684,17 @@
 - Updates: Marked Phase E2 D2/D3 rows with 2025-10-17T231500Z artifacts, checked verification bullets, and created new fix-plan entry `[INTEGRATE-PYTORCH-001-DATALOADER-INDEXING]` with callchain-first plan. Rewrote `input.md` (Parity mode) directing Ralph to capture callchain evidence under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T230724Z/`.
 - Open questions: Need callchain evidence to isolate `nn_indices` overflow before implementation; expect Attempt #1 to document root cause and tap points.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T232932Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS (finish Phase D2 orchestration gaps)
+- Action type: Planning
+- Mode: Docs
+- Notes: Selecting STUBS because fix-plan references `phase_d2_completion.md`, but that plan file is missing and the new Lightning inference failure uncovered by the latest parity run lacks roadmap coverage. Need to draft authoritative Phase D2 completion plan aligned with current artifacts before Ralph’s next implementation loop.
+- <Action State>: [planning]
+
+## 2025-10-17T233211Z: Plan Draft Complete
+- Created `plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md` with phased checklist (baseline → Lightning implementation → stitching → parity) and artifact discipline aligned to Phase D2 priorities.
+- Updated docs/fix_plan.md `[INTEGRATE-PYTORCH-001-STUBS]` Attempt #1 to reference the new plan.
+- Rewrote `input.md` (Mode=Docs) directing Ralph to execute Phase A baseline tasks, capture integration failure log, and populate `baseline.md` under `reports/2025-10-17T233109Z/phase_d2_completion/`.
+- References: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md` for latest failure, findings POLICY-001 / FORMAT-001 for compliance checks, `ptycho_torch/workflows/components.py:153` stub context.
+- <Action State>: [ready_for_implementation]
