@@ -514,3 +514,15 @@
 - Logged Attempt #67 in `docs/fix_plan.md` and refreshed the report README to reflect completed status.
 - Rewrote `input.md` for Phase F3.1 dependency gate with artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193400Z/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T193619Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase F3.2 guard removal
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections prior to Step <3.2>.
+
+- Consulted migration plan + Phase F blueprint; verified F3.1 artifacts complete and dependencies clean.
+- Authored guard-removal execution brief (`plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193753Z/f3_2_guard_removal_brief.md`) and updated `phase_f_torch_mandatory.md` F3.2 guidance with module/test checklist.
+- Logged Attempt #69 in docs/fix_plan.md and rewrote input.md directing Ralph to execute F3.2 with targeted pytest selectors.
+- <Action State>: [ready_for_implementation]
+
