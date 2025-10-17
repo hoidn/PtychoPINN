@@ -15,8 +15,8 @@ Exit Criteria: Documented callchain diff, TDD red tests in the Ptychodus repo co
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E1.A | Map current Ptychodus reconstructor callchain | [ ] | Run `prompts/callchain.md` with `analysis_question="How does Ptychodus select and invoke the TensorFlow backend?"`; capture output under `phase_e_callchain/static.md`. Anchor entries to `ptychodus/src/ptychodus/model/ptychopinn/reconstructor.py` and `ptycho/workflows/components.py`. |
-| E1.B | Author backend-selection failing tests | [ ] | In the Ptychodus repo, add pytest (torch-optional) cases asserting: (1) config flag selects PyTorch backend; (2) fallback to TensorFlow remains default; (3) `update_legacy_dict` triggered before workflow dispatch (CONFIG-001). Store red logs at `phase_e_red_backend_selection.log`. |
+| E1.A | Map current Ptychodus reconstructor callchain | [x] | ✅ Completed 2025-10-17. Callchain analysis captured at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T173826Z/phase_e_callchain/{static.md,summary.md,pytorch_workflow_comparison.md}`. Documents TensorFlow vs PyTorch workflow parity with CONFIG-001 gates mapped. |
+| E1.B | Author backend-selection failing tests | [x] | ✅ Completed 2025-10-17. Created `tests/torch/test_backend_selection.py` with 6 red tests (all XFAIL). Red logs at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T173826Z/phase_e_red_backend_selection.log`. Tests document expected backend selection behavior per spec §4.1-4.6. |
 | E1.C | Draft implementation blueprint | [ ] | Produce `phase_e_backend_design.md` describing the minimal changes to `PtychoPINNReconstructorLibrary` (spec §4.1) and CLI/config plumbing to surface a `backend='pytorch'` selector. Include decision rules for guarding imports and preserving legacy behaviour. |
 
 ---
