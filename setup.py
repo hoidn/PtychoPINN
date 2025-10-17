@@ -44,4 +44,11 @@ setup(
         'ujson',
         'globus-compute-endpoint'
         ],
+    extras_require = {
+        'torch': [
+            'lightning',     # PyTorch Lightning for training orchestration
+            'mlflow',        # Experiment tracking
+            'tensordict',    # Batch data handling
+        ],
+    },
     zip_safe = False)
