@@ -30,9 +30,9 @@ Exit Criteria: TensorFlow and PyTorch integration logs archived, summary documen
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Capture TensorFlow baseline log | [ ] | Run `pytest tests/test_integration_workflow.py -k full_cycle -vv` using canonical dataset. Save output to `reports/<ISO8601>/phase_e_tf_baseline.log`. Note runtime, key artifacts, and any warnings for parity context. |
-| D2 | Capture PyTorch integration log | [ ] | Re-run `pytest tests/torch/test_integration_workflow_torch.py -vv` with green implementation. Save output to `reports/<ISO8601>/phase_e_torch_run.log`. Confirm CLI output directories contain expected artifacts (checkpoint + reconstructed images). |
-| D3 | Publish parity summary | [ ] | Author `reports/<ISO8601>/phase_e_parity_summary.md` comparing metrics (if available), artifact inventories, backend selection logs, and residual risks. Reference POLICY-001 + CONFIG-001 compliance evidence. Update `phase_e_integration.md` E2.D rows and docs/fix_plan.md Attempt with links. |
+| D1 | Capture TensorFlow baseline log | [x] | ✅ 2025-10-18T093500Z — Executed `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv`, captured 31.88s runtime, 1 PASSED. Log at `reports/2025-10-18T093500Z/phase_e_tf_baseline.log`. TensorFlow train→save→load→infer cycle validated successfully. |
+| D2 | Capture PyTorch integration log | [⚠] | ⚠️ 2025-10-18T093500Z — Executed `pytest tests/torch/test_integration_workflow_torch.py -vv`, captured import error (ModuleNotFoundError: mlflow). Log at `reports/2025-10-18T093500Z/phase_e_torch_run.log`. Fail-fast guard working correctly; blocker documented. Requires `pip install -e .[torch]` for completion. |
+| D3 | Publish parity summary | [x] | ✅ 2025-10-18T093500Z — Authored `reports/2025-10-18T093500Z/phase_e_parity_summary.md` with TensorFlow baseline success, PyTorch blocker analysis, CONFIG-001/POLICY-001 compliance notes, residual risks, and follow-up actions. Phase E2.D partially complete pending dependency resolution. |
 
 ---
 
