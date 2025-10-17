@@ -442,6 +442,75 @@ def forward_predict(self, x, positions, probe, scale_factor):
 
 ---
 
+## 10A. Memory-Mapped Dataset Bridge Parity (Phase C.C3)
+
+**Status:** ✅ **COMPLETE** — Implemented in Attempt #37 (2025-10-17)
+
+### Implementation Summary
+
+**Module:** `ptycho_torch/memmap_bridge.py` (213 lines)
+**Test Coverage:** `tests/torch/test_data_pipeline.py::TestMemmapBridgeParity` (2 tests, both PASSED)
+**Artifacts:** `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T084500Z/`
+
+### Key Design Decisions
+
+1. **NPZ Memory Mapping:** Uses `np.load(mmap_mode='r')` for read-only efficient access to large datasets
+2. **Delegation Strategy:** Delegates grouped data generation to `RawDataTorch.generate_grouped_data()` (zero grouping logic duplication)
+3. **Configuration Bridge Integration:** Constructor accepts dataclass configs and automatically calls `update_legacy_dict()` (CONFIG-001 compliant)
+4. **Cache-Free Architecture:** Inherits TensorFlow RawData's deterministic generation approach — **NO `.groups_cache.npz` files created**
+
+### Cache Semantics Discovery
+
+**Critical Finding:** Current TensorFlow `RawData` implementation does **not use cache files** (per `ptycho/raw_data.py:408`).
+
+**Evidence:**
+- TensorFlow uses "sample-then-group" strategy with O(nsamples·K) complexity
+- Performance is fast enough that caching provides minimal benefit
+- MemmapDatasetBridge inherits this behavior via delegation
+
+**Validation:**
+- Test `test_deterministic_generation_validation` proves seed-based reproducibility
+- Same seed → identical grouped data (byte-for-byte)
+- Different seed → different grouped data (non-trivial generation)
+- **No cache files observed** in test runs or production workflows
+
+### Parity Confirmation
+
+| Aspect | TensorFlow RawData | MemmapDatasetBridge (PyTorch) | Parity Status |
+|--------|-------------------|-------------------------------|---------------|
+| **Grouping Logic** | `generate_grouped_data()` | Delegates to RawDataTorch → same function | ✅ IDENTICAL |
+| **Config Access** | Dataclass via `update_legacy_dict()` | Dataclass via `update_legacy_dict()` | ✅ IDENTICAL |
+| **Cache Files** | None (deterministic generation) | None (inherits via delegation) | ✅ IDENTICAL |
+| **Output Format** | grouped-data dict | grouped-data dict | ✅ IDENTICAL |
+| **Reproducibility** | Seed-based | Seed-based (validated) | ✅ IDENTICAL |
+| **Memory Efficiency** | NumPy arrays | NPZ memory-mapping | ✅ ENHANCED |
+
+### Test Results
+
+**Targeted Selector:** `pytest tests/torch/test_data_pipeline.py -k "memmap" -vv`
+- `test_memmap_loader_matches_raw_data_torch`: PASSED (delegation correctness)
+- `test_deterministic_generation_validation`: PASSED (reproducibility without cache)
+
+**Full Regression:** 188 passed, 13 skipped, 0 failed
+
+**Logs:** `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T084500Z/pytest_memmap_green_final.log`
+
+### Deferred Optimizations
+
+1. **Chunked dtype casting:** Current implementation materializes full arrays when casting dtypes (future optimization for datasets >RAM)
+2. **TensorDict wrapper:** Create lightweight adapter for Lightning compatibility (Phase D)
+3. **Streaming support:** For datasets >1TB (post-Phase E)
+
+### Spec Compliance
+
+- ✅ **§4.3 Data Ingestion:** Consumes canonical NPZ schema per `specs/data_contracts.md`
+- ✅ **§5.2 Training Config:** Respects `n_groups`, `n_subsample`, `neighbor_count` via config bridge
+- ✅ **DATA-001:** Enforces complex64 dtype for Y patches (inherited via RawDataTorch)
+
+**Cross-Reference:** See `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T084500Z/cache_semantics.md` for detailed cache architecture analysis.
+
+---
+
 ## 11. Cross-References
 
 ### Specifications

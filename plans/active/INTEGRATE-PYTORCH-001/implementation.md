@@ -63,7 +63,7 @@ Detailed checklist: `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md
 | C2 | Draft failing loader test | [x] | Completed 2025-10-17 — see `reports/2025-10-17T071836Z/{pytest_raw_data_red.log,pytest_data_container_red.log,notes.md}` for red-phase artifacts and guidance. |
 | C3 | Implement `RawDataTorch` wrapper | [x] | ✅ 2025-10-17 — See `reports/2025-10-17T073640Z/{implementation_notes.md,pytest_raw_data_green.log}` for delegation strategy and passing selector. Wrapper now importable without torch and auto-initializes params.cfg. |
 | C4 | Implement `PtychoDataContainerTorch` | [x] | ✅ 2025-10-17 — See `reports/2025-10-17T080500Z/{summary.md,pytest_data_container_green.log,pytest_y_dtype_green.log}` for torch-optional container parity evidence (DATA-001 enforcement, 13-attribute API). |
-| C5 | Verify memmap + cache lifecycles | [P] | Phase C.D1/C.D2 complete — see `reports/2025-10-17T084500Z/{pytest_memmap_green_final.log,cache_semantics.md}` and supervisor review `reports/2025-10-17T083928Z/phase_c_cd_review.md`. Remaining action: execute C.D3 documentation refresh (parity_map.md + fix_plan update) before marking complete. |
+| C5 | Verify memmap + cache lifecycles | [x] | ✅ 2025-10-17 — Phase C.D1/C.D2 complete (see `reports/2025-10-17T084500Z/{pytest_memmap_green_final.log,cache_semantics.md}`). Phase C.D3 documentation refresh complete (Attempt #39): updated `parity_map.md` §10A with memmap bridge parity status, cache-free deterministic generation evidence, and cross-references to cache_semantics findings. Artifacts: `reports/2025-10-17T084246Z/parity_map_update.md`. |
 
 ---
 

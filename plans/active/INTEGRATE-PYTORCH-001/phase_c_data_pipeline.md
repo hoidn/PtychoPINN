@@ -57,7 +57,7 @@ Exit Criteria: Targeted pytest selectors green, cached artifacts recorded, and d
 | --- | --- | --- | --- |
 | C.D1 | Run targeted pytest selectors | [x] | ✅ 2025-10-17 — Selector `pytest tests/torch/test_data_pipeline.py -k "memmap" -vv` captured in `reports/2025-10-17T084500Z/pytest_memmap_green_final.log` (delegation + deterministic generation). |
 | C.D2 | Verify cache reuse semantics | [x] | ✅ 2025-10-17 — Documented cache-free deterministic behaviour in `reports/2025-10-17T084500Z/cache_semantics.md`; replaces `.groups_cache` check with deterministic-generation validation. |
-| C.D3 | Update parity ledger & docs | [ ] | Pending — apply findings to `parity_map.md`, refresh implementation plan C5 state, and log Attempt #38 in docs/fix_plan.md. Reference `reports/2025-10-17T083928Z/phase_c_cd_review.md` for checklist. |
+| C.D3 | Update parity ledger & docs | [x] | ✅ 2025-10-17 — Updated `parity_map.md` §10A with comprehensive memmap bridge parity summary (delegation strategy, cache-free architecture, test results, spec compliance). Refreshed `implementation.md` C5 row to `[x]` with artifact links. Logged Attempt #39 in `docs/fix_plan.md`. Artifacts: `reports/2025-10-17T084246Z/parity_map_update.md`. |
 
 ---
 
