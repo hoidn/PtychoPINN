@@ -47,6 +47,7 @@ Callchain Snapshot (analysis aid)
     This entire operation must be validated by the Comprehensive Testing gate below.
 
 - Test execution scope: Only run tests via `pytest` in `./tests/`. Do not execute ad‑hoc scripts in the repo root or elsewhere as part of validation.
+- Test authoring style: Write new or refactored tests using native pytest style (functions or pytest-managed classes with fixtures). Do not inherit from `unittest.TestCase` or mix pytest parametrization/fixtures with unittest APIs.
 - Ralph is exempt from the supervisor’s Evidence-only phase.
 - Mode flags: input.md may specify mode flags (e.g., TDD | Parity | Perf | Docs). These overlay the current Phase; follow their guidance for this loop.
 - TDD mode (engineer-scoped): If a failing test exists, make it pass without weakening the test. If overspecified, propose a precise test adjustment back to galph and proceed once aligned.

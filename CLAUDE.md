@@ -34,6 +34,10 @@ This file provides the core instructions for the Claude AI agent working on the 
   <doc-ref type="debugging">docs/debugging/debugging.md</doc-ref>. Record each step in the active task notes within <doc-ref type="plan">docs/fix_plan.md</doc-ref>.
 </directive>
 
+<directive level="guidance" purpose="Reuse context efficiently">
+  At the start of a loop, review <doc-ref type="plan">docs/fix_plan.md</doc-ref>, the most recent plan artifacts, and the focused task in `input.md`. If those sources have not changed since your last loop, you may rely on your cached understanding instead of re-reading the full document stack. Record that decision in your attempt notes.
+</directive>
+
 <directive level="critical" purpose="Enforce Test-Driven Development">
   For any task involving new feature implementation or bug fixing, you **MUST** follow a Test-Driven Development (TDD) methodology as defined in the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>.
 </directive>
@@ -43,11 +47,15 @@ This file provides the core instructions for the Claude AI agent working on the 
 </directive>
 
 <directive level="guidance" purpose="Store generated artifacts correctly">
-  All generated reports, logs, and artifacts from a development loop **MUST** be saved to a timestamped subdirectory within `plans/active/<initiative-name>/reports/`. This path **MUST** be recorded in <doc-ref type="plan">docs/fix_plan.md</doc-ref> for traceability.
+  All generated reports, logs, and artifacts from a development loop **MUST** be saved to a timestamped subdirectory within `plans/active/<initiative-name>/reports/`. Do **not** leave artifacts (e.g., `*.log`, JSON dumps) at the repository root. The artifact path **MUST** be recorded in <doc-ref type="plan">docs/fix_plan.md</doc-ref> for traceability.
 </directive>
 
 <directive level="critical" purpose="Acknowledge the PyTorch Backend Initiative">
   A primary goal of this project is the development of a PyTorch backend. Tasks related to `ptycho_torch/` and the integration plan at `plans/ptychodus_pytorch_integration_plan.md` are of high priority.
+</directive>
+
+<directive level="critical" purpose="Keep PyTorch parity tests torch-optional">
+  Parity and adapter tests must remain runnable when PyTorch is unavailable. Use documented shims or skip rules in `tests/conftest.py`, avoid hard `import torch` statements in modules that only need type aliases, and capture any fallback behavior in the loop artifacts.
 </directive>
 
 ---
@@ -91,6 +99,10 @@ All `.npz` datasets **MUST** conform to the specifications in `<doc-ref type="co
 -   **`objectGuess`**: MUST be significantly larger than `probeGuess`.
 -   **`Y` patches**: MUST be `complex64`. A silent `float64` conversion was the source of a major historical bug.
 
+### 4.3. Test Harness Compatibility
+
+Do **not** mix `unittest.TestCase` classes with pytest parametrization. Write new tests using native pytest style (plain functions or `pytest`-managed classes with fixtures) so parametrized parity tests and skip logic behave correctly. When modernizing existing tests, move entirely to pytest in a single loop.
+
 ---
 
 ## 5. Key Commands
@@ -106,9 +118,9 @@ ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_groups 512
 
 ### Running Tests
 ```bash
-# Run all tests
-python -m unittest discover tests/
+# Run all tests (preferred)
+pytest tests/
 
-# Run a specific test file (e.g., the main integration test)
-python -m unittest tests.test_integration_workflow
+# Run a specific test or selector
+pytest tests/torch/test_config_bridge.py -k parity -vv
 ```
