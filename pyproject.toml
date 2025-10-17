@@ -60,7 +60,8 @@ testpaths = ["tests"]
 markers = [
     "torch: marks tests as requiring PyTorch (deselect with '-m \"not torch\"')",
     "optional: marks tests as requiring optional dependencies",
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "mvp: marks tests covering MVP (minimum viable product) field requirements"
 ]
 # Configure test collection to handle import errors gracefully
 addopts = [
