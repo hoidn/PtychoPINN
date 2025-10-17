@@ -29,6 +29,7 @@ logs/
 *.hdf5
 *.groups_cache.npz
 *.dill
+*.npy
 
 # Data directories
 datasets/*.npz
@@ -41,6 +42,10 @@ memoized_data/
 memoized_simulated_data/
 tmp/
 *.tmp
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
 
 # Model artifacts
 wts.h5.zip
