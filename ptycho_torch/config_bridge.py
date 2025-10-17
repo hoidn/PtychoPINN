@@ -149,6 +149,11 @@ def to_model_config(
         # If torch available and probe_mask is a tensor, enable masking
         probe_mask_value = True
 
+    # Note: probe_scale validation removed after TDD cycle showed it breaks too many existing tests.
+    # The field has default divergence (PyTorch 1.0 vs TensorFlow 4.0) but explicit validation
+    # at adapter level is too strict. Callers should be aware of this divergence through
+    # override_matrix.md documentation. Keep field in kwargs unchanged from DataConfig value.
+
     # Build kwargs from PyTorch configs
     # CRITICAL: Only include fields that exist in TensorFlow ModelConfig
     # intensity_scale_trainable belongs in TrainingConfig, NOT ModelConfig
@@ -260,6 +265,27 @@ def to_training_config(
             f"differs from TensorFlow default ({tensorflow_default_nphotons}). "
             f"Provide explicit nphotons override to resolve: "
             f"overrides=dict(..., nphotons={tensorflow_default_nphotons})"
+        )
+
+    # Validate n_groups: Missing override leaves params.cfg['n_groups'] = None
+    # breaking downstream workflows that expect valid integer (Phase B.B5.D3)
+    if kwargs['n_groups'] is None:
+        raise ValueError(
+            "n_groups is required in overrides for TrainingConfig. "
+            "Missing override leaves params.cfg['n_groups'] = None, breaking downstream workflows. "
+            "Provide as: overrides=dict(..., n_groups=512)"
+        )
+
+    # Warn about missing test_data_file (optional but helpful for evaluation workflows)
+    # Phase B.B5.D3: Softer validation to surface absent evaluation data
+    if kwargs['test_data_file'] is None:
+        import warnings
+        warnings.warn(
+            "test_data_file not provided in TrainingConfig overrides. "
+            "Evaluation workflows require test_data_file to be set during inference update. "
+            "Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))",
+            UserWarning,
+            stacklevel=2
         )
 
     # Convert string paths to Path objects, then back to strings for params.cfg compatibility

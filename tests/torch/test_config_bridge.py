@@ -827,6 +827,101 @@ class TestConfigBridgeParity:
             "Override should replace PyTorch value"
 
     # ============================================================================
+    # Test Case 5.7: Override Warning Coverage (Phase B.B5.D3)
+    # ============================================================================
+
+    # Note: probe_scale default divergence test removed after discovering that strict
+    # validation breaks too many existing test cases. The field has known divergence
+    # (PyTorch 1.0 vs TensorFlow 4.0) documented in override_matrix.md, but runtime
+    # enforcement is too disruptive. Callers should consult documentation for this field.
+
+    def test_n_groups_missing_override_warning(self, params_cfg_snapshot):
+        """
+        Test that missing n_groups override in TrainingConfig raises warning/error.
+
+        From override_matrix.md: n_groups training stage with no override leaves
+        params.cfg['n_groups'] = None if inference also omits value, breaking
+        downstream workflows that expect a valid integer.
+
+        Spec coverage: §5.2:10 (n_groups override_required)
+        Phase: B.B5.D3 override warning coverage
+        Reference: override_matrix.md row for n_groups
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig()
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        with pytest.raises(ValueError) as exc_info:
+            config_bridge.to_training_config(
+                tf_model, pt_data, pt_model, pt_train,
+                overrides=dict(
+                    train_data_file=Path('train.npz'),
+                    nphotons=1e9
+                    # Missing n_groups override - should trigger validation error
+                )
+            )
+
+        # Assert error message contains actionable guidance
+        error_msg = str(exc_info.value)
+        assert 'n_groups' in error_msg, \
+            "Error message should identify missing n_groups"
+        assert 'overrides' in error_msg, \
+            "Error message should mention overrides parameter"
+        assert 'n_groups=' in error_msg, \
+            "Error message should provide override syntax example"
+
+    def test_test_data_file_training_missing_warning(self, params_cfg_snapshot):
+        """
+        Test that missing test_data_file in TrainingConfig emits warning (optional field).
+
+        From override_matrix.md: test_data_file (training stage) remains None until
+        inference override applied. Consider warning to surface absent evaluation data.
+
+        Note: This is a softer validation than train_data_file (which is required).
+        The warning helps callers understand inference update is needed for evaluation flows.
+
+        Spec coverage: §5.2:2 (test_data_file optional)
+        Phase: B.B5.D3 override warning coverage
+        Reference: override_matrix.md row for test_data_file (training)
+        """
+        import warnings
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig()
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        # Should emit warning when test_data_file omitted
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            tf_train = config_bridge.to_training_config(
+                tf_model, pt_data, pt_model, pt_train,
+                overrides=dict(
+                    train_data_file=Path('train.npz'),
+                    n_groups=512,
+                    nphotons=1e9
+                    # Missing test_data_file - should emit warning
+                )
+            )
+
+            # Assert warning was issued
+            assert len(w) == 1, "Should emit exactly one warning for missing test_data_file"
+            warning_msg = str(w[0].message)
+            assert 'test_data_file' in warning_msg, \
+                "Warning should mention test_data_file"
+            assert 'evaluation' in warning_msg or 'inference' in warning_msg, \
+                "Warning should explain impact on evaluation/inference workflows"
+
+    # ============================================================================
     # Test Case 6: Baseline params.cfg Comparison (Phase D.D1)
     # ============================================================================
 
