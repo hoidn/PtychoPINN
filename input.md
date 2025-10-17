@@ -1,36 +1,36 @@
-Summary: Document override requirements for the config bridge and stage warning coverage.
+Summary: Add warning coverage for config fields still lacking override enforcement.
 Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 — Phase B.B5.D2 override matrix
+Focus: INTEGRATE-PYTORCH-001 Phase B.B5.D3 override warnings
 Branch: feature/torchapi
-Mapped tests: none — documentation-only
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T063400Z/{override_matrix.md,warning_notes.md}
+Mapped tests: pytest tests/torch/test_config_bridge.py -k "probe_scale or n_groups" -vv; pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -v
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T064700Z/{summary.md,pytest_probe_scale.log,pytest_parity.log}
 Do Now:
-1. INTEGRATE-PYTORCH-001 Attempt #25 — Draft the override matrix (D2 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md) using the spec field list and Attempt #24 values; save to override_matrix.md — tests: none
-2. INTEGRATE-PYTORCH-001 Attempt #25 — Capture warning behaviour notes for missing overrides (reference plan_update.md @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T062820Z/plan_update.md) and log actionable repro steps in warning_notes.md — tests: none
-If Blocked: Record observed adapter behaviour in warning_notes.md, include traceback or pytest selector if available, and flag the blocker in docs/fix_plan.md before exiting.
+1. INTEGRATE-PYTORCH-001 B.B5.D3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md — add failing pytest cases covering probe_scale default divergence, missing n_groups override, and missing training test_data_file warning; record red log to plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T064700Z/pytest_probe_scale.log (tests: pytest tests/torch/test_config_bridge.py -k "probe_scale or n_groups or test_data_file" -vv).
+2. INTEGRATE-PYTORCH-001 B.B5.D3 @ plans/active/INTEGRATE-PYTORCH-001/implementation.md — implement adapter warnings/errors so new tests pass; rerun targeted selector and overwrite pytest_probe_scale.log (tests: pytest tests/torch/test_config_bridge.py -k "probe_scale or n_groups or test_data_file" -vv).
+3. INTEGRATE-PYTORCH-001 B.B5.D3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md — capture full parity suite after warnings land and save summary.md + pytest_parity.log (tests: pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -v).
+If Blocked: Capture reproduction script showing which overrides remain `None` using plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T063613Z/train_vs_final_diff.json and log blockers in docs/fix_plan.md Attempts History.
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md:213 mandates legacy params parity; documenting overrides keeps adapter aligned as new fields appear.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md D2 requires explicit override guidance before warning tests can land.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T062820Z/plan_update.md notes train→infer layering quirks; matrix must capture which overrides persist.
-- tests/torch/test_config_bridge.py:600 provides current ValueError messaging; reuse for warning expectations.
+- Override gaps flagged in override_matrix.md (plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T063613Z/override_matrix.md) risk silent divergence.
+- Spec §§5.1–5.3 (specs/ptychodus_api_spec.md) require explicit handling of lifecycle paths (`train_data_file`, `n_groups`).
+- Existing parity plan D3 checklist expects warning coverage before Phase E (plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md).
+- CONFIG-001 finding (docs/findings.md) emphasises keeping params.cfg aligned; missing overrides violate this.
 How-To Map:
-- Re-read `specs/ptychodus_api_spec.md` §§5.1–5.3 and `field_matrix.md` (reports/2025-10-17T041908Z) to enumerate every field that needs an override, default, or warning.
-- Inspect `ptycho_torch/config_bridge.py` for actual defaults and validation flows; be explicit about ValueError/Warning text so later tests can assert them.
-- Reference Attempt #24 config values (`reports/2025-10-17T061500Z/summary.md`) to state which overrides survive into final params.cfg.
-- Summarize findings in `override_matrix.md` using a table (Field | Source | Default | Override Needed | Warning/Error | Notes) and cite supporting doc paths.
-- For warning_notes.md, outline how to trigger the existing divergence checks (e.g., drop nphotons override) and cite current pytest selector (`pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_default_divergence_error -vv`) without rerunning unless necessary.
-- Update docs/fix_plan.md Attempts after saving artifacts; mention both new files and any open questions.
+- Clone new tests from existing parity patterns; prefer pytest-style functions with descriptive ids.
+- Commands: `pytest tests/torch/test_config_bridge.py -k "probe_scale or n_groups or test_data_file" -vv` (red then green), `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity -v`.
+- Store logs under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T064700Z/` (red log before fixes, overwrite after green run, plus summary.md capturing warnings implemented and message text).
+- Update `summary.md` with warnings added, message strings, and any follow-up gaps.
+- When adding warnings, keep adapter torch-optional and reuse existing validation patterns (`pytest.raises` with explicit message checks).
 Pitfalls To Avoid:
-- Do not modify adapter or tests yet; this loop is documentation/evidence only.
-- Keep artifacts under the provided timestamped directory; no outputs at repo root.
-- Maintain torch-optional framing—avoid instructions that require torch tensors.
-- Distinguish training vs inference overrides; note which keys inference overwrites.
-- Avoid duplicating baseline_params.json; reference it instead.
-- When quoting errors, capture exact message text to prevent drift in later tests.
+- Do not hard-import torch inside adapter or tests (keep fallback mode working).
+- Avoid mutating global params.cfg outside controlled test fixtures.
+- Keep warning/error messages actionable (specify override syntax as in existing nphotons guard).
+- Do not regress previously green parity tests; rerun full selector after changes.
+- Maintain ASCII in new files; avoid accidental notebook artefacts.
+- Do not remove or relax existing validations (probe_mask, nphotons) while adding new ones.
 Pointers:
-- specs/ptychodus_api_spec.md:200
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T063613Z/override_matrix.md
+- plans/active/INTEGRATE-PYTORCH-001/implementation.md
 - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T062820Z/plan_update.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/field_matrix.md
-- tests/torch/test_config_bridge.py:600
-Next Up: Extend warning coverage tests (parity plan D3) once matrix is published.
+- ptycho_torch/config_bridge.py
+- tests/torch/test_config_bridge.py
+Next Up: After warning coverage lands, move to Phase D.E1 full parity log capture or pivot to data pipeline parity (Phase C) if still pending.

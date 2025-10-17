@@ -1,0 +1,30 @@
+{
+  "debug": {
+    "training": "None",
+    "final": "True"
+  },
+  "model_path": {
+    "training": "None",
+    "final": "/canonical/baseline/model_directory"
+  },
+  "n_groups": {
+    "training": "1024",
+    "final": "512"
+  },
+  "n_subsample": {
+    "training": "2048",
+    "final": "1024"
+  },
+  "output_prefix": {
+    "training": "/canonical/baseline/training_outputs",
+    "final": "/canonical/baseline/inference_outputs"
+  },
+  "subsample_seed": {
+    "training": "42",
+    "final": "99"
+  },
+  "test_data_file_path": {
+    "training": "/canonical/baseline/test_data.npz",
+    "final": "/canonical/baseline/inference_data.npz"
+  }
+}

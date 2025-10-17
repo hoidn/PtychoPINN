@@ -230,3 +230,15 @@
 - docs/fix_plan.md now logs Attempt #25 with links to the new plan update; no tests run this loop.
 - Follow-up for Ralph: populate override_matrix.md, document warning repro steps, then proceed to D3 warning tests once matrix exists.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T06:35:03Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B5.D2 override matrix
+- Action type: Evidence collection
+- Mode: Parity
+- Notes: Recording selections prior to document review per instructions.
+
+## 2025-10-17T06:40:38Z: Override Matrix Evidence
+- Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T063613Z/{override_matrix.md,train_vs_final_diff.json,pytest_missing_train_data.log,pytest_nphotons_error.log}.
+- Summary: Documented train→infer layering diff, captured override behaviour table, and logged targeted pytest evidence for existing guards. Updated implementation B5 row and parity green plan D2 to reflect completion.
+- Next actions for Ralph: execute Phase B.B5.D3 warning coverage per input.md (author failing tests, implement warnings, rerun parity suite).
+- <Action State>: [ready_for_implementation]

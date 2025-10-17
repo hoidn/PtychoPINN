@@ -59,7 +59,7 @@ Exit Criteria: New test `test_params_cfg_matches_baseline` passes; override matr
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | D1 | Implement baseline comparison test | [x] | ✅ Attempt #24 — `test_params_cfg_matches_baseline` added per blueprint; see `reports/2025-10-17T061500Z/{summary.md,pytest_baseline.log}` for green evidence. |
-| D2 | Capture override matrix | [ ] | Author `override_matrix.md` under `reports/2025-10-17T062820Z/` per supervisor review; enumerate which overrides survive train→infer layering and document default/warning behaviour. Link artifact from docs/fix_plan.md Attempt #25. |
+| D2 | Capture override matrix | [x] | Override matrix captured at `reports/2025-10-17T063613Z/override_matrix.md`, including train→infer layering diff and warning gap list; referenced from docs/fix_plan.md Attempt #26. |
 | D3 | Validate override warnings | [ ] | Extend tests to assert missing overrides raise warnings/errors with guidance; base assertions on the override matrix deliverable. |
 
 ---
