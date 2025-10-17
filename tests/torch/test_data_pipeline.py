@@ -401,3 +401,171 @@ class TestGroundTruthLoading:
                 f"DATA-001 violation: NumPy Y must be complex64, got {pt_container.Y.dtype}. " \
                 f"Historical silent float64 conversion caused major training failure. " \
                 f"See docs/findings.md:DATA-001 and specs/data_contracts.md:19."
+
+
+class TestMemmapBridgeParity:
+    """
+    Test memory-mapped dataset bridge delegates to RawDataTorch.
+
+    Phase C.C3 Goal: Refactor existing memory-mapped datasets to reuse
+    RawDataTorch delegation instead of reimplementing grouping logic.
+
+    Expected behavior:
+    - Memory-mapped loader should delegate grouping to RawDataTorch
+    - Outputs should match RawDataTorch baseline (same grouped-data dict)
+    - Cache reuse: .groups_cache.npz and data/memmap preserved across runs
+
+    Source: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T082035Z/memmap_bridge_analysis.md
+    """
+
+    @pytest.fixture
+    def minimal_npz_file(self, tmp_path, minimal_raw_data):
+        """
+        Create minimal NPZ file for memmap dataset testing.
+
+        Writes a small dataset to disk for memory-mapped loading.
+        """
+        npz_path = tmp_path / "test_dataset.npz"
+        np.savez(
+            npz_path,
+            diff3d=minimal_raw_data.diff3d[:20],  # Subset for speed
+            xcoords=minimal_raw_data.xcoords[:20],
+            ycoords=minimal_raw_data.ycoords[:20],
+            probeGuess=minimal_raw_data.probeGuess,
+            objectGuess=minimal_raw_data.objectGuess,
+            scan_index=np.arange(20, dtype=np.int32)
+        )
+        return npz_path
+
+    def test_memmap_loader_matches_raw_data_torch(self, params_cfg_snapshot, minimal_raw_data, minimal_npz_file):
+        """
+        Memory-mapped dataset should produce identical outputs to RawDataTorch.
+
+        Expected behavior (Phase C.C3):
+        - Memmap loader internally delegates to RawDataTorch.generate_grouped_data()
+        - Returns grouped-data dict with same keys/shapes/dtypes as RawDataTorch baseline
+        - No duplicate grouping logic (gap #1 from memmap_bridge_analysis.md)
+
+        Test source: memmap_bridge_analysis.md §4.A
+        """
+        from ptycho_torch.memmap_bridge import MemmapDatasetBridge
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        # Configuration for both baseline and memmap bridge
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9  # Required per Phase B nphotons validation
+        )
+
+        # Baseline: Direct RawDataTorch usage
+        pt_raw = RawDataTorch(
+            xcoords=minimal_raw_data.xcoords[:20],
+            ycoords=minimal_raw_data.ycoords[:20],
+            diff3d=minimal_raw_data.diff3d[:20],
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=np.arange(20, dtype=np.int32),
+            objectGuess=minimal_raw_data.objectGuess,
+            config=config
+        )
+        baseline_grouped = pt_raw.generate_grouped_data(N=64, K=4, nsamples=10, gridsize=2, seed=42)
+
+        # Memory-mapped dataset bridge
+        memmap_bridge = MemmapDatasetBridge(
+            npz_path=minimal_npz_file,
+            config=config,
+            memmap_dir="data/memmap/test"
+        )
+        memmap_grouped = memmap_bridge.get_grouped_data(N=64, K=4, nsamples=10, gridsize=2, seed=42)
+
+        # Parity assertions: memmap bridge should match RawDataTorch baseline exactly
+        # Shape parity
+        assert memmap_grouped['diffraction'].shape == baseline_grouped['diffraction'].shape, \
+            f"Diffraction shape mismatch: memmap={memmap_grouped['diffraction'].shape}, baseline={baseline_grouped['diffraction'].shape}"
+        assert memmap_grouped['nn_indices'].shape == baseline_grouped['nn_indices'].shape, \
+            f"nn_indices shape mismatch: memmap={memmap_grouped['nn_indices'].shape}, baseline={baseline_grouped['nn_indices'].shape}"
+        assert memmap_grouped['coords_offsets'].shape == baseline_grouped['coords_offsets'].shape, \
+            f"coords_offsets shape mismatch"
+
+        # Dtype parity
+        assert memmap_grouped['diffraction'].dtype == baseline_grouped['diffraction'].dtype, \
+            "Diffraction dtype mismatch"
+        assert memmap_grouped['nn_indices'].dtype == baseline_grouped['nn_indices'].dtype, \
+            "nn_indices dtype mismatch"
+
+        # Exact data parity (delegation should produce identical results with same seed)
+        np.testing.assert_array_equal(
+            memmap_grouped['nn_indices'], baseline_grouped['nn_indices'],
+            err_msg="Memmap bridge nn_indices mismatch - delegation failed"
+        )
+        np.testing.assert_allclose(
+            memmap_grouped['diffraction'], baseline_grouped['diffraction'],
+            rtol=1e-6, atol=1e-9,
+            err_msg="Memmap bridge diffraction values mismatch - delegation failed"
+        )
+        np.testing.assert_allclose(
+            memmap_grouped['coords_offsets'], baseline_grouped['coords_offsets'],
+            rtol=1e-6, atol=1e-9,
+            err_msg="Memmap bridge coords_offsets mismatch"
+        )
+
+    def test_deterministic_generation_validation(self, params_cfg_snapshot, minimal_npz_file, tmp_path):
+        """
+        Validate deterministic grouped data generation across instantiations.
+
+        Expected behavior (Phase C.D2 - Updated):
+        - TensorFlow RawData uses efficient "sample-then-group" strategy (no cache files)
+        - Multiple instantiations with same seed produce identical grouped data
+        - Data parity demonstrates delegation correctness
+
+        NOTE: The current RawData implementation eliminated cache files for performance.
+        See ptycho/raw_data.py:408 - "eliminates the need for caching"
+
+        Test source: memmap_bridge_analysis.md §5, phase_c_data_pipeline.md C.D2
+        """
+        from ptycho_torch.memmap_bridge import MemmapDatasetBridge
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9
+        )
+
+        # First instantiation
+        bridge1 = MemmapDatasetBridge(
+            npz_path=minimal_npz_file,
+            config=config,
+            memmap_dir=str(tmp_path / "memmap_cache")
+        )
+        grouped1 = bridge1.get_grouped_data(N=64, K=4, nsamples=10, gridsize=2, seed=42)
+
+        # Second instantiation
+        bridge2 = MemmapDatasetBridge(
+            npz_path=minimal_npz_file,
+            config=config,
+            memmap_dir=str(tmp_path / "memmap_cache")
+        )
+        grouped2 = bridge2.get_grouped_data(N=64, K=4, nsamples=10, gridsize=2, seed=42)
+
+        # Validate deterministic data generation (same seed → identical results)
+        np.testing.assert_array_equal(
+            grouped1['nn_indices'], grouped2['nn_indices'],
+            err_msg="Deterministic generation failed - nn_indices mismatch with same seed"
+        )
+        np.testing.assert_allclose(
+            grouped1['diffraction'], grouped2['diffraction'],
+            rtol=1e-6, atol=1e-9,
+            err_msg="Deterministic generation failed - diffraction values mismatch with same seed"
+        )
+
+        # Validate that different seeds produce different results (non-trivial generation)
+        grouped3 = bridge2.get_grouped_data(N=64, K=4, nsamples=10, gridsize=2, seed=123)
+
+        # At least one group should differ when using different seed
+        # (very unlikely to get identical groups by chance)
+        assert not np.array_equal(grouped1['nn_indices'], grouped3['nn_indices']), \
+            "Different seeds should produce different grouped data (delegation working correctly)"

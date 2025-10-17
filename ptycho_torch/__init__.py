@@ -33,11 +33,15 @@ from ptycho_torch.raw_data_bridge import RawDataTorch
 # Always export data_container_bridge (torch-optional per Phase C.C2)
 from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
 
+# Always export memmap_bridge (torch-optional per Phase C.C3)
+from ptycho_torch.memmap_bridge import MemmapDatasetBridge
+
 __all__ = [
     'to_model_config',
     'to_training_config',
     'to_inference_config',
     'RawDataTorch',
     'PtychoDataContainerTorch',
+    'MemmapDatasetBridge',
     'TORCH_AVAILABLE',
 ]
