@@ -10,6 +10,7 @@ Public Exports:
 - config_bridge: Configuration translation utilities (PyTorch to TensorFlow dataclasses)
 - raw_data_bridge: Torch-optional RawDataTorch adapter
 - data_container_bridge: Torch-optional PtychoDataContainerTorch for model-ready tensors
+- workflows: Orchestration layer (run_cdi_example_torch, train_cdi_model_torch, etc.)
 """
 
 # Torch-optional imports (per CLAUDE.md:57-59)
@@ -36,6 +37,13 @@ from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
 # Always export memmap_bridge (torch-optional per Phase C.C3)
 from ptycho_torch.memmap_bridge import MemmapDatasetBridge
 
+# Always export workflows module (torch-optional per Phase D2.A)
+from ptycho_torch.workflows.components import (
+    run_cdi_example_torch,
+    train_cdi_model_torch,
+    load_inference_bundle_torch,
+)
+
 __all__ = [
     'to_model_config',
     'to_training_config',
@@ -43,5 +51,8 @@ __all__ = [
     'RawDataTorch',
     'PtychoDataContainerTorch',
     'MemmapDatasetBridge',
+    'run_cdi_example_torch',
+    'train_cdi_model_torch',
+    'load_inference_bundle_torch',
     'TORCH_AVAILABLE',
 ]

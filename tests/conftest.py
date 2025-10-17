@@ -39,7 +39,7 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         # Skip torch tests if torch is not available
         # EXCEPTIONS: Some torch/ tests can run without torch (use fallback/stub types)
-        TORCH_OPTIONAL_MODULES = ["test_config_bridge", "test_data_pipeline"]
+        TORCH_OPTIONAL_MODULES = ["test_config_bridge", "test_data_pipeline", "test_workflows_components"]
         is_torch_optional = any(module in str(item.fspath) for module in TORCH_OPTIONAL_MODULES)
 
         if ("torch" in str(item.fspath).lower() or item.get_closest_marker("torch")):
