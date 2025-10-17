@@ -108,6 +108,7 @@ Evidence collection includes the following subtype:
 - When refreshing an existing plan, retrofit it to this phased format before adding or editing tasks.
 - review docs/fix_plan.md. edit if needed. cross reference the new plans .md so that ralph can find it.
 - Every plan change must ship with a same-loop docs/fix_plan.md update for the corresponding entry and a galph_memory.md note that references the attempt or timestamp so future supervisors can trace it.
+- When editing an active plan, keep its checklist tables authoritative: each task row needs a stable ID and an up-to-date `[ ]`/`[P]`/`[x]` state reflecting real progress.
 </Planning>
 </3>
 
@@ -207,7 +208,7 @@ Header:
   - Always derive <initiative-id> from the current Do Now focus item (e.g., TEST-PYTORCH-001).
   - Use ISO timestamps (YYYY-MM-DDTHHMMSSZ) and include representative filenames, e.g.,
     `plans/active/TEST-PYTORCH-001/reports/2025-10-16T153000Z/{summary.md,pytest.log}`.
-- Do Now: 1 line naming the exact docs/fix_plan.md item (ID and title) to execute this loop, plus the exact pytest command/env to reproduce it (only when an authoritative mapping exists). If no such test exists, the Do Now MUST be to author the minimal targeted test first and then run it. New or refactored tests must use native pytest style—do not mix pytest parametrization/fixtures with `unittest.TestCase`. If you intend to delegate the choice, write “Do Now: delegate” and provide decision guidance below.
+- Do Now: Provide a short, ordered checklist of the concrete actions you expect Ralph to perform this loop. Each entry should name the docs/fix_plan.md item (ID and title), reference the relevant plan checklist ID and file path (e.g., `B.B5.B2 @ plans/active/INTEGRATE-PYTORCH-001/implementation.md`), and include the exact pytest command/env when an authoritative mapping exists. If a step will not run tests (Docs | evidence-only), mark it `tests: none`. When no mapped test exists for the chosen item, include an initial entry to author the minimal targeted test before running it. New or refactored tests must use native pytest style—do not mix pytest parametrization/fixtures with `unittest.TestCase`. If you intend to delegate the choice, write “Do Now: delegate” and provide decision guidance below.
   - Note: If operating in supervisor <Evidence collection>, do not run the full suite. Allowed: running pytest on a relevant subset of the test suite (no more than 10 modules in tests/) specified in input.md or judged as relevant by ralph.
   - in TDD mode only, galph runs one targeted selector to confirm a new failing test. Subsequent test execution is deferred to Ralph. Do not include any Phase label in input.md.
 <Do Now guidelines>
