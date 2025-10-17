@@ -1,9 +1,10 @@
 # Phase E — Ptychodus Integration & Parity Validation
 
-## Context
+-## Context
 - Initiative: INTEGRATE-PYTORCH-001
 - Phase Goal: Enable Ptychodus to select and execute the PyTorch backend with parity safeguards that match the TensorFlow reconstructor contract defined in `specs/ptychodus_api_spec.md` §4.
 - Dependencies: Phase D handoff (`reports/2025-10-17T121930Z/phase_d4c_summary.md`), canonical initiative plan (`plans/ptychodus_pytorch_integration_plan.md` Phase 6–8), PyTorch workflow guide (`docs/workflows/pytorch.md`), TEST-PYTORCH-001 test strategy (`plans/pytorch_integration_test_plan.md`), CONFIG-001 finding (docs/findings.md ID CONFIG-001).
+- Environment Constraint: Headless CI/agent environment — GUI launch/validation is out of scope; all parity checks must rely on CLI workflows and logged artifacts.
 - Artifact Storage: Capture all Phase E deliverables under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/phase_e_*` with descriptive filenames (e.g., `phase_e_callchain.md`, `phase_e_selector_map.md`, `phase_e_parity_summary.md`). Reference each artifact in docs/fix_plan.md.
 
 ---
@@ -43,7 +44,7 @@ Exit Criteria: Updated documentation and spec excerpts, ledger entries recorded,
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | E3.A | Update workflow documentation | [ ] | Revise `docs/workflows/pytorch.md` and author Ptychodus user-facing notes (target `architectural_context.md` or new doc). Store diff summary in `phase_e_docs_update.md`; highlight backend toggle instructions. |
-| E3.B | Sync specs & findings | [ ] | Draft spec amendments for §4.1–4.6 describing dual-backend behaviour; log CONFIG-XXX follow-up in `docs/findings.md`. Capture working copy in `phase_e_spec_patch.md`. |
+| E3.B | Sync specs & findings | [ ] | Draft spec amendments for §4.1–4.6 describing dual-backend behaviour; log CONFIG-XXX follow-up in `docs/findings.md`. Capture working copy in `phase_e_spec_patch.md`. Explicitly document that GUI flows remain unsupported in headless environments. |
 | E3.C | Prepare TEST-PYTORCH-001 handoff | [ ] | Summarize remaining risks, test selectors, and ownership matrix in `phase_e_handoff.md`. Include checklist verifying that TEST-PYTORCH-001 can bootstrap without re-discovering Phase E decisions. |
 
 ---
