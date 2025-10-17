@@ -1,0 +1,38 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: not available (/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/lib/libtorch_cuda.so: undefined symbol: ncclCommWindowRegister)
+
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 13 items
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_activation_error_handling SKIPPED [  7%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection SKIPPED [ 15%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_gridsize_error_handling SKIPPED [ 23%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields SKIPPED [ 30%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields SKIPPED [ 38%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields SKIPPED [ 46%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields SKIPPED [ 53%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_path_required_error SKIPPED [ 61%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_type_error_handling SKIPPED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error SKIPPED [ 76%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields SKIPPED [ 84%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields SKIPPED [ 92%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields SKIPPED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_config_bridge.py:493: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:412: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:459: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:374: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:189: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:311: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:248: PyTorch not available
+SKIPPED [2] tests/torch/test_config_bridge.py: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:476: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:219: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:337: PyTorch not available
+SKIPPED [1] tests/torch/test_config_bridge.py:280: PyTorch not available
+============================= 13 skipped in 0.16s ==============================
