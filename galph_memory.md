@@ -315,3 +315,16 @@
 - Notes: Dependencies (Phase C.C1–C.C3) marked complete via Attempt #37 artifacts; preparing to audit reports and refresh plan checkpoints before issuing next directive.
 - Updates: Marked C.C3/C.C4/C.D1/C.D2 complete in phase_c_data_pipeline.md, set C5 → [P] in implementation.md, logged Attempt #38 in docs/fix_plan.md, and authored review note `reports/2025-10-17T083928Z/phase_c_cd_review.md`. input.md now targets C.D3 documentation refresh.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T085103Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D workflow orchestration (tasks D1–D4)
+- Action type: Planning
+- Mode: Docs
+- Notes: Recording selections before documentation review; detailed plan updates to follow.
+
+## 2025-10-17T085520Z: Phase D Planning Summary
+- Authored `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` capturing D1–D4 sub-phases with checklist IDs; implementation plan now points to the new doc for Phase D rows.
+- Logged Attempt #39 in docs/fix_plan.md and stored planning summary under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085217Z/summary.md`.
+- Reissued `input.md` (Docs mode) directing Ralph to execute D1.A–D1.C via callchain + decision artifacts in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/`.
+- Next focus: verify D1 evidence artifacts, then advance to D2 scaffolding.
+- <Action State>: [ready_for_implementation]

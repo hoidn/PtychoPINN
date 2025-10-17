@@ -1,33 +1,37 @@
-Summary: Capture Phase C.D3 documentation updates for memmap bridge parity.
+Summary: Map TensorFlow workflow entry points and choose the PyTorch orchestration surface before coding.
 Mode: Docs
-Focus: INTEGRATE-PYTORCH-001 / Phase C.D3 — Update parity ledger & docs
+Focus: INTEGRATE-PYTORCH-001 / Phase D1
 Branch: feature/torchapi
 Mapped tests: none — evidence-only
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T084246Z/{parity_map_update.md,implementation_notes.md}
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/{phase_d_callchain.md,phase_d_asset_inventory.md,phase_d_decision.md}
 Do Now:
-- INTEGRATE-PYTORCH-001 Phase C.D3 @ plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md (row C.D3) + implementation.md:C5 — refresh parity_map.md + plan status; tests: none
-If Blocked: Capture a short note in plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T084246Z/blockers.md describing what context is missing and ping supervisor next loop.
+- INTEGRATE-PYTORCH-001 D1.A @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — run callchain analysis for `ptycho.workflows.components.run_cdi_example`; tests: none
+- INTEGRATE-PYTORCH-001 D1.B @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — author `phase_d_asset_inventory.md` summarizing reusable PyTorch modules vs gaps; tests: none
+- INTEGRATE-PYTORCH-001 D1.C @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — draft `phase_d_decision.md` capturing API-vs-shim orchestration choice with pros/cons and MLflow policy; tests: none
+- docs/fix_plan.md — log Attempt #40 with artifact links once docs are saved; tests: none
+If Blocked: Capture the blocker in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/blockers.md`, note mitigation ideas, and record the stall in docs/fix_plan.md before stopping.
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md — checklist now shows C.D1/C.D2 done; close C.D3 to unblock Phase C exit.
-- plans/active/INTEGRATE-PYTORCH-001/implementation.md — C5 marked [P]; needs final doc refresh before Phase D work.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T084500Z/cache_semantics.md — authoritative source proving cache-free semantics; cross-link in parity docs.
+- specs/ptychodus_api_spec.md:127 — defines reconstructor lifecycle that Phase D must satisfy.
+- ptycho/workflows/components.py:676 — source of TensorFlow workflow we must mirror.
+- ptycho/model_manager.py:1 — persistence contract informing D3 assumptions gathered during D1.
+- ptycho_torch/train.py:1 — current PyTorch training surface to inventory.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — authoritative checklist for this loop.
 How-To Map:
-- Read cache findings (`reports/2025-10-17T084500Z/cache_semantics.md`) and deterministic test log (`reports/2025-10-17T084500Z/pytest_memmap_green_final.log`).
-- Update `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/parity_map.md` with a new bullet covering MemmapDatasetBridge status, deterministic generation evidence, and lack of `.groups_cache` files; cite spec sections where relevant.
-- Refresh `plans/active/INTEGRATE-PYTORCH-001/implementation.md` to set C5 → [x] once docs are updated, referencing the new report directory.
-- Mark C.D3 row as [x] in `phase_c_data_pipeline.md` with links to the new artifacts; keep wording aligned with deterministic-generation terminology (no cache reuse).
-- Append Attempt #39 in `docs/fix_plan.md` summarizing the documentation updates and artifact paths; one bullet is enough (docs-only loop).
-- Save concise summary in `reports/2025-10-17T084246Z/parity_map_update.md` noting edits + any open follow-ups.
+- For D1.A use `prompts/callchain.md` with: analysis_question="What entrypoints and side-effects does run_cdi_example trigger that PyTorch must replicate?", initiative_id="INTEGRATE-PYTORCH-001", scope_hints=["workflow orchestration","ModelManager","config bridge"], roi_hint="Minimal Fly dataset stub", namespace_filter="ptycho.workflows", time_budget_minutes=30. Save outputs to `phase_d_callchain.md` (static), optional dynamic trace, proposed tap points.
+- For D1.B review `ptycho_torch/train.py`, `ptycho_torch/inference.py`, `ptycho_torch/api/`, and existing Lightning helpers. Document modules, readiness state, and gaps (e.g. missing `run_cdi_example` analog, MLflow coupling) plus cross-links back to integration plan Delta-2.
+- For D1.C compare two orchestration options: (A) wrap `ptycho_torch/api` surface, (B) build thin shims around low-level modules. Include decision criteria (config bridge touchpoints, MLflow optionality, persistence strategy), note provisional owner, and record decision/next steps.
+- After artifacts are written, update docs/fix_plan.md Attempts History referencing each new file and mark D1.A–D1.C progress.
 Pitfalls To Avoid:
-- Do not reintroduce cache language implying `.groups_cache.npz` exists.
-- Keep tests untouched; this loop is documentation only.
-- Preserve torch-optional narrative in parity docs (no hard torch import assumptions).
-- Maintain ISO timestamps in artifact names.
-- Reference existing artifacts rather than duplicating logs.
-- Update only the relevant sections of parity_map.md; avoid broad rewrites.
+- Do not modify production code or tests this loop.
+- Keep callchain ROI minimal; avoid loading full datasets or running training jobs.
+- Honor torch-optional policy—no hard `import torch` in analysis notes.
+- Follow prompts/callchain instructions exactly; capture required files under the artifact directory.
+- Document any open questions in the decision log instead of deferring silently.
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md
-- plans/active/INTEGRATE-PYTORCH-001/implementation.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T084500Z/cache_semantics.md
-- docs/fix_plan.md
-Next Up: consider Phase C.E documentation hand-off once C.D3 closes.
+- specs/ptychodus_api_spec.md:127
+- ptycho/workflows/components.py:676
+- ptycho/model_manager.py:1
+- ptycho_torch/train.py:1
+- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md
+Next Up:
+- D2.A–D2.C scaffolding @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md once D1 artifacts are approved.
