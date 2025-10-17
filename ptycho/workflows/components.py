@@ -425,6 +425,25 @@ def parse_arguments():
                         help="Number of nearest neighbors (K) for grouping. Use higher values (e.g., 7) "
                              "to enable more combinations when requesting more groups than available points."
                     )
+                elif field.name == 'backend':
+                    # Special handling for backend Literal type
+                    if hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
+                        choices = list(field.type.__args__)
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=str,
+                            choices=choices,
+                            default=field.default,
+                            help=f"Backend selection: {', '.join(choices)} (default: {field.default})"
+                        )
+                    else:
+                        # Fallback if not a Literal type
+                        parser.add_argument(
+                            f"--{field.name}",
+                            type=str,
+                            default=field.default,
+                            help="Backend selection for workflow orchestration"
+                        )
                 else:
                     # Handle Optional types
                     if get_origin(field.type) is Union:

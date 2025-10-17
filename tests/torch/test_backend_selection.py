@@ -124,7 +124,6 @@ class TestBackendSelection:
         assert config.backend == 'pytorch', \
             "Backend should be 'pytorch' when explicitly specified"
 
-    @pytest.mark.xfail(reason="Backend selection not yet implemented (Phase E1.C pending)", strict=True)
     def test_pytorch_backend_calls_update_legacy_dict(self, params_cfg_snapshot):
         """
         Test that PyTorch backend triggers CONFIG-001 gate before workflow dispatch.
@@ -133,15 +132,18 @@ class TestBackendSelection:
         any PyTorch workflow functions to synchronize params.cfg.
 
         Expected behavior:
-        - When backend='pytorch', orchestrator calls update_legacy_dict(params.cfg, config)
+        - When backend='pytorch', dispatcher calls update_legacy_dict(params.cfg, config)
         - Call happens BEFORE importing/invoking ptycho_torch.workflows.components
         - Prevents shape mismatch errors and CONFIG-001 violations
 
-        Phase: E1.B CONFIG-001 compliance test
+        Phase: E1.C CONFIG-001 compliance test
         Reference: docs/findings.md ID CONFIG-001
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.workflows.backend_selector import run_cdi_example_with_backend
+        from ptycho.raw_data import RawData
         import ptycho.params as params
+        import numpy as np
 
         # Create PyTorch backend config
         model_config = ModelConfig(N=128, gridsize=2)
@@ -153,21 +155,42 @@ class TestBackendSelection:
             backend='pytorch'
         )
 
-        # Mock the workflow orchestrator's update_legacy_dict call
-        with patch('ptycho.config.config.update_legacy_dict') as mock_update:
-            # Simulate workflow orchestrator behavior
-            # (This would be part of Phase E1.C implementation)
-            if config.backend == 'pytorch':
-                update_legacy_dict(params.cfg, config)
+        # Create minimal dummy data
+        dummy_coords = np.array([0.0, 1.0, 2.0])
+        dummy_diff = np.random.rand(3, 128, 128).astype(np.float32)
+        dummy_probe = np.ones((128, 128), dtype=np.complex64)
+        dummy_scan_index = np.array([0, 1, 2], dtype=int)
 
-            # Assert update_legacy_dict was called with correct arguments
-            mock_update.assert_called_once_with(params.cfg, config)
+        train_data = RawData(
+            xcoords=dummy_coords,
+            ycoords=dummy_coords,
+            xcoords_start=dummy_coords,
+            ycoords_start=dummy_coords,
+            diff3d=dummy_diff,
+            probeGuess=dummy_probe,
+            scan_index=dummy_scan_index,
+        )
+
+        # Mock PyTorch components to avoid full workflow execution
+        with patch('ptycho_torch.workflows.components.run_cdi_example_torch') as mock_torch_run:
+            mock_torch_run.return_value = (None, None, {'history': {}})
+
+            # Mock update_legacy_dict to spy on it (patch in backend_selector module)
+            with patch('ptycho.workflows.backend_selector.update_legacy_dict') as mock_update:
+                # Call dispatcher with PyTorch backend
+                run_cdi_example_with_backend(train_data, None, config, do_stitching=False)
+
+                # Assert update_legacy_dict was called with correct arguments
+                mock_update.assert_called_once()
+                call_args = mock_update.call_args
+                # Check positional args: (params.cfg, config)
+                assert call_args[0][0] is params.cfg, "First arg should be params.cfg"
+                assert call_args[0][1] is config, "Second arg should be config"
 
     # ============================================================================
     # Test 3: Torch Unavailability Handling
     # ============================================================================
 
-    @pytest.mark.xfail(reason="Backend selection not yet implemented (Phase E1.C pending)", strict=True)
     def test_pytorch_unavailable_raises_error(self, params_cfg_snapshot):
         """
         Test that actionable error raised when PyTorch selected but unavailable.
@@ -181,10 +204,13 @@ class TestBackendSelection:
           * "ptycho_torch unavailable"
           * Installation guidance (e.g., "pip install torch")
 
-        Phase: E1.B error handling test
+        Phase: E1.C error handling test
         Reference: phase_e_callchain/summary.md §Fallback behavior
         """
         from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.workflows.backend_selector import run_cdi_example_with_backend
+        from ptycho.raw_data import RawData
+        import numpy as np
 
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
@@ -195,20 +221,43 @@ class TestBackendSelection:
             backend='pytorch'
         )
 
-        # Mock torch unavailability
-        with patch.dict('sys.modules', {'torch': None, 'ptycho_torch': None}):
-            # Simulate workflow orchestrator attempting to import PyTorch workflows
-            # (This would be part of Phase E1.C implementation)
+        # Create minimal dummy data
+        dummy_coords = np.array([0.0, 1.0, 2.0])
+        dummy_diff = np.random.rand(3, 64, 64).astype(np.float32)
+        dummy_probe = np.ones((64, 64), dtype=np.complex64)
+        dummy_scan_index = np.array([0, 1, 2], dtype=int)
+
+        train_data = RawData(
+            xcoords=dummy_coords,
+            ycoords=dummy_coords,
+            xcoords_start=dummy_coords,
+            ycoords_start=dummy_coords,
+            diff3d=dummy_diff,
+            probeGuess=dummy_probe,
+            scan_index=dummy_scan_index,
+        )
+
+        # Mock torch unavailability by making the import fail in backend_selector
+        def mock_import_failure(name, *args, **kwargs):
+            if 'ptycho_torch.workflows' in name:
+                raise ImportError(f"No module named '{name}'")
+            # Use the real import for everything else
+            return __import__(name, *args, **kwargs)
+
+        with patch('builtins.__import__', side_effect=mock_import_failure):
             try:
-                # Expected to raise RuntimeError
-                from ptycho_torch.workflows import components as torch_components
+                # Expected to raise RuntimeError with actionable error message
+                run_cdi_example_with_backend(train_data, None, config, do_stitching=False)
                 pytest.fail("Should raise RuntimeError when ptycho_torch unavailable")
-            except (ImportError, RuntimeError) as exc:
+            except RuntimeError as exc:
                 # Assert error message contains actionable guidance
-                error_msg = str(exc)
-                assert 'PyTorch' in error_msg or 'pytorch' in error_msg.lower(), \
-                    "Error should mention PyTorch"
-                # Note: Full error message validation would happen in Phase E1.C implementation
+                error_msg = str(exc).lower()
+                assert 'pytorch backend selected' in error_msg or 'pytorch' in error_msg, \
+                    f"Error should mention PyTorch backend selection, got: {exc}"
+                assert 'unavailable' in error_msg or 'not installed' in error_msg, \
+                    f"Error should mention unavailability, got: {exc}"
+                assert 'pip install' in error_msg, \
+                    f"Error should include installation guidance, got: {exc}"
 
     # ============================================================================
     # Test 4: InferenceConfig Backend Selection
