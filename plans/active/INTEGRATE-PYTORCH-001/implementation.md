@@ -103,3 +103,20 @@ Exit Criteria: Ptychodus integration tests (existing + new for PyTorch) pass on 
 - Lightning + MLflow dependence may complicate CI runs → plan fallback configuration (`MLFLOW_TRACKING_URI= `, disable autolog) before Phase D.
 - Data fixture availability for PyTorch tests unknown → coordinate with TEST-PYTORCH-001 to build shared minimal dataset.
 - Persistence parity may require schema changes; ensure spec updates accompany any semantic shifts.
+
+### Phase F — Torch Mandatory Transition
+Goal: Retire torch-optional execution paths and require PyTorch availability by default once governance sign-off is secured.
+Prereqs: Phase E complete and torch-required policy approved (Phase F1).
+Exit Criteria: Torch-required policy documented, code/tests updated, and documentation/specs synchronized.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| F1 | Directive alignment & governance sign-off | [ ] | Follow `phase_f_torch_mandatory.md` Phase F1 checklist (conflict summary, governance decision, CLAUDE.md/doc updates). Store artifacts in `reports/<ts>/phase_f/`. |
+| F2 | Impact inventory & migration blueprint | [ ] | Execute Phase F2 tasks (inventory, skip audit, migration sequence) before touching code; link `phase_f_torch_mandatory.md` for structure. |
+| F3 | Implementation & test realignment | [ ] | Remove torch-optional guards, promote PyTorch dependency, and update pytest harness per blueprint. Capture green logs. |
+| F4 | Documentation/spec sync & handoff | [ ] | Update specs, workflows docs, and TEST-PYTORCH-001 coordination using Phase F guidance. |
+
+---
+
+### Plan Exit Checklist Addendum
+- [ ] Torch-required transition approved, implemented, and documented (Phase F exit criteria met).

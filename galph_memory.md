@@ -478,3 +478,15 @@
 - Logged Attempt #62 in docs/fix_plan.md noting dispatcher scope and selectors (`pytest tests/torch/test_backend_selection.py -vv`, `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models -vv`).
 - Next: Ralph to implement dispatcher + test updates per E1.C3/E1.C4 and capture phase_e_backend_green.md summary.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T184304Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 torch-optional removal plan
+- Action type: Planning
+- Mode: Docs
+- Notes: Recording selections prior to Step <3.2>.
+
+## 2025-10-17T184724Z: Phase F planning summary
+- Authored Phase F torch-mandatory plan at `plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md` and created artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184417Z/` (summary + phase_f/ dir).
+- Updated implementation plan with Phase F table and added fix_plan Attempt #64 referencing new plan; removed legacy TODO requesting this work.
+- Rewrote input.md directing Ralph to execute Phase F1 (directive conflict summary, governance decision, guidance redline) using artifact set `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/`.
+- <Action State>: [planning]

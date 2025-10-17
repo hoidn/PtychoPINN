@@ -1,41 +1,35 @@
-Summary: Complete the backend dispatcher so config.backend actually routes between TensorFlow and PyTorch while keeping parity guarantees.
-Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 Phase E1.C
+Summary: Document the policy shift toward a torch-required backend and prep governance artifacts.
+Mode: Docs
+Focus: INTEGRATE-PYTORCH-001 / Phase F1 Torch Mandatory Transition
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_backend_selection.py -vv; pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T190900Z/{phase_e_backend_green.md,pytest_backend_selection.log,pytest_workflows_backend.log}
+Mapped tests: none — evidence-only
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/{directive_conflict.md,governance_decision.md,guidance_updates.md}
 Do Now:
-- INTEGRATE-PYTORCH-001 Phase E1.C — E1.C3+E1.C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_e_backend_design.md (tests: none): add a torch-optional backend dispatcher (new module under ptycho/workflows or reconstructor shim) that inspects Training/InferenceConfig.backend, calls update_legacy_dict(params.cfg, config), imports the correct workflow (`ptycho.workflows.components.run_cdi_example` vs `ptycho_torch.workflows.components.run_cdi_example_torch`), records the active backend in results, and raises a RuntimeError with installation guidance when PyTorch is unavailable; update tests/torch/test_backend_selection.py to remove xfails and verify dispatcher, import guarding, and CONFIG-001 behavior.
-- INTEGRATE-PYTORCH-001 Phase E1.C — E1.C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_e_backend_design.md (tests: pytest tests/torch/test_backend_selection.py -vv; pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models -vv): capture logs to the new report directory, then summarize the implementation decisions, remaining risks, and any open follow-ups in phase_e_backend_green.md alongside the command transcripts.
-If Blocked: Archive failing pytest output and a short diagnostic note in phase_e_backend_green.md, flag the blocker in docs/fix_plan.md Attempts History, and leave TODO markers in the dispatcher indicating the unmet dependency.
+- INTEGRATE-PYTORCH-001 Phase F1 — F1.1 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: none): summarize the current torch-optional directive footprint (CLAUDE.md:57, tests/conftest.py, plan notes) and articulate the new "torch-required" intent in `directive_conflict.md` with file:line anchors.
+- INTEGRATE-PYTORCH-001 Phase F1 — F1.2 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: none): record the governance/stakeholder decision in `governance_decision.md`, including risks (CI availability, TEST-PYTORCH-001 impact) and mitigation steps for the torch-required shift.
+- INTEGRATE-PYTORCH-001 Phase F1 — F1.3 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: none): draft the redline for CLAUDE.md/docs/findings.md updates in `guidance_updates.md`; enumerate exact wording changes and note any follow-up edits required in future loops.
+If Blocked: Capture why governance approval or directive updates cannot proceed in `directive_conflict.md`, note blockers in docs/fix_plan.md Attempts History, and halt before touching CLAUDE.md.
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md:127 — reconstructor contract requires dual-backend selection with CONFIG-001 enforced before dispatch.
-- plans/active/INTEGRATE-PYTORCH-001/phase_e_backend_design.md:45 — defines acceptance criteria for E1.C3/E1.C4 (dispatcher, error handling, logging, results metadata).
-- tests/torch/test_backend_selection.py:128 — remaining xfail cases encode dispatcher and import-guard requirements that must now go green.
-- ptycho/workflows/components.py:705 — TensorFlow path already calls update_legacy_dict; dispatcher must preserve parity and instrumentation when routing there.
-- ptycho_torch/workflows/components.py:94 — PyTorch orchestration entry to invoke once backend flag selects torch.
+- `CLAUDE.md:57` still mandates torch-optional parity; we must document the conflict before altering behavior.
+- `tests/conftest.py:24-52` encodes torch-optional skip logic that Phase F will remove; inventorying the dependency surface guides later implementation.
+- `docs/fix_plan.md` Attempt #63 references torch-optional dispatcher; the new plan requires explicit rationale for breaking that precedent.
+- `plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md` defines F1 deliverables and artifact expectations that keep the ledger consistent.
 How-To Map:
-- Implement dispatcher: add `ptycho/workflows/backend_selector.py` (or comparable module) exposing `run_cdi_example_with_backend`, `train_cdi_model_with_backend`, and `load_inference_bundle_with_backend`; keep imports local and guarded, call `update_legacy_dict` before selecting backend, and populate `results['backend']` prior to return.
-- Error handling: wrap PyTorch import with try/except ImportError and raise RuntimeError mentioning "PyTorch backend selected" and "pip install .[torch]" when unavailable.
-- Tests: adjust backend selection tests to import the new dispatcher, mock workflow functions/torch availability, assert update_legacy_dict spy/count, assert RuntimeError message, and ensure configs remain torch-optional; rerun `pytest tests/torch/test_backend_selection.py -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T190900Z/pytest_backend_selection.log`.
-- Regression guard: verify persistence wiring remains intact by running `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T190900Z/pytest_workflows_backend.log`.
-- Documentation: record the dispatcher design, logging decisions, and any follow-ups in `phase_e_backend_green.md`, noting how Ptychodus should import the new helper.
+- Use `rg -n "torch-optional" CLAUDE.md tests/conftest.py docs/fix_plan.md` to capture current directive language; quote relevant lines in `directive_conflict.md`.
+- Summarize decision context referencing `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184417Z/phase_f_summary.md` and the fix_plan TODO removal.
+- In `governance_decision.md`, include a risks table (CI dependency, developer workflow, TEST-PYTORCH-001) and proposed mitigations; cite `specs/ptychodus_api_spec.md` for contract alignment.
+- In `guidance_updates.md`, list proposed edits (e.g., replace the torch-optional directive in CLAUDE.md with new wording, add finding entry) so the next loop can implement them directly.
+- Store all artifacts under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/`; append references to docs/fix_plan.md Attempts History when finished.
 Pitfalls To Avoid:
-- Do not add unconditional `import torch`; guard PyTorch imports inside dispatcher branches.
-- Keep default backend `'tensorflow'`; do not flip defaults or mutate configs in-place.
-- Ensure `update_legacy_dict` still runs before any backend-specific work to satisfy CONFIG-001.
-- Avoid modifying protected core modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
-- Preserve existing torch-optional skip logic in tests by staying within the whitelist in tests/conftest.py.
-- Make dispatcher logging deterministic; no environment-dependent strings in assertions.
-- Return the same `(amp, phase, results)` tuple structure that callers expect; include backend metadata without altering keys that tests rely on.
-- When mocking imports in tests, restore sys.modules to prevent leakage into later tests.
-- Capture artifact logs exactly under the specified report directory; no stray files at repo root.
-- Document any deferred PyTorch functionality instead of silently passing.
+- Do not edit production code or run tests during this evidence loop.
+- Do not modify CLAUDE.md yet; capture redlines first and wait for explicit supervisor confirmation.
+- Keep artifacts torch-neutral (no assumptions about torch availability in example commands).
+- Avoid duplicating existing plan content; reference `phase_f_torch_mandatory.md` instead.
+- Ensure artifact filenames match those listed above; missing paths break traceability.
+- Document open questions explicitly rather than leaving them implicit in prose.
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_e_backend_design.md
-- specs/ptychodus_api_spec.md:127
-- ptycho/workflows/components.py:705
-- ptycho_torch/workflows/components.py:94
-- tests/torch/test_backend_selection.py:128
-- tests/torch/test_workflows_components.py:487
-Next Up: Phase E2.A fixture alignment once backend selection is green.
+- CLAUDE.md:57-64
+- tests/conftest.py:1-60
+- docs/fix_plan.md:59-140
+- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md
+Next Up: After F1 artifacts, proceed to Phase F2 inventory (TORCH_AVAILABLE scan, skip audit).
