@@ -1,30 +1,37 @@
-Summary: Capture a fresh `ptycho_torch/` module inventory so we can refresh the integration plan for the rebased PyTorch stack.
+Summary: Apply the Phase B redline to refresh `plans/ptychodus_pytorch_integration_plan.md` for the rebased PyTorch backend.
 Mode: Docs
 Focus: INTEGRATE-PYTORCH-000 — Pre-refresh Planning for PyTorch Backend Integration
 Branch: feature/torchapi
-Mapped tests: none — evidence-only
-Artifacts: plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025000Z/{module_inventory.md,delta_log.md}
-Do Now: INTEGRATE-PYTORCH-000 — Phase A.A1 module inventory; run `find ptycho_torch -maxdepth 2 -type f \( -name '*.py' -o -name '*.ipynb' \) | sort` and capture the curated output in `module_inventory.md` alongside high-impact notes.
-If Blocked: Record partial findings in `delta_log.md` under the same artifact directory, note the blocker in docs/fix_plan.md Attempts History, and stop.
+Mapped tests: none — docs-only
+Artifacts: plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/{plan_redline.md,summary.md}
+Do Now: INTEGRATE-PYTORCH-000 — Phase B.B2 canonical plan update; edit `plans/ptychodus_pytorch_integration_plan.md` to implement the redline items (sections 0–5, deliverables, risks) and cite the refreshed sources.
+If Blocked: Capture unresolved decisions in `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/summary.md`, add a note under Attempts History in docs/fix_plan.md, and stop.
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-000/implementation.md:15 — Phase A exit criteria demand an authoritative module inventory before revising plans.
-- plans/ptychodus_pytorch_integration_plan.md:1 — Legacy plan must reference the new `api/` and `datagen/` packages introduced post-rebase.
-- specs/ptychodus_api_spec.md:20 — Reconciled contracts depend on understanding which PyTorch modules satisfy each requirement.
-- ptycho_torch/config_params.py:1 — New dataclass definitions may shift assumptions captured in existing plans.
+- plans/active/INTEGRATE-PYTORCH-000/implementation.md:24 — Phase B exit requires the canonical plan edits before governance handoff.
+- plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/plan_redline.md:1 — Outlines the exact changes demanded by Critical Deltas 1‑5.
+- plans/ptychodus_pytorch_integration_plan.md:1 — Source document to align with rebased PyTorch modules and parity map.
+- specs/ptychodus_api_spec.md:20 — Contract citations that must stay referenced when updating configuration and workflow sections.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/summary.md:18 — Ensures the refreshed plan speaks to the Phase B blockers identified by the execution initiative.
 How-To Map:
-- `mkdir -p plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025000Z` before writing artifacts.
-- Run `find ptycho_torch -maxdepth 2 -type f \( -name '*.py' -o -name '*.ipynb' \) | sort > plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025000Z/module_inventory.md`.
-- Review the listing and append bullets describing notable additions (e.g., `api/`, `datagen/`, `reassembly_*`) directly in `module_inventory.md`.
-- Start `delta_log.md` in the same folder summarizing which plan sections are impacted; leave clear TODO markers for Phase A.A2 follow-up.
+- Review `plan_redline.md` and list its five revision bullets; keep it open while editing the canonical plan.
+- Update Phase 0–4 subsections in `plans/ptychodus_pytorch_integration_plan.md` to document the API layer choice, config bridge work, data pipeline shims, reassembly parity, and persistence strategy; add cross-references to specs and reports.
+- Refresh the deliverables list and risks section to mention Lightning/MLflow policy, RawDataTorch shim, and persistence adapter decisions.
+- Run `git diff plans/ptychodus_pytorch_integration_plan.md` to verify edits are scoped to documentation and capture key decisions in commit message notes for supervisor review.
 Pitfalls To Avoid:
-- Do not edit production code or notebooks; this loop is documentation only.
-- Keep inventory output readable—no huge raw dumps without context.
-- Avoid assuming nonexistent helper scripts; rely on `find` and manual annotation.
-- Stay within the specified artifact directory; no files elsewhere.
-- Note any uncertainties or missing coverage in `delta_log.md` so we can address them next loop.
+- Do not modify any production Python modules this loop.
+- Keep the plan in phased form; retain tables and headings while updating content.
+- Avoid removing existing TensorFlow references—add PyTorch context alongside them.
+- Cite spec sections (`specs/ptychodus_api_spec.md`) when describing contracts to prevent drift.
+- Do not invent new directory structures for artifacts; reference existing report paths.
+- Leave `plan_redline.md` untouched; only consume it.
+- Note open questions rather than resolving them silently.
+- Maintain ASCII characters only when editing docs.
+- Ensure parity risks mention testing coordination with TEST-PYTORCH-001.
+- Verify links and file paths remain accurate after edits.
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-000/implementation.md:9
+- plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/plan_redline.md:1
+- plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/summary.md:1
 - plans/ptychodus_pytorch_integration_plan.md:1
 - specs/ptychodus_api_spec.md:20
-- docs/workflows/pytorch.md:1
-Next Up: 1) Phase A.A2 delta tagging of plan coverage; 2) Phase B.B1 plan redline draft once inventory is reviewed.
+- plans/active/INTEGRATE-PYTORCH-001/implementation.md:24
+Next Up: 1) Phase B.B3 stakeholder brief (summarize decisions + open questions); 2) Phase C governance updates once canonical plan lands.

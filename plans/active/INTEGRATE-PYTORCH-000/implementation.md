@@ -15,9 +15,9 @@ Exit Criteria: `reports/<timestamp>/module_inventory.md` documenting tree struct
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| A1 | Generate module inventory for `ptycho_torch/` | [ ] | Run `python scripts/tools/list_repo_tree.py ptycho_torch > reports/<ts>/module_inventory.md` (or fallback `find ptycho_torch -maxdepth 2`). Highlight new `api/`, `datagen/`, `reassembly_*` packages introduced in bfc22e7. |
-| A2 | Compare inventory against legacy plan scope | [ ] | Annotate `module_inventory.md` with "covered / missing" tags referencing sections in `plans/ptychodus_pytorch_integration_plan.md`; capture summary bullets in `delta_log.md`. |
-| A3 | Flag spec touchpoints requiring rework | [ ] | While reviewing, note any modules that alter assumptions in `specs/ptychodus_api_spec.md` (e.g., new dataclass schema in `config_params.py`). Record them in `delta_log.md` with file:line citations. |
+| A1 | Generate module inventory for `ptycho_torch/` | [x] | Run `python scripts/tools/list_repo_tree.py ptycho_torch > reports/<ts>/module_inventory.md` (or fallback `find ptycho_torch -maxdepth 2`). Highlight new `api/`, `datagen/`, `reassembly_*` packages introduced in bfc22e7. |
+| A2 | Compare inventory against legacy plan scope | [x] | Annotate `module_inventory.md` with "covered / missing" tags referencing sections in `plans/ptychodus_pytorch_integration_plan.md`; capture summary bullets in `delta_log.md`. |
+| A3 | Flag spec touchpoints requiring rework | [x] | While reviewing, note any modules that alter assumptions in `specs/ptychodus_api_spec.md` (e.g., new dataclass schema in `config_params.py`). Record them in `delta_log.md` with file:line citations. |
 
 ---
 
@@ -28,9 +28,9 @@ Exit Criteria: Revised integration plan checked into repo, annotated with fresh 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Draft revised outline incorporating new subsystems | [ ] | Use `delta_log.md` to insert/update sections for `api/`, `datagen/`, Lightning persistence, etc. Capture draft in `reports/<ts>/plan_redline.md` before editing the canonical plan. |
+| B1 | Draft revised outline incorporating new subsystems | [x] | Use `delta_log.md` to insert/update sections for `api/`, `datagen/`, Lightning persistence, etc. Capture draft in `reports/2025-10-17T025633Z/plan_redline.md` before editing the canonical plan. |
 | B2 | Update canonical integration plan | [ ] | Edit `plans/ptychodus_pytorch_integration_plan.md` with phased structure mirroring current initiatives (Phase 0→E). Cross-link new sections to module inventory + spec hits. |
-| B3 | Peer-ready review notes | [ ] | Summarize key revisions and open questions in `reports/<ts>/summary.md` to brief downstream initiatives (INTEGRATE-PYTORCH-001, TEST-PYTORCH-001). |
+| B3 | Peer-ready review notes | [x] | Summarize key revisions and open questions in `reports/2025-10-17T025633Z/summary.md` to brief downstream initiatives (INTEGRATE-PYTORCH-001, TEST-PYTORCH-001). |
 
 ---
 
@@ -55,6 +55,7 @@ Exit Criteria: docs/fix_plan.md updated with latest attempts, pointer to refresh
 ### Verification & Artifacts
 - Preferred commands documented in `reports/<ts>/module_inventory.md`.
 - All reports saved under `plans/active/INTEGRATE-PYTORCH-000/reports/` with ISO timestamps (e.g., `.../2025-10-17T030000Z/{module_inventory.md,delta_log.md}`).
+- Latest redline artifacts: `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/{plan_redline.md,summary.md}`.
 - Treat notebooks as informational; if referenced, include path + purpose but avoid copying large content.
 
 ### Completion Definition

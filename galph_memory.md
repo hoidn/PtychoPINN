@@ -53,3 +53,13 @@
 - Reissued `input.md` directing Ralph to capture Phase A.A1 module inventory under `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025000Z/`.
 - Next supervisor loop: confirm inventory artifacts exist, advance to Phase A.A2 delta tagging, then hand focus back to INTEGRATE-PYTORCH-001 once planning corpus is up to date.
 - <Action State>: [planning]
+
+## 2025-10-17T025541Z: Loop 5 Planning Update
+- Focus issue: INTEGRATE-PYTORCH-000 (plan refresh)
+- Action type: Planning
+- Mode: Docs
+- Artifacts: `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/{plan_redline.md,summary.md}`; updated plan checklist + fix ledger Attempt #2.
+- Key actions: Marked Phase A complete, executed Phase B.B1 redline draft, refreshed implementation plan guidance, and added Attempt #2 in docs/fix_plan.md with revised exit-criteria notes.
+- Next directives for Ralph: Execute Phase B.B2 canonical edits using the redline outline, then prepare stakeholder brief (B.B3).
+- Open questions: Need decisions on API surface vs low-level integration and persistence format (captured in redline D1-D3).
+- <Action State>: [planning] — Next supervisor loop must advance to [ready_for_implementation] or shift focus.

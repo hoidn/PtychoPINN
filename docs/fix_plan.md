@@ -16,10 +16,11 @@
 - Attempts History:
   * [2025-10-17] Attempt #0 — Planning: Authored phased rebaseline plan (`plans/active/INTEGRATE-PYTORCH-000/implementation.md`).
   * [2025-10-17] Attempt #1 — Phase A.A1 Evidence Capture: Generated module inventory and delta analysis. Artifacts: `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025000Z/{module_inventory.md,delta_log.md}`. Key findings: 5 critical deltas identified — (1) Config schema mismatch between PyTorch and TensorFlow spec (blocker); (2) New `api/` layer not in legacy plan; (3) `datagen/` package addition; (4) Reassembly module suite divergence; (5) Lightning+MLflow orchestration vs TensorFlow workflows. No code changes; evidence-only loop. Next: Phase B.B1 architectural decisions + plan redline drafting.
+  * [2025-10-17] Attempt #2 — Phase B.B1 Planning: Drafted redline outline and summary to guide canonical plan edits. Artifacts: `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/{plan_redline.md,summary.md}`. Captured decision inventory (API surface, config schema harmonization, persistence format, Lightning dependency policy) and sequenced editing order for `plans/ptychodus_pytorch_integration_plan.md`. Next: Phase B.B2 apply redline updates, then B.B3 brief stakeholders.
 - Exit Criteria:
   - Phase A reports capture current `ptycho_torch/` module inventory and delta analysis (see plan for artifact paths). ✅
-  - `plans/ptychodus_pytorch_integration_plan.md` updated to reflect rebased PyTorch stack. [Pending Phase B]
-  - docs/fix_plan.md and downstream initiatives link to refreshed plan with current action state noted. [In progress]
+  - `plans/ptychodus_pytorch_integration_plan.md` updated to reflect rebased PyTorch stack. [Phase B.B2 pending — redline prepared in `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025633Z/`]
+  - docs/fix_plan.md and downstream initiatives link to refreshed plan with current action state noted. [In progress; ensure INTEGRATE-PYTORCH-001 consumes redline during next briefing]
 
 
 ## [TEST-PYTORCH-001] Build Minimal Test Suite for PyTorch Backend
