@@ -135,3 +135,11 @@
 - Steering: Rewrote `input.md` directing Ralph to strip unsupported kwargs, normalize activation mapping, tighten override validation, and modify the test so it runs without needing real torch.
 - Follow-up for Ralph: implement the bridge/test fixes, run the targeted pytest (capture output in the new artifact directory), and append a resolution section to the debug note.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T041908Z: B.B4 Parity Test Planning
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B4 parity test expansion
+- Action type: Planning
+- Mode: Docs
+- Actions: Authored phased roadmap at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/parity_test_plan.md` (field matrix, dataclass parity tests, params.cfg comparison, reporting). Updated `plans/active/INTEGRATE-PYTORCH-001/implementation.md` B4 guidance and logged Attempt #12 in `docs/fix_plan.md`. Rewrote `input.md` instructing Ralph to derive the field matrix, add parameterized parity tests, and capture a red pytest run into the new artifact directory.
+- Next supervisor check: confirm Ralph produced `field_matrix.md`, fixtures, red pytest log, and parity assertions; then plan implementation steps to flip failing cases green.
+- <Action State>: [ready_for_implementation]
