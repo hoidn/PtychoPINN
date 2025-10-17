@@ -551,3 +551,15 @@
 - Authored new `input.md` targeting regression validation with artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T201922Z/`; mapped torch suite and full regression commands with known ignores and documented summary/update requirements.
 - Expect Ralph to capture torch/ and full-suite logs, update phase_f_torch_mandatory.md & implementation plan, and log Attempt #72 in docs/fix_plan.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T203548Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase F4 (Documentation & Handoffs)
+- Action type: Planning
+- Mode: Docs
+- Notes: Recording selections prior to Step <3.2>; prerequisites F1–F3 complete per phase_f_torch_mandatory.md. Proceeding to draft Phase F4 detailed plan and update steering docs.
+## 2025-10-17T203750Z: Phase F4 planning summary
+- Authored `plans/active/INTEGRATE-PYTORCH-001/phase_f4_doc_sync.md` with detailed checklists for F4.1–F4.3 and opened report hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T203640Z/summary.md`.
+- Updated `phase_f_torch_mandatory.md` and `implementation.md` F4 rows to reference the new plan + timestamped artifacts; logged Attempt #73 in docs/fix_plan.md.
+- Rewrote `input.md` to focus Ralph on Phase F4.1 doc updates (inventory + edits recorded in doc_updates.md) with Docs mode, tests: none.
+- Next steps for Ralph: execute F4.1 checklist, populate doc_updates.md, then update plan/ledger per instructions before moving to F4.2.
+- <Action State>: [ready_for_implementation]

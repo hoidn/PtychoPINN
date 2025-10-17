@@ -114,7 +114,7 @@ Exit Criteria: Torch-required policy documented, code/tests updated, and documen
 | F1 | Directive alignment & governance sign-off | [x] | ✅ 2025-10-17 — Completed via `phase_f_torch_mandatory.md` F1 artifacts (`reports/2025-10-17T184624Z/{directive_conflict.md,governance_decision.md,guidance_updates.md}`). |
 | F2 | Impact inventory & migration blueprint | [x] | ✅ 2025-10-17T192500Z — Artifacts delivered (`torch_optional_inventory.md`, `test_skip_audit.md`, `migration_plan.md`); see Phase F plan for checklists. |
 | F3 | Implementation & test realignment | [x] | ✅ 2025-10-17 — All 4 sub-phases complete (F3.1: dependency promotion, F3.2: guard removal, F3.3: skip rewrite, F3.4: regression verification). Zero new failures; full suite: 207 passed, 13 skipped, 1 xfailed. Detailed tracking in `phase_f_torch_mandatory.md` and artifacts under `reports/2025-10-17T{193400Z,193753Z,195624Z,201922Z}/`. |
-| F4 | Documentation/spec sync & handoff | [ ] | Update specs, workflows docs, and TEST-PYTORCH-001 coordination using Phase F guidance. |
+| F4 | Documentation/spec sync & handoff | [ ] | Execute `phase_f4_doc_sync.md` checklists; log artifacts under `reports/2025-10-17T203640Z/` (doc_updates/spec_sync/handoff_notes) before marking complete. |
 
 ---
 

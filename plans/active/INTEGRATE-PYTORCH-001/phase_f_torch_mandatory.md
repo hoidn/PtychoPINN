@@ -55,9 +55,9 @@ Exit Criteria: Documentation, specs, and downstream plans updated; open risks lo
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F4.1 | Update developer-facing docs | [ ] | Revise `docs/workflows/pytorch.md`, README, and training guides to state PyTorch is mandatory. Store summary in `reports/.../doc_updates.md`. |
-| F4.2 | Sync specs & findings | [ ] | Amend `specs/ptychodus_api_spec.md` (installation/prereq sections) and add new finding capturing the policy change consequences. Capture diff in `reports/.../spec_sync.md`. |
-| F4.3 | Coordinate initiative handoffs | [ ] | Notify TEST-PYTORCH-001 / CI maintainers; document follow-up tasks in `reports/.../handoff_notes.md`. |
+| F4.1 | Update developer-facing docs | [ ] | Execute checklist in `phase_f4_doc_sync.md` (F4.1 rows). Use `reports/2025-10-17T203640Z/doc_updates.md` for inventory + change log. |
+| F4.2 | Sync specs & findings | [ ] | Follow `phase_f4_doc_sync.md` F4.2 guidance to edit `specs/ptychodus_api_spec.md` and append POLICY finding; record rationale in `reports/2025-10-17T203640Z/spec_sync.md`. |
+| F4.3 | Coordinate initiative handoffs | [ ] | Complete `phase_f4_doc_sync.md` F4.3 tasks; capture downstream owner notes in `reports/2025-10-17T203640Z/handoff_notes.md` and update ledger accordingly. |
 
 ---
 
