@@ -826,6 +826,156 @@ class TestConfigBridgeParity:
         assert tf_infer.n_subsample != 7, \
             "Override should replace PyTorch value"
 
+    # ============================================================================
+    # Test Case 6: Baseline params.cfg Comparison (Phase D.D1)
+    # ============================================================================
+
+    def test_params_cfg_matches_baseline(self, params_cfg_snapshot):
+        """
+        Test that adapter-populated params.cfg matches canonical TensorFlow baseline.
+
+        This test validates end-to-end config bridge correctness by instantiating
+        PyTorch configs with canonical values, translating through the adapter,
+        populating params.cfg via update_legacy_dict, and comparing the resulting
+        legacy dictionary against a pre-captured TensorFlow baseline snapshot.
+
+        Baseline: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/baseline_params.json
+        Spec coverage: §5.1-§5.3 (all config fields)
+        Phase: Phase B.B5.D1 baseline comparison
+        References: supervisor_summary.md for canonical config inputs
+        """
+        import json
+        from collections import OrderedDict
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig
+        from ptycho_torch import config_bridge
+        from ptycho.config.config import update_legacy_dict
+        import ptycho.params as params
+
+        # Helper function to normalize params.cfg for comparison
+        def canonicalize_params(cfg):
+            """Convert params.cfg to deterministic dict for baseline comparison."""
+            normalized = OrderedDict()
+            for key, value in sorted(cfg.items()):
+                if isinstance(value, Path):
+                    normalized[key] = str(value)
+                elif isinstance(value, (int, float, str, bool)):
+                    normalized[key] = value
+                elif value is None:
+                    normalized[key] = None
+                else:
+                    # Fallback: stringify unknown types
+                    normalized[key] = str(value)
+            return normalized
+
+        # Instantiate PyTorch configs with canonical values from supervisor_summary.md
+        pt_data = DataConfig(
+            N=128,
+            grid_size=(3, 3),  # Produces gridsize=3
+            K=6,  # Produces neighbor_count=6
+            nphotons=5e8,
+            probe_scale=2.0
+        )
+
+        pt_model = ModelConfig(
+            mode='Unsupervised',  # Produces model_type='pinn'
+            n_filters_scale=2,
+            amp_activation='silu',  # Maps to 'swish'
+            object_big=False,
+            probe_big=False,
+            intensity_scale_trainable=True
+        )
+
+        pt_train = TrainingConfig(
+            epochs=100,  # Produces nepochs=100
+            batch_size=32,
+            nll=True  # Produces nll_weight=1.0 (but baseline has 0.7, use override)
+        )
+
+        pt_infer = InferenceConfig()
+
+        # Build override dictionaries matching baseline values
+        model_overrides = dict(
+            probe_mask=True,  # Force True (torch unavailable, must use override)
+            pad_object=False,
+            gaussian_smoothing_sigma=0.5
+        )
+
+        training_overrides = dict(
+            train_data_file=Path('/canonical/baseline/train_data.npz'),
+            test_data_file=Path('/canonical/baseline/test_data.npz'),
+            n_groups=1024,  # Note: baseline uses 512 for inference, but training captures this
+            n_subsample=2048,  # Baseline doesn't show this, but we'll check after
+            subsample_seed=42,  # Baseline shows 99 (from inference), will be overridden
+            output_dir=Path('/canonical/baseline/training_outputs'),
+            mae_weight=0.3,
+            nll_weight=0.7,  # Explicit override to match baseline (not from nll bool conversion)
+            realspace_mae_weight=0.05,
+            realspace_weight=0.1,
+            positions_provided=False,
+            probe_trainable=True,
+            sequential_sampling=True,
+            nphotons=5e8  # Explicit override to avoid divergence validation error
+        )
+
+        inference_overrides = dict(
+            model_path=Path('/canonical/baseline/model_directory'),
+            test_data_file=Path('/canonical/baseline/inference_data.npz'),
+            n_groups=512,  # Baseline inference value
+            n_subsample=1024,  # Baseline inference value
+            subsample_seed=99,  # Baseline inference value
+            output_dir=Path('/canonical/baseline/inference_outputs'),
+            debug=True
+        )
+
+        # Translate through adapter
+        tf_model = config_bridge.to_model_config(pt_data, pt_model, overrides=model_overrides)
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train, overrides=training_overrides
+        )
+        tf_infer = config_bridge.to_inference_config(
+            tf_model, pt_data, pt_infer, overrides=inference_overrides
+        )
+
+        # Clear and populate params.cfg (training first, then inference to match baseline)
+        params.cfg.clear()
+        update_legacy_dict(params.cfg, tf_train)
+        update_legacy_dict(params.cfg, tf_infer)
+
+        # Load baseline JSON
+        baseline_path = project_root / 'plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/baseline_params.json'
+        with baseline_path.open() as fp:
+            baseline = json.load(fp)
+
+        # Normalize params.cfg for comparison
+        actual = canonicalize_params(params.cfg)
+
+        # Compare dictionaries
+        # Note: baseline only has 31 keys; actual may have more from update_legacy_dict
+        # Focus comparison on baseline keys (adapter correctness, not extra keys)
+        mismatches = []
+        for key in baseline.keys():
+            if key not in actual:
+                mismatches.append(f"Missing key in actual: {key}")
+            elif actual[key] != baseline[key]:
+                mismatches.append(f"Mismatch for {key}: actual={actual[key]}, baseline={baseline[key]}")
+
+        # Assert no mismatches
+        if mismatches:
+            # On failure, dump diff for debugging
+            diff_path = project_root / 'plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T061500Z/params_diff.json'
+            diff_path.parent.mkdir(parents=True, exist_ok=True)
+            with diff_path.open('w') as fp:
+                json.dump({
+                    'mismatches': mismatches,
+                    'actual_keys': list(actual.keys()),
+                    'baseline_keys': list(baseline.keys()),
+                    'actual': dict(actual),
+                    'baseline': baseline
+                }, fp, indent=2)
+
+            pytest.fail(f"params.cfg does not match baseline:\n" + "\n".join(mismatches) +
+                       f"\n\nDiff saved to: {diff_path}")
+
 
 if __name__ == '__main__':
     unittest.main()
