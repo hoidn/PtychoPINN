@@ -405,6 +405,60 @@ class TestConfigBridgeParity:
             f"{field_name} should use {'override' if override_value is not None else 'default'} value"
 
     # ============================================================================
+    # Test Case 3.5: probe_mask Translation (Phase B.B5.B2)
+    # ============================================================================
+
+    @pytest.mark.parametrize('pytorch_value,expected_tf_value,description', [
+        pytest.param(None, False, 'default-None→False', id='probe_mask-default'),
+        # Note: Cannot test Tensor→True case without torch runtime, but logic is implemented
+    ])
+    def test_model_config_probe_mask_translation(self, params_cfg_snapshot, pytorch_value, expected_tf_value, description):
+        """
+        Test probe_mask translation from Optional[Tensor] to bool.
+
+        Without torch: None → False (default behavior)
+        With torch: None → False, Tensor → True
+
+        Spec coverage: §5.1:8 (probe_mask)
+        Phase: B.B5.B2 parity extension
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig()
+        # Create ModelConfig with probe_mask=None (PyTorch default)
+        pt_model = ModelConfig(probe_mask=pytorch_value)
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        assert tf_model.probe_mask == expected_tf_value, \
+            f"probe_mask={pytorch_value} should translate to {expected_tf_value} ({description})"
+
+    def test_model_config_probe_mask_override(self, params_cfg_snapshot):
+        """
+        Test that probe_mask can be explicitly overridden via overrides dict.
+
+        This allows external callers to force True even when PyTorch config has None.
+
+        Spec coverage: §5.1:8 (probe_mask override pattern)
+        Phase: B.B5.B2 parity extension
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig()
+        pt_model = ModelConfig(probe_mask=None)  # PyTorch default
+
+        # Override to True
+        tf_model = config_bridge.to_model_config(
+            pt_data, pt_model,
+            overrides={'probe_mask': True}
+        )
+
+        assert tf_model.probe_mask is True, \
+            "probe_mask override should force True even when PyTorch has None"
+
+    # ============================================================================
     # Test Case 4: Default Divergence Detection
     # ============================================================================
 
@@ -545,6 +599,82 @@ class TestConfigBridgeParity:
 
         assert 'model_path is required' in str(exc_info.value), \
             "Error message should indicate model_path is required"
+
+    # ============================================================================
+    # Test Case 5.5: nphotons Override Validation (Phase B.B5.B4)
+    # ============================================================================
+
+    def test_nphotons_default_divergence_error(self, params_cfg_snapshot):
+        """
+        Test that using PyTorch default nphotons without override raises informative error.
+
+        Regression test for Phase B.B5.B4: Validates that the adapter enforces explicit
+        nphotons override when PyTorch default (1e5) differs from TensorFlow default (1e9).
+
+        Error message should provide actionable guidance: overrides=dict(..., nphotons=1e9)
+
+        Spec coverage: §5.2:9 (nphotons HIGH risk divergence)
+        Phase: B.B5.B4 override validation
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        # Use PyTorch default nphotons (1e5)
+        pt_data = DataConfig(nphotons=1e5)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        with pytest.raises(ValueError) as exc_info:
+            config_bridge.to_training_config(
+                tf_model, pt_data, pt_model, pt_train,
+                overrides=dict(train_data_file=Path('train.npz'), n_groups=512)
+                # Missing nphotons override - should trigger validation error
+            )
+
+        # Assert error message contains actionable guidance
+        error_msg = str(exc_info.value)
+        assert 'nphotons default divergence' in error_msg, \
+            "Error message should identify nphotons divergence"
+        assert 'overrides' in error_msg, \
+            "Error message should mention overrides parameter"
+        assert 'nphotons=' in error_msg, \
+            "Error message should provide override syntax example"
+
+    def test_nphotons_override_passes_validation(self, params_cfg_snapshot):
+        """
+        Test that explicit nphotons override passes validation (green path).
+
+        Paired with test_nphotons_default_divergence_error to confirm validation
+        accepts explicit overrides and only rejects PyTorch defaults.
+
+        Spec coverage: §5.2:9 (nphotons override pattern)
+        Phase: B.B5.B4 override validation
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        # Use PyTorch default nphotons (1e5) but provide explicit override
+        pt_data = DataConfig(nphotons=1e5)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        # Should NOT raise error when nphotons provided in overrides
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(
+                train_data_file=Path('train.npz'),
+                n_groups=512,
+                nphotons=1e9  # Explicit override resolves divergence
+            )
+        )
+
+        # Assert override value is used
+        assert tf_train.nphotons == 1e9, \
+            "nphotons override should be applied successfully"
 
 
 if __name__ == '__main__':
