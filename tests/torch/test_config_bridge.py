@@ -148,7 +148,19 @@ class TestConfigBridgeMVP(unittest.TestCase):
         self.assertEqual(params.cfg['nphotons'], 1e9, "nphotons should match")
 
 
-class TestConfigBridgeParity(unittest.TestCase):
+@pytest.fixture
+def params_cfg_snapshot():
+    """Fixture to save and restore params.cfg state for parity tests."""
+    import ptycho.params as params
+    # Save snapshot of params.cfg before test
+    snapshot = dict(params.cfg)
+    yield
+    # Restore original state after test
+    params.cfg.clear()
+    params.cfg.update(snapshot)
+
+
+class TestConfigBridgeParity:
     """
     Comprehensive parity tests for PyTorch → TensorFlow config bridge adapter.
 
@@ -169,19 +181,6 @@ class TestConfigBridgeParity(unittest.TestCase):
     - Canonical fixtures: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/fixtures.py
     """
 
-    def setUp(self):
-        """Set up test fixtures and save params.cfg state."""
-        import ptycho.params as params
-        # Save snapshot of params.cfg for restoration
-        self.params_snapshot = dict(params.cfg)
-
-    def tearDown(self):
-        """Restore params.cfg state after test."""
-        import ptycho.params as params
-        # Restore original state
-        params.cfg.clear()
-        params.cfg.update(self.params_snapshot)
-
     # ============================================================================
     # Test Case 1: Direct Field Translation
     # ============================================================================
@@ -192,7 +191,7 @@ class TestConfigBridgeParity(unittest.TestCase):
         pytest.param('object_big', False, False, id='object_big-direct'),
         pytest.param('probe_big', False, False, id='probe_big-direct'),
     ])
-    def test_model_config_direct_fields(self, field_name, pytorch_value, expected_tf_value):
+    def test_model_config_direct_fields(self, params_cfg_snapshot, field_name, pytorch_value, expected_tf_value):
         """
         Test ModelConfig fields that translate directly without transformation.
 
@@ -213,13 +212,13 @@ class TestConfigBridgeParity(unittest.TestCase):
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
         # Assert field value matches
-        self.assertEqual(getattr(tf_model, field_name), expected_tf_value,
-                         f"{field_name} should pass through directly")
+        assert getattr(tf_model, field_name) == expected_tf_value, \
+            f"{field_name} should pass through directly"
 
     @pytest.mark.parametrize('field_name,pytorch_value,expected_tf_value', [
         pytest.param('batch_size', 32, 32, id='batch_size-direct'),
     ])
-    def test_training_config_direct_fields(self, field_name, pytorch_value, expected_tf_value):
+    def test_training_config_direct_fields(self, params_cfg_snapshot, field_name, pytorch_value, expected_tf_value):
         """
         Test TrainingConfig fields that translate directly without transformation.
 
@@ -235,11 +234,11 @@ class TestConfigBridgeParity(unittest.TestCase):
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
-            overrides=dict(train_data_file=Path('train.npz'), n_groups=512)
+            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
         )
 
-        self.assertEqual(getattr(tf_train, field_name), expected_tf_value,
-                         f"{field_name} should pass through directly")
+        assert getattr(tf_train, field_name) == expected_tf_value, \
+            f"{field_name} should pass through directly"
 
     # ============================================================================
     # Test Case 2: Transformed Field Translation
@@ -253,7 +252,7 @@ class TestConfigBridgeParity(unittest.TestCase):
         pytest.param('amp_activation', 'SiLU', 'amp_activation', 'swish', id='amp_activation-SiLU'),
         pytest.param('amp_activation', 'sigmoid', 'amp_activation', 'sigmoid', id='amp_activation-passthrough'),
     ])
-    def test_model_config_transform_fields(self, pt_field, pt_value, tf_field, tf_value):
+    def test_model_config_transform_fields(self, params_cfg_snapshot, pt_field, pt_value, tf_field, tf_value):
         """
         Test ModelConfig fields that require transformation during translation.
 
@@ -274,15 +273,15 @@ class TestConfigBridgeParity(unittest.TestCase):
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
         # Assert transformed field value matches
-        self.assertEqual(getattr(tf_model, tf_field), tf_value,
-                         f"{pt_field}={pt_value} should transform to {tf_field}={tf_value}")
+        assert getattr(tf_model, tf_field) == tf_value, \
+            f"{pt_field}={pt_value} should transform to {tf_field}={tf_value}"
 
     @pytest.mark.parametrize('pt_field,pt_value,tf_field,tf_value', [
         pytest.param('epochs', 100, 'nepochs', 100, id='nepochs-rename'),
         pytest.param('nll', True, 'nll_weight', 1.0, id='nll_weight-true'),
         pytest.param('nll', False, 'nll_weight', 0.0, id='nll_weight-false'),
     ])
-    def test_training_config_transform_fields(self, pt_field, pt_value, tf_field, tf_value):
+    def test_training_config_transform_fields(self, params_cfg_snapshot, pt_field, pt_value, tf_field, tf_value):
         """
         Test TrainingConfig fields that require transformation during translation.
 
@@ -298,11 +297,11 @@ class TestConfigBridgeParity(unittest.TestCase):
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
-            overrides=dict(train_data_file=Path('train.npz'), n_groups=512)
+            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
         )
 
-        self.assertEqual(getattr(tf_train, tf_field), tf_value,
-                         f"{pt_field}={pt_value} should transform to {tf_field}={tf_value}")
+        assert getattr(tf_train, tf_field) == tf_value, \
+            f"{pt_field}={pt_value} should transform to {tf_field}={tf_value}"
 
     # ============================================================================
     # Test Case 3: Override-Required Fields
@@ -314,7 +313,7 @@ class TestConfigBridgeParity(unittest.TestCase):
         pytest.param('gaussian_smoothing_sigma', None, 0.0, id='gaussian_smoothing_sigma-default'),
         pytest.param('gaussian_smoothing_sigma', 0.5, 0.5, id='gaussian_smoothing_sigma-override'),
     ])
-    def test_model_config_override_fields(self, field_name, override_value, expected_value):
+    def test_model_config_override_fields(self, params_cfg_snapshot, field_name, override_value, expected_value):
         """
         Test ModelConfig fields missing from PyTorch that use defaults or overrides.
 
@@ -331,8 +330,8 @@ class TestConfigBridgeParity(unittest.TestCase):
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model, overrides=overrides)
 
-        self.assertEqual(getattr(tf_model, field_name), expected_value,
-                         f"{field_name} should use {'override' if override_value is not None else 'default'} value")
+        assert getattr(tf_model, field_name) == expected_value, \
+            f"{field_name} should use {'override' if override_value is not None else 'default'} value"
 
     @pytest.mark.parametrize('field_name,override_value,expected_value', [
         pytest.param('mae_weight', None, 0.0, id='mae_weight-default'),
@@ -343,7 +342,7 @@ class TestConfigBridgeParity(unittest.TestCase):
         pytest.param('probe_trainable', None, False, id='probe_trainable-default'),
         pytest.param('sequential_sampling', None, False, id='sequential_sampling-default'),
     ])
-    def test_training_config_override_fields(self, field_name, override_value, expected_value):
+    def test_training_config_override_fields(self, params_cfg_snapshot, field_name, override_value, expected_value):
         """
         Test TrainingConfig fields missing from PyTorch that require defaults/overrides.
 
@@ -358,8 +357,8 @@ class TestConfigBridgeParity(unittest.TestCase):
         pt_model = ModelConfig()
         pt_train = TrainingConfig()
 
-        # Build overrides dict (always include required fields)
-        overrides = dict(train_data_file=Path('train.npz'), n_groups=512)
+        # Build overrides dict (always include required fields including nphotons to avoid validation error)
+        overrides = dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
         if override_value is not None:
             overrides[field_name] = override_value
 
@@ -368,14 +367,14 @@ class TestConfigBridgeParity(unittest.TestCase):
             tf_model, pt_data, pt_model, pt_train, overrides=overrides
         )
 
-        self.assertEqual(getattr(tf_train, field_name), expected_value,
-                         f"{field_name} should use {'override' if override_value is not None else 'default'} value")
+        assert getattr(tf_train, field_name) == expected_value, \
+            f"{field_name} should use {'override' if override_value is not None else 'default'} value"
 
     @pytest.mark.parametrize('field_name,override_value,expected_value', [
         pytest.param('debug', None, False, id='debug-default'),
         pytest.param('debug', True, True, id='debug-override'),
     ])
-    def test_inference_config_override_fields(self, field_name, override_value, expected_value):
+    def test_inference_config_override_fields(self, params_cfg_snapshot, field_name, override_value, expected_value):
         """
         Test InferenceConfig fields missing from PyTorch that require defaults/overrides.
 
@@ -402,8 +401,8 @@ class TestConfigBridgeParity(unittest.TestCase):
             tf_model, pt_data, pt_infer, overrides=overrides
         )
 
-        self.assertEqual(getattr(tf_infer, field_name), expected_value,
-                         f"{field_name} should use {'override' if override_value is not None else 'default'} value")
+        assert getattr(tf_infer, field_name) == expected_value, \
+            f"{field_name} should use {'override' if override_value is not None else 'default'} value"
 
     # ============================================================================
     # Test Case 4: Default Divergence Detection
@@ -414,7 +413,7 @@ class TestConfigBridgeParity(unittest.TestCase):
                      marks=pytest.mark.mvp),
         pytest.param('probe_scale', 1.0, 4.0, 2.0, id='probe_scale-divergence'),
     ])
-    def test_default_divergence_detection(self, field_name, pytorch_default, tf_default, test_value):
+    def test_default_divergence_detection(self, params_cfg_snapshot, field_name, pytorch_default, tf_default, test_value):
         """
         Test that fields with different PyTorch/TensorFlow defaults use explicit values.
 
@@ -444,13 +443,13 @@ class TestConfigBridgeParity(unittest.TestCase):
             actual_value = getattr(tf_train, field_name)
 
         # Assert explicit value is used (not either default)
-        self.assertEqual(actual_value, test_value,
-                         f"{field_name} should use explicit value {test_value}, not defaults "
-                         f"(PyTorch={pytorch_default}, TF={tf_default})")
-        self.assertNotEqual(actual_value, pytorch_default,
-                            f"Should not fall back to PyTorch default")
-        self.assertNotEqual(actual_value, tf_default,
-                            f"Should not fall back to TensorFlow default")
+        assert actual_value == test_value, \
+            f"{field_name} should use explicit value {test_value}, not defaults " \
+            f"(PyTorch={pytorch_default}, TF={tf_default})"
+        assert actual_value != pytorch_default, \
+            f"Should not fall back to PyTorch default"
+        assert actual_value != tf_default, \
+            f"Should not fall back to TensorFlow default"
 
     # ============================================================================
     # Test Case 5: Error Handling & Validation
@@ -459,7 +458,7 @@ class TestConfigBridgeParity(unittest.TestCase):
     @pytest.mark.parametrize('invalid_value,expected_error,error_fragment', [
         pytest.param((2, 3), ValueError, 'Non-square grids', id='gridsize-non-square'),
     ])
-    def test_gridsize_error_handling(self, invalid_value, expected_error, error_fragment):
+    def test_gridsize_error_handling(self, params_cfg_snapshot, invalid_value, expected_error, error_fragment):
         """Test grid_size validation (non-square grids should raise ValueError)."""
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
@@ -467,16 +466,16 @@ class TestConfigBridgeParity(unittest.TestCase):
         pt_data = DataConfig(grid_size=invalid_value)
         pt_model = ModelConfig()
 
-        with self.assertRaises(expected_error) as cm:
+        with pytest.raises(expected_error) as exc_info:
             config_bridge.to_model_config(pt_data, pt_model)
 
-        self.assertIn(error_fragment, str(cm.exception),
-                      f"Error message should contain '{error_fragment}'")
+        assert error_fragment in str(exc_info.value), \
+            f"Error message should contain '{error_fragment}'"
 
     @pytest.mark.parametrize('invalid_value,expected_error,error_fragment', [
         pytest.param('InvalidMode', ValueError, 'Invalid mode', id='model_type-invalid-enum'),
     ])
-    def test_model_type_error_handling(self, invalid_value, expected_error, error_fragment):
+    def test_model_type_error_handling(self, params_cfg_snapshot, invalid_value, expected_error, error_fragment):
         """Test mode validation (invalid enum should raise ValueError)."""
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
@@ -484,16 +483,16 @@ class TestConfigBridgeParity(unittest.TestCase):
         pt_data = DataConfig()
         pt_model = ModelConfig(mode=invalid_value)
 
-        with self.assertRaises(expected_error) as cm:
+        with pytest.raises(expected_error) as exc_info:
             config_bridge.to_model_config(pt_data, pt_model)
 
-        self.assertIn(error_fragment, str(cm.exception),
-                      f"Error message should contain '{error_fragment}'")
+        assert error_fragment in str(exc_info.value), \
+            f"Error message should contain '{error_fragment}'"
 
     @pytest.mark.parametrize('invalid_value,expected_error,error_fragment', [
         pytest.param('unknown_activation', ValueError, 'Unknown activation', id='amp_activation-unknown'),
     ])
-    def test_activation_error_handling(self, invalid_value, expected_error, error_fragment):
+    def test_activation_error_handling(self, params_cfg_snapshot, invalid_value, expected_error, error_fragment):
         """Test amp_activation validation (unknown activation should raise ValueError)."""
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
@@ -501,13 +500,13 @@ class TestConfigBridgeParity(unittest.TestCase):
         pt_data = DataConfig()
         pt_model = ModelConfig(amp_activation=invalid_value)
 
-        with self.assertRaises(expected_error) as cm:
+        with pytest.raises(expected_error) as exc_info:
             config_bridge.to_model_config(pt_data, pt_model)
 
-        self.assertIn(error_fragment, str(cm.exception),
-                      f"Error message should contain '{error_fragment}'")
+        assert error_fragment in str(exc_info.value), \
+            f"Error message should contain '{error_fragment}'"
 
-    def test_train_data_file_required_error(self):
+    def test_train_data_file_required_error(self, params_cfg_snapshot):
         """Test that missing train_data_file raises actionable ValueError (MVP field)."""
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
         from ptycho_torch import config_bridge
@@ -518,16 +517,16 @@ class TestConfigBridgeParity(unittest.TestCase):
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
-        with self.assertRaises(ValueError) as cm:
+        with pytest.raises(ValueError) as exc_info:
             config_bridge.to_training_config(
                 tf_model, pt_data, pt_model, pt_train,
-                overrides=dict(n_groups=512)  # Missing train_data_file
+                overrides=dict(n_groups=512, nphotons=1e9)  # Missing train_data_file but include nphotons
             )
 
-        self.assertIn('train_data_file is required', str(cm.exception),
-                      "Error message should indicate train_data_file is required")
+        assert 'train_data_file is required' in str(exc_info.value), \
+            "Error message should indicate train_data_file is required"
 
-    def test_model_path_required_error(self):
+    def test_model_path_required_error(self, params_cfg_snapshot):
         """Test that missing model_path raises actionable ValueError (MVP field)."""
         from ptycho_torch.config_params import DataConfig, ModelConfig, InferenceConfig
         from ptycho_torch import config_bridge
@@ -538,14 +537,14 @@ class TestConfigBridgeParity(unittest.TestCase):
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
-        with self.assertRaises(ValueError) as cm:
+        with pytest.raises(ValueError) as exc_info:
             config_bridge.to_inference_config(
                 tf_model, pt_data, pt_infer,
                 overrides=dict(test_data_file=Path('test.npz'), n_groups=512)  # Missing model_path
             )
 
-        self.assertIn('model_path is required', str(cm.exception),
-                      "Error message should indicate model_path is required")
+        assert 'model_path is required' in str(exc_info.value), \
+            "Error message should indicate model_path is required"
 
 
 if __name__ == '__main__':
