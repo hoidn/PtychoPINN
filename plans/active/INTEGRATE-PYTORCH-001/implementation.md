@@ -88,8 +88,8 @@ Exit Criteria: Ptychodus integration tests (existing + new for PyTorch) pass on 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E1 | Update reconstructor selection logic | [ ] | Follow `phase_e_integration.md` Phase E1 (E1.A–E1.C) for callchain mapping, backend-selection red tests, and implementation blueprint prior to touching Ptychodus code. |
-| E2 | Extend parity test suite | [ ] | Execute Phase E2 tasks (E2.A–E2.D) from `phase_e_integration.md`, coordinating with TEST-PYTORCH-001 and capturing red/green selectors under `phase_e_*` artifacts. |
+| E1 | Update reconstructor selection logic | [x] | ✅ 2025-10-17 — Phase E1 complete. Callchain + dispatcher plan documented at `reports/2025-10-17T173826Z/phase_e_callchain/`, red backend-selection tests logged in `phase_e_red_backend_selection.log`, and blueprint captured in `phase_e_backend_design.md`. |
+| E2 | Extend parity test suite | [P] | E2.A–E2.C complete (fixtures + red tests at `reports/2025-10-17T213500Z/*`, CLI wiring + green summary at `reports/2025-10-17T215500Z/phase_e2_green.md`). Remaining work: E2.D parity evidence (TF baseline log, torch log, parity summary). Follow `phase_e2_implementation.md` Phase D tasks. |
 | E3 | Document backend selection workflow | [ ] | Use Phase E3 checklist (E3.A–E3.C) in `phase_e_integration.md` to update docs/spec and prepare TEST-PYTORCH-001 handoff materials. |
 | E4 | Perform final comparison run | [ ] | Satisfy via Phase E2.D parity summary (`phase_e_parity_summary.md`) once TensorFlow and PyTorch integration tests are green. |
 

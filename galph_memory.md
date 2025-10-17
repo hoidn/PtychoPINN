@@ -609,3 +609,9 @@
 - Rewrote `input.md` directing Ralph to complete plan tasks C1–C5 with logs under `reports/2025-10-17T215500Z/`.
 - Next steps for Ralph: implement training/inference CLI, add lightning dependency + MLflow flag, run targeted pytest, then proceed to parity evidence per Phase D.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-18T090500Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase E2.D parity evidence
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Converted legacy ledger TODO into `[INTEGRATE-PYTORCH-001-STUBS]` entry (docs/fix_plan.md) documenting remaining Phase D2 stubs prior to selection. Verified Ralph’s latest loop (commit 9b69637, logs 215500Z) delivered E2.C artifacts but left phase_e2_implementation.md checklist unchecked. Proceeding to align plans/ledger with current state and prepare parity-evidence directive.
