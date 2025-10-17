@@ -2173,6 +2173,7 @@ plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md
 plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md
 plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md
 plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md
+plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/parity_map.md
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/summary.md
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T032218Z/config_schema_map.md
@@ -2301,6 +2302,14 @@ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T180500Z/phase_e_backend_de
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T180500Z/summary.md
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T181500Z/phase_e_backend_impl.md
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T181500Z/pytest_backend_selection.log
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184417Z/phase_f_summary.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/directive_conflict.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/guidance_updates.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/README.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/migration_plan.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/test_skip_audit.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/torch_optional_inventory.md
 plans/active/TEST-SUITE-TRIAGE/plan.md
 plans/active/TEST-SUITE-TRIAGE/reports/2025-10-16T230539Z/env.md
 plans/active/TEST-SUITE-TRIAGE/reports/2025-10-16T230539Z/requirements.txt
