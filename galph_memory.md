@@ -410,3 +410,17 @@
 - Rewrote input.md for Parity mode to direct D3.C red tests, loader implementation, and evidence capture; mapped selectors for new TestLoadTorchBundle cases.
 - No tests run this loop (documentation/steering only).
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T110918Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D4 regression hooks
+- Action type: Planning
+- Mode: Parity
+- Notes: Recording selections prior to Step <3.2>; proceeding to document review and planning work.
+
+- Findings check: `rg` over docs/findings.md only surfaces CONFIG-001; no existing D4-specific notes.
+- Coin flip → heads: reviewed recent Ralph commits (37b9d73, 613a315) — loader parity landed with targeted + full pytest logs, no regressions noted; training debug log persisted but already archived per Attempt #51.
+- Authored Phase D4 plan `plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md` and summary report (`reports/2025-10-17T111014Z/phase_d4_plan_summary.md`); updated phase_d_workflow + implementation tables to reference new checklist.
+- Updated docs/fix_plan.md Attempt #53 with planning artifacts; rewrote input.md directing D4.A1/A3 docs under `reports/2025-10-17T111700Z/`.
+- Next actions for Ralph: deliver D4.A alignment narrative and selector map before TDD red tests.
+- <Action State>: [ready_for_implementation]
+

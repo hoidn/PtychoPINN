@@ -48,15 +48,17 @@ Exit Criteria: PyTorch training run emits archives the reconstructor can consume
 ---
 
 ### Phase D4 — Regression Hooks & Tests
-Goal: Add automated coverage ensuring PyTorch orchestration stays parity-aligned and torch-optional.
+Goal: Deliver torch-optional regression coverage for PyTorch orchestration + persistence and prepare the TEST-PYTORCH-001 initiative hand-off.
 Prereqs: D2 + D3 functional.
-Exit Criteria: Targeted pytest selectors codified in `plans/pytorch_integration_test_plan.md`, capturing train→save→load workflow and backend toggle smoke tests.
+Exit Criteria: Tasks in `phase_d4_regression.md` (D4.A1–D4.C3) completed with artifacts stored per naming guidance and linked from docs/fix_plan.md.
+
+**Reference Plan:** `plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md` (phased checklist + artifact map).
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D4.A | Update test plan linkage | [ ] | Activate `plans/active/TEST-PYTORCH-001` with checklists referencing D2/D3 outputs. Provide pointer from fix ledger Attempt log. |
-| D4.B | Author failing integration test | [ ] | Extend `tests/torch/test_integration_workflow.py` (or new file) in red phase using minimal fixture; ensure skip rules keep torch-optional behaviour. Record selector + failure log under `reports/<timestamp>/phase_d4_red.md`. |
-| D4.C | Turn tests green | [ ] | After D2/D3 finalize, update test to pass, capturing pytest logs + artifact manifests under `reports/<timestamp>/phase_d4_green.md`. |
+| D4.A | Planning alignment & selector map | [ ] | Execute D4.A1–A3 in `phase_d4_regression.md`. Produce alignment narrative + selector map under `reports/<ts>/phase_d4_alignment.md` and `phase_d4_selector_map.md`; update implementation/ledger links. |
+| D4.B | Author failing regression tests (TDD red) | [ ] | Follow D4.B1–B3 guidance. Capture persistence + orchestration failing logs in `phase_d4_red_*.log` directories; ensure tests remain torch-optional (reuse skip guards from `tests/conftest.py`). |
+| D4.C | Turn regression tests green & hand off | [ ] | Complete D4.C1–C3. Implement required fixes, capture green logs, and assemble handoff summary (`phase_d4_handoff.md`) feeding TEST-PYTORCH-001 activation. |
 
 ---
 

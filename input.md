@@ -1,40 +1,38 @@
-Summary: Implement PyTorch persistence loader and prove params restoration parity
+Summary: Capture Phase D4 alignment narrative and selector map to unlock PyTorch regression tests
 Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 / Phase D3.C persistence loader
+Focus: INTEGRATE-PYTORCH-001 / Phase D4.A planning alignment
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_updates_params_cfg -vv; pytest tests/torch/test_model_manager.py::TestLoadTorchBundle::test_missing_params_raises_value_error -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T113200Z/{phase_d3_loader.md,pytest_red.log,pytest_green.log,params_snapshot_before.json,params_snapshot_after.json,archive_tree.txt}
+Mapped tests: none — planning
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T111700Z/{phase_d4_alignment.md,phase_d4_selector_map.md}
 Do Now:
-1. INTEGRATE-PYTORCH-001 — D3.C red tests @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md: add pytest class `TestLoadTorchBundle` covering round-trip params restoration and missing-params failure; run `pytest tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_updates_params_cfg -vv` (expect fail) and `pytest tests/torch/test_model_manager.py::TestLoadTorchBundle::test_missing_params_raises_value_error -vv` (expect fail).
-2. INTEGRATE-PYTORCH-001 — D3.C loader implementation @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md: implement `ptycho_torch/model_manager.py::load_torch_bundle` + wire `load_inference_bundle_torch` to use it; ensure model reconstruction helpers reuse Phase D2 assets and persist params snapshots; turn tests green with `pytest tests/torch/test_model_manager.py -k load_torch_bundle -vv`.
-3. INTEGRATE-PYTORCH-001 — D3.C evidence capture @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md: record params.cfg before/after JSON dumps, archive tree listing, and write `phase_d3_loader.md` summary with open questions (tests: none).
-If Blocked: If torch runtime unavailable, create sentinel loader path that hydrates dummy dicts and log blocker in `phase_d3_loader.md` while leaving tests xfailed; update Attempt history accordingly.
+1. INTEGRATE-PYTORCH-001 — D4.A1 alignment narrative @ plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md:25 — tests: none — Summarize TEST-PYTORCH-001 activation strategy and ownership in phase_d4_alignment.md (cite fix_plan attempts + stakeholder brief).
+2. INTEGRATE-PYTORCH-001 — D4.A3 selector map @ plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md:27 — tests: none — Build phase_d4_selector_map.md listing authoritative pytest selectors, env overrides (torch optional, MLflow toggle), artifact storage expectations.
+If Blocked: Note blockers in phase_d4_alignment.md, update docs/fix_plan.md Attempts History with the blocker description, and ping supervisor next loop.
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md:180-216 — Defines dual-model archive and loader contract PyTorch must honor.
-- ptycho/model_manager.py:112-189 — TensorFlow load path showing CONFIG-001 restoration sequence to mirror.
-- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md#L40 — D3 checklist now points to loader parity deliverables.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T104700Z/phase_d3_callchain/summary.md — Highlights required params snapshot taps for D3.C.
-- tests/torch/test_model_manager.py:1-220 — Existing save_torch_bundle tests to extend without breaking torch-optional pattern.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md:18 — Phase D4 requires alignment artifacts before code changes.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md:50 — Workflow checklist now delegates D4.A work to the new plan.
+- specs/ptychodus_api_spec.md:194 — Persistence loader contract informs selector coverage and handoff notes.
+- plans/pytorch_integration_test_plan.md:13 — Integration harness expectations drive selector and ownership mapping.
+- docs/fix_plan.md:57 — Current focus item mandates Phase D4 progress before TEST-PYTORCH-001 can start.
 How-To Map:
-- Red tests: extend `tests/torch/test_model_manager.py` with pytest fixtures reusing `dummy_torch_models`; add `params_before = params.cfg.copy()` + helper to dump JSON into artifact dir; expect NotImplementedError until loader implemented.
-- Implementation: add helper (e.g., `_create_torch_model_from_params`) leveraging `ptycho_torch.model.PtychoPINN`; call `update_legacy_dict(params.cfg, restored_config)` after unpacking archive; load weights via `torch.load`; update `ptycho_torch/workflows/components.py::load_inference_bundle_torch` to delegate to new loader; ensure torch-optional imports guarded.
-- Validation: capture pytest output with `pytest ... > plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T113200Z/pytest_green.log`; for params snapshots run `python scripts/save_params_snapshot.py` equivalent inline (`json.dump(params.cfg, open(...))`); list archive contents with `python - <<'PY'` using `zipfile.ZipFile.namelist()`.
-- Documentation: summarize findings + open issues in `phase_d3_loader.md` including tap point status; attach JSON diff between before/after snapshots.
+- Create artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T111700Z` before writing markdown files.
+- For D4.A1, pull context from `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T031500Z/stakeholder_brief.md` and docs/fix_plan attempts; capture ownership table (e.g., who drives TEST-PYTORCH-001) and dependency gating (D4.B readiness).
+- For D4.A3, enumerate selectors covering persistence (`pytest tests/torch/test_model_manager.py::TestLoadTorchBundle -vv`), workflows (`pytest tests/torch/test_workflows_components.py -k torch -vv`), and upcoming integration tests; document skip behavior via `tests/conftest.py` torch guards and env requirements like `CUDA_VISIBLE_DEVICES=""` and `MLFLOW_TRACKING_URI=memory`.
+- Reference docs/workflows/pytorch.md:1-102 for Lightning/MLflow knobs when describing overrides.
+- Keep both documents concise (<2 pages each) and link back to the plan + ledger entries at the top.
 Pitfalls To Avoid:
-- Don’t import torch at module top level outside guarded block.
-- Always call `update_legacy_dict` before touching legacy modules; verify CONFIG-001 compliance.
-- Keep archive extraction within TemporaryDirectory to prevent repository litter.
-- Avoid hard-coded filesystem paths; respect provided `base_path`.
-- Maintain dual-model requirement; error clearly if archive missing required keys.
-- Ensure tests clean generated archives from tmp_path to avoid git noise.
-- Preserve manifest version tagging (`2.0-pytorch`).
-- Skip tests gracefully when torch unavailable (use existing conftest guard).
-- Keep loader deterministic; no random seed drift.
-- Do not modify TensorFlow persistence logic.
+- Do not edit production code or existing tests in this loop.
+- Don’t invent new artifact locations; stick to the provided timestamped directory.
+- Avoid duplicating specs content; cite relevant files instead.
+- Keep selectors torch-optional—note skip markers rather than assuming torch availability.
+- Ensure narrative captures dependency on TEST-PYTORCH-001 without promising work outside D4 scope.
+- No ad-hoc scripts outside repo tools; use python one-liners if you must inspect data.
+- Record any open questions in the alignment doc under a separate heading.
+- Maintain ASCII-only content in plan artifacts.
 Pointers:
-- specs/ptychodus_api_spec.md:192-206
-- ptycho/model_manager.py:346-410
-- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md:40-58
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T110500Z/phase_d3b_summary.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T104700Z/phase_d3_callchain/tap_points.md
-Next Up: Begin D3.D regression hooks (tests linking into TEST-PYTORCH-001) once loader parity is green.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d4_regression.md:1
+- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md:50
+- specs/ptychodus_api_spec.md:180
+- plans/pytorch_integration_test_plan.md:13
+- docs/TESTING_GUIDE.md:45
+Next Up: D4.B1 failing persistence regression tests once alignment + selector map are approved.
