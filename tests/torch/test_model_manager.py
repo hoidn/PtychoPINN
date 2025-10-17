@@ -322,3 +322,246 @@ class TestSaveTorchBundle:
             assert isinstance(loaded_params['intensity_scale'], (int, float)), (
                 "intensity_scale MUST be numeric when present"
             )
+
+
+class TestLoadTorchBundle:
+    """
+    Phase D3.C loader tests — validate params restoration and model reconstruction.
+
+    These tests validate that load_torch_bundle satisfies the reconstructor load
+    contract defined in specs/ptychodus_api_spec.md §4.5 and implements CONFIG-001
+    compliant params.cfg restoration per Phase D3.A callchain finding #1.
+    """
+
+    @pytest.fixture
+    def params_cfg_snapshot(self):
+        """Snapshot and restore params.cfg state across tests."""
+        from ptycho import params
+        original = params.cfg.copy()
+        yield params.cfg
+        params.cfg.clear()
+        params.cfg.update(original)
+
+    @pytest.fixture
+    def minimal_training_config(self):
+        """Create minimal TrainingConfig fixture with canonical params."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='pinn',
+            n_filters_scale=1.0,
+            amp_activation='sigmoid',
+            object_big=False,
+            probe_big=False,
+            pad_object=False,
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=5,
+            batch_size=4,
+        )
+
+        return training_config
+
+    @pytest.fixture
+    def dummy_torch_models(self):
+        """Create minimal PyTorch model stubs for persistence testing."""
+        try:
+            import torch
+            import torch.nn as nn
+
+            class DummyModel(nn.Module):
+                """Minimal PyTorch model for testing persistence."""
+                def __init__(self, name):
+                    super().__init__()
+                    self.name = name
+                    self.conv = nn.Conv2d(1, 16, kernel_size=3, padding=1)
+                    self.fc = nn.Linear(16 * 64 * 64, 128)
+
+                def forward(self, x):
+                    x = self.conv(x)
+                    x = x.view(x.size(0), -1)
+                    return self.fc(x)
+
+            return {
+                'autoencoder': DummyModel('autoencoder'),
+                'diffraction_to_obj': DummyModel('diffraction_to_obj'),
+            }
+        except ImportError:
+            # Torch unavailable — return sentinel dicts for structure testing
+            return {
+                'autoencoder': {'_sentinel': 'torch_unavailable', 'name': 'autoencoder'},
+                'diffraction_to_obj': {'_sentinel': 'torch_unavailable', 'name': 'diffraction_to_obj'},
+            }
+
+    def test_load_round_trip_updates_params_cfg(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_torch_models
+    ):
+        """
+        CRITICAL CONFIG-001 TEST: load_torch_bundle MUST restore params.cfg before model reconstruction.
+
+        Requirement: Phase D3.A callchain finding #1 — TensorFlow load path at
+        ptycho/model_manager.py:119 calls `params.cfg.update(loaded_params)` to restore
+        training-time configuration before calling `create_model_with_gridsize`. PyTorch
+        MUST replicate this to prevent shape mismatch errors.
+
+        Failure Mode: If params.cfg restoration skipped, subsequent model operations
+        will use stale/default gridsize/N values → tensor shape mismatches → inference fails.
+
+        Red-phase contract (Phase D3.C):
+        - Function signature: load_torch_bundle(base_path, model_name='diffraction_to_obj')
+        - MUST extract archive and load params.dill
+        - MUST call params.cfg.update(loaded_params) before model reconstruction
+        - MUST return (model, params_dict) tuple
+        - Model reconstruction may raise NotImplementedError (deferred to follow-up)
+
+        Test mechanism:
+        - Save bundle with known config (N=64, gridsize=2, nphotons=1e9)
+        - Clear params.cfg to simulate fresh process
+        - Call load_torch_bundle
+        - Validate params.cfg contains expected values after load
+        """
+        pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
+
+        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+
+        # Save bundle with known config
+        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
+        base_path = tmp_path / "round_trip_test"
+
+        save_torch_bundle(
+            models_dict=dummy_torch_models,
+            base_path=str(base_path),
+            config=minimal_training_config
+        )
+
+        # Simulate fresh process: clear params.cfg
+        params.cfg.clear()
+        assert params.cfg.get('N') is None, "Sanity check: params.cfg should be empty before load"
+        assert params.cfg.get('gridsize') is None, "Sanity check: params.cfg should be empty before load"
+
+        # Attempt to load bundle (may raise NotImplementedError if model reconstruction not yet done)
+        try:
+            model, loaded_params = load_torch_bundle(str(base_path), model_name='diffraction_to_obj')
+        except NotImplementedError as e:
+            # Model reconstruction not yet implemented — validate params restoration happened
+            # by checking params.cfg was updated (side effect occurs before NotImplementedError)
+            if 'load_torch_bundle model reconstruction not yet implemented' in str(e):
+                # Expected during red→green transition; validate CONFIG-001 gate executed
+                assert params.cfg.get('N') == 64, (
+                    "CONFIG-001 VIOLATION: params.cfg['N'] not restored. "
+                    f"Expected 64, got {params.cfg.get('N')}. "
+                    "load_torch_bundle MUST call params.cfg.update() before model reconstruction."
+                )
+                assert params.cfg.get('gridsize') == 2, (
+                    "CONFIG-001 VIOLATION: params.cfg['gridsize'] not restored. "
+                    f"Expected 2, got {params.cfg.get('gridsize')}."
+                )
+                assert params.cfg.get('nphotons') == 1e9, (
+                    f"CONFIG-001: params.cfg['nphotons'] not restored. Expected 1e9, got {params.cfg.get('nphotons')}."
+                )
+                # Test passes — params restoration verified even though model reconstruction pending
+                return
+            else:
+                raise  # Unexpected NotImplementedError, re-raise
+
+        # Full implementation path (once model reconstruction done):
+        # Validate params.cfg was updated
+        assert params.cfg.get('N') == 64, f"CONFIG-001: Expected N=64 in params.cfg, got {params.cfg.get('N')}"
+        assert params.cfg.get('gridsize') == 2, f"CONFIG-001: Expected gridsize=2, got {params.cfg.get('gridsize')}"
+        assert params.cfg.get('nphotons') == 1e9, f"CONFIG-001: Expected nphotons=1e9, got {params.cfg.get('nphotons')}"
+
+        # Validate return values
+        assert loaded_params is not None, "load_torch_bundle MUST return params_dict"
+        assert loaded_params['N'] == 64, "Returned params_dict MUST match saved config"
+        assert loaded_params['gridsize'] == 2, "Returned params_dict MUST match saved config"
+
+        # Validate model object (basic smoke test)
+        assert model is not None, "load_torch_bundle MUST return model instance"
+
+    def test_missing_params_raises_value_error(
+        self,
+        tmp_path,
+        params_cfg_snapshot
+    ):
+        """
+        ERROR HANDLING TEST: load_torch_bundle MUST fail gracefully when params.dill missing required fields.
+
+        Requirement: Phase D3.A callchain — model reconstruction requires N and gridsize
+        to call create_torch_model_with_gridsize. If params.dill is corrupt or incomplete,
+        loader MUST raise ValueError with actionable error message.
+
+        Red-phase contract (Phase D3.C):
+        - If params.dill missing 'N' or 'gridsize', MUST raise ValueError
+        - Error message MUST list missing fields
+        - Error message MUST mention "Cannot reconstruct model architecture"
+
+        Test mechanism:
+        - Manually create archive with incomplete params.dill (missing 'N')
+        - Call load_torch_bundle
+        - Validate ValueError raised with correct message
+        """
+        pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
+
+        from ptycho_torch.model_manager import load_torch_bundle
+
+        # Create malformed archive with incomplete params.dill
+        base_path = tmp_path / "malformed_bundle"
+        zip_path = Path(f"{base_path}.zip")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create manifest
+            manifest = {'models': ['diffraction_to_obj'], 'version': '2.0-pytorch'}
+            manifest_path = Path(temp_dir) / 'manifest.dill'
+            with open(manifest_path, 'wb') as f:
+                dill.dump(manifest, f)
+
+            # Create model directory with INCOMPLETE params.dill (missing 'N')
+            model_dir = Path(temp_dir) / 'diffraction_to_obj'
+            model_dir.mkdir()
+
+            incomplete_params = {'gridsize': 2, 'model_type': 'pinn'}  # Missing 'N'
+            params_path = model_dir / 'params.dill'
+            with open(params_path, 'wb') as f:
+                dill.dump(incomplete_params, f)
+
+            # Create dummy model.pth
+            model_path = model_dir / 'model.pth'
+            dill.dump({'_sentinel': 'dummy'}, open(model_path, 'wb'))
+
+            # Zip archive
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for file in Path(temp_dir).rglob('*'):
+                    if file.is_file():
+                        arc_path = file.relative_to(temp_dir)
+                        zf.write(file, arc_path)
+
+        # Attempt to load malformed bundle
+        with pytest.raises(ValueError) as exc_info:
+            load_torch_bundle(str(base_path), model_name='diffraction_to_obj')
+
+        # Validate error message content
+        error_msg = str(exc_info.value)
+        assert 'missing required fields' in error_msg.lower() or 'required parameters missing' in error_msg.lower(), (
+            "ValueError MUST mention missing fields"
+        )
+        assert 'N' in error_msg or "['N']" in error_msg, (
+            "ValueError MUST list missing field 'N'"
+        )
+        assert 'Cannot reconstruct model architecture' in error_msg or 'cannot reconstruct' in error_msg.lower(), (
+            "ValueError MUST explain consequence (model reconstruction failure)"
+        )
