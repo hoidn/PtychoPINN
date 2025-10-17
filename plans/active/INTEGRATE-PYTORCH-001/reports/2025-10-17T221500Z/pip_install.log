@@ -1,0 +1,310 @@
+Obtaining file:///home/ollie/Documents/PtychoPINN2
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: Pillow in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (11.3.0)
+Requirement already satisfied: dill in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.4.0)
+Requirement already satisfied: imageio in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.37.0)
+Requirement already satisfied: ipywidgets in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (8.1.7)
+Requirement already satisfied: jupyter in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.1.1)
+Requirement already satisfied: matplotlib in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.10.3)
+Requirement already satisfied: numba in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.61.2)
+Requirement already satisfied: numpy in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.1.3)
+Requirement already satisfied: opencv-python in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.12.0.88)
+Requirement already satisfied: pandas in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.3.1)
+Requirement already satisfied: pandas-datareader in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.10.0)
+Requirement already satisfied: pathos in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.3.4)
+Requirement already satisfied: scikit-image in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.25.2)
+Requirement already satisfied: scikit-learn in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.7.1)
+Requirement already satisfied: scipy in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.16.1)
+Requirement already satisfied: tensorflow>=2.13.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.19.0)
+Requirement already satisfied: tensorflow-datasets in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.9.9)
+Requirement already satisfied: tensorflow-hub in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.16.1)
+Requirement already satisfied: tensorflow-metadata in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.17.2)
+Requirement already satisfied: tensorflow-probability in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.25.0)
+Requirement already satisfied: tqdm in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.67.1)
+Requirement already satisfied: ujson in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (5.10.0)
+WARNING: ptychopinn 0.1.dev1249+g3fa50fc82.d20251017 does not provide the extra 'torch'
+Requirement already satisfied: absl-py>=1.0.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.3.1)
+Requirement already satisfied: astunparse>=1.6.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.6.3)
+Requirement already satisfied: flatbuffers>=24.3.25 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (25.2.10)
+Requirement already satisfied: gast!=0.5.0,!=0.5.1,!=0.5.2,>=0.2.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.6.0)
+Requirement already satisfied: google-pasta>=0.1.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.2.0)
+Requirement already satisfied: libclang>=13.0.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (18.1.1)
+Requirement already satisfied: opt-einsum>=2.3.2 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.4.0)
+Requirement already satisfied: packaging in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (25.0)
+Requirement already satisfied: protobuf!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<6.0.0dev,>=3.20.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (5.29.5)
+Requirement already satisfied: requests<3,>=2.21.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.32.4)
+Requirement already satisfied: setuptools in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (78.1.1)
+Requirement already satisfied: six>=1.12.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.17.0)
+Requirement already satisfied: termcolor>=1.1.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.1.0)
+Requirement already satisfied: typing-extensions>=3.6.6 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.14.1)
+Requirement already satisfied: wrapt>=1.11.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.17.2)
+Requirement already satisfied: grpcio<2.0,>=1.24.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.74.0)
+Requirement already satisfied: tensorboard~=2.19.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.19.0)
+Requirement already satisfied: keras>=3.5.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.11.0)
+Requirement already satisfied: h5py>=3.11.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.14.0)
+Requirement already satisfied: ml-dtypes<1.0.0,>=0.5.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.5.3)
+Requirement already satisfied: tensorflow-io-gcs-filesystem>=0.23.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.37.1)
+Requirement already satisfied: charset_normalizer<4,>=2 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from requests<3,>=2.21.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.4.2)
+Requirement already satisfied: idna<4,>=2.5 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from requests<3,>=2.21.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.10)
+Requirement already satisfied: urllib3<3,>=1.21.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from requests<3,>=2.21.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.5.0)
+Requirement already satisfied: certifi>=2017.4.17 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from requests<3,>=2.21.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2025.7.14)
+Requirement already satisfied: markdown>=2.6.8 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorboard~=2.19.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.8.2)
+Requirement already satisfied: tensorboard-data-server<0.8.0,>=0.7.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorboard~=2.19.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.7.2)
+Requirement already satisfied: werkzeug>=1.0.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorboard~=2.19.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.1.3)
+Requirement already satisfied: wheel<1.0,>=0.23.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from astunparse>=1.6.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.45.1)
+Requirement already satisfied: rich in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from keras>=3.5.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (14.1.0)
+Requirement already satisfied: namex in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from keras>=3.5.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.1.0)
+Requirement already satisfied: optree in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from keras>=3.5.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.17.0)
+Collecting nvidia-cublas-cu12==12.5.3.2 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_cublas_cu12-12.5.3.2-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)
+Collecting nvidia-cuda-cupti-cu12==12.5.82 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_cuda_cupti_cu12-12.5.82-py3-none-manylinux2014_x86_64.whl.metadata (1.6 kB)
+Requirement already satisfied: nvidia-cuda-nvcc-cu12==12.5.82 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (12.5.82)
+Collecting nvidia-cuda-nvrtc-cu12==12.5.82 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_cuda_nvrtc_cu12-12.5.82-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)
+Collecting nvidia-cuda-runtime-cu12==12.5.82 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_cuda_runtime_cu12-12.5.82-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)
+Collecting nvidia-cudnn-cu12==9.3.0.75 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_cudnn_cu12-9.3.0.75-py3-none-manylinux2014_x86_64.whl.metadata (1.6 kB)
+Collecting nvidia-cufft-cu12==11.2.3.61 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_cufft_cu12-11.2.3.61-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)
+Collecting nvidia-curand-cu12==10.3.6.82 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_curand_cu12-10.3.6.82-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)
+Collecting nvidia-cusolver-cu12==11.6.3.83 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_cusolver_cu12-11.6.3.83-py3-none-manylinux2014_x86_64.whl.metadata (1.6 kB)
+Collecting nvidia-cusparse-cu12==12.5.1.3 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_cusparse_cu12-12.5.1.3-py3-none-manylinux2014_x86_64.whl.metadata (1.6 kB)
+Collecting nvidia-nccl-cu12==2.23.4 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_nccl_cu12-2.23.4-py3-none-manylinux2014_x86_64.whl.metadata (1.8 kB)
+Collecting nvidia-nvjitlink-cu12==12.5.82 (from tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017)
+  Using cached nvidia_nvjitlink_cu12-12.5.82-py3-none-manylinux2014_x86_64.whl.metadata (1.5 kB)
+Requirement already satisfied: MarkupSafe>=2.1.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from werkzeug>=1.0.1->tensorboard~=2.19.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.0.2)
+Requirement already satisfied: comm>=0.1.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.2.3)
+Requirement already satisfied: ipython>=6.1.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (9.4.0)
+Requirement already satisfied: traitlets>=4.3.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (5.14.3)
+Requirement already satisfied: widgetsnbextension~=4.0.14 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.0.14)
+Requirement already satisfied: jupyterlab_widgets~=3.0.15 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.0.15)
+Requirement already satisfied: decorator in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (5.2.1)
+Requirement already satisfied: ipython-pygments-lexers in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.1.1)
+Requirement already satisfied: jedi>=0.16 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.19.2)
+Requirement already satisfied: matplotlib-inline in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.1.7)
+Requirement already satisfied: pexpect>4.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.9.0)
+Requirement already satisfied: prompt_toolkit<3.1.0,>=3.0.41 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.0.51)
+Requirement already satisfied: pygments>=2.4.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.19.2)
+Requirement already satisfied: stack_data in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.6.3)
+Requirement already satisfied: wcwidth in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from prompt_toolkit<3.1.0,>=3.0.41->ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.2.13)
+Requirement already satisfied: parso<0.9.0,>=0.8.4 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jedi>=0.16->ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.8.4)
+Requirement already satisfied: ptyprocess>=0.5 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from pexpect>4.3->ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.7.0)
+Requirement already satisfied: notebook in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (7.4.4)
+Requirement already satisfied: jupyter-console in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (6.6.3)
+Requirement already satisfied: nbconvert in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (7.16.6)
+Requirement already satisfied: ipykernel in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (6.30.0)
+Requirement already satisfied: jupyterlab in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.4.5)
+Requirement already satisfied: debugpy>=1.6.5 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.8.15)
+Requirement already satisfied: jupyter-client>=8.0.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (8.6.3)
+Requirement already satisfied: jupyter-core!=5.0.*,>=4.12 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (5.8.1)
+Requirement already satisfied: nest-asyncio>=1.4 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.6.0)
+Requirement already satisfied: psutil>=5.7 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (7.0.0)
+Requirement already satisfied: pyzmq>=25 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (27.0.0)
+Requirement already satisfied: tornado>=6.2 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (6.5.1)
+Requirement already satisfied: python-dateutil>=2.8.2 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-client>=8.0.0->ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.9.0.post0)
+Requirement already satisfied: platformdirs>=2.5 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-core!=5.0.*,>=4.12->ipykernel->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.3.8)
+Requirement already satisfied: async-lru>=1.0.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.0.5)
+Requirement already satisfied: httpx>=0.25.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.28.1)
+Requirement already satisfied: jinja2>=3.0.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.1.6)
+Requirement already satisfied: jupyter-lsp>=2.0.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.2.6)
+Requirement already satisfied: jupyter-server<3,>=2.4.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.16.0)
+Requirement already satisfied: jupyterlab-server<3,>=2.27.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.27.3)
+Requirement already satisfied: notebook-shim>=0.2 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.2.4)
+Requirement already satisfied: anyio>=3.1.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.9.0)
+Requirement already satisfied: argon2-cffi>=21.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (25.1.0)
+Requirement already satisfied: jupyter-events>=0.11.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.12.0)
+Requirement already satisfied: jupyter-server-terminals>=0.4.4 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.5.3)
+Requirement already satisfied: nbformat>=5.3.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (5.10.4)
+Requirement already satisfied: overrides>=5.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (7.7.0)
+Requirement already satisfied: prometheus-client>=0.9 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.22.1)
+Requirement already satisfied: send2trash>=1.8.2 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.8.3)
+Requirement already satisfied: terminado>=0.8.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.18.1)
+Requirement already satisfied: websocket-client>=1.7 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.8.0)
+Requirement already satisfied: babel>=2.10 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab-server<3,>=2.27.1->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.17.0)
+Requirement already satisfied: json5>=0.9.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab-server<3,>=2.27.1->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.12.0)
+Requirement already satisfied: jsonschema>=4.18.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyterlab-server<3,>=2.27.1->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.25.0)
+Requirement already satisfied: sniffio>=1.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from anyio>=3.1.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.3.1)
+Requirement already satisfied: argon2-cffi-bindings in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from argon2-cffi>=21.1->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (25.1.0)
+Requirement already satisfied: httpcore==1.* in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from httpx>=0.25.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.0.9)
+Requirement already satisfied: h11>=0.16 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from httpcore==1.*->httpx>=0.25.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.16.0)
+Requirement already satisfied: attrs>=22.2.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema>=4.18.0->jupyterlab-server<3,>=2.27.1->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (25.3.0)
+Requirement already satisfied: jsonschema-specifications>=2023.03.6 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema>=4.18.0->jupyterlab-server<3,>=2.27.1->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2025.4.1)
+Requirement already satisfied: referencing>=0.28.4 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema>=4.18.0->jupyterlab-server<3,>=2.27.1->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.36.2)
+Requirement already satisfied: rpds-py>=0.7.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema>=4.18.0->jupyterlab-server<3,>=2.27.1->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.26.0)
+Requirement already satisfied: python-json-logger>=2.0.4 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.3.0)
+Requirement already satisfied: pyyaml>=5.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (6.0.2)
+Requirement already satisfied: rfc3339-validator in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.1.4)
+Requirement already satisfied: rfc3986-validator>=0.1.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.1.1)
+Requirement already satisfied: fqdn in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.5.1)
+Requirement already satisfied: isoduration in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (20.11.0)
+Requirement already satisfied: jsonpointer>1.13 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.0.0)
+Requirement already satisfied: rfc3987-syntax>=1.1.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.1.0)
+Requirement already satisfied: uri-template in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.3.0)
+Requirement already satisfied: webcolors>=24.6.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (24.11.1)
+Requirement already satisfied: beautifulsoup4 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.13.4)
+Requirement already satisfied: bleach!=5.0.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from bleach[css]!=5.0.0->nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (6.2.0)
+Requirement already satisfied: defusedxml in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.7.1)
+Requirement already satisfied: jupyterlab-pygments in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.3.0)
+Requirement already satisfied: mistune<4,>=2.0.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.1.3)
+Requirement already satisfied: nbclient>=0.5.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.10.2)
+Requirement already satisfied: pandocfilters>=1.4.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.5.1)
+Requirement already satisfied: webencodings in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from bleach!=5.0.0->bleach[css]!=5.0.0->nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.5.1)
+Requirement already satisfied: tinycss2<1.5,>=1.1.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from bleach[css]!=5.0.0->nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.4.0)
+Requirement already satisfied: fastjsonschema>=2.15 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from nbformat>=5.3.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.21.1)
+Requirement already satisfied: lark>=1.2.2 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from rfc3987-syntax>=1.1.0->jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.2.2)
+Requirement already satisfied: cffi>=1.0.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from argon2-cffi-bindings->argon2-cffi>=21.1->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.17.1)
+Requirement already satisfied: pycparser in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from cffi>=1.0.1->argon2-cffi-bindings->argon2-cffi>=21.1->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.22)
+Requirement already satisfied: soupsieve>1.2 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from beautifulsoup4->nbconvert->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.7)
+Requirement already satisfied: arrow>=0.15.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from isoduration->jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.3.0)
+Requirement already satisfied: types-python-dateutil>=2.8.10 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from arrow>=0.15.0->isoduration->jsonschema[format-nongpl]>=4.18.0->jupyter-events>=0.11.0->jupyter-server<3,>=2.4.0->jupyterlab->jupyter->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.9.0.20250708)
+Requirement already satisfied: contourpy>=1.0.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from matplotlib->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.3.3)
+Requirement already satisfied: cycler>=0.10 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from matplotlib->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from matplotlib->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.59.0)
+Requirement already satisfied: kiwisolver>=1.3.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from matplotlib->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.4.8)
+Requirement already satisfied: pyparsing>=2.3.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from matplotlib->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.2.3)
+Requirement already satisfied: llvmlite<0.45,>=0.44.0dev0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from numba->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.44.0)
+Requirement already satisfied: pytz>=2020.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from pandas->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2025.2)
+Requirement already satisfied: tzdata>=2022.7 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from pandas->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2025.2)
+Requirement already satisfied: lxml in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from pandas-datareader->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (6.0.0)
+Requirement already satisfied: ppft>=1.7.7 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from pathos->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.7.7)
+Requirement already satisfied: pox>=0.3.6 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from pathos->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.3.6)
+Requirement already satisfied: multiprocess>=0.70.18 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from pathos->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.70.18)
+Requirement already satisfied: markdown-it-py>=2.2.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from rich->keras>=3.5.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.0.0)
+Requirement already satisfied: mdurl~=0.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from markdown-it-py>=2.2.0->rich->keras>=3.5.0->tensorflow>=2.13.0->tensorflow[and-cuda]>=2.13.0->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.1.2)
+Requirement already satisfied: networkx>=3.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from scikit-image->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.5)
+Requirement already satisfied: tifffile>=2022.8.12 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from scikit-image->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2025.6.11)
+Requirement already satisfied: lazy-loader>=0.4 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from scikit-image->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.4)
+Requirement already satisfied: joblib>=1.2.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from scikit-learn->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.5.1)
+Requirement already satisfied: threadpoolctl>=3.1.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from scikit-learn->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.6.0)
+Requirement already satisfied: executing>=1.2.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from stack_data->ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.2.0)
+Requirement already satisfied: asttokens>=2.1.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from stack_data->ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.0.0)
+Requirement already satisfied: pure-eval in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from stack_data->ipython>=6.1.0->ipywidgets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.2.3)
+Requirement already satisfied: array_record>=0.5.0 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.7.2)
+Requirement already satisfied: dm-tree in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.1.9)
+Requirement already satisfied: etils>=1.9.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from etils[edc,enp,epath,epy,etree]>=1.9.1; python_version >= "3.11"->tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.13.0)
+Requirement already satisfied: immutabledict in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (4.2.1)
+Requirement already satisfied: promise in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.3)
+Requirement already satisfied: pyarrow in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (21.0.0)
+Requirement already satisfied: simple_parsing in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.1.7)
+Requirement already satisfied: toml in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.10.2)
+Requirement already satisfied: einops in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from etils[edc,enp,epath,epy,etree]>=1.9.1; python_version >= "3.11"->tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.8.1)
+Requirement already satisfied: fsspec in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from etils[edc,enp,epath,epy,etree]>=1.9.1; python_version >= "3.11"->tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2025.7.0)
+Requirement already satisfied: importlib_resources in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from etils[edc,enp,epath,epy,etree]>=1.9.1; python_version >= "3.11"->tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (6.5.2)
+Requirement already satisfied: zipp in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from etils[edc,enp,epath,epy,etree]>=1.9.1; python_version >= "3.11"->tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.23.0)
+Requirement already satisfied: docstring-parser<1.0,>=0.15 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from simple_parsing->tensorflow-datasets->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (0.17.0)
+Requirement already satisfied: tf-keras>=2.14.1 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-hub->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (2.19.0)
+Requirement already satisfied: googleapis-common-protos<2,>=1.56.4 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-metadata->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (1.70.0)
+Requirement already satisfied: cloudpickle>=1.3 in /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages (from tensorflow-probability->ptychopinn==0.1.dev1249+g3fa50fc82.d20251017) (3.1.1)
+Using cached nvidia_cublas_cu12-12.5.3.2-py3-none-manylinux2014_x86_64.whl (363.3 MB)
+Using cached nvidia_cuda_cupti_cu12-12.5.82-py3-none-manylinux2014_x86_64.whl (13.8 MB)
+Using cached nvidia_cuda_nvrtc_cu12-12.5.82-py3-none-manylinux2014_x86_64.whl (24.9 MB)
+Using cached nvidia_cuda_runtime_cu12-12.5.82-py3-none-manylinux2014_x86_64.whl (895 kB)
+Using cached nvidia_cudnn_cu12-9.3.0.75-py3-none-manylinux2014_x86_64.whl (577.2 MB)
+Using cached nvidia_cufft_cu12-11.2.3.61-py3-none-manylinux2014_x86_64.whl (192.5 MB)
+Using cached nvidia_curand_cu12-10.3.6.82-py3-none-manylinux2014_x86_64.whl (56.3 MB)
+Using cached nvidia_cusolver_cu12-11.6.3.83-py3-none-manylinux2014_x86_64.whl (130.3 MB)
+Using cached nvidia_cusparse_cu12-12.5.1.3-py3-none-manylinux2014_x86_64.whl (217.6 MB)
+Using cached nvidia_nccl_cu12-2.23.4-py3-none-manylinux2014_x86_64.whl (199.0 MB)
+Using cached nvidia_nvjitlink_cu12-12.5.82-py3-none-manylinux2014_x86_64.whl (21.3 MB)
+Building wheels for collected packages: ptychopinn
+  Building editable for ptychopinn (pyproject.toml): started
+  Building editable for ptychopinn (pyproject.toml): finished with status 'done'
+  Created wheel for ptychopinn: filename=ptychopinn-0.1.dev1249+g3fa50fc82.d20251017-0.editable-py3-none-any.whl size=50943 sha256=0143361ecee2f7b4f78b490f836fce0a5a0989a38900fef89460ec7654c7b5e8
+  Stored in directory: /tmp/pip-ephem-wheel-cache-5wjdpg3n/wheels/87/f9/cf/08fdc52d0d3e5c93d9298ccfc9535636661ce0ad7837874fe4
+Successfully built ptychopinn
+Installing collected packages: nvidia-nvjitlink-cu12, nvidia-nccl-cu12, nvidia-curand-cu12, nvidia-cuda-runtime-cu12, nvidia-cuda-nvrtc-cu12, nvidia-cuda-cupti-cu12, nvidia-cublas-cu12, nvidia-cusparse-cu12, nvidia-cufft-cu12, nvidia-cudnn-cu12, nvidia-cusolver-cu12, ptychopinn
+  Attempting uninstall: nvidia-nvjitlink-cu12
+    Found existing installation: nvidia-nvjitlink-cu12 12.8.93
+    Uninstalling nvidia-nvjitlink-cu12-12.8.93:
+      Successfully uninstalled nvidia-nvjitlink-cu12-12.8.93
+  Attempting uninstall: nvidia-nccl-cu12
+    Found existing installation: nvidia-nccl-cu12 2.27.3
+    Uninstalling nvidia-nccl-cu12-2.27.3:
+      Successfully uninstalled nvidia-nccl-cu12-2.27.3
+  Attempting uninstall: nvidia-curand-cu12
+    Found existing installation: nvidia-curand-cu12 10.3.9.90
+    Uninstalling nvidia-curand-cu12-10.3.9.90:
+      Successfully uninstalled nvidia-curand-cu12-10.3.9.90
+  Attempting uninstall: nvidia-cuda-runtime-cu12
+    Found existing installation: nvidia-cuda-runtime-cu12 12.8.90
+    Uninstalling nvidia-cuda-runtime-cu12-12.8.90:
+      Successfully uninstalled nvidia-cuda-runtime-cu12-12.8.90
+  Attempting uninstall: nvidia-cuda-nvrtc-cu12
+    Found existing installation: nvidia-cuda-nvrtc-cu12 12.8.93
+    Uninstalling nvidia-cuda-nvrtc-cu12-12.8.93:
+      Successfully uninstalled nvidia-cuda-nvrtc-cu12-12.8.93
+  Attempting uninstall: nvidia-cuda-cupti-cu12
+    Found existing installation: nvidia-cuda-cupti-cu12 12.8.90
+    Uninstalling nvidia-cuda-cupti-cu12-12.8.90:
+      Successfully uninstalled nvidia-cuda-cupti-cu12-12.8.90
+  Attempting uninstall: nvidia-cublas-cu12
+    Found existing installation: nvidia-cublas-cu12 12.8.4.1
+    Uninstalling nvidia-cublas-cu12-12.8.4.1:
+      Successfully uninstalled nvidia-cublas-cu12-12.8.4.1
+  Attempting uninstall: nvidia-cusparse-cu12
+    Found existing installation: nvidia-cusparse-cu12 12.5.8.93
+    Uninstalling nvidia-cusparse-cu12-12.5.8.93:
+      Successfully uninstalled nvidia-cusparse-cu12-12.5.8.93
+  Attempting uninstall: nvidia-cufft-cu12
+    Found existing installation: nvidia-cufft-cu12 11.3.3.83
+    Uninstalling nvidia-cufft-cu12-11.3.3.83:
+      Successfully uninstalled nvidia-cufft-cu12-11.3.3.83
+  Attempting uninstall: nvidia-cudnn-cu12
+    Found existing installation: nvidia-cudnn-cu12 9.10.2.21
+    Uninstalling nvidia-cudnn-cu12-9.10.2.21:
+      Successfully uninstalled nvidia-cudnn-cu12-9.10.2.21
+  Attempting uninstall: nvidia-cusolver-cu12
+    Found existing installation: nvidia-cusolver-cu12 11.7.3.90
+    Uninstalling nvidia-cusolver-cu12-11.7.3.90:
+      Successfully uninstalled nvidia-cusolver-cu12-11.7.3.90
+  Attempting uninstall: ptychopinn
+    Found existing installation: ptychopinn 0.1.dev1234+g3a62cfb94.d20251017
+    Uninstalling ptychopinn-0.1.dev1234+g3a62cfb94.d20251017:
+      Successfully uninstalled ptychopinn-0.1.dev1234+g3a62cfb94.d20251017
+
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+torch 2.8.0 requires nvidia-cublas-cu12==12.8.4.1; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-cublas-cu12 12.5.3.2 which is incompatible.
+torch 2.8.0 requires nvidia-cuda-cupti-cu12==12.8.90; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-cuda-cupti-cu12 12.5.82 which is incompatible.
+torch 2.8.0 requires nvidia-cuda-nvrtc-cu12==12.8.93; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-cuda-nvrtc-cu12 12.5.82 which is incompatible.
+torch 2.8.0 requires nvidia-cuda-runtime-cu12==12.8.90; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-cuda-runtime-cu12 12.5.82 which is incompatible.
+torch 2.8.0 requires nvidia-cudnn-cu12==9.10.2.21; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-cudnn-cu12 9.3.0.75 which is incompatible.
+torch 2.8.0 requires nvidia-cufft-cu12==11.3.3.83; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-cufft-cu12 11.2.3.61 which is incompatible.
+torch 2.8.0 requires nvidia-curand-cu12==10.3.9.90; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-curand-cu12 10.3.6.82 which is incompatible.
+torch 2.8.0 requires nvidia-cusolver-cu12==11.7.3.90; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-cusolver-cu12 11.6.3.83 which is incompatible.
+torch 2.8.0 requires nvidia-cusparse-cu12==12.5.8.93; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-cusparse-cu12 12.5.1.3 which is incompatible.
+torch 2.8.0 requires nvidia-nccl-cu12==2.27.3; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-nccl-cu12 2.23.4 which is incompatible.
+torch 2.8.0 requires nvidia-nvjitlink-cu12==12.8.93; platform_system == "Linux" and platform_machine == "x86_64", but you have nvidia-nvjitlink-cu12 12.5.82 which is incompatible.
+Successfully installed nvidia-cublas-cu12-12.5.3.2 nvidia-cuda-cupti-cu12-12.5.82 nvidia-cuda-nvrtc-cu12-12.5.82 nvidia-cuda-runtime-cu12-12.5.82 nvidia-cudnn-cu12-9.3.0.75 nvidia-cufft-cu12-11.2.3.61 nvidia-curand-cu12-10.3.6.82 nvidia-cusolver-cu12-11.6.3.83 nvidia-cusparse-cu12-12.5.1.3 nvidia-nccl-cu12-2.23.4 nvidia-nvjitlink-cu12-12.5.82 ptychopinn-0.1.dev1249+g3fa50fc82.d20251017
+    Uninstalling cffi-1.17.1:
+      Successfully uninstalled cffi-1.17.1
+  Attempting uninstall: nvidia-cusparse-cu12
+    Found existing installation: nvidia-cusparse-cu12 12.5.1.3
+    Uninstalling nvidia-cusparse-cu12-12.5.1.3:
+      Successfully uninstalled nvidia-cusparse-cu12-12.5.1.3
+  Attempting uninstall: nvidia-cufft-cu12
+    Found existing installation: nvidia-cufft-cu12 11.2.3.61
+    Uninstalling nvidia-cufft-cu12-11.2.3.61:
+      Successfully uninstalled nvidia-cufft-cu12-11.2.3.61
+  Attempting uninstall: nvidia-cudnn-cu12
+    Found existing installation: nvidia-cudnn-cu12 9.3.0.75
+    Uninstalling nvidia-cudnn-cu12-9.3.0.75:
+      Successfully uninstalled nvidia-cudnn-cu12-9.3.0.75
+  Attempting uninstall: nvidia-cusolver-cu12
+    Found existing installation: nvidia-cusolver-cu12 11.6.3.83
+    Uninstalling nvidia-cusolver-cu12-11.6.3.83:
+      Successfully uninstalled nvidia-cusolver-cu12-11.6.3.83
+
+Successfully installed Flask-3.1.2 Flask-CORS-6.0.1 Mako-1.3.10 alembic-1.17.0 annotated-types-0.7.0 authlib-1.6.5 blinker-1.9.0 cachetools-6.2.1 cffi-2.0.0 click-8.3.0 cryptography-46.0.3 cyclopts-3.24.0 databricks-sdk-0.68.0 dnspython-2.8.0 docker-7.1.0 docutils-0.22.2 email-validator-2.3.0 exceptiongroup-1.3.0 fastapi-0.119.0 fastmcp-2.12.5 gitdb-4.0.12 gitpython-3.1.45 google-auth-2.41.1 graphene-3.4.3 graphql-core-3.2.6 graphql-relay-3.2.0 greenlet-3.2.4 gunicorn-23.0.0 httpx-sse-0.4.3 importlib_metadata-8.7.0 isodate-0.7.2 itsdangerous-2.2.0 jsonschema-path-0.3.4 lazy-object-proxy-1.12.0 mcp-1.16.0 mlflow-3.5.0 mlflow-skinny-3.5.0 mlflow-tracing-3.5.0 more-itertools-10.8.0 nvidia-cublas-cu12-12.8.4.1 nvidia-cuda-cupti-cu12-12.8.90 nvidia-cuda-nvrtc-cu12-12.8.93 nvidia-cuda-runtime-cu12-12.8.90 nvidia-cudnn-cu12-9.10.2.21 nvidia-cufft-cu12-11.3.3.83 nvidia-curand-cu12-10.3.9.90 nvidia-cusolver-cu12-11.7.3.90 nvidia-cusparse-cu12-12.5.8.93 nvidia-nccl-cu12-2.27.3 nvidia-nvjitlink-cu12-12.8.93 openapi-core-0.19.5 openapi-pydantic-0.5.1 openapi-schema-validator-0.6.3 openapi-spec-validator-0.7.2 opentelemetry-api-1.38.0 opentelemetry-proto-1.38.0 opentelemetry-sdk-1.38.0 opentelemetry-semantic-conventions-0.59b0 orjson-3.11.3 parse-1.20.2 pathable-0.4.4 pyasn1-0.6.1 pyasn1-modules-0.4.2 pydantic-2.12.3 pydantic-core-2.41.4 pydantic-settings-2.11.0 pyperclip-1.11.0 python-dotenv-1.1.1 python-multipart-0.0.20 pyvers-0.1.0 rich-rst-1.3.2 rsa-4.9.1 smmap-5.0.2 sqlalchemy-2.0.44 sqlparse-0.5.3 sse-starlette-3.0.2 starlette-0.48.0 tensordict-0.10.0 typing-inspection-0.4.2 uvicorn-0.37.0 werkzeug-3.1.1

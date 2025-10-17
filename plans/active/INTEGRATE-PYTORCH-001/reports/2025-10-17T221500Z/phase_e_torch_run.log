@@ -1,0 +1,219 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 2 items
+
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_tf_output_parity SKIPPED [ 50%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle FAILED [100%]
+
+=================================== FAILURES ===================================
+___ TestPyTorchIntegrationWorkflow.test_pytorch_train_save_load_infer_cycle ____
+
+self = <test_integration_workflow_torch.TestPyTorchIntegrationWorkflow testMethod=test_pytorch_train_save_load_infer_cycle>
+
+    def test_pytorch_train_save_load_infer_cycle(self):
+        """
+        Tests the complete PyTorch train → save → load → infer workflow.
+    
+        This validates the PyTorch model persistence layer by simulating a real
+        user workflow across separate processes, mirroring the TensorFlow integration test.
+    
+        Phase: E2.B1 (Red Test)
+        Expected Behavior (Phase E2.C implementation target):
+        1. Training subprocess creates Lightning checkpoint
+        2. Checkpoint artifact saved to <output_dir>/checkpoints/ or <output_dir>/wts.pt
+        3. Inference subprocess loads checkpoint and generates reconstructions
+        4. Output images created in inference output directory
+    
+        Current Status: FAILING — ptycho_torch training/inference scripts not yet
+        integrated with subprocess harness and backend dispatcher.
+        """
+        # --- 1. Define Paths ---
+        data_file = project_root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
+        training_output_dir = self.output_path / "training_outputs"
+        inference_output_dir = self.output_path / "pytorch_output"
+    
+        # --- 2. Training Step (PyTorch) ---
+        print("--- Running PyTorch Training Step (subprocess) ---")
+    
+        # NOTE: This command reflects the expected CLI interface after Phase E2.C implementation.
+        # Currently, ptycho_torch/train.py does not support these exact flags.
+        # The test documents the target API contract.
+        train_command = [
+            sys.executable, "-m", "ptycho_torch.train",
+            "--train_data_file", str(data_file),
+            "--test_data_file", str(data_file),
+            "--output_dir", str(training_output_dir),
+            "--max_epochs", "2",
+            "--n_images", "64",
+            "--gridsize", "1",
+            "--batch_size", "4",
+            "--device", "cpu",
+            "--disable_mlflow",  # Suppress MLflow for CI (flag to be added per TEST-PYTORCH-001)
+        ]
+    
+        # Expected to fail in Phase E2.B (red phase) because:
+        # - ptycho_torch.train may not support these CLI flags yet
+        # - Backend dispatcher not wired to route PyTorch workflows
+        # - CONFIG-001 gate may not be enforced
+        train_result = subprocess.run(train_command, capture_output=True, text=True)
+    
+>       self.assertEqual(
+            train_result.returncode, 0,
+            f"PyTorch training script failed with stdout:\n{train_result.stdout}\nstderr:\n{train_result.stderr}"
+        )
+E       AssertionError: 1 != 0 : PyTorch training script failed with stdout:
+E       Using new CLI interface (Phase E2.C1)
+E       Creating PyTorch configuration objects...
+E       Bridging PyTorch configs to TensorFlow dataclasses (CONFIG-001 compliance)...
+E       ✓ params.cfg populated: N=128, gridsize=1, n_groups=64
+E       Starting training with 2 epochs on cpu...
+E       Starting training loop. Loading configs...
+E       Creating data module
+E       Creating model...
+E       Decoder Block 1: No attention module added.
+E       Decoder Block 2: No attention module added.
+E       Decoder Block 3: No attention module added.
+E       Decoder Block 1: No attention module added.
+E       Decoder Block 2: No attention module added.
+E       Decoder Block 3: No attention module added.
+E       training_config name: ptychopinn_pytorch
+E       [Rank 0] Beginning model training/final data prep... (MLflow disabled)
+E       [DataModule prepare_data] Global Rank: 0. Creating/Verifying map.
+E       [DataModule setup] Stage: TrainerFn.FITTING, Global Rank: 0. Loading map.
+E       [DataModule setup] remake = True
+E       Creating dataset...
+E       Calculating dataset length with coordinate bounds...
+E       Error processing headers/coords for /home/ollie/Documents/PtychoPINN2/datasets/Run1084_recon3_postPC_shrunk_3.npz: Could not find diff3d data in /home/ollie/Documents/PtychoPINN2/datasets/Run1084_recon3_postPC_shrunk_3.npz
+E       [Rank 0] ERROR in calculate_length(): Could not determine image shape from any NPZ file.
+E       Training failed: Could not determine image shape from any NPZ file.
+E       
+E       stderr:
+E       2025-10-17 15:17:42.876483: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+E       WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E       E0000 00:00:1760739462.887491 3988225 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E       E0000 00:00:1760739462.891222 3988225 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+E       W0000 00:00:1760739462.902068 3988225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1760739462.902080 3988225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1760739462.902082 3988225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1760739462.902083 3988225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       2025-10-17 15:17:42.904697: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E       To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+E       INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+E       INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+E       INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+E       INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+E       Traceback (most recent call last):
+E         File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 493, in cli_main
+E           main(
+E         File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 266, in main
+E           trainer.fit(model, datamodule = data_module)
+E         File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 560, in fit
+E           call._call_and_handle_interrupt(
+E         File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 49, in _call_and_handle_interrupt
+E           return trainer_fn(*args, **kwargs)
+E                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 598, in _fit_impl
+E           self._run(model, ckpt_path=ckpt_path)
+E         File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 973, in _run
+E           call._call_setup_hook(self)  # allow user to set up LightningModule in accelerator environment
+E           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 108, in _call_setup_hook
+E           _call_lightning_datamodule_hook(trainer, "setup", stage=fn)
+E         File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 199, in _call_lightning_datamodule_hook
+E           return fn(*args, **kwargs)
+E                  ^^^^^^^^^^^^^^^^^^^
+E         File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train_utils.py", line 257, in setup
+E           full_dataset = PtychoDataset(
+E                          ^^^^^^^^^^^^^^
+E         File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 156, in __init__
+E           self.length, self.im_shape, self.cum_length, self.valid_indices_per_file = self.calculate_length()
+E                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^
+E         File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 291, in calculate_length
+E           raise ValueError("Could not determine image shape from any NPZ file.")
+E       ValueError: Could not determine image shape from any NPZ file.
+
+tests/torch/test_integration_workflow_torch.py:105: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+Created temporary directory for PyTorch test run: /tmp/tmpdtl_w7ot
+--- Running PyTorch Training Step (subprocess) ---
+Cleaned up temporary directory: /tmp/tmpdtl_w7ot
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_integration_workflow_torch.py:165: Deferred to Phase E2.D parity verification
+FAILED tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle - AssertionError: 1 != 0 : PyTorch training script failed with stdout:
+Using new CLI interface (Phase E2.C1)
+Creating PyTorch configuration objects...
+Bridging PyTorch configs to TensorFlow dataclasses (CONFIG-001 compliance)...
+✓ params.cfg populated: N=128, gridsize=1, n_groups=64
+Starting training with 2 epochs on cpu...
+Starting training loop. Loading configs...
+Creating data module
+Creating model...
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 3: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 3: No attention module added.
+training_config name: ptychopinn_pytorch
+[Rank 0] Beginning model training/final data prep... (MLflow disabled)
+[DataModule prepare_data] Global Rank: 0. Creating/Verifying map.
+[DataModule setup] Stage: TrainerFn.FITTING, Global Rank: 0. Loading map.
+[DataModule setup] remake = True
+Creating dataset...
+Calculating dataset length with coordinate bounds...
+Error processing headers/coords for /home/ollie/Documents/PtychoPINN2/datasets/Run1084_recon3_postPC_shrunk_3.npz: Could not find diff3d data in /home/ollie/Documents/PtychoPINN2/datasets/Run1084_recon3_postPC_shrunk_3.npz
+[Rank 0] ERROR in calculate_length(): Could not determine image shape from any NPZ file.
+Training failed: Could not determine image shape from any NPZ file.
+
+stderr:
+2025-10-17 15:17:42.876483: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760739462.887491 3988225 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760739462.891222 3988225 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760739462.902068 3988225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760739462.902080 3988225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760739462.902082 3988225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760739462.902083 3988225 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 15:17:42.904697: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: True
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+INFO:pytorch_lightning.utilities.rank_zero:You are using a CUDA device ('NVIDIA GeForce RTX 3090') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 493, in cli_main
+    main(
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 266, in main
+    trainer.fit(model, datamodule = data_module)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 560, in fit
+    call._call_and_handle_interrupt(
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 49, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 598, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 973, in _run
+    call._call_setup_hook(self)  # allow user to set up LightningModule in accelerator environment
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 108, in _call_setup_hook
+    _call_lightning_datamodule_hook(trainer, "setup", stage=fn)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 199, in _call_lightning_datamodule_hook
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train_utils.py", line 257, in setup
+    full_dataset = PtychoDataset(
+                   ^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 156, in __init__
+    self.length, self.im_shape, self.cum_length, self.valid_indices_per_file = self.calculate_length()
+                                                                               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 291, in calculate_length
+    raise ValueError("Could not determine image shape from any NPZ file.")
+ValueError: Could not determine image shape from any NPZ file.
+========================= 1 failed, 1 skipped in 7.24s =========================
