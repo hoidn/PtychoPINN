@@ -1,0 +1,205 @@
+2025-08-21 23:49:34,745 - INFO - Starting pty-chi reconstruction...
+2025-08-21 23:49:34,745 - INFO - Input: datasets/fly/fly001_transposed.npz
+2025-08-21 23:49:34,745 - INFO - Output directory: test_ptychi_verbose
+2025-08-21 23:49:34,745 - INFO - Algorithm: ePIE
+2025-08-21 23:49:34,745 - INFO - Iterations: 3
+2025-08-21 23:49:34,745 - INFO - Batch size: 4
+2025-08-21 23:49:34,745 - INFO - GPUs: 1
+2025-08-21 23:49:34,745 - INFO - Extra padding: 50 pixels
+2025-08-21 23:49:34,745 - INFO - Subsampling: 50 images
+2025-08-21 23:49:34,745 - INFO - Loading data from datasets/fly/fly001_transposed.npz
+2025-08-21 23:49:35,176 - DEBUG - Found diffraction data under key: diffraction
+2025-08-21 23:49:35,177 - INFO - Subsampling dataset: using 50 out of 10304 images
+2025-08-21 23:49:35,177 - INFO - Random sampling from full dataset (seed=42)
+2025-08-21 23:49:35,179 - INFO - Converting amplitude to intensity for pty-chi...
+2025-08-21 23:49:35,180 - INFO - Final data shapes:
+2025-08-21 23:49:35,180 - INFO -   intensity: (50, 64, 64) (float32)
+2025-08-21 23:49:35,180 - INFO -   positions_px: (50, 2) (float32)
+2025-08-21 23:49:35,180 - INFO -   probeGuess: (64, 64) (complex128)
+2025-08-21 23:49:35,180 - INFO -   objectGuess: (232, 232) (complex128)
+2025-08-21 23:49:35,180 - INFO - Configuring pty-chi parameters for ePIE...
+2025-08-21 23:49:35,180 - INFO -   Using ePIE (Extended PIE) - fast and stable (17-20x faster than DM)
+2025-08-21 23:49:35,181 - INFO -   Final object canvas size: (277, 279)
+2025-08-21 23:49:35,181 - INFO -   Using object guess, resized from (232, 232) to (277, 279)
+2025-08-21 23:49:35,296 - INFO -   Using GPU acceleration
+2025-08-21 23:49:35,296 - INFO - Pty-chi parameters configured successfully
+2025-08-21 23:49:35,297 - INFO - Unspecified OPR weight initial guess will be automatically populated with 1s.
+2025-08-21 23:49:35,320 - INFO - Using device: ['NVIDIA GeForce RTX 3090'] (CUDA_VISIBLE_DEVICES="(unset)")
+2025-08-21 23:49:35,321 - INFO - Diffraction data have been FFT-shifted.
+2025-08-21 23:49:35,460 - INFO - Valid pixel mask have been FFT-shifted.
+2025-08-21 23:49:35,507 - ERROR - /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/utils/_device.py:103: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+  return func(*args, **kwargs)
+2025-08-21 23:49:35,509 - ERROR - 0%|          | 0/3 [00:00<?, ?it/s]
+2025-08-21 23:49:35,510 - INFO - Starting ePIE reconstruction...
+2025-08-21 23:49:35,510 - INFO - Probe eigenmodes normalized.
+2025-08-21 23:49:35,621 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,624 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,624 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,624 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,652 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,653 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,653 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,654 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,656 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,657 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,657 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,658 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,661 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,661 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,661 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,662 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,665 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,665 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,666 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,666 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,669 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,670 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,670 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,670 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,673 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,673 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,674 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,674 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,677 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,677 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,677 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,678 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,681 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,681 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,681 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,682 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,684 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,685 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,685 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,686 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,688 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,689 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,689 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,690 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,692 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,693 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,693 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,694 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,697 - DEBUG - object optimization enabled at epoch 0: True
+2025-08-21 23:49:35,698 - DEBUG - probe_positions optimization enabled at epoch 0: False
+2025-08-21 23:49:35,698 - DEBUG - probe optimization enabled at epoch 0: True
+2025-08-21 23:49:35,698 - DEBUG - opr_weights optimization enabled at epoch 0: False
+2025-08-21 23:49:35,786 - INFO - Epoch: 0, Loss: 18817.87890625
+2025-08-21 23:49:35,786 - ERROR - 33%|###3      | 1/3 [00:00<00:00,  3.61it/s]
+2025-08-21 23:49:35,790 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,791 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,791 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,791 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,794 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,795 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,795 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,795 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,798 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,799 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,799 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,799 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,802 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,803 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,803 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,803 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,806 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,807 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,807 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,807 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,810 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,811 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,811 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,811 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,814 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,815 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,815 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,815 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,818 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,819 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,819 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,819 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,822 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,822 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,823 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,823 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,826 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,826 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,826 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,827 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,829 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,830 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,830 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,831 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,833 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,834 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,834 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,835 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,837 - DEBUG - object optimization enabled at epoch 1: True
+2025-08-21 23:49:35,838 - DEBUG - probe_positions optimization enabled at epoch 1: False
+2025-08-21 23:49:35,838 - DEBUG - probe optimization enabled at epoch 1: True
+2025-08-21 23:49:35,839 - DEBUG - opr_weights optimization enabled at epoch 1: False
+2025-08-21 23:49:35,841 - INFO - Epoch: 1, Loss: 36797.6953125
+2025-08-21 23:49:35,844 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,845 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,845 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,845 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,848 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,849 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,849 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,849 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,852 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,853 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,853 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,853 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,856 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,857 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,857 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,857 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,860 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,861 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,861 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,861 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,864 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,864 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,864 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,865 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,867 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,868 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,868 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,869 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,871 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,872 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,872 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,873 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,875 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,876 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,876 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,877 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,879 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,880 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,880 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,881 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,883 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,884 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,884 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,885 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,887 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,888 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,888 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,889 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,891 - DEBUG - object optimization enabled at epoch 2: True
+2025-08-21 23:49:35,892 - DEBUG - probe_positions optimization enabled at epoch 2: False
+2025-08-21 23:49:35,892 - DEBUG - probe optimization enabled at epoch 2: True
+2025-08-21 23:49:35,893 - DEBUG - opr_weights optimization enabled at epoch 2: False
+2025-08-21 23:49:35,894 - INFO - Epoch: 2, Loss: 46388.0390625
+2025-08-21 23:49:35,895 - ERROR - 100%|##########| 3/3 [00:00<00:00,  8.94it/s]
+2025-08-21 23:49:35,895 - INFO - Reconstruction completed in 0.38 seconds
+2025-08-21 23:49:35,895 - INFO - Processing speed: 389.9 pattern-iterations/second
+2025-08-21 23:49:35,895 - ERROR - Reconstruction failed: 'PtychographyTask' object has no attribute 'solution'
+2025-08-21 23:49:35,895 - DEBUG - Full traceback:
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/reconstruction/run_ptychi_reconstruction.py", line 607, in main
+    'canvas_size': task.solution.object.data.shape[-1],
+                   ^^^^^^^^^^^^^
+AttributeError: 'PtychographyTask' object has no attribute 'solution'

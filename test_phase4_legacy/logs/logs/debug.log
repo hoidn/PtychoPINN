@@ -1,0 +1,415 @@
+2025-08-28 16:00:41,179 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-08-28 16:00:41,179 - INFO - Registration: disabled
+2025-08-28 16:00:41,179 - INFO - NPZ output: raw=disabled, aligned=enabled
+2025-08-28 16:00:41,179 - INFO - Loading PtychoPINN model to restore configuration...
+2025-08-28 16:00:41,179 - INFO - Loading PtychoPINN model from final_validation_gs1...
+2025-08-28 16:00:41,179 - INFO - Loading model from: final_validation_gs1
+2025-08-28 16:00:41,179 - DEBUG - Model archive path: final_validation_gs1/wts.h5.zip
+2025-08-28 16:00:42,110 - INFO - Model: "functional"
+2025-08-28 16:00:42,132 - INFO - ┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)        ┃ Output Shape      ┃    Param # ┃ Connected to      ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ input (InputLayer)  │ (None, 64, 64, 1) │          0 │ -                 │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler    │ (None, 64, 64, 1) │          0 │ input[0][0]       │
+│ (IntensityScaler)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d (Conv2D)     │ (None, 64, 64,    │        640 │ intensity_scaler… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_1 (Conv2D)   │ (None, 64, 64,    │     36,928 │ conv2d[0][0]      │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d       │ (None, 32, 32,    │          0 │ conv2d_1[0][0]    │
+│ (MaxPooling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_2 (Conv2D)   │ (None, 32, 32,    │     73,856 │ max_pooling2d[0]… │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_3 (Conv2D)   │ (None, 32, 32,    │    147,584 │ conv2d_2[0][0]    │
+│                     │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_1     │ (None, 16, 16,    │          0 │ conv2d_3[0][0]    │
+│ (MaxPooling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_4 (Conv2D)   │ (None, 16, 16,    │    295,168 │ max_pooling2d_1[… │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_5 (Conv2D)   │ (None, 16, 16,    │    590,080 │ conv2d_4[0][0]    │
+│                     │ 256)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ max_pooling2d_2     │ (None, 8, 8, 256) │          0 │ conv2d_5[0][0]    │
+│ (MaxPooling2D)      │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_8 (Conv2D)   │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_16 (Conv2D)  │ (None, 8, 8, 128) │    295,040 │ max_pooling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_9 (Conv2D)   │ (None, 8, 8, 128) │    147,584 │ conv2d_8[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_17 (Conv2D)  │ (None, 8, 8, 128) │    147,584 │ conv2d_16[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d       │ (None, 16, 16,    │          0 │ conv2d_9[0][0]    │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_3     │ (None, 16, 16,    │          0 │ conv2d_17[0][0]   │
+│ (UpSampling2D)      │ 128)              │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_10 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d[0]… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_18 (Conv2D)  │ (None, 16, 16,    │     73,792 │ up_sampling2d_3[… │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_11 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_10[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_19 (Conv2D)  │ (None, 16, 16,    │     36,928 │ conv2d_18[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_1     │ (None, 32, 32,    │          0 │ conv2d_11[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_4     │ (None, 32, 32,    │          0 │ conv2d_19[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_1          │ (None, 32, 32, 4) │          0 │ up_sampling2d_1[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_3          │ (None, 32, 32, 4) │          0 │ up_sampling2d_4[… │
+│ (GetItem)           │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_12 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_1[0][0]  │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_20 (Conv2D)  │ (None, 32, 32,    │      2,368 │ get_item_3[0][0]  │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_13 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_12[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_21 (Conv2D)  │ (None, 32, 32,    │     36,928 │ conv2d_20[0][0]   │
+│                     │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_2     │ (None, 64, 64,    │          0 │ conv2d_13[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ up_sampling2d_5     │ (None, 64, 64,    │          0 │ conv2d_21[0][0]   │
+│ (UpSampling2D)      │ 64)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item (GetItem)  │ (None, 32, 32,    │          0 │ up_sampling2d_1[… │
+│                     │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_7 (Conv2D)   │ (None, 64, 64, 1) │        577 │ up_sampling2d_2[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ get_item_2          │ (None, 32, 32,    │          0 │ up_sampling2d_4[… │
+│ (GetItem)           │ 60)               │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_15 (Conv2D)  │ (None, 64, 64, 1) │        577 │ up_sampling2d_5[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_6 (Conv2D)   │ (None, 32, 32, 1) │        541 │ get_item[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu (Silu)         │ (None, 64, 64, 1) │          0 │ conv2d_7[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ conv2d_14 (Conv2D)  │ (None, 32, 32, 1) │        541 │ get_item_2[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ silu_1 (Silu)       │ (None, 64, 64, 1) │          0 │ conv2d_15[0][0]   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp                 │ (None, 32, 32, 1) │          0 │ conv2d_6[0][0]    │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer   │ (None, 64, 64, 1) │          0 │ silu[0][0]        │
+│ (CenterMaskLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phi                 │ (None, 32, 32, 1) │          0 │ conv2d_14[0][0]   │
+│ (ActivationLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ center_mask_layer_1 │ (None, 64, 64, 1) │          0 │ silu_1[0][0]      │
+│ (CenterMaskLayer)   │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ amp_padded          │ (None, 64, 64, 1) │          0 │ amp[0][0]         │
+│ (ZeroPadding2D)     │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply (Multiply) │ (None, 64, 64, 1) │          0 │ silu[0][0],       │
+│                     │                   │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ phase_padded        │ (None, 64, 64, 1) │          0 │ phi[0][0]         │
+│ (ZeroPadding2D)     │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ multiply_1          │ (None, 64, 64, 1) │          0 │ silu_1[0][0],     │
+│ (Multiply)          │                   │            │ center_mask_laye… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add (Add)           │ (None, 64, 64, 1) │          0 │ amp_padded[0][0], │
+│                     │                   │            │ multiply[0][0]    │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ add_1 (Add)         │ (None, 64, 64, 1) │          0 │ phase_padded[0][… │
+│                     │                   │            │ multiply_1[0][0]  │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ obj                 │ (None, 64, 64, 1) │          0 │ add[0][0],        │
+│ (CombineComplexLay… │                   │            │ add_1[0][0]       │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ input_positions     │ (None, 1, 2, 1)   │          0 │ -                 │
+│ (InputLayer)        │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_obj_2        │ (None, 74, 74, 1) │          0 │ obj[0][0],        │
+│ (ReassemblePatches… │                   │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ padded_objs_with_o… │ (None, 64, 64, 1) │          0 │ padded_obj_2[0][… │
+│ (ExtractPatchesPos… │                   │            │ input_positions[… │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ probe_illumination  │ [(None, 64, 64,   │          0 │ padded_objs_with… │
+│ (ProbeIllumination) │ 1), (None, 64,    │            │                   │
+│                     │ 64, 1)]           │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_amplitude      │ [(None, 64, 64,   │          0 │ probe_illuminati… │
+│ (PadAndDiffractLay… │ 1), (None, 64,    │            │                   │
+│                     │ 64, 1)]           │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_diff_channels  │ (None, 64, 64, 1) │          0 │ pred_amplitude[0… │
+│ (FlatToChannelLaye… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ intensity_scaler_i… │ (None, 64, 64, 1) │          0 │ pred_diff_channe… │
+│ (IntensityScaler_i… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ trimmed_obj         │ (None, 64, 64, 1) │          0 │ padded_obj_2[0][… │
+│ (TrimReconstructio… │                   │            │                   │
+├─────────────────────┼───────────────────┼────────────┼───────────────────┤
+│ pred_intensity      │ (None, 64, 64, 1) │          0 │ intensity_scaler… │
+│ (SquareLayer)       │                   │            │                   │
+└─────────────────────┴───────────────────┴────────────┴───────────────────┘
+2025-08-28 16:00:42,132 - INFO - Total params: 2,331,772 (8.90 MB)
+2025-08-28 16:00:42,132 - INFO - Trainable params: 2,331,772 (8.90 MB)
+2025-08-28 16:00:42,132 - INFO - Non-trainable params: 0 (0.00 B)
+2025-08-28 16:00:42,132 - INFO - None
+2025-08-28 16:00:42,252 - INFO - Loading SavedModel from: /tmp/tmp_vi5o8or/autoencoder
+2025-08-28 16:00:42,252 - INFO - Failed to load as Keras model: File format not supported: filepath=/tmp/tmp_vi5o8or/autoencoder. Keras 3 only supports V3 `.keras` files and legacy H5 format files (`.h5` extension). Note that the legacy SavedModel format is not supported by `load_model()` in Keras 3. In order to reload a TensorFlow SavedModel as an inference-only layer in Keras 3, use `keras.layers.TFSMLayer(/tmp/tmp_vi5o8or/autoencoder, call_endpoint='serving_default')` (note that your `call_endpoint` might have a different name).
+2025-08-28 16:00:42,252 - INFO - Falling back to raw SavedModel loading...
+2025-08-28 16:00:43,120 - INFO - Loading SavedModel from: /tmp/tmp_vi5o8or/diffraction_to_obj
+2025-08-28 16:00:43,120 - INFO - Failed to load as Keras model: File format not supported: filepath=/tmp/tmp_vi5o8or/diffraction_to_obj. Keras 3 only supports V3 `.keras` files and legacy H5 format files (`.h5` extension). Note that the legacy SavedModel format is not supported by `load_model()` in Keras 3. In order to reload a TensorFlow SavedModel as an inference-only layer in Keras 3, use `keras.layers.TFSMLayer(/tmp/tmp_vi5o8or/diffraction_to_obj, call_endpoint='serving_default')` (note that your `call_endpoint` might have a different name).
+2025-08-28 16:00:43,120 - INFO - Falling back to raw SavedModel loading...
+2025-08-28 16:00:43,779 - INFO - Successfully loaded model from final_validation_gs1
+2025-08-28 16:00:43,779 - DEBUG - Model configuration: {'N': 64, 'offset': 4, 'gridsize': 1, 'outer_offset_train': None, 'outer_offset_test': None, 'batch_size': 16, 'nepochs': 50, 'n_filters_scale': 2, 'output_prefix': 'final_validation_gs1', 'big_gridsize': 10, 'max_position_jitter': 10, 'sim_jitter_scale': 0.0, 'default_probe_scale': 0.7, 'mae_weight': 0.0, 'nll_weight': 1.0, 'tv_weight': 0.0, 'realspace_mae_weight': 0.0, 'realspace_weight': 0.0, 'nphotons': 1000000000.0, 'nimgs_train': 9, 'nimgs_test': 3, 'data_source': 'generic', 'probe.trainable': False, 'intensity_scale.trainable': True, 'positions.provided': True, 'object.big': True, 'probe.big': True, 'probe_scale': 4.0, 'set_phi': False, 'probe.mask': False, 'pad_object': True, 'model_type': 'pinn', 'label': '', 'size': 392, 'amp_activation': 'sigmoid', 'h5_path': 'wts.h5', 'npseed': 42, 'debug': True, 'gaussian_smoothing_sigma': 0.0, 'use_xla_translate': True, 'n_images': 10304, 'train_data_file_path': 'datasets/fly64/fly001_64_train_converted.npz', 'test_data_file_path': None, 'probe': <tf.Tensor: shape=(64, 64, 1), dtype=complex64, numpy=
+array([[[ 0.05078768+0.03908647j],
+        [-0.00147524+0.02986646j],
+        [-0.04124447-0.02018933j],
+        ...,
+        [ 0.02548227+0.01806978j],
+        [ 0.04268315+0.0188654j ],
+        [ 0.04516761+0.01956229j]],
+
+       [[ 0.0220891 -0.01188079j],
+        [ 0.03835767+0.03358509j],
+        [-0.00142893+0.02197503j],
+        ...,
+        [-0.01391465-0.00432523j],
+        [ 0.03996065+0.03697475j],
+        [ 0.02918082+0.03941054j]],
+
+       [[ 0.02744894-0.00778296j],
+        [-0.02554526+0.00479967j],
+        [-0.01781248-0.02643128j],
+        ...,
+        [-0.03899888+0.05420399j],
+        [-0.02644318+0.00979219j],
+        [ 0.03697952-0.08437678j]],
+
+       ...,
+
+       [[-0.03238868-0.01856977j],
+        [ 0.04393906+0.0009207j ],
+        [-0.0523303 +0.16835369j],
+        ...,
+        [ 0.07663022+0.06388126j],
+        [-0.10884623+0.05475416j],
+        [-0.09921163-0.09906429j]],
+
+       [[-0.00452902-0.01962221j],
+        [-0.03836754+0.03825318j],
+        [-0.0233613 +0.0739998j ],
+        ...,
+        [ 0.0232537 +0.04757752j],
+        [-0.06083298-0.04434002j],
+        [-0.0041243 -0.0299162j ]],
+
+       [[ 0.02184559+0.02220817j],
+        [-0.04714252-0.0093401j ],
+        [-0.01891536-0.00193338j],
+        ...,
+        [-0.10183024-0.00715991j],
+        [ 0.0541427 -0.08391279j],
+        [ 0.03675748+0.03997286j]]], dtype=complex64)>, 'intensity_scale': np.float32(988.21173)}
+2025-08-28 16:00:43,779 - INFO - Restored configuration from model: gridsize=1, N=64
+2025-08-28 16:00:43,779 - INFO - Loading test data from datasets/fly/fly001_transposed.npz with restored gridsize=1...
+2025-08-28 16:00:43,779 - INFO - Using legacy mode: n_test_images=100 (controls both subsampling and grouping)
+2025-08-28 16:00:43,780 - INFO - Loading data from datasets/fly/fly001_transposed.npz with n_images=100, n_subsample=None
+2025-08-28 16:00:44,155 - INFO - Legacy sampling: using 100 images from 10304 total
+2025-08-28 16:00:44,155 - INFO - Randomly subsampled 100 images
+2025-08-28 16:00:44,155 - INFO - diff3d shape: (100, 64, 64)
+2025-08-28 16:00:44,155 - INFO - probeGuess shape: (64, 64)
+2025-08-28 16:00:44,155 - INFO - scan_index shape: (100,)
+2025-08-28 16:00:44,155 - INFO - objectGuess shape: (232, 232)
+2025-08-28 16:00:44,155 - INFO - xcoords shape: (100,)
+2025-08-28 16:00:44,155 - INFO - ycoords shape: (100,)
+2025-08-28 16:00:44,155 - INFO - xcoords_start shape: (100,)
+2025-08-28 16:00:44,155 - INFO - ycoords_start shape: (100,)
+2025-08-28 16:00:44,156 - INFO - Final configuration: gridsize=1, N=64, n_images=100
+2025-08-28 16:00:44,156 - INFO - Using stitch_crop_size M=20 (N=64)
+2025-08-28 16:00:44,156 - INFO - DEBUG:
+2025-08-28 16:00:44,156 - INFO - nsamples: 100, gridsize: 1 (using efficient random sample-then-group strategy)
+2025-08-28 16:00:44,156 - INFO - Using efficient random sampling strategy for gridsize=1
+2025-08-28 16:00:44,156 - INFO - Generating 100 groups efficiently from 100 points (K=4, C=1)
+2025-08-28 16:00:44,156 - INFO - Using all 100 points as seeds
+2025-08-28 16:00:44,156 - INFO - Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed
+2025-08-28 16:00:44,156 - INFO - Successfully generated 100 groups with shape (100, 1)
+2025-08-28 16:00:44,156 - INFO - Generated 100 groups efficiently
+2025-08-28 16:00:44,157 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-08-28 16:00:45,489 - INFO - neighbor-sampled diffraction shape
+2025-08-28 16:00:45,489 - INFO - (100, 64, 64, 1)
+2025-08-28 16:00:45,490 - INFO - loader: using provided ground truth patches.
+2025-08-28 16:00:45,871 - INFO - INFO:
+2025-08-28 16:00:45,872 - INFO - None
+2025-08-28 16:00:45,872 - INFO - <PtychoDataContainer X=(100, 64, 64, 1) Y_I=(100, 64, 64, 1) Y_phi=(100, 64, 64, 1) norm_Y_I=() coords_nominal=(100, 1, 2, 1) coords_true=(100, 1, 2, 1) nn_indices=(100, 1) mean=49.500 global_offsets=(100, 1, 2, 1) mean=124.645 local_offsets=(100, 1, 2, 1) mean=0.000 probe=(64, 64) mean_amplitude=0.009>
+2025-08-28 16:00:45,872 - INFO - Loading Baseline model from datasets/training_outputs/07-02-2025-01.06.25_baseline_gs1...
+2025-08-28 16:00:45,872 - INFO - Found baseline model at: datasets/training_outputs/07-02-2025-01.06.25_baseline_gs1/baseline_model.h5
+2025-08-28 16:00:45,873 - DEBUG - Creating converter from 3 to 5
+2025-08-28 16:00:45,971 - WARNING - Compiled the loaded model, but the compiled metrics have yet to be built. `model.compile_metrics` will be empty until you train or evaluate the model.
+2025-08-28 16:00:45,975 - WARNING - Error in loading the saved optimizer state. As a result, your model is starting with a freshly initialized optimizer.
+2025-08-28 16:00:45,976 - INFO - Running two-way comparison (PtychoPINN vs. Baseline)
+2025-08-28 16:00:45,976 - INFO - Running inference with PtychoPINN...
+2025-08-28 16:00:46,174 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1191, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 847, in main
+    pinn_patches = pinn_model.predict(
+                   ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Graph execution error:
+
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected unsupported operations when trying to compile graph __inference_one_step_on_data_21396[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node translate/transform/ImageProjectiveTransformV3}}){{node translate/transform/ImageProjectiveTransformV3}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting __inference_one_step_on_data_21396[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_21505]
+2025-08-28 16:00:46,175 - ERROR - Traceback (most recent call last):
+2025-08-28 16:00:46,175 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 1191, in <module>
+2025-08-28 16:00:46,175 - ERROR - main()
+2025-08-28 16:00:46,175 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 847, in main
+2025-08-28 16:00:46,175 - ERROR - pinn_patches = pinn_model.predict(
+2025-08-28 16:00:46,175 - ERROR - ^
+2025-08-28 16:00:46,175 - ERROR - ^
+2025-08-28 16:00:46,175 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+2025-08-28 16:00:46,176 - ERROR - raise e.with_traceback(filtered_tb) from None
+2025-08-28 16:00:46,176 - ERROR - File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 53, in quick_execute
+2025-08-28 16:00:46,176 - ERROR - tensors = pywrap_tfe.TFE_Py_Execute(ctx._handle, device_name, op_name,
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,176 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - ^
+2025-08-28 16:00:46,177 - ERROR - tensorflow.python.framework.errors_impl
+2025-08-28 16:00:46,177 - ERROR - .
+2025-08-28 16:00:46,177 - ERROR - InvalidArgumentError
+2025-08-28 16:00:46,177 - ERROR - :
+2025-08-28 16:00:46,177 - ERROR - Graph execution error:
+
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected at node translate/transform/ImageProjectiveTransformV3 defined at (most recent call last):
+<stack traces unavailable>
+Detected unsupported operations when trying to compile graph __inference_one_step_on_data_21396[] on XLA_GPU_JIT: ImageProjectiveTransformV3 (No registered 'ImageProjectiveTransformV3' OpKernel for XLA_GPU_JIT devices compatible with node {{node translate/transform/ImageProjectiveTransformV3}}){{node translate/transform/ImageProjectiveTransformV3}}
+The op is created at: 
+dummy_file_name:10:dummy_function_name
+	tf2xla conversion failed while converting __inference_one_step_on_data_21396[]. Run with TF_DUMP_GRAPH_PREFIX=/path/to/dump/dir and --vmodule=xla_compiler=2 to obtain a dump of the compiled functions.
+	 [[StatefulPartitionedCall]] [Op:__inference_one_step_on_data_distributed_21505]
