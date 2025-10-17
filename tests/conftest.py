@@ -25,26 +25,26 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(config, items):
     """
     Modify test collection to handle optional dependencies.
-    This runs after test collection and can modify the collected items.
+
+    In torch-required environments (Ptychodus CI), PyTorch must be installed;
+    tests in tests/torch/ will FAIL (not skip) if torch unavailable.
+
+    In TF-only CI environments, tests/torch/ directory is skipped entirely.
     """
-    
-    # Check what optional dependencies are available
+
+    # Check if PyTorch is available
     torch_available = True
     try:
         import torch
     except ImportError:
         torch_available = False
-        
-    # Add skip markers for tests requiring unavailable dependencies
-    for item in items:
-        # Skip torch tests if torch is not available
-        # EXCEPTIONS: Some torch/ tests can run without torch (use fallback/stub types)
-        TORCH_OPTIONAL_MODULES = ["test_config_bridge", "test_data_pipeline", "test_workflows_components", "test_model_manager", "test_backend_selection"]
-        is_torch_optional = any(module in str(item.fspath) for module in TORCH_OPTIONAL_MODULES)
 
-        if ("torch" in str(item.fspath).lower() or item.get_closest_marker("torch")):
-            if not torch_available and not is_torch_optional:
-                item.add_marker(pytest.mark.skip(reason="PyTorch not available"))
+    # Skip torch tests only in TF-only CI environments (directory-based)
+    for item in items:
+        if "torch" in str(item.fspath).lower() or item.get_closest_marker("torch"):
+            if not torch_available:
+                # No whitelist exceptions: ALL torch tests skip in TF-only CI
+                item.add_marker(pytest.mark.skip(reason="PyTorch not available (TF-only CI)"))
 
 def pytest_runtest_setup(item):
     """
@@ -80,14 +80,6 @@ def suppress_warnings():
     # Reset warning filters after tests
     warnings.resetwarnings()
 
-@pytest.fixture(scope="session")
-def torch_available():
-    """Fixture to check if PyTorch is available."""
-    try:
-        import torch
-        return True
-    except ImportError:
-        return False
 
 def pytest_report_header(config):
     """Add information to the test report header."""

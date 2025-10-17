@@ -5,19 +5,8 @@ import os
 import pytest
 from pathlib import Path
 
-# Gracefully handle PyTorch import failures
-try:
-    import torch
-    TORCH_AVAILABLE = True
-except ImportError as e:
-    TORCH_AVAILABLE = False
-    torch = None
-    import warnings
-    warnings.warn(f"PyTorch not available: {e}. Skipping PyTorch-related tests.")
-
-# Skip entire module if torch is not available
-if not TORCH_AVAILABLE:
-    pytest.skip("PyTorch not available", allow_module_level=True)
+# Import torch unconditionally (torch-required as of Phase F3)
+import torch
 
 # Add project root to path
 project_root = Path(__file__).resolve().parents[2]
@@ -65,14 +54,14 @@ class TestTorchTFHelper(unittest.TestCase):
             probe = get_default_probe(N=64, fmt='np')
             p.params()['probe'] = probe
 
-    @unittest.skipUnless(TF_HELPER_AVAILABLE and TORCH_AVAILABLE, "torch tf_helper module or torch not available")
+    @unittest.skipUnless(TF_HELPER_AVAILABLE, "torch tf_helper module not available")
     def test_get_mask(self):
         input_tensor = torch.tensor([[1.0, 0.5, 0.8], [0.3, 0.9, 0.2]])
         support_threshold = 0.6
         expected_output = torch.tensor([[1.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
         self.assertTrue(torch.all(torch.eq(get_mask(input_tensor, support_threshold), expected_output)))
 
-    @unittest.skipUnless(TF_HELPER_AVAILABLE and TORCH_AVAILABLE, "torch tf_helper module or torch not available")
+    @unittest.skipUnless(TF_HELPER_AVAILABLE, "torch tf_helper module not available")
     def test_combine_complex(self):
         amp = torch.tensor([[1.0, 0.5], [0.8, 0.3]])
         phi = torch.tensor([[0.0, np.pi/2], [np.pi/4, np.pi]])
@@ -84,8 +73,8 @@ class TestTorchTFHelper(unittest.TestCase):
     
     def test_placeholder_torch_functions(self):
         """Placeholder test that will always pass when torch tf_helper is not available."""
-        if not TF_HELPER_AVAILABLE or not TORCH_AVAILABLE:
-            self.skipTest("torch tf_helper module or torch not available - tests would fail")
+        if not TF_HELPER_AVAILABLE:
+            self.skipTest("torch tf_helper module not available - tests would fail")
         # If we get here, the module is available and we would run the actual tests
 
 

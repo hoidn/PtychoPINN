@@ -19,12 +19,9 @@ import pytest
 import numpy as np
 from pathlib import Path
 
-# Torch-optional import guard (per test_blueprint.md §1.C)
-try:
-    import torch
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+# Import torch unconditionally (torch-required as of Phase F3)
+import torch
+TORCH_AVAILABLE = True
 
 
 @pytest.fixture
@@ -304,20 +301,14 @@ class TestDataContainerParity:
         assert pt_container.global_offsets.shape == (10, 1, 2, 1), \
             f"PyTorch global_offsets shape mismatch: {pt_container.global_offsets.shape}"
 
-        # Dtype parity (torch-optional)
-        if TORCH_AVAILABLE:
-            assert isinstance(pt_container.X, (torch.Tensor, np.ndarray)), \
-                f"PyTorch X type mismatch: {type(pt_container.X)}"
-            assert isinstance(pt_container.Y, (torch.Tensor, np.ndarray)), \
-                f"PyTorch Y type mismatch: {type(pt_container.Y)}"
-        else:
-            assert isinstance(pt_container.X, np.ndarray), \
-                f"NumPy fallback X type mismatch: {type(pt_container.X)}"
-            assert isinstance(pt_container.Y, np.ndarray), \
-                f"NumPy fallback Y type mismatch: {type(pt_container.Y)}"
+        # Dtype parity (torch-required as of Phase F3)
+        assert isinstance(pt_container.X, (torch.Tensor, np.ndarray)), \
+            f"PyTorch X type mismatch: {type(pt_container.X)}"
+        assert isinstance(pt_container.Y, (torch.Tensor, np.ndarray)), \
+            f"PyTorch Y type mismatch: {type(pt_container.Y)}"
 
         # Critical DATA-001 validation: Y must be complex64
-        if TORCH_AVAILABLE and isinstance(pt_container.Y, torch.Tensor):
+        if isinstance(pt_container.Y, torch.Tensor):
             assert pt_container.Y.dtype == torch.complex64, \
                 f"DATA-001 violation: PyTorch Y dtype must be torch.complex64, got {pt_container.Y.dtype}"
         else:
@@ -390,8 +381,8 @@ class TestGroundTruthLoading:
         pt_grouped = pt_raw.generate_grouped_data(N=64, K=4, nsamples=10, gridsize=2)
         pt_container = PtychoDataContainerTorch(pt_grouped, minimal_raw_data.probeGuess)
 
-        # CRITICAL DATA-001 validation
-        if TORCH_AVAILABLE and isinstance(pt_container.Y, torch.Tensor):
+        # CRITICAL DATA-001 validation (torch-required as of Phase F3)
+        if isinstance(pt_container.Y, torch.Tensor):
             assert pt_container.Y.dtype == torch.complex64, \
                 f"DATA-001 violation: PyTorch Y must be torch.complex64, got {pt_container.Y.dtype}. " \
                 f"Historical silent float64 conversion caused major training failure. " \
