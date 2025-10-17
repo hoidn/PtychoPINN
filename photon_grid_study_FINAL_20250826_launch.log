@@ -1,0 +1,31 @@
+========================================================================
+Photon Grid Study with Metadata-Enabled Datasets
+========================================================================
+Data directory: photon_grid_study_regenerated_20250826_163348
+Output directory: photon_grid_study_FINAL_20250826
+Training sizes: 512
+Epochs: 10
+Trials: 1
+========================================================================
+
+========================================================================
+Processing photon level: 1e3
+========================================================================
+Using data file: photon_grid_study_regenerated_20250826_163348/data_p1e3.npz
+Starting generalization study for 1e3 photons...
+Unknown option: --nepochs
+Use --help for usage information.
+Completed 1e3 photons level
+
+========================================================================
+Processing photon level: 1e4
+========================================================================
+Using data file: photon_grid_study_regenerated_20250826_163348/data_p1e4.npz
+Starting generalization study for 1e4 photons...
+Unknown option: --nepochs
+Use --help for usage information.
+Completed 1e4 photons level
+
+========================================================================
+Processing photon level: 1e5
+========================================================================

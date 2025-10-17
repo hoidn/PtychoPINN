@@ -1,0 +1,62 @@
+========================================================================
+Photon Grid Study with Metadata-Enabled Datasets
+========================================================================
+Data directory: photon_grid_study_regenerated_20250826_163348
+Output directory: photon_grid_study_with_metadata_20250826_164100
+Training sizes: 256 512 1024
+Epochs: 30
+Trials: 2
+========================================================================
+
+========================================================================
+Processing photon level: 1e3
+========================================================================
+ERROR: Data file not found: photon_grid_study_regenerated_20250826_163348/data_p1e3.npz
+
+========================================================================
+Processing photon level: 1e4
+========================================================================
+ERROR: Data file not found: photon_grid_study_regenerated_20250826_163348/data_p1e4.npz
+
+========================================================================
+Processing photon level: 1e5
+========================================================================
+ERROR: Data file not found: photon_grid_study_regenerated_20250826_163348/data_p1e5.npz
+
+========================================================================
+Processing photon level: 1e6
+========================================================================
+ERROR: Data file not found: photon_grid_study_regenerated_20250826_163348/data_p1e6.npz
+
+========================================================================
+Processing photon level: 1e7
+========================================================================
+ERROR: Data file not found: photon_grid_study_regenerated_20250826_163348/data_p1e7.npz
+
+========================================================================
+Processing photon level: 1e8
+========================================================================
+ERROR: Data file not found: photon_grid_study_regenerated_20250826_163348/data_p1e8.npz
+
+========================================================================
+Processing photon level: 1e9
+========================================================================
+ERROR: Data file not found: photon_grid_study_regenerated_20250826_163348/data_p1e9.npz
+
+========================================================================
+Study Complete!
+========================================================================
+Results saved to: photon_grid_study_with_metadata_20250826_164100
+Summary file: photon_grid_study_with_metadata_20250826_164100/STUDY_SUMMARY.md
+
+Generating aggregate plots...
+usage: aggregate_and_plot_results.py [-h]
+                                     [--metric {psnr,frc50,mae,mse,ssim,ms_ssim}]
+                                     [--part {phase,amp}] [--output OUTPUT]
+                                     [--title TITLE] [--verbose]
+                                     [--ms-ssim-phase-threshold MS_SSIM_PHASE_THRESHOLD]
+                                     study_dir
+aggregate_and_plot_results.py: error: unrecognized arguments: --results-dir --output-dir photon_grid_study_with_metadata_20250826_164100/plots
+Plot generation failed (optional)
+
+Done!
