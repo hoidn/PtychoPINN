@@ -675,3 +675,12 @@
 - Consolidated docs/fix_plan.md to active high-priority items ([INTEGRATE-PYTORCH-001-STUBS], [INTEGRATE-PYTORCH-001-DATALOADER], [ADR-003-BACKEND-API], [INTEGRATE-PYTORCH-001-PROBE-SIZE]); archived completed or dormant entries in `archive/2025-10-17_fix_plan_archive.md`.
 - Added ledger note referencing the archive to maintain traceability.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T230542Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-PROBE-SIZE (finalize documentation + ledger closure)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Preparing to reconcile plan exit criteria and log new dataloader blocker per 2025-10-17T231500Z parity summary.
+- Updates: Marked Phase E2 D2/D3 rows with 2025-10-17T231500Z artifacts, checked verification bullets, and created new fix-plan entry `[INTEGRATE-PYTORCH-001-DATALOADER-INDEXING]` with callchain-first plan. Rewrote `input.md` (Parity mode) directing Ralph to capture callchain evidence under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T230724Z/`.
+- Open questions: Need callchain evidence to isolate `nn_indices` overflow before implementation; expect Attempt #1 to document root cause and tap points.
+- <Action State>: [ready_for_implementation]

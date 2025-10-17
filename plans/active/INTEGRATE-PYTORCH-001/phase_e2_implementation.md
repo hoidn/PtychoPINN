@@ -31,14 +31,14 @@ Exit Criteria: TensorFlow and PyTorch integration logs archived, summary documen
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | D1 | Capture TensorFlow baseline log | [x] | ✅ 2025-10-18T093500Z — Executed `pytest tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle -vv`, captured 31.88s runtime, 1 PASSED. Log at `reports/2025-10-18T093500Z/phase_e_tf_baseline.log`. TensorFlow train→save→load→infer cycle validated successfully. |
-| D2 | Capture PyTorch integration log | [x] | ✅ 2025-10-17T221500Z — Successfully installed PyTorch extras (lightning, mlflow, tensordict) via manual fallback and executed integration test. Initial run failed on DATA-001 (legacy `diff3d` assumption) and was resolved in 2025-10-17T224500Z loop. Current blocker: probe tensor preallocation expects `N=128` while dataset probe is `64×64`; tracked in docs/fix_plan.md item `[INTEGRATE-PYTORCH-001-PROBE-SIZE]`. Latest log at `reports/2025-10-17T224500Z/pytest_integration_green.log`. |
-| D3 | Publish parity summary | [x] | ✅ 2025-10-17T221500Z — Updated parity summary at `reports/2025-10-17T221500Z/phase_e_parity_summary.md` with complete failure analysis. Documented DATA-001 violation in PyTorch dataloader, dependency installation outcomes, CONFIG-001 compliance verification, and defined follow-up task [INTEGRATE-PYTORCH-001-DATALOADER] for fixing canonical NPZ format support. Phase E2.D evidence capture complete. |
+| D2 | Capture PyTorch integration log | [x] | ✅ 2025-10-17T231500Z — Post probe-size fix integration run stored at `reports/2025-10-17T231500Z/pytest_integration_green.log`. Probe mismatch resolved (N inferred as 64) per `parity_summary.md`; new blocker: `IndexError` from neighbor indexing at `ptycho_torch/dataloader.py:617`, tracked via `[INTEGRATE-PYTORCH-001-DATALOADER-INDEXING]`. |
+| D3 | Publish parity summary | [x] | ✅ 2025-10-17T231500Z — Updated parity narrative in `reports/2025-10-17T231500Z/parity_summary.md` documents probe-size closure, new dataloader indexing failure, and CONFIG-001/DATA-001 compliance. Follow-up item escalated as `[INTEGRATE-PYTORCH-001-DATALOADER-INDEXING]`; Phase E2.D evidence capture remains complete. |
 
 ---
 
 ## Verification & Reporting Checklist
 - [ ] All C-phase tasks reference the new CLI contract and log storage path.
 - [ ] PyTorch dependency guidance synchronized with POLICY-001 messaging.
-- [ ] Each D-phase task records command, output paths, and conclusions in the summary artifact.
-- [ ] docs/fix_plan.md Attempts history updated in same loop as execution.
-- [ ] `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` cross-references this plan for E2.C/E2.D guidance.
+- [x] Each D-phase task records command, output paths, and conclusions in the summary artifact.
+- [x] docs/fix_plan.md Attempts history updated in same loop as execution.
+- [x] `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` cross-references this plan for E2.C/E2.D guidance.

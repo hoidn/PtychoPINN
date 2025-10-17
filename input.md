@@ -1,51 +1,48 @@
-Summary: Align PyTorch CLI config with dataset probe dimensions to unblock integration workflow
-Mode: TDD
-Focus: INTEGRATE-PYTORCH-001-PROBE-SIZE — Resolve PyTorch probe size mismatch in integration test
+Summary: Trace PyTorch dataloader neighbor indexing overflow to unblock integration parity
+Mode: Parity
+Focus: INTEGRATE-PYTORCH-001-DATALOADER-INDEXING — Fix PyTorch dataloader neighbor indexing overflow
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_train_probe_size.py::test_cli_infers_probe_size -vv; pytest tests/torch/test_train_probe_size.py -vv; pytest tests/torch/test_integration_workflow_torch.py -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/{pytest_probe_red.log,pytest_probe_green.log,pytest_integration_green.log,parity_summary.md}
+Mapped tests: pytest tests/torch/test_integration_workflow_torch.py -vv
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T230724Z/{pytest_integration_fail.log,callchain/static.md,callgraph/dynamic.txt,callchain/summary.md,trace/tap_points.md,env/trace_env.json}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-PROBE-SIZE @ docs/fix_plan.md — Add failing pytest `tests/torch/test_train_probe_size.py::test_cli_infers_probe_size` capturing expected DataConfig.N from canonical NPZ (mock `PtychoDataModule` to record `data_config.N`); run `pytest tests/torch/test_train_probe_size.py::test_cli_infers_probe_size -vv` | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/pytest_probe_red.log (tests: targeted)
-2. INTEGRATE-PYTORCH-001-PROBE-SIZE @ docs/fix_plan.md — Update `ptycho_torch/train.py` (cli_main path) to derive `DataConfig.N` and related geometry from NPZ metadata before bridge (reuse `ptycho_torch.dataloader.npz_headers` or load `probeGuess`); ensure legacy defaults preserved when metadata absent (tests: none)
-3. INTEGRATE-PYTORCH-001-PROBE-SIZE @ docs/fix_plan.md — Re-run TDD coverage `pytest tests/torch/test_train_probe_size.py -vv` | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/pytest_probe_green.log; confirm new assertions pass (tests: targeted)
-4. INTEGRATE-PYTORCH-001-PROBE-SIZE @ docs/fix_plan.md — Execute parity check `pytest tests/torch/test_integration_workflow_torch.py -vv` | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/pytest_integration_green.log`; verify train→infer completes without probe mismatch (tests: targeted)
-5. INTEGRATE-PYTORCH-001-PROBE-SIZE @ docs/fix_plan.md — Refresh parity summary under 2025-10-17T231500Z (note probe fix + new logs), flip plan checklist notes, and log docs/fix_plan.md Attempt #1 with artifact paths (tests: none)
+1. INTEGRATE-PYTORCH-001-DATALOADER-INDEXING @ plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md:D2 — Reproduce the IndexError via `pytest tests/torch/test_integration_workflow_torch.py -vv` | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T230724Z/pytest_integration_fail.log (tests: targeted)
+2. INTEGRATE-PYTORCH-001-DATALOADER-INDEXING @ docs/fix_plan.md:71 — Execute prompts/callchain.md with `analysis_question="Why does ptycho_torch.dataloader assign nn_indices beyond the diffraction stack during the integration workflow?"`, `initiative_id="INTEGRATE-PYTORCH-001-DATALOADER-INDEXING"`, `scope_hints=["neighbor indexing","group sampling","mmap"]`, `roi_hint="datasets/Run1084_recon3_postPC_shrunk_3.npz"`, `namespace_filter="ptycho_torch"`, `time_budget_minutes=30`; capture required artifacts under plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T230724Z/ (tests: none)
+3. INTEGRATE-PYTORCH-001-DATALOADER-INDEXING @ docs/fix_plan.md:78 — Summarize findings in callchain/summary.md, list proposed tap points, and append Attempt #1 with artifact links to docs/fix_plan.md (tests: none)
 
-If Blocked: Archive failing selector output under the timestamped reports directory, summarize the blocker + hypothesis in parity_summary.md, leave plan rows unchecked, and record the status in docs/fix_plan.md Attempts history.
+If Blocked: Archive the failing pytest log under the timestamped reports directory, note the blocker and hypothesis in callchain/summary.md, and record the partial outcome in docs/fix_plan.md Attempts history.
 
 Priorities & Rationale:
-- docs/fix_plan.md:55-68 — New probe size item defines acceptance (integration must finish, plans updated).
-- ptycho_torch/train.py:420-499 — CLI currently hardcodes `DataConfig(N=128)` causing probe tensor mismatch.
-- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md:31-35 — Phase E2.D2 guidance now flags probe mismatch and expects follow-up resolution.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T224500Z/parity_summary.md:149-158 — Immediate next step is fixing probe mismatch and documenting results.
-- specs/data_contracts.md:1-52 — Canonical NPZ contract guarantees probe/object dimensions required for config harmonization.
+- docs/fix_plan.md:71 — New ledger item defines acceptance gates for resolving the IndexError.
+- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md:34 — D2 guidance now escalates the neighbor indexing blocker.
+- specs/data_contracts.md:1 — Canonical dataset sizing rules govern valid index bounds.
+- specs/ptychodus_api_spec.md:40 — Reconstructor contract requires consistent grouping geometry across backends.
+- docs/workflows/pytorch.md:24 — PyTorch data pipeline expectations to honour when analysing callchain.
 
 How-To Map:
-- export ts=2025-10-17T231500Z; mkdir -p plans/active/INTEGRATE-PYTORCH-001/reports/$ts
-- Write pytest module using pure pytest style; monkeypatch `ptycho_torch.train.PtychoDataModule` to capture `data_config` and stub out trainer work
-- pytest tests/torch/test_train_probe_size.py::test_cli_infers_probe_size -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$ts/pytest_probe_red.log
-- Implement helper (e.g., `_infer_probe_size(train_data_file)`) in `ptycho_torch/train.py` that reads NPZ headers or `probeGuess` and sets both `data_config.N` and any dependent fields before calling the bridge; handle rectangular diffraction by trusting probe dims
-- pytest tests/torch/test_train_probe_size.py -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$ts/pytest_probe_green.log
-- pytest tests/torch/test_integration_workflow_torch.py -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$ts/pytest_integration_green.log
-- Update `plans/active/INTEGRATE-PYTORCH-001/reports/$ts/parity_summary.md` summarizing commands, dataset shapes, config changes, and confirming alignment with DATA-001/CONFIG-001
-- Mark D2 guidance in `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` with new evidence link; append docs/fix_plan.md Attempt #1 citing artifact paths
+- export TS=2025-10-17T230724Z; mkdir -p plans/active/INTEGRATE-PYTORCH-001/reports/$TS/{callchain,callgraph,trace,env}
+- pytest tests/torch/test_integration_workflow_torch.py -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$TS/pytest_integration_fail.log
+- Follow prompts/callchain.md using the parameters above; emit `callchain/static.md`, `callgraph/dynamic.txt` (optional), `trace/tap_points.md`, `callchain/summary.md`, and `env/trace_env.json`
+- Keep ROI minimal (canonical dataset) and avoid modifying production code; stop tracing once the offending index calculations are understood
+- Update docs/fix_plan.md Attempts history for INTEGRATE-PYTORCH-001-DATALOADER-INDEXING with artifact paths and key findings
 
 Pitfalls To Avoid:
-- Do not hardcode dataset-specific constants; derive sizes from NPZ metadata to keep workflow general.
-- Keep new pytest module free of unittest.TestCase to respect project testing guidance.
-- Avoid loading entire diffraction stack when probing metadata; rely on headers or specific keys to limit IO.
-- Preserve backward compatibility for legacy CLI path (`--ptycho_dir/--config`); guard new helper usage accordingly.
-- Maintain CONFIG-001 order: update params.cfg only after adjusting `data_config` so legacy modules see correct `N`.
-- Ensure logs and summaries stay within the timestamped reports directory; no artifacts at repo root.
-- If integration still fails, do not mark ledger items complete; capture failure and rationale in parity summary.
-- Re-run targeted tests from repo root using editable install to keep import paths consistent.
+- Do not edit implementation code or tests during this evidence loop.
+- Keep callchain instrumentation module/device neutral; avoid hard-coding CUDA assumptions.
+- Ensure pytest run executes from repo root with editable install active.
+- Respect artifact hygiene: no logs at repo root, only under the timestamped reports directory.
+- Do not rely on legacy `diff3d` paths; focus on canonical `diffraction` loading flow.
+- Avoid expanding ROI beyond the canonical dataset; large datasets make tracing intractable.
+- Document any skipped callgraph outputs explicitly in summary.md if tooling limitations arise.
+- Preserve CONFIG-001 ordering reminders when analysing params bridge interactions.
+- Capture parameter values from code, not plan notes, when describing index bounds.
+- Keep tap point proposals actionable (function + owner), per prompts/callchain.md.
 
 Pointers:
-- specs/data_contracts.md:1 — Canonical NPZ dimensions (diffraction/object/probe)
-- specs/ptychodus_api_spec.md:70 — ModelConfig.N requirements for reconstructor contract
-- ptycho_torch/train.py:420 — Hardcoded DataConfig defaults that must adapt to NPZ metadata
-- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md:33 — D2 parity guidance now referencing probe blocker
-- docs/fix_plan.md:55 — Ledger entry tracking probe mismatch scope and exit criteria
+- docs/fix_plan.md:71 — INTEGRATE-PYTORCH-001-DATALOADER-INDEXING scope + exit criteria.
+- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md:34 — D2 row referencing the IndexError and expected follow-up.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md:56 — Prior parity run capturing the IndexError stack trace.
+- specs/data_contracts.md:20 — Diffraction/object/probe dimensional requirements for canonical datasets.
+- specs/ptychodus_api_spec.md:70 — Grouping parameters that must align across backends.
 
-Next Up: Once probe sizing is green, revisit [INTEGRATE-PYTORCH-001-STUBS] to finish Phase D2 workflow stubs.
+Next Up: Implement neighbor indexing fix (`INTEGRATE-PYTORCH-001-DATALOADER-INDEXING`) once callchain evidence isolates the faulty slice logic.

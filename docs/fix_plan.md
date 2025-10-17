@@ -66,5 +66,18 @@
 - Exit Criteria:
   - `pytest tests/torch/test_integration_workflow_torch.py -vv` completes without probe dimension errors, producing checkpoint + inference artifacts for the canonical dataset. ✅ (probe mismatch resolved; new dataloader indexing bug is separate issue)
   - Updated parity summary (new timestamp) records the green run and references the fixing commit/artifacts. ✅ (`plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md`)
-  - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` and related checklists mark the blocker resolved with guidance for future runs. ⏳ (pending - defer to next loop)
+  - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` and related checklists mark the blocker resolved with guidance for future runs. ✅ 2025-10-17 — D2/D3 rows now reference `reports/2025-10-17T231500Z/` artifacts and escalate `[INTEGRATE-PYTORCH-001-DATALOADER-INDEXING]` follow-up.
 
+## [INTEGRATE-PYTORCH-001-DATALOADER-INDEXING] Fix PyTorch dataloader neighbor indexing overflow
+- Depends on: INTEGRATE-PYTORCH-001-PROBE-SIZE; INTEGRATE-PYTORCH-001 Phase E2.D
+- Spec/AT: `specs/data_contracts.md` §1; `specs/ptychodus_api_spec.md` §4.5; `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` (D2 guidance)
+- Priority: High
+- Status: pending
+- Owner/Date: Codex Agent/2025-10-17
+- Working Plan: Pending — capture callchain per `prompts/callchain.md` to isolate neighbor indexing logic before code changes.
+- Attempts History:
+  * [2025-10-17] Attempt #0 — Discovered during probe-size parity rerun; see `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md` (IndexError at `ptycho_torch/dataloader.py:617` while assigning `nn_indices` slice). Logged blocker and recommended new ledger entry.
+- Exit Criteria:
+  - Targeted regression reproduces and then validates fix (`pytest tests/torch/test_integration_workflow_torch.py -vv` plus new unit coverage for neighbor indexing).
+  - Dataloader correctly bounds neighbor indices for canonical DATA-001 dataset (64 samples) and oversampled configurations; evidence stored under timestamped reports.
+  - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` D2 guidance updated with resolution summary and removal of indexing blocker note.
