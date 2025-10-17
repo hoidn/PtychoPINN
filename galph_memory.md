@@ -281,4 +281,15 @@
 - Authored supervisor summary at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T073640Z/supervisor_summary.md` and rewrote input.md directing Ralph to build `RawDataTorch` per C.C1.
 - Follow-up for Ralph: implement RawDataTorch wrapper, capture green raw-data pytest log, document decisions in implementation_notes.md, then update fix plan.
 - <Action State>: [ready_for_implementation]
-
+## 2025-10-17T075755Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase C.C2 data container parity
+- Action type: Evidence collection
+- Mode: Parity
+- Notes: Dependency INTEGRATE-PYTORCH-000 appears complete per plan; will confirm status in fix ledger during this loop before issuing new directives.
+- <Action State>: [gathering_evidence]
+## 2025-10-17T080300Z: Evidence Summary
+- Focus issue: INTEGRATE-PYTORCH-001 Phase C.C2 (PtychoDataContainerTorch).
+- Artifacts: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T075914Z/{data_container_requirements.md,trace_baseline.txt}` capture TF attribute matrix, dtype notes, and torch-optional guidance.
+- Updated docs/fix_plan.md with Attempt #34 (evidence) and closed dependency INTEGRATE-PYTORCH-000 (status=done, Attempt #6). Phase C plan row C.C2 now references new evidence; implementation plan marks C3 complete.
+- input.md instructs Ralph to build torch-optional container, rerun targeted selectors, and log results; expect green logs under the same report directory.
+- <Action State>: [ready_for_implementation]

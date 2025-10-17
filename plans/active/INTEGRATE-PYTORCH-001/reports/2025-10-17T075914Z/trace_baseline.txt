@@ -1,0 +1,11 @@
+<PtychoDataContainer X=(10, 64, 64, 4) Y_I=(10, 64, 64, 4) Y_phi=(10, 64, 64, 4) norm_Y_I=() coords_nominal=(10, 1, 2, 4) coords_true=(10, 1, 2, 4) nn_indices=(10, 4) mean=46.250 global_offsets=(10, 1, 2, 1) mean=3.944 local_offsets=(10, 1, 2, 4) mean=0.000 probe=(64, 64)>
+X: shape=(10, 64, 64, 4), dtype=float32
+Y: shape=(10, 64, 64, 4), dtype=complex64
+Y_I: shape=(10, 64, 64, 4), dtype=float32
+Y_phi: shape=(10, 64, 64, 4), dtype=float32
+coords_nominal: shape=(10, 1, 2, 4), dtype=float32
+coords_true: shape=(10, 1, 2, 4), dtype=float32
+nn_indices: shape=(10, 4), dtype=int32
+global_offsets: shape=(10, 1, 2, 1), dtype=float64
+local_offsets: shape=(10, 1, 2, 4), dtype=float64
+probe: shape=(64, 64), dtype=complex64
