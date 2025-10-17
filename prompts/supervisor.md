@@ -19,6 +19,7 @@ Inspect Ralph’s most recent loop output before choosing new work:
 - Read the latest `input.md` (if Ralph just executed) and confirm the Do Now was followed.
 - Review the corresponding commit(s)/diffs or artifacts, inspecting only source/config/documentation files (`*.py`, `*.c`, `*.h`, `*.yaml`, `*.md`, etc.) and ignoring logs, binaries, or other generated artifacts. Verify tests, docs updates, and plan checklist states, and confirm that any checklist row marked complete actually satisfies its exit criteria (no unfinished placeholder code where completion was claimed).
 - Note any regressions, incomplete plan rows, or hygiene issues that need immediate follow-up in this loop.
+- Scan `docs/fix_plan.md` for bare `## TODO` headings. For each occurrence, convert it into a proper fix-plan entry (assign an ID/slug, add `Depends on:` if appropriate, stub exit criteria) and log the conversion in galph_memory.md before selecting the next focus. Do not proceed while unexpanded TODO headings remain.
 
 At the start of every invocation:
 - Run `timeout 30 git pull --rebase` with a hard 30-second timeout  to sync with origin before reviewing context. If the command times out, immediately abort any partial rebase (`git rebase --abort`) and fall back to a normal merge via `git pull --no-rebase`. Whatever path you take, resolve resulting conflicts (docs/fix_plan.md is a frequent hotspot) and document key decisions in galph_memory.md. If the pull reports conflicts:
