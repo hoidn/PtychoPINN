@@ -1,0 +1,15 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_model_manager.py::TestSaveTorchBundle::test_params_snapshot SKIPPED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_model_manager.py:268: model_manager module not yet implemented
+============================== 1 skipped in 3.71s ==============================
