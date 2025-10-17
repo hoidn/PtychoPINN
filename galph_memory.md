@@ -324,7 +324,7 @@
 
 ## 2025-10-17T085520Z: Phase D Planning Summary
 - Authored `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` capturing D1–D4 sub-phases with checklist IDs; implementation plan now points to the new doc for Phase D rows.
-- Logged Attempt #39 in docs/fix_plan.md and stored planning summary under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085217Z/summary.md`.
+- Logged Attempt #40 in docs/fix_plan.md and stored planning summary under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085217Z/summary.md`.
 - Reissued `input.md` (Docs mode) directing Ralph to execute D1.A–D1.C via callchain + decision artifacts in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/`.
 - Next focus: verify D1 evidence artifacts, then advance to D2 scaffolding.
 - <Action State>: [ready_for_implementation]
