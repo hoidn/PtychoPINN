@@ -661,3 +661,12 @@
 - Key references: specs/ptychodus_api_spec.md §4, docs/workflows/pytorch.md, ptycho_torch/workflows/components.py, config_bridge + config_params modules.
 - <Action State>: [ready_for_implementation]
 - Pending local changes (not ours): `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` and `reports/2025-10-17T224500Z/parity_summary.md` remain unstaged to preserve Ralph’s in-progress edits.
+
+
+## 2025-10-17T224811Z: Loop Summary
+- Reviewed existing parity artifacts and confirmed probe size mismatch remains the active blocker (integration log 2025-10-17T224500Z).
+- Minor plan upkeep: updated `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` D2 guidance to reference the new probe ledger item and patched parity summary next-steps list to note ledger entry creation.
+- Reissued `input.md` (Mode=TDD) directing Ralph to author a failing CLI probe-size test, adjust `ptycho_torch/train.py` to infer `N` from NPZ metadata, rerun targeted selectors, and record results under `reports/2025-10-17T231500Z/`.
+- No code execution this loop; committed supervisor plan updates (SUPERVISOR: probe size follow-up - tests: not run).
+- Next actions for Ralph: follow the new Do Now checklist to implement the probe sizing fix and capture green parity evidence.
+- <Action State>: [ready_for_implementation]
