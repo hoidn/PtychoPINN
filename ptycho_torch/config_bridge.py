@@ -67,13 +67,15 @@ from ptycho.config.config import (
     InferenceConfig as TFInferenceConfig
 )
 
-# Import PyTorch configs using try/except for environments where PyTorch may not be available
-try:
-    from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig
-except ImportError as e:
-    raise ImportError(
-        "PyTorch config_params module not available. Ensure ptycho_torch package is installed."
-    ) from e
+# Import PyTorch configs - module should be importable even without torch
+# thanks to optional import guard in config_params.py
+from ptycho_torch.config_params import (
+    DataConfig,
+    ModelConfig,
+    TrainingConfig,
+    InferenceConfig,
+    TORCH_AVAILABLE
+)
 
 
 def to_model_config(

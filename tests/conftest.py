@@ -38,8 +38,11 @@ def pytest_collection_modifyitems(config, items):
     # Add skip markers for tests requiring unavailable dependencies
     for item in items:
         # Skip torch tests if torch is not available
-        if "torch" in str(item.fspath).lower() or item.get_closest_marker("torch"):
-            if not torch_available:
+        # EXCEPTION: config_bridge tests can run without torch (use stub types)
+        is_config_bridge_test = "test_config_bridge" in str(item.fspath)
+
+        if ("torch" in str(item.fspath).lower() or item.get_closest_marker("torch")):
+            if not torch_available and not is_config_bridge_test:
                 item.add_marker(pytest.mark.skip(reason="PyTorch not available"))
 
 def pytest_runtest_setup(item):
