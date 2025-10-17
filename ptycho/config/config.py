@@ -266,24 +266,29 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
 
 def update_legacy_dict(cfg: Dict[str, Any], dataclass_obj: Any) -> None:
     """Update legacy dictionary with dataclass values.
-    
+
     ⚠️ CRITICAL: Call this BEFORE any data loading operations!
-    
+
     Common failure scenario:
-    - Symptom: Shape (*, 64, 64, 1) instead of (*, 64, 64, 4) with gridsize=2  
+    - Symptom: Shape (*, 64, 64, 1) instead of (*, 64, 64, 4) with gridsize=2
     - Cause: This function wasn't called before generate_grouped_data()
     - Fix: Call immediately after config setup, before load_data()
-    
+
     Updates values from the dataclass, but skips None values to preserve
     existing parameter values when new configuration doesn't specify them.
-    
+
     Args:
         cfg: Legacy dictionary to update
         dataclass_obj: Dataclass instance containing new values
     """
     new_values = dataclass_to_legacy_dict(dataclass_obj)
-    
+
     # Update values from dataclass, but skip None values to preserve existing params
+    # Convert any remaining Path objects to strings for legacy compatibility
     for key, value in new_values.items():
         if value is not None:
-            cfg[key] = value
+            # Convert Path to string if not already done by KEY_MAPPINGS
+            if isinstance(value, Path):
+                cfg[key] = str(value)
+            else:
+                cfg[key] = value
