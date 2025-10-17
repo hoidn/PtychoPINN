@@ -39,3 +39,17 @@
 - Coin flip (heads): Reviewed Ralph commits (`git show e29e41d`, `git show 1a8a856`) — progress is documentation-centric, no regressions detected, but PyTorch code remains untouched.
 - Open questions: Need a field-by-field singleton inventory for B2 failing test; expect Ralph to capture in new report.
 - <Action State>: [ready_for_implementation]
+
+
+## 2025-10-17T024638Z: Loop Planning Notes
+- Focus issue: INTEGRATE-PYTORCH-000
+- Action type: Planning
+- Mode: Docs
+
+- Findings check: `grep -n "PyTorch" docs/findings.md` returned none; no prior ledger entries to leverage.
+- Document review emphasized `plans/ptychodus_pytorch_integration_plan.md`, `plans/active/INTEGRATE-PYTORCH-001/implementation.md`, `specs/ptychodus_api_spec.md`, and `docs/workflows/pytorch.md` to scope the rebaseline needs.
+- Coin flip → heads: reviewed recent commits (`git log --oneline -10`, `git show c14dfeb`, `git show a1bed82`); Ralph has only touched ledger sync, no Phase B artifacts yet.
+- Authored new phased plan at `plans/active/INTEGRATE-PYTORCH-000/implementation.md` and refreshed `docs/fix_plan.md` entry with Attempt #0.
+- Reissued `input.md` directing Ralph to capture Phase A.A1 module inventory under `plans/active/INTEGRATE-PYTORCH-000/reports/2025-10-17T025000Z/`.
+- Next supervisor loop: confirm inventory artifacts exist, advance to Phase A.A2 delta tagging, then hand focus back to INTEGRATE-PYTORCH-001 once planning corpus is up to date.
+- <Action State>: [planning]

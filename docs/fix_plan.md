@@ -6,10 +6,19 @@
 
 ---
 
-## [INTEGRATE-PYTORCH-000] pre-Prepare for PyTorch Backend Integration with Ptychodus
-Existing INTEGRATE-PYTORCH-001 plan / report docs were drafted before merging upstream changes in ptycho_torch/. 
-They need to be updated to reflect the current pytorch implementation's state
-TODO expand this item
+## [INTEGRATE-PYTORCH-000] Pre-refresh Planning for PyTorch Backend Integration
+- Spec/AT: `plans/ptychodus_pytorch_integration_plan.md`, commit bfc22e7 (PyTorch tree rebase), and `specs/ptychodus_api_spec.md` for contractual alignment.
+- Priority: High
+- Status: in_progress
+- Owner/Date: Codex Agent/2025-10-17
+- Reproduction: N/A (planning + documentation refresh)
+- Working Plan: plans/active/INTEGRATE-PYTORCH-000/implementation.md
+- Attempts History:
+  * [2025-10-17] Attempt #0 — Planning: Authored phased rebaseline plan (`plans/active/INTEGRATE-PYTORCH-000/implementation.md`).
+- Exit Criteria:
+  - Phase A reports capture current `ptycho_torch/` module inventory and delta analysis (see plan for artifact paths).
+  - `plans/ptychodus_pytorch_integration_plan.md` updated to reflect rebased PyTorch stack.
+  - docs/fix_plan.md and downstream initiatives link to refreshed plan with current action state noted.
 
 
 ## [TEST-PYTORCH-001] Build Minimal Test Suite for PyTorch Backend
