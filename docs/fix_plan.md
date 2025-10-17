@@ -40,6 +40,20 @@
   - The test successfully runs a minimal train -> save -> load -> infer cycle using the PyTorch backend.
   - The test passes, confirming the basic viability of the PyTorch persistence layer.
 
+## [LEGACY-TESTS-001] Restore throughput/baseline pytest modules
+- Spec/AT: tests/test_benchmark_throughput.py, tests/test_run_baseline.py (legacy throughput/baseline coverage)
+- Priority: Medium
+- Status: pending
+- Owner/Date: Codex Agent/2025-10-17
+- Reproduction: `pytest tests/test_benchmark_throughput.py` (fails: ModuleNotFoundError for scripts.benchmark_inference_throughput); `pytest tests/test_run_baseline.py` (fails: ModuleNotFoundError for tests.test_utilities)
+- Working Plan: draft required THROUGHPUT/BASELINE shim (pending)
+- Attempts History:
+  * [2025-10-17] Attempt #0 — Planning: Item created after environment fix to track reinstatement of the two legacy tests; no implementation yet.
+- Exit Criteria:
+  - Provide/import replacement for scripts.benchmark_inference_throughput and shared test utilities, or demote the test modules with explicit xfail/skip and documented rationale.
+  - `pytest tests/test_benchmark_throughput.py` and `pytest tests/test_run_baseline.py` collect and pass (or are formally xfailed) without ModuleNotFoundError.
+
+
 ## [INTEGRATE-PYTORCH-001] Prepare for PyTorch Backend Integration with Ptychodus
 - Spec/AT: `specs/ptychodus_api_spec.md` and `plans/ptychodus_pytorch_integration_plan.md`.
 - Priority: High
