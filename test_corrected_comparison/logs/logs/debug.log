@@ -1,0 +1,195 @@
+2025-07-22 17:09:45,970 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-07-22 17:09:45,970 - INFO - Registration: enabled
+2025-07-22 17:09:45,970 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-07-22 17:09:45,970 - INFO - Loading test data from probe_study_data/ideal_test_converted.npz...
+2025-07-22 17:09:45,971 - INFO - Loading data from probe_study_data/ideal_test_converted.npz with n_images=None
+2025-07-22 17:09:46,010 - INFO - Using grouping-aware subsampling for gridsize=2: passing full dataset for group-first sampling
+2025-07-22 17:09:46,010 - INFO - diff3d shape: (1000, 64, 64)
+2025-07-22 17:09:46,010 - INFO - probeGuess shape: (64, 64)
+2025-07-22 17:09:46,010 - INFO - scan_index shape: (1000,)
+2025-07-22 17:09:46,010 - INFO - objectGuess shape: (224, 224)
+2025-07-22 17:09:46,010 - INFO - xcoords shape: (1000,)
+2025-07-22 17:09:46,010 - INFO - ycoords shape: (1000,)
+2025-07-22 17:09:46,010 - INFO - xcoords_start shape: (1000,)
+2025-07-22 17:09:46,011 - INFO - ycoords_start shape: (1000,)
+2025-07-22 17:09:46,011 - INFO - Loading PtychoPINN model from ideal_gs2_corrected/pinn_run...
+2025-07-22 17:09:46,868 - INFO - input shape
+2025-07-22 17:09:46,868 - INFO - (None, 64, 64, 1)
+2025-07-22 17:09:46,879 - WARNING - From /home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2025-07-22 17:09:46,990 - INFO - Model: "model"
+2025-07-22 17:09:46,990 - INFO - __________________________________________________________________________________________________
+2025-07-22 17:09:46,990 - INFO - Layer (type)                Output Shape                 Param #   Connected to
+2025-07-22 17:09:46,990 - INFO - ==================================================================================================
+2025-07-22 17:09:46,991 - INFO - input (InputLayer)          [(None, 64, 64, 4)]          0         []
+2025-07-22 17:09:46,991 - INFO - tf.math.truediv (TFOpLambd  (None, 64, 64, 4)            0         ['input[0][0]']
+2025-07-22 17:09:46,991 - INFO - a)
+2025-07-22 17:09:46,991 - INFO - conv2d (Conv2D)             (None, 64, 64, 64)           2368      ['tf.math.truediv[0][0]']
+2025-07-22 17:09:46,991 - INFO - conv2d_1 (Conv2D)           (None, 64, 64, 64)           36928     ['conv2d[0][0]']
+2025-07-22 17:09:46,991 - INFO - max_pooling2d (MaxPooling2  (None, 32, 32, 64)           0         ['conv2d_1[0][0]']
+2025-07-22 17:09:46,991 - INFO - D)
+2025-07-22 17:09:46,991 - INFO - conv2d_2 (Conv2D)           (None, 32, 32, 128)          73856     ['max_pooling2d[0][0]']
+2025-07-22 17:09:46,991 - INFO - conv2d_3 (Conv2D)           (None, 32, 32, 128)          147584    ['conv2d_2[0][0]']
+2025-07-22 17:09:46,991 - INFO - max_pooling2d_1 (MaxPoolin  (None, 16, 16, 128)          0         ['conv2d_3[0][0]']
+2025-07-22 17:09:46,991 - INFO - g2D)
+2025-07-22 17:09:46,991 - INFO - conv2d_4 (Conv2D)           (None, 16, 16, 256)          295168    ['max_pooling2d_1[0][0]']
+2025-07-22 17:09:46,991 - INFO - conv2d_5 (Conv2D)           (None, 16, 16, 256)          590080    ['conv2d_4[0][0]']
+2025-07-22 17:09:46,991 - INFO - max_pooling2d_2 (MaxPoolin  (None, 8, 8, 256)            0         ['conv2d_5[0][0]']
+2025-07-22 17:09:46,991 - INFO - g2D)
+2025-07-22 17:09:46,992 - INFO - conv2d_8 (Conv2D)           (None, 8, 8, 128)            295040    ['max_pooling2d_2[0][0]']
+2025-07-22 17:09:46,992 - INFO - conv2d_14 (Conv2D)          (None, 8, 8, 128)            295040    ['max_pooling2d_2[0][0]']
+2025-07-22 17:09:46,992 - INFO - conv2d_9 (Conv2D)           (None, 8, 8, 128)            147584    ['conv2d_8[0][0]']
+2025-07-22 17:09:46,992 - INFO - conv2d_15 (Conv2D)          (None, 8, 8, 128)            147584    ['conv2d_14[0][0]']
+2025-07-22 17:09:46,992 - INFO - up_sampling2d (UpSampling2  (None, 16, 16, 128)          0         ['conv2d_9[0][0]']
+2025-07-22 17:09:46,992 - INFO - D)
+2025-07-22 17:09:46,992 - INFO - up_sampling2d_2 (UpSamplin  (None, 16, 16, 128)          0         ['conv2d_15[0][0]']
+2025-07-22 17:09:46,992 - INFO - g2D)
+2025-07-22 17:09:46,992 - INFO - conv2d_10 (Conv2D)          (None, 16, 16, 64)           73792     ['up_sampling2d[0][0]']
+2025-07-22 17:09:46,992 - INFO - conv2d_16 (Conv2D)          (None, 16, 16, 64)           73792     ['up_sampling2d_2[0][0]']
+2025-07-22 17:09:46,992 - INFO - conv2d_11 (Conv2D)          (None, 16, 16, 64)           36928     ['conv2d_10[0][0]']
+2025-07-22 17:09:46,992 - INFO - conv2d_17 (Conv2D)          (None, 16, 16, 64)           36928     ['conv2d_16[0][0]']
+2025-07-22 17:09:46,992 - INFO - up_sampling2d_1 (UpSamplin  (None, 32, 32, 64)           0         ['conv2d_11[0][0]']
+2025-07-22 17:09:46,992 - INFO - g2D)
+2025-07-22 17:09:46,992 - INFO - up_sampling2d_3 (UpSamplin  (None, 32, 32, 64)           0         ['conv2d_17[0][0]']
+2025-07-22 17:09:46,992 - INFO - g2D)
+2025-07-22 17:09:46,993 - INFO - tf.__operators__.getitem (  (None, 32, 32, 60)           0         ['up_sampling2d_1[0][0]']
+2025-07-22 17:09:46,993 - INFO - SlicingOpLambda)
+2025-07-22 17:09:46,993 - INFO - tf.__operators__.getitem_1  (None, 32, 32, 60)           0         ['up_sampling2d_3[0][0]']
+2025-07-22 17:09:46,993 - INFO - (SlicingOpLambda)
+2025-07-22 17:09:46,993 - INFO - conv2d_6 (Conv2D)           (None, 32, 32, 1)            541       ['tf.__operators__.getitem[0][
+2025-07-22 17:09:46,993 - INFO - 0]']
+2025-07-22 17:09:46,993 - INFO - conv2d_12 (Conv2D)          (None, 32, 32, 4)            2164      ['tf.__operators__.getitem_1[0
+2025-07-22 17:09:46,993 - INFO - ][0]']
+2025-07-22 17:09:46,993 - INFO - amp (Lambda)                (None, 32, 32, 1)            0         ['conv2d_6[0][0]']
+2025-07-22 17:09:46,993 - INFO - phi (Lambda)                (None, 32, 32, 4)            0         ['conv2d_12[0][0]']
+2025-07-22 17:09:46,993 - INFO - amp_padded (ZeroPadding2D)  (None, 64, 64, 1)            0         ['amp[0][0]']
+2025-07-22 17:09:46,993 - INFO - phase_padded (ZeroPadding2  (None, 64, 64, 4)            0         ['phi[0][0]']
+2025-07-22 17:09:46,993 - INFO - D)
+2025-07-22 17:09:46,993 - INFO - obj (Lambda)                (None, 64, 64, 4)            0         ['amp_padded[0][0]',
+2025-07-22 17:09:46,993 - INFO - 'phase_padded[0][0]']
+2025-07-22 17:09:46,993 - INFO - input_positions (InputLaye  [(None, 1, 2, 4)]            0         []
+2025-07-22 17:09:46,993 - INFO - r)
+2025-07-22 17:09:46,993 - INFO - padded_obj_2 (Lambda)       (None, 78, 78, 1)            0         ['obj[0][0]',
+2025-07-22 17:09:46,993 - INFO - 'input_positions[0][0]']
+2025-07-22 17:09:46,994 - INFO - padded_objs_with_offsets (  (None, None, None, 1)        0         ['padded_obj_2[0][0]',
+2025-07-22 17:09:46,994 - INFO - Lambda)                                                             'input_positions[0][0]']
+2025-07-22 17:09:46,994 - INFO - probe_illumination (ProbeI  ((None, 64, 64, 1),          4096      ['padded_objs_with_offsets[0][
+2025-07-22 17:09:46,994 - INFO - llumination)                 (1, 1, 64, 64, 1))                    0]']
+2025-07-22 17:09:46,994 - INFO - pred_amplitude (Lambda)     ((None, 64, 64, 1),          0         ['probe_illumination[0][0]']
+2025-07-22 17:09:46,994 - INFO - (None, 64, 64, 1))
+2025-07-22 17:09:46,994 - INFO - pred_diff_channels (Lambda  (None, 64, 64, 4)            0         ['pred_amplitude[0][1]']
+2025-07-22 17:09:46,994 - INFO - )
+2025-07-22 17:09:46,994 - INFO - tf.math.multiply (TFOpLamb  (None, 64, 64, 4)            0         ['pred_diff_channels[0][0]']
+2025-07-22 17:09:46,994 - INFO - da)
+2025-07-22 17:09:46,994 - INFO - trimmed_obj (Lambda)        (None, 64, 64, 1)            0         ['padded_obj_2[0][0]']
+2025-07-22 17:09:46,994 - INFO - distribution_lambda (Distr  ((None, 64, 64, 4),          0         ['tf.math.multiply[0][0]']
+2025-07-22 17:09:46,994 - INFO - ibutionLambda)               (None, 64, 64, 4))
+2025-07-22 17:09:46,994 - INFO - ==================================================================================================
+2025-07-22 17:09:46,995 - INFO - Total params: 2259473 (8.63 MB)
+2025-07-22 17:09:46,995 - INFO - Trainable params: 2259473 (8.63 MB)
+2025-07-22 17:09:46,995 - INFO - Non-trainable params: 0 (0.00 Byte)
+2025-07-22 17:09:46,995 - INFO - __________________________________________________________________________________________________
+2025-07-22 17:09:46,995 - INFO - None
+2025-07-22 17:09:47,346 - INFO - input shape
+2025-07-22 17:09:47,346 - INFO - (None, 64, 64, 1)
+2025-07-22 17:09:47,597 - INFO - input shape
+2025-07-22 17:09:47,597 - INFO - (None, 64, 64, 1)
+2025-07-22 17:09:47,649 - INFO - Loading Baseline model from ideal_gs2_corrected/baseline_run...
+2025-07-22 17:09:47,649 - INFO - Found baseline model at: ideal_gs2_corrected/baseline_run/07-22-2025-17.07.32_baseline_gs2/baseline_model.h5
+2025-07-22 17:09:47,651 - DEBUG - Creating converter from 3 to 5
+2025-07-22 17:09:47,916 - INFO - Baseline model expects 4 channels (gridsize=2)
+2025-07-22 17:09:47,917 - INFO - PINN model expects 4 channels (gridsize=2)
+2025-07-22 17:09:47,917 - INFO - DEBUG:
+2025-07-22 17:09:47,917 - INFO - nsamples: 1000, gridsize: 2 (using smart group-first sampling)
+2025-07-22 17:09:47,917 - INFO - Using grouping-aware subsampling strategy for gridsize=2
+2025-07-22 17:09:47,918 - INFO - Groups cache loaded from dummy.g2k4.groups_cache.npz
+2025-07-22 17:09:47,918 - INFO - Using 1553 cached groups
+2025-07-22 17:09:47,918 - INFO - Randomly sampling 1000 groups from 1553 available groups
+2025-07-22 17:09:47,918 - INFO - Selected 1000 groups for training
+2025-07-22 17:09:47,927 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-07-22 17:09:54,300 - INFO - neighbor-sampled diffraction shape
+2025-07-22 17:09:54,300 - INFO - (1000, 64, 64, 4)
+2025-07-22 17:09:54,404 - INFO - loader: using provided ground truth patches.
+2025-07-22 17:09:54,732 - INFO - INFO:
+2025-07-22 17:09:54,732 - INFO - None
+2025-07-22 17:09:54,732 - INFO - <PtychoDataContainer X=(1000, 64, 64, 4) Y_I=(1000, 64, 64, 4) Y_phi=(1000, 64, 64, 4) norm_Y_I=() coords_nominal=(1000, 1, 2, 4) coords_true=(1000, 1, 2, 4) nn_indices=(1000, 4) mean=501.153 global_offsets=(1000, 1, 2, 1) mean=112.434 local_offsets=(1000, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.092>
+2025-07-22 17:09:54,733 - INFO - Created PINN container with shape: (1000, 64, 64, 4)
+2025-07-22 17:09:54,733 - INFO - DEBUG:
+2025-07-22 17:09:54,733 - INFO - nsamples: 1000, gridsize: 2 (using smart group-first sampling)
+2025-07-22 17:09:54,733 - INFO - Using grouping-aware subsampling strategy for gridsize=2
+2025-07-22 17:09:54,734 - INFO - Groups cache loaded from dummy.g2k4.groups_cache.npz
+2025-07-22 17:09:54,734 - INFO - Using 1553 cached groups
+2025-07-22 17:09:54,734 - INFO - Randomly sampling 1000 groups from 1553 available groups
+2025-07-22 17:09:54,734 - INFO - Selected 1000 groups for training
+2025-07-22 17:09:54,742 - INFO - INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+2025-07-22 17:10:01,056 - INFO - neighbor-sampled diffraction shape
+2025-07-22 17:10:01,057 - INFO - (1000, 64, 64, 4)
+2025-07-22 17:10:01,160 - INFO - loader: using provided ground truth patches.
+2025-07-22 17:10:01,163 - INFO - INFO:
+2025-07-22 17:10:01,163 - INFO - None
+2025-07-22 17:10:01,163 - INFO - <PtychoDataContainer X=(1000, 64, 64, 4) Y_I=(1000, 64, 64, 4) Y_phi=(1000, 64, 64, 4) norm_Y_I=() coords_nominal=(1000, 1, 2, 4) coords_true=(1000, 1, 2, 4) nn_indices=(1000, 4) mean=498.076 global_offsets=(1000, 1, 2, 1) mean=112.436 local_offsets=(1000, 1, 2, 4) mean=0.000 probe=(64, 64) mean_amplitude=0.092>
+2025-07-22 17:10:01,164 - INFO - Created baseline container with shape: (1000, 64, 64, 4)
+2025-07-22 17:10:01,164 - INFO - GEMINI DIAGNOSTIC: Baseline model using 4-channel data (gridsize=2 neighboring patches)
+2025-07-22 17:10:01,164 - INFO - GEMINI DIAGNOSTIC: PINN model using 4-channel data (gridsize=2 neighboring patches)
+2025-07-22 17:10:01,164 - INFO - Running inference with PtychoPINN...
+2025-07-22 17:10:01,164 - INFO - PINN input shape: (1000, 64, 64, 4) -> model expects: [(None, 64, 64, 4), (None, 1, 2, 4)]
+2025-07-22 17:10:01,931 - INFO - 1/32 [..............................] - ETA: 22s
+2025-07-22 17:10:01,981 - INFO - 13/32 [===========>..................] - ETA: 0s
+2025-07-22 17:10:02,032 - INFO - 25/32 [======================>.......] - ETA: 0s
+2025-07-22 17:10:02,274 - INFO - 32/32 [==============================] - ETA: 0s
+2025-07-22 17:10:02,274 - INFO - 32/32 [==============================] - 1s 11ms/step
+2025-07-22 17:10:02,315 - INFO - PtychoPINN inference completed successfully!
+2025-07-22 17:10:02,315 - INFO - Reassembling PtychoPINN patches...
+2025-07-22 17:10:02,774 - INFO - Running inference with Baseline model...
+2025-07-22 17:10:02,774 - INFO - Baseline input shape: (1000, 64, 64, 4) -> model expects: (None, 64, 64, 4)
+2025-07-22 17:10:03,051 - INFO - 1/32 [..............................] - ETA: 7s
+2025-07-22 17:10:03,102 - INFO - 10/32 [========>.....................] - ETA: 0s
+2025-07-22 17:10:03,155 - INFO - 19/32 [================>.............] - ETA: 0s
+2025-07-22 17:10:03,209 - INFO - 28/32 [=========================>....] - ETA: 0s
+2025-07-22 17:10:03,343 - INFO - 32/32 [==============================] - ETA: 0s
+2025-07-22 17:10:03,343 - INFO - 32/32 [==============================] - 1s 9ms/step
+2025-07-22 17:10:03,449 - INFO - Baseline inference completed successfully!
+2025-07-22 17:10:03,626 - INFO - Reassembling baseline patches...
+2025-07-22 17:10:03,690 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 843, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 653, in main
+    baseline_recon = reassemble_position(baseline_patches_complex, baseline_container.global_offsets, M=20)
+  File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 817, in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+  File "/home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/tmp/__autograph_generated_filekfb_k3th.py", line 106, in tf__shift_and_sum
+    result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+  File "/tmp/__autograph_generated_filekfb_k3th.py", line 98, in _streaming
+    (_, result) = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 742, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, None) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+
+2025-07-22 17:10:03,690 - ERROR - Traceback (most recent call last):
+2025-07-22 17:10:03,690 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 843, in <module>
+2025-07-22 17:10:03,690 - ERROR - main()
+2025-07-22 17:10:03,690 - ERROR - File "/home/ollie/Documents/PtychoPINN/scripts/compare_models.py", line 653, in main
+2025-07-22 17:10:03,691 - ERROR - baseline_recon = reassemble_position(baseline_patches_complex, baseline_container.global_offsets, M=20)
+2025-07-22 17:10:03,691 - ERROR - File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 817, in reassemble_position
+2025-07-22 17:10:03,691 - ERROR - return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+2025-07-22 17:10:03,691 - ERROR - File "/home/ollie/miniconda3/envs/ptycho-tf/lib/python3.10/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
+2025-07-22 17:10:03,691 - ERROR - raise e.with_traceback(filtered_tb) from None
+2025-07-22 17:10:03,691 - ERROR - File "/tmp/__autograph_generated_filekfb_k3th.py", line 106, in tf__shift_and_sum
+2025-07-22 17:10:03,691 - ERROR - result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+2025-07-22 17:10:03,691 - ERROR - File "/tmp/__autograph_generated_filekfb_k3th.py", line 98, in _streaming
+2025-07-22 17:10:03,691 - ERROR - (_, result) = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+2025-07-22 17:10:03,691 - ERROR - ValueError
+2025-07-22 17:10:03,691 - ERROR - :
+2025-07-22 17:10:03,691 - ERROR - in user code:
+
+    File "/home/ollie/Documents/PtychoPINN/ptycho/tf_helper.py", line 742, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, None) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
