@@ -424,3 +424,13 @@
 - Next actions for Ralph: deliver D4.A alignment narrative and selector map before TDD red tests.
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T112907Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D4.B regression tests
+- Action type: Evidence collection
+- Mode: Parity
+- Notes: Recording selections before executing Step <3.2>; will collect persistence + orchestration regression requirements for D4.B red tests. Detailed summary to follow after analysis.
+- Evidence summary: Reviewed `phase_d4_regression.md` D4.B expectations, inspected current persistence/workflow tests (`tests/torch/test_model_manager.py:327`, `tests/torch/test_workflows_components.py:340`) and confirmed gaps (no round-trip load, no persistence hooks). Mapped spec guardrails (`specs/ptychodus_api_spec.md:192`, CONFIG-001) for upcoming regression coverage.
+- Steering artifacts: Rewrote input.md for red-test loop, set artifact path `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T112849Z/`, and logged Attempt #55 in fix_plan.md.
+- Next steps for Ralph: add torch-optional failing tests (persistence + orchestration), capture logs, update plan checklists, and draft `phase_d4_red_summary.md`.
+- <Action State>: [ready_for_implementation]
