@@ -670,3 +670,8 @@
 - No code execution this loop; committed supervisor plan updates (SUPERVISOR: probe size follow-up - tests: not run).
 - Next actions for Ralph: follow the new Do Now checklist to implement the probe sizing fix and capture green parity evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T225300Z: Fix Plan Housekeeping
+- Consolidated docs/fix_plan.md to active high-priority items ([INTEGRATE-PYTORCH-001-STUBS], [INTEGRATE-PYTORCH-001-DATALOADER], [ADR-003-BACKEND-API], [INTEGRATE-PYTORCH-001-PROBE-SIZE]); archived completed or dormant entries in `archive/2025-10-17_fix_plan_archive.md`.
+- Added ledger note referencing the archive to maintain traceability.
+- <Action State>: [ready_for_implementation]
