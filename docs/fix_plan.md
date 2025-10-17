@@ -111,3 +111,4 @@
   - All gaps identified in the "TensorFlow ↔ PyTorch Parity Map" within `plans/ptychodus_pytorch_integration_plan.md` are addressed with a concrete implementation plan.
   - A `RawDataTorch` shim and `PtychoDataContainerTorch` class are implemented.
   - Configuration parity (Phase 1 of the integration plan) is complete and tested.
+  * [2025-10-17] Attempt #42 — Phase D2.A Setup: Marked Phase D1 rows complete in `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` and `implementation.md`, confirmed D1 artifacts (`reports/2025-10-17T085431Z/`). Rewrote `input.md` directing Ralph to execute D2.A via TDD parity test + torch-optional scaffold, artifacts to land under `reports/2025-10-17T091450Z/`. Mode=Parity, focus narrowed to scaffolding prior to training/inference.

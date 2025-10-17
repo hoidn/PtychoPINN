@@ -328,3 +328,27 @@
 - Reissued `input.md` (Docs mode) directing Ralph to execute D1.A–D1.C via callchain + decision artifacts in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/`.
 - Next focus: verify D1 evidence artifacts, then advance to D2 scaffolding.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T091152Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D2 orchestration adapters
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections before executing Step <3.2>. Detailed analysis to follow.
+
+- Reference docs for this loop:
+  - specs/ptychodus_api_spec.md — reconstructor lifecycle + config bridging obligations for orchestration.
+  - docs/workflows/pytorch.md — PyTorch workflow parity/skip rules for backend hooks.
+  - docs/architecture.md — baseline TensorFlow workflow map to mirror in PyTorch.
+  - plans/active/INTEGRATE-PYTORCH-001/implementation.md — phase checklist; needs D1 status sync.
+  - plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — D2 task board with checklist IDs.
+  - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/phase_d_callchain.md — TF callchain reference for parity.
+  - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/phase_d_asset_inventory.md — inventory of reusable PyTorch modules guiding D2 scaffolding.
+  - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T085431Z/phase_d_decision.md — D1 decision selecting Option B (orchestration shims).
+  - ptycho/workflows/components.py — TensorFlow orchestration source for parity cues.
+- Findings: CONFIG-001/MIGRATION-001/DATA-001 remain active constraints; per phase_d_decision Option B shims require new module `ptycho_torch/workflows/components.py`. Checked D1 artifacts (callchain, asset inventory, decision) and used them to scope D2.A.
+- Housekeeping: Marked D1.A–C complete in `phase_d_workflow.md` and D1 row in implementation plan to keep checklists authoritative.
+- Steering: Rewrote `input.md` (Parity mode) directing Ralph to TDD scaffolding (`tests/torch/test_workflows_components.py`) and torch-optional module skeleton; artifacts expected under `reports/2025-10-17T091450Z/`.
+- docs/fix_plan.md Attempt #42 logs this setup; focus remains INTEGRATE-PYTORCH-001 Phase D2.A.
+- Follow-up for Ralph: 1) add targeted pytest to confirm `update_legacy_dict` call, 2) create guarded scaffolding module + exports, 3) capture logs/notes in new report folder.
+- <Action State>: [ready_for_implementation]
+

@@ -74,7 +74,7 @@ Exit Criteria: `ptychodus` can call into PyTorch backend for train/infer; artifa
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Design PyTorch equivalents of `run_cdi_example` + `ModelManager` | [ ] | Execute D1.A–D1.C in `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md`; capture design + decision artifacts under `reports/<timestamp>/phase_d*`. |
+| D1 | Design PyTorch equivalents of `run_cdi_example` + `ModelManager` | [x] | ✅ 2025-10-17 — See `reports/2025-10-17T085431Z/{phase_d_callchain.md,phase_d_asset_inventory.md,phase_d_decision.md}` for callchain, asset inventory, and Option B decision. |
 | D2 | Implement orchestration entry points | [ ] | Follow Phase D2 checklist (D2.A–D2.C) in `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md`; enforce torch-optional imports and call `update_legacy_dict` at entry. |
 | D3 | Implement persistence shim | [ ] | Use Phase D3 tasks (D3.A–D3.C) in `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` to align Lightning checkpoints with ModelManager archives; log schema diffs + sample zips. |
 | D4 | Add regression tests | [ ] | Coordinate Phase D4 actions (D4.A–D4.C) with `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` and TEST-PYTORCH-001 to define red/green selectors and artifact manifests. |

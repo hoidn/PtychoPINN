@@ -15,9 +15,9 @@ Exit Criteria: Approved design note documenting call flow, module responsibiliti
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1.A | Capture current TensorFlow orchestration callchain | [ ] | Run `prompts/callchain.md` against `ptycho.workflows.components.run_cdi_example` using minimal ROI (single Fly sample). Save under `reports/<timestamp>/phase_d_callchain.md`. Highlight entry/exit signatures that must mirror in PyTorch. |
-| D1.B | Inventory PyTorch workflow assets | [ ] | Summarize reusable modules (`ptycho_torch.train.main`, `PtychoDataModule`, `train_utils`) vs gaps (missing inference CLI) in `reports/<timestamp>/phase_d_asset_inventory.md`. Tie findings back to `plans/ptychodus_pytorch_integration_plan.md` Delta-2. |
-| D1.C | Decide orchestration surface | [ ] | Author decision log (`reports/<timestamp>/phase_d_decision.md`) comparing (A) wrapping `ptycho_torch/api/*` vs (B) building thin shims around low-level modules. Include pros/cons, Lightning dependency policy, and persistence implications. |
+| D1.A | Capture current TensorFlow orchestration callchain | [x] | Completed 2025-10-17 — see `reports/2025-10-17T085431Z/phase_d_callchain.md` for annotated call flow and config bridge touchpoints. |
+| D1.B | Inventory PyTorch workflow assets | [x] | Completed 2025-10-17 — inventory and reuse scores captured in `reports/2025-10-17T085431Z/phase_d_asset_inventory.md`. |
+| D1.C | Decide orchestration surface | [x] | Completed 2025-10-17 — decision documented in `reports/2025-10-17T085431Z/phase_d_decision.md` selecting Option B (orchestration shims). |
 
 ---
 
