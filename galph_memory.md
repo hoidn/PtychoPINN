@@ -615,3 +615,6 @@
 - Action type: Review or housekeeping
 - Mode: Parity
 - Notes: Converted legacy ledger TODO into `[INTEGRATE-PYTORCH-001-STUBS]` entry (docs/fix_plan.md) documenting remaining Phase D2 stubs prior to selection. Verified Ralph’s latest loop (commit 9b69637, logs 215500Z) delivered E2.C artifacts but left phase_e2_implementation.md checklist unchecked. Proceeding to align plans/ledger with current state and prepare parity-evidence directive.
+- Summary: Updated Phase E plans to acknowledge E2.C completion (`plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`, `phase_e_integration.md`, `implementation.md`), added ledger item `[INTEGRATE-PYTORCH-001-STUBS]` for remaining D2 TODOs, and rewrote `input.md` directing E2.D1–E2.D3 evidence capture with artifacts under `reports/2025-10-18T093500Z/`. Logged Attempt #82 in docs/fix_plan.md capturing these housekeeping changes.
+- Next steps for Ralph: follow new input.md—run TensorFlow baseline + PyTorch integration selectors, archive logs, author parity summary, and update plan/ledger states.
+- <Action State>: [ready_for_implementation]
