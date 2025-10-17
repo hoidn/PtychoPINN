@@ -191,3 +191,16 @@
 - Updates: implementation plan B5 guidance now points at Attempt #19 artefacts; parity green plan marks B0 complete and clarifies B2/B4 scope; created `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T054009Z/supervisor_summary.md` with next engineering actions; input.md rewritten for Attempt #21.
 - Follow-up for Ralph: add probe_mask parity cases plus nphotons override error regression, record logs in the new report directory, and update ledger once tests run.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T055216Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B5 parity follow-through (plan upkeep after probe_mask/nphotons tests)
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections prior to document updates per instructions.
+
+- Review summary: Verified Attempt #21 probe_mask/nphotons evidence (`plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T054009Z/notes.md`) and confirmed parity suite now covers both fields.
+- Plan updates: Marked Phase B.B5 complete in `plans/active/INTEGRATE-PYTORCH-001/implementation.md` and checked B2/B4 in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md`; Verification checklist now reflects Attempt #21.
+- Ledger & instructions: Added Attempt #22 entry to `docs/fix_plan.md` and rewrote `input.md` directing Ralph to execute Phase C n_subsample override guard with new artifacts under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T055335Z/`.
+- Follow-up for Ralph: Add n_subsample parity tests, capture red/green selectors, enforce override validation in adapter, and log outcomes per parity plan Phase C.
+- <Action State>: [ready_for_implementation]
+

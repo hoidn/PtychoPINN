@@ -32,9 +32,9 @@ Exit Criteria: `pytest tests/torch/test_config_bridge.py -k "probe_mask or nphot
 | --- | --- | --- | --- |
 | B0 | Refactor parity harness to pytest style | [x] | Completed 2025-10-17 (Attempt #19) — see `reports/2025-10-17T052500Z/{status.md,pytest_parity.log}` confirming all 34 cases run green without torch. |
 | B1 | Implement probe_mask conversion | [x] | Completed 2025-10-17 — adapter logic landed in `reports/2025-10-17T045936Z/adapter_diff.md`; defaults verified in `bridge_probe_mask_check.md`. |
-| B2 | Extend tests for probe_mask | [ ] | Add explicit parity cases covering default (`None`→False) and override (`TensorType`→True) flows per `field_matrix.md` §probe_mask. Capture pytest output under new timestamped reports directory when executed. |
+| B2 | Extend tests for probe_mask | [x] | Attempt #21 added default/override parity cases; see `reports/2025-10-17T054009Z/{notes.md,pytest_probe_mask.log}` for green run evidence. Tensor→True scenario remains documented but untestable without torch tensors. |
 | B3 | Enforce nphotons override | [x] | Completed 2025-10-17 — adapter now raises ValueError when overrides missing; see `adapter_diff.md` + Attempt #17 summary. |
-| B4 | Tighten default divergence test | [ ] | Add regression asserting the `to_training_config` nphotons override error includes guidance (e.g., `provide overrides['nphotons']`). Pair with green-path test showing explicit override passes. Record logs alongside B2 artifacts. |
+| B4 | Tighten default divergence test | [x] | Attempt #21 added paired error/green-path tests validating ValueError messaging; artifacts at `reports/2025-10-17T054009Z/{notes.md,pytest_probe_mask.log}`. |
 
 ---
 
@@ -79,6 +79,6 @@ Exit Criteria: All parity tests green (or justified xfails), artifacts recorded,
 
 ## Verification Checklist
 - [x] Tests no longer skipped when torch absent; fallback strategy documented (see pytest_phaseA.log).
-- [ ] P0 probe_mask/nphotons tests green with explicit overrides enforced (add probe_mask parity + nphotons override message checks).
+- [x] P0 probe_mask/nphotons tests green with explicit overrides enforced (Attempt #21; see `reports/2025-10-17T054009Z/{notes.md,pytest_probe_mask.log}`).
 - [ ] params.cfg baseline comparison test added and passing, with override matrix recorded.
 - [ ] `pytest_green.log` stored under the new timestamped directory capturing the first green run.
