@@ -1,0 +1,156 @@
+=== Configuration ===
+Input file: tike_outputs/fly001/fly001_reconstructed.npz
+Output directory: prepare_1e4_photons_5k
+Images to simulate: 5000
+Photons per image: 1e4
+Random seed: 42
+=====================
+
+--- Step 0: Padding to Even Dimensions ---
+--- Processing for even dimensions: tike_outputs/fly001/fly001_reconstructed.npz ---
+Padding array from (231, 231) to (232, 232)...
+'probeGuess' already has even dimensions. No changes made.
+Saving processed data to: prepare_1e4_photons_5k/stages/01_padded/fly001_reconstructed_padded.npz
+--- Padding Complete ---
+
+--- Step 1: Canonicalizing NPZ Format ---
+Loading data from: prepare_1e4_photons_5k/stages/01_padded/fly001_reconstructed_padded.npz
+Processing 8 arrays...
+  - Renaming 'diff3d' to 'diffraction'
+✔ Saved consistently formatted data to: prepare_1e4_photons_5k/stages/02_transposed/fly001_reconstructed_transposed.npz
+
+--- Step 2: Interpolating Data (2x Zoom) ---
+Loading data from: prepare_1e4_photons_5k/stages/02_transposed/fly001_reconstructed_transposed.npz
+Identified Probe: 'probeGuess' (shape: (64, 64))
+Identified Object: 'objectGuess' (shape: (232, 232))
+Interpolating array from (64, 64) with zoom factor 2.0...
+  New shape: (128, 128)
+Interpolating array from (232, 232) with zoom factor 2.0...
+  New shape: (464, 464)
+Saving new NPZ file to: prepare_1e4_photons_5k/stages/03_interpolated/fly001_reconstructed_interpolated_2x.npz
+Success! Created prepare_1e4_photons_5k/stages/03_interpolated/fly001_reconstructed_interpolated_2x.npz
+Saved verification plot to: prepare_1e4_photons_5k/stages/03_interpolated/fly001_reconstructed_interpolated_2x_verification.png
+
+--- Step 3: Smoothing Probe (No-Op, sigma=0) ---
+Loading data from: prepare_1e4_photons_5k/stages/03_interpolated/fly001_reconstructed_interpolated_2x.npz
+Identified Probe: 'probeGuess' (shape: (128, 128))
+Identified Object: 'objectGuess' (shape: (464, 464))
+Applying Gaussian filter to complex array of shape (128, 128) (sigma=0.0)...
+- Amplitude and unwrapped phase smoothed.
+Saving new NPZ file to: prepare_1e4_photons_5k/stages/04_smooth_probe/fly001_reconstructed_interp_smooth_probe.npz
+Success! Created prepare_1e4_photons_5k/stages/04_smooth_probe/fly001_reconstructed_interp_smooth_probe.npz
+Saved verification plot to: prepare_1e4_photons_5k/stages/04_smooth_probe/fly001_reconstructed_interp_smooth_probe_verification.png
+
+--- Step 4: Smoothing Object (sigma=0.5) ---
+Loading data from: prepare_1e4_photons_5k/stages/04_smooth_probe/fly001_reconstructed_interp_smooth_probe.npz
+Identified Probe: 'probeGuess' (shape: (128, 128))
+Identified Object: 'objectGuess' (shape: (464, 464))
+Applying Gaussian filter to complex array of shape (464, 464) (sigma=0.5)...
+- Amplitude and unwrapped phase smoothed.
+Saving new NPZ file to: prepare_1e4_photons_5k/stages/05_smooth_object/fly001_reconstructed_interp_smooth_both.npz
+Success! Created prepare_1e4_photons_5k/stages/05_smooth_object/fly001_reconstructed_interp_smooth_both.npz
+Saved verification plot to: prepare_1e4_photons_5k/stages/05_smooth_object/fly001_reconstructed_interp_smooth_both_verification.png
+
+--- Step 5: Simulating New Diffraction Data ---
+2025-08-26 17:01:30.120033: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1756252890.131748 3251763 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1756252890.135849 3251763 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1756252890.146369 3251763 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1756252890.146379 3251763 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1756252890.146381 3251763 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1756252890.146382 3251763 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-08-26 17:01:30.149359: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1756252893.146699 3251763 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1756252893.148119 3251763 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 21901 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1756252893.714056 3251763 service.cc:152] XLA service 0x120f1980 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1756252893.714074 3251763 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-08-26 17:01:33.741963: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1756252893.763306 3251763 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1756252893.934911 3251763 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
+Instructions for updating:
+Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
+2025-08-26 17:02:14.698259: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+--- Configuration Updated for Simulation ---
+Current Parameters:
+--------------------
+N: 128
+amp_activation: sigmoid
+batch_size: 16
+bigN: 128
+big_gridsize: 10
+data_source: generic
+debug: True
+default_probe_scale: 0.7
+gaussian_smoothing_sigma: 0.0
+gridsize: 1
+h5_path: wts.h5
+intensity_scale.trainable: True
+label: 
+mae_weight: 0.0
+max_position_jitter: 10
+model_type: pinn
+n_filters_scale: 2
+n_images: 5000
+nepochs: 50
+nimgs_test: 3
+nimgs_train: 9
+nll_weight: 1.0
+nphotons: 10000.0
+npseed: 42
+object.big: True
+offset: 4
+outer_offset_test: None
+outer_offset_train: None
+output_prefix: training_outputs
+pad_object: True
+positions.provided: True
+probe.big: True
+probe.mask: False
+probe.trainable: False
+probe_scale: 4.0
+realspace_mae_weight: 0.0
+realspace_weight: 0.0
+sequential_sampling: False
+set_phi: False
+sim_jitter_scale: 0.0
+size: 392
+test_data_file_path: dummy.npz
+train_data_file_path: dummy.npz
+tv_weight: 0.0
+use_xla_translate: True
+------------------------------------------
+
+Loading object and probe from: prepare_1e4_photons_5k/stages/05_smooth_object/fly001_reconstructed_interp_smooth_both.npz
+  - Object shape: (464, 464)
+  - Probe shape: (128, 128)
+Setting random seed to: 42
+Simulating 5000 diffraction patterns...
+DEBUG: Setting N to 128 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+input shape (None, 128, 128, 1)
+diff3d shape: (5000, 128, 128)
+probeGuess shape: (128, 128)
+scan_index shape: (5000,)
+objectGuess shape: (464, 464)
+xcoords shape: (5000,)
+ycoords shape: (5000,)
+xcoords_start shape: (5000,)
+ycoords_start shape: (5000,)
+DEBUG: Setting N to 128 in params
+DEBUG: Setting gridsize to 1 in params
+DEBUG: Setting nphotons to 10000.0 in params
+Simulation complete.
+Added source 'objectGuess' to the output dataset for ground truth.
+Saving simulated data to: prepare_1e4_photons_5k/stages/06_simulated/fly001_reconstructed_final_simulated_data.npz
+File saved successfully with metadata (nphotons=10000.0).
+Generating visualization plot...
+✓ Saved visualization to prepare_1e4_photons_5k/stages/06_simulated/fly001_reconstructed_final_simulated_data_visualization.png
+
+--- Step 6: Downsampling Simulated Data ---
+Error: Object arrays cannot be loaded when allow_pickle=False
+--- Downsampling Data from: prepare_1e4_photons_5k/stages/06_simulated/fly001_reconstructed_final_simulated_data.npz ---

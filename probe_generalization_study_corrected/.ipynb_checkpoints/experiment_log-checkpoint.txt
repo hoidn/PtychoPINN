@@ -1,0 +1,16 @@
+# Probe Generalization Study Execution Log
+# Started: Tue Jul 22 05:16:23 PM PDT 2025
+
+[2025-07-22 17:16:23] [INFO] Validating system resources and data files...
+[2025-07-22 17:16:23] [INFO] All required data files found
+[2025-07-22 17:16:23] [INFO] All configuration files validated
+[2025-07-22 17:16:23] [INFO] Adequate disk space available: 299632412KB
+[2025-07-22 17:16:23] [INFO] Output directory is writable
+[2025-07-22 17:16:23] [INFO] Resource validation complete
+[2025-07-22 17:16:23] [INFO] === Executing Arm 1/4: exp_gs1 ===
+[2025-07-22 17:16:23] [INFO] Starting experimental arm: exp_gs1
+[2025-07-22 17:16:23] [INFO]   Train data: probe_study_data/exp_train_converted.npz
+[2025-07-22 17:16:23] [INFO]   Test data: probe_study_data/exp_test_converted.npz
+[2025-07-22 17:16:23] [INFO]   Config: configs/comparison_config_gs1.yaml
+[2025-07-22 17:16:23] [INFO]   Output: probe_generalization_study_corrected/exp_gs1
+[2025-07-22 17:16:23] [INFO] Arm 'exp_gs1' already completed, skipping...
