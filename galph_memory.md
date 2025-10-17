@@ -576,3 +576,15 @@
 - Logged Attempt #74 in docs/fix_plan.md and rewrote `input.md` with Docs-mode checklist covering F4.2.A–C plus ledger updates.
 - Next steps for Ralph: apply spec edits, add POLICY-001 finding, update CLAUDE directive cross-links, then record results in `spec_sync.md` and mark plan rows complete.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T205927Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase F4.3 handoff coordination
+- Action type: Planning
+- Mode: Docs
+- Notes: Recording selections prior to Step <3.2>.
+
+- Updates: Authored `plans/active/INTEGRATE-PYTORCH-001/phase_f4_handoff.md` (H1–H4) detailing owner matrix, CI steps, verification cadence, and ledger sync requirements. Updated `phase_f4_doc_sync.md:39-48` and `phase_f_torch_mandatory.md:60` to reference the new guidance and require a fresh report directory (2025-10-17T210328Z example). Implementation plan row `implementation.md:117` now points at the new checklist.
+- Steering: Wrote `input.md` directing Ralph to create `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T210328Z/` with `handoff_notes.md`, map owners, document CI updates/pytest cadence, and log ledger updates.
+- Next Steps for Ralph: Execute F4.3 tasks per new plan, populate handoff notes, mark plan/ledger checkboxes, prepare for v2.0.0 release entry.
+- <Action State>: [ready_for_implementation]
+

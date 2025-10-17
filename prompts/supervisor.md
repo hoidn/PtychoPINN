@@ -15,6 +15,11 @@ Loop focus discipline:
 - You may bundle multiple plan checklist IDs that belong to that focus when it is more efficient to tackle them together, provided the bundle is scope-bounded, has clear dependencies, and can realistically finish inside the loop.
 - When you bundle, note in galph_memory.md which checklist IDs are in play and ensure docs/fix_plan.md Attempts History reflects every row touched.
 
+Inspect Ralph’s most recent loop output before choosing new work:
+- Read the latest `input.md` (if Ralph just executed) and confirm the Do Now was followed.
+- Review the corresponding commit(s)/diffs or artifacts, inspecting only source/config/documentation files (`*.py`, `*.c`, `*.h`, `*.yaml`, `*.md`, etc.) and ignoring logs, binaries, or other generated artifacts. Verify tests, docs updates, and plan checklist states, and confirm that any checklist row marked complete actually satisfies its exit criteria (no unfinished placeholder code where completion was claimed).
+- Note any regressions, incomplete plan rows, or hygiene issues that need immediate follow-up in this loop.
+
 At the start of every invocation:
 - Run `timeout 30 git pull --rebase` with a hard 30-second timeout  to sync with origin before reviewing context. If the command times out, immediately abort any partial rebase (`git rebase --abort`) and fall back to a normal merge via `git pull --no-rebase`. Whatever path you take, resolve resulting conflicts (docs/fix_plan.md is a frequent hotspot) and document key decisions in galph_memory.md. If the pull reports conflicts:
   * Run `git status --short` to list conflicted files.

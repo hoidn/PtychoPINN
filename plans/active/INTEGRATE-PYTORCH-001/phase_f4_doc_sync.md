@@ -43,9 +43,9 @@ Exit Criteria: Handoff notes committed under `reports/<timestamp>/handoff_notes.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F4.3.A | Map impacted initiatives & CI tasks | [ ] | Enumerate follow-up actions for TEST-PYTORCH-001, CI/CD, and repository prerequisites (submodule addition). Include owners or TBD notes in `handoff_notes.md`. |
-| F4.3.B | Define verification cadence | [ ] | Specify how/when to re-run targeted suites post-doc/spec changes (likely `pytest --collect-only tests/torch/` to validate skip messaging). Log command guidance in `handoff_notes.md`. |
-| F4.3.C | Update plan & ledger cross-references | [ ] | After edits land, update `phase_f_torch_mandatory.md` F4 row and docs/fix_plan.md attempt history with artifact paths + remaining risks. Summarize completion criteria in `handoff_notes.md`. |
+| F4.3.A | Map impacted initiatives & CI tasks | [ ] | Follow `phase_f4_handoff.md` (H1–H2) to capture owner/action matrix covering TEST-PYTORCH-001, CI/CD runners, Ptychodus integration, and release/versioning. Record findings in `handoff_notes.md` with doc references (`plans/pytorch_integration_test_plan.md`, governance §7). |
+| F4.3.B | Define verification cadence | [ ] | Use `phase_f4_handoff.md` H3 guidance to list authoritative commands (e.g., `pytest --collect-only tests/torch/ -q`, `pytest tests/torch/test_backend_selection.py -k pytorch_unavailable_raises_error -vv`, `pytest tests/torch/test_config_bridge.py -k parity -vv`) and expected outcomes. Store under verification section of `handoff_notes.md`. |
+| F4.3.C | Update plan & ledger cross-references | [ ] | Document final synchronization steps per `phase_f4_handoff.md` H4: mark `phase_f_torch_mandatory.md` F4 row complete, log docs/fix_plan.md attempt with artifact path, outline v2.0.0 release + CHANGELOG update. Capture checklist in `handoff_notes.md`. |
 
 ---
 
