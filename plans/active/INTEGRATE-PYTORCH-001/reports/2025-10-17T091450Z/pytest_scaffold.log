@@ -1,0 +1,192 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestWorkflowsComponentsScaffold.test_run_cdi_example_calls_update_legacy_dict _
+
+self = <test_workflows_components.TestWorkflowsComponentsScaffold object at 0x724f1cb0e350>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x724f1a1f4790>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...e_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False)
+
+    def test_run_cdi_example_calls_update_legacy_dict(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config
+    ):
+        """
+        CRITICAL PARITY TEST: run_cdi_example_torch must call update_legacy_dict.
+    
+        Requirement: specs/ptychodus_api_spec.md:187 mandates that PyTorch entry
+        points must synchronize params.cfg via update_legacy_dict() to prevent
+        silent CONFIG-001 violations (shape mismatch errors from empty params.cfg).
+    
+        Red-phase contract:
+        - Entry signature: run_cdi_example_torch(train_data, test_data, config, ...)
+        - MUST call ptycho.config.config.update_legacy_dict(params.cfg, config)
+        - Stub implementation may raise NotImplementedError for paths Phase D2.B/C fill
+    
+        Test mechanism:
+        - Use monkeypatch to spy on update_legacy_dict calls
+        - Pass minimal dummy data (no actual training execution required)
+        - Assert update_legacy_dict was invoked with correct params.cfg + config args
+        """
+        # Import the module under test
+        # This import must succeed even when torch unavailable (torch-optional)
+>       from ptycho_torch.workflows import components as torch_components
+E       ModuleNotFoundError: No module named 'ptycho_torch.workflows'
+
+tests/torch/test_workflows_components.py:97: ModuleNotFoundError
+---------------------------- Captured stderr setup -----------------------------
+2025-10-17 02:19:46.681786: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760692786.693763 3521215 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760692786.697624 3521215 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760692786.708844 3521215 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760692786.708868 3521215 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760692786.708871 3521215 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760692786.708873 3521215 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 02:19:46.711668: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict - ModuleNotFoundError: No module named 'ptycho_torch.workflows'
+============================== 1 failed in 3.17s ===============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestWorkflowsComponentsScaffold.test_run_cdi_example_calls_update_legacy_dict _
+
+self = <test_workflows_components.TestWorkflowsComponentsScaffold object at 0x750cb2baeb10>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750cc27b2890>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...e_trainable=False, intensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False)
+
+    def test_run_cdi_example_calls_update_legacy_dict(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config
+    ):
+        """
+        CRITICAL PARITY TEST: run_cdi_example_torch must call update_legacy_dict.
+    
+        Requirement: specs/ptychodus_api_spec.md:187 mandates that PyTorch entry
+        points must synchronize params.cfg via update_legacy_dict() to prevent
+        silent CONFIG-001 violations (shape mismatch errors from empty params.cfg).
+    
+        Red-phase contract:
+        - Entry signature: run_cdi_example_torch(train_data, test_data, config, ...)
+        - MUST call ptycho.config.config.update_legacy_dict(params.cfg, config)
+        - Stub implementation may raise NotImplementedError for paths Phase D2.B/C fill
+    
+        Test mechanism:
+        - Use monkeypatch to spy on update_legacy_dict calls
+        - Pass minimal dummy data (no actual training execution required)
+        - Assert update_legacy_dict was invoked with correct params.cfg + config args
+        """
+        # Import the module under test
+        # This import must succeed even when torch unavailable (torch-optional)
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho.raw_data import RawData
+    
+        # Spy flag to track update_legacy_dict invocation
+        update_legacy_dict_called = {"called": False, "args": None}
+    
+        def mock_update_legacy_dict(cfg_dict, config_obj):
+            """Spy that records invocation and delegates to real function."""
+            update_legacy_dict_called["called"] = True
+            update_legacy_dict_called["args"] = (cfg_dict, config_obj)
+            # Call the real function to populate params.cfg for validation
+            update_legacy_dict(cfg_dict, config_obj)
+    
+        # Patch update_legacy_dict with spy
+        monkeypatch.setattr(
+            "ptycho.config.config.update_legacy_dict",
+            mock_update_legacy_dict
+        )
+    
+        # Create minimal dummy train_data (RawData-compatible stub)
+        # For scaffold test, we don't need valid NPZ data — just RawData structure
+        dummy_coords = np.array([0.0, 1.0, 2.0])
+        dummy_diff = np.random.rand(3, 64, 64).astype(np.float32)
+        dummy_probe = np.ones((64, 64), dtype=np.complex64)
+        dummy_scan_index = np.array([0, 1, 2], dtype=int)
+    
+        train_data = RawData(
+            xcoords=dummy_coords,
+            ycoords=dummy_coords,
+            xcoords_start=dummy_coords,
+            ycoords_start=dummy_coords,
+            diff3d=dummy_diff,
+            probeGuess=dummy_probe,
+            scan_index=dummy_scan_index,
+        )
+    
+        # Attempt to call run_cdi_example_torch
+        # Phase D2.A: expect NotImplementedError (scaffold only)
+        # Phase D2.B/C: expect full execution after training/inference impl
+        with pytest.raises(NotImplementedError, match="PyTorch training path not yet implemented"):
+            torch_components.run_cdi_example_torch(
+                train_data=train_data,
+                test_data=None,  # Optional
+                config=minimal_training_config,
+                flip_x=False,
+                flip_y=False,
+                transpose=False,
+                M=20,
+                do_stitching=False,
+            )
+    
+        # Validate update_legacy_dict was called
+>       assert update_legacy_dict_called["called"], (
+            "run_cdi_example_torch MUST call update_legacy_dict before delegating "
+            "to prevent CONFIG-001 violations (params.cfg empty → shape mismatches)"
+        )
+E       AssertionError: run_cdi_example_torch MUST call update_legacy_dict before delegating to prevent CONFIG-001 violations (params.cfg empty → shape mismatches)
+E       assert False
+
+tests/torch/test_workflows_components.py:150: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+2025-10-17 02:21:40.328900: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760692900.340316 3522000 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760692900.344257 3522000 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760692900.355256 3522000 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760692900.355273 3522000 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760692900.355276 3522000 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760692900.355278 3522000 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 02:21:40.358125: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (3, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (3,)
+xcoords shape: (3,)
+ycoords shape: (3,)
+xcoords_start shape: (3,)
+ycoords_start shape: (3,)
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict - AssertionError: run_cdi_example_torch MUST call update_legacy_dict before delegating to prevent CONFIG-001 violations (params.cfg empty → shape mismatches)
+assert False
+============================== 1 failed in 3.79s ===============================
