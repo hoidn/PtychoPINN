@@ -178,5 +178,195 @@ class TestDataloaderCanonicalKeySupport(unittest.TestCase):
         )
 
 
+class TestDataloaderFormatAutoTranspose(unittest.TestCase):
+    """
+    Unit tests for automatic legacy format detection and transposition.
+
+    Tests the _get_diffraction_stack() function's ability to detect and fix
+    legacy (H, W, N) format datasets, ensuring they're transposed to DATA-001
+    compliant (N, H, W) format.
+
+    Status: GREEN PHASE (post-implementation)
+    """
+
+    def setUp(self):
+        """Create temporary directory for test NPZ files."""
+        self.test_dir = tempfile.TemporaryDirectory()
+        self.data_path = Path(self.test_dir.name)
+
+    def tearDown(self):
+        """Clean up temporary directory."""
+        self.test_dir.cleanup()
+
+    def test_auto_transposes_legacy_hwn_format(self):
+        """
+        Test that legacy (H, W, N) format is automatically transposed to (N, H, W).
+
+        Regression test for INTEGRATE-PYTORCH-001-DATALOADER-INDEXING:
+        Dataset Run1084_recon3_postPC_shrunk_3.npz has shape (64, 64, 1087),
+        which caused IndexError when nn_indices contained values > 64.
+        """
+        # Arrange: Create NPZ with legacy (H, W, N) format
+        from ptycho_torch.dataloader import _get_diffraction_stack
+
+        H, W, N = 64, 64, 100
+        legacy_diffraction = np.random.rand(H, W, N).astype(np.float32)
+
+        npz_path = self.data_path / "legacy_format.npz"
+        np.savez(str(npz_path), diffraction=legacy_diffraction)
+
+        # Act
+        result = _get_diffraction_stack(npz_path)
+
+        # Assert
+        expected_shape = (N, H, W)
+        self.assertEqual(
+            result.shape, expected_shape,
+            f"Legacy (H,W,N) format should be transposed to (N,H,W). "
+            f"Got {result.shape}, expected {expected_shape}"
+        )
+
+    def test_preserves_canonical_nwh_format(self):
+        """
+        Test that canonical (N, H, W) format is preserved without transposition.
+        """
+        # Arrange: Create NPZ with canonical (N, H, W) format
+        from ptycho_torch.dataloader import _get_diffraction_stack
+
+        N, H, W = 100, 64, 64
+        canonical_diffraction = np.random.rand(N, H, W).astype(np.float32)
+
+        npz_path = self.data_path / "canonical_format.npz"
+        np.savez(str(npz_path), diffraction=canonical_diffraction)
+
+        # Act
+        result = _get_diffraction_stack(npz_path)
+
+        # Assert
+        self.assertEqual(
+            result.shape, (N, H, W),
+            "Canonical (N,H,W) format should be preserved as-is"
+        )
+
+    def test_handles_edge_case_square_dataset(self):
+        """
+        Test edge case where N ≈ H ≈ W (ambiguous format).
+
+        In this case, the heuristic should preserve the original format
+        since there's no clear signal of legacy format.
+        """
+        # Arrange: Create NPZ where all dimensions are similar
+        from ptycho_torch.dataloader import _get_diffraction_stack
+
+        # Shape (65, 64, 64) — last dim NOT much larger, should be preserved
+        N, H, W = 65, 64, 64
+        ambiguous_diffraction = np.random.rand(N, H, W).astype(np.float32)
+
+        npz_path = self.data_path / "ambiguous_format.npz"
+        np.savez(str(npz_path), diffraction=ambiguous_diffraction)
+
+        # Act
+        result = _get_diffraction_stack(npz_path)
+
+        # Assert: Should preserve original since last dim not >> first dims
+        self.assertEqual(
+            result.shape, (N, H, W),
+            "Ambiguous format should be preserved (no auto-transpose)"
+        )
+
+    def test_works_with_diff3d_legacy_key(self):
+        """
+        Test auto-transpose also works with legacy 'diff3d' key.
+        """
+        # Arrange: Create NPZ with diff3d key in legacy format
+        from ptycho_torch.dataloader import _get_diffraction_stack
+
+        H, W, N = 64, 64, 150
+        legacy_diffraction = np.random.rand(H, W, N).astype(np.float32)
+
+        npz_path = self.data_path / "diff3d_legacy.npz"
+        np.savez(str(npz_path), diff3d=legacy_diffraction)
+
+        # Act
+        result = _get_diffraction_stack(npz_path)
+
+        # Assert
+        self.assertEqual(
+            result.shape, (N, H, W),
+            "Legacy format should be transposed even with 'diff3d' key"
+        )
+
+    def test_real_dataset_dimensions(self):
+        """
+        Test with actual problematic dataset dimensions from Run1084.
+
+        This is the exact case that triggered the IndexError:
+        - Original shape: (64, 64, 1087)
+        - Should transpose to: (1087, 64, 64)
+        """
+        # Arrange: Simulate Run1084_recon3_postPC_shrunk_3.npz dimensions
+        from ptycho_torch.dataloader import _get_diffraction_stack
+
+        H, W, N = 64, 64, 1087
+        legacy_diffraction = np.random.rand(H, W, N).astype(np.float32)
+
+        npz_path = self.data_path / "run1084_sim.npz"
+        np.savez(str(npz_path), diffraction=legacy_diffraction)
+
+        # Act
+        result = _get_diffraction_stack(npz_path)
+
+        # Assert
+        self.assertEqual(
+            result.shape, (1087, 64, 64),
+            "Run1084-style dataset should be transposed to (1087, 64, 64)"
+        )
+
+        # Verify we can index with nn_indices that would have caused the crash
+        test_indices = [0, 367, 722, 1086]  # Values that appeared in error log
+        try:
+            _ = result[test_indices]
+        except IndexError:
+            self.fail(
+                f"Should be able to index transposed array with indices {test_indices}, "
+                f"but got IndexError. This means the fix didn't resolve the bug."
+            )
+
+    def test_npz_headers_also_transposes_shape(self):
+        """
+        Test that npz_headers() returns transposed shape for legacy format.
+
+        This is CRITICAL because npz_headers() is used to pre-allocate memory maps.
+        If the shape isn't transposed here, the memory map will have wrong dimensions
+        even if _get_diffraction_stack() transposes the data.
+
+        Regression test for the RuntimeError: tensor size mismatch during assignment.
+        """
+        # Arrange: Create NPZ with legacy (H, W, N) format
+        from ptycho_torch.dataloader import npz_headers
+
+        H, W, N = 64, 64, 1087
+        legacy_diffraction = np.random.rand(H, W, N).astype(np.float32)
+        xcoords = np.random.rand(N).astype(np.float64) * 100
+        ycoords = np.random.rand(N).astype(np.float64) * 100
+
+        npz_path = self.data_path / "legacy_for_headers.npz"
+        np.savez(str(npz_path), diffraction=legacy_diffraction, xcoords=xcoords, ycoords=ycoords)
+
+        # Act
+        shape, coords_x, coords_y = npz_headers(npz_path)
+
+        # Assert: Shape should be transposed
+        self.assertEqual(
+            shape, (1087, 64, 64),
+            f"npz_headers() must transpose legacy format for memory map allocation. "
+            f"Got {shape}, expected (1087, 64, 64)"
+        )
+
+        # Verify coordinates loaded correctly
+        self.assertEqual(len(coords_x), N)
+        self.assertEqual(len(coords_y), N)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -72,6 +72,14 @@ def npz_headers(npz):
                  f"See specs/data_contracts.md for required NPZ format."
              )
 
+        # Auto-detect and fix legacy (H, W, N) format
+        # This MUST match the transpose logic in _get_diffraction_stack()
+        # so memory maps are allocated with correct dimensions
+        if len(diffraction_shape) == 3:
+            if diffraction_shape[2] > max(diffraction_shape[0], diffraction_shape[1]):
+                # Legacy format detected: transpose (H, W, N) → (N, H, W)
+                diffraction_shape = (diffraction_shape[2], diffraction_shape[0], diffraction_shape[1])
+
         # Second pass for coordinates (load them) - needed for filtering
         with np.load(npz) as data:
             if 'xcoords' in data and 'ycoords' in data:
@@ -85,16 +93,18 @@ def npz_headers(npz):
 
 def _get_diffraction_stack(npz_file):
     """
-    Helper to load diffraction stack from NPZ with canonical key preference.
+    Helper to load diffraction stack from NPZ with canonical key preference
+    and automatic legacy format handling.
 
     Prefers canonical 'diffraction' key per DATA-001 spec, with fallback to
-    legacy 'diff3d' key for backward compatibility.
+    legacy 'diff3d' key for backward compatibility. Automatically detects and
+    transposes legacy (H, W, N) format to DATA-001 compliant (N, H, W) format.
 
     Args:
         npz_file: Path to NPZ file
 
     Returns:
-        numpy.ndarray: Diffraction patterns (amplitude, float32)
+        numpy.ndarray: Diffraction patterns (amplitude, float32) in shape (N, H, W)
 
     Raises:
         ValueError: If neither canonical nor legacy key exists
@@ -102,16 +112,29 @@ def _get_diffraction_stack(npz_file):
     with np.load(npz_file) as data:
         # Try canonical key first (DATA-001 spec)
         if 'diffraction' in data:
-            return data['diffraction']
+            diff_array = data['diffraction']
         # Fallback to legacy key
         elif 'diff3d' in data:
-            return data['diff3d']
+            diff_array = data['diff3d']
         else:
             raise ValueError(
                 f"Could not find diffraction data in {npz_file}. "
                 f"Expected canonical 'diffraction' key or legacy 'diff3d' key. "
                 f"See specs/data_contracts.md for required NPZ format."
             )
+
+        # Auto-detect and fix legacy (H, W, N) format
+        # DATA-001 requires (N, H, W) where N is typically >> H,W (e.g., 1087 vs 64)
+        if len(diff_array.shape) == 3:
+            # Heuristic: if last dim is much larger than first two, assume legacy format
+            if diff_array.shape[2] > max(diff_array.shape[0], diff_array.shape[1]):
+                print(
+                    f"⚠ Legacy format {diff_array.shape} detected in {npz_file}, "
+                    f"transposing to DATA-001 compliant (N, H, W)"
+                )
+                diff_array = np.transpose(diff_array, [2, 0, 1])
+
+        return diff_array
 
 
 # --- Tensordict patcher function ---
