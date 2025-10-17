@@ -698,3 +698,15 @@
 - Rewrote `input.md` (Mode=Docs) directing Ralph to execute Phase A baseline tasks, capture integration failure log, and populate `baseline.md` under `reports/2025-10-17T233109Z/phase_d2_completion/`.
 - References: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md` for latest failure, findings POLICY-001 / FORMAT-001 for compliance checks, `ptycho_torch/workflows/components.py:153` stub context.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T234133Z: Focus Declaration
+- Focus issue: TEST-PYTORCH-001 integration test plan tracking
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: coin flip tails, proceeding directly to ledger alignment; objective is to ensure `plans/pytorch_integration_test_plan.md` has a matching docs/fix_plan.md entry and cross-references. No plan edits yet.
+- <Action State>: [gathering_evidence]
+
+## 2025-10-17T234218Z: Ledger Update
+- Added `[TEST-PYTORCH-001]` entry to docs/fix_plan.md referencing the existing charter (`plans/pytorch_integration_test_plan.md`) and spelling out dependencies, exit criteria, and need to migrate into `plans/active/TEST-PYTORCH-001/implementation.md`.
+- No additional plan artifacts created this loop; flagged active-plan migration as prerequisite in Working Plan field.
+- <Action State>: [ready_for_implementation]

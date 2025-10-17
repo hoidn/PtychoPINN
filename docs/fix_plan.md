@@ -83,3 +83,17 @@
   - Targeted regression reproduces and then validates fix (`pytest tests/torch/test_integration_workflow_torch.py -vv` plus new unit coverage for neighbor indexing). ✅
   - Dataloader correctly bounds neighbor indices for canonical DATA-001 dataset (64 samples) and oversampled configurations; evidence stored under timestamped reports. ✅
   - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` D2 guidance updated with resolution summary and removal of indexing blocker note. ✅ (Integration test advances past dataloader to inference phase)
+
+## [TEST-PYTORCH-001] Author PyTorch integration workflow regression
+- Depends on: INTEGRATE-PYTORCH-001 (Phase E2 complete); POLICY-001 torch-required rollout
+- Spec/AT: `specs/ptychodus_api_spec.md` §4 (reconstructor lifecycle), `docs/workflows/pytorch.md` §§2–6, `docs/TESTING_GUIDE.md` (integration tier), `plans/pytorch_integration_test_plan.md`
+- Priority: High
+- Status: pending
+- Owner/Date: Codex Agent/2025-10-17
+- Working Plan: `plans/pytorch_integration_test_plan.md` (to be migrated into `plans/active/TEST-PYTORCH-001/implementation.md` with phased checklist)
+- Attempts History:
+  * [2025-10-17] Attempt #0 — Charter drafted at `plans/pytorch_integration_test_plan.md`; outlines runtime harness, fixture requirements, and acceptance criteria. Awaiting active plan conversion and execution artifacts.
+- Exit Criteria:
+  - Active plan document created under `plans/active/TEST-PYTORCH-001/implementation.md` referencing charter, with phased checklist and artifact map.
+  - PyTorch integration pytest target executes train→infer workflow on canonical fixture within ≤2 minutes CPU, storing logs under `plans/active/TEST-PYTORCH-001/reports/<timestamp>/` and passing in CI.
+  - docs/fix_plan.md Attempts history records green run with parity evidence and governance sign-off for torch integration testing.
