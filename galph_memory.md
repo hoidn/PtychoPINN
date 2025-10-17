@@ -255,3 +255,17 @@
 - Updated implementation plan Phase C rows to reference the new checklist; summary recorded in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T065816Z/plan_update.md`.
 - Next directives for Ralph: execute Phase C.A1-C.A2 (data_contract.md + torch_gap_matrix.md) and Phase C.B1 blueprint per `input.md`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T071649Z: Pre-loop Focus Selection
+- Focus issue: INTEGRATE-PYTORCH-001 Phase C.B2 failing RawData parity test
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes: Recording selections before document updates; verifying artifacts from Attempt #29.
+
+## 2025-10-17T072039Z: Loop Summary
+- Reviewed specs/data_contracts.md, specs/ptychodus_api_spec.md:78, docs/architecture.md:68, phase_c_data_pipeline plan, and test_blueprint to confirm data pipeline scope; no relevant entries in docs/findings.md.
+- Marked Phase C.A1-C.A3 and C.B1 complete in `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md`; updated implementation plan row C1 to reflect completed evidence.
+- Logged Attempt #30 in docs/fix_plan.md noting the checklist updates and new red-test directive; created artifact target `reports/2025-10-17T071836Z/`.
+- Rewrote input.md (Mode=TDD) instructing Ralph to author C.B2/C.B3 failing tests and capture red pytest logs; emphasized torch-optional patterns from blueprint.
+- Follow-up for Ralph: add torch-optional red tests in `tests/torch/test_data_pipeline.py`, run targeted pytest selectors, stash logs/notes under 2025-10-17T071836Z, then update ledger.
+- <Action State>: [ready_for_implementation]

@@ -59,7 +59,7 @@ Detailed checklist: `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Specify data contract expectations | [ ] | Execute Phase C.A (tasks C.A1-C.A3) in `plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md`; publish `data_contract.md` + `torch_gap_matrix.md` under timestamped reports before writing tests. |
+| C1 | Specify data contract expectations | [x] | ✅ 2025-10-17 — Phase C.A1–C.A3 artifacts (`reports/2025-10-17T070200Z/{data_contract.md,torch_gap_matrix.md}`) document TensorFlow requirements, PyTorch gaps, and ROI guidance ahead of test work. |
 | C2 | Draft failing loader test | [ ] | Follow Phase C.B (C.B1-C.B3) blueprint in `phase_c_data_pipeline.md`; author torch-optional pytest red cases and archive logs under the same timestamp directory. |
 | C3 | Implement `RawDataTorch` wrapper | [ ] | Deliverables defined in Phase C.C (C.C1) — wrap legacy `ptycho.raw_data.RawData`, enforce config bridge usage, document notes in `implementation_notes.md`. |
 | C4 | Implement `PtychoDataContainerTorch` | [ ] | Complete Phase C.C tasks (C.C2-C.C3) ensuring tensor API parity; reference contract captured in C.A1. |

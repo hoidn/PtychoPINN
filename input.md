@@ -1,43 +1,44 @@
-Summary: Capture TensorFlow vs PyTorch data pipeline contract and gap analysis for Phase C kickoff.
-Mode: Docs
-Focus: INTEGRATE-PYTORCH-001 — Phase C.A data pipeline baseline
-Branch: main
-Mapped tests: none — evidence-only
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/{data_contract.md,torch_gap_matrix.md,test_blueprint.md}
+Summary: Capture torch-optional red tests for RawDataTorch and data-container parity.
+Mode: TDD
+Focus: INTEGRATE-PYTORCH-001 — Phase C.B2+C.B3 torch-optional parity tests
+Branch: feature/torchapi
+Mapped tests: pytest tests/torch/test_data_pipeline.py -k raw_data -vv (expected red); pytest tests/torch/test_data_pipeline.py -k data_container -vv (expected red)
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T071836Z/{notes.md,pytest_raw_data_red.log,pytest_data_container_red.log}
 Do Now:
-1. INTEGRATE-PYTORCH-001 (Phase C.A1+C.A2 @ plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md) — produce `data_contract.md` + `torch_gap_matrix.md` in the artifact directory; tests: none.
-2. INTEGRATE-PYTORCH-001 (Phase C.B1 @ plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md) — draft `test_blueprint.md` describing torch-optional pytest structure; tests: none.
-If Blocked: Capture findings and open questions in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/blocked.md`, then log Attempt in docs/fix_plan.md with blockers noted.
+1. INTEGRATE-PYTORCH-001 (Phase C.B2 @ plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md) — add `test_raw_data_torch_matches_tensorflow` to `tests/torch/test_data_pipeline.py` per blueprint ROI and fixtures, then run `pytest tests/torch/test_data_pipeline.py -k raw_data -vv` (expect fail) and save log to the artifact directory; tests: pytest tests/torch/test_data_pipeline.py -k raw_data -vv (expected red).
+2. INTEGRATE-PYTORCH-001 (Phase C.B3 @ plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md) — extend the same module with `test_data_container_shapes_and_dtypes` validating torch-optional container outputs, run `pytest tests/torch/test_data_pipeline.py -k data_container -vv` (expect fail), and archive the log alongside `notes.md` summarizing failure signatures; tests: pytest tests/torch/test_data_pipeline.py -k data_container -vv (expected red).
+If Blocked: Document the blocker and observed output in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T071836Z/blocked.md`, update docs/fix_plan.md Attempts History, and notify supervisor in the next loop.
 Priorities & Rationale:
-- specs/data_contracts.md — authoritative NPZ key/dtype contract that Phase C must honor.
-- specs/ptychodus_api_spec.md:§4 — defines RawData/PtychoDataContainer behaviour consumed by Ptychodus.
-- docs/architecture.md:§3 — visual map of RawData → loader pipeline informing parity requirements.
-- plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md — checklist IDs C.A1-C.A3 and C.B1 to complete this loop.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T020000Z/parity_map.md — Gap #2 context for data pipeline shortfalls.
+- specs/data_contracts.md:1 — defines canonical NPZ keys/shapes the RawData parity test must enforce.
+- specs/ptychodus_api_spec.md:78 — details RawData/PtychoDataContainer lifecycle requirements consumed by Ptychodus.
+- docs/architecture.md:68 — illustrates loader pipeline sequence to mirror in parity assertions.
+- plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md:24 — checklist C.B2/C.B3 defining this loop’s deliverables.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/test_blueprint.md:1 — torch-optional pytest structure and ROI guidance.
 How-To Map:
-- Read specs/data_contracts.md and specs/ptychodus_api_spec.md to extract required keys, shapes, and cache expectations; summarize in `data_contract.md`.
-- Inspect `ptycho/raw_data.py` and `ptycho/loader.py` to document TensorFlow runtime behaviours (grouping, caching, dtype conversion) in the same file.
-- Review `ptycho_torch/dset_loader_pt_mmap.py`, `ptycho_torch/patch_generator.py`, and config singletons to populate `torch_gap_matrix.md` with actual tensor names/shapes and highlight deltas vs TensorFlow contract.
-- In `test_blueprint.md`, outline module/fixture structure for upcoming pytest module per Phase C.B guidance (torch-optional guards, ROI, expected selectors).
-- Keep notes concise; prefer tables mirroring plan IDs (C.A1-C.A3, C.B1). No tests to run in this loop.
+- Create `tests/torch/test_data_pipeline.py` (or extend if already present) using the whitelist pattern from `tests/conftest.py` so collection succeeds without torch.
+- Import fixtures/helpers lazily: keep module imports limited to numpy/pathlib; build TensorFlow RawData reference via `ptycho.raw_data.RawData.from_file` only inside the test body.
+- Reuse ROI constants from `data_contract.md` §7 (sample count, gridsize) and document any adjustments in `notes.md`.
+- For C.B2, compare grouped keys (`diffraction`, `coords_offsets`, `coords_relative`, etc.) between TensorFlow RawData output and the placeholder PyTorch wrapper (expect failure because wrapper absent); assert placeholders with `pytest.fail` once divergence observed to lock expectations.
+- For C.B3, scaffold assertions for container attributes (`X`, `Y`, `coords_nominal`, dtypes) referencing expectations in specs/ptychodus_api_spec.md §4; leave calls to yet-unimplemented wrappers raising `NotImplementedError` to maintain red state.
+- After each pytest run, copy stdout/stderr into `pytest_raw_data_red.log` and `pytest_data_container_red.log`; record failure summaries and outstanding tasks in `notes.md`.
 Pitfalls To Avoid:
-- Do not run or modify PyTorch training scripts yet; evidence-only loop.
-- Avoid adding torch imports at module top level in future test designs.
-- Respect canonical NPZ normalization rules (amplitude data only) when proposing fixtures.
-- Do not invent new cache formats—document reuse of `.groups_cache.npz` expectations.
-- Ensure all artifacts live under the specified timestamped directory.
-- Keep docs/fix_plan.md untouched until artifacts are ready to log next attempt.
-- Maintain one focus per loop; defer implementation details to future phases.
-- When quoting spec requirements, cite exact key names to prevent drift.
-- Flag any uncertainties about dataset availability instead of guessing values.
-- Do not mix unittest-style patterns into upcoming pytest blueprint.
+- Do not implement RawDataTorch or container adapters yet—tests only.
+- Avoid top-level `import torch`; rely on blueprint skip mechanisms.
+- Keep ROI minimal (≤ 3 groups) to prevent long runs; do not load entire dataset.
+- Do not silence failures with broad try/except; let pytest capture the red state.
+- Ensure artifact filenames match those listed above for traceability.
+- Do not mutate existing config bridge tests or params fixtures.
+- Skip adding new dependencies; use existing utilities under `ptycho/` for reference data.
+- Do not convert tests to unittest style; stay with native pytest functions and fixtures.
+- Avoid committing passing placeholders—the goal is failing assertions documenting gaps.
+- Remember to reference `update_legacy_dict` in notes so configuration expectations stay front-of-mind.
 Pointers:
-- specs/data_contracts.md
-- specs/ptychodus_api_spec.md
-- docs/architecture.md
-- ptycho/raw_data.py
-- ptycho/loader.py
-- ptycho_torch/dset_loader_pt_mmap.py
-- plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md
+- plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md:24
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/test_blueprint.md:1
+- specs/data_contracts.md:1
+- specs/ptychodus_api_spec.md:78
+- docs/architecture.md:68
+- ptycho/raw_data.py:365
+- tests/conftest.py:25
 Next Up:
-- Phase C.B2-C.B3 — author failing torch-optional tests once the blueprint is approved.
+- Phase C.C1 — implement `RawDataTorch` adapter once red tests document the required behaviour.

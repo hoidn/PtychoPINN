@@ -15,9 +15,9 @@ Exit Criteria: Artifact pair `data_contract.md` + `torch_gap_matrix.md` under a 
 
 | ID | Task Description | State | How/Why & Guidance (including API / document / artifact / source file references) |
 | --- | --- | --- | --- |
-| C.A1 | Summarize TensorFlow data pipeline contract | [ ] | Create `plans/active/INTEGRATE-PYTORCH-001/reports/<ts>/data_contract.md` capturing required structures from specs/data_contracts.md, specs/ptychodus_api_spec.md:§4, and docs/architecture.md:§3. Include keys, shapes, dtype, normalization, cache file naming. |
-| C.A2 | Inventory PyTorch dataset outputs and gaps | [ ] | Analyze `ptycho_torch/dset_loader_pt_mmap.py` and related helpers; record actual tensors (names, shapes, devices) plus cache behaviour in `torch_gap_matrix.md`. Highlight mismatches (e.g., MemoryMappedTensor vs np.ndarray, missing RawData-level APIs). |
-| C.A3 | Decide minimum fixture & ROI for tests | [ ] | Within `data_contract.md`, nominate a minimal NPZ fixture (ideally existing `datasets/fly/fly001_transposed.npz` subset) and specify ROI (sample count, gridsize). Note any preprocessing requirements and coordinate with TEST-PYTORCH-001. |
+| C.A1 | Summarize TensorFlow data pipeline contract | [x] | ✅ 2025-10-17 — See `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md` for canonical keys, shapes, dtypes, normalization, and cache naming derived from specs/data_contracts.md §1, specs/ptychodus_api_spec.md §4, and docs/architecture.md §3. |
+| C.A2 | Inventory PyTorch dataset outputs and gaps | [x] | ✅ 2025-10-17 — Findings captured in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/torch_gap_matrix.md`, enumerating current `ptycho_torch/dset_loader_pt_mmap.py` tensors, cache behaviour, and divergences from the TensorFlow contract. |
+| C.A3 | Decide minimum fixture & ROI for tests | [x] | ✅ 2025-10-17 — ROI defined in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md` §7 using the `datasets/fly/fly001_transposed.npz` subset, with preprocessing notes and TEST-PYTORCH-001 coordination items. |
 
 ---
 
@@ -28,7 +28,7 @@ Exit Criteria: New pytest module(s) under `tests/torch/` with targeted selectors
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C.B1 | Blueprint test module structure | [ ] | Draft `plans/active/INTEGRATE-PYTORCH-001/reports/<ts>/test_blueprint.md` covering fixture strategy, torch optional guards (use `pytest.importorskip("torch")` inside tests only), and expected helpers (`make_raw_data_fixture()` delegating to TensorFlow RawData). |
+| C.B1 | Blueprint test module structure | [x] | ✅ 2025-10-17 — Torch-optional harness blueprint documented in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/test_blueprint.md`, covering fixtures, skip guards, and ROI guidance. |
 | C.B2 | Author failing RawData parity test | [ ] | Create `tests/torch/test_data_pipeline.py::test_raw_data_torch_matches_tensorflow` asserting that grouped keys/values from new wrapper match TensorFlow RawData outputs for ROI. Capture red log via `pytest tests/torch/test_data_pipeline.py -k raw_data -vv`. |
 | C.B3 | Author failing data-container test | [ ] | Extend same module with `test_data_container_shapes_and_dtypes` verifying `PtychoDataContainerTorch` exposes tensor attributes equivalent to `ptycho.loader.PtychoDataContainer`. Ensure tests run without torch installed by guarding creation logic. Store red log. |
 
