@@ -490,3 +490,15 @@
 - Updated implementation plan with Phase F table and added fix_plan Attempt #64 referencing new plan; removed legacy TODO requesting this work.
 - Rewrote input.md directing Ralph to execute Phase F1 (directive conflict summary, governance decision, guidance redline) using artifact set `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/`.
 - <Action State>: [planning]
+
+## 2025-10-17T191900Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase F2 (Impact Inventory & Migration Blueprint)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Recording selections prior to Step <3.2>; prerequisites satisfied (Phase F1 artifacts ✅). Proceeding to align plan tables and prep F2 directives.
+
+## 2025-10-17T192930Z: F2 Prep Summary
+- Synced Phase F docs: marked F1.1–F1.3 complete and corrected artifact references in `plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:1-33`; mirrored status in `implementation.md:107-115`.
+- Logged Attempt #66 in `docs/fix_plan.md:138-142` capturing plan updates plus new artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/` (README scaffolded).
+- Rewrote `input.md` directing Ralph to deliver Phase F2.1–F2.3 evidence (guard inventory, skip audit, migration plan) with Docs mode; tests: none.
+- <Action State>: [ready_for_implementation]

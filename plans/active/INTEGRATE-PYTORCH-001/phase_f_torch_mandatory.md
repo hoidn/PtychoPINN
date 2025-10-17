@@ -4,7 +4,7 @@
 - Initiative: INTEGRATE-PYTORCH-001 (PyTorch backend integration)
 - Phase Goal: Retire torch-optional execution pathways and require PyTorch availability across config, adapters, workflows, and persistence so Ptychodus can rely on a single backend implementation path.
 - Dependencies: CLAUDE.md directive (torch-optional parity) must be revised; verify CI/build environments include PyTorch extras; coordinate with TEST-PYTORCH-001 initiative for downstream coverage changes.
-- Artifact Storage: Capture Phase F artifacts under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184417Z/phase_f/` (append dated subdirectories for future loops).
+- Artifact Storage: Capture Phase F artifacts under `plans/active/INTEGRATE-PYTORCH-001/reports/<ISO8601>/` (F1 assets: `2025-10-17T184624Z/`; F2 use `2025-10-17T192500Z/`).
 
 ---
 
@@ -15,9 +15,9 @@ Exit Criteria: Documented approval plus updated guidance removing torch-optional
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F1.1 | Catalogue conflicting directives | [ ] | Summarize current torch-optional requirements (CLAUDE.md §2, plan references) and describe the impetus for removal (fix_plan TODO, stakeholder decision). Save to `reports/2025-10-17T184417Z/phase_f/directive_conflict.md`. |
-| F1.2 | Secure governance decision | [ ] | Meet with initiative leads (INTEGRATE-PYTORCH-001, TEST-PYTORCH-001, tooling) and record consensus + rationale in `reports/.../governance_decision.md`. Include risk assessment (CI environment, dev ergonomics). |
-| F1.3 | Update authoritative docs | [ ] | Edit `CLAUDE.md`, `docs/findings.md`, and affected plans to reflect torch-required policy. Capture diffs + approvals in `reports/.../guidance_updates.md`. |
+| F1.1 | Catalogue conflicting directives | [x] | ✅ 2025-10-17 — Conflict inventory captured in `reports/2025-10-17T184624Z/directive_conflict.md` (covers CLAUDE.md §2, plan footprints, and skip whitelist history). |
+| F1.2 | Secure governance decision | [x] | ✅ 2025-10-17 — Approval + risk assessment recorded in `reports/2025-10-17T184624Z/governance_decision.md`; stakeholders aligned on torch-required transition. |
+| F1.3 | Update authoritative docs | [x] | ✅ 2025-10-17 — Redline + rollout plan documented in `reports/2025-10-17T184624Z/guidance_updates.md`; apply edits during Phase F3 doc sync. |
 
 ---
 
