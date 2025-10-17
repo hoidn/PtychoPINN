@@ -1,0 +1,77 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_from_npz FAILED [100%]
+
+=================================== FAILURES ===================================
+__________ TestNPZProbeSizeExtraction.test_infer_probe_size_from_npz ___________
+
+self = <test_train_probe_size.TestNPZProbeSizeExtraction testMethod=test_infer_probe_size_from_npz>
+
+    def test_infer_probe_size_from_npz(self):
+        """
+        Test utility function extracts probe size from NPZ metadata without loading full arrays.
+    
+        Red Phase: Fails because _infer_probe_size() function doesn't exist in train.py yet.
+        Green Phase: Should pass after implementing NPZ metadata reader using zipfile approach.
+    
+        This test validates the core requirement: derive N from probeGuess.shape[0]
+        efficiently (no full array load) before DataConfig instantiation.
+        """
+        # Create NPZ with 64x64 probe
+        npz_file = self._create_minimal_training_npz("test_train.npz", probe_size=64)
+    
+        # Import the utility function (should fail in RED phase)
+        try:
+>           from ptycho_torch.train import _infer_probe_size
+E           ImportError: cannot import name '_infer_probe_size' from 'ptycho_torch.train' (/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py)
+
+tests/torch/test_train_probe_size.py:113: ImportError
+
+During handling of the above exception, another exception occurred:
+
+self = <test_train_probe_size.TestNPZProbeSizeExtraction testMethod=test_infer_probe_size_from_npz>
+
+    def test_infer_probe_size_from_npz(self):
+        """
+        Test utility function extracts probe size from NPZ metadata without loading full arrays.
+    
+        Red Phase: Fails because _infer_probe_size() function doesn't exist in train.py yet.
+        Green Phase: Should pass after implementing NPZ metadata reader using zipfile approach.
+    
+        This test validates the core requirement: derive N from probeGuess.shape[0]
+        efficiently (no full array load) before DataConfig instantiation.
+        """
+        # Create NPZ with 64x64 probe
+        npz_file = self._create_minimal_training_npz("test_train.npz", probe_size=64)
+    
+        # Import the utility function (should fail in RED phase)
+        try:
+            from ptycho_torch.train import _infer_probe_size
+        except ImportError:
+>           self.fail("_infer_probe_size() function not found in ptycho_torch.train module. "
+                     "Implement this utility to extract probe size from NPZ metadata.")
+E           AssertionError: _infer_probe_size() function not found in ptycho_torch.train module. Implement this utility to extract probe size from NPZ metadata.
+
+tests/torch/test_train_probe_size.py:115: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2025-10-17 15:53:45.899094: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760741625.910100 4014813 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760741625.913766 4014813 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760741625.924468 4014813 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760741625.924483 4014813 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760741625.924486 4014813 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760741625.924488 4014813 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 15:53:45.927225: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+=========================== short test summary info ============================
+FAILED tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_from_npz - AssertionError: _infer_probe_size() function not found in ptycho_torch.train module. Implement this utility to extract probe size from NPZ metadata.
+============================== 1 failed in 5.00s ===============================

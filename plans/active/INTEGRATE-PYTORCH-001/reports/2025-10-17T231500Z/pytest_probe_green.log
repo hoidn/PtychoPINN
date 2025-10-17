@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 5 items
+
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_128 PASSED [ 20%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_from_npz PASSED [ 40%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_missing_probe PASSED [ 60%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_real_dataset PASSED [ 80%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_rectangular PASSED [100%]
+
+============================== 5 passed in 4.99s ===============================
