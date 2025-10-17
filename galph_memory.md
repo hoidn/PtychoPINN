@@ -446,3 +446,15 @@
 - Ledger: Added Attempt #57 in docs/fix_plan.md summarizing plan updates + D4.C directive.
 - Open considerations: Loader implementation may still defer full model reconstruction; handoff summary must document any remaining XFAIL on `test_load_round_trip_returns_model_stub`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T173440Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase E planning
+- Action type: Planning
+- Mode: Parity
+- Notes: Recording selections prior to Step <3.2>; will review Phase E docs and draft phased plan before updating ledger.
+
+## 2025-10-17T174018Z: Phase E planning summary
+- Logged Attempt #58 for D4.C completion in docs/fix_plan.md so Phase D is formally closed; artifacts: reports/2025-10-17T121930Z/*.
+- Authored Phase E implementation plan (`plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md`) with E1–E3 checklists (callchain, backend red tests, integration parity, docs/spec sync); updated implementation.md Phase E rows to reference the new plan.
+- Rewrote input.md directing Ralph to execute Phase E1.A (callchain evidence) and Phase E1.B (backend-selection red tests); artifacts path set to reports/2025-10-17T173826Z/.
+- <Action State>: [planning]
