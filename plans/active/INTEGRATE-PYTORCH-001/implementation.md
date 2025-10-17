@@ -112,7 +112,7 @@ Exit Criteria: Torch-required policy documented, code/tests updated, and documen
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | F1 | Directive alignment & governance sign-off | [x] | ✅ 2025-10-17 — Completed via `phase_f_torch_mandatory.md` F1 artifacts (`reports/2025-10-17T184624Z/{directive_conflict.md,governance_decision.md,guidance_updates.md}`). |
-| F2 | Impact inventory & migration blueprint | [ ] | Execute Phase F2 tasks (inventory, skip audit, migration sequence) before touching code; link `phase_f_torch_mandatory.md` for structure. |
+| F2 | Impact inventory & migration blueprint | [x] | ✅ 2025-10-17T192500Z — Artifacts delivered (`torch_optional_inventory.md`, `test_skip_audit.md`, `migration_plan.md`); see Phase F plan for checklists. |
 | F3 | Implementation & test realignment | [ ] | Remove torch-optional guards, promote PyTorch dependency, and update pytest harness per blueprint. Capture green logs. |
 | F4 | Documentation/spec sync & handoff | [ ] | Update specs, workflows docs, and TEST-PYTORCH-001 coordination using Phase F guidance. |
 

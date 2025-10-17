@@ -502,3 +502,15 @@
 - Logged Attempt #66 in `docs/fix_plan.md:138-142` capturing plan updates plus new artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/` (README scaffolded).
 - Rewrote `input.md` directing Ralph to deliver Phase F2.1–F2.3 evidence (guard inventory, skip audit, migration plan) with Docs mode; tests: none.
 - <Action State>: [ready_for_implementation]
+## 2025-10-17T192522Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase F2 inventory & blueprint
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Recording selections before Step <3.2>; will validate F2 artifacts, update plan checklists, and prepare next directives.
+
+## 2025-10-17T192841Z: Phase F2 Closure Summary
+- Reviewed Phase F2 artifacts (`plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/torch_optional_inventory.md`, `.../test_skip_audit.md`, `.../migration_plan.md`) and confirmed they meet exit criteria.
+- Marked F2.1–F2.3 complete in `plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md` and flipped implementation plan Phase F row F2 to [x].
+- Logged Attempt #67 in `docs/fix_plan.md` and refreshed the report README to reflect completed status.
+- Rewrote `input.md` for Phase F3.1 dependency gate with artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193400Z/`.
+- <Action State>: [ready_for_implementation]

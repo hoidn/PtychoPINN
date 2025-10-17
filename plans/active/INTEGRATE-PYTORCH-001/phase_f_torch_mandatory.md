@@ -28,9 +28,9 @@ Exit Criteria: Inventory and migration blueprint checked into reports and refere
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F2.1 | Enumerate guarded imports & flags | [ ] | Use `rg "TORCH_AVAILABLE"` and similar scans to list modules relying on optional guards (config_bridge, data_container_bridge, memmap_bridge, workflows, tests/conftest.py). Store matrix in `reports/.../torch_optional_inventory.md` with file:line anchors. |
-| F2.2 | Audit test skip logic | [ ] | Document pytest skip/proxy behavior (tests/conftest.py, module-level stubs) and classify which tests must change. Log results in `reports/.../test_skip_audit.md`. |
-| F2.3 | Draft migration sequence | [ ] | Create blueprint (`reports/.../migration_plan.md`) ordering implementation work (config updates → adapters → data pipeline → workflows → persistence/tests) with gating checks (CI updates, packaging). |
+| F2.1 | Enumerate guarded imports & flags | [x] | ✅ 2025-10-17 — Inventory captured in `reports/2025-10-17T192500Z/torch_optional_inventory.md` (47 instances across 15 files with file:line anchors + F3.2 checklist). |
+| F2.2 | Audit test skip logic | [x] | ✅ 2025-10-17 — Skip behavior documented in `reports/2025-10-17T192500Z/test_skip_audit.md` (whitelist matrix, behavioral transitions, F3.3 validation checklist). |
+| F2.3 | Draft migration sequence | [x] | ✅ 2025-10-17 — Migration plan finalized in `reports/2025-10-17T192500Z/migration_plan.md` (F3–F4 phased sequencing, gating checks, rollback strategies). |
 
 ---
 

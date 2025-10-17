@@ -1,35 +1,33 @@
-Summary: Capture the full torch-optional surface area and author the Phase F2 migration blueprint.
-Mode: Docs
-Focus: INTEGRATE-PYTORCH-001 / Phase F2 Impact Inventory & Migration Blueprint
+Summary: Promote PyTorch to a required dependency before touching torch guard code.
+Mode: none
+Focus: INTEGRATE-PYTORCH-001 / Phase F3.1 Dependency Management
 Branch: feature/torchapi
-Mapped tests: none — evidence-only
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/{torch_optional_inventory.md,test_skip_audit.md,migration_plan.md}
+Mapped tests: pytest --collect-only tests/torch/ -q
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193400Z/{dependency_update.md,pytest_collect.log}
 Do Now:
-- INTEGRATE-PYTORCH-001 Phase F2 — F2.1 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: none): scan the repo for torch-optional guards and record a file:line inventory in `torch_optional_inventory.md`.
-- INTEGRATE-PYTORCH-001 Phase F2 — F2.2 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: none): analyze pytest skip/whitelist behavior and summarize required test changes in `test_skip_audit.md`.
-- INTEGRATE-PYTORCH-001 Phase F2 — F2.3 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: none): draft `migration_plan.md` sequencing implementation, gating checks, and risk mitigations informed by F2.1/F2.2.
-If Blocked: Document blockers and partial findings in `migration_plan.md`, flag the unresolved items in docs/fix_plan.md Attempts History, and halt before altering any production code.
+- INTEGRATE-PYTORCH-001 Phase F3 — F3.1 @ plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md (tests: pytest --collect-only tests/torch/ -q): add torch>=2.2 to packaging (setup.py) and document the environment/CI implications in dependency_update.md, then verify torch importability and attach pytest collection output.
+If Blocked: Capture the failure (pip install log, pytest stack trace) in dependency_update.md, note the blocker in docs/fix_plan.md Attempts History, and stop before modifying any guard code.
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:24-33 — Phase F2 checklist defines deliverables and acceptable evidence.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/directive_conflict.md — Governance summary clarifies why every guard must be inventoried before removal.
-- tests/conftest.py:24-46 — Current TORCH_OPTIONAL whitelist drives skip behavior; we need file-level impacts before rewriting it.
-- docs/fix_plan.md:138-140 — Attempt #65 closure plus Attempt #66 prep commit this loop to the ledger; inventory must bridge to upcoming F3 execution.
+- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:45 — F3.1 is the gating step before guard removal.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/migration_plan.md — Dependency gate (Section Phase F3.1) details tasks and validation.
+- setup.py:1-60 — Current install_requires lacks PyTorch; needs update to enforce torch availability.
+- docs/fix_plan.md:138-143 — Latest attempts close Phase F2 and set expectation that Phase F3 begins with dependency promotion.
 How-To Map:
-- Guard inventory: `rg -n "TORCH_AVAILABLE" -g"*.py" -g"*.pyi"` and `rg -n "torch_available" tests` to capture both constants and fixtures; include modules like `ptycho_torch/config_bridge.py`, `ptycho_torch/data_container_bridge.py`, `ptycho_torch/memmap_bridge.py`, `ptycho_torch/workflows`, and CLI adapters. Cross-check with `rg -n "import torch" ptycho_torch tests/scripts` to find conditional imports.
-- Skip audit: read `tests/conftest.py` and note whitelist semantics; list affected test modules (torch/ subpackages, backend selection, workflows) and distinguish skip vs. xfail vs. unconditional passes. Capture expected behavior changes once torch becomes mandatory.
-- Migration blueprint: outline Phase F3 gating (dependency promotion, guard removal, pytest updates) and Phase F4 follow-through (docs/spec sync). Reference F1 governance risks and note required CI/environment prerequisites. Store each deliverable in the artifact directory listed above.
-- Keep each artifact scoped: inventory = tabular matrix with package/module/guard type; skip audit = narrative plus checklist; migration plan = phased steps with decision gates and owners.
+- Packaging: edit setup.py install_requires to include 'torch>=2.2', keeping alphabetical order if practical; record the diff in dependency_update.md.
+- Environment check: `pip install -e .` followed by `python -c "import torch; print(torch.__version__)"`; log version string and install duration in dependency_update.md.
+- Test probe: `pytest --collect-only tests/torch/ -q | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193400Z/pytest_collect.log` to ensure collection succeeds with torch present.
+- Artifact write-up: Summarize changes, commands, and observations under plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T193400Z/dependency_update.md (include timestamps, command outputs, and next checks for CI).
 Pitfalls To Avoid:
-- Do not modify code or tests—evidence only.
-- Avoid double-counting guards; group related lines but keep explicit anchors.
-- Note dynamic imports separately; do not assume `TORCH_AVAILABLE` is the only guard pattern.
-- Keep skip audit torch-neutral; no assumptions about torch being installed during execution.
-- Record open questions explicitly; do not leave TBDs without owner or follow-up phase.
-- Ensure artifact filenames exactly match the header; no extra suffixes.
-- Maintain parity with CLAUDE.md directives until Phase F3 implementation is authorized.
+- Do not remove TORCH_AVAILABLE guards yet—F3.2 handles code changes.
+- Avoid pinning torch to GPU-specific wheels; use a generic >=2.2 constraint per governance notes.
+- Keep install_requires deterministic; no duplicate entries or trailing commas.
+- Document any environment issues (CUDA availability, pip resolution) instead of patching ad hoc workarounds.
+- Do not modify documentation/specs in this loop; defer to Phase F4.
+- Skip global pip cache cleanup unless necessary; record any cleanup commands if used.
+- Ensure pytest collection runs after reinstall so we catch import regressions immediately.
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:24-33
-- tests/conftest.py:24-46
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md
-- docs/fix_plan.md:138-141
-Next Up: Phase F3 dependency + guard removal (F3.1–F3.3) once inventory and migration plan are accepted.
+- plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md:39
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T192500Z/migration_plan.md
+- setup.py:15-55
+- docs/fix_plan.md:138-143
+Next Up: Phase F3.2 guard removal once torch dependency is enforced and validated.
