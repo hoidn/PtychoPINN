@@ -21,9 +21,9 @@ Exit Criteria: Fresh baseline report summarising current failure, active finding
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| A1 | Record stub inventory + callsites | [ ] | Re-read `ptycho_torch/workflows/components.py` sections for `_train_with_lightning`, `train_cdi_model_torch`, `_reassemble_cdi_image_torch`. Document open TODOs + sentinel behaviours in `reports/<TS>/phase_d2_completion/baseline.md`. |
-| A2 | Reproduce latest integration failure | [ ] | Run `pytest tests/torch/test_integration_workflow_torch.py::TestPytorchWorkflow::test_pytorch_train_save_load_infer_cycle -vv` (requires `pip install -e .[torch]`). Capture log at `.../pytest_integration_baseline.log`. Annotate failure locus (currently Lightning instantiation error per parity summary). |
-| A3 | Confirm findings ledger coverage | [ ] | Validate POLICY-001 and FORMAT-001 references remain accurate; append gaps (e.g., Lightning init contract) to `baseline.md` so future loops know which policies to honour. |
+| A1 | Record stub inventory + callsites | [x] | Re-read `ptycho_torch/workflows/components.py` sections for `_train_with_lightning`, `train_cdi_model_torch`, `_reassemble_cdi_image_torch`. Document open TODOs + sentinel behaviours in `reports/<TS>/phase_d2_completion/baseline.md`. **Complete:** See `reports/2025-10-17T233109Z/phase_d2_completion/baseline.md` sections 1.1-1.3. |
+| A2 | Reproduce latest integration failure | [x] | Run `pytest tests/torch/test_integration_workflow_torch.py::TestPytorchWorkflow::test_pytorch_train_save_load_infer_cycle -vv` (requires `pip install -e .[torch]`). Capture log at `.../pytest_integration_baseline.log`. Annotate failure locus (currently Lightning instantiation error per parity summary). **Complete:** See `reports/2025-10-17T233109Z/phase_d2_completion/pytest_integration_baseline.log` and `baseline.md` section 2 for failure analysis. |
+| A3 | Confirm findings ledger coverage | [x] | Validate POLICY-001 and FORMAT-001 references remain accurate; append gaps (e.g., Lightning init contract) to `baseline.md` so future loops know which policies to honour. **Complete:** See `baseline.md` section 3 confirming POLICY-001 (PyTorch mandatory), FORMAT-001 (auto-transpose), CONFIG-001 (params.cfg gate) compliance. |
 
 ---
 
