@@ -4,7 +4,7 @@
 - Initiative: INTEGRATE-PYTORCH-001 (Configuration & Legacy Bridge Alignment)
 - Phase Goal: Flip the red-phase parity matrix green by implementing the remaining adapter logic and running the expanded tests end-to-end.
 - Dependencies: `specs/ptychodus_api_spec.md §5.1-5.3` (field contract), `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/{field_matrix.md,summary.md}` (coverage + priority ranking), `ptycho_torch/config_bridge.py` (current adapter), `tests/torch/test_config_bridge.py` (red-phase parity suite), `ptycho/config/config.py` (KEY_MAPPINGS + defaults), and finding CONFIG-001 (update params.cfg first).
-- Current State: Phase A is complete (Attempt #15) — parity selectors execute without torch; adapter P0 fixes (probe_mask translation, nphotons override enforcement, path normalization) landed in Attempt #17. Parity suite remains red because `TestConfigBridgeParity` still inherits `unittest.TestCase`, so parameterized cases raise `TypeError` until the harness is converted to pytest style (blocking B2/B4).
+- Current State: Phase A is complete (Attempt #15) — parity selectors execute without torch; adapter P0 fixes (probe_mask translation, nphotons override enforcement, path normalization) landed in Attempt #17. Attempt #19 completed the B0 harness refactor (`reports/2025-10-17T052500Z/status.md`), so the parity suite now runs green under pytest without a torch runtime. Remaining work focuses on locking in probe_mask coverage, nphotons override messaging, and baseline comparisons.
 - Artifact storage: Capture design notes, diffs, and pytest logs under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/` (e.g., `implementation_notes.md`, `adapter_diff.md`, `pytest_green.log`). Reference each artifact from docs/fix_plan.md attempts.
 
 ---
@@ -30,11 +30,11 @@ Exit Criteria: `pytest tests/torch/test_config_bridge.py -k "probe_mask or nphot
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B0 | Refactor parity harness to pytest style | [ ] | Convert `tests/torch/test_config_bridge.py::TestConfigBridgeParity` into pytest-style tests (drop `unittest.TestCase`, use fixtures) so parameterized cases run. Required before B2/B4; capture log under new reports directory. |
+| B0 | Refactor parity harness to pytest style | [x] | Completed 2025-10-17 (Attempt #19) — see `reports/2025-10-17T052500Z/{status.md,pytest_parity.log}` confirming all 34 cases run green without torch. |
 | B1 | Implement probe_mask conversion | [x] | Completed 2025-10-17 — adapter logic landed in `reports/2025-10-17T045936Z/adapter_diff.md`; defaults verified in `bridge_probe_mask_check.md`. |
-| B2 | Extend tests for probe_mask | [ ] | After B0 lands, re-enable parameterized parity cases covering default (`None`→False) and explicit override paths per `field_matrix.md`. Use pytest-style assertions; capture results in new pytest log. |
+| B2 | Extend tests for probe_mask | [ ] | Add explicit parity cases covering default (`None`→False) and override (`TensorType`→True) flows per `field_matrix.md` §probe_mask. Capture pytest output under new timestamped reports directory when executed. |
 | B3 | Enforce nphotons override | [x] | Completed 2025-10-17 — adapter now raises ValueError when overrides missing; see `adapter_diff.md` + Attempt #17 summary. |
-| B4 | Tighten default divergence test | [ ] | Once pytest harness executes, assert ValueError message text for missing overrides and green-case success; store red vs green logs as planned. |
+| B4 | Tighten default divergence test | [ ] | Add regression asserting the `to_training_config` nphotons override error includes guidance (e.g., `provide overrides['nphotons']`). Pair with green-path test showing explicit override passes. Record logs alongside B2 artifacts. |
 
 ---
 
@@ -79,7 +79,6 @@ Exit Criteria: All parity tests green (or justified xfails), artifacts recorded,
 
 ## Verification Checklist
 - [x] Tests no longer skipped when torch absent; fallback strategy documented (see pytest_phaseA.log).
-- [ ] P0 probe_mask/nphotons tests green with explicit overrides enforced.
+- [ ] P0 probe_mask/nphotons tests green with explicit overrides enforced (add probe_mask parity + nphotons override message checks).
 - [ ] params.cfg baseline comparison test added and passing, with override matrix recorded.
 - [ ] `pytest_green.log` stored under the new timestamped directory capturing the first green run.
-

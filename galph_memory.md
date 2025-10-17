@@ -182,3 +182,12 @@
 - Follow-up for Ralph: execute parity_green_plan Phase B0 conversion, capture logs in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T052500Z/`, then advance B2/B4 once pytest harness passes.
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T053919Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B5 parity follow-through (probe_mask + nphotons validation)
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Plan/tests review pass to stage probe_mask + nphotons parity work.
+- Updates: implementation plan B5 guidance now points at Attempt #19 artefacts; parity green plan marks B0 complete and clarifies B2/B4 scope; created `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T054009Z/supervisor_summary.md` with next engineering actions; input.md rewritten for Attempt #21.
+- Follow-up for Ralph: add probe_mask parity cases plus nphotons override error regression, record logs in the new report directory, and update ledger once tests run.
+- <Action State>: [ready_for_implementation]
