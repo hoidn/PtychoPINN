@@ -676,6 +676,156 @@ class TestConfigBridgeParity:
         assert tf_train.nphotons == 1e9, \
             "nphotons override should be applied successfully"
 
+    # ============================================================================
+    # Test Case 5.6: n_subsample Override Validation (Phase C.C1-C2)
+    # ============================================================================
+
+    def test_training_config_n_subsample_missing_override_uses_none(self, params_cfg_snapshot):
+        """
+        Test that missing n_subsample override defaults to None in TrainingConfig.
+
+        Semantic collision context: PyTorch DataConfig.n_subsample exists but has
+        different semantics (coordinate subsampling factor, not sample count). The
+        adapter must NOT propagate PyTorch n_subsample to TensorFlow; explicit
+        override is required to set training sample count.
+
+        Spec coverage: §5.2:12 (n_subsample override_required)
+        Phase: Phase C.C1-C2 (n_subsample parity)
+        Reference: field_matrix.md row 51
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        # PyTorch config with n_subsample=7 (coordinate subsampling, not sample count)
+        pt_data = DataConfig(n_subsample=7)
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        # Do NOT provide n_subsample override
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(
+                train_data_file=Path('train.npz'),
+                n_groups=512,
+                nphotons=1e9
+            )
+        )
+
+        # Assert PyTorch value is NOT propagated (semantic collision protection)
+        assert tf_train.n_subsample is None, \
+            "n_subsample should default to None when not in overrides (semantic collision guard)"
+        assert tf_train.n_subsample != 7, \
+            "PyTorch DataConfig.n_subsample should NOT propagate to TensorFlow (different semantics)"
+
+    def test_training_config_n_subsample_explicit_override(self, params_cfg_snapshot):
+        """
+        Test that explicit n_subsample override is applied to TrainingConfig.
+
+        Green path confirming that when caller provides explicit n_subsample value,
+        adapter applies it to TensorFlow config regardless of PyTorch value.
+
+        Spec coverage: §5.2:12 (n_subsample override pattern)
+        Phase: Phase C.C1-C2 (n_subsample parity)
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(n_subsample=7)  # PyTorch coordinate subsampling
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        # Provide explicit n_subsample override for TensorFlow sample count
+        tf_train = config_bridge.to_training_config(
+            tf_model, pt_data, pt_model, pt_train,
+            overrides=dict(
+                train_data_file=Path('train.npz'),
+                n_groups=512,
+                nphotons=1e9,
+                n_subsample=1000  # Explicit TensorFlow sample count override
+            )
+        )
+
+        # Assert override value is used (not PyTorch value)
+        assert tf_train.n_subsample == 1000, \
+            "n_subsample override should be applied successfully"
+        assert tf_train.n_subsample != 7, \
+            "Override should replace PyTorch value (semantic collision resolved)"
+
+    def test_inference_config_n_subsample_missing_override_uses_none(self, params_cfg_snapshot):
+        """
+        Test that missing n_subsample override defaults to None in InferenceConfig.
+
+        Same semantic collision as TrainingConfig: PyTorch n_subsample has different
+        meaning, so adapter must not propagate without explicit override.
+
+        Spec coverage: §5.3:5 (n_subsample override_required)
+        Phase: Phase C.C1-C2 (n_subsample parity)
+        Reference: field_matrix.md row 69
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, InferenceConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(n_subsample=7)  # PyTorch coordinate subsampling
+        pt_model = ModelConfig()
+        pt_infer = InferenceConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        # Do NOT provide n_subsample override
+        tf_infer = config_bridge.to_inference_config(
+            tf_model, pt_data, pt_infer,
+            overrides=dict(
+                model_path=Path('model_dir'),
+                test_data_file=Path('test.npz'),
+                n_groups=512
+            )
+        )
+
+        # Assert PyTorch value is NOT propagated
+        assert tf_infer.n_subsample is None, \
+            "n_subsample should default to None when not in overrides"
+        assert tf_infer.n_subsample != 7, \
+            "PyTorch DataConfig.n_subsample should NOT propagate to InferenceConfig"
+
+    def test_inference_config_n_subsample_explicit_override(self, params_cfg_snapshot):
+        """
+        Test that explicit n_subsample override is applied to InferenceConfig.
+
+        Green path for inference-time sample count control.
+
+        Spec coverage: §5.3:5 (n_subsample override pattern)
+        Phase: Phase C.C1-C2 (n_subsample parity)
+        """
+        from ptycho_torch.config_params import DataConfig, ModelConfig, InferenceConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(n_subsample=7)
+        pt_model = ModelConfig()
+        pt_infer = InferenceConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+
+        # Provide explicit n_subsample override
+        tf_infer = config_bridge.to_inference_config(
+            tf_model, pt_data, pt_infer,
+            overrides=dict(
+                model_path=Path('model_dir'),
+                test_data_file=Path('test.npz'),
+                n_groups=512,
+                n_subsample=500  # Explicit inference sample count
+            )
+        )
+
+        # Assert override value is used
+        assert tf_infer.n_subsample == 500, \
+            "n_subsample override should be applied successfully"
+        assert tf_infer.n_subsample != 7, \
+            "Override should replace PyTorch value"
+
 
 if __name__ == '__main__':
     unittest.main()
