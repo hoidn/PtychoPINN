@@ -1,0 +1,117 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 2 items
+
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_tf_output_parity SKIPPED [ 50%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle FAILED [100%]
+
+=================================== FAILURES ===================================
+___ TestPyTorchIntegrationWorkflow.test_pytorch_train_save_load_infer_cycle ____
+
+self = <test_integration_workflow_torch.TestPyTorchIntegrationWorkflow testMethod=test_pytorch_train_save_load_infer_cycle>
+
+    def test_pytorch_train_save_load_infer_cycle(self):
+        """
+        Tests the complete PyTorch train → save → load → infer workflow.
+    
+        This validates the PyTorch model persistence layer by simulating a real
+        user workflow across separate processes, mirroring the TensorFlow integration test.
+    
+        Phase: E2.B1 (Red Test)
+        Expected Behavior (Phase E2.C implementation target):
+        1. Training subprocess creates Lightning checkpoint
+        2. Checkpoint artifact saved to <output_dir>/checkpoints/ or <output_dir>/wts.pt
+        3. Inference subprocess loads checkpoint and generates reconstructions
+        4. Output images created in inference output directory
+    
+        Current Status: FAILING — ptycho_torch training/inference scripts not yet
+        integrated with subprocess harness and backend dispatcher.
+        """
+        # --- 1. Define Paths ---
+        data_file = project_root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
+        training_output_dir = self.output_path / "training_outputs"
+        inference_output_dir = self.output_path / "pytorch_output"
+    
+        # --- 2. Training Step (PyTorch) ---
+        print("--- Running PyTorch Training Step (subprocess) ---")
+    
+        # NOTE: This command reflects the expected CLI interface after Phase E2.C implementation.
+        # Currently, ptycho_torch/train.py does not support these exact flags.
+        # The test documents the target API contract.
+        train_command = [
+            sys.executable, "-m", "ptycho_torch.train",
+            "--train_data_file", str(data_file),
+            "--test_data_file", str(data_file),
+            "--output_dir", str(training_output_dir),
+            "--max_epochs", "2",
+            "--n_images", "64",
+            "--gridsize", "1",
+            "--batch_size", "4",
+            "--device", "cpu",
+            "--disable_mlflow",  # Suppress MLflow for CI (flag to be added per TEST-PYTORCH-001)
+        ]
+    
+        # Expected to fail in Phase E2.B (red phase) because:
+        # - ptycho_torch.train may not support these CLI flags yet
+        # - Backend dispatcher not wired to route PyTorch workflows
+        # - CONFIG-001 gate may not be enforced
+        train_result = subprocess.run(train_command, capture_output=True, text=True)
+    
+>       self.assertEqual(
+            train_result.returncode, 0,
+            f"PyTorch training script failed with stdout:\n{train_result.stdout}\nstderr:\n{train_result.stderr}"
+        )
+E       AssertionError: 1 != 0 : PyTorch training script failed with stdout:
+E       
+E       stderr:
+E       2025-10-17 14:24:51.122948: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+E       WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E       E0000 00:00:1760736291.134833 3953371 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E       E0000 00:00:1760736291.138666 3953371 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+E       W0000 00:00:1760736291.149837 3953371 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1760736291.149854 3953371 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1760736291.149855 3953371 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       W0000 00:00:1760736291.149857 3953371 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E       2025-10-17 14:24:51.152542: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E       To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+E       Traceback (most recent call last):
+E         File "<frozen runpy>", line 198, in _run_module_as_main
+E         File "<frozen runpy>", line 88, in _run_code
+E         File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 23, in <module>
+E           import lightning as L
+E       ModuleNotFoundError: No module named 'lightning'
+
+tests/torch/test_integration_workflow_torch.py:105: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+Created temporary directory for PyTorch test run: /tmp/tmpjnrdul16
+--- Running PyTorch Training Step (subprocess) ---
+Cleaned up temporary directory: /tmp/tmpjnrdul16
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_integration_workflow_torch.py:165: Deferred to Phase E2.D parity verification
+FAILED tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle - AssertionError: 1 != 0 : PyTorch training script failed with stdout:
+
+stderr:
+2025-10-17 14:24:51.122948: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760736291.134833 3953371 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760736291.138666 3953371 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760736291.149837 3953371 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760736291.149854 3953371 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760736291.149855 3953371 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760736291.149857 3953371 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 14:24:51.152542: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 23, in <module>
+    import lightning as L
+ModuleNotFoundError: No module named 'lightning'
+========================= 1 failed, 1 skipped in 5.35s =========================
