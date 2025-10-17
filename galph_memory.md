@@ -372,3 +372,14 @@
 - Authored hand-off memo `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T095250Z/phase_d2b_review.md` capturing open gaps + D2.C next steps.
 - Rewrote input.md targeting D2.C red→green test + inference/stitching scaffolding; updated docs/fix_plan.md with Attempt #46.
 - <Action State>: [ready_for_implementation]
+
+
+## 2025-10-17T101521Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D3 persistence bridge
+- Action type: Evidence collection
+- Mode: Parity
+- Notes: Recording selections before executing Step <3.2>. Detailed analysis to follow.
+- Updates: Confirmed Phase D2 artifacts, flipped implementation plan D2 state to [x], and refreshed D3.A guidance to require callchain evidence before coding.
+- Artifacts: Logged supervisor brief at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T101657Z/phase_d3_persistence_prep.md`; input.md now directs persistence callchain deliverables.
+- Next Steps for Ralph: Execute D3.A callchain, capture static/tap/summary/env files, highlight PyTorch checkpoint deltas, and log open questions for archive writer.
+- <Action State>: [gathering_evidence]

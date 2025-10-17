@@ -1,38 +1,42 @@
-Summary: Implement torch-optional `run_cdi_example_torch` inference/stitching path with red→green pytest parity.
+Summary: Map TensorFlow model persistence so the PyTorch backend can mirror the wts.h5.zip contract before coding Phase D3.
 Mode: Parity
-Focus: INTEGRATE-PYTORCH-001 — Prepare for PyTorch Backend Integration with Ptychodus
+Focus: INTEGRATE-PYTORCH-001 — Phase D3 persistence bridge
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_invokes_training -vv ; pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_cdi_model_torch_invokes_lightning -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T101500Z/{phase_d2c_red.md,phase_d2c_green.md,pytest_red.log,pytest_green.log}
+Mapped tests: none — evidence-only
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T101657Z/phase_d3_callchain/{callchain/static.md,summary.md,trace/tap_points.md,env/trace_env.json}
 Do Now:
-- INTEGRATE-PYTORCH-001 D2.C @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — author red-phase parity test covering `run_cdi_example_torch` + optional stitching; document design + params in phase_d2c_red.md; tests: none.
-- INTEGRATE-PYTORCH-001 D2.C @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — implement torch-optional inference/stitching helpers to satisfy new test; capture notes in phase_d2c_green.md; run `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_invokes_training -vv`.
-- INTEGRATE-PYTORCH-001 D2.C @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — rerun training parity selector `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_cdi_model_torch_invokes_lightning -vv`; update docs/fix_plan Attempts with artifacts + pytest logs (tests: executed).
-If Blocked: If torch runtime or Lightning deps missing, capture the import/ModuleNotFoundError output in pytest_red.log, note blockers in phase_d2c_red.md, and stop after updating docs/fix_plan.md with failure context.
+1. INTEGRATE-PYTORCH-001 D3.A @ plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — run the callchain tracing workflow (analysis question in phase_d3_persistence_prep.md) via prompts/callchain.md; capture required deliverables under the artifact directory; tests: none.
+
+If Blocked: If callchain execution stalls (missing tooling or unclear entrypoint), pivot to a static mapping: document entry→ModelManager→archive flow with path:line anchors in `phase_d3_callchain/static.md` and log open questions in `summary.md` so we can adjust scope next loop.
+
 Priorities & Rationale:
-- Align with reconstructor contract (`specs/ptychodus_api_spec.md:180`) so PyTorch backend mirrors TF `run_cdi_example` lifecycle.
-- Follows D2.C guidance in `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` (table row now awaiting implementation).
-- Builds on existing training stub tests in `tests/torch/test_workflows_components.py:170` to preserve parity.
-- Uses TF baseline `ptycho/workflows/components.py:535` as authoritative behaviour for inference + stitching.
-- Supports downstream persistence plan (Phase D3) by returning results dict with reconstructed outputs.
+- specs/ptychodus_api_spec.md:192-202 mandates archive parity; we need an exact flow map before designing adapters.
+- ptycho/model_manager.py:346-420 shows how TensorFlow saves/loads multi-model archives; tracing it ensures we replicate manifests and params snapshots.
+- ptycho/workflows/components.py:676-720 drives training/save orchestration; we must capture where ModelManager hooks in and how params.cfg is restored.
+- ptycho_torch/train.py:100-220 highlights the current Lightning + MLflow persistence delta; documenting gaps will shape D3.B/D3.C scope.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md:44 gates implementation on this evidence, so the callchain is prerequisite for further work.
+
 How-To Map:
-- Author pytest in `tests/torch/test_workflows_components.py` (new class `TestWorkflowsComponentsRun`) that monkeypatches `train_cdi_model_torch`, `_ensure_container`, and a new `_reassemble_with_tensorflow`/`reassemble_cdi_image_torch` helper; include `pytest.importorskip("torch", reason="torch backend required")` guarded by TORCH_AVAILABLE to keep torch-optional behaviour.
-- Reference spec expectations for returned tuple `(recon_amp, recon_phase, results)`; ensure test asserts placeholders when stitching disabled/enabled and that `train_cdi_model_torch` invoked once.
-- Implement `run_cdi_example_torch` by delegating to existing training stub, wiring optional stitching via placeholder helper returning `None` outputs until Phase D2.C fleshed out; keep import guards identical to training path and respect CONFIG-001 by leaving `update_legacy_dict` call untouched.
-- Add helper (e.g., `_reassemble_with_torch`) that currently raises NotImplementedError when stitching requested; update test to xfail or expect NotImplementedError until implemented, but ensure behaviour documented in phase_d2c_green.md.
-- After implementation, run targeted pytest selector then rerun training selector to confirm no regression; store logs under specified artifact directory.
+- Read `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T101657Z/phase_d3_persistence_prep.md` for the analysis question and parameter suggestions.
+- Follow prompts/callchain.md: build the candidate entrypoint table from docs, then trace from `run_cdi_example`/`ModelManager.save_multiple_models` through to `load_inference_bundle` with path:line anchors.
+- If dynamic tracing is feasible, record a minimal run (e.g., scripted no-op harness) filtered to `ptycho.*`; otherwise note why it was skipped in `callchain/summary.md`.
+- Contrast findings with PyTorch outputs: reference Lightning checkpoint creation, MLflow artifacts, and where those surfaces live; add anchors in the `summary.md` delta section.
+- Drop all deliverables (static.md, tap_points.md, summary.md, env/trace_env.json, optional dynamic.txt) under `.../phase_d3_callchain/` and link any supporting scratch notes from there.
+
 Pitfalls To Avoid:
-- Do not require actual PyTorch tensors or Lightning runs; keep helpers torch-optional and use monkeypatchable stubs.
-- Preserve existing `update_legacy_dict` call order; do not duplicate calls inside helpers.
-- Do not import torch-lightning at module scope; wrap inside TORCH_AVAILABLE check.
-- Ensure new pytest uses native pytest style (no unittest.TestCase) and respects existing skip logic in `tests/conftest.py`.
-- Avoid mutating global `params.cfg` in tests without restoring via fixture (reuse existing pattern).
-- Keep placeholder returns consistent with spec signature (tuple of amplitude, phase, results).
-- Document any TODOs in artifacts instead of leaving ambiguous comments in code.
+- Do not modify production code or configs; this is evidence-only.
+- Keep the callchain doc-first—cite specs/plan sections before code.
+- Maintain torch-optional imports; no `import torch` in new analysis scripts.
+- Record path:line anchors for every stage; avoid vague references.
+- Don’t spend time on full training runs; focus on control flow and archive layout.
+- Avoid assuming MLflow availability—note any dependency expectations explicitly.
+- Ensure artifact filenames follow the template; no stray files at repo root.
+
 Pointers:
-- specs/ptychodus_api_spec.md:180 — inference lifecycle contract.
-- ptycho/workflows/components.py:535 — TensorFlow run/stitch baseline.
-- ptycho_torch/workflows/components.py:1 — current PyTorch scaffold needing D2.C logic.
-- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md — Phase D2 checklist + updated guidance.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T095250Z/phase_d2b_review.md — hand-off notes for D2.C.
-Next Up: Consider replacing `_train_with_lightning` stub with real Lightning orchestration once torch runtime available.
+- specs/ptychodus_api_spec.md:192-202 — Persistence contract requirements.
+- ptycho/model_manager.py:346-420 — wts.h5.zip save/load implementation.
+- ptycho/workflows/components.py:676-720 — Orchestration hook points for ModelManager.
+- ptycho_torch/train.py:100-220 — Current Lightning checkpoint + MLflow outputs.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T101657Z/phase_d3_persistence_prep.md — Callchain brief and parameters.
+
+Next Up: Execute D3.B (archive writer design) once the callchain evidence is reviewed and gaps are validated.

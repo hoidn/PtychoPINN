@@ -41,7 +41,7 @@ Exit Criteria: PyTorch training run emits archives the reconstructor can consume
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D3.A | Document persistence delta | [ ] | Compare TensorFlow `ModelManager` outputs (`wts.h5.zip`) to PyTorch checkpoints. Capture schema diff in `reports/<timestamp>/phase_d3_persistence_gap.md`. |
+| D3.A | Document persistence delta | [ ] | Run callchain per `prompts/callchain.md` to map TensorFlow training → ModelManager.save_multiple_models → wts.h5.zip → load_inference_bundle, then contrast with PyTorch Lightning checkpoint/MLflow outputs. Capture artifacts under `reports/<timestamp>/phase_d3_callchain/` (static.md, summary.md) outlining schema/touchpoints. |
 | D3.B | Implement archive writer | [ ] | Either extend `ModelManager` or add `TorchModelManager` to package Lightning checkpoint + params dump into `.h5.zip`. Respect CONFIG-001 by bundling `params.cfg`. Record implementation summary + sample archive tree in `reports/<timestamp>/phase_d3_writer.md`. |
 | D3.C | Implement loader & validation | [ ] | Provide load routine returning ready-to-run Lightning module, verifying `update_legacy_dict` call. Document round-trip test + checksum comparison in `reports/<timestamp>/phase_d3_loader.md`. |
 
