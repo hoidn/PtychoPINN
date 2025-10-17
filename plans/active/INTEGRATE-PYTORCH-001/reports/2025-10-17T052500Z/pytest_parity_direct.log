@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: not available (/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/lib/libtorch_cuda.so: undefined symbol: ncclCommWindowRegister)
+
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 4 items
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[N-direct] PASSED [ 25%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[n_filters_scale-direct] PASSED [ 50%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[object_big-direct] PASSED [ 75%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[probe_big-direct] PASSED [100%]
+
+============================== 4 passed in 2.79s ===============================
