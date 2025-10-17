@@ -468,3 +468,13 @@
 - Key notes: Blueprint breaks work into E1.C1–E1.C4 (config plumbing, adapter propagation, dispatcher, tests); highlighted fail-fast RuntimeError requirement and results logging.
 - Follow-up for Ralph: execute Do Now checklist in input.md (implement backend selector, turn backend_selection tests green, capture logs).
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T190126Z: Backend Dispatcher Directive
+- Focus issue: INTEGRATE-PYTORCH-001 Phase E1.C (backend selection implementation)
+- Action type: Review or housekeeping
+- Mode: Parity
+- Reviewed E1 status (phase_e_backend_design.md, tests/torch/test_backend_selection.py) and confirmed E1.C1–E1.C2 landed; E1.C3/E1.C4 still open.
+- Rewrote input.md to mandate torch-optional dispatcher bridging TensorFlow ↔ PyTorch workflows, CONFIG-001 guard, RuntimeError fallback, and results instrumentation; artifacts to land under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T190900Z/`.
+- Logged Attempt #62 in docs/fix_plan.md noting dispatcher scope and selectors (`pytest tests/torch/test_backend_selection.py -vv`, `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models -vv`).
+- Next: Ralph to implement dispatcher + test updates per E1.C3/E1.C4 and capture phase_e_backend_green.md summary.
+- <Action State>: [ready_for_implementation]
