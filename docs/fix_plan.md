@@ -6,6 +6,11 @@
 
 ---
 
+## [INTEGRATE-PYTORCH-000] pre-Prepare for PyTorch Backend Integration with Ptychodus
+Existing INTEGRATE-PYTORCH-001 plan / report docs were drafted before merging upstream changes in ptycho_torch/. 
+They need to be updated to reflect the current pytorch implementation's state
+TODO expand this item
+
 
 ## [TEST-PYTORCH-001] Build Minimal Test Suite for PyTorch Backend
 - Spec/AT: Corresponds to existing TensorFlow integration test `tests/test_integration_workflow.py` and guidance in `plans/pytorch_integration_test_plan.md`.
