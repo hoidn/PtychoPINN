@@ -1,0 +1,31 @@
+# Complete Generalization Study Configuration
+# Generated: Thu Aug 21 07:45:50 PM PDT 2025
+
+# Training Configuration
+TRAIN_SIZES=512 4000
+TEST_SIZES=1000 512
+PARALLEL_JOBS=1
+
+# Paths
+OUTPUT_DIR=3waysynthtest2
+TRAIN_DATA=datasets/fly001_reconstructed_prepared/fly001_reconstructed_final_downsampled_data_train.npz
+TEST_DATA=tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data_5000x.npz
+
+# Workflow Flags
+SKIP_DATA_PREP=true
+SKIP_TRAINING=false
+SKIP_COMPARISON=false
+ADD_TIKE_ARM=true
+TIKE_ITERATIONS=200
+DRY_RUN=false
+
+# Environment Info
+PROJECT_ROOT=/home/ollie/Documents/PtychoPINN
+USER=ollie
+HOSTNAME=ollie-System-Product-Name
+PWD=/home/ollie/Documents/PtychoPINN
+
+# System Info
+PYTHON_VERSION=Python 3.11.13
+CONDA_ENV=ptycho311
+GPU_INFO=NVIDIA GeForce RTX 3090, 24576
