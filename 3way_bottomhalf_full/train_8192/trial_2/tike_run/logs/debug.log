@@ -1,0 +1,18 @@
+2025-07-26 22:52:30,027 - INFO - Starting Tike reconstruction...
+2025-07-26 22:52:30,027 - INFO - Input: datasets/fly64/fly64_top_half_shuffled.npz
+2025-07-26 22:52:30,027 - INFO - Output directory: 3way_bottomhalf_full/train_8192/trial_2/tike_run
+2025-07-26 22:52:30,027 - INFO - Iterations: 1000
+2025-07-26 22:52:30,027 - INFO - GPUs: 1
+2025-07-26 22:52:30,027 - INFO - Extra padding: 64 pixels
+2025-07-26 22:52:30,027 - INFO - Subsampling: 8192 images
+2025-07-26 22:52:30,027 - INFO - Loading data from datasets/fly64/fly64_top_half_shuffled.npz
+2025-07-26 22:52:30,065 - DEBUG - Found diffraction data under key: diffraction
+2025-07-26 22:52:30,065 - WARNING - Requested 8192 images but dataset only has 5172. Using all 5172 images.
+2025-07-26 22:52:30,065 - ERROR - Reconstruction failed: local variable 'xcoords' referenced before assignment
+2025-07-26 22:52:30,065 - DEBUG - Full traceback:
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN/scripts/reconstruction/run_tike_reconstruction.py", line 403, in main
+    data_dict = load_tike_data(args.input_npz, args.n_images)
+  File "/home/ollie/Documents/PtychoPINN/scripts/reconstruction/run_tike_reconstruction.py", line 179, in load_tike_data
+    'xcoords': xcoords,
+UnboundLocalError: local variable 'xcoords' referenced before assignment
