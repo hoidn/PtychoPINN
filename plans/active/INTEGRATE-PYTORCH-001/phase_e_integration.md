@@ -25,14 +25,21 @@ Exit Criteria: Documented callchain diff, TDD red tests in the Ptychodus repo co
 ### Phase E2 — Integration Regression & Parity Harness
 Goal: Provide runnable parity tests that exercise the PyTorch backend end-to-end alongside TensorFlow.
 Prereqs: E1 design complete, TEST-PYTORCH-001 coordination notes reviewed (`phase_d4_alignment.md`, `phase_d4_selector_map.md`).
-Exit Criteria: Torch-optional failing tests documenting the integration gap, green implementation wiring PyTorch workflows, and parity report comparing TensorFlow vs PyTorch outputs on shared fixtures.
+Exit Criteria: Torch-optional failing tests documenting the integration gap, green implementation wiring PyTorch workflows, and parity report comparing TensorFlow vs PyTorch outputs on shared fixtures. Execution guidance is expanded in `reports/2025-10-17T212500Z/phase_e2_plan.md`.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E2.A | Align with TEST-PYTORCH-001 fixtures | [ ] | Meet with TEST-PYTORCH-001 plan owners; capture fixture availability + runtime constraints in `phase_e_fixture_sync.md`. Reference `plans/pytorch_integration_test_plan.md` §Prerequisites. |
-| E2.B | Author integration red tests | [ ] | Extend `tests/torch/test_workflows_components.py` or new `tests/torch/test_integration_workflow_torch.py` with subprocess-style tests that mirror `tests/test_integration_workflow.py`. Record red logs under `phase_e_red_integration.log`; ensure torch-optional skip rules documented. |
-| E2.C | Implement integration wiring | [ ] | Once red tests exist, wire Ptychodus configuration to call `run_cdi_example_torch` / `load_inference_bundle_torch`. Document code changes and targeted green selectors in `phase_e_integration_green.md`. |
-| E2.D | Capture parity metrics | [ ] | Execute both TensorFlow and PyTorch integration tests; summarize runtime, key metrics, and archive diffs in `phase_e_parity_summary.md`. Include commands: `pytest tests/test_integration_workflow.py -k tf` and torch counterpart selector defined in selector map. |
+| E2.A1 | Review TEST-PYTORCH-001 fixture inventory | [ ] | Read `plans/pytorch_integration_test_plan.md` (§Fixtures) and `reports/2025-10-17T121930Z/phase_d4c_summary.md` to confirm which synthetic dataset + cached bundles are available. Capture findings in `reports/<ts>/phase_e_fixture_sync.md` (table with dataset name, size, n_groups, owner). |
+| E2.A2 | Define minimal reproducible dataset + env knobs | [ ] | Document the specific fixture (path under `datasets/` or synthetic generator), required CLI flags, and expected runtime budget. Include reproduction command snippets in the same fixture sync note; align with DATA-001 + CONFIG-001. |
+| E2.B1 | Author torch-optional integration test skeleton | [ ] | Create `tests/torch/test_integration_workflow_torch.py` (torch-optional whitelist via `tests/conftest.py`). Mirror TensorFlow integration structure (subprocess call to `scripts/training/train.py` / inference). Ensure tests default to `xfail(strict=True)` until implementation lands. |
+| E2.B2 | Capture red pytest evidence | [ ] | Run targeted selectors (`pytest tests/torch/test_integration_workflow_torch.py -vv`, `pytest tests/torch/test_backend_selection.py -k integration -vv`) with PyTorch unavailable to confirm expected failures. Store logs under `reports/<ts>/phase_e_red_integration.log` alongside a narrative `red_phase.md`. |
+| E2.C1 | Wire backend dispatcher to PyTorch workflows | [ ] | Update Ptychodus integration shim per Phase E1 blueprint so training/inference paths call the PyTorch orchestrators when `backend='pytorch'`. Ensure CONFIG-001 gate executes before dispatch and persistence routes to Phase D3 save/load helpers. Document code diffs in `phase_e_integration_green.md`. |
+| E2.C2 | Verify fail-fast + params bridge behavior | [ ] | Extend parity tests to assert actionable error when PyTorch missing and confirm `update_legacy_dict` invoked with backend field set. Capture green pytest logs (`pytest ... -k backend`). |
+| E2.D1 | Execute TensorFlow baseline integration test | [ ] | Run `pytest tests/test_integration_workflow.py -k full_cycle -vv` (authoritative command per TESTING_GUIDE.md). Archive log as `reports/<ts>/phase_e_tf_baseline.log`; note runtime + key outputs. |
+| E2.D2 | Execute PyTorch integration test | [ ] | Run the new torch integration selector (defined in E2.B1) with PyTorch installed. Capture log `phase_e_torch_run.log`, verifying identical artifact set (model bundle, reconstructions). |
+| E2.D3 | Compare outputs + publish parity summary | [ ] | Create `phase_e_parity_summary.md` (metrics table, qualitative notes, diff references). Include acceptance thresholds, residual disparities, and follow-up actions for TEST-PYTORCH-001. |
+
+**Artifact Discipline:** Use ISO timestamps per loop (e.g., `reports/2025-10-17T212500Z/` for planning artifacts, `reports/<execution-ts>/` for red/green runs). Reference each generated file from docs/fix_plan.md Attempts history.
 
 ---
 

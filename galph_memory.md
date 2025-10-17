@@ -588,3 +588,14 @@
 - Next Steps for Ralph: Execute F4.3 tasks per new plan, populate handoff notes, mark plan/ledger checkboxes, prepare for v2.0.0 release entry.
 - <Action State>: [ready_for_implementation]
 
+
+## 2025-10-17T211728Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase E2 integration parity harness
+- Action type: Planning
+- Mode: Parity
+- Notes: Recording selections prior to Step <3.2>; verifying dependencies (Phase E1 artifacts) before drafting plan refresh.
+- Reviewed Phase E1 artifacts (phase_e_callchain + backend_design) to confirm dependencies satisfied; POLICY-001 remains the only relevant finding.
+- Updated `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` with detailed E2 sub-tasks (E2.A1–E2.D3) and created execution guide at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T212500Z/phase_e2_plan.md`.
+- Logged docs/fix_plan.md Attempt #78 describing the planning refresh; rewritten `input.md` directs Ralph to complete E2.A1–E2.B2 with artifacts under `reports/2025-10-17T213500Z/`.
+- Next steps for Ralph: capture fixture sync note, author torch-optional integration red tests, and archive pytest logs per new plan.
+- <Action State>: [ready_for_implementation]
