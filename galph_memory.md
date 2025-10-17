@@ -563,3 +563,16 @@
 - Rewrote `input.md` to focus Ralph on Phase F4.1 doc updates (inventory + edits recorded in doc_updates.md) with Docs mode, tests: none.
 - Next steps for Ralph: execute F4.1 checklist, populate doc_updates.md, then update plan/ledger per instructions before moving to F4.2.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T204613Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase F4.2 spec & findings sync
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Recording selections prior to Step <3.2>; will perform findings grep, document review, and prep Phase F4.2 instructions.
+
+## 2025-10-17T205013Z: Phase F4.2 Review Summary
+- Reviewed docs/findings.md (no existing PyTorch entries) and Phase F4.1 artifacts; captured spec/finding sync instructions in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T204818Z/spec_sync_brief.md`.
+- Updated `phase_f4_doc_sync.md` + `phase_f_torch_mandatory.md` to point at the new prep notes/timestamp so execution guidance stays aligned.
+- Logged Attempt #74 in docs/fix_plan.md and rewrote `input.md` with Docs-mode checklist covering F4.2.A–C plus ledger updates.
+- Next steps for Ralph: apply spec edits, add POLICY-001 finding, update CLAUDE directive cross-links, then record results in `spec_sync.md` and mark plan rows complete.
+- <Action State>: [ready_for_implementation]
