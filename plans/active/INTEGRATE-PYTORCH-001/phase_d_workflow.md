@@ -30,7 +30,7 @@ Exit Criteria: New module(s) providing `train_cdi_model_torch`, `run_cdi_example
 | --- | --- | --- | --- |
 | D2.A | Scaffold orchestration module | [x] | Completed 2025-10-17 — see `reports/2025-10-17T091450Z/phase_d2_scaffold.md` for torch-optional scaffold implementation with CONFIG-001 parity guard. Test selector: `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict -vv` (1/1 PASSED). Git commit: 10be6913. |
 | D2.B | Implement training path | [x] | ✅ 2025-10-17 — Stub implementation landed (`reports/2025-10-17T094500Z/phase_d2_training.md`). `_ensure_container` + `train_cdi_model_torch` now normalize inputs and delegate to Lightning stub per TDD plan; full Trainer integration + probe handling deferred (tracked in Next Steps). |
-| D2.C | Implement inference + stitching path | [ ] | Use `reports/2025-10-17T095250Z/phase_d2b_review.md` plus TF baseline (`ptycho/workflows/components.py:615-710`) to design parity flow. Author red-phase pytest before implementation, store artifacts under `reports/<timestamp>/phase_d2_inference.md`. |
+| D2.C | Implement inference + stitching path | [x] | ✅ 2025-10-17 — Orchestration logic implemented (`reports/2025-10-17T101500Z/phase_d2c_green.md`). `run_cdi_example_torch` now invokes `train_cdi_model_torch` + conditional `_reassemble_cdi_image_torch` stub per TF baseline parity. Test selector: `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_invokes_training -vv` (1/1 PASSED). Full regression: 191 passed, 0 failed. `_reassemble_cdi_image_torch` stub deferred to Phase D3 (full inference impl). Git commit: pending. |
 
 ---
 

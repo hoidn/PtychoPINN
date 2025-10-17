@@ -132,19 +132,32 @@ class TestWorkflowsComponentsScaffold:
         )
 
         # Attempt to call run_cdi_example_torch
-        # Phase D2.A: expect NotImplementedError (scaffold only)
-        # Phase D2.B/C: expect full execution after training/inference impl
-        with pytest.raises(NotImplementedError, match="PyTorch training path not yet implemented"):
-            torch_components.run_cdi_example_torch(
-                train_data=train_data,
-                test_data=None,  # Optional
-                config=minimal_training_config,
-                flip_x=False,
-                flip_y=False,
-                transpose=False,
-                M=20,
-                do_stitching=False,
-            )
+        # Phase D2.A: expects NotImplementedError (scaffold only) — COMPLETED
+        # Phase D2.B/C: IMPLEMENTED — now returns results tuple
+        # Test validates update_legacy_dict was called, but doesn't fully exercise training
+        # (training path tested separately in TestWorkflowsComponentsTraining)
+
+        # Monkeypatch train_cdi_model_torch to prevent full training execution in this test
+        def mock_train_cdi_model_torch(train_data, test_data, config):
+            """Minimal stub to prevent full training in scaffold test."""
+            return {"history": {"train_loss": [0.5]}, "train_container": None, "test_container": None}
+
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components.train_cdi_model_torch",
+            mock_train_cdi_model_torch
+        )
+
+        # Call should now succeed (Phase D2.C implemented)
+        recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
+            train_data=train_data,
+            test_data=None,  # Optional
+            config=minimal_training_config,
+            flip_x=False,
+            flip_y=False,
+            transpose=False,
+            M=20,
+            do_stitching=False,
+        )
 
         # Validate update_legacy_dict was called
         assert update_legacy_dict_called["called"], (
@@ -322,3 +335,151 @@ class TestWorkflowsComponentsTraining:
         assert "history" in results
         assert "train_container" in results
         assert "test_container" in results
+
+
+class TestWorkflowsComponentsRun:
+    """
+    Phase D2.C inference + stitching tests — validate run_cdi_example_torch orchestration.
+
+    These tests validate that run_cdi_example_torch properly orchestrates training
+    and optional stitching workflows per specs/ptychodus_api_spec.md §4.5 and TF
+    baseline ptycho/workflows/components.py:676-723.
+    """
+
+    @pytest.fixture
+    def params_cfg_snapshot(self):
+        """Snapshot and restore params.cfg state across tests."""
+        from ptycho import params
+        original = params.cfg.copy()
+        yield params.cfg
+        params.cfg.clear()
+        params.cfg.update(original)
+
+    @pytest.fixture
+    def minimal_training_config(self):
+        """Create minimal TrainingConfig fixture for inference tests."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='pinn',
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=2,
+        )
+
+        return training_config
+
+    @pytest.fixture
+    def dummy_raw_data(self):
+        """Create minimal RawData fixture for testing."""
+        from ptycho.raw_data import RawData
+
+        # Create minimal synthetic data
+        nsamples = 10
+        N = 64
+
+        dummy_coords = np.linspace(0, 9, nsamples)
+        dummy_diff = np.random.rand(nsamples, N, N).astype(np.float32)
+        dummy_probe = np.ones((N, N), dtype=np.complex64)
+        dummy_scan_index = np.arange(nsamples, dtype=int)
+
+        return RawData(
+            xcoords=dummy_coords,
+            ycoords=dummy_coords,
+            xcoords_start=dummy_coords,
+            ycoords_start=dummy_coords,
+            diff3d=dummy_diff,
+            probeGuess=dummy_probe,
+            scan_index=dummy_scan_index,
+        )
+
+    def test_run_cdi_example_invokes_training(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        CRITICAL PARITY TEST: run_cdi_example_torch must invoke training orchestration.
+
+        Requirement: Phase D2.C must implement full workflow orchestration following
+        TensorFlow baseline ptycho/workflows/components.py:676-723 and mirroring
+        the reconstructor lifecycle per specs/ptychodus_api_spec.md §4.5.
+
+        Red-phase contract:
+        - Entry signature: run_cdi_example_torch(train_data, test_data, config, do_stitching=False, ...)
+        - MUST call train_cdi_model_torch(train_data, test_data, config) first
+        - When do_stitching=False: return (None, None, results_dict)
+        - When do_stitching=True + test_data: invoke reassemble helper, return (amp, phase, results)
+        - results dict MUST contain keys from training (history, containers)
+
+        Test mechanism:
+        - Use monkeypatch to spy on train_cdi_model_torch call
+        - Pass minimal RawData + do_stitching=False (no inference path required)
+        - Assert train_cdi_model_torch was invoked with correct args
+        - Validate return signature matches TensorFlow baseline
+        """
+        # Import the module under test
+        from ptycho_torch.workflows import components as torch_components
+
+        # Spy flag to track train_cdi_model_torch invocation
+        train_cdi_model_torch_called = {"called": False, "args": None}
+
+        def mock_train_cdi_model_torch(train_data, test_data, config):
+            """Spy that records train_cdi_model_torch invocation."""
+            train_cdi_model_torch_called["called"] = True
+            train_cdi_model_torch_called["args"] = (train_data, test_data, config)
+            # Return minimal training results dict
+            return {
+                "history": {"train_loss": [0.5, 0.3]},
+                "train_container": {"sentinel": "train"},
+                "test_container": None,
+            }
+
+        # Patch train_cdi_model_torch
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components.train_cdi_model_torch",
+            mock_train_cdi_model_torch
+        )
+
+        # Call run_cdi_example_torch with do_stitching=False (Phase D2.C red phase)
+        recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
+            train_data=dummy_raw_data,
+            test_data=None,
+            config=minimal_training_config,
+            flip_x=False,
+            flip_y=False,
+            transpose=False,
+            M=20,
+            do_stitching=False,
+        )
+
+        # Validate train_cdi_model_torch was called
+        assert train_cdi_model_torch_called["called"], (
+            "run_cdi_example_torch MUST invoke train_cdi_model_torch"
+        )
+
+        # Validate correct arguments passed
+        train_data_arg, test_data_arg, config_arg = train_cdi_model_torch_called["args"]
+        assert train_data_arg is dummy_raw_data
+        assert test_data_arg is None
+        assert config_arg is minimal_training_config
+
+        # Validate return signature (do_stitching=False → None, None, results)
+        assert recon_amp is None, (
+            "When do_stitching=False, recon_amp should be None"
+        )
+        assert recon_phase is None, (
+            "When do_stitching=False, recon_phase should be None"
+        )
+        assert "history" in results, "results dict must contain training history"

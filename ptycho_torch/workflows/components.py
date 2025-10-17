@@ -156,18 +156,31 @@ def run_cdi_example_torch(
     ptycho_config.update_legacy_dict(params.cfg, config)
     logger.info("PyTorch workflow: params.cfg synchronized with TrainingConfig")
 
-    # Phase D2.B TODO: Implement training delegation
-    # Expected flow:
-    # 1. Convert train_data → PtychoDataContainerTorch via Phase C adapters
-    # 2. Invoke train_cdi_model_torch (Lightning orchestration)
-    # 3. If do_stitching + test_data: invoke reassemble_cdi_image_torch
-    # 4. Return (amplitude, phase, results)
+    # Step 1: Train the model (Phase D2.B — delegates to Lightning trainer stub)
+    logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
+    train_results = train_cdi_model_torch(train_data, test_data, config)
 
-    raise NotImplementedError(
-        "PyTorch training path not yet implemented. "
-        "Phase D2.B will implement Lightning trainer orchestration. "
-        "See plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md for roadmap."
-    )
+    # Step 2: Initialize return values for reconstruction outputs
+    recon_amp, recon_phase = None, None
+
+    # Step 3: Optional stitching path (when explicitly requested + test data provided)
+    # Mirrors TensorFlow baseline ptycho/workflows/components.py:714-721
+    if do_stitching and test_data is not None:
+        logger.info("Performing image stitching (do_stitching=True, test_data provided)...")
+        # Phase D2.C: Invoke reassembly helper to stitch reconstructed patches
+        # Full implementation will delegate to PyTorch inference + reassemble_position
+        recon_amp, recon_phase, reassemble_results = _reassemble_cdi_image_torch(
+            test_data, config, flip_x, flip_y, transpose, M
+        )
+        # Merge reassembly outputs into training results (update pattern from TF baseline)
+        train_results.update(reassemble_results)
+        logger.info("Image stitching complete")
+    else:
+        logger.info("Skipping image stitching (do_stitching=False or no test data available)")
+
+    # Step 4: Return tuple matching TensorFlow baseline signature
+    # (amplitude, phase, results) per specs/ptychodus_api_spec.md §4.5
+    return recon_amp, recon_phase, train_results
 
 
 def _ensure_container(
@@ -211,6 +224,7 @@ def _ensure_container(
     if isinstance(data, RawData):
         logger.debug("Converting RawData → RawDataTorch → PtychoDataContainerTorch")
         # Wrap with RawDataTorch (Phase C adapter)
+        # Note: Y patches are embedded in TF RawData and will be extracted during grouping
         torch_raw_data = RawDataTorch(
             xcoords=data.xcoords,
             ycoords=data.ycoords,
@@ -218,7 +232,6 @@ def _ensure_container(
             probeGuess=data.probeGuess,
             scan_index=data.scan_index,
             objectGuess=data.objectGuess,
-            Y=data.Y,
             config=config  # Pass config for update_legacy_dict call
         )
         data = torch_raw_data
@@ -285,6 +298,59 @@ def _train_with_lightning(
         "train_container": train_container,
         "test_container": test_container,
     }
+
+
+def _reassemble_cdi_image_torch(
+    test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
+    config: TrainingConfig,
+    flip_x: bool,
+    flip_y: bool,
+    transpose: bool,
+    M: int
+) -> Tuple[Any, Any, Dict[str, Any]]:
+    """
+    Reassemble CDI image using trained PyTorch model (stub for Phase D2.C).
+
+    This function provides API parity with ptycho.workflows.components.reassemble_cdi_image,
+    orchestrating model inference and patch reassembly to produce final reconstruction.
+
+    Args:
+        test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
+        config: TrainingConfig for inference parameters
+        flip_x: Whether to flip the x coordinates during reconstruction
+        flip_y: Whether to flip the y coordinates during reconstruction
+        transpose: Whether to transpose the image by swapping dimensions
+        M: Parameter for reassemble_position function
+
+    Returns:
+        Tuple containing:
+        - recon_amp: Reconstructed amplitude array (np.ndarray)
+        - recon_phase: Reconstructed phase array (np.ndarray)
+        - results: Dictionary with intermediate outputs (obj_tensor_full, global_offsets, etc.)
+
+    Raises:
+        NotImplementedError: Phase D2.C stitching path not yet fully implemented
+
+    Phase D2.C TODO:
+        - Step 1: Normalize test_data → PtychoDataContainerTorch via _ensure_container
+        - Step 2: Run model inference to get reconstructed patches (Lightning module.predict)
+        - Step 3: Apply coordinate transformations (flip_x, flip_y, transpose, coord_scale)
+        - Step 4: Reassemble patches using PyTorch equivalent of reassemble_position
+        - Step 5: Extract amplitude + phase from complex reconstruction
+        - Step 6: Return (recon_amp, recon_phase, results_dict)
+
+    Example (Post D2.C):
+        >>> test_container = _ensure_container(test_data, config)
+        >>> recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
+        ...     test_data, config, flip_x=False, flip_y=False, transpose=False, M=20
+        ... )
+    """
+    raise NotImplementedError(
+        "PyTorch inference/stitching path not yet implemented. "
+        "Phase D2.C stub implementation in place for orchestration testing. "
+        "Full implementation will invoke model.predict() and reassemble_position equivalent. "
+        "See plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md D2.C for roadmap."
+    )
 
 
 def train_cdi_model_torch(
