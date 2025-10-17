@@ -1,0 +1,20 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: not available (/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/lib/libtorch_cuda.so: undefined symbol: ncclCommWindowRegister)
+
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 6 items
+
+tests/torch/test_backend_selection.py::TestBackendSelection::test_defaults_to_tensorflow_backend SKIPPED [ 16%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_selects_pytorch_backend SKIPPED [ 33%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_backend_calls_update_legacy_dict SKIPPED [ 50%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_unavailable_raises_error SKIPPED [ 66%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_inference_config_supports_backend_selection SKIPPED [ 83%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_backend_selection_preserves_api_parity SKIPPED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [6] tests/torch/test_backend_selection.py: PyTorch not available (TF-only CI)
+============================== 6 skipped in 0.18s ==============================
