@@ -458,3 +458,13 @@
 - Authored Phase E implementation plan (`plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md`) with E1–E3 checklists (callchain, backend red tests, integration parity, docs/spec sync); updated implementation.md Phase E rows to reference the new plan.
 - Rewrote input.md directing Ralph to execute Phase E1.A (callchain evidence) and Phase E1.B (backend-selection red tests); artifacts path set to reports/2025-10-17T173826Z/.
 - <Action State>: [planning]
+
+## 2025-10-17T180000Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase E1.C backend selection blueprint
+- Action type: Planning
+- Mode: Docs
+- Notes: Recording selections prior to Step <3.2>.
+- Deliverables: Authored `phase_e_backend_design.md` + summary at reports/2025-10-17T180500Z, updated phase_e_integration.md (E1.C [x]), logged Attempt #61 in docs/fix_plan.md, rewrote input.md for E1.C implementation loop.
+- Key notes: Blueprint breaks work into E1.C1–E1.C4 (config plumbing, adapter propagation, dispatcher, tests); highlighted fail-fast RuntimeError requirement and results logging.
+- Follow-up for Ralph: execute Do Now checklist in input.md (implement backend selector, turn backend_selection tests green, capture logs).
+- <Action State>: [ready_for_implementation]

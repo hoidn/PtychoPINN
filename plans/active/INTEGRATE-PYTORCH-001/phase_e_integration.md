@@ -17,7 +17,7 @@ Exit Criteria: Documented callchain diff, TDD red tests in the Ptychodus repo co
 | --- | --- | --- | --- |
 | E1.A | Map current Ptychodus reconstructor callchain | [x] | ✅ Completed 2025-10-17. Callchain analysis captured at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T173826Z/phase_e_callchain/{static.md,summary.md,pytorch_workflow_comparison.md}`. Documents TensorFlow vs PyTorch workflow parity with CONFIG-001 gates mapped. |
 | E1.B | Author backend-selection failing tests | [x] | ✅ Completed 2025-10-17. Created `tests/torch/test_backend_selection.py` with 6 red tests (all XFAIL). Red logs at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T173826Z/phase_e_red_backend_selection.log`. Tests document expected backend selection behavior per spec §4.1-4.6. |
-| E1.C | Draft implementation blueprint | [ ] | Produce `phase_e_backend_design.md` describing the minimal changes to `PtychoPINNReconstructorLibrary` (spec §4.1) and CLI/config plumbing to surface a `backend='pytorch'` selector. Include decision rules for guarding imports and preserving legacy behaviour. |
+| E1.C | Draft implementation blueprint | [x] | ✅ Completed 2025-10-17. See `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T180500Z/phase_e_backend_design.md` for dispatcher design, task breakdown (E1.C1–E1.C4), and TDD guidance. |
 
 ---
 
