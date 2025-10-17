@@ -165,3 +165,160 @@ class TestWorkflowsComponentsScaffold:
         assert params_cfg_snapshot['N'] == 64, "params.cfg should be populated with N=64"
         assert params_cfg_snapshot['gridsize'] == 2, "params.cfg should be populated with gridsize=2"
         assert params_cfg_snapshot['model_type'] == 'pinn', "params.cfg should be populated with model_type='pinn'"
+
+
+class TestWorkflowsComponentsTraining:
+    """
+    Phase D2.B training path tests — validate Lightning orchestration.
+
+    These tests validate that train_cdi_model_torch properly normalizes input data
+    via Phase C adapters and delegates to Lightning trainer while maintaining
+    torch-optional behavior.
+    """
+
+    @pytest.fixture
+    def params_cfg_snapshot(self):
+        """Snapshot and restore params.cfg state across tests."""
+        from ptycho import params
+        original = params.cfg.copy()
+        yield params.cfg
+        params.cfg.clear()
+        params.cfg.update(original)
+
+    @pytest.fixture
+    def minimal_training_config(self):
+        """Create minimal TrainingConfig fixture for training tests."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='pinn',
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=2,  # Small number for testing
+        )
+
+        return training_config
+
+    @pytest.fixture
+    def dummy_raw_data(self):
+        """Create minimal RawData fixture for testing."""
+        from ptycho.raw_data import RawData
+
+        # Create minimal synthetic data
+        nsamples = 10
+        N = 64
+
+        dummy_coords = np.linspace(0, 9, nsamples)
+        dummy_diff = np.random.rand(nsamples, N, N).astype(np.float32)
+        dummy_probe = np.ones((N, N), dtype=np.complex64)
+        dummy_scan_index = np.arange(nsamples, dtype=int)
+
+        return RawData(
+            xcoords=dummy_coords,
+            ycoords=dummy_coords,
+            xcoords_start=dummy_coords,
+            ycoords_start=dummy_coords,
+            diff3d=dummy_diff,
+            probeGuess=dummy_probe,
+            scan_index=dummy_scan_index,
+        )
+
+    def test_train_cdi_model_torch_invokes_lightning(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        CRITICAL TRAINING PATH TEST: train_cdi_model_torch must delegate to Lightning.
+
+        Requirement: Phase D2.B must implement training orchestration following the
+        pattern in plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T093500Z/
+        phase_d2_training_analysis.md.
+
+        Red-phase contract:
+        - Entry signature: train_cdi_model_torch(train_data, test_data, config)
+        - MUST call _ensure_container(data, config) for train/test inputs
+        - MUST delegate to Lightning trainer with normalized config
+        - MUST return dict with keys: history, train_container, test_container
+        - Stub implementation may raise NotImplementedError initially
+
+        Test mechanism:
+        - Use monkeypatch to spy on _ensure_container and Lightning orchestration calls
+        - Pass minimal RawData (no actual training execution required)
+        - Assert expected orchestration order without running full training
+        """
+        # Import the module under test
+        from ptycho_torch.workflows import components as torch_components
+
+        # Spy flags to track internal calls
+        ensure_container_calls = []
+        lightning_trainer_called = {"called": False, "config": None}
+
+        def mock_ensure_container(data, config):
+            """Spy that records _ensure_container invocations."""
+            ensure_container_calls.append({
+                "data": data,
+                "config": config
+            })
+            # Return a sentinel PtychoDataContainerTorch-like object
+            # In Phase D2.B implementation, this would be a real container
+            return {"X": np.ones((2, 64, 64)), "Y": np.ones((2, 64, 64), dtype=np.complex64)}
+
+        def mock_lightning_orchestrator(train_container, test_container, config):
+            """Spy that records Lightning trainer invocation."""
+            lightning_trainer_called["called"] = True
+            lightning_trainer_called["config"] = config
+            # Return minimal training results dict
+            return {
+                "history": {"train_loss": [0.5, 0.3], "val_loss": [0.6, 0.4]},
+                "train_container": train_container,
+                "test_container": test_container,
+            }
+
+        # Patch internal helpers (Phase D2.B implemented)
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components._ensure_container",
+            mock_ensure_container
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components._train_with_lightning",
+            mock_lightning_orchestrator
+        )
+
+        # Call train_cdi_model_torch (Phase D2.B green phase)
+        results = torch_components.train_cdi_model_torch(
+            train_data=dummy_raw_data,
+            test_data=None,  # Optional
+            config=minimal_training_config
+        )
+
+        # Phase D2.B green phase assertions - validate orchestration
+
+        # Validate _ensure_container was called for train_data
+        assert len(ensure_container_calls) >= 1, (
+            "train_cdi_model_torch MUST call _ensure_container to normalize train_data"
+        )
+        assert ensure_container_calls[0]["data"] is dummy_raw_data
+        assert ensure_container_calls[0]["config"] is minimal_training_config
+
+        # Validate Lightning orchestrator was invoked
+        assert lightning_trainer_called["called"], (
+            "train_cdi_model_torch MUST delegate to Lightning trainer"
+        )
+        assert lightning_trainer_called["config"] is minimal_training_config
+
+        # Validate results dict structure
+        assert "history" in results
+        assert "train_container" in results
+        assert "test_container" in results
