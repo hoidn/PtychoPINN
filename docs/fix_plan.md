@@ -5,6 +5,8 @@
 
 ---
 
+## TODO: complete INTEGRATE-PYTORCH-001 stub implementations that were incorrectly left incomplete in previous phases
+
 ## [INTEGRATE-PYTORCH-000] Pre-refresh Planning for PyTorch Backend Integration
 - Spec/AT: `plans/ptychodus_pytorch_integration_plan.md`, commit bfc22e7 (PyTorch tree rebase), and `specs/ptychodus_api_spec.md` for contractual alignment.
 - Priority: High
