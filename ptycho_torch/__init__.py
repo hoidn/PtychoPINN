@@ -13,19 +13,22 @@ Public Exports:
 - workflows: Orchestration layer (run_cdi_example_torch, train_cdi_model_torch, etc.)
 """
 
-# Torch-optional imports (per CLAUDE.md:57-59)
+# PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
+# Removed TORCH_AVAILABLE guard per phase_f_torch_mandatory.md F3.2
 try:
     import torch
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+    TORCH_AVAILABLE = True  # Preserved for backward compatibility
+except ImportError as e:
+    raise RuntimeError(
+        "PyTorch is required for ptycho_torch package. "
+        "Install PyTorch >= 2.2 with: pip install torch>=2.2"
+    ) from e
 
-# Always export config bridge (torch-optional per Phase B.B5.A)
+# Export config bridge (PyTorch is now mandatory)
 from ptycho_torch.config_bridge import (
     to_model_config,
     to_training_config,
-    to_inference_config,
-    TORCH_AVAILABLE as _config_bridge_torch_available
+    to_inference_config
 )
 
 # Always export raw_data_bridge (torch-optional per Phase C.C1)

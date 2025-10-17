@@ -29,13 +29,15 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Optional, Union
 
-# Torch-optional import (per test_blueprint.md §1.C and conftest.py pattern)
+# PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
+# This module does not directly use torch but downstream consumers require it
 try:
     import torch
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
-    torch = None  # type: ignore
+except ImportError as e:
+    raise RuntimeError(
+        "PyTorch is required for ptycho_torch modules. "
+        "Install PyTorch >= 2.2 with: pip install torch>=2.2"
+    ) from e
 
 
 class MemmapDatasetBridge:

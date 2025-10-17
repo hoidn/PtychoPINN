@@ -46,15 +46,15 @@ import shutil
 from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
 
-# Torch-optional import guard
+# PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
 try:
     import torch
     import torch.nn as nn
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
-    # Define stub type for torch-optional fallback
-    nn = None
+except ImportError as e:
+    raise RuntimeError(
+        "PyTorch is required for ptycho_torch modules. "
+        "Install PyTorch >= 2.2 with: pip install torch>=2.2"
+    ) from e
 
 
 def save_torch_bundle(
@@ -155,19 +155,19 @@ def save_torch_bundle(
             model_dir = os.path.join(temp_dir, model_name)
             os.makedirs(model_dir, exist_ok=True)
 
-            # Save model weights
+            # Save model weights (PyTorch is mandatory, no fallback)
             model_path = os.path.join(model_dir, 'model.pth')
-            if TORCH_AVAILABLE and isinstance(model, nn.Module):
+            if isinstance(model, nn.Module):
                 # Real PyTorch model — save state_dict
                 torch.save(model.state_dict(), model_path)
             elif isinstance(model, dict) and '_sentinel' in model:
-                # Torch-optional fallback — save sentinel dict for testing
-                torch.save(model, model_path) if TORCH_AVAILABLE else dill.dump(model, open(model_path, 'wb'))
+                # Sentinel dict for testing (retained for test compatibility)
+                torch.save(model, model_path)
             else:
                 # Unknown model type
                 raise RuntimeError(
                     f"Cannot save model '{model_name}': expected nn.Module or sentinel dict, "
-                    f"got {type(model)}. Is PyTorch available?"
+                    f"got {type(model)}."
                 )
 
             # Save params snapshot (CONFIG-001 critical)
@@ -218,10 +218,7 @@ def load_torch_bundle(
     from ptycho.config.config import update_legacy_dict
     from ptycho import params
 
-    if not TORCH_AVAILABLE:
-        raise RuntimeError(
-            "PyTorch not available. Cannot load torch bundle without torch runtime."
-        )
+    # PyTorch is now mandatory (no availability check needed)
 
     # Validate archive exists
     zip_path = f"{base_path}.zip"

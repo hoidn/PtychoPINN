@@ -63,29 +63,18 @@ from ptycho.config.config import TrainingConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
 from ptycho.raw_data import RawData
 
-# Torch-optional imports (guarded)
+# PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
-    from ptycho_torch.config_params import TORCH_AVAILABLE
-except ImportError:
-    TORCH_AVAILABLE = False
-
-# Type aliases for torch-optional compat (Phase C adapters)
-if TORCH_AVAILABLE:
-    try:
-        from ptycho_torch.raw_data_bridge import RawDataTorch
-        from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
-        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
-    except ImportError:
-        # Fallback if Phase C/D3 modules not yet implemented
-        RawDataTorch = None
-        PtychoDataContainerTorch = None
-        save_torch_bundle = None
-        load_torch_bundle = None
-else:
-    RawDataTorch = None
-    PtychoDataContainerTorch = None
-    save_torch_bundle = None
-    load_torch_bundle = None
+    from ptycho_torch.raw_data_bridge import RawDataTorch
+    from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+    from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+except ImportError as e:
+    # If Phase C/D3 modules not available, raise actionable error
+    raise RuntimeError(
+        "PyTorch backend modules not available. "
+        "Ensure ptycho_torch.raw_data_bridge, data_container_bridge, and model_manager are installed. "
+        "Original error: " + str(e)
+    ) from e
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -187,20 +176,14 @@ def run_cdi_example_torch(
     # Mirrors TensorFlow baseline ptycho/workflows/components.py:709-723
     if config.output_dir and 'models' in train_results and train_results['models']:
         logger.info(f"Saving trained models to {config.output_dir} via save_torch_bundle")
-        if save_torch_bundle is None:
-            logger.warning(
-                "save_torch_bundle not available (torch unavailable or model_manager not imported). "
-                "Skipping persistence."
-            )
-        else:
-            # Build archive path following TensorFlow convention (wts.h5.zip)
-            archive_path = Path(config.output_dir) / "wts.h5"
-            save_torch_bundle(
-                models_dict=train_results['models'],
-                base_path=str(archive_path),
-                config=config
-            )
-            logger.info(f"Models saved successfully to {archive_path}.zip")
+        # Build archive path following TensorFlow convention (wts.h5.zip)
+        archive_path = Path(config.output_dir) / "wts.h5"
+        save_torch_bundle(
+            models_dict=train_results['models'],
+            base_path=str(archive_path),
+            config=config
+        )
+        logger.info(f"Models saved successfully to {archive_path}.zip")
     else:
         logger.debug("Skipping model persistence (no output_dir or no models in train_results)")
 
@@ -235,11 +218,7 @@ def _ensure_container(
         - RawDataTorch → generate_grouped_data → PtychoDataContainerTorch
         - PtychoDataContainerTorch → return as-is (already normalized)
     """
-    if RawDataTorch is None or PtychoDataContainerTorch is None:
-        raise ImportError(
-            "Phase C adapters not available. Cannot create PtychoDataContainerTorch. "
-            "Ensure ptycho_torch.raw_data_bridge and data_container_bridge are implemented."
-        )
+    # Phase C adapters are now mandatory (imported at module level)
 
     # Case 1: Already a container - return as-is
     if hasattr(data, 'X') and hasattr(data, 'Y'):  # Duck-type check for PtychoDataContainerTorch
@@ -475,11 +454,7 @@ def load_inference_bundle_torch(bundle_dir: Union[str, Path], model_name: str = 
         >>> # params.cfg now restored with training-time N, gridsize, nphotons
         >>> # Use models_dict['diffraction_to_obj'] for inference
     """
-    if load_torch_bundle is None:
-        raise ImportError(
-            "load_torch_bundle not available. PyTorch backend or model_manager module not available. "
-            "Ensure ptycho_torch.model_manager is implemented and torch is installed."
-        )
+    # load_torch_bundle is now mandatory (imported at module level)
 
     # Normalize bundle_dir to string for Path compatibility
     bundle_dir_str = str(bundle_dir)

@@ -1,16 +1,16 @@
 from dataclasses import dataclass, field
-from typing import Tuple, Optional, Literal, Dict, Union, List, Any, TYPE_CHECKING
+from typing import Tuple, Optional, Literal, Dict, Union, List, TYPE_CHECKING
 
-# Optional torch import for environments where PyTorch may not be available
-# This allows config_bridge tests to run without PyTorch installed
+# PyTorch is now a mandatory dependency (Phase F3.1 gate)
+# Per plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md F3.2
 try:
     import torch
-    TORCH_AVAILABLE = True
     TensorType = torch.Tensor
-except ImportError:
-    torch = None
-    TORCH_AVAILABLE = False
-    TensorType = Any  # Fallback type for environments without torch
+except ImportError as e:
+    raise RuntimeError(
+        "PyTorch is required for ptycho_torch modules. "
+        "Install PyTorch >= 2.2 with: pip install torch>=2.2"
+    ) from e
 
 # Configuration dataclasses for PtychoNN (PyTorch version)
 

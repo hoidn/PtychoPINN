@@ -67,14 +67,12 @@ from ptycho.config.config import (
     InferenceConfig as TFInferenceConfig
 )
 
-# Import PyTorch configs - module should be importable even without torch
-# thanks to optional import guard in config_params.py
+# Import PyTorch configs - torch is now mandatory (Phase F3.1/F3.2)
 from ptycho_torch.config_params import (
     DataConfig,
     ModelConfig,
     TrainingConfig,
-    InferenceConfig,
-    TORCH_AVAILABLE
+    InferenceConfig
 )
 
 
@@ -145,8 +143,8 @@ def to_model_config(
     # None → False (no masking), non-None tensor → True (masking enabled)
     # Can be overridden explicitly via overrides dict
     probe_mask_value = False  # Default when None
-    if TORCH_AVAILABLE and model.probe_mask is not None:
-        # If torch available and probe_mask is a tensor, enable masking
+    if model.probe_mask is not None:
+        # If probe_mask is a tensor, enable masking
         probe_mask_value = True
 
     # Note: probe_scale validation removed after TDD cycle showed it breaks too many existing tests.

@@ -95,14 +95,15 @@ Findings Applied:
 import numpy as np
 from typing import Dict, Any, Optional, Union
 
-# Torch-optional import guard (per test_blueprint.md §1.C and CLAUDE.md:57-59)
+# PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
 try:
     import torch
-    TORCH_AVAILABLE = True
     TensorType = Union[torch.Tensor, np.ndarray]
-except ImportError:
-    TORCH_AVAILABLE = False
-    TensorType = np.ndarray
+except ImportError as e:
+    raise RuntimeError(
+        "PyTorch is required for ptycho_torch modules. "
+        "Install PyTorch >= 2.2 with: pip install torch>=2.2"
+    ) from e
 
 
 class PtychoDataContainerTorch:
@@ -204,60 +205,32 @@ class PtychoDataContainerTorch:
                 f"probe dtype must be complex64, got {probe_np.dtype}"
             )
 
-        # Convert to torch tensors when available, otherwise use NumPy arrays
-        if TORCH_AVAILABLE:
-            # PyTorch tensor conversion with explicit dtype specifications
-            self.X = torch.from_numpy(X_np).to(torch.float32)
-            self.Y = torch.from_numpy(Y_np).to(torch.complex64)
-            self.Y_I = torch.abs(self.Y).to(torch.float32)
-            self.Y_phi = torch.angle(self.Y).to(torch.float32)
-            self.probe = torch.from_numpy(probe_np).to(torch.complex64)
+        # Convert to torch tensors (PyTorch is mandatory, no NumPy fallback)
+        # PyTorch tensor conversion with explicit dtype specifications
+        self.X = torch.from_numpy(X_np).to(torch.float32)
+        self.Y = torch.from_numpy(Y_np).to(torch.complex64)
+        self.Y_I = torch.abs(self.Y).to(torch.float32)
+        self.Y_phi = torch.angle(self.Y).to(torch.float32)
+        self.probe = torch.from_numpy(probe_np).to(torch.complex64)
 
-            # Coordinates and offsets
-            self.coords_nominal = torch.from_numpy(
-                grouped_data['coords_relative']
-            ).to(torch.float32)
-            self.coords_true = self.coords_nominal  # Alias per TensorFlow loader.py:295
-            self.global_offsets = torch.from_numpy(
-                grouped_data['coords_offsets']
-            ).to(torch.float64)  # Keep float64 per TF baseline
+        # Coordinates and offsets
+        self.coords_nominal = torch.from_numpy(
+            grouped_data['coords_relative']
+        ).to(torch.float32)
+        self.coords_true = self.coords_nominal  # Alias per TensorFlow loader.py:295
+        self.global_offsets = torch.from_numpy(
+            grouped_data['coords_offsets']
+        ).to(torch.float64)  # Keep float64 per TF baseline
 
-            # nn_indices (int32)
-            self.nn_indices = torch.from_numpy(
-                grouped_data['nn_indices']
-            ).to(torch.int32)
+        # nn_indices (int32)
+        self.nn_indices = torch.from_numpy(
+            grouped_data['nn_indices']
+        ).to(torch.int32)
 
-            # local_offsets (same as coords_relative per TF loader.py:338)
-            self.local_offsets = torch.from_numpy(
-                grouped_data['coords_relative']
-            ).to(torch.float64)  # Keep float64 per TF baseline
-
-        else:
-            # NumPy fallback with explicit dtype enforcement
-            self.X = np.asarray(X_np, dtype=np.float32)
-            self.Y = np.asarray(Y_np, dtype=np.complex64)
-            self.Y_I = np.abs(self.Y).astype(np.float32)
-            self.Y_phi = np.angle(self.Y).astype(np.float32)
-            self.probe = np.asarray(probe_np, dtype=np.complex64)
-
-            # Coordinates and offsets
-            self.coords_nominal = np.asarray(
-                grouped_data['coords_relative'], dtype=np.float32
-            )
-            self.coords_true = self.coords_nominal  # Alias
-            self.global_offsets = np.asarray(
-                grouped_data['coords_offsets'], dtype=np.float64
-            )
-
-            # nn_indices (int32)
-            self.nn_indices = np.asarray(
-                grouped_data['nn_indices'], dtype=np.int32
-            )
-
-            # local_offsets
-            self.local_offsets = np.asarray(
-                grouped_data['coords_relative'], dtype=np.float64
-            )
+        # local_offsets (same as coords_relative per TF loader.py:338)
+        self.local_offsets = torch.from_numpy(
+            grouped_data['coords_relative']
+        ).to(torch.float64)  # Keep float64 per TF baseline
 
         # Convenience alias (per TensorFlow loader.py:129)
         self.coords = self.coords_nominal
@@ -280,11 +253,9 @@ class PtychoDataContainerTorch:
                 # Get shape (works for both torch.Tensor and np.ndarray)
                 shape = tuple(attr.shape) if hasattr(attr, 'shape') else None
 
-                # Get dtype
-                if TORCH_AVAILABLE and isinstance(attr, torch.Tensor):
+                # Get dtype (all attributes are now torch.Tensor, no fallback)
+                if hasattr(attr, 'dtype'):
                     dtype = str(attr.dtype).replace('torch.', '')
-                elif isinstance(attr, np.ndarray):
-                    dtype = str(attr.dtype)
                 else:
                     dtype = 'unknown'
 
