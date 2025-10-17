@@ -29,8 +29,8 @@ Exit Criteria: New module(s) providing `train_cdi_model_torch`, `run_cdi_example
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | D2.A | Scaffold orchestration module | [x] | Completed 2025-10-17 — see `reports/2025-10-17T091450Z/phase_d2_scaffold.md` for torch-optional scaffold implementation with CONFIG-001 parity guard. Test selector: `pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict -vv` (1/1 PASSED). Git commit: 10be6913. |
-| D2.B | Implement training path | [ ] | Use Phase C adapters to normalize inputs, then delegate to Lightning trainer per D1 decision. See `reports/2025-10-17T093500Z/phase_d2_training_analysis.md` for step-by-step plan (`_ensure_container` helper, MLflow toggle, result contract). Capture TDD artifacts under `reports/<timestamp>/phase_d2_training.md`. |
-| D2.C | Implement inference + stitching path | [ ] | Provide function aligning with spec §4.5 (save outputs, optional stitching). Reuse RawDataTorch + PtychoDataContainerTorch. Log parity checks vs TensorFlow metrics in `reports/<timestamp>/phase_d2_inference.md`. |
+| D2.B | Implement training path | [x] | ✅ 2025-10-17 — Stub implementation landed (`reports/2025-10-17T094500Z/phase_d2_training.md`). `_ensure_container` + `train_cdi_model_torch` now normalize inputs and delegate to Lightning stub per TDD plan; full Trainer integration + probe handling deferred (tracked in Next Steps). |
+| D2.C | Implement inference + stitching path | [ ] | Use `reports/2025-10-17T095250Z/phase_d2b_review.md` plus TF baseline (`ptycho/workflows/components.py:615-710`) to design parity flow. Author red-phase pytest before implementation, store artifacts under `reports/<timestamp>/phase_d2_inference.md`. |
 
 ---
 

@@ -360,3 +360,15 @@
 - Highlights: mapped TensorFlow baseline (`ptycho/workflows/components.py:535-666`), inventoried Lightning assets (`ptycho_torch/train.py:1-170`, `train_utils.py:217-320`), and distilled gap list for `_ensure_container` helper + MLflow disable toggle. Updated `phase_d_workflow.md` D2.B row with these pointers.
 - Steering for Ralph: follow new analysis doc, TDD red test via `TestWorkflowsComponentsTraining`, then implement Lightning delegation storing logs under `2025-10-17T094500Z/` per input.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-17T095049Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D2.B training orchestration
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recorded selections prior to doc review; will validate dependencies (D2.A complete, Phase C artifacts green) before issuing new directive.
+
+## 2025-10-17T095443Z: Phase D2.B Review Wrap
+- Verified Attempt #45 training stub outputs and marked D2.B complete in `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md`.
+- Authored hand-off memo `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T095250Z/phase_d2b_review.md` capturing open gaps + D2.C next steps.
+- Rewrote input.md targeting D2.C red→green test + inference/stitching scaffolding; updated docs/fix_plan.md with Attempt #46.
+- <Action State>: [ready_for_implementation]
