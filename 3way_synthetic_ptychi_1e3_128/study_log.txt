@@ -1,0 +1,10 @@
+[2025-08-28 18:29:24] === Starting Complete Generalization Study ===
+[2025-08-28 18:29:24] Training sizes: 128
+[2025-08-28 18:29:24] Number of trials per size: 1
+[2025-08-28 18:29:24] Output directory: 3way_synthetic_ptychi_1e3_128
+[2025-08-28 18:29:24] Total training runs planned: 2
+[2025-08-28 18:29:24] Validating environment...
+[2025-08-28 18:29:24] Environment validation passed
+[2025-08-28 18:29:24] Configuration saved to: 3way_synthetic_ptychi_1e3_128/study_config.txt
+[2025-08-28 18:29:24] Skipping dataset preparation (--skip-data-prep)
+[2025-08-28 18:29:24] ERROR: Specified train data file not found: prepare_1e3_photons_5k/dataset/train.npz
