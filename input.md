@@ -1,37 +1,35 @@
-Summary: Capture the full configuration parity test matrix (red phase) for the PyTorch config bridge.
-Mode: TDD
+Summary: Make the config bridge parity tests runnable without torch and capture the first green check for probe_mask/nphotons.
+Mode: Parity
 Focus: INTEGRATE-PYTORCH-001 — Prepare for PyTorch Backend Integration with Ptychodus
 Branch: feature/torchapi
-Mapped tests: none — author TestConfigBridgeParity selectors per plan
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/{parity_test_plan.md,field_matrix.md,fixtures.py,testcase_design.md,baseline_params.json,pytest_red.log,summary.md}
-Do Now: INTEGRATE-PYTORCH-001 Attempt #12 — execute Phase B.B4 plan by deriving the field matrix, adding the new parameterized parity tests, then run `pytest tests/torch/test_config_bridge.py -k parity -v 2>&1 | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/pytest_red.log` to capture the red state.
-If Blocked: Record the blocker (stack trace, missing field mapping, torch import skip) in `summary.md`, keep the pytest log, and push the partially filled `field_matrix.md` so we can unblock during the next supervisor loop.
+Mapped tests: pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields -k N-direct -v
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/{parity_green_plan.md,implementation_notes.md,adapter_diff.md,pytest_phaseA.log}
+Do Now: INTEGRATE-PYTORCH-001 Attempt #14 — Execute Phase A (tasks A1–A3) by enabling the parity harness without torch, then run `pytest tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields -k N-direct -v 2>&1 | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/pytest_phaseA.log` to prove the selector no longer skips.
+If Blocked: Record the skip reason, stack trace, or missing fallback design in `implementation_notes.md`, keep the partial pytest log, and notify the supervisor in docs/fix_plan.md Attempts History.
 Priorities & Rationale:
-- docs/fix_plan.md:63 — Attempt #12 mandates parity-test planning follow-up.
-- plans/active/INTEGRATE-PYTORCH-001/implementation.md:49 — Phase B.B4 instructions now point at the new parity test plan.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/parity_test_plan.md:1 — Defines the deliverables and checklists you must satisfy this loop.
-- specs/ptychodus_api_spec.md:213 — Authoritative list of Model/Training/Inference fields to cover.
-- tests/torch/test_config_bridge.py:1 — Extend the existing harness instead of inventing a new file so the suite stays discoverable.
-- docs/TESTING_GUIDE.md:1 — Follow the documented TDD workflow (write failing tests first, keep scope tight).
+- docs/fix_plan.md:63 — Attempt #14 now mandates the green-phase execution; we must unblock the harness before touching adapter fields.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md:12 — Phase A defines the enabling tasks and exit criteria we need this loop.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/summary.md:149 — P0 blockers highlight probe_mask/nphotons urgency once tests run.
+- tests/torch/test_config_bridge.py:1 — Existing parity tests expect update_legacy_dict-driven assertions; we must keep their structure intact while removing skip conditions.
+- ptycho_torch/config_params.py:1 — Top-level torch import currently triggers ImportError; the shim must intercept this without mutating behaviour when torch exists.
 How-To Map:
-- Read `parity_test_plan.md` and create `field_matrix.md` plus `fixtures.py` in the same report directory capturing explicit values for every spec-required field (avoid defaults when possible).
-- Extend `tests/torch/test_config_bridge.py` with a new `TestConfigBridgeParity` class that uses `pytest.mark.parametrize` to assert the adapter returns the expected TensorFlow dataclass values; use `pytest.param(..., marks=pytest.mark.xfail(...))` for gaps noted in the plan.
-- Add helper utilities (if needed) inside the test file or under `plans/.../fixtures.py`; do not modify production modules yet.
-- After authoring the tests, run `pytest tests/torch/test_config_bridge.py -k parity -v` once, teeing output to `pytest_red.log`; expect failures/xfails while PyTorch remains unavailable, and ensure the skip/xfail reasoning is explicit in assertions.
-- Diff the adapter-driven `params.cfg` against a TensorFlow baseline using the helper functions described in the plan; store the baseline snapshot as `baseline_params.json` and reference it from the tests (e.g., by loading the JSON for comparisons).
+1. Read Phase A in `parity_green_plan.md` and log initial observations (skip markers, import paths) into `implementation_notes.md` before code changes.
+2. Inspect `tests/conftest.py` skip logic and `ptycho_torch/config_params.py` imports; design the optional torch shim (e.g., helper module or lazy import) and describe it in notes.
+3. Implement the shim + pytest gating updates so `TestConfigBridgeParity` selectors are not auto-skipped when torch is absent; capture code decisions in `adapter_diff.md`.
+4. Re-run the targeted selector with the command above; confirm the test executes (pass/fail acceptable, but must not SKIP) and store output as `pytest_phaseA.log` under the new report directory.
+5. Document the resulting behaviour (including any remaining failures) in `implementation_notes.md`, call out follow-up actions for Phase B tasks, and stage artifacts in git.
 Pitfalls To Avoid:
-- Do not touch `ptycho_torch/config_bridge.py` in this loop; we are only expanding tests and fixtures.
-- Keep PyTorch import skips localized (reuse existing `pytest.importorskip('torch')` in the test file) so CI without torch stays green.
-- Avoid relying on default values in tests; explicit assignments prevent silent parity gaps.
-- Do not over-constrain PyTorch-only fields — focus on spec-required ones and mark PyTorch-only parameters as expected skips for now.
-- Ensure params.cfg is snapshotted/restored around each test (reuse existing setup/teardown patterns).
-- Limit pytest execution to the single parity selector; no full-suite runs.
-- Maintain artifact paths exactly as listed; add any new files inside the timestamped directory.
+- Do not remove skip markers from genuinely torch-dependent tests; scope adjustments narrowly to config bridge selectors.
+- Avoid introducing side-effects in `ptycho_torch/config_params.py`; keep the shim import-only and maintain current defaults.
+- Preserve KEY_MAPPINGS behaviour — no manual params.cfg tweaks outside `update_legacy_dict` flows.
+- Keep all new artifacts inside `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/`.
+- Do not delete the red-phase logs or summary from the previous report directory; they remain authoritative history.
+- Guard against accidentally catching ImportError for unrelated reasons; the shim should surface unexpected failures.
+- Refrain from running the full pytest suite; stick to the targeted selector unless Phase A completes.
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/parity_test_plan.md:1
-- ptycho/config/config.py:70
-- ptycho/config/config.py:231
-- specs/ptychodus_api_spec.md:213
-- tests/torch/test_config_bridge.py:1
-- docs/debugging/QUICK_REFERENCE_PARAMS.md:1
-Next Up: Once the red matrix is in place, we will iterate on the adapter to flip failing cases green and broaden coverage to PyTorch-only fields.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md:12
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/summary.md:149
+- tests/torch/test_config_bridge.py:200
+- ptycho_torch/config_params.py:1
+- tests/conftest.py:12
+Next Up: Phase B tasks from `parity_green_plan.md` (probe_mask conversion, nphotons override enforcement) once the harness runs without skips.

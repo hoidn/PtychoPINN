@@ -143,3 +143,17 @@
 - Actions: Authored phased roadmap at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/parity_test_plan.md` (field matrix, dataclass parity tests, params.cfg comparison, reporting). Updated `plans/active/INTEGRATE-PYTORCH-001/implementation.md` B4 guidance and logged Attempt #12 in `docs/fix_plan.md`. Rewrote `input.md` instructing Ralph to derive the field matrix, add parameterized parity tests, and capture a red pytest run into the new artifact directory.
 - Next supervisor check: confirm Ralph produced `field_matrix.md`, fixtures, red pytest log, and parity assertions; then plan implementation steps to flip failing cases green.
 - <Action State>: [ready_for_implementation]
+## 2025-10-17T050900Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase B.B5 parity green-phase plan
+- Action type: Planning
+- Mode: Docs
+- Notes: Recording selections prior to documentation updates; full summary to follow at loop end.
+
+
+- Findings check: `rg "CONFIG" docs/findings.md` → CONFIG-001 remains the guardrail for params.cfg sequencing (no new findings).
+- Documentation review: leaned on `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/summary.md` for P0/P1 prioritization, `config_schema_map.md` for field semantics, and `specs/ptychodus_api_spec.md` (§5) to confirm probe_mask/nphotons expectations. Noted torch-dependent import at `ptycho_torch/config_params.py:1` as primary harness blocker.
+- Coin flip = heads → audited recent commits. `512205b` adds the parity matrix assets; `f7fb9f0` drops `train_debug.log` at repo root — flag for future cleanup/move under reports to avoid polluting top-level tree.
+- Plan updates: Marked B4 complete in `plans/active/INTEGRATE-PYTORCH-001/implementation.md` and recorded the new B5 row pointing at `reports/2025-10-17T050930Z/parity_green_plan.md`. Authored the green-phase plan detailing Phase A (torch shim), Phase B (probe_mask/nphotons), and downstream verification tasks.
+- Ledger: Added Attempt #14 documenting the planning handoff; refreshed `input.md` directing Ralph to execute Phase A and capture `pytest_phaseA.log`.
+- Follow-up for Ralph: Implement torch-optional import shim, update pytest gating per plan, run targeted selector, then proceed with probe_mask/nphotons fixes per Phase B.
+- <Action State>: [planning]

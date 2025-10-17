@@ -23,9 +23,9 @@ Exit Criteria: Canonical table saved to `reports/2025-10-17T041908Z/field_matrix
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| A1 | Derive canonical TensorFlow baseline | [ ] | Instantiate `ModelConfig`, `TrainingConfig`, `InferenceConfig` with explicit non-default values (covering every field) in a scratch script under `reports/2025-10-17T041908Z/fixtures.py`. Record chosen values + rationale in `field_matrix.md` referencing spec rows. |
-| A2 | Annotate PyTorch → TF transformations | [ ] | For each field, classify as `direct`, `transform`, `override_required`, `unsupported`. Source values from `config_schema_map.md` and double-check KEY_MAPPINGS. |
-| A3 | Flag default divergence + skip policy | [ ] | Document where PyTorch defaults differ from spec (e.g., `probe_scale`, `nphotons`). Specify expected behaviour (override vs accept PyTorch default) and whether to assert equality or allow tolerance. |
+| A1 | Derive canonical TensorFlow baseline | [x] | Instantiate `ModelConfig`, `TrainingConfig`, `InferenceConfig` with explicit non-default values (covering every field) in a scratch script under `reports/2025-10-17T041908Z/fixtures.py`. Record chosen values + rationale in `field_matrix.md` referencing spec rows. |
+| A2 | Annotate PyTorch → TF transformations | [x] | For each field, classify as `direct`, `transform`, `override_required`, `unsupported`. Source values from `config_schema_map.md` and double-check KEY_MAPPINGS. |
+| A3 | Flag default divergence + skip policy | [x] | Document where PyTorch defaults differ from spec (e.g., `probe_scale`, `nphotons`). Specify expected behaviour (override vs accept PyTorch default) and whether to assert equality or allow tolerance. |
 
 ---
 
@@ -36,9 +36,9 @@ Exit Criteria: New test module (or extension of `tests/torch/test_config_bridge.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Design pytest parameter sets | [ ] | Translate `field_matrix` rows into `pytest.param` structures grouped by config (model/training/inference). Store generator helper in `reports/2025-10-17T041908Z/testcase_design.md` with mapping back to spec lines. |
-| B2 | Author failing dataclass assertions | [ ] | Implement `test_all_model_fields_translate`, `test_all_training_fields_translate`, `test_all_inference_fields_translate`. Each should: instantiate PyTorch configs, call adapter, and assert dataclass attributes equal expected values. Use `pytest.mark.parametrize` with skipif torch missing. |
-| B3 | Encode known gaps as xfail | [ ] | For fields not yet implemented (e.g., `probe_mask`, `gaussian_smoothing_sigma` overrides), wrap individual `pytest.param(..., marks=pytest.mark.xfail(reason="…", strict=True))` so TDD signal is explicit. |
+| B1 | Design pytest parameter sets | [x] | Translate `field_matrix` rows into `pytest.param` structures grouped by config (model/training/inference). Store generator helper in `reports/2025-10-17T041908Z/testcase_design.md` with mapping back to spec lines. |
+| B2 | Author failing dataclass assertions | [x] | Implement `test_all_model_fields_translate`, `test_all_training_fields_translate`, `test_all_inference_fields_translate`. Each should: instantiate PyTorch configs, call adapter, and assert dataclass attributes equal expected values. Use `pytest.mark.parametrize` with skipif torch missing. |
+| B3 | Encode known gaps as xfail | [P] | For fields not yet implemented (e.g., `probe_mask`, `gaussian_smoothing_sigma` overrides), wrap individual `pytest.param(..., marks=pytest.mark.xfail(reason="…", strict=True))` so TDD signal is explicit. |
 
 Expected test selector (red phase):
 ```
@@ -55,7 +55,7 @@ Exit Criteria: Parameterized assertions that compare `params.cfg` snapshots from
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Capture TF baseline snapshot | [ ] | Write helper `capture_params(cfg_source)` that clears `params.cfg`, runs `update_legacy_dict`, and returns a sorted dict. Baseline uses pure TensorFlow configs with same values as field matrix. Store baseline dump in `reports/2025-10-17T041908Z/baseline_params.json`. |
+| C1 | Capture TF baseline snapshot | [x] | Write helper `capture_params(cfg_source)` that clears `params.cfg`, runs `update_legacy_dict`, and returns a sorted dict. Baseline uses pure TensorFlow configs with same values as field matrix. Store baseline dump in `reports/2025-10-17T041908Z/baseline_params.json`. |
 | C2 | Compare adapter vs baseline | [ ] | Implement `test_params_cfg_matches_baseline` asserting equality for every key flagged `direct`/`transform`. Use `dict.items()` diff to produce helpful assertion messages. |
 | C3 | Assert override-required warnings | [ ] | For each `override_required` field (paths, `n_groups`, etc.), assert tests raise/xfail with actionable message when overrides missing, and pass when provided. Document outcomes in `reports/2025-10-17T041908Z/override_matrix.md`. |
 
@@ -68,16 +68,16 @@ Exit Criteria: Summary note saved to `reports/2025-10-17T041908Z/summary.md` det
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Summarize test outcomes | [ ] | Capture per-field pass/xfail/fail status (table) and reference pytest log. |
-| D2 | Flag spec or plan updates | [ ] | If new divergences discovered, note required spec amendments and tag INTEGRATE-PYTORCH-000 governance plan. |
-| D3 | Update ledger & steering | [ ] | Ensure Attempt entry mentions planned selectors, artifact directory, and instructions for implementation loop to flip tests green. |
+| D1 | Summarize test outcomes | [x] | Capture per-field pass/xfail/fail status (table) and reference pytest log. |
+| D2 | Flag spec or plan updates | [x] | If new divergences discovered, note required spec amendments and tag INTEGRATE-PYTORCH-000 governance plan. |
+| D3 | Update ledger & steering | [x] | Ensure Attempt entry mentions planned selectors, artifact directory, and instructions for implementation loop to flip tests green. |
 
 ---
 
 ## Verification Checklist
-- [ ] `field_matrix.md` catalogues every spec-required field with expected handling
-- [ ] New/updated pytest cases committed (red/xfail) with selectors recorded
-- [ ] `baseline_params.json` captured for TF-only reference
+- [x] `field_matrix.md` catalogues every spec-required field with expected handling
+- [x] New/updated pytest cases committed (red/xfail) with selectors recorded
+- [x] `baseline_params.json` captured for TF-only reference
 - [ ] pytest red run logged to `pytest_red.log`
 - [ ] Summary report enumerates failures + next implementation steps
 
