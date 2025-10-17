@@ -383,3 +383,17 @@
 - Artifacts: Logged supervisor brief at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T101657Z/phase_d3_persistence_prep.md`; input.md now directs persistence callchain deliverables.
 - Next Steps for Ralph: Execute D3.A callchain, capture static/tap/summary/env files, highlight PyTorch checkpoint deltas, and log open questions for archive writer.
 - <Action State>: [gathering_evidence]
+
+## 2025-10-17T103127Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001 Phase D3.B persistence shim
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes: Recording selections prior to Step <3.2>; will review D3.A artifacts and prepare Phase D3.B directive.
+
+## 2025-10-17T103437Z: Phase D3.B prep summary
+- Reviewed Phase D3.A callchain package (`reports/2025-10-17T104700Z/phase_d3_callchain/`) to extract dual-model archive + CONFIG-001 requirements for persistence shim.
+- Updated `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` (D3.A marked complete, D3.B/C guidance expanded, D2.C log hygiene note) and `implementation.md` Phase D3 row acknowledging evidence.
+- Logged Attempt #50 in docs/fix_plan.md capturing hygiene + D3.B directive; rewrote input.md with cleanup step, new red test, and implementation guidance targeting `save_torch_bundle`.
+- Flagged stray `train_debug.log` for relocation next loop to maintain artifact storage policy.
+- <Action State>: [ready_for_implementation]
+

@@ -76,7 +76,7 @@ Exit Criteria: `ptychodus` can call into PyTorch backend for train/infer; artifa
 | --- | --- | --- | --- |
 | D1 | Design PyTorch equivalents of `run_cdi_example` + `ModelManager` | [x] | ✅ 2025-10-17 — See `reports/2025-10-17T085431Z/{phase_d_callchain.md,phase_d_asset_inventory.md,phase_d_decision.md}` for callchain, asset inventory, and Option B decision. |
 | D2 | Implement orchestration entry points | [x] | ✅ 2025-10-17 — D2.A–D2.C complete. See `reports/2025-10-17T091450Z/phase_d2_scaffold.md`, `reports/2025-10-17T094500Z/phase_d2_training.md`, and `reports/2025-10-17T101500Z/phase_d2c_green.md` for scaffold, training stub, and inference orchestration. Phase D3 persistence bridge is next. |
-| D3 | Implement persistence shim | [ ] | Use Phase D3 tasks (D3.A–D3.C) in `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` to align Lightning checkpoints with ModelManager archives; log schema diffs + sample zips. |
+| D3 | Implement persistence shim | [ ] | D3.A ✅ (callchain evidence at `reports/2025-10-17T104700Z/phase_d3_callchain/`). Proceed with D3.B save_torch_bundle + D3.C loader tasks per `phase_d_workflow.md`; capture sample archive + params snapshot evidence. |
 | D4 | Add regression tests | [ ] | Coordinate Phase D4 actions (D4.A–D4.C) with `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` and TEST-PYTORCH-001 to define red/green selectors and artifact manifests. |
 
 ---
