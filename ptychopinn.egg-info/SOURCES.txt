@@ -2335,6 +2335,12 @@ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/phase_e_fixture_sy
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/phase_e_red_integration.log
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md
 plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T214800Z/phase_e2_green_brief.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T215500Z/phase_e2_green.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T215500Z/phase_e_backend_green.log
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T215500Z/phase_e_integration_green.log
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_parity_summary.md
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_tf_baseline.log
+plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_torch_run.log
 plans/active/TEST-SUITE-TRIAGE/plan.md
 plans/active/TEST-SUITE-TRIAGE/reports/2025-10-16T230539Z/env.md
 plans/active/TEST-SUITE-TRIAGE/reports/2025-10-16T230539Z/requirements.txt
