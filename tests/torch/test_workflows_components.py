@@ -708,3 +708,351 @@ class TestWorkflowsComponentsRun:
                 )
             else:
                 raise  # Unexpected NotImplementedError, re-raise
+
+
+class TestTrainWithLightningRed:
+    """
+    Phase B.B1 Lightning orchestration tests (RED phase).
+
+    These tests encode the Lightning orchestration contract before implementation,
+    per plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T000606Z/phase_d2_completion/phase_b_test_design.md.
+
+    Design requirements:
+    1. _train_with_lightning MUST instantiate PtychoPINN_Lightning with all four config objects
+    2. _train_with_lightning MUST invoke Trainer.fit with dataloaders from containers
+    3. _train_with_lightning MUST return results dict with 'models' key for persistence
+
+    Red-phase expectation:
+    - All three tests WILL FAIL because _train_with_lightning is currently a stub
+    - Stub returns minimal dict without Lightning module instantiation or training
+    - Once Phase B2 implements Lightning orchestration, tests will turn green
+    """
+
+    @pytest.fixture
+    def params_cfg_snapshot(self):
+        """Snapshot and restore params.cfg state across tests."""
+        from ptycho import params
+        original = params.cfg.copy()
+        yield params.cfg
+        params.cfg.clear()
+        params.cfg.update(original)
+
+    @pytest.fixture
+    def minimal_training_config(self):
+        """Create minimal TrainingConfig fixture for Lightning tests."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='pinn',
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=2,
+        )
+
+        return training_config
+
+    @pytest.fixture
+    def dummy_raw_data(self):
+        """Create minimal RawData fixture for testing."""
+        from ptycho.raw_data import RawData
+
+        nsamples = 10
+        N = 64
+
+        dummy_coords = np.linspace(0, 9, nsamples)
+        dummy_diff = np.random.rand(nsamples, N, N).astype(np.float32)
+        dummy_probe = np.ones((N, N), dtype=np.complex64)
+        dummy_scan_index = np.arange(nsamples, dtype=int)
+
+        return RawData(
+            xcoords=dummy_coords,
+            ycoords=dummy_coords,
+            xcoords_start=dummy_coords,
+            ycoords_start=dummy_coords,
+            diff3d=dummy_diff,
+            probeGuess=dummy_probe,
+            scan_index=dummy_scan_index,
+        )
+
+    def test_train_with_lightning_instantiates_module(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 1: _train_with_lightning MUST instantiate PtychoPINN_Lightning with four configs.
+
+        Requirement: specs/ptychodus_api_spec.md:187 reconstructor lifecycle requires
+        trained module handles with serialized config for checkpoint reload.
+
+        Design contract (phase_b_test_design.md §1):
+        - _train_with_lightning receives (train_container, test_container, config)
+        - MUST construct ptycho_torch.model.PtychoPINN_Lightning(__init__)
+        - Constructor MUST receive exactly (model_config, data_config, training_config, inference_config)
+        - This ensures checkpoint.load can reconstruct module without external state
+
+        Test mechanism:
+        - Monkeypatch PtychoPINN_Lightning to spy on __init__ args
+        - Create minimal containers (dicts acceptable for red phase)
+        - Invoke _train_with_lightning
+        - Assert spy recorded all four config objects
+
+        Expected red-phase failure:
+        - Stub never instantiates Lightning module
+        - Spy not called → assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+
+        # Spy to track Lightning module instantiation
+        lightning_init_called = {"called": False, "args": None}
+
+        def mock_lightning_init(model_config, data_config, training_config, inference_config):
+            """Spy that records PtychoPINN_Lightning.__init__ args."""
+            lightning_init_called["called"] = True
+            lightning_init_called["args"] = (model_config, data_config, training_config, inference_config)
+
+            # Return minimal stub module with required Lightning API
+            class StubLightningModule:
+                def save_hyperparameters(self):
+                    pass
+
+            return StubLightningModule()
+
+        # Monkeypatch Lightning module constructor
+        # Note: actual import path will be ptycho_torch.model.PtychoPINN_Lightning
+        # but we monkeypatch at the call site within _train_with_lightning
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            mock_lightning_init
+        )
+
+        # Create minimal train_container (dict placeholder for red phase)
+        # Phase C adapters will produce actual PtychoDataContainerTorch
+        train_container = {
+            "X": np.ones((10, 64, 64)),
+            "Y": np.ones((10, 64, 64), dtype=np.complex64),
+        }
+
+        # Call _train_with_lightning
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+        # RED PHASE ASSERTION (will fail until Phase B2 implements)
+        assert lightning_init_called["called"], (
+            "_train_with_lightning MUST instantiate PtychoPINN_Lightning module. "
+            "Phase B.B1 red phase: stub does not create module yet. "
+            "This test documents the expected behavior and will pass once Phase B2 "
+            "implements Lightning orchestration."
+        )
+
+        # Green phase validation (once Phase B2 complete)
+        if lightning_init_called["called"]:
+            model_cfg, data_cfg, train_cfg, infer_cfg = lightning_init_called["args"]
+
+            # Validate all four config objects were passed
+            # (Exact types/values validated in green phase; red phase just checks arity)
+            assert model_cfg is not None, "model_config must be provided to Lightning module"
+            assert data_cfg is not None, "data_config must be provided to Lightning module"
+            assert train_cfg is not None, "training_config must be provided to Lightning module"
+            assert infer_cfg is not None, "inference_config must be provided to Lightning module"
+
+    def test_train_with_lightning_runs_trainer_fit(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 2: _train_with_lightning MUST invoke Trainer.fit with dataloaders.
+
+        Requirement: docs/workflows/pytorch.md §5 Lightning trainer expectations
+        require Trainer.fit orchestration with train/val dataloaders.
+
+        Design contract (phase_b_test_design.md §2):
+        - _train_with_lightning MUST construct lightning.pytorch.Trainer
+        - MUST invoke trainer.fit(module, train_dataloader, val_dataloader)
+        - Dataloaders MUST be derived from provided train/test containers
+        - Validation dataloader is None when test_container is None
+
+        Test mechanism:
+        - Monkeypatch Trainer constructor to return stub exposing fit_called flag
+        - Monkeypatch dataloader builders (future helpers) with sentinels
+        - Invoke _train_with_lightning
+        - Assert Trainer.fit was called with correct dataloaders
+
+        Expected red-phase failure:
+        - Stub never constructs Trainer or calls fit
+        - fit_called flag remains False → assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+
+        # Spy to track Trainer.fit invocation
+        trainer_fit_called = {"called": False, "args": None, "kwargs": None}
+
+        class MockTrainer:
+            """Stub Trainer that records fit() calls."""
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                trainer_fit_called["called"] = True
+                trainer_fit_called["args"] = (module, train_dataloaders, val_dataloaders)
+                trainer_fit_called["kwargs"] = kwargs
+
+        # Monkeypatch Lightning Trainer
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            lambda **kwargs: MockTrainer()
+        )
+
+        # Monkeypatch Lightning module to prevent import errors
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+
+        # Create sentinel dataloaders (Phase B2 will wire real loader builders)
+        sentinel_train_loader = {"_sentinel": "train_dataloader"}
+        sentinel_val_loader = None  # test_container is None
+
+        # Monkeypatch future dataloader builder helper
+        # (Phase B2 will add _build_lightning_dataloaders or similar)
+        def mock_build_dataloaders(container, config, shuffle=True):
+            """Sentinel that returns mock dataloader."""
+            if container is not None:
+                return sentinel_train_loader
+            return None
+
+        # For red phase, assume _train_with_lightning will eventually call helper
+        # For now, test just validates fit() invocation pattern
+
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+
+        # Call _train_with_lightning
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+        # RED PHASE ASSERTION (will fail until Phase B2 implements)
+        assert trainer_fit_called["called"], (
+            "_train_with_lightning MUST invoke Trainer.fit with dataloaders. "
+            "Phase B.B1 red phase: stub does not construct Trainer or call fit. "
+            "This test documents the expected behavior and will pass once Phase B2 "
+            "implements Lightning orchestration."
+        )
+
+        # Green phase validation (once Phase B2 complete)
+        if trainer_fit_called["called"]:
+            module_arg, train_loader_arg, val_loader_arg = trainer_fit_called["args"]
+
+            assert module_arg is not None, "Trainer.fit must receive Lightning module"
+            # Dataloaders validation deferred to integration tests (requires real containers)
+
+    def test_train_with_lightning_returns_models_dict(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 3: _train_with_lightning MUST return results dict with 'models' key.
+
+        Requirement: Phase D4 persistence tests require trained module handles
+        for save_torch_bundle orchestration (mirrors TensorFlow train_cdi_model).
+
+        Design contract (phase_b_test_design.md §3):
+        - _train_with_lightning returns Dict[str, Any]
+        - Results dict MUST contain 'models' key
+        - models['lightning_module'] (or models['diffraction_to_obj']) MUST point to trained module
+        - This enables downstream save_torch_bundle to persist checkpoint
+
+        Test mechanism:
+        - Monkeypatch Lightning components to return stub module
+        - Invoke _train_with_lightning
+        - Assert results dict contains 'models' key with module handle
+
+        Expected red-phase failure:
+        - Stub returns only history/containers → missing 'models' key
+        - Assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+
+        # Stub Lightning module with sentinel identity
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+
+            _sentinel = "trained_lightning_module"
+
+        stub_module = StubLightningModule()
+
+        # Monkeypatch Lightning module constructor
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: stub_module
+        )
+
+        # Monkeypatch Trainer to skip actual training
+        class MockTrainer:
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            lambda **kwargs: MockTrainer()
+        )
+
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+
+        # Call _train_with_lightning
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+        # RED PHASE ASSERTION (will fail until Phase B2 implements)
+        assert "models" in results, (
+            "_train_with_lightning MUST return results dict with 'models' key. "
+            "Phase B.B1 red phase: stub returns only history/containers without models. "
+            "This test documents the expected behavior and will pass once Phase B2 "
+            "implements Lightning orchestration with module persistence."
+        )
+
+        # Green phase validation (once Phase B2 complete)
+        if "models" in results:
+            models_dict = results["models"]
+
+            # Accept either 'lightning_module' or 'diffraction_to_obj' as key
+            # (naming decision deferred to Phase B2 implementation)
+            assert any(
+                key in models_dict for key in ['lightning_module', 'diffraction_to_obj']
+            ), (
+                "models dict MUST contain trained module under 'lightning_module' or "
+                "'diffraction_to_obj' key for persistence"
+            )
+
+            # Validate module handle is not None
+            module_handle = models_dict.get('lightning_module') or models_dict.get('diffraction_to_obj')
+            assert module_handle is not None, "Module handle must not be None"
