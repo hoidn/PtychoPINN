@@ -756,3 +756,20 @@
 - Notes: Moving from planning to execution prep; confirmed prior loop instructions satisfied (TestTrainWithLightningRed added, red log committed) and no regressions in recent commit 0783c12. Findings lookup: POLICY-001 and FORMAT-001 remain the only PyTorch-relevant ledger items; no Lightning-specific findings yet.
 - Additional notes: Validated Phase B2 blueprint (`reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md`) and ensured main plan + fix ledger point to it. Established new artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T014317Z/phase_d2_completion/` for upcoming implementation evidence and rewrote `input.md` (Mode=TDD) directing Ralph through B2.1–B2.8 with targeted pytest selector.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-18T150000Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase B.B2 Lightning implementation
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Beginning new supervisor loop; verifying dependencies (INTEGRATE-PYTORCH-001 Phase D2.B/D2.C still active) and gathering evidence before issuing fresh guidance.
+- <Action State>: [gathering_evidence]
+
+## 2025-10-18T030215Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS (Phase B.B2 Lightning orchestration)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes: Beginning new supervisor loop to audit B2 readiness before delegating implementation. Confirmed dependencies satisfied (Phase B.B1 red tests green-ready; plan + ledger pointing at phase_b2_implementation.md). Retired the unused `reports/2025-10-18T014317Z/phase_d2_completion/` placeholder; engineer has not produced green-phase evidence yet.
+- Intent: Reassess stubbed `_train_with_lightning`, ensure blueprint + fix plan remain aligned, capture findings references, and rewrite input.md with precise green-phase checklist.
+- Updates: Reserved artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T031500Z/phase_d2_completion/` (summary scaffold added), refreshed B2 guidance in `phase_d2_completion.md` + `phase_b2_implementation.md`, logged Attempt #8 in docs/fix_plan.md, and rewrote `input.md` with targeted pytest/log capture instructions.
+- Findings references: POLICY-001 (PyTorch mandatory) and FORMAT-001 (data contract) remain the only relevant ledger entries; no Lightning-specific findings yet.
+- <Action State>: [ready_for_implementation]

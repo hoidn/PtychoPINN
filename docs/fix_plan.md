@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger
 
-**Last Updated:** 2025-10-17
+**Last Updated:** 2025-10-18
 **Active Focus:** Stand up PyTorch backend parity (integration + minimal test harness).
 
 ---
@@ -24,6 +24,7 @@
   * [2025-10-18] Attempt #5 — Supervisor planning for Phase B.B1. Authored Lightning test design spec at `reports/2025-10-18T000606Z/phase_d2_completion/phase_b_test_design.md` detailing three failing pytest cases (`TestTrainWithLightningRed`). Updated plan B1 guidance to reference the design and red-run selector. No production code changes.
   * [2025-10-18] Attempt #6 — Phase B.B1 TDD RED phase complete. Added `TestTrainWithLightningRed` test class to `tests/torch/test_workflows_components.py` with three failing tests encoding Lightning orchestration contract: (1) `test_train_with_lightning_instantiates_module` validates PtychoPINN_Lightning construction with four config objects, (2) `test_train_with_lightning_runs_trainer_fit` validates Trainer.fit invocation with dataloaders, (3) `test_train_with_lightning_returns_models_dict` validates results dict exposes trained module handle for persistence. All three tests FAILED as expected (stub does not instantiate Lightning module or call trainer). Captured red run log (3 failed in 5.03s) via `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv | tee reports/2025-10-18T000606Z/phase_d2_completion/pytest_train_red.log`. No production code changes (TDD red phase only). Artifacts: new test class (338 lines), red log (5KB). Plan checklist B1 complete `[x]`. Next: Phase B.B2 (implement Lightning orchestration to turn tests green).
   * [2025-10-18] Attempt #7 — Supervisor planning for Phase B.B2. Authored Lightning orchestration blueprint at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md` (tasks B2.1–B2.8) and summary note. Updated `phase_d2_completion.md` B2 row to reference the new checklist and artifact discipline. No production code changes; Mode=Docs planning loop. Next: delegate implementation to turn TestTrainWithLightningRed green.
+  * [2025-10-18] Attempt #8 — Supervisor review ahead of B2 implementation. Verified `_train_with_lightning` remains stubbed, confirmed TestTrainWithLightningRed still failing, and reserved artifact directory `reports/2025-10-18T031500Z/phase_d2_completion/` for green-run evidence. Updated `input.md` (Mode=TDD) to direct engineer through B2.1–B2.8 with targeted pytest selector + log capture. No production code changes (review/housekeeping loop).
 - Exit Criteria:
   - `_reassemble_cdi_image_torch` returns `(recon_amp, recon_phase, results)` without raising `NotImplementedError`.
   - Lightning orchestration path initializes probe inputs, respects deterministic seeding, and exposes train/test containers identical to TensorFlow structure; validated via `tests/torch/test_workflows_components.py`.

@@ -23,7 +23,7 @@ Prereqs:
 - Phase B.B1 red tests committed (✅)
 - Torch extras installed (`pip install -e .[torch]`)
 - Canonical dataset available (Run1084... NPZ or synthetic fixture); ensure data contract compliance (FORMAT-001)
-- Artifact directory prepared: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/`
+- Artifact directory prepared: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T031500Z/phase_d2_completion/`
 Exit Criteria:
 - `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv` passes with logs stored at `.../pytest_train_green.log`
 - Results dict from `_train_with_lightning` includes `'history'`, `'train_container'`, `'test_container'`, and `'models'` with a Lightning module handle
@@ -38,7 +38,7 @@ Exit Criteria:
 | B2.5 | Configure Trainer | [ ] | Construct `Trainer` with `max_epochs=config.nepochs`, `accelerator='auto'`, `devices=1` unless `config.device` is provided, `log_every_n_steps=1`, `default_root_dir=config.output_dir`. Respect `config.debug` for deterministic flags (e.g., set `enable_progress_bar=config.debug`). Defer MLflow toggles to B3. |
 | B2.6 | Execute fit cycle | [ ] | Run `trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)` capturing exceptions to raise actionable errors. After fit, materialize history via `trainer.callback_metrics` (`train_loss`, `val_loss`). |
 | B2.7 | Build results payload | [ ] | Return dict including `history`, original containers, and `'models': {'lightning_module': model}`. Add `'trainer'` handle if downstream needs manual checkpointing. Ensure structure mirrors TensorFlow `train_cdi_model` result semantics. |
-| B2.8 | Document artifacts & tests | [ ] | After implementation, run targeted selector `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/pytest_train_green.log`. Update docs/fix_plan Attempts and plan checklist B2 with artifact references. |
+| B2.8 | Document artifacts & tests | [ ] | After implementation, run targeted selector `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T031500Z/phase_d2_completion/pytest_train_green.log`. Update docs/fix_plan Attempts and plan checklist B2 with artifact references. |
 
 ### Validation & Evidence Capture
 - **Primary selector:** `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv`
@@ -53,4 +53,3 @@ Exit Criteria:
 
 ### Follow-on Work (Phase B.B3)
 - After orchestration is green, extend plan to cover MLflow toggles and documentation updates. Maintain reference to this blueprint for context.
-
