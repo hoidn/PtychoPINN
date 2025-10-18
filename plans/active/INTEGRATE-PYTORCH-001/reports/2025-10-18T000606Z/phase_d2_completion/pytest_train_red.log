@@ -1,0 +1,330 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module FAILED [ 33%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_runs_trainer_fit FAILED [ 66%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_returns_models_dict FAILED [100%]
+
+=================================== FAILURES ===================================
+___ TestTrainWithLightningRed.test_train_with_lightning_instantiates_module ____
+
+self = <test_workflows_components.TestTrainWithLightningRed object at 0x712f26f16a90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x712f15ac1910>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x712eceda8c90>
+
+    def test_train_with_lightning_instantiates_module(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 1: _train_with_lightning MUST instantiate PtychoPINN_Lightning with four configs.
+    
+        Requirement: specs/ptychodus_api_spec.md:187 reconstructor lifecycle requires
+        trained module handles with serialized config for checkpoint reload.
+    
+        Design contract (phase_b_test_design.md §1):
+        - _train_with_lightning receives (train_container, test_container, config)
+        - MUST construct ptycho_torch.model.PtychoPINN_Lightning(__init__)
+        - Constructor MUST receive exactly (model_config, data_config, training_config, inference_config)
+        - This ensures checkpoint.load can reconstruct module without external state
+    
+        Test mechanism:
+        - Monkeypatch PtychoPINN_Lightning to spy on __init__ args
+        - Create minimal containers (dicts acceptable for red phase)
+        - Invoke _train_with_lightning
+        - Assert spy recorded all four config objects
+    
+        Expected red-phase failure:
+        - Stub never instantiates Lightning module
+        - Spy not called → assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+    
+        # Spy to track Lightning module instantiation
+        lightning_init_called = {"called": False, "args": None}
+    
+        def mock_lightning_init(model_config, data_config, training_config, inference_config):
+            """Spy that records PtychoPINN_Lightning.__init__ args."""
+            lightning_init_called["called"] = True
+            lightning_init_called["args"] = (model_config, data_config, training_config, inference_config)
+    
+            # Return minimal stub module with required Lightning API
+            class StubLightningModule:
+                def save_hyperparameters(self):
+                    pass
+    
+            return StubLightningModule()
+    
+        # Monkeypatch Lightning module constructor
+        # Note: actual import path will be ptycho_torch.model.PtychoPINN_Lightning
+        # but we monkeypatch at the call site within _train_with_lightning
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            mock_lightning_init
+        )
+    
+        # Create minimal train_container (dict placeholder for red phase)
+        # Phase C adapters will produce actual PtychoDataContainerTorch
+        train_container = {
+            "X": np.ones((10, 64, 64)),
+            "Y": np.ones((10, 64, 64), dtype=np.complex64),
+        }
+    
+        # Call _train_with_lightning
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+    
+        # RED PHASE ASSERTION (will fail until Phase B2 implements)
+>       assert lightning_init_called["called"], (
+            "_train_with_lightning MUST instantiate PtychoPINN_Lightning module. "
+            "Phase B.B1 red phase: stub does not create module yet. "
+            "This test documents the expected behavior and will pass once Phase B2 "
+            "implements Lightning orchestration."
+        )
+E       AssertionError: _train_with_lightning MUST instantiate PtychoPINN_Lightning module. Phase B.B1 red phase: stub does not create module yet. This test documents the expected behavior and will pass once Phase B2 implements Lightning orchestration.
+E       assert False
+
+tests/torch/test_workflows_components.py:855: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+---------------------------- Captured stderr setup -----------------------------
+2025-10-17 18:11:17.003305: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760749877.014317 4093502 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760749877.018070 4093502 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760749877.028664 4093502 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760749877.028678 4093502 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760749877.028681 4093502 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760749877.028683 4093502 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 18:11:17.031425: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+_____ TestTrainWithLightningRed.test_train_with_lightning_runs_trainer_fit _____
+
+self = <test_workflows_components.TestTrainWithLightningRed object at 0x712f15ac1010>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x712e2dc792d0>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x712e2dc78050>
+
+    def test_train_with_lightning_runs_trainer_fit(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 2: _train_with_lightning MUST invoke Trainer.fit with dataloaders.
+    
+        Requirement: docs/workflows/pytorch.md §5 Lightning trainer expectations
+        require Trainer.fit orchestration with train/val dataloaders.
+    
+        Design contract (phase_b_test_design.md §2):
+        - _train_with_lightning MUST construct lightning.pytorch.Trainer
+        - MUST invoke trainer.fit(module, train_dataloader, val_dataloader)
+        - Dataloaders MUST be derived from provided train/test containers
+        - Validation dataloader is None when test_container is None
+    
+        Test mechanism:
+        - Monkeypatch Trainer constructor to return stub exposing fit_called flag
+        - Monkeypatch dataloader builders (future helpers) with sentinels
+        - Invoke _train_with_lightning
+        - Assert Trainer.fit was called with correct dataloaders
+    
+        Expected red-phase failure:
+        - Stub never constructs Trainer or calls fit
+        - fit_called flag remains False → assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+    
+        # Spy to track Trainer.fit invocation
+        trainer_fit_called = {"called": False, "args": None, "kwargs": None}
+    
+        class MockTrainer:
+            """Stub Trainer that records fit() calls."""
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                trainer_fit_called["called"] = True
+                trainer_fit_called["args"] = (module, train_dataloaders, val_dataloaders)
+                trainer_fit_called["kwargs"] = kwargs
+    
+        # Monkeypatch Lightning Trainer
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            lambda **kwargs: MockTrainer()
+        )
+    
+        # Monkeypatch Lightning module to prevent import errors
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+    
+        # Create sentinel dataloaders (Phase B2 will wire real loader builders)
+        sentinel_train_loader = {"_sentinel": "train_dataloader"}
+        sentinel_val_loader = None  # test_container is None
+    
+        # Monkeypatch future dataloader builder helper
+        # (Phase B2 will add _build_lightning_dataloaders or similar)
+        def mock_build_dataloaders(container, config, shuffle=True):
+            """Sentinel that returns mock dataloader."""
+            if container is not None:
+                return sentinel_train_loader
+            return None
+    
+        # For red phase, assume _train_with_lightning will eventually call helper
+        # For now, test just validates fit() invocation pattern
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+    
+        # RED PHASE ASSERTION (will fail until Phase B2 implements)
+>       assert trainer_fit_called["called"], (
+            "_train_with_lightning MUST invoke Trainer.fit with dataloaders. "
+            "Phase B.B1 red phase: stub does not construct Trainer or call fit. "
+            "This test documents the expected behavior and will pass once Phase B2 "
+            "implements Lightning orchestration."
+        )
+E       AssertionError: _train_with_lightning MUST invoke Trainer.fit with dataloaders. Phase B.B1 red phase: stub does not construct Trainer or call fit. This test documents the expected behavior and will pass once Phase B2 implements Lightning orchestration.
+E       assert False
+
+tests/torch/test_workflows_components.py:956: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+___ TestTrainWithLightningRed.test_train_with_lightning_returns_models_dict ____
+
+self = <test_workflows_components.TestTrainWithLightningRed object at 0x712f15ac1210>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x712e2dca8310>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x712e2dca8990>
+
+    def test_train_with_lightning_returns_models_dict(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 3: _train_with_lightning MUST return results dict with 'models' key.
+    
+        Requirement: Phase D4 persistence tests require trained module handles
+        for save_torch_bundle orchestration (mirrors TensorFlow train_cdi_model).
+    
+        Design contract (phase_b_test_design.md §3):
+        - _train_with_lightning returns Dict[str, Any]
+        - Results dict MUST contain 'models' key
+        - models['lightning_module'] (or models['diffraction_to_obj']) MUST point to trained module
+        - This enables downstream save_torch_bundle to persist checkpoint
+    
+        Test mechanism:
+        - Monkeypatch Lightning components to return stub module
+        - Invoke _train_with_lightning
+        - Assert results dict contains 'models' key with module handle
+    
+        Expected red-phase failure:
+        - Stub returns only history/containers → missing 'models' key
+        - Assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+    
+        # Stub Lightning module with sentinel identity
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+            _sentinel = "trained_lightning_module"
+    
+        stub_module = StubLightningModule()
+    
+        # Monkeypatch Lightning module constructor
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: stub_module
+        )
+    
+        # Monkeypatch Trainer to skip actual training
+        class MockTrainer:
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+    
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            lambda **kwargs: MockTrainer()
+        )
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+    
+        # RED PHASE ASSERTION (will fail until Phase B2 implements)
+>       assert "models" in results, (
+            "_train_with_lightning MUST return results dict with 'models' key. "
+            "Phase B.B1 red phase: stub returns only history/containers without models. "
+            "This test documents the expected behavior and will pass once Phase B2 "
+            "implements Lightning orchestration with module persistence."
+        )
+E       AssertionError: _train_with_lightning MUST return results dict with 'models' key. Phase B.B1 red phase: stub returns only history/containers without models. This test documents the expected behavior and will pass once Phase B2 implements Lightning orchestration with module persistence.
+E       assert 'models' in {'history': {'train_loss': [0.5, 0.3], 'val_loss': None}, 'train_container': {'X': array([[[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       ...,\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]]])}, 'test_container': None}
+
+tests/torch/test_workflows_components.py:1036: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module - AssertionError: _train_with_lightning MUST instantiate PtychoPINN_Lightning module. Phase B.B1 red phase: stub does not create module yet. This test documents the expected behavior and will pass once Phase B2 implements Lightning orchestration.
+assert False
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_runs_trainer_fit - AssertionError: _train_with_lightning MUST invoke Trainer.fit with dataloaders. Phase B.B1 red phase: stub does not construct Trainer or call fit. This test documents the expected behavior and will pass once Phase B2 implements Lightning orchestration.
+assert False
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_returns_models_dict - AssertionError: _train_with_lightning MUST return results dict with 'models' key. Phase B.B1 red phase: stub returns only history/containers without models. This test documents the expected behavior and will pass once Phase B2 implements Lightning orchestration with module persistence.
+assert 'models' in {'history': {'train_loss': [0.5, 0.3], 'val_loss': None}, 'train_container': {'X': array([[[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       ...,\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]],\n\n       [[1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        ...,\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.],\n        [1., 1., 1., ..., 1., 1., 1.]]])}, 'test_container': None}
+============================== 3 failed in 5.03s ===============================
