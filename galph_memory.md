@@ -801,3 +801,15 @@
   - Reserved artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T031500Z/phase_d2_completion/` with summary scaffold; ensured docs/fix_plan Attempt #9 captures this loop’s housekeeping.
   - Rewrote `input.md` with focused Do Now checklist, detailed How-To map (imports, dataloaders, Trainer config), and clarified artifact expectations.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-18T150000Z: Loop (B2 readiness refresh before implementation)
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase B.B2 Lightning implementation
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes:
+  - Dependency audit: INTEGRATE-PYTORCH-001 Phase D2.B/D2.C still open; this loop advances that dependency directly, so no blocker.
+  - Coin flip result tails → skipped retrospective commit audit (no new engineer commits observed anyway).
+  - Reconfirmed TestTrainWithLightningRed remains red and no artifacts existed under new timestamp.
+  - Created artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T014317Z/phase_d2_completion/` with README placeholder; updated plan + blueprint (B2 rows + B2.3/B2.8) and docs/fix_plan Attempt #9 to reference the new path and `_build_lightning_dataloaders` expectation.
+  - Rewrote `input.md` (Mode=TDD) with refined How-To map covering config translation, dataloader helper requirements, deterministic seeding, Trainer configuration, and targeted pytest selector/log capture.
+- <Action State>: [ready_for_implementation]

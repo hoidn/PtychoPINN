@@ -8,6 +8,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from subprocess import Popen, PIPE
+import shlex
+import shutil
 
 from .state import OrchestrationState
 from .git_bus import safe_pull, add, commit, push_to, short_head, assert_on_branch, current_branch, has_unpushed_commits, push_with_rebase
@@ -306,8 +308,30 @@ def main() -> int:
         commit(f"[SYNC i={st.iteration}] actor=galph status=running")
         push_to(branch_target, logp)
 
-        # Execute one supervisor iteration
-        rc = tee_run([args.codex_cmd, "exec", "-m", "gpt-5-codex", "-c", "model_reasoning_effort=high", "--dangerously-bypass-approvals-and-sandbox"], Path("prompts/supervisor.md"), iter_log)
+        # Execute one supervisor iteration (wrap with script(1) when available to preserve PTY behaviour)
+        codex_args = [
+            args.codex_cmd,
+            "exec",
+            "-m",
+            "gpt-5-codex",
+            "-c",
+            "model_reasoning_effort=high",
+            "--dangerously-bypass-approvals-and-sandbox",
+        ]
+
+        if shutil.which("script"):
+            script_cmd = [
+                "script",
+                "-q",
+                "-c",
+                shlex.join(codex_args),
+                "/dev/null",
+            ]
+            run_cmd = script_cmd
+        else:
+            run_cmd = codex_args
+
+        rc = tee_run(run_cmd, Path("prompts/supervisor.md"), iter_log)
 
         sha = short_head()
 
