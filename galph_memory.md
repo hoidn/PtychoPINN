@@ -757,12 +757,18 @@
 - Additional notes: Validated Phase B2 blueprint (`reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md`) and ensured main plan + fix ledger point to it. Established new artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T014317Z/phase_d2_completion/` for upcoming implementation evidence and rewrote `input.md` (Mode=TDD) directing Ralph through B2.1–B2.8 with targeted pytest selector.
 - <Action State>: [ready_for_implementation]
 
-## 2025-10-18T150000Z: Focus Declaration
+## 2025-10-18T150000Z: Loop  (Review pass before B2 implementation)
 - Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase B.B2 Lightning implementation
 - Action type: Review or housekeeping
 - Mode: Docs
-- Notes: Beginning new supervisor loop; verifying dependencies (INTEGRATE-PYTORCH-001 Phase D2.B/D2.C still active) and gathering evidence before issuing fresh guidance.
-- <Action State>: [gathering_evidence]
+- Notes:
+  - Dependency check: INTEGRATE-PYTORCH-001 Phase D2.B/D2.C still in flight; proceeding because current loop advances that dependency directly.
+  - Coin flip result: tails → skipped retrospective commit audit per instructions.
+  - No new engineer commits/logs since Attempt #8; B2 remains untouched and TestTrainWithLightningRed still red.
+  - Created timestamped artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T014317Z/phase_d2_completion/` with README placeholder to anchor upcoming evidence.
+  - Updated docs/fix_plan.md Attempt #8 path (014317Z) and recorded Attempt #9 documenting this handoff; ensured plan checklist still shows B2 `[ ]`.
+  - Rewrote `input.md` with explicit config mapping + dataloader guidance, aligned How-To map with blueprint + spec references, and reiterated targeted pytest selector/log capture.
+- <Action State>: [ready_for_implementation]
 
 ## 2025-10-18T030215Z: Focus Declaration
 - Focus issue: INTEGRATE-PYTORCH-001-STUBS (Phase B.B2 Lightning orchestration)
@@ -772,4 +778,26 @@
 - Intent: Reassess stubbed `_train_with_lightning`, ensure blueprint + fix plan remain aligned, capture findings references, and rewrite input.md with precise green-phase checklist.
 - Updates: Reserved artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T031500Z/phase_d2_completion/` (summary scaffold added), refreshed B2 guidance in `phase_d2_completion.md` + `phase_b2_implementation.md`, logged Attempt #8 in docs/fix_plan.md, and rewrote `input.md` with targeted pytest/log capture instructions.
 - Findings references: POLICY-001 (PyTorch mandatory) and FORMAT-001 (data contract) remain the only relevant ledger entries; no Lightning-specific findings yet.
+- <Action State>: [ready_for_implementation]
+
+## 2025-10-18T040500Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS (Phase B.B2 Lightning orchestration)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes: Verified no new engineer commits/artifacts since Attempt #8; TestTrainWithLightningRed still red. Updated `phase_d2_completion.md` B2 row and `phase_b2_implementation.md` B2.8 to point at the `2025-10-18T031500Z` artifact hub, appended review note to that summary, and logged Attempt #10 in docs/fix_plan.md. Rewrote `input.md` (Mode=TDD) reiterating B2.1–B2.8 tasks with detailed dataloader/trainer guidance and targeted pytest command.
+- Findings references: POLICY-001, CONFIG-001, FORMAT-001.
+- Next engineer loop must implement `_train_with_lightning`, capture `pytest_train_green.log`, update summary + ledger.
+- <Action State>: [ready_for_implementation]
+
+## 2025-10-18T094500Z: B2 implementation audit & handoff refresh
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS (Phase B.B2 Lightning orchestration)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes:
+  - Coin flip = heads → reviewed the last ~10 commits (`git log --oneline | head -20`); no new engineer changes since Attempt #6, so focus remains on turning the Lightning tests green.
+  - Re-read `docs/findings.md` for POLICY-001 / FORMAT-001; no Lightning-specific findings yet.
+  - Confirmed `_train_with_lightning` still stubbed and red tests fail via existing log; no artifacts under `2025-10-18T031500Z/` prior to this loop.
+  - Updated plan guidance (phase_d2_completion.md B2 row + blueprint B2.3/B2.7) to require `_build_lightning_dataloaders`, deterministic seeding, and explicit `'models'` payload.
+  - Reserved artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T031500Z/phase_d2_completion/` with summary scaffold; ensured docs/fix_plan Attempt #9 captures this loop’s housekeeping.
+  - Rewrote `input.md` with focused Do Now checklist, detailed How-To map (imports, dataloaders, Trainer config), and clarified artifact expectations.
 - <Action State>: [ready_for_implementation]
