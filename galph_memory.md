@@ -753,5 +753,6 @@
 - Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase B.B2 Lightning implementation
 - Action type: Review or housekeeping
 - Mode: TDD
-- Notes: Moving from planning to execution prep; objective is to align ledger/plan artifacts and queue Ralph for `_train_with_lightning` implementation using existing B.B2 blueprint.
-- <Action State>: [planning]
+- Notes: Moving from planning to execution prep; confirmed prior loop instructions satisfied (TestTrainWithLightningRed added, red log committed) and no regressions in recent commit 0783c12. Findings lookup: POLICY-001 and FORMAT-001 remain the only PyTorch-relevant ledger items; no Lightning-specific findings yet.
+- Additional notes: Validated Phase B2 blueprint (`reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md`) and ensured main plan + fix ledger point to it. Established new artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T014317Z/phase_d2_completion/` for upcoming implementation evidence and rewrote `input.md` (Mode=TDD) directing Ralph through B2.1–B2.8 with targeted pytest selector.
+- <Action State>: [ready_for_implementation]
