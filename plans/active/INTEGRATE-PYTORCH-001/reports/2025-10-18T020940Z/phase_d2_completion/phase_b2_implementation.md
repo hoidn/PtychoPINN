@@ -38,7 +38,7 @@ Exit Criteria:
 | B2.5 | Configure Trainer | [ ] | Construct `Trainer` with `max_epochs=config.nepochs`, `accelerator='auto'`, `devices=1` unless `config.device` specifies otherwise, `log_every_n_steps=1`, and `default_root_dir=config.output_dir`. Respect `config.debug` (progress bar, deterministic flags) and leave MLflow toggles for B3. |
 | B2.6 | Execute fit cycle | [ ] | Run `trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)` (val loader may be `None`). Catch Lightning exceptions, re-raise with actionable message, and collect metrics via `trainer.callback_metrics` (`train_loss`, `val_loss`). |
 | B2.7 | Build results payload | [ ] | Return dict including `history`, original containers, and `'models': {'lightning_module': model, 'trainer': trainer}` so downstream persistence can reuse handles. Keep structure aligned with TensorFlow `train_cdi_model` semantics. |
-| B2.8 | Document artifacts & tests | [ ] | After implementation, run targeted selector `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T014317Z/phase_d2_completion/pytest_train_green.log`. Update docs/fix_plan Attempts and plan checklist B2 with artifact references. |
+| B2.8 | Document artifacts & tests | [ ] | After implementation, run targeted selector `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T031500Z/phase_d2_completion/pytest_train_green.log`. Update docs/fix_plan Attempts and plan checklist B2 with artifact references. |
 
 ### Validation & Evidence Capture
 - **Primary selector:** `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv`
