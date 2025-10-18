@@ -717,3 +717,13 @@
 - Mode: TDD
 - Notes: Beginning audit of baseline artifacts/log discipline before advancing to Phase B guidance.
 - <Action State>: [gathering_evidence]
+
+## 2025-10-18T000533Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS (Phase D2 Phase B kickoff planning)
+- Action type: Planning
+- Mode: TDD
+- Notes: Recording selection before plan refinement; objective is to design Phase B.B1 failing tests and steer next engineer loop toward Lightning orchestration TDD.
+- Artifacts: Authored `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T000606Z/phase_d2_completion/{phase_b_test_design.md,summary.md}` detailing three red tests (`TestTrainWithLightningRed`). Updated `plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md` B1 guidance and added docs/fix_plan Attempt #5 capturing the planning work.
+- Steering: Rewrote `input.md` (Mode=TDD) directing Ralph to implement the red tests, run `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv`, capture the log, and log Attempt entry. Emphasized torch-optional monkeypatching and artifact discipline.
+- Open questions: None before implementation; expect next loop to leave B1 `[P]` until Lightning stub is implemented.
+- <Action State>: [ready_for_implementation]

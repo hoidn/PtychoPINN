@@ -1,47 +1,48 @@
-Summary: Capture Phase D2 PyTorch workflow baseline and log current Lightning failure
-Mode: Docs
+Summary: Author red Lightning orchestration tests for `_train_with_lightning`
+Mode: TDD
 Focus: INTEGRATE-PYTORCH-001-STUBS — Finish PyTorch workflow stubs deferred from Phase D2
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::TestPytorchWorkflow::test_pytorch_train_save_load_infer_cycle -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T233109Z/phase_d2_completion/{baseline.md,pytest_integration_baseline.log}
+Mapped tests: pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T000606Z/phase_d2_completion/{phase_b_test_design.md,summary.md,pytest_train_red.log}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-STUBS A.A1+A.A3 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Catalogue current stubs and findings alignment in baseline.md (tests: none)
-2. INTEGRATE-PYTORCH-001-STUBS A.A2 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Run pytest tests/torch/test_integration_workflow_torch.py::TestPytorchWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T233109Z/phase_d2_completion/pytest_integration_baseline.log (tests: targeted)
+1. INTEGRATE-PYTORCH-001-STUBS B1 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Add `TestTrainWithLightningRed` tests per phase_b_test_design.md (tests: none)
+2. INTEGRATE-PYTORCH-001-STUBS B1 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Run pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T000606Z/phase_d2_completion/pytest_train_red.log (tests: targeted)
+3. INTEGRATE-PYTORCH-001-STUBS B1 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Record Attempt entry in docs/fix_plan.md referencing new tests + log (tests: none)
 
-If Blocked: Capture whatever portion of the integration log you obtained under the artifact directory, summarize the blocker and observed stack trace in baseline.md, and append a partial Attempt entry in docs/fix_plan.md noting why the run could not complete.
+If Blocked: Capture the partial pytest output under the artifact directory, summarize the failure in a short README alongside status in docs/fix_plan.md, and halt before modifying production code.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:24 — Phase A tasks unblock Lightning/stitching implementation by freezing the current stub state.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md:1 — Latest parity run documents the new Lightning failure we must reference in baseline.md.
-- ptycho_torch/workflows/components.py:153 — Stubbed Lightning path currently returns placeholders; we need precise notes before implementation begins.
-- docs/findings.md:8 — POLICY-001 enforces torch dependency; confirm baseline respects it and mention in summary.
-- specs/ptychodus_api_spec.md:231 — Reconstructor contract dictates outputs the completed workflow must eventually satisfy.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:40 — Phase B checklist defines Lightning TDD contract.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T000606Z/phase_d2_completion/phase_b_test_design.md — Detailed test expectations for `_train_with_lightning`.
+- ptycho_torch/workflows/components.py:265 — Current stub lacking Lightning orchestration.
+- specs/ptychodus_api_spec.md:187 — Reconstructor lifecycle requires trained module handles for persistence.
+- docs/TESTING_GUIDE.md:1 — TDD discipline and targeted pytest usage.
 
 How-To Map:
-- export TS=2025-10-17T233109Z; mkdir -p plans/active/INTEGRATE-PYTORCH-001/reports/$TS/phase_d2_completion
-- Re-read plan/table rows A.A1–A.A3 and annotate `baseline.md` with: current stub functions, open TODOs, planned resolution phases, and citations to POLICY-001 / FORMAT-001.
-- Run pytest tests/torch/test_integration_workflow_torch.py::TestPytorchWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/$TS/phase_d2_completion/pytest_integration_baseline.log
-- After the run, append to `baseline.md`: command executed, environment knobs (torch install status, device), failure stack, and hypotheses for remediation.
-- Update docs/fix_plan.md Attempts for INTEGRATE-PYTORCH-001-STUBS once artifacts exist (note checklist IDs touched) before handing back the loop.
+- Edit `tests/torch/test_workflows_components.py`: add class `TestTrainWithLightningRed` with three tests (`test_train_with_lightning_instantiates_module`, `test_train_with_lightning_runs_trainer_fit`, `test_train_with_lightning_returns_models_dict`). Use monkeypatch to spy on `ptycho_torch.model.PtychoPINN_Lightning` and `lightning.pytorch.Trainer` while keeping execution torch-optional.
+- Use existing fixtures (`minimal_training_config`, `dummy_raw_data`) for config + containers; create lightweight sentinel containers if additional shape control is needed.
+- Expected failure signature: AssertionErrors complaining that Lightning module/trainer were not invoked and missing `'models'` key in results. Do not “fix” the stub this loop.
+- Command: `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T000606Z/phase_d2_completion/pytest_train_red.log`
+- After run, update docs/fix_plan.md Attempts and mention the log path; leave plan checklist B1 marked `[P]` until implementation turns tests green.
 
 Pitfalls To Avoid:
-- Do not modify implementation files during this documentation loop.
-- Keep all artifacts under the timestamped phase_d2_completion directory; no loose logs.
-- Ensure pytest runs from project root with editable install active.
-- Avoid truncating the integration log; redirect full output via tee.
-- Reference findings by ID (POLICY-001, FORMAT-001) rather than prose summaries.
-- Note GPU/cuda availability explicitly—parity expectations depend on it.
-- Do not mark plan checklist items complete; leave them `[ ]` after documenting baseline.
-- Skip rerunning full test suite; only the targeted selector is allowed this loop.
-- Preserve CONFIG-001 ordering in write-ups—call out params.cfg update requirement.
-- Capture exact stack trace lines for the Lightning failure; paraphrasing is insufficient.
+- Do not modify `_train_with_lightning` or other production code yet; this loop is red tests only.
+- Keep tests importable without a live torch runtime; rely on monkeypatch instead of instantiating tensors.
+- Ensure the pytest selector matches exactly; avoid running full `tests/torch` suite.
+- Capture full pytest output via `tee`; no truncated logs or clipboard artifacts.
+- Reference findings by ID (POLICY-001, CONFIG-001) if cited in comments—do not restate prose.
+- Maintain existing helper fixtures; do not duplicate config creation logic.
+- Leave plan checklist items in `[P]` state; completion requires green implementation loop.
+- Skip committing generated logs outside the timestamped reports directory.
+- Observe two-message loop discipline: one engineer execution per supervisor brief.
+- No MLflow or Lightning environment reconfiguration in tests; keep mocks local.
 
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:22
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T231500Z/parity_summary.md:1
-- ptycho_torch/workflows/components.py:153
-- docs/findings.md:8
-- specs/ptychodus_api_spec.md:231
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:40
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T000606Z/phase_d2_completion/phase_b_test_design.md
+- ptycho_torch/workflows/components.py:265
+- tests/torch/test_workflows_components.py:1
+- specs/ptychodus_api_spec.md:187
 
-Next Up: Phase B.B1 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md (author Lightning red tests once baseline captured)
+Next Up: Phase B.B2 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md (implement Lightning orchestration once red tests land)
