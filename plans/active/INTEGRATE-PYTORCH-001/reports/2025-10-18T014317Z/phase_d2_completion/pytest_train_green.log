@@ -152,7 +152,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-model = <test_workflows_components.TestTrainWithLightningRed.test_train_with_lightning_instantiates_module.<locals>.mock_lightning_init.<locals>.StubLightningModule object at 0x772119d27610>
+model = <test_workflows_components.TestTrainWithLightningRed.test_train_with_lightning_instantiates_module.<locals>.mock_lightning_init.<locals>.StubLightningModule object at 0x7a6ccbf44b10>
 
     def _maybe_unwrap_optimized(model: object) -> "pl.LightningModule":
         if isinstance(model, OptimizedModule):
@@ -169,11 +169,11 @@ E       TypeError: `model` must be a `LightningModule` or `torch._dynamo.Optimiz
 
 The above exception was the direct cause of the following exception:
 
-self = <test_workflows_components.TestTrainWithLightningRed object at 0x77211984d490>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x772119ee6dd0>
+self = <test_workflows_components.TestTrainWithLightningRed object at 0x7a6cc957d110>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7a6cc6b53190>
 params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
 minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x772119733110>
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7a6bf98c7010>
 
     def test_train_with_lightning_instantiates_module(
         self,
@@ -390,15 +390,15 @@ ycoords shape: (10,)
 xcoords_start shape: (10,)
 ycoords_start shape: (10,)
 ---------------------------- Captured stderr setup -----------------------------
-2025-10-17 19:10:23.437690: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-10-17 19:18:19.607597: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1760753423.449188 4131035 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1760753423.452958 4131035 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1760753423.463915 4131035 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1760753423.463932 4131035 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1760753423.463935 4131035 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1760753423.463937 4131035 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-10-17 19:10:23.466721: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1760753899.618915 4144045 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760753899.622705 4144045 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760753899.633628 4144045 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760753899.633645 4144045 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760753899.633647 4144045 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760753899.633650 4144045 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 19:18:19.636429: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
 ----------------------------- Captured stderr call -----------------------------
 INFO: Seed set to 42
