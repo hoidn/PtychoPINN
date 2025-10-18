@@ -748,3 +748,10 @@
 - Mode: Docs
 - Notes: Continuing the B.B2 planning effort with mandate to ship full guidance this loop (action-state limit reached). Analysis + plan drafting now in progress.
 - <Action State>: [planning]
+
+## 2025-10-18T014151Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase B.B2 Lightning implementation
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes: Moving from planning to execution prep; objective is to align ledger/plan artifacts and queue Ralph for `_train_with_lightning` implementation using existing B.B2 blueprint.
+- <Action State>: [planning]
