@@ -1,0 +1,418 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module FAILED [ 33%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_runs_trainer_fit PASSED [ 66%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_returns_models_dict PASSED [100%]
+
+=================================== FAILURES ===================================
+___ TestTrainWithLightningRed.test_train_with_lightning_instantiates_module ____
+
+train_container = {'X': array([[[1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., ... ..., 1.+0.j, 1.+0.j, 1.+0.j],
+        [1.+0.j, 1.+0.j, 1.+0.j, ..., 1.+0.j, 1.+0.j, 1.+0.j]]],
+      dtype=complex64)}
+test_container = None
+config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+
+    def _train_with_lightning(
+        train_container: 'PtychoDataContainerTorch',
+        test_container: Optional['PtychoDataContainerTorch'],
+        config: TrainingConfig
+    ) -> Dict[str, Any]:
+        """
+        Orchestrate Lightning trainer execution for PyTorch model training.
+    
+        This function implements the Lightning training workflow per Phase D2.B blueprint:
+        1. Derives PyTorch config objects from TensorFlow TrainingConfig
+        2. Instantiates PtychoPINN_Lightning module with all four config dependencies
+        3. Builds train/val dataloaders via _build_lightning_dataloaders helper
+        4. Configures Lightning Trainer with checkpoint/logging settings
+        5. Executes training via trainer.fit()
+        6. Returns structured results dict with history, containers, and module handle
+    
+        Args:
+            train_container: Normalized training data container
+            test_container: Optional normalized test data container
+            config: TrainingConfig with training hyperparameters
+    
+        Returns:
+            Dict[str, Any]: Training results including:
+                - history: Dict with train_loss and optional val_loss trajectories
+                - train_container: Original training container
+                - test_container: Original test container
+                - models: Dict with 'lightning_module' and 'trainer' handles for persistence
+    
+        Raises:
+            RuntimeError: If torch or lightning packages are not installed (POLICY-001)
+    
+        References:
+            - Blueprint: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md
+            - Spec: specs/ptychodus_api_spec.md:187 (reconstructor lifecycle contract)
+            - Findings: POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg already populated by caller)
+        """
+        # B2.2: torch-optional imports with POLICY-001 compliant error messaging
+        try:
+            import torch
+            import lightning.pytorch as L
+            from ptycho_torch.model import PtychoPINN_Lightning
+            from ptycho_torch.config_params import (
+                DataConfig as PTDataConfig,
+                ModelConfig as PTModelConfig,
+                TrainingConfig as PTTrainingConfig,
+                InferenceConfig as PTInferenceConfig
+            )
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch backend requires torch>=2.2 and lightning. "
+                "Install with: pip install -e .[torch]\n"
+                "See docs/findings.md#policy-001 for PyTorch requirement policy."
+            ) from e
+    
+        logger.info("_train_with_lightning orchestrating Lightning training")
+        logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
+    
+        # B2.1: Derive Lightning config objects from TensorFlow TrainingConfig
+        # Note: config.model already contains ModelConfig with N, gridsize, etc.
+        # We need to construct PyTorch dataclass configs matching these values
+    
+        # Map model_type: 'pinn' → 'Unsupervised', 'supervised' → 'Supervised'
+        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+    
+        pt_data_config = PTDataConfig(
+            N=config.model.N,
+            grid_size=(config.model.gridsize, config.model.gridsize),
+            nphotons=config.nphotons,
+            K=config.neighbor_count,
+        )
+    
+        pt_model_config = PTModelConfig(
+            mode=mode_map.get(config.model.model_type, 'Unsupervised'),
+            amp_activation=config.model.amp_activation or 'silu',
+            n_filters_scale=config.model.n_filters_scale,
+        )
+    
+        pt_training_config = PTTrainingConfig(
+            epochs=config.nepochs,
+            learning_rate=1e-4,  # Default; can expose via config later
+            device=getattr(config, 'device', 'cpu'),
+        )
+    
+        pt_inference_config = PTInferenceConfig()
+        # Minimal for now; persistence may need additional fields
+    
+        # B2.4: Instantiate PtychoPINN_Lightning with all four config objects
+        model = PtychoPINN_Lightning(
+            model_config=pt_model_config,
+            data_config=pt_data_config,
+            training_config=pt_training_config,
+            inference_config=pt_inference_config
+        )
+    
+        # Save hyperparameters so checkpoint can reconstruct module without external state
+        model.save_hyperparameters()
+    
+        # B2.3: Build dataloaders via helper
+        train_loader, val_loader = _build_lightning_dataloaders(
+            train_container, test_container, config
+        )
+    
+        # B2.5: Configure Trainer with settings from config
+        output_dir = getattr(config, 'output_dir', Path('./outputs'))
+        debug_mode = getattr(config, 'debug', False)
+    
+        trainer = L.Trainer(
+            max_epochs=config.nepochs,
+            accelerator='auto',
+            devices=1,  # Single device for MVP; multi-GPU later
+            log_every_n_steps=1,
+            default_root_dir=str(output_dir),
+            enable_progress_bar=debug_mode,  # Suppress progress bar unless debug
+            deterministic=True,  # Enforce reproducibility
+            logger=False,  # Disable default logger for now; MLflow added in B3
+        )
+    
+        # B2.6: Execute training cycle
+        logger.info(f"Starting Lightning training: {config.nepochs} epochs")
+        try:
+>           trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+ptycho_torch/workflows/components.py:495: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py:553: in fit
+    model = _maybe_unwrap_optimized(model)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+model = <test_workflows_components.TestTrainWithLightningRed.test_train_with_lightning_instantiates_module.<locals>.mock_lightning_init.<locals>.StubLightningModule object at 0x7a2fba4409d0>
+
+    def _maybe_unwrap_optimized(model: object) -> "pl.LightningModule":
+        if isinstance(model, OptimizedModule):
+            return from_compiled(model)
+        if isinstance(model, pl.LightningModule):
+            return model
+        _check_mixed_imports(model)
+>       raise TypeError(
+            f"`model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `{type(model).__qualname__}`"
+        )
+E       TypeError: `model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TestTrainWithLightningRed.test_train_with_lightning_instantiates_module.<locals>.mock_lightning_init.<locals>.StubLightningModule`
+
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/utilities/compile.py:111: TypeError
+
+The above exception was the direct cause of the following exception:
+
+self = <test_workflows_components.TestTrainWithLightningRed object at 0x7a3097f616d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7a30acf61e10>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7a2fbaf7ae50>
+
+    def test_train_with_lightning_instantiates_module(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 1: _train_with_lightning MUST instantiate PtychoPINN_Lightning with four configs.
+    
+        Requirement: specs/ptychodus_api_spec.md:187 reconstructor lifecycle requires
+        trained module handles with serialized config for checkpoint reload.
+    
+        Design contract (phase_b_test_design.md §1):
+        - _train_with_lightning receives (train_container, test_container, config)
+        - MUST construct ptycho_torch.model.PtychoPINN_Lightning(__init__)
+        - Constructor MUST receive exactly (model_config, data_config, training_config, inference_config)
+        - This ensures checkpoint.load can reconstruct module without external state
+    
+        Test mechanism:
+        - Monkeypatch PtychoPINN_Lightning to spy on __init__ args
+        - Create minimal containers (dicts acceptable for red phase)
+        - Invoke _train_with_lightning
+        - Assert spy recorded all four config objects
+    
+        Expected red-phase failure:
+        - Stub never instantiates Lightning module
+        - Spy not called → assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+    
+        # Spy to track Lightning module instantiation
+        lightning_init_called = {"called": False, "args": None}
+    
+        def mock_lightning_init(model_config, data_config, training_config, inference_config):
+            """Spy that records PtychoPINN_Lightning.__init__ args."""
+            lightning_init_called["called"] = True
+            lightning_init_called["args"] = (model_config, data_config, training_config, inference_config)
+    
+            # Return minimal stub module with required Lightning API
+            class StubLightningModule:
+                def save_hyperparameters(self):
+                    pass
+    
+            return StubLightningModule()
+    
+        # Monkeypatch Lightning module constructor
+        # Note: actual import path will be ptycho_torch.model.PtychoPINN_Lightning
+        # but we monkeypatch at the call site within _train_with_lightning
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            mock_lightning_init
+        )
+    
+        # Create minimal train_container (dict placeholder for red phase)
+        # Phase C adapters will produce actual PtychoDataContainerTorch
+        train_container = {
+            "X": np.ones((10, 64, 64)),
+            "Y": np.ones((10, 64, 64), dtype=np.complex64),
+        }
+    
+        # Call _train_with_lightning
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+tests/torch/test_workflows_components.py:848: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_container = {'X': array([[[1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., 1.],
+        [1., 1., 1., ..., 1., 1., ... ..., 1.+0.j, 1.+0.j, 1.+0.j],
+        [1.+0.j, 1.+0.j, 1.+0.j, ..., 1.+0.j, 1.+0.j, 1.+0.j]]],
+      dtype=complex64)}
+test_container = None
+config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+
+    def _train_with_lightning(
+        train_container: 'PtychoDataContainerTorch',
+        test_container: Optional['PtychoDataContainerTorch'],
+        config: TrainingConfig
+    ) -> Dict[str, Any]:
+        """
+        Orchestrate Lightning trainer execution for PyTorch model training.
+    
+        This function implements the Lightning training workflow per Phase D2.B blueprint:
+        1. Derives PyTorch config objects from TensorFlow TrainingConfig
+        2. Instantiates PtychoPINN_Lightning module with all four config dependencies
+        3. Builds train/val dataloaders via _build_lightning_dataloaders helper
+        4. Configures Lightning Trainer with checkpoint/logging settings
+        5. Executes training via trainer.fit()
+        6. Returns structured results dict with history, containers, and module handle
+    
+        Args:
+            train_container: Normalized training data container
+            test_container: Optional normalized test data container
+            config: TrainingConfig with training hyperparameters
+    
+        Returns:
+            Dict[str, Any]: Training results including:
+                - history: Dict with train_loss and optional val_loss trajectories
+                - train_container: Original training container
+                - test_container: Original test container
+                - models: Dict with 'lightning_module' and 'trainer' handles for persistence
+    
+        Raises:
+            RuntimeError: If torch or lightning packages are not installed (POLICY-001)
+    
+        References:
+            - Blueprint: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md
+            - Spec: specs/ptychodus_api_spec.md:187 (reconstructor lifecycle contract)
+            - Findings: POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg already populated by caller)
+        """
+        # B2.2: torch-optional imports with POLICY-001 compliant error messaging
+        try:
+            import torch
+            import lightning.pytorch as L
+            from ptycho_torch.model import PtychoPINN_Lightning
+            from ptycho_torch.config_params import (
+                DataConfig as PTDataConfig,
+                ModelConfig as PTModelConfig,
+                TrainingConfig as PTTrainingConfig,
+                InferenceConfig as PTInferenceConfig
+            )
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch backend requires torch>=2.2 and lightning. "
+                "Install with: pip install -e .[torch]\n"
+                "See docs/findings.md#policy-001 for PyTorch requirement policy."
+            ) from e
+    
+        logger.info("_train_with_lightning orchestrating Lightning training")
+        logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
+    
+        # B2.1: Derive Lightning config objects from TensorFlow TrainingConfig
+        # Note: config.model already contains ModelConfig with N, gridsize, etc.
+        # We need to construct PyTorch dataclass configs matching these values
+    
+        # Map model_type: 'pinn' → 'Unsupervised', 'supervised' → 'Supervised'
+        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+    
+        pt_data_config = PTDataConfig(
+            N=config.model.N,
+            grid_size=(config.model.gridsize, config.model.gridsize),
+            nphotons=config.nphotons,
+            K=config.neighbor_count,
+        )
+    
+        pt_model_config = PTModelConfig(
+            mode=mode_map.get(config.model.model_type, 'Unsupervised'),
+            amp_activation=config.model.amp_activation or 'silu',
+            n_filters_scale=config.model.n_filters_scale,
+        )
+    
+        pt_training_config = PTTrainingConfig(
+            epochs=config.nepochs,
+            learning_rate=1e-4,  # Default; can expose via config later
+            device=getattr(config, 'device', 'cpu'),
+        )
+    
+        pt_inference_config = PTInferenceConfig()
+        # Minimal for now; persistence may need additional fields
+    
+        # B2.4: Instantiate PtychoPINN_Lightning with all four config objects
+        model = PtychoPINN_Lightning(
+            model_config=pt_model_config,
+            data_config=pt_data_config,
+            training_config=pt_training_config,
+            inference_config=pt_inference_config
+        )
+    
+        # Save hyperparameters so checkpoint can reconstruct module without external state
+        model.save_hyperparameters()
+    
+        # B2.3: Build dataloaders via helper
+        train_loader, val_loader = _build_lightning_dataloaders(
+            train_container, test_container, config
+        )
+    
+        # B2.5: Configure Trainer with settings from config
+        output_dir = getattr(config, 'output_dir', Path('./outputs'))
+        debug_mode = getattr(config, 'debug', False)
+    
+        trainer = L.Trainer(
+            max_epochs=config.nepochs,
+            accelerator='auto',
+            devices=1,  # Single device for MVP; multi-GPU later
+            log_every_n_steps=1,
+            default_root_dir=str(output_dir),
+            enable_progress_bar=debug_mode,  # Suppress progress bar unless debug
+            deterministic=True,  # Enforce reproducibility
+            logger=False,  # Disable default logger for now; MLflow added in B3
+        )
+    
+        # B2.6: Execute training cycle
+        logger.info(f"Starting Lightning training: {config.nepochs} epochs")
+        try:
+            trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+        except Exception as e:
+            logger.error(f"Lightning training failed: {e}")
+>           raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+E           RuntimeError: Lightning training failed. See logs for details.
+
+ptycho_torch/workflows/components.py:498: RuntimeError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+---------------------------- Captured stderr setup -----------------------------
+2025-10-17 19:04:10.116041: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760753050.127221 4127771 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760753050.130951 4127771 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760753050.141802 4127771 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760753050.141819 4127771 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760753050.141822 4127771 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760753050.141824 4127771 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-17 19:04:10.144612: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+----------------------------- Captured stderr call -----------------------------
+INFO: Seed set to 42
+INFO: 💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+INFO: GPU available: True (cuda), used: True
+INFO: TPU available: False, using: 0 TPU cores
+INFO: HPU available: False, using: 0 HPUs
+------------------------------ Captured log call -------------------------------
+INFO     lightning.fabric.utilities.seed:seed.py:57 Seed set to 42
+INFO     lightning.pytorch.utilities.rank_zero:callback_connector.py:108 💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+INFO     lightning.pytorch.utilities.rank_zero:setup.py:156 GPU available: True (cuda), used: True
+INFO     lightning.pytorch.utilities.rank_zero:setup.py:159 TPU available: False, using: 0 TPU cores
+INFO     lightning.pytorch.utilities.rank_zero:setup.py:169 HPU available: False, using: 0 HPUs
+ERROR    ptycho_torch.workflows.components:components.py:497 Lightning training failed: `model` must be a `LightningModule` or `torch._dynamo.OptimizedModule`, got `TestTrainWithLightningRed.test_train_with_lightning_instantiates_module.<locals>.mock_lightning_init.<locals>.StubLightningModule`
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module - RuntimeError: Lightning training failed. See logs for details.
+========================= 1 failed, 2 passed in 5.09s ==========================
