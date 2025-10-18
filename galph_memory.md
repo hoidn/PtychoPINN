@@ -727,3 +727,17 @@
 - Steering: Rewrote `input.md` (Mode=TDD) directing Ralph to implement the red tests, run `pytest tests/torch/test_workflows_components.py::TestTrainWithLightningRed -vv`, capture the log, and log Attempt entry. Emphasized torch-optional monkeypatching and artifact discipline.
 - Open questions: None before implementation; expect next loop to leave B1 `[P]` until Lightning stub is implemented.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-18T013415Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS (Phase D2.B `_train_with_lightning` implementation)
+- Action type: Planning
+- Mode: TDD
+- Notes: Preparing to design Phase B.B2 implementation guidance so Ralph can turn the new Lightning orchestration tests green; will draft artifact under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T013415Z/phase_d2_completion/`.
+- <Action State>: [planning]
+
+## 2025-10-18T003200Z: Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase B.B2 Lightning implementation plan
+- Action type: Planning
+- Mode: Docs
+- Notes: Recording selections prior to drafting Phase B.B2 orchestration guidance; full analysis and outputs pending within this loop.
+- <Action State>: [planning]
