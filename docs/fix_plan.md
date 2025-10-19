@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger
 
 **Last Updated:** 2025-10-19
-**Active Focus:** Stand up PyTorch backend parity (integration + minimal test harness).
+**Active Focus:** Harden PyTorch integration regression (CI integration + monitoring).
 
 ---
 
@@ -11,9 +11,9 @@
 - Depends on: INTEGRATE-PYTORCH-001 (Phase D2.B/D2.C)
 - Spec/AT: `specs/ptychodus_api_spec.md` §4.5–4.6; `docs/workflows/pytorch.md` §§5–7; `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md`
 - Priority: High
-- Status: pending
+- Status: done
 - Owner/Date: Codex Agent/2025-10-17
-- Reproduction: Run `ptycho_torch.workflows.components.run_cdi_example_torch(..., do_stitching=True)` with minimal `TrainingConfig`; currently raises `NotImplementedError` because `_reassemble_cdi_image_torch` and Lightning probe handling remain stubs.
+- Reproduction: Run `ptycho_torch.workflows.components.run_cdi_example_torch(..., do_stitching=True)` with canonical Phase D2 configuration; should complete train→save→load→infer cycle without NotImplementedError, producing stitched reconstructions and Lightning checkpoints.
 - Working Plan: `plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md`
 - Attempts History:
   * [2025-10-17] Attempt #0 — Catalogued remaining stubs in `ptycho_torch/workflows/components.py` (probe init lines 304-312, `_reassemble_cdi_image_torch` lines 332-352). No implementation yet.

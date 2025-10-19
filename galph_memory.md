@@ -1121,3 +1121,13 @@
   - Rewrote `input.md` directing Ralph to draft `phase_e_closeout/closure_summary.md` and log closure Attempt in docs/fix_plan.
 - Open questions: Outstanding dataloader follow-up remains separate initiative (call out in closure summary).
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T230900Z: Close-out review setup
+- Focus issue: [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2 — finalize closure & handoff to TEST-PYTORCH-001
+- Action type: Review or housekeeping
+- Mode: Docs
+- Coin flip: heads — audited recent commits (`git show 4af8e69`) confirming closure summary + ledger updates; no regressions detected.
+- Pre-loop review: Read latest `input.md`, closure summary (`plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T225500Z/phase_e_closeout/closure_summary.md`), and plan checklists to verify CO1/CO2 completion.
+- Plan: mark fix_plan status `done`, update Active Focus toward TEST-PYTORCH-001 Phase D3, refresh input.md for new directives, ensure no lingering blockers.
+- Loop outcome: Updated `docs/fix_plan.md` (status → done, Active Focus → TEST-PYTORCH-001 CI hardening), rewrote `input.md` with D3 CI-integration checklist + artifact path `2025-10-19T232500Z`, captured findings in ci_notes placeholder guidance.
+- <Action State>: [ready_for_implementation]
