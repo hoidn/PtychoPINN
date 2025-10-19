@@ -19,5 +19,6 @@ See docs/fix_plan.md Attempt #25 for full details.
 
 ## Next Steps
 
-- Modernize `TestReassembleCdiImageTorch*` cases to assert the new stitched outputs (supply `train_results` fixtures, validate amplitude/phase arrays, and preserve a regression covering the `train_results=None` guard).
-- Re-run `pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv | tee pytest_stitch_green.log` and update plan/report with green evidence once assertions pass.
+- Address the channel-order mismatch captured in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/debug_shape_triage.md` by updating `_reassemble_cdi_image_torch` to emit channel-last tensors before calling the TensorFlow helper.
+- Modernize `TestReassembleCdiImageTorch*` cases to supply the complex mock Lightning module with explicit channel dimension (`gridsize**2`), keep the `train_results=None` guard test, and assert finite outputs plus channel-last `results['obj_tensor_full']`.
+- Re-run `pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/pytest_stitch_green.log` and update plan/report with green evidence once assertions pass.

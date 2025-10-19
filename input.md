@@ -1,54 +1,49 @@
-Summary: Align PyTorch stitching tests with the implemented `_reassemble_cdi_image_torch`
+Summary: Fix PyTorch stitching channel order and turn the C4 tests green
 Mode: TDD
 Focus: INTEGRATE-PYTORCH-001-STUBS — Finish PyTorch workflow stubs deferred from Phase D2
 Branch: feature/torchapi
 Mapped tests: pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/{summary.md,pytest_stitch_green.log,train_debug.txt}
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/{debug_shape_triage.md,pytest_stitch_green.log}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update `TestReassembleCdiImageTorch*` to assert the new Lightning stitching behavior (supply `train_results` fixtures, validate amplitude/phase outputs, preserve a focused NotImplemented guard case) (tests: targeted TDD)
-2. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Run `pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/pytest_stitch_green.log` (tests: targeted)
-3. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update summary.md + docs/fix_plan Attempt entry with green evidence (tests: none)
+1. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update `_reassemble_cdi_image_torch` to emit channel-last tensors before calling the TensorFlow helper (tests: none)
+2. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Refresh `TestReassembleCdiImageTorch*` fixtures/assertions and run `pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/pytest_stitch_green.log` (tests: targeted)
+3. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update `phase_d2_completion/summary.md` + docs/fix_plan.md Attempt history with the 2025-10-19T092448Z green evidence, and relocate any stray `train_debug.log` into the same report directory (tests: none)
 
-If Blocked: Capture the failing pytest output in `pytest_stitch_green.log`, roll C4 back to `[P]` in phase_d2_completion.md, note the obstacle (including assertion text) in summary.md, and log the issue in docs/fix_plan.md with hypotheses before stopping.
+If Blocked: Capture the failing pytest output in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/pytest_stitch_green.log`, roll C4 back to `[P]`, note the observed tensor shapes + error text in `debug_shape_triage.md`, and log the blocker in docs/fix_plan.md before pausing.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:44 — C4 now requires modernizing the stitching tests after C3 shipped; they currently hard-fail because they still expect NotImplemented.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/summary.md — Next Steps section calls for green pytest evidence once tests assert stitched outputs.
-- docs/fix_plan.md:26 (Attempt #26) — Documents the supervisor review and directs this loop to close out C4 with updated tests and logs.
-- tests/torch/test_workflows_components.py:1076 — Existing “Red” class encodes NotImplemented expectations that now need to be upgraded to success-path assertions.
-- specs/ptychodus_api_spec.md:185 — Stitching contract requires `(recon_amp, recon_phase, results)` outputs; the green tests must verify this behavior.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:53 — C4 remains open; guidance now calls out the channel-order fix plus updated tests.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/debug_shape_triage.md — Documents confirmed root cause (channel-first tensor) and required remediation steps.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/summary.md — Next Steps point back to the triage note and expect fresh green evidence once fixed.
+- tests/torch/test_workflows_components.py:1076 — Existing green-phase test scaffolding that now needs channel-aware fixtures/assertions.
+- specs/ptychodus_api_spec.md:185 — Stitching contract requires `(recon_amp, recon_phase, results)` with correct tensor shapes for downstream consumers.
 
 How-To Map:
-- Refactor `TestReassembleCdiImageTorchRed` into a green-phase suite (rename optional, keep selector stable for now). Introduce fixtures:
-  * `mock_lightning_module` — subclass/minimal object with `eval()` and `__call__(self, X)` returning a deterministic `torch.ones` complex tensor shaped `(batch, 1, N, N)`.
-  * `stitch_train_results` — returns `{"models": {"lightning_module": mock_lightning_module}}`; reuse in both direct `_reassemble_cdi_image_torch` and `run_cdi_example_torch` tests.
-- Update the primary tests to:
-  * Call `_reassemble_cdi_image_torch(..., train_results=stitch_train_results)` and assert that amplitude/phase outputs are numpy arrays with expected shapes and finite values.
-  * Verify flip_x / flip_y / transpose by comparing offsets (e.g., check sign flips in `results["global_offsets"]`).
-  * For the orchestration test, monkeypatch `_train_with_lightning` to return the same `stitch_train_results` so `run_cdi_example_torch(do_stitching=True)` hits the real stitching path and returns non-None amplitude/phase.
-- Preserve a single guard test that still exercises the `train_results=None` NotImplemented branch (update regex to match the new message text).
-- Keep pytest style pure (no unittest mixins); prefer helper functions/fixtures inside the module rather than external scripts.
-- After edits, run the selector exactly as listed, capture the log with `tee`, and inspect for zero failures before proceeding.
-- Update `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/summary.md` (append validation notes) and append the same evidence to docs/fix_plan.md Attempts (C4 entry).
+- Apply the channel-last conversion inside `_reassemble_cdi_image_torch`: after concatenating predictions, use `torch.moveaxis(obj_tensor_full, 1, -1)` (or equivalent) when tensors arrive channel-first; call `np.moveaxis` as a final guard before handing data to `tf_helper.reassemble_position`.
+- Ensure the mock Lightning module in tests returns deterministic `torch.ones` complex tensors shaped `(batch, gridsize**2, N, N)` so that moveaxis logic is exercised; keep one guard test explicitly asserting the `train_results=None` NotImplemented path.
+- Expand the tests to validate that `results['obj_tensor_full'].shape[-1] == config.model.gridsize ** 2`, amplitude/phase arrays are finite via `np.isfinite`, and that flip/transpose cases still succeed.
+- Run `pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/pytest_stitch_green.log` from repo root.
+- Move the prior root-level `train_debug.log` into `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/` (or delete if superseded) so all artifacts live under the initiative directory.
+- After tests pass, append the new evidence (timestamp + log path) to `summary.md` and docs/fix_plan.md, marking C4 as `[x]` only when the log shows zero failures.
 
 Pitfalls To Avoid:
-- Do not regress the `train_results=None` guard; keep the NotImplemented path covered by a focused regression test.
-- Avoid invoking real Lightning training in tests; rely on lightweight stubs so the selector stays fast.
-- Ensure stub outputs use `torch.complex64` so downstream amplitude/phase calculations remain valid.
-- Keep tensors on CPU inside stubs; don’t introduce CUDA requirements.
-- Preserve deterministic seeds/fixtures already defined in the test module.
-- Do not rewrite production code — stay within tests and documentation updates for this loop.
-- Ensure pytest log is stored under the timestamped reports directory (no artifacts at repo root).
-- Keep class/function names unique to avoid pytest collection conflicts.
-- Remember to run selectors from repo root so relative imports stay valid.
-- Leave integration test expectations (Phase D) untouched until C4 is green.
+- Do not bypass the TensorFlow reassembly helper; we need parity proof before migrating to native PyTorch stitching.
+- Keep tensors on CPU for the mock; avoid introducing CUDA-only code in tests.
+- Preserve complex64 dtypes for model outputs so amplitude/phase calculations remain valid.
+- Do not drop the `train_results=None` guard test—this regression coverage is still required.
+- Ensure pytest selector stays exactly as mapped; no ad-hoc wildcards or extra modules.
+- Don’t overwrite existing artifacts—append new logs under the fresh timestamp directory.
+- Avoid touching stable physics files (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
+- Keep plan checklists synchronized; mark C4 complete only after documentation and logs are updated.
+- Leave integration-test (Phase D) steps untouched this loop.
 
 Pointers:
+- ptycho_torch/workflows/components.py:608
 - tests/torch/test_workflows_components.py:1076
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:51
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/summary.md
-- docs/fix_plan.md:26
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:53
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/debug_shape_triage.md
 - specs/ptychodus_api_spec.md:185
 
-Next Up: Run `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` once stitching tests are green to re-evaluate the checkpoint-loading failure.
+Next Up:
+- Run `pytest tests/torch/test_integration_workflow_torch.py -vv` once stitching goes green to unblock Phase D. 

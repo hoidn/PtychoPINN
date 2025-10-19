@@ -856,3 +856,15 @@
   - Updated summary.md Next Steps and docs/fix_plan Attempt #26 to capture the review outcome; refreshed `input.md` with concrete guidance (fixtures, stub Lightning module, pytest selector) for turning the suite green.
 - Follow-up: Ralph to modernize `TestReassembleCdiImageTorch*`, capture green log, and update summary/fix ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T092742Z: C4 channel-order triage
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase D2.C4 (stitching tests green)
+- Action type: Debug
+- Mode: TDD
+- Coin flip: heads — reviewed last 10 commits (no new regressions; noted `train_debug.log` lingering at repo root).
+- Findings:
+  - Confirmed TensorFlow `tf_helper.reassemble_position` requires channel-last tensors; reproduced the failure vs success via inline Python (`tf_helper.reassemble_position` with `(n,1,64,64)` → error, `(n,64,64,1)` → success).
+  - Authored `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/debug_shape_triage.md` capturing hypotheses, evidence, and remediation (permute to channel-last, adjust mock Lightning outputs, assert finite stitched results).
+  - Updated `phase_d2_completion.md` C4 row and the 2025-10-19T084016Z summary Next Steps to reference the triage note and new artifact timestamp; rewrote `input.md` with explicit channel-order implementation/test guidance and log capture path.
+- Follow-up: Ralph to permute predictions in `_reassemble_cdi_image_torch`, modernize tests accordingly, stash new pytest log under `2025-10-19T092448Z`, relocate `train_debug.log`, and mark C4 complete once green evidence lands.
+- <Action State>: [ready_for_implementation]
