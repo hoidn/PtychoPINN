@@ -819,13 +819,28 @@ class TestTrainWithLightningRed:
 
         def mock_lightning_init(model_config, data_config, training_config, inference_config):
             """Spy that records PtychoPINN_Lightning.__init__ args."""
+            import torch
+            import lightning.pytorch as L
+
             lightning_init_called["called"] = True
             lightning_init_called["args"] = (model_config, data_config, training_config, inference_config)
 
-            # Return minimal stub module with required Lightning API
-            class StubLightningModule:
-                def save_hyperparameters(self):
-                    pass
+            # Return minimal stub module inheriting from LightningModule
+            # to satisfy Lightning's isinstance check during trainer.fit
+            class StubLightningModule(L.LightningModule):
+                def __init__(self):
+                    super().__init__()
+                    # Minimal parameter to satisfy Lightning requirements
+                    self.dummy_param = torch.nn.Parameter(torch.zeros(1))
+
+                def training_step(self, batch, batch_idx):
+                    """Minimal training step required by Lightning."""
+                    # Return deterministic zero loss to make Trainer complete immediately
+                    return torch.tensor(0.0, requires_grad=True)
+
+                def configure_optimizers(self):
+                    """Minimal optimizer required by Lightning."""
+                    return torch.optim.Adam(self.parameters(), lr=1e-3)
 
             return StubLightningModule()
 
