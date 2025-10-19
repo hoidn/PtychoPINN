@@ -31,24 +31,41 @@ def _log_file(prefix: str) -> Path:
     return p
 
 
-def tee_run(cmd: list[str], stdin_file: Path, log_path: Path) -> int:
-    with open(stdin_file, "rb") as fin, open(log_path, "a", encoding="utf-8") as flog:
+def tee_run(cmd: list[str], stdin_file: Path | None, log_path: Path) -> int:
+    """Run command with output tee'd to log file.
+
+    Args:
+        cmd: Command and arguments to run
+        stdin_file: File to use as stdin, or None to use /dev/null
+        log_path: Path to log file for output
+    """
+    with open(log_path, "a", encoding="utf-8") as flog:
         flog.write(f"$ {' '.join(cmd)}\n")
         flog.flush()
-        proc = Popen(cmd, stdin=fin, stdout=PIPE, stderr=PIPE, text=True, bufsize=1)
-        # Stream stdout
-        while True:
-            line = proc.stdout.readline() if proc.stdout else ""
-            if not line:
-                break
-            sys.stdout.write(line)
-            flog.write(line)
-        # Stream remaining stderr
-        err = proc.stderr.read() if proc.stderr else ""
-        if err:
-            sys.stderr.write(err)
-            flog.write(err)
-        return proc.wait()
+
+        # Open stdin source
+        if stdin_file is not None:
+            fin = open(stdin_file, "rb")
+        else:
+            fin = open("/dev/null", "rb")
+
+        try:
+            proc = Popen(cmd, stdin=fin, stdout=PIPE, stderr=PIPE, text=True, bufsize=1)
+            # Stream stdout
+            while True:
+                line = proc.stdout.readline() if proc.stdout else ""
+                if not line:
+                    break
+                sys.stdout.write(line)
+                flog.write(line)
+            # Stream remaining stderr
+            err = proc.stderr.read() if proc.stderr else ""
+            if err:
+                sys.stderr.write(err)
+                flog.write(err)
+            return proc.wait()
+        finally:
+            fin.close()
 
 
 def main() -> int:
@@ -309,6 +326,7 @@ def main() -> int:
         push_to(branch_target, logp)
 
         # Execute one supervisor iteration (wrap with script(1) when available to preserve PTY behaviour)
+        prompt_file = Path("prompts/supervisor.md")
         codex_args = [
             args.codex_cmd,
             "exec",
@@ -320,18 +338,21 @@ def main() -> int:
         ]
 
         if shutil.which("script"):
+            # When using script wrapper, pipe file content into the command
+            # (script wrapper needs stdin to come from within the -c command)
+            codex_cmd_str = shlex.join(codex_args)
             script_cmd = [
                 "script",
                 "-q",
                 "-c",
-                shlex.join(codex_args),
+                f"cat {shlex.quote(str(prompt_file))} | {codex_cmd_str}",
                 "/dev/null",
             ]
-            run_cmd = script_cmd
+            # Pass None for stdin since cat will provide it
+            rc = tee_run(script_cmd, None, iter_log)
         else:
-            run_cmd = codex_args
-
-        rc = tee_run(run_cmd, Path("prompts/supervisor.md"), iter_log)
+            # Without script wrapper, use stdin as before
+            rc = tee_run(codex_args, prompt_file, iter_log)
 
         sha = short_head()
 

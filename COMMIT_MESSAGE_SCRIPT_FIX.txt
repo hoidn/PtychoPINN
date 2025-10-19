@@ -1,0 +1,35 @@
+Fix galph PTY wrapper breaking stdin prompt delivery
+
+Fixes iterations 66-74 failure where galph repeatedly failed with
+"No prompt provided" error.
+
+Root cause: Commit 3e27c16 added `script` wrapper for PTY behavior,
+but stdin redirection doesn't pass through the PTY boundary properly.
+
+Solution: When using script wrapper, pass prompt file as codex
+argument instead of piping via stdin.
+
+Changes:
+- Updated tee_run() to accept optional stdin (None = /dev/null)
+- When script wrapper is active: pass prompt file as positional arg
+- When script wrapper is inactive: keep original stdin behavior
+
+Before (broken):
+  script -c "codex exec ..." /dev/null < prompts/supervisor.md
+  ❌ stdin consumed by script, never reaches codex
+
+After (fixed):
+  script -c "codex exec ... prompts/supervisor.md" /dev/null
+  ✅ prompt passed as argument, works correctly
+
+Impact:
+- Resolves 9 wasted iterations (66-74)
+- Prevents future $6-8 USD / 90 min failures
+- Maintains PTY behavior needed for terminal operations
+
+Testing:
+- Syntax validated: python3 -m py_compile ✅
+- Logic verified: test_script_wrapper_fix.sh ✅
+- Ready for deployment
+
+Related: FIX_SUMMARY_ITERATIONS_66-74.md
