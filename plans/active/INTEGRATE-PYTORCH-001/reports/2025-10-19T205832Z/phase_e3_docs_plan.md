@@ -30,7 +30,7 @@ Exit Criteria: Documentation updated, change log summarized, and references adde
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Update workflow & architecture docs | [ ] | Apply edits to `docs/workflows/pytorch.md` (new subsection outlining backend selection flow, pointer to Phase E tests) and `docs/architecture.md` (component diagram note for backend switch). Summarize edits in `reports/2025-10-19T205832Z/phase_e3_docs_update.md`. |
+| B1 | Update workflow & architecture docs | [x] | ✅ 2025-10-19: Added §12 "Backend Selection in Ptychodus Integration" to `docs/workflows/pytorch.md` (108 lines) with configuration API, dispatcher routing (spec §4.8), error handling (POLICY-001), checkpoint compatibility, test selectors, and Ptychodus integration example. Added backend selector paragraph to `docs/architecture.md:13` explaining dual-backend routing and CONFIG-001 compliance. Artifacts: `reports/2025-10-19T210000Z/phase_e3_docs_update/{diff_notes.md,summary.md}`. |
 | B2 | Refresh agent guidance & onboarding docs | [ ] | Ensure `CLAUDE.md` and `README.md` mention backend selection flag, PyTorch requirement, and where parity evidence lives. Include explicit CONFIG-001 reminder for PyTorch path. Capture diff anchors + rationale in the same update report. |
 | B3 | Verify documentation cross-links | [ ] | Run `rg "NotImplementedError" docs/workflows/pytorch.md docs/architecture.md` to confirm legacy warnings removed or updated. Update the report with command output and confirmation notes. |
 

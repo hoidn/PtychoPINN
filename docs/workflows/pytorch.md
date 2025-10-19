@@ -294,7 +294,115 @@ The regression validates:
 
 **Reference:** See `plans/active/TEST-PYTORCH-001/implementation.md` for phased test development history.
 
-## 12. Troubleshooting
+## 12. Backend Selection in Ptychodus Integration
+
+When PtychoPINN is integrated into Ptychodus, the backend (TensorFlow or PyTorch) can be selected via configuration. This section explains how backend selection works and what guarantees are provided.
+
+### Configuration API
+
+Backend selection is controlled through the `backend` field in configuration dataclasses:
+
+```python
+from ptycho.config.config import TrainingConfig, InferenceConfig
+
+# Select PyTorch backend for training
+config = TrainingConfig(
+    model=model_config,
+    train_data_file=Path('data.npz'),
+    backend='pytorch',  # or 'tensorflow' (default)
+    # ... other parameters
+)
+
+# Select PyTorch backend for inference
+infer_config = InferenceConfig(
+    model=model_config,
+    model_path=Path('trained_model/'),
+    test_data_file=Path('test.npz'),
+    backend='pytorch',  # or 'tensorflow' (default)
+    # ... other parameters
+)
+```
+
+**Default Behavior:** Both `TrainingConfig.backend` and `InferenceConfig.backend` default to `'tensorflow'` to maintain backward compatibility with existing Ptychodus integrations.
+
+### Dispatcher Routing
+
+Per the specification in `specs/ptychodus_api_spec.md` §4.8, the dispatcher guarantees:
+
+1. **TensorFlow Path** (`backend='tensorflow'`): Delegates to `ptycho.workflows.components` entry points without attempting PyTorch imports
+2. **PyTorch Path** (`backend='pytorch'`): Delegates to `ptycho_torch.workflows.components` entry points and returns the same `(amplitude, phase, results_dict)` structure
+3. **CONFIG-001 Enforcement**: The dispatcher calls `update_legacy_dict(ptycho.params.cfg, config)` before backend inspection to ensure legacy subsystems observe synchronized parameters
+4. **Result Metadata**: The returned `results_dict` includes `results['backend']` for downstream logging
+
+### Error Handling
+
+**PyTorch Unavailability:** If `backend='pytorch'` is selected but PyTorch cannot be imported, the system raises an actionable `RuntimeError`:
+
+```
+RuntimeError: PyTorch backend selected but torch module unavailable.
+Install PyTorch: pip install torch>=2.2
+See docs/workflows/pytorch.md for installation guidance.
+```
+
+Silent fallbacks to TensorFlow are prohibited per `docs/findings.md#POLICY-001`. This fail-fast behavior ensures users are immediately aware of missing dependencies.
+
+**Invalid Backend:** If `config.backend` contains an unsupported value (not `'tensorflow'` or `'pytorch'`), the dispatcher raises `ValueError` with guidance.
+
+### Checkpoint Compatibility
+
+- **Backend-Specific Formats**: TensorFlow checkpoints use `.h5.zip` format, PyTorch checkpoints use Lightning `.ckpt` format
+- **Cross-Backend Loading**: Loading a TensorFlow checkpoint with `backend='pytorch'` (or vice versa) raises a descriptive error
+- **Persistence Contract**: See `specs/ptychodus_api_spec.md` §4.8 for full persistence guarantees
+
+### Test Selectors
+
+Backend selection behavior is validated by:
+
+```bash
+# Backend routing and error handling tests
+pytest tests/torch/test_backend_selection.py::test_backend_field_defaults -vv
+pytest tests/torch/test_backend_selection.py::test_pytorch_backend_routes_correctly -vv
+pytest tests/torch/test_backend_selection.py::test_tensorflow_backend_routes_correctly -vv
+pytest tests/torch/test_backend_selection.py::test_invalid_backend_raises_value_error -vv
+
+# Cross-backend checkpoint loading tests
+pytest tests/torch/test_model_manager.py::test_load_tensorflow_checkpoint_with_pytorch_backend -vv
+```
+
+**Full Selector:** `pytest tests/torch/test_backend_selection.py -vv` (lines 59-170 in test file)
+
+### Integration Example (Ptychodus)
+
+When `PtychoPINNTrainableReconstructor` is invoked from Ptychodus, the backend is selected based on user settings:
+
+```python
+# In ptychodus.model.ptychopinn.reconstructor.py
+
+from ptycho.config.config import InferenceConfig, update_legacy_dict
+import ptycho.params
+
+# User selects backend via Ptychodus UI
+selected_backend = 'pytorch'  # or 'tensorflow'
+
+# Create configuration with backend selection
+config = InferenceConfig(
+    model=model_config,
+    model_path=checkpoint_path,
+    test_data_file=data_path,
+    backend=selected_backend,
+    # ... other parameters
+)
+
+# Bridge to legacy system (REQUIRED before backend-specific code)
+update_legacy_dict(ptycho.params.cfg, config)
+
+# Dispatcher routes to appropriate backend
+# (handled internally by ptycho.workflows.backend_selector or equivalent)
+```
+
+**Reference Implementation:** See `ptycho/workflows/backend_selector.py:121-165` for dispatcher logic (if available in your codebase).
+
+## 13. Troubleshooting
 
 ### PyTorch Import Errors
 
@@ -321,7 +429,7 @@ See <doc-ref type="troubleshooting">docs/debugging/TROUBLESHOOTING.md#shape-mism
 
 **Solution:** Retrain with current codebase or use legacy load path (under development in Phase D4).
 
-## 13. Keeping Parity with TensorFlow
+## 14. Keeping Parity with TensorFlow
 
 When introducing new features to PyTorch workflows:
 

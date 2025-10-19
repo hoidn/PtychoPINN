@@ -10,6 +10,8 @@ This diagram shows the primary modules in the `ptycho/` library and their relati
 
 **Note:** The component highlighted in red (`params.py`) is a legacy part of the system that is being actively phased out.
 
+**Backend Selection:** As of Phase F (INTEGRATE-PYTORCH-001), PtychoPINN supports dual backends via the `backend` configuration field (`'tensorflow'` or `'pytorch'`). The dispatcher routes to `ptycho.workflows.components` (TensorFlow) or `ptycho_torch.workflows.components` (PyTorch) based on this field. Both paths share the same data pipeline (`raw_data.py`, `loader.py`) and configuration system (`config/config.py`, `params.py` bridge), ensuring CONFIG-001 compliance regardless of backend choice. See `specs/ptychodus_api_spec.md` §4.8 for routing guarantees and `docs/workflows/pytorch.md` §12 for integration guidance.
+
 ```mermaid
 graph TD
     subgraph "Configuration"
