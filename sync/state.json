@@ -1,7 +1,7 @@
 {
   "iteration": 84,
   "expected_actor": "ralph",
-  "status": "waiting-ralph",
+  "status": "running-ralph",
   "last_update": "2025-10-19T10:56:41Z",
   "lease_expires_at": "2025-10-19T11:06:41Z",
   "galph_commit": "db61739",
