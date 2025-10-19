@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters PASSED [ 33%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs PASSED [ 66%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/setup.py:177: GPU available but not used. You can set it by doing `Trainer(accelerator='gpu')`.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 3 passed, 3 warnings in 5.42s =========================

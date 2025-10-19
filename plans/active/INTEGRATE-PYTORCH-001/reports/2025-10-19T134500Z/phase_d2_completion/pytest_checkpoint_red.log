@@ -1,0 +1,178 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters FAILED [ 33%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs FAILED [ 66%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestLightningCheckpointSerialization.test_checkpoint_contains_hyperparameters _
+
+self = <test_lightning_checkpoint.TestLightningCheckpointSerialization object at 0x7d8f487abb90>
+lightning_module = PtychoPINN_Lightning(
+  (model): PtychoPINN(
+    (autoencoder): Autoencoder(
+      (encoder): Encoder(
+        (blocks...  (probe_illumination): ProbeIllumination()
+      (pad_and_diffract): LambdaLayer()
+    )
+  )
+  (Loss): PoissonLoss()
+)
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-633/test_checkpoint_contains_hyper0')
+
+    def test_checkpoint_contains_hyperparameters(self, lightning_module, tmp_path):
+        """
+        RED TEST: Assert checkpoint includes 'hyper_parameters' key with config payload.
+    
+        Expected to FAIL initially because PtychoPINN_Lightning.__init__() does not call
+        self.save_hyperparameters(). After fix, checkpoint should contain four config dicts.
+        """
+        # Arrange: Create checkpoint via Trainer
+        ckpt_path = tmp_path / "test.ckpt"
+        trainer = Trainer(
+            max_epochs=0,  # No training, just checkpoint creation
+            enable_checkpointing=True,
+            deterministic=True,
+            default_root_dir=tmp_path,
+            logger=False,
+            enable_progress_bar=False,
+            accelerator='cpu',  # Force CPU for test
+        )
+    
+        # Attach model to trainer (required before saving checkpoint)
+        # Use fit with max_epochs=0 to attach without training
+>       trainer.model = lightning_module
+        ^^^^^^^^^^^^^
+E       AttributeError: property 'model' of 'Trainer' object has no setter
+
+tests/torch/test_lightning_checkpoint.py:138: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+------------------------------ Captured log call -------------------------------
+INFO     pytorch_lightning.utilities.rank_zero:callback_connector.py:108 💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:156 GPU available: True (cuda), used: False
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:159 TPU available: False, using: 0 TPU cores
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:169 HPU available: False, using: 0 HPUs
+_ TestLightningCheckpointSerialization.test_load_from_checkpoint_without_kwargs _
+
+self = <test_lightning_checkpoint.TestLightningCheckpointSerialization object at 0x7d8f487c09d0>
+lightning_module = PtychoPINN_Lightning(
+  (model): PtychoPINN(
+    (autoencoder): Autoencoder(
+      (encoder): Encoder(
+        (blocks...  (probe_illumination): ProbeIllumination()
+      (pad_and_diffract): LambdaLayer()
+    )
+  )
+  (Loss): PoissonLoss()
+)
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-633/test_load_from_checkpoint_with0')
+
+    def test_load_from_checkpoint_without_kwargs(self, lightning_module, tmp_path):
+        """
+        RED TEST: Assert load_from_checkpoint succeeds without explicit config args.
+    
+        Expected to FAIL with TypeError: missing 4 required positional arguments
+        (model_config, data_config, training_config, inference_config) because
+        Lightning cannot reconstruct the module from an empty hyper_parameters dict.
+    
+        After fix, Lightning restores configs from checkpoint and instantiates module.
+        """
+        # Arrange: Create checkpoint
+        ckpt_path = tmp_path / "reload_test.ckpt"
+        trainer = Trainer(
+            max_epochs=0,
+            enable_checkpointing=True,
+            deterministic=True,
+            default_root_dir=tmp_path,
+            logger=False,
+            enable_progress_bar=False,
+            accelerator='cpu',
+        )
+>       trainer.model = lightning_module
+        ^^^^^^^^^^^^^
+E       AttributeError: property 'model' of 'Trainer' object has no setter
+
+tests/torch/test_lightning_checkpoint.py:181: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+------------------------------ Captured log call -------------------------------
+INFO     pytorch_lightning.utilities.rank_zero:callback_connector.py:108 💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:156 GPU available: True (cuda), used: False
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:159 TPU available: False, using: 0 TPU cores
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:169 HPU available: False, using: 0 HPUs
+_ TestLightningCheckpointSerialization.test_checkpoint_configs_are_serializable _
+
+self = <test_lightning_checkpoint.TestLightningCheckpointSerialization object at 0x7d8f487c1110>
+lightning_module = PtychoPINN_Lightning(
+  (model): PtychoPINN(
+    (autoencoder): Autoencoder(
+      (encoder): Encoder(
+        (blocks...  (probe_illumination): ProbeIllumination()
+      (pad_and_diffract): LambdaLayer()
+    )
+  )
+  (Loss): PoissonLoss()
+)
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-633/test_checkpoint_configs_are_se0')
+
+    def test_checkpoint_configs_are_serializable(self, lightning_module, tmp_path):
+        """
+        RED TEST: Validate config objects can round-trip through checkpoint serialization.
+    
+        Tests that Path objects, enums, and other non-primitive types are correctly
+        serialized and deserialized. Expected to pass once save_hyperparameters() fix
+        includes proper dataclass→dict conversion.
+        """
+        # Arrange: Create and reload checkpoint
+        ckpt_path = tmp_path / "serialization_test.ckpt"
+        trainer = Trainer(
+            max_epochs=0,
+            enable_checkpointing=True,
+            deterministic=True,
+            default_root_dir=tmp_path,
+            logger=False,
+            enable_progress_bar=False,
+            accelerator='cpu',
+        )
+>       trainer.model = lightning_module
+        ^^^^^^^^^^^^^
+E       AttributeError: property 'model' of 'Trainer' object has no setter
+
+tests/torch/test_lightning_checkpoint.py:218: AttributeError
+---------------------------- Captured stdout setup -----------------------------
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+------------------------------ Captured log call -------------------------------
+INFO     pytorch_lightning.utilities.rank_zero:callback_connector.py:108 💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:156 GPU available: True (cuda), used: False
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:159 TPU available: False, using: 0 TPU cores
+INFO     pytorch_lightning.utilities.rank_zero:setup.py:169 HPU available: False, using: 0 HPUs
+=============================== warnings summary ===============================
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/setup.py:177: GPU available but not used. You can set it by doing `Trainer(accelerator='gpu')`.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters - AttributeError: property 'model' of 'Trainer' object has no setter
+FAILED tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs - AttributeError: property 'model' of 'Trainer' object has no setter
+FAILED tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable - AttributeError: property 'model' of 'Trainer' object has no setter
+======================== 3 failed, 3 warnings in 5.19s =========================
