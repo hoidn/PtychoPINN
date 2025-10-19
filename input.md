@@ -1,47 +1,42 @@
-Summary: Update CLAUDE.md and README.md with PyTorch backend selection guidance, then verify docs cross-links (Phase E3.B2/B3).
+Summary: Draft TEST-PYTORCH-001 handoff brief capturing backend contract, selectors, and artifact expectations (Phase E3.D1).
 Mode: Docs
-Focus: [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2 — Phase E3.B2 dual-backend messaging
+Focus: [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2 — Phase E3.D handoff
 Branch: feature/torchapi
 Mapped tests: none — documentation
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T213900Z/phase_e3_docs_b2/{guidance.md,summary.md,rg_notimplemented.log}
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T215800Z/phase_e3_docs_handoff/{plan.md,summary.md,handoff_brief.md}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-STUBS B2 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md — Apply CLAUDE.md + README.md backend messaging updates per guidance.md (tests: none).
-2. INTEGRATE-PYTORCH-001-STUBS B3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md — Run backend-doc verification command and capture rg_notimplemented.log (tests: none).
+1. INTEGRATE-PYTORCH-001-STUBS D1.A–D1.C @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T215800Z/phase_e3_docs_handoff/plan.md — Author `handoff_brief.md` covering backend literals/CONFIG-001, regression selectors + runtime guardrails, artifact expectations & ownership matrix (tests: none).
 
-If Blocked: Document the blocker in plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T213900Z/phase_e3_docs_b2/summary.md, set the affected plan rows to [P] with rationale, update docs/fix_plan.md attempts, and notify supervisor before exiting.
+If Blocked: Capture findings in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T215800Z/phase_e3_docs_handoff/summary.md`, flag affected checklist row(s) to `[P]`, update docs/fix_plan.md Attempts history, and alert supervisor before exiting.
 
 Priorities & Rationale:
-- CLAUDE.md:53 — Needs explicit PyTorch backend selection + CONFIG-001 reminder (per spec §4.8, docs/workflows/pytorch.md §12).
-- README.md:12 — Feature list lacks dual-backend architecture summary; onboarding requires PyTorch parity messaging.
-- specs/ptychodus_api_spec.md:224 — Newly normative backend selection requirements must be cited in docs.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T213900Z/phase_e3_docs_b2/guidance.md — Contains detailed steps, command expectations, and artifact paths.
-- docs/findings.md#POLICY-001 — Reinforce PyTorch mandatory policy in updated messaging.
+- specs/ptychodus_api_spec.md:224-235 — Backend dispatch guarantees must appear in the handoff.
+- docs/workflows/pytorch.md:297 — Provides runtime baseline (~36s) and regression selector context.
+- plans/active/TEST-PYTORCH-001/implementation.md:64 — Phase D runtime hardening needs explicit instructions from the handoff.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T215800Z/phase_e3_docs_handoff/plan.md — Defines D1 subtasks and artifact expectations.
+- docs/findings.md#POLICY-001 — Reinforce torch>=2.2 requirement and fail-fast messaging.
 
 How-To Map:
-- `CLAUDE.md`: Insert a short paragraph under Section 4 (parameter initialization) noting that PyTorch backend selection uses `TrainingConfig.backend='pytorch'`, requires `update_legacy_dict`, and references docs/workflows/pytorch.md §12 + spec §4.8; mention runtime_profile artifact for parity evidence.
-- `README.md`: Add `### Dual-Backend Architecture` after the Features list covering TensorFlow default, PyTorch backend availability, workflow doc pointer, and Phase D runtime evidence link (file path only).
-- After edits, update `guidance.md` checklist if anything deviates and append execution notes to `summary.md` (artifact hub above).
-- Run `rg "NotImplementedError" docs/workflows/pytorch.md docs/architecture.md | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T213900Z/phase_e3_docs_b2/rg_notimplemented.log`; confirm output empty; cite command + result in summary.md.
-- Update `phase_e3_docs_plan.md` B2/B3 rows to `[x]` with brief completion notes and artifact references; append docs/fix_plan.md Attempts entry if new evidence is produced.
+- Create `handoff_brief.md` in the artifact directory with sections for (1) Backend selection contract (include literals, CONFIG-001 reminder, RuntimeError wording), (2) Required pytest selectors with cadence (integration workflow, backend selection suite, parity checks), (3) Artifact/log expectations (checkpoint, recon PNGs, runtime_profile reference), (4) Ownership & escalation matrix.
+- Cite runtime guardrails (≤90s CI max, 60s warning, 36s±5s baseline) from `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
+- Reference doc/spec anchors explicitly (spec §4.8, workflow guide §12) when describing configuration steps.
+- Note assumptions about CI environment (CPU default, CUDA optional) and document open questions in the brief if unresolved.
 
 Pitfalls To Avoid:
-- Preserve directive XML tags and numbering in CLAUDE.md; keep text ASCII.
-- Do not alter mermaid diagrams or existing section numbering beyond adding the new README subsection.
-- Reference internal docs via relative paths; avoid external URLs besides existing ones.
-- Keep PyTorch requirement phrasing aligned with POLICY-001 (torch>=2.2, actionable RuntimeError on missing torch).
-- Ensure guidance cites docs/workflows/pytorch.md §12 and specs/ptychodus_api_spec.md §4.8 exactly; double-check line anchors in diff_notes.
-- Store command output in the provided artifact directory; do not leave logs at repo root.
-- Maintain consistent `'tensorflow'` / `'pytorch'` literals in documentation (single quotes).
-- Skip tests per Mode: Docs; do not run pytest.
-- Avoid introducing TODO headings; convert gaps to plan rows if new issues emerge.
-- Update docs/fix_plan.md only once per loop with consolidated summary.
+- Do not invent new policy IDs; rely on POLICY-001/FORMAT-001.
+- Keep literals `'tensorflow'`/`'pytorch'` quoted and lowercase.
+- Store the brief in the designated artifact directory; no files at repo root.
+- Avoid duplicating plan content verbatim; synthesize guidance tailored for TEST-PYTORCH-001 owners.
+- Maintain ASCII formatting and existing Markdown style; no TODO placeholders.
+- Stay in Docs mode—skip pytest execution.
+- Record any open risks or assumptions in the brief so they can be closed in later phases.
 
 Pointers:
-- CLAUDE.md:53
-- README.md:12
-- docs/workflows/pytorch.md:297
 - specs/ptychodus_api_spec.md:224
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md:34
+- docs/workflows/pytorch.md:297
+- plans/active/TEST-PYTORCH-001/implementation.md:64
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T215800Z/phase_e3_docs_handoff/plan.md
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md
 
-Next Up: Prepare Phase E3.D handoff brief once B2/B3 documentation tasks close.
+Next Up: D2.A–D2.B plan/ledger updates once the handoff brief is published.

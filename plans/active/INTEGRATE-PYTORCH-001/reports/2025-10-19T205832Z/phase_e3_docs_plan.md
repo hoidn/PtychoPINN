@@ -52,9 +52,9 @@ Exit Criteria: Handoff document authored, plan checklist updated, and fix_plan a
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Author handoff brief | [ ] | Write `reports/2025-10-19T205832Z/phase_e3_handoff.md` summarizing backend selection flag defaults, pytest selectors, coordination points with TEST-PYTORCH-001 (especially Phase D3 CI guidance), and ownership matrix. |
-| D2 | Update plan & ledger references | [ ] | Mark `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` E3 rows with `[x]` once documents are updated; append docs/fix_plan.md Attempt entry with artifact links (`phase_e3_docs_update.md`, `phase_e3_spec_patch.md`, `phase_e3_handoff.md`). |
-| D3 | Define follow-up checks | [ ] | List verification steps (e.g., rerun `pytest tests/torch/test_backend_selection.py -vv`) and scheduling cadence in the handoff doc. Note whether TEST-PYTORCH-001 should extend its plan (e.g., new Phase D4). |
+| D1 | Author handoff brief | [ ] | Follow `reports/2025-10-19T215800Z/phase_e3_docs_handoff/plan.md` D1.A–D1.C to create `handoff_brief.md` in that directory. Cover backend literals + CONFIG-001 reminder, required pytest selectors (`tests/torch/test_integration_workflow_torch.py`, `tests/torch/test_backend_selection.py`, parity suites), runtime guardrails, artifact expectations, and ownership matrix. |
+| D2 | Update plan & ledger references | [ ] | After D1 completion, execute plan D2.A–D2.B: mark `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` E3 rows `[x]` with handoff artifact links and append a docs/fix_plan.md Attempt summarizing documentation/spec alignment + handoff results. |
+| D3 | Define follow-up checks | [ ] | Populate plan D3.A–D3.B items in the handoff brief: document monitoring cadence (per-PR vs nightly), list escalation triggers (runtime >90s, POLICY-001 breaches), and spell out notification path for regressions (consider new TEST-PYTORCH-001 Phase D4 if scope grows). |
 
 ## References
 - `plans/active/INTEGRATE-PYTORCH-001/implementation.md`
