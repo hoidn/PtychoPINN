@@ -936,6 +936,28 @@ class PtychoPINN_Lightning(L.LightningModule):
                        training_config: TrainingConfig,
                        inference_config: InferenceConfig):
         super().__init__()
+
+        # Handle checkpoint loading: convert dict kwargs back to dataclass instances
+        # (Lightning passes saved hyperparameters as dicts during load_from_checkpoint)
+        if isinstance(model_config, dict):
+            model_config = ModelConfig(**model_config)
+        if isinstance(data_config, dict):
+            data_config = DataConfig(**data_config)
+        if isinstance(training_config, dict):
+            training_config = TrainingConfig(**training_config)
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfig(**inference_config)
+
+        # Save hyperparameters for checkpoint serialization (Phase D1c requirement)
+        # Convert dataclass instances to dicts to ensure serializability
+        from dataclasses import asdict
+        self.save_hyperparameters({
+            'model_config': asdict(model_config),
+            'data_config': asdict(data_config),
+            'training_config': asdict(training_config),
+            'inference_config': asdict(inference_config),
+        })
+
         self.n_filters_scale = model_config.n_filters_scale
         self.predict = False
 
