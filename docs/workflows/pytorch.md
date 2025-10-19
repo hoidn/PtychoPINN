@@ -112,7 +112,7 @@ amplitude, phase, results = run_cdi_example_torch(
 **What happens during execution:**
 
 1. **Data normalization**: Converts `RawData` → `PtychoDataContainerTorch` with grouped patches
-2. **Probe initialization**: Sets up initial probe from data (deferred in Phase D2.B stub)
+2. **Probe initialization**: Sets up initial probe from data (integrated with Lightning module as of Phase D2.B)
 3. **Lightning training**:
    - Instantiates `PtychoPINN_Lightning` module with PyTorch config objects
    - Builds train/val dataloaders with deterministic seeding
@@ -123,7 +123,7 @@ amplitude, phase, results = run_cdi_example_torch(
      - `enable_progress_bar` controlled by `config.debug`
    - Executes `trainer.fit()` and captures loss history
 4. **Model persistence**: Saves checkpoint bundle to `config.output_dir/wts.h5.zip` (if output_dir specified)
-5. **Optional stitching** (if `do_stitching=True`): Runs inference and reassembles full image (Phase D2.C implementation)
+5. **Optional stitching** (if `do_stitching=True`): Runs inference via Lightning `predict()`, applies flip/transpose transforms, and reassembles full image using TensorFlow reassembly helper for parity (Phase D2.C complete as of 2025-10-19)
 
 ## 6. Checkpoint Management and Reproducibility
 
@@ -170,17 +170,24 @@ recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
 )
 ```
 
-**Note:** Phase D2.C stitching implementation is in progress; `_reassemble_cdi_image_torch` currently
-raises `NotImplementedError`. Use `do_stitching=False` in `run_cdi_example_torch` for training-only workflows.
+**Implementation Status (Phase D2.C, complete as of 2025-10-19):**
+- `_reassemble_cdi_image_torch` now performs Lightning inference and reconstructs full images
+- Supports `flip_x`, `flip_y`, and `transpose` coordinate transforms for data alignment
+- Uses TensorFlow `tf_helper.reassemble_position` for MVP parity (native PyTorch reassembly planned)
+- Includes dtype safeguards (float32 enforcement per specs/data_contracts.md §1)
+- Channel-order conversion: detects channel-first layout, permutes to channel-last, reduces to single channel
+- Artifacts/evidence: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/`
 
 ## 8. Experiment Tracking and Logging
 
-**Current Status (Phase D2.B3):**
+**Current Status (Phase D2 complete as of 2025-10-19):**
 - **MLflow**: Not yet integrated in workflow orchestration (TensorFlow baseline also lacks it; future enhancement)
 - **Logging**: Standard Python logging controlled by `config.debug`:
   - `debug=False`: INFO-level messages, progress bars suppressed
   - `debug=True`: INFO-level messages, progress bars enabled
 - **Checkpoints**: Lightning automatic checkpoint management to `{output_dir}/checkpoints/`
+  - Hyperparameters now embedded via `save_hyperparameters()` for state-free reload (Phase D1c)
+  - Checkpoint loading restores dataclass configs automatically (no kwargs required)
 
 **Legacy API Note:**
 The deprecated `ptycho_torch/api/` modules (e.g., `example_train.py`) include MLflow autologging,
