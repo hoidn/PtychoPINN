@@ -57,11 +57,13 @@ Goal: Lock in regression within CI, document runtime/perf, and update ledgers.
 Prereqs: Phase C GREEN run complete with artifacts.
 Exit Criteria: CI-ready guidance, parity metrics, ledger updates, and follow-on risks captured.
 
+Planning reference: `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md`
+
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Record runtime + resource profile | [ ] | Parse GREEN log to confirm ≤120s CPU runtime; document hardware context in `reports/<TS>/summary.md`. |
-| D2 | Update documentation + ledger | [ ] | Append Attempt entries in `docs/fix_plan.md`, update `docs/workflows/pytorch.md` (testing section) if necessary, and link artifact directory. |
-| D3 | CI integration follow-up | [ ] | If additional markers/skip logic needed (e.g., `@pytest.mark.integration`), outline changes in `reports/<TS>/summary.md` and create follow-up fix plan entry if gating CI requires separate work. |
+| D1 | Record runtime + resource profile | [ ] | Follow plan D1.A–D1.C: aggregate Phase C2/C3 runtimes, capture environment telemetry (`env_snapshot.txt`), and document guardrails in `runtime_profile.md` under `reports/2025-10-19T193425Z/phase_d_hardening/`. |
+| D2 | Update documentation + ledger | [ ] | Execute plan D2.A–D2.C: refresh this table, append fix_plan Attempt, and update `docs/workflows/pytorch.md` testing guidance with selector + runtime citing `runtime_profile.md`. |
+| D3 | CI integration follow-up | [ ] | Execute plan D3.A–D3.C: review CI config, decide on pytest markers/skip policy, and record outcomes + follow-up tickets in `ci_notes.md` within the same artifact hub. |
 
 ---
 

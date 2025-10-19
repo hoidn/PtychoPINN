@@ -1,50 +1,52 @@
-Summary: Clean up Phase C2 artifacts and document Phase C3 evidence for the PyTorch integration pytest.
-Mode: Docs
-Focus: TEST-PYTORCH-001 — Phase C pytest modernization
+Summary: Capture Phase D runtime + environment profile for the PyTorch integration pytest.
+Mode: Perf
+Focus: TEST-PYTORCH-001 — Author PyTorch integration workflow regression
 Branch: feature/torchapi
 Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
-Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/{artifact_audit.md,pytest_modernization_rerun.log,summary.md}
+Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/{runtime_profile.md,env_snapshot.txt,pytest_modernization_phase_d.log}
 
 Do Now:
-1. TEST-PYTORCH-001 C2 cleanup @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — `git mv train_debug.log plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/train_debug.log`, refresh `summary.md` in that directory to note the log, update the in-module comment in `tests/torch/test_integration_workflow_torch.py:188` (remove “currently raises NotImplementedError”), and flip the C2 row in `plans/active/TEST-PYTORCH-001/implementation.md` to `[x]` with a completion note (tests: none).
-2. TEST-PYTORCH-001 C3.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — Re-run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/pytest_modernization_rerun.log`, record the returned tmp_path in notes, and inspect the generated training/inference folders for artifact details (tests: pytest … -vv).
-3. TEST-PYTORCH-001 C3.B+C3.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — Capture findings in `artifact_audit.md`, add a fresh `summary.md` for this loop, update `plans/active/TEST-PYTORCH-001/implementation.md` (note C3 progress), and log Attempt #7 in `docs/fix_plan.md` with paths to the new artifacts (tests: none).
+1. TEST-PYTORCH-001 D1.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Re-run the targeted selector, capture the full log, and note elapsed time (tests: pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv).
+2. TEST-PYTORCH-001 D1.B @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Record environment telemetry (python/torch/lightning versions, CPU, RAM) into env_snapshot.txt (tests: none).
+3. TEST-PYTORCH-001 D1.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Author runtime_profile.md with aggregated timings + guardrails, update summary.md with D1 findings, and flip the plan’s D1 row to [x] with references (tests: none).
 
-If Blocked: If the rerun fails or artifacts are missing, keep the new directory, store the failing log and any stdout/stderr dumps there, and document the failure mode + hypotheses in `artifact_audit.md` before updating docs/fix_plan.md.
+If Blocked: If the pytest selector fails or exceeds 120s, keep the failing log under the same artifact hub, log hypotheses + reproduction steps in runtime_profile.md, and set plan D1 state to [P] with blocking notes; skip D1.B/C until the failure is resolved.
 
 Priorities & Rationale:
-- train_debug.log currently sits at repo root; plan & ledger require it under `plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/`.
-- tests/torch/test_integration_workflow_torch.py:188 still claims the helper raises `NotImplementedError`, contradicting C2 implementation.
-- plans/active/TEST-PYTORCH-001/implementation.md:50 shows C2 `[ ]` even though GREEN run succeeded; ledger accuracy depends on flipping it.
-- Phase C3 plan (plan.md §C3) expects artifact audit + documentation; no evidence exists yet for those rows.
-- docs/findings.md#POLICY-001 requires PyTorch selectors to remain targeted; rerun log documents compliance.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Newly authored Phase D roadmap expects runtime/env evidence before downstream documentation.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/artifact_audit.md — Provides prior runtime (35.98s) to cross-check against fresh measurements.
+- docs/workflows/pytorch.md §§5–8 — Workflow guide needs authoritative runtime + selector info once D1 concludes.
+- docs/findings.md#POLICY-001 — PyTorch mandatory dependency; runtime notes must confirm CPU-only path complies.
+- tests/torch/test_integration_workflow_torch.py:65-205 — Helper implementation + assertions drive the runtime being measured.
 
 How-To Map:
-- Move log: `git mv train_debug.log plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/train_debug.log`.
-- Update existing summary: append a short bullet noting the relocated log and its relevance.
-- Create new artifact hub: `mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization`.
-- Targeted rerun: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/pytest_modernization_rerun.log`.
-- After pytest, note `tmp_path` (print from log or inspect `pytest-of-*` directories) and record artifact sizes/checkpoints in `artifact_audit.md`.
-- Update plan + ledger: edit `plans/active/TEST-PYTORCH-001/implementation.md` C2 to `[x]`, add C3 notes; append Attempt #7 in `docs/fix_plan.md` with new artifact paths.
-- New loop summary: add runtime + findings to `plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/summary.md`.
+- Pytest rerun: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/pytest_modernization_phase_d.log`
+- Environment capture (append outputs):
+  - `python -V | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/env_snapshot.txt`
+  - `python -c "import torch, lightning; print(f'torch {torch.__version__}'); print(f'lightning {lightning.__version__}')" >> plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/env_snapshot.txt`
+  - `pip show torch | sed -n '1,6p' >> plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/env_snapshot.txt`
+  - `lscpu >> plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/env_snapshot.txt`
+  - `grep MemTotal /proc/meminfo >> plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/env_snapshot.txt`
+- Runtime profile: Summarize timings from the new log plus 2025-10-19T122449Z & 2025-10-19T130900Z logs, cite file names, and describe acceptable variance (≤90s CPU). Store narrative in runtime_profile.md and note guardrails in summary.md.
+- Update plan: set `D1` row in implementation.md to `[x]` once documentation is saved; include bullet with runtime + env snapshot references.
 
 Pitfalls To Avoid:
-- Do not leave train_debug.log at repo root after this loop.
-- Keep CUDA disabled via `cuda_cpu_env`; avoid mutating global `os.environ`.
-- Treat pytest rerun artifacts as transient—capture sizes/paths immediately before cleanup.
-- Do not adjust subprocess CLI parameters; maintain Phase C2 settings.
-- Avoid touching PyTorch workflow source files; focus on tests and documentation.
-- Ensure artifact filenames match exactly (case-sensitive) when recording in audit.
-- Update all referenced documents in the same loop; no stale checkboxes or ledger omissions.
-- Retain pytest log in the new timestamped directory even when green.
-- Use `git add` on moved log to prevent deletion.
-- Keep Do Now scope tight—no extra refactors.
+- Do not leave env_snapshot.txt empty—append all commands in order with labels.
+- Keep CUDA disabled (`cuda_cpu_env` fixture expectation); do not enable GPUs for runtime capture.
+- Avoid deleting prior Phase C artifacts; reference them instead.
+- Don’t exceed artifact naming conventions—store new files in the Phase D hub only.
+- When editing implementation.md, change only the D1 row state/comment.
+- Ensure pytest log is captured via tee; without it runtime evidence is incomplete.
+- Do not modify production code paths while gathering evidence.
+- Keep runtime_profile.md factual—cite logs with paths and timestamps.
+- Run commands from repo root to preserve relative paths.
+- Ensure env snapshot command output is appended (use `>>`) after the first tee.
 
 Pointers:
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md#phase-c3 — Checklist for this work.
-- tests/torch/test_integration_workflow_torch.py:1-210 — Pytest harness & comments to update.
-- plans/active/TEST-PYTORCH-001/implementation.md:35-60 — Phase C tracking table.
-- docs/fix_plan.md:140-170 — TEST-PYTORCH-001 attempts history (append #7).
-- docs/workflows/pytorch.md:120-160 — Artifact expectations for train/infer pipeline.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md#phase-d1-runtime--resource-profile
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/artifact_audit.md
+- tests/torch/test_integration_workflow_torch.py:65-205
+- docs/workflows/pytorch.md:120-210
+- docs/findings.md#POLICY-001
 
-Next Up: Phase C3 completion unlocks Phase D hardening (CI markers + documentation updates).
+Next Up: D2 (documentation + ledger updates) once runtime_profile.md exists.

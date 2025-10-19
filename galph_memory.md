@@ -1007,3 +1007,16 @@
 - Rewrote `input.md` (Mode=Docs) instructing Ralph to move the log, rerun targeted pytest (`CUDA_VISIBLE_DEVICES="" pytest ...`), capture `artifact_audit.md` + `summary.md` under the new timestamp, and update plan/ledger accordingly.
 - Logged Attempt #7 in `docs/fix_plan.md` capturing these gaps; no new artifacts this loop.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T193408Z: Phase D planning kickoff
+- Focus issue: TEST-PYTORCH-001 — Phase D regression hardening & documentation
+- Action type: Planning
+- Mode: Docs
+- Coin flip (heads): Reviewed last 10 commits; Ralph’s recent loops (36b3f82, 739351a) cleanly delivered Phase C2/C3 without regressions, only auto evidence commits otherwise. No corrective feedback needed.
+- Updates:
+  - Created Phase D plan + summary at `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/` detailing D1 runtime profiling, D2 documentation alignment, and D3 CI follow-up tasks with checklist IDs.
+  - Refreshed `plans/active/TEST-PYTORCH-001/implementation.md` Phase D table to reference the new plan and artifact hub, mapping D1–D3 to specific deliverables.
+  - Logged Attempt #9 in `docs/fix_plan.md` noting the planning loop.
+  - Rewrote `input.md` (Mode=Perf) directing Ralph to execute D1 tasks (runtime log capture, env snapshot, runtime_profile authoring).
+- Open question: Phase B fixture minimization still marked `[ ]`; keep deferred unless runtime budget regresses.
+- <Action State>: [ready_for_implementation]
