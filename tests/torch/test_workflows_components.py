@@ -1174,7 +1174,7 @@ class TestReassembleCdiImageTorchGreen:
         )
 
     @pytest.fixture
-    def mock_lightning_module(self):
+    def mock_lightning_module(self, minimal_training_config):
         """
         Create minimal Lightning module stub for stitching tests.
 
@@ -1182,30 +1182,44 @@ class TestReassembleCdiImageTorchGreen:
         - Inherits from lightning.LightningModule (satisfies isinstance checks)
         - Implements eval() method (no-op but required for eval mode)
         - Implements __call__(X) returning deterministic complex64 tensor
-        - Output shape: (batch, N, N) complex - simplified for MVP stitching
+        - Output shape: (batch, gridsize**2, N, N) complex CHANNEL-FIRST to match real PyTorch models
         - Uses torch.ones for deterministic, finite outputs
+
+        Implementation note:
+        - Real PtychoPINN_Lightning models output (batch, gridsize**2, N, N) in channel-first layout
+        - This mock mirrors that contract to exercise the channel-order fix in _reassemble_cdi_image_torch
+        - See debug_shape_triage.md (2025-10-19T092448Z) for channel axis triage
         """
         import torch
         import lightning.pytorch as pl
 
         class MockLightningModule(pl.LightningModule):
-            def __init__(self, N=64):
+            def __init__(self, N=64, gridsize=2):
                 super().__init__()
                 self.N = N
+                self.gridsize = gridsize
 
             def forward(self, X):
                 """
                 Return deterministic complex tensor for testing.
-                X shape: (batch, gridsize**2, N, N)
-                Output: (batch, N, N) complex - simplified for MVP stitching
+                X shape: (batch, gridsize**2, N, N) channel-last input
+                Output: (batch, gridsize**2, N, N) CHANNEL-FIRST complex to match real models
+
+                This mimics the real PyTorch model output layout, forcing the stitching
+                path to convert from channel-first to channel-last before TensorFlow reassembly.
                 """
                 batch_size = X.shape[0]
+                C = self.gridsize ** 2
                 # Create deterministic complex output (amplitude=1, phase=0.5 rad)
-                real = torch.ones(batch_size, self.N, self.N, dtype=torch.float32)
-                imag = torch.ones(batch_size, self.N, self.N, dtype=torch.float32) * 0.5
+                # Shape: (batch, C, N, N) CHANNEL-FIRST
+                real = torch.ones(batch_size, C, self.N, self.N, dtype=torch.float32)
+                imag = torch.ones(batch_size, C, self.N, self.N, dtype=torch.float32) * 0.5
                 return torch.complex(real, imag)
 
-        return MockLightningModule(N=64)
+        return MockLightningModule(
+            N=64,
+            gridsize=minimal_training_config.model.gridsize
+        )
 
     @pytest.fixture
     def stitch_train_results(self, mock_lightning_module):
@@ -1215,11 +1229,14 @@ class TestReassembleCdiImageTorchGreen:
         Provides minimal structure required by _reassemble_cdi_image_torch:
         - models['lightning_module']: Trained (mocked) Lightning module
         - history: Training loss (placeholder)
+
+        Note: trainer key omitted from models dict to avoid model_manager validation errors
+        when run_cdi_example_torch attempts persistence (trainer=None is invalid for save).
         """
         return {
             "models": {
                 "lightning_module": mock_lightning_module,
-                "trainer": None,  # Not needed for inference
+                # Omit trainer key - not needed for stitching and causes save errors if None
             },
             "history": {"train_loss": [0.1, 0.05]},
         }
@@ -1342,6 +1359,13 @@ class TestReassembleCdiImageTorchGreen:
         # Validate results payload
         assert "global_offsets" in results, "results must contain global_offsets"
         assert "obj_tensor_full" in results, "results must contain obj_tensor_full"
+
+        # Validate channel-last layout for obj_tensor_full (debug_shape_triage.md requirement)
+        obj_tensor_full = results["obj_tensor_full"]
+        assert obj_tensor_full.ndim == 4, "obj_tensor_full must be 4D (n, H, W, C)"
+        # After channel reduction for TensorFlow reassembly, should have single channel
+        assert obj_tensor_full.shape[-1] == 1, \
+            "obj_tensor_full must be channel-last with shape[-1]=1 after reduction for TF reassembly"
 
     def test_run_cdi_example_torch_do_stitching_delegates_to_reassemble(
         self,

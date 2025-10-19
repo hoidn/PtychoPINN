@@ -710,7 +710,22 @@ def _reassemble_cdi_image_torch(
     if flip_y:
         global_offsets[:, 0, 1, :] = -global_offsets[:, 0, 1, :]
 
-    # Step 6: Reassemble patches (using TensorFlow helper for MVP parity)
+    # Step 6: Prepare tensor for TensorFlow reassembly helper
+    # TensorFlow helper expects (n_samples, H, W, 1) single-channel complex tensor
+    # PyTorch models output (n_samples, C, H, W) with C=gridsize**2 channels
+    # See debug_shape_triage.md (2025-10-19T092448Z) for root cause analysis
+
+    # Convert channel-first to channel-last if needed
+    if obj_tensor_full.ndim == 4 and obj_tensor_full.shape[1] < obj_tensor_full.shape[2] and obj_tensor_full.shape[1] < obj_tensor_full.shape[3]:
+        # Channel dim is dim=1 (channel-first); move to end
+        obj_tensor_full = obj_tensor_full.permute(0, 2, 3, 1)  # (n, C, H, W) → (n, H, W, C)
+
+    # Reduce multi-channel output to single channel for TensorFlow reassembly
+    # For gridsize > 1, model outputs multiple channels (gridsize**2); take mean across channels
+    if obj_tensor_full.shape[-1] > 1:
+        obj_tensor_full = torch.mean(obj_tensor_full, dim=-1, keepdim=True)  # (n, H, W, C) → (n, H, W, 1)
+
+    # Step 7: Reassemble patches (using TensorFlow helper for MVP parity)
     # For Phase D2.C, delegate to TensorFlow reassembly to maintain exact parity
     # Future enhancement: use native PyTorch reassembly from ptycho_torch.reassembly
     from ptycho import tf_helper as hh
@@ -719,7 +734,11 @@ def _reassemble_cdi_image_torch(
 
     obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
 
-    # Step 7: Extract amplitude and phase
+    # Squeeze trailing channel dimension if present (reassembly may return (H, W, 1))
+    if obj_image.ndim == 3 and obj_image.shape[-1] == 1:
+        obj_image = np.squeeze(obj_image, axis=-1)
+
+    # Step 8: Extract amplitude and phase
     recon_amp = np.absolute(obj_image)
     recon_phase = np.angle(obj_image)
 
