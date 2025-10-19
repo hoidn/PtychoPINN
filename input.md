@@ -1,49 +1,50 @@
-Summary: Fix PyTorch stitching channel order and turn the C4 tests green
+Summary: Capture the post-C4 integration-test failure and prep Phase D diagnostics
 Mode: TDD
 Focus: INTEGRATE-PYTORCH-001-STUBS — Finish PyTorch workflow stubs deferred from Phase D2
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/{debug_shape_triage.md,pytest_stitch_green.log}
+Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/{summary.md,pytest_integration_current.log}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update `_reassemble_cdi_image_torch` to emit channel-last tensors before calling the TensorFlow helper (tests: none)
-2. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Refresh `TestReassembleCdiImageTorch*` fixtures/assertions and run `pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/pytest_stitch_green.log` (tests: targeted)
-3. INTEGRATE-PYTORCH-001-STUBS C4 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update `phase_d2_completion/summary.md` + docs/fix_plan.md Attempt history with the 2025-10-19T092448Z green evidence, and relocate any stray `train_debug.log` into the same report directory (tests: none)
+1. INTEGRATE-PYTORCH-001-STUBS D1 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Run `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/pytest_integration_current.log` (tests: targeted)
+2. INTEGRATE-PYTORCH-001-STUBS D1 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Create `diagnostics.md` in the same report directory summarising the failure signature (stack trace snippet, checkpoint path, differences vs. 2025-10-17 baseline) and relocate any new `train_debug.log` into that directory (tests: none)
+3. INTEGRATE-PYTORCH-001-STUBS D3 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update `summary.md` checklist, keep D1 `[ ]` until the test passes, and record Attempt #30 in docs/fix_plan.md with the new log and diagnostics links (tests: none)
 
-If Blocked: Capture the failing pytest output in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/pytest_stitch_green.log`, roll C4 back to `[P]`, note the observed tensor shapes + error text in `debug_shape_triage.md`, and log the blocker in docs/fix_plan.md before pausing.
+If Blocked: Store whatever portion of the pytest output you captured into `pytest_integration_current.log`, jot the failure mode in `diagnostics.md`, and note the blocker plus log path in docs/fix_plan.md before pausing.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:53 — C4 remains open; guidance now calls out the channel-order fix plus updated tests.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/debug_shape_triage.md — Documents confirmed root cause (channel-first tensor) and required remediation steps.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/summary.md — Next Steps point back to the triage note and expect fresh green evidence once fixed.
-- tests/torch/test_workflows_components.py:1076 — Existing green-phase test scaffolding that now needs channel-aware fixtures/assertions.
-- specs/ptychodus_api_spec.md:185 — Stitching contract requires `(recon_amp, recon_phase, results)` with correct tensor shapes for downstream consumers.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:65 — D1 now demands a fresh integration run + diagnostics before remediation.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/summary.md:8 — Defines the immediate objectives and artifact expectations for this timestamp.
+- specs/ptychodus_api_spec.md:205 — Persistence contract requires loading checkpoints without extra constructor args; present failure violates this spec clause.
+- docs/workflows/pytorch.md:260 — Troubleshooting section documents the current TypeError and reminds us to refresh checkpoints with hyperparameters.
+- docs/findings.md:8 — POLICY-001 keeps PyTorch mandatory; ensure the integration run continues to honour torch-enabled pathways.
 
 How-To Map:
-- Apply the channel-last conversion inside `_reassemble_cdi_image_torch`: after concatenating predictions, use `torch.moveaxis(obj_tensor_full, 1, -1)` (or equivalent) when tensors arrive channel-first; call `np.moveaxis` as a final guard before handing data to `tf_helper.reassemble_position`.
-- Ensure the mock Lightning module in tests returns deterministic `torch.ones` complex tensors shaped `(batch, gridsize**2, N, N)` so that moveaxis logic is exercised; keep one guard test explicitly asserting the `train_results=None` NotImplemented path.
-- Expand the tests to validate that `results['obj_tensor_full'].shape[-1] == config.model.gridsize ** 2`, amplitude/phase arrays are finite via `np.isfinite`, and that flip/transpose cases still succeed.
-- Run `pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/pytest_stitch_green.log` from repo root.
-- Move the prior root-level `train_debug.log` into `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/` (or delete if superseded) so all artifacts live under the initiative directory.
-- After tests pass, append the new evidence (timestamp + log path) to `summary.md` and docs/fix_plan.md, marking C4 as `[x]` only when the log shows zero failures.
+- Run the targeted pytest command from repo root: `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/pytest_integration_current.log`
+- After the run, create diagnostics via `cat > plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/diagnostics.md` (include summary, stack trace excerpt, checkpoint path, comparison vs. baseline log).
+- If `train_debug.log` appears at repo root, move it with `mv train_debug.log plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/`.
+- Update `summary.md` checklist items to reflect captured artifacts, then adjust docs/fix_plan.md attempts (add Attempt #30) citing both the log and diagnostics file.
+- Keep plan checklist D1 `[ ]` until the test goes green; add a note in diagnostics about next hypotheses (e.g., `save_hyperparameters` payload inspection) for continuity.
 
 Pitfalls To Avoid:
-- Do not bypass the TensorFlow reassembly helper; we need parity proof before migrating to native PyTorch stitching.
-- Keep tensors on CPU for the mock; avoid introducing CUDA-only code in tests.
-- Preserve complex64 dtypes for model outputs so amplitude/phase calculations remain valid.
-- Do not drop the `train_results=None` guard test—this regression coverage is still required.
-- Ensure pytest selector stays exactly as mapped; no ad-hoc wildcards or extra modules.
-- Don’t overwrite existing artifacts—append new logs under the fresh timestamp directory.
-- Avoid touching stable physics files (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
-- Keep plan checklists synchronized; mark C4 complete only after documentation and logs are updated.
-- Leave integration-test (Phase D) steps untouched this loop.
+- Do not mark D1 complete or flip plan/state flags until the integration test runs green.
+- Avoid deleting or overwriting the baseline 2025-10-17 log; we need it for regression comparison.
+- Keep all new artifacts under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/`; no loose files at repo root.
+- Maintain CPU-only execution paths; don’t enable CUDA-only flags in the integration test.
+- Refrain from editing stable physics modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`) while triaging.
+- Don’t silence the failing test; we rely on the red state to guide remediation.
+- Ensure pytest command uses exact selector listed—no extra modules or env flags.
+- Capture the full traceback in diagnostics; partial snippets make future debugging harder.
+- Preserve TDD discipline: only move to implementation after documenting red evidence.
+- Keep Git history clean—stage and commit only once artifacts and plan updates are in place.
 
 Pointers:
-- ptycho_torch/workflows/components.py:608
-- tests/torch/test_workflows_components.py:1076
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:53
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/debug_shape_triage.md
-- specs/ptychodus_api_spec.md:185
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:65
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/summary.md:8
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T233109Z/phase_d2_completion/pytest_integration_baseline.log
+- specs/ptychodus_api_spec.md:205
+- docs/workflows/pytorch.md:260
+- docs/findings.md:8
 
 Next Up:
-- Run `pytest tests/torch/test_integration_workflow_torch.py -vv` once stitching goes green to unblock Phase D. 
+- Begin persisting Lightning hyperparameters (or adapters) so `PtychoPINN_Lightning.load_from_checkpoint` no longer raises the missing-arguments TypeError once diagnostics are captured.

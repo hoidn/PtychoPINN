@@ -868,3 +868,17 @@
   - Updated `phase_d2_completion.md` C4 row and the 2025-10-19T084016Z summary Next Steps to reference the triage note and new artifact timestamp; rewrote `input.md` with explicit channel-order implementation/test guidance and log capture path.
 - Follow-up: Ralph to permute predictions in `_reassemble_cdi_image_torch`, modernize tests accordingly, stash new pytest log under `2025-10-19T092448Z`, relocate `train_debug.log`, and mark C4 complete once green evidence lands.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T094611Z: Phase D alignment setup
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS (Phase D2 completion)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Coin flip: heads — audited last ~10 Ralph loops; he spent Attempts #14-#19 rerunning the same Lightning regression because input.md stayed on B2. Stale guidance caused six redundant verification passes. C4 work (commit ab43620) is the first new implementation since then.
+- Key actions this loop:
+  - Verified C4 artifacts (pytest_stitch_green.log + summary) and confirmed plan checklist C4 `[x]`.
+  - Spun up Phase D artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/` with kickoff summary + instructions for capturing `pytest_integration_current.log` and `diagnostics.md`.
+  - Updated `phase_d2_completion.md` D1–D3 guidance to reference the new timestamp and emphasise logging the checkpoint TypeError before remediation.
+  - Rewrote `input.md` to point Ralph at Phase D evidence collection (integration pytest run, diagnostics, ledger update) and moved Do Now away from already-complete C4 tasks.
+  - Logged docs/fix_plan.md Attempt #29 describing the transition into Phase D.
+- Outstanding: Integration test still red due to `PtychoPINN_Lightning.__init__` missing config args; need fresh log + diagnostics to start remediation.
+- <Action State>: [ready_for_implementation]

@@ -62,9 +62,9 @@ Exit Criteria: Integration test passes through training + stitching, parity summ
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Run full PyTorch integration workflow | [ ] | Execute `pytest tests/torch/test_integration_workflow_torch.py -vv` and capture log `pytest_integration_green.log`. Confirm workflow reaches inference + stitching without stubs. |
-| D2 | Update parity summary & docs | [ ] | Append new section to `plans/active/INTEGRATE-PYTORCH-001/reports/<TS>/phase_e_parity_summary.md` (or new summary) comparing TF vs PyTorch outputs; refresh `docs/workflows/pytorch.md` sections 5–7 if CLI behaviour changed. |
-| D3 | Refresh plans & ledger | [ ] | Update this plan checklist states, cross-link artifacts, add Attempt entry to docs/fix_plan.md, and ensure `INTEGRATE-PYTORCH-001/phase_d_workflow.md` references completion evidence. |
+| D1 | Run full PyTorch integration workflow | [ ] | Re-run `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` after Phase C fixes. Capture the complete log at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/pytest_integration_current.log` (use `tee`). Document the observed failure signature (expected: Lightning checkpoint missing configs) in a sibling `diagnostics.md`. |
+| D2 | Update parity summary & docs | [ ] | Once a passing run exists, append comparison notes to `phase_e_parity_summary.md` (or author a new section under the 2025-10-19T095900Z hub) and refresh `docs/workflows/pytorch.md` §§5–7 if behaviour changed. Until the test passes, keep diagnostics up to date and record remediation hypotheses. |
+| D3 | Refresh plans & ledger | [ ] | After D1/D2 evidence lands, update this checklist, cross-link `2025-10-19T095900Z` artifacts, add a docs/fix_plan.md Attempt with exit-criteria status, and ensure `phase_d_workflow.md` references the new integration log. |
 
 ---
 
