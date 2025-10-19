@@ -257,9 +257,17 @@ CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::t
 
 ### Runtime Performance
 
-- **Baseline Runtime:** 35.9s ± 0.5s (observed mean: 35.92s, variance: 0.17%)
-- **CI Budget:** ≤90s on modern CPU hardware (2.5× baseline; allows for slower CI infrastructure)
-- **Warning Threshold:** 60s (1.7× baseline triggers investigation)
+**Current Performance (Phase B3 Minimal Fixture):**
+- **Smoke Test Runtime:** 3.82s (fixture validation suite, 7 tests)
+- **Integration Test Runtime:** 14.53s (full train→save→load→infer cycle)
+- **Test Dataset:** `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` (64 scan positions, 25 KB)
+- **CI Budget:** ≤90s on modern CPU hardware (integration test runs at 16% of budget)
+- **Warning Threshold:** 45s (3.1× current runtime triggers investigation)
+
+**Historical Baselines:**
+- Phase D1 Runtime: 35.9s ± 0.5s (canonical dataset, 1087 positions)
+- Phase B1 Runtime: 21.91s (canonical dataset, n_groups=64 override)
+- Phase B3 Improvement: 33.7% faster vs Phase B1 baseline
 
 **Environment:** Verified on Python 3.11.13, PyTorch 2.8.0+cu128, Lightning 2.5.5, Ryzen 9 5950X (32 CPUs), 128GB RAM.
 
@@ -284,15 +292,17 @@ The regression validates:
 
 - **POLICY-001:** PyTorch >=2.2 is mandatory (see `docs/findings.md#POLICY-001`)
 - **FORMAT-001:** NPZ auto-transpose guard handles legacy (H,W,N) format (see `docs/findings.md#FORMAT-001`)
-- Dataset: Canonical format per `specs/data_contracts.md` §1 (diffraction=amplitude, float32)
+- **Test Dataset:** Minimal fixture at `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` (64 scan positions, stratified sampling, canonical (N,H,W) format, float32/complex64 dtypes per DATA-001)
+- **Fixture Generation:** Reproducible via `python scripts/tools/make_pytorch_integration_fixture.py --source <canonical_dataset> --output <fixture_path> --subset-size 64` (SHA256 checksum: 6c2fbea0dcadd950385a54383e6f5f731282156d19ca4634a5a19ba3d1a5899c)
 
 ### CI Integration Notes
 
-- **Recommended Timeout:** 120s (conservative 3.3× baseline)
+- **Recommended Timeout:** 90s (6.2× current runtime, conservative buffer for CI infrastructure variance)
 - **Retry Policy:** 1 retry on timeout (accounts for CI jitter)
 - **Markers:** Consider `@pytest.mark.integration` + `@pytest.mark.slow` for selective execution
+- **CPU-Only Enforcement:** Use `CUDA_VISIBLE_DEVICES=""` in CI to ensure deterministic CPU-only execution (GPU unavailability is tested via separate POLICY-001 checks)
 
-**Reference:** See `plans/active/TEST-PYTORCH-001/implementation.md` for phased test development history.
+**Reference:** See `plans/active/TEST-PYTORCH-001/implementation.md` for phased test development history and `plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md` for Phase B3 fixture integration details.
 
 ## 12. Backend Selection in Ptychodus Integration
 
