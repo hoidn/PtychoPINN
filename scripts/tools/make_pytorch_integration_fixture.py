@@ -31,8 +31,47 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Tuple
+import numpy as np
+import json
+import hashlib
+import subprocess
+from datetime import datetime, timezone
 
-# Minimal imports for CLI stub; full implementation will add numpy, json, hashlib
+
+def compute_sha256(file_path: Path) -> str:
+    """
+    Compute SHA256 checksum of NPZ file.
+
+    Args:
+        file_path: Path to file to hash
+
+    Returns:
+        Hexadecimal SHA256 checksum string
+    """
+    hasher = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def get_git_commit() -> str:
+    """
+    Fetch current git commit SHA.
+
+    Returns:
+        Git commit SHA or "unknown" if git command fails
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "unknown"
 
 
 def parse_args() -> argparse.Namespace:
@@ -107,9 +146,9 @@ def generate_fixture(
     metadata_path: Path = None
 ) -> Tuple[Path, Path, str]:
     """
-    Generate minimal PyTorch integration fixture (STUB - NOT IMPLEMENTED).
+    Generate minimal PyTorch integration fixture from canonical dataset.
 
-    This function will perform the transformations specified in generator_design.md §4:
+    This function performs the transformations specified in generator_design.md §4:
     1. Load source NPZ dataset
     2. Transpose diffraction array from (H,W,N) to (N,H,W)
     3. Downcast dtypes per DATA-001 contract
@@ -128,7 +167,9 @@ def generate_fixture(
         Tuple of (fixture_path, metadata_path, sha256_checksum)
 
     Raises:
-        NotImplementedError: This stub does not yet contain implementation logic
+        FileNotFoundError: If source dataset does not exist
+        KeyError: If source dataset missing required keys
+        ValueError: If subset_size invalid
 
     Design Reference:
         generator_design.md §4 (Algorithm Pseudocode)
@@ -137,11 +178,125 @@ def generate_fixture(
         specs/data_contracts.md §1 (Canonical NPZ format)
         docs/findings.md#FORMAT-001 (Legacy transpose heuristic)
     """
-    raise NotImplementedError(
-        "Fixture generator stub created for TDD RED phase. "
-        "Implementation deferred to Phase B2.C (GREEN phase). "
-        "See plans/active/TEST-PYTORCH-001/reports/2025-10-19T220500Z/phase_b_fixture/generator_design.md"
-    )
+    # Step 1: Load source dataset
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source dataset not found: {source_path}")
+
+    source = np.load(source_path)
+
+    # Validate required keys
+    required_keys = ['diffraction', 'objectGuess', 'probeGuess', 'xcoords', 'ycoords']
+    missing = [k for k in required_keys if k not in source.keys()]
+    if missing:
+        raise KeyError(f"Source missing required keys: {missing}")
+
+    # Validate diffraction shape
+    if source['diffraction'].ndim != 3:
+        raise ValueError(f"Expected 3D diffraction array, got shape {source['diffraction'].shape}")
+
+    # Validate subset size
+    n_total = source['diffraction'].shape[-1]  # Works for both (H,W,N) and (N,H,W)
+    if n_total < subset_size:
+        # Determine actual N dimension
+        if source['diffraction'].shape[0] == source['xcoords'].shape[0]:
+            n_total = source['diffraction'].shape[0]
+        elif source['diffraction'].shape[2] == source['xcoords'].shape[0]:
+            n_total = source['diffraction'].shape[2]
+
+    if subset_size < 16:
+        raise ValueError(f"Subset size {subset_size} < 16; insufficient for grouping tests")
+    if subset_size > n_total:
+        raise ValueError(f"Subset size {subset_size} exceeds dataset size {n_total}")
+
+    # Step 2: Extract and transform diffraction (CRITICAL)
+    # Input: (H=64, W=64, N=1087) float64
+    # Output: (N=64, H=64, W=64) float32
+    diffraction_legacy = source['diffraction']
+
+    # Detect if already in canonical format (N, H, W) or legacy (H, W, N)
+    # Heuristic: if first dimension matches coord count, it's canonical
+    if diffraction_legacy.shape[0] == source['xcoords'].shape[0]:
+        # Already canonical (N, H, W)
+        diffraction_canonical = diffraction_legacy
+    else:
+        # Legacy format (H, W, N) → transpose to (N, H, W)
+        diffraction_canonical = diffraction_legacy.transpose(2, 0, 1)
+
+    # Subset first n positions and downcast to float32
+    diffraction_subset = diffraction_canonical[:subset_size, :, :].astype(np.float32)
+
+    # Step 3: Downcast probe/object
+    objectGuess = source['objectGuess'].astype(np.complex64)
+    probeGuess = source['probeGuess'].astype(np.complex64)
+
+    # Step 4: Subset coordinates (deterministic stratified sampling for spatial diversity)
+    # Use uniform sampling across the dataset to ensure >50% coordinate coverage
+    # This satisfies fixture_scope.md §3.1.4 spatial diversity requirement
+    total_positions = len(source['xcoords'])
+    if subset_size >= total_positions:
+        # Use all positions if subset_size >= total
+        subset_indices = np.arange(total_positions)
+    else:
+        # Stratified sampling: evenly spaced indices for spatial diversity
+        # This is deterministic (no random seed) and ensures good coordinate coverage
+        step = total_positions / subset_size
+        subset_indices = np.array([int(i * step) for i in range(subset_size)], dtype=int)
+
+    xcoords = source['xcoords'][subset_indices]
+    ycoords = source['ycoords'][subset_indices]
+
+    # Step 5: Preserve optional keys if present
+    optional_keys = {}
+    for key in ['xcoords_start', 'ycoords_start']:
+        if key in source:
+            optional_keys[key] = source[key][subset_indices]
+
+    # Step 6: Assemble output dictionary
+    # Include both canonical 'diffraction' and legacy 'diff3d' keys for compatibility
+    output_data = {
+        'diffraction': diffraction_subset,
+        'diff3d': diffraction_subset,  # Legacy alias for RawData backward compatibility
+        'objectGuess': objectGuess,
+        'probeGuess': probeGuess,
+        'xcoords': xcoords,
+        'ycoords': ycoords,
+        **optional_keys
+    }
+
+    # Step 7: Save NPZ with compression
+    np.savez_compressed(output_path, **output_data)
+
+    # Step 8: Compute SHA256 checksum
+    checksum = compute_sha256(output_path)
+
+    # Step 9: Generate metadata sidecar
+    if metadata_path is None:
+        metadata_path = output_path.with_suffix('.json')
+
+    metadata = {
+        "version": "v1",
+        "created": datetime.now(timezone.utc).isoformat(),
+        "generator_script": "scripts/tools/make_pytorch_integration_fixture.py",
+        "generator_commit": get_git_commit(),
+        "source_dataset": str(source_path),
+        "subset_strategy": "stratified_uniform_sampling",
+        "subset_size": int(subset_size),
+        "transformations": [
+            "diffraction: transpose (H,W,N) → (N,H,W)" if diffraction_legacy.shape[0] != source['xcoords'].shape[0] else "diffraction: already canonical (N,H,W)",
+            "diffraction: dtype float64 → float32",
+            "diffraction: duplicate as diff3d for RawData backward compatibility",
+            "objectGuess: dtype complex128 → complex64",
+            "probeGuess: dtype complex128 → complex64",
+            f"coordinates: stratified uniform sampling (step={total_positions}/{subset_size}={total_positions/subset_size:.1f})"
+        ],
+        "sha256_checksum": checksum,
+        "validation_notes": "Compliant with specs/data_contracts.md §1; tested via tests/torch/test_fixture_pytorch_integration.py"
+    }
+
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+
+    return output_path, metadata_path, checksum
 
 
 def main() -> int:

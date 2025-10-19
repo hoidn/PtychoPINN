@@ -1,0 +1,19 @@
+{
+  "version": "v1",
+  "created": "2025-10-19T22:11:18.816842+00:00",
+  "generator_script": "scripts/tools/make_pytorch_integration_fixture.py",
+  "generator_commit": "7be7ab5c68c95e58601a6ec6497e08bca85e6d88",
+  "source_dataset": "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+  "subset_strategy": "stratified_uniform_sampling",
+  "subset_size": 64,
+  "transformations": [
+    "diffraction: transpose (H,W,N) \u2192 (N,H,W)",
+    "diffraction: dtype float64 \u2192 float32",
+    "diffraction: duplicate as diff3d for RawData backward compatibility",
+    "objectGuess: dtype complex128 \u2192 complex64",
+    "probeGuess: dtype complex128 \u2192 complex64",
+    "coordinates: stratified uniform sampling (step=1087/64=17.0)"
+  ],
+  "sha256_checksum": "6c2fbea0dcadd950385a54383e6f5f731282156d19ca4634a5a19ba3d1a5899c",
+  "validation_notes": "Compliant with specs/data_contracts.md \u00a71; tested via tests/torch/test_fixture_pytorch_integration.py"
+}
