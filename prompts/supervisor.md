@@ -128,7 +128,7 @@ Evidence collection includes the following subtype:
 <Review or housekeeping>
 - Review and evaluate ralph's work. Scrutinize the commit history. Look at the diffs. 
 - Are the docs/fix_plan.md contents and priorities sane? things to consider:
-  - if docs/fix_plan.md is longer than 1000 lines it should be housecleaned. If it's disorganized and / or internally inconsistent, consider how this could be addressed. 
+  - if docs/fix_plan.md is longer than 50000 characters (` wc -c docs/fix_plan.md`) it should be housecleaned. If it's disorganized and / or internally inconsistent, consider how this could be addressed. 
 - IMPORTANT When assumptions are violated; when unexpected metrics or findings hit:
   - If the current plan and docs/fix_plan.md item instruct a change of focus instead of further investigation, update docs/fix_plan **and** the relevant plan document under `plans/active/` with a follow-up gate. Keep the original phase blocked until you have sufficient understanding of the situation and have allayed the initial surprise or confusion. 
 - after considering all of the above, you have enough information to choose a <focus issue> for this turn. do so. Consider the nature of the <focus issue>:
