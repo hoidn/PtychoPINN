@@ -956,3 +956,10 @@
   - Provisioned timestamp `2025-10-19T111855Z` for the next loop’s RED/GREEN logs and rewrote `input.md` with explicit test-fix-integration steps.
 - Outstanding guidance: ensure TestDecoderLastShapeParity now expects success, centre-crop `x2`, capture red/green logs, rerun integration, and update docs/fix_plan with Attempt #40 once green.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T115058Z: Planning focus declaration
+- Focus issue: TEST-PYTORCH-001 — PyTorch integration regression test plan bootstrap
+- Action type: Planning
+- Mode: TDD
+- Notes: Dependencies satisfied (INTEGRATE-PYTORCH-001 Phase E2 complete; POLICY-001 enforced). Preparing to convert charter at `plans/pytorch_integration_test_plan.md` into phased implementation plan under `plans/active/TEST-PYTORCH-001/implementation.md`.
+- <Action State>: [planning]

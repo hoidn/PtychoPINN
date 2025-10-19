@@ -145,9 +145,10 @@
 - Priority: High
 - Status: pending
 - Owner/Date: Codex Agent/2025-10-17
-- Working Plan: `plans/pytorch_integration_test_plan.md` (to be migrated into `plans/active/TEST-PYTORCH-001/implementation.md` with phased checklist)
+- Working Plan: `plans/active/TEST-PYTORCH-001/implementation.md`
 - Attempts History:
   * [2025-10-17] Attempt #0 — Charter drafted at `plans/pytorch_integration_test_plan.md`; outlines runtime harness, fixture requirements, and acceptance criteria. Awaiting active plan conversion and execution artifacts.
+  * [2025-10-19] Attempt #1 — Converted charter into phased plan at `plans/active/TEST-PYTORCH-001/implementation.md`, establishing baseline/fixture/TDD/CI phases with checklist IDs. Created reports directory scaffold (`plans/active/TEST-PYTORCH-001/reports/`) and documented artifact map plus references to POLICY-001 and Phase E2 design. No tests run (planning loop).
 - Exit Criteria:
   - Active plan document created under `plans/active/TEST-PYTORCH-001/implementation.md` referencing charter, with phased checklist and artifact map.
   - PyTorch integration pytest target executes train→infer workflow on canonical fixture within ≤2 minutes CPU, storing logs under `plans/active/TEST-PYTORCH-001/reports/<timestamp>/` and passing in CI.

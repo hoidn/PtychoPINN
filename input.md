@@ -1,46 +1,48 @@
-Summary: Document PyTorch parity win and sync Phase D2 docs ledger
-Mode: Docs
-Focus: INTEGRATE-PYTORCH-001-STUBS D2 — Update parity summary & docs
+Summary: Capture PyTorch integration baseline evidence for TEST-PYTORCH-001 Phase A
+Mode: TDD
+Focus: TEST-PYTORCH-001 — PyTorch integration regression plan (Phase A)
 Branch: feature/torchapi
-Mapped tests: none — docs
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T201500Z/phase_d2_completion/{parity_update.md,summary.md}
+Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv
+Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T115303Z/{baseline/inventory.md,baseline/pytest_integration_current.log,baseline/summary.md}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-STUBS D2 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Author a new parity update (`parity_update.md`) under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T201500Z/phase_d2_completion/` summarising the now-green PyTorch integration run (Use Attempt #40 logs). Capture deltas vs the 2025-10-18 parity summary and note that MLflow guard is satisfied. (tests: none)
-2. INTEGRATE-PYTORCH-001-STUBS D2 @ docs/workflows/pytorch.md — Refresh §§5–7 to reflect that `_reassemble_cdi_image_torch` now stitches successfully (no longer a stub), including notes on artifact paths and dtype safeguards added in D1d. (tests: none)
-3. INTEGRATE-PYTORCH-001-STUBS D3 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Mark D2/D3 rows `[x]`, add links to the 2025-10-19T111855Z + 2025-10-19T201500Z evidence, update `phase_d_workflow.md` with the new integration log reference, and record docs/fix_plan Attempt #41 documenting the documentation refresh. (tests: none)
+1. TEST-PYTORCH-001 A1 @ plans/active/TEST-PYTORCH-001/implementation.md#L16 — Review existing PyTorch integration coverage (charter + current unittest) and record blockers in `baseline/inventory.md` (tests: none).
+2. TEST-PYTORCH-001 A2 @ plans/active/TEST-PYTORCH-001/implementation.md#L23 — Run baseline selector `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` and capture full output with `tee` to `baseline/pytest_integration_current.log`.
+3. TEST-PYTORCH-001 A3 @ plans/active/TEST-PYTORCH-001/implementation.md#L24 — Summarize environment prerequisites (flags, dataset path, runtime, exit status) in `baseline/summary.md`, highlighting gaps that block a ≤120s CPU regression (tests: none).
 
-If Blocked: Draft a `parity_blocked.md` narrative under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T201500Z/phase_d2_completion/`, outlining why parity docs could not be updated and cite any missing evidence; do not alter plan checklists until blockers clear.
+If Blocked: If the selector fails before hitting CLI (e.g., missing torch extras), document the failure, traceback, and environment info in `baseline/summary.md`, mark the command as `BLOCKED` with exit code, and notify in docs/fix_plan Attempts rather than modifying workflows.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md D2/D3 rows remain open despite Attempt #40 success; documentation must catch up.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_parity_summary.md still reports PyTorch failure; needs follow-up narrative pointing to 2025-10-19 green evidence.
-- docs/workflows/pytorch.md §7 currently warns `_reassemble_cdi_image_torch` is unimplemented, conflicting with the new center-crop fix.
-- specs/ptychodus_api_spec.md §4.6 parity contract relies on published parity evidence; ledgers must reference the latest logs.
+- plans/active/TEST-PYTORCH-001/implementation.md:1 anchors the phased plan; Phase A must be complete before fixture work.
+- tests/torch/test_integration_workflow_torch.py:1 documents current unittest harness that still reflects red-phase assumptions.
+- specs/ptychodus_api_spec.md:191 enforces train→infer contract that the regression must cover; gaps become plan risks.
+- docs/workflows/pytorch.md:120 captures deterministic Lightning settings we must obey during baseline run.
+- docs/findings.md:8 (POLICY-001) reminds us torch>=2.2 is mandatory; record if environment deviates.
 
 How-To Map:
-- Parity doc: Use the 2025-10-18 parity summary as a template; emphasise the new 2025-10-19T111855Z logs (`pytest_integration_shape_green.log`, `summary.md`) and compare to prior MLflow import failure. Include bullet on decoder fix + dtype enforcement to show closure of D1d/D1e blockers.
-- Workflow guide: Update sections describing `_reassemble_cdi_image_torch` (currently “raises NotImplementedError”) to outline the implemented flow (Lightning predict → decoder crop → amplitude/phase return). Mention dtype safeguards from D1d and cite `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/summary.md`.
-- Plan & ledger: In `phase_d2_completion.md`, flip D2/D3 to `[x]` with concise notes referencing the new parity update. In `phase_d_workflow.md` Phase D2 section, append a bullet pointing to the 2025-10-19T111855Z passing log. Log docs/fix_plan Attempt #41 noting doc updates + artifact paths; attach the new timestamp directory. Keep `train_debug.log` under `2025-10-19T111855Z/phase_d2_completion/`.
+- `mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T115303Z/baseline`
+- Review sources for inventory: `plans/pytorch_integration_test_plan.md`, `tests/torch/test_integration_workflow_torch.py`, prior parity logs under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/`
+- Baseline run: `CUDA_VISIBLE_DEVICES=\"\" pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T115303Z/baseline/pytest_integration_current.log`
+- Record runtime (wall clock) and checkpoint paths in `baseline/summary.md`; note whether command already finishes within ≤120s.
+- If logs exceed guidance, compress with `gzip` after tee (optional) but keep plaintext copy per artifact policy.
 
 Pitfalls To Avoid:
-- Do not revert earlier attempt history or remove historical parity summaries—add an addendum.
-- Keep all new artifacts in the 2025-10-19T201500Z directory; no files at repo root.
-- Avoid altering production code while editing docs.
-- Ensure doc text stays consistent with specs (no promises beyond delivered behavior).
-- Be explicit about selectors and timestamps when citing logs.
-- Update `docs/fix_plan.md` once per Do Now completion—no partial ledger edits.
-- Do not rerun the full test suite; this is a documentation loop.
-- Maintain ASCII formatting; no Markdown tables without headers.
-- Reference actual filenames/paths; avoid “latest log” phrasing.
-- Keep summary.md concise (<1 page) and link out to parity_update.md for detail.
+- Do not edit production code or tests this loop—evidence only.
+- Keep artifacts under the timestamped baseline directory; nothing at repo root.
+- Avoid truncating pytest output; ensure `tee` captures full trace.
+- Respect POLICY-001: fail fast if torch unavailable instead of skipping.
+- Note deterministic knobs (`--disable_mlflow`, seeds) even if already default; missing notes break Phase B.
+- Do not assume dataset small enough; measure and document.
+- Ensure temporary directories created by test are within tmpfs; no lingering artifacts outside baseline dir.
+- Leave unittest-to-pytest migration decisions for later phases; only describe impacts now.
+- Do not mark fix_plan tasks complete until evidence is recorded in docs/fix_plan Attempts.
 
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:70
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/summary.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_parity_summary.md
-- docs/workflows/pytorch.md:§5-§7
-- docs/fix_plan.md:120
-- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md:28
+- plans/active/TEST-PYTORCH-001/implementation.md:16
+- tests/torch/test_integration_workflow_torch.py:58
+- plans/pytorch_integration_test_plan.md:1
+- specs/ptychodus_api_spec.md:191
+- docs/workflows/pytorch.md:180
+- docs/findings.md:8
 
-Next Up: 1) Convert TEST-PYTORCH-001 charter into phased plan once parity docs land; 2) Begin Phase D3 parity narrative for Ptychodus UI integration.
+Next Up: If Phase A closes early, prepare fixture minimization outline (B1–B3) using insights from baseline runtime.
