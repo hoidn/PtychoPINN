@@ -857,6 +857,17 @@
 - Follow-up: Ralph to modernize `TestReassembleCdiImageTorch*`, capture green log, and update summary/fix ledger.
 - <Action State>: [ready_for_implementation]
 
+## 2025-10-19T200500Z: D1e close-out hygiene setup
+- Focus issue: INTEGRATE-PYTORCH-001-D1E — close plan & artifact hygiene after decoder fix
+- Action type: Review or housekeeping
+- Mode: none
+- Notes:
+  - Confirmed Attempt #40 evidence and marked D1e.B1–C3 `[x]` in `d1e_shape_plan.md`, pointing to 2025-10-19T111855Z logs.
+  - Relocated `train_debug.log` into `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/` so the root stays clean.
+  - Rewrote `input.md` to pivot Ralph toward D2 parity documentation + ledger sync; new artifact hub `2025-10-19T201500Z` reserved for write-up.
+- Follow-up: Ralph to draft parity_update.md, refresh workflows guide, and close D2/D3 rows per new Do Now checklist.
+- <Action State>: [ready_for_implementation]
+
 ## 2025-10-19T092742Z: C4 channel-order triage
 - Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase D2.C4 (stitching tests green)
 - Action type: Debug

@@ -34,9 +34,9 @@ Exit Criteria: New unit tests red→green, production fix merged, GREEN selector
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1e.B1 | Add failing decoder shape regression test | [P] | **PARTIAL (Attempt #38):** Authored `TestDecoderLastShapeParity` class in `tests/torch/test_workflows_components.py:1752-1920` with 2 test methods: `test_probe_big_shape_alignment` (expects RuntimeError with shape mismatch) and `test_probe_big_false_no_mismatch` (validates path1-only success). Captured log at `pytest_decoder_shape_red.log` (6KB, 2 passed). Tests pass with synthetic input (batch=8, in_channels=64, height=32, width=540) because decoder instantiation succeeds without encountering real encoder output dims. Real integration failure persists (572 vs 1080 mismatch). Next loop: update test to use actual encoder output or adjust assertion strategy. |
-| D1e.B2 | Implement decoder alignment fix | [ ] | Update `ptycho_torch/model.py` to mirror TensorFlow padding/cropping logic: ensure `conv_up_block` upsample scale matches `conv1` output; apply center crop/pad so `x1`/`x2` spatial dims align (use TensorFlow helper parity). Cast/reshape only where necessary (avoid losing complex info). |
-| D1e.B3 | Green the decoder regression test | [ ] | Run the same pytest selector, capturing GREEN log (`.../pytest_decoder_shape_green.log`). Ensure test asserts both spatial dims and channel counts (including `probe_big=False` guard). |
+| D1e.B1 | Add failing decoder shape regression test | [x] | **COMPLETE (Attempt #40):** Modernised `TestDecoderLastShapeParity` so `test_probe_big_shape_alignment` asserts successful forward pass with spatial parity. Captured RED evidence at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/pytest_decoder_shape_red.log` showing pre-fix RuntimeError (572 vs 1080 mismatch). |
+| D1e.B2 | Implement decoder alignment fix | [x] | **COMPLETE (Attempt #40):** Applied center-crop parity in `ptycho_torch/model.py:366-381`, trimming the x2 path to x1 spatial dims without device/dtype drift. Mirrors TensorFlow `trim_and_pad_output` behaviour. |
+| D1e.B3 | Green the decoder regression test | [x] | **COMPLETE (Attempt #40):** Targeted selector `pytest tests/torch/test_workflows_components.py::TestDecoderLastShapeParity -vv` now passes 2/2; GREEN log stored at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/pytest_decoder_shape_green.log`. |
 
 ## Phase C — Integration Validation & Ledger Updates
 Goal: Prove fix in end-to-end workflow, propagate documentation updates, unblock downstream phases.
@@ -45,9 +45,9 @@ Exit Criteria: Integration test passes past decoder stage (ideally green, or new
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1e.C1 | Re-run integration selector post-fix | [ ] | `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv \| tee .../pytest_integration_shape_green.log`. If still failing, capture new failure signature and loop back to Phase A with updated triage. |
-| D1e.C2 | Refresh plans & summaries | [ ] | Update `phase_d2_completion.md` (add D1e row, mark state) and `summary.md` with new evidence. Record docs/fix_plan.md Attempt (include selector logs, artifacts). |
-| D1e.C3 | Update findings/test references if semantics shift | [ ] | If decoder contract diverges from TensorFlow baseline, note in `specs/ptychodus_api_spec.md` (§4.6) and `docs/workflows/pytorch.md` parity section. Otherwise, confirm alignment and document parity proof. |
+| D1e.C1 | Re-run integration selector post-fix | [x] | **COMPLETE (Attempt #40):** Integration selector green (`pytest_integration_shape_green.log`, 20.44s) stored under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/`. |
+| D1e.C2 | Refresh plans & summaries | [x] | **COMPLETE (Attempt #40):** `phase_d2_completion.md` D1e row marked `[x]`; new summary + checklist updates published at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/summary.md`; docs/fix_plan Attempt #40 logged with artifact references. |
+| D1e.C3 | Update findings/test references if semantics shift | [x] | **COMPLETE (Attempt #40):** Decoder behaviour now matches TensorFlow baseline—no spec update required. Recorded parity confirmation in `shape_mismatch_triage.md` “GREEN Evidence” section. |
 
 ## Artifact Discipline
 - Store all new artefacts under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/`.
@@ -61,4 +61,3 @@ Exit Criteria: Integration test passes past decoder stage (ideally green, or new
 ## Decision Gates
 - If Phase B tests remain red after implementation, re-open Phase A with additional instrumentation (e.g., inspect autoencoder intermediate layers, compare with TensorFlow via saved checkpoints).
 - If integration test reveals downstream issues (e.g., stitching regressions) after decoder fix, fork a new Phase D2 TODO before marking D1e complete to maintain “one active blocker per loop”.
-

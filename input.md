@@ -1,52 +1,46 @@
-Summary: Align PyTorch Decoder_last with TensorFlow parity so probe_big=True no longer throws shape mismatch
-Mode: TDD
-Focus: INTEGRATE-PYTORCH-001-D1E — Resolve Lightning decoder shape mismatch (Phase D1e)
+Summary: Document PyTorch parity win and sync Phase D2 docs ledger
+Mode: Docs
+Focus: INTEGRATE-PYTORCH-001-STUBS D2 — Update parity summary & docs
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_workflows_components.py::TestDecoderLastShapeParity -vv; pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/{summary.md,pytest_decoder_shape_red.log,pytest_decoder_shape_green.log,pytest_integration_shape_green.log}
+Mapped tests: none — docs
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T201500Z/phase_d2_completion/{parity_update.md,summary.md}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-D1E D1e.B1 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Revise `TestDecoderLastShapeParity.test_probe_big_shape_alignment` to assert successful forward pass + matching spatial dims (no RuntimeError). Capture the RED failure via `pytest tests/torch/test_workflows_components.py::TestDecoderLastShapeParity -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/pytest_decoder_shape_red.log` (tests: targeted selector).
-2. INTEGRATE-PYTORCH-001-D1E D1e.B2 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Implement the decoder alignment fix in `ptycho_torch/model.py` (center-crop x2 to x1 dims, mirroring TensorFlow `trim_and_pad_output`) and keep dtype/device intact (tests: none).
-3. INTEGRATE-PYTORCH-001-D1E D1e.B3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Rerun `pytest tests/torch/test_workflows_components.py::TestDecoderLastShapeParity -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/pytest_decoder_shape_green.log` and ensure both probe_big=True/False cases pass (tests: targeted selector).
-4. INTEGRATE-PYTORCH-001-D1E D1e.C1 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Run the integration selector `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/pytest_integration_shape_green.log` to confirm the end-to-end workflow clears the decoder stage (tests: targeted selector).
-5. INTEGRATE-PYTORCH-001-D1E D1e.C2+C3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Update plan checklist states, `shape_mismatch_triage.md`, and `summary.md`; author new `summary.md` under 2025-10-19T111855Z capturing fix results; log docs/fix_plan Attempt #40 with artifacts and mark D1e rows `[x]` once green (tests: none).
+1. INTEGRATE-PYTORCH-001-STUBS D2 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Author a new parity update (`parity_update.md`) under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T201500Z/phase_d2_completion/` summarising the now-green PyTorch integration run (Use Attempt #40 logs). Capture deltas vs the 2025-10-18 parity summary and note that MLflow guard is satisfied. (tests: none)
+2. INTEGRATE-PYTORCH-001-STUBS D2 @ docs/workflows/pytorch.md — Refresh §§5–7 to reflect that `_reassemble_cdi_image_torch` now stitches successfully (no longer a stub), including notes on artifact paths and dtype safeguards added in D1d. (tests: none)
+3. INTEGRATE-PYTORCH-001-STUBS D3 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Mark D2/D3 rows `[x]`, add links to the 2025-10-19T111855Z + 2025-10-19T201500Z evidence, update `phase_d_workflow.md` with the new integration log reference, and record docs/fix_plan Attempt #41 documenting the documentation refresh. (tests: none)
 
-If Blocked: Capture the failing selector output to the 2025-10-19T111855Z hub (`pytest_decoder_shape_blocked.log` or `pytest_integration_shape_blocked.log`), revert any partial code, and document the blocker plus fresh hypotheses in `shape_mismatch_triage.md` before stopping.
+If Blocked: Draft a `parity_blocked.md` narrative under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T201500Z/phase_d2_completion/`, outlining why parity docs could not be updated and cite any missing evidence; do not alter plan checklists until blockers clear.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md D1e row gates Phase D completion and downstream parity docs.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md lays out evidence→fix→validation workflow.
-- specs/ptychodus_api_spec.md §4.6 mandates decoder parity across backends.
-- docs/workflows/pytorch.md §§6–7 define Lightning inference expectations we must keep intact.
-- shape_mismatch_triage.md captures validated root cause (upsample vs padding) guiding the required crop logic.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md D2/D3 rows remain open despite Attempt #40 success; documentation must catch up.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_parity_summary.md still reports PyTorch failure; needs follow-up narrative pointing to 2025-10-19 green evidence.
+- docs/workflows/pytorch.md §7 currently warns `_reassemble_cdi_image_torch` is unimplemented, conflicting with the new center-crop fix.
+- specs/ptychodus_api_spec.md §4.6 parity contract relies on published parity evidence; ledgers must reference the latest logs.
 
 How-To Map:
-- Red run: after updating the test, run `pytest tests/torch/test_workflows_components.py::TestDecoderLastShapeParity -vv` (expect RuntimeError) and store stdout with `tee` in the new timestamp directory.
-- Decoder fix: mirror TensorFlow’s `trim_and_pad_output` (see `ptycho/model.py:360-410`) by computing required crop offsets from `data_config.N` and slicing `x2` to match `x1`; keep tensors on the incoming device and maintain complex pair handling for amp/phase paths.
-- Post-fix validation: rerun the class-level pytest selector (should now pass) and inspect log for both test methods; ensure the test checks final `outputs.shape` equals `(batch, out_channels, N, N + 2*(N//4))` or equivalent parity rule you codify.
-- Integration: run the targeted integration selector once after unit tests pass; monitor for downstream regressions and keep logs under the 2025-10-19T111855Z hub.
-- Documentation: mark checklist boxes in `d1e_shape_plan.md`, update `phase_d2_completion.md` D1e row to `[x]`, append GREEN evidence to `shape_mismatch_triage.md`, write `summary.md` for the new timestamp, and record docs/fix_plan Attempt #40 referencing all stored artifacts.
+- Parity doc: Use the 2025-10-18 parity summary as a template; emphasise the new 2025-10-19T111855Z logs (`pytest_integration_shape_green.log`, `summary.md`) and compare to prior MLflow import failure. Include bullet on decoder fix + dtype enforcement to show closure of D1d/D1e blockers.
+- Workflow guide: Update sections describing `_reassemble_cdi_image_torch` (currently “raises NotImplementedError”) to outline the implemented flow (Lightning predict → decoder crop → amplitude/phase return). Mention dtype safeguards from D1d and cite `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/summary.md`.
+- Plan & ledger: In `phase_d2_completion.md`, flip D2/D3 to `[x]` with concise notes referencing the new parity update. In `phase_d_workflow.md` Phase D2 section, append a bullet pointing to the 2025-10-19T111855Z passing log. Log docs/fix_plan Attempt #41 noting doc updates + artifact paths; attach the new timestamp directory. Keep `train_debug.log` under `2025-10-19T111855Z/phase_d2_completion/`.
 
 Pitfalls To Avoid:
-- Do not leave temporary logging or instrumentation in `ptycho_torch/model.py` after capturing evidence.
-- Keep dtype and device consistent—no implicit `.cpu()` or `.double()` conversions in the crop logic.
-- Avoid editing TensorFlow baseline files; all changes stay in PyTorch modules/tests.
-- Ensure pytest tests remain native pytest style (no unittest mixins) and deterministic (set seeds if generating tensors).
-- Store every new log or summary under the 2025-10-19T111855Z directory—nothing at repo root.
-- Don’t skip updating docs/fix_plan.md and plan checklist states once work is complete.
-- Verify run directories are cleaned up between test runs to prevent stale checkpoints from masking failures.
-- Keep crop math symmetric for even/odd width differences; add assertions if needed.
-- Maintain TDD cadence: confirm the test fails before applying the fix.
-- Leave `TORCH_DECODER_TRACE` instrumentation disabled unless explicitly re-enabled for debugging.
+- Do not revert earlier attempt history or remove historical parity summaries—add an addendum.
+- Keep all new artifacts in the 2025-10-19T201500Z directory; no files at repo root.
+- Avoid altering production code while editing docs.
+- Ensure doc text stays consistent with specs (no promises beyond delivered behavior).
+- Be explicit about selectors and timestamps when citing logs.
+- Update `docs/fix_plan.md` once per Do Now completion—no partial ledger edits.
+- Do not rerun the full test suite; this is a documentation loop.
+- Maintain ASCII formatting; no Markdown tables without headers.
+- Reference actual filenames/paths; avoid “latest log” phrasing.
+- Keep summary.md concise (<1 page) and link out to parity_update.md for detail.
 
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/shape_mismatch_triage.md
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:60
-- tests/torch/test_workflows_components.py:1752
-- ptycho/model.py:360
-- specs/ptychodus_api_spec.md:4.6
-- docs/workflows/pytorch.md:§6
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:70
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/summary.md
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T093500Z/phase_e_parity_summary.md
+- docs/workflows/pytorch.md:§5-§7
+- docs/fix_plan.md:120
+- plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md:28
 
-Next Up: D1e.C2 documentation polish (parity narrative) or D2 parity summary once integration log is green.
+Next Up: 1) Convert TEST-PYTORCH-001 charter into phased plan once parity docs land; 2) Begin Phase D3 parity narrative for Ptychodus UI integration.
