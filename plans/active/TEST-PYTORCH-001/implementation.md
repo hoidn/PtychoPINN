@@ -34,7 +34,7 @@ Exit Criteria: Lightweight fixture committed (or documented sourcing), CLI overr
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | B1 | Design minimal NPZ/probe fixture | [x] | Evidence: `reports/2025-10-19T215300Z/phase_b_fixture/{dataset_probe.txt,logs/,fixture_scope.md}` captures dataset telemetry, runtime sweep (21.91s/17.11s), and nine acceptance criteria guiding fixture construction. |
-| B2 | Codify deterministic config overrides | [ ] | Execute Phase B2 (plan.md) via TDD: author generator design + red test, implement `scripts/tools/make_pytorch_integration_fixture.py`, capture pytest logs, and document fixture metadata under `reports/<TS>/phase_b_fixture/`. |
+| B2 | Codify deterministic config overrides | [P] | Phase B2.A/B2.B complete — see `reports/2025-10-19T220500Z/phase_b_fixture/{generator_design.md,pytest_fixture_red.log}` and RED tests in `tests/torch/test_fixture_pytorch_integration.py`. Next: implement generator + produce GREEN log, capture metadata notes per plan. |
 | B3 | Wire fixture loader helper | [ ] | Execute Phase B3 (plan.md): point integration test to new fixture, adjust CLI overrides, validate runtime, and update docs/ledger. Ensure helper utilities live under `tests/fixtures/pytorch_integration/` per plan guidance. |
 
 ---

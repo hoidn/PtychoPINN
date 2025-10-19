@@ -1,50 +1,51 @@
-Summary: Draft fixture generator spec and RED test for PyTorch regression fixture.
+Summary: Implement the PyTorch fixture generator and turn the new regression tests GREEN.
 Mode: TDD
 Focus: [TEST-PYTORCH-001] Author PyTorch integration workflow regression — Phase B2 fixture generator TDD
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_fixture_pytorch_integration.py::test_fixture_outputs_match_contract -vv
-Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T220500Z/phase_b_fixture/{generator_design.md,pytest_fixture_red.log}
+Mapped tests: pytest tests/torch/test_fixture_pytorch_integration.py -vv
+Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T225900Z/phase_b_fixture/{fixture_generation.log,pytest_fixture_green.log,summary.md}
 
 Do Now:
-1. TEST-PYTORCH-001 B2.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Author `generator_design.md` summarizing fixture creation steps + CLI contract, then scaffold `scripts/tools/make_pytorch_integration_fixture.py` with argparse stub (no functional logic yet); tests: none.
-2. TEST-PYTORCH-001 B2.B @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Write failing pytest `tests/torch/test_fixture_pytorch_integration.py::test_fixture_outputs_match_contract` asserting Phase B1 criteria (shape/dtype/subset count/checksum stub) and confirm RED via `pytest tests/torch/test_fixture_pytorch_integration.py::test_fixture_outputs_match_contract -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T220500Z/phase_b_fixture/pytest_fixture_red.log`.
-3. TEST-PYTORCH-001 B2.B @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Log Attempt #38 in docs/fix_plan.md summarizing RED run + new artifacts before ending loop; tests: none.
+1. TEST-PYTORCH-001 B2.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Implement `generate_fixture()` in `scripts/tools/make_pytorch_integration_fixture.py`, emit `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` + `.json` metadata via design §4, and capture CLI output with `tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T225900Z/phase_b_fixture/fixture_generation.log`; tests: none.
+2. TEST-PYTORCH-001 B2.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_fixture_pytorch_integration.py -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T225900Z/phase_b_fixture/pytest_fixture_green.log` to confirm GREEN, then update plan rows B2.C to `[x]`; tests: pytest tests/torch/test_fixture_pytorch_integration.py -vv.
+3. TEST-PYTORCH-001 B2.D @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Author `fixture_notes.md` + `summary.md` under the new artifact hub capturing checksum, runtime delta, regeneration command, and append docs/fix_plan Attempt summarizing B2.C/D completion; tests: none.
 
-If Blocked: Capture partial design + test skeleton in generator_design.md with TODO markers, record failure reason + outstanding dependencies in docs/fix_plan.md Attempt, leave B2 rows `[P]`.
+If Blocked: Store intermediate findings (partial generator, failing selector output) under the 2025-10-19T225900Z hub, leave B2.C/B2.D `[P]`, and record blocker in docs/fix_plan Attempts with error text plus follow-up plan.
 
 Priorities & Rationale:
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Phase B2 entrance criteria require design doc + RED test before implementation.
-- specs/data_contracts.md:12 — Fixture must emit canonical `(N,H,W)` float32 diffraction + complex64 probe/object per contract.
-- docs/workflows/pytorch.md:210 — Reinforces CONFIG-001 bridging + CLI knobs referenced in generator + tests.
-- docs/findings.md#FORMAT-001 — Legacy `(H,W,N)` datasets demand explicit transpose; encode expectation in generator design/test.
-- docs/TESTING_GUIDE.md:150 — Mandates TDD flow (RED before GREEN) for new regression coverage.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md B2.C/B2.D — Only remaining checklist items before Phase B can close.
+- specs/data_contracts.md §1 — Canonical NPZ contract drives dtype/shape enforcement (float32 diffraction, complex64 object/probe).
+- docs/findings.md (DATA-001, FORMAT-001) — Fixtures must remove legacy `(H,W,N)` ordering and ensure normalization.
+- generator_design.md §4–§6 — Provides authoritative pseudocode, CLI contract, and validation matrix for implementation.
+- docs/workflows/pytorch.md §§4–8 — Confirms RawData/PyTorch loader expectations and CONFIG-001 sequencing.
 
 How-To Map:
-- mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T220500Z/phase_b_fixture
-- Write generator design covering: source dataset path (`datasets/Run1084_recon3_postPC_shrunk_3.npz`), deterministic subset (first 64 positions), dtype downcasts, axis reorder, checksum metadata, CLI flags. Quote acceptance criteria from `fixture_scope.md` §3.
-- Stub script `scripts/tools/make_pytorch_integration_fixture.py` with argparse options (`--source`, `--output`, `--subset-size`, `--metadata-out`) and placeholder `main()` raising `NotImplementedError`.
-- Create pytest module `tests/torch/test_fixture_pytorch_integration.py` importing `numpy` and referencing acceptance criteria constants (n_subset=64, dtype expectations). Structure test to call `np.load` on fixture path (expect to fail) or call stubbed helper to emphasize missing implementation.
-- Run targeted RED command: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_fixture_pytorch_integration.py::test_fixture_outputs_match_contract -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T220500Z/phase_b_fixture/pytest_fixture_red.log`.
-- Update `fixture_scope.md` appendix with pointer to new design doc if you add additional acceptance notes (optional, docs-only).
-- After tests, record Attempt #38 (Phase B2 kickoff) in docs/fix_plan.md referencing artifact path + failing assertion text.
+- Implement `generate_fixture()` exactly per design pseudocode: transpose `(H,W,N)→(N,H,W)`, slice first 64 positions, downcast dtypes, preserve optional coord keys, and save compressed NPZ.
+- Use helper functions for checksum + metadata (`hashlib.sha256`, `datetime.now(timezone.utc)`); ensure metadata records commit SHA via `git rev-parse HEAD`.
+- Generate fixture via `python scripts/tools/make_pytorch_integration_fixture.py --source datasets/Run1084_recon3_postPC_shrunk_3.npz --output tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --subset-size 64 --metadata-out tests/fixtures/pytorch_integration/minimal_dataset_v1.json`.
+- After CLI run, compute `sha256sum tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` and cross-check against metadata before logging results in `fixture_notes.md`.
+- Targeted pytest command (GREEN step): `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_fixture_pytorch_integration.py -vv`.
+- Update plan tables (`plan.md` B2.C/B2.D, implementation.md B2 row) and append docs/fix_plan Attempt with artifact links (`fixture_generation.log`, `pytest_fixture_green.log`, `fixture_notes.md`, generated fixture checksum).
+- Capture `summary.md` describing runtime impact (<45s goal), fixture location, and next steps for Phase B3.
 
 Pitfalls To Avoid:
-- Do not implement fixture logic yet—leave `NotImplementedError` to keep test RED.
-- Keep pytest module pure pytest style (no unittest.TestCase mixes).
-- Store all artifacts under the 2025-10-19T220500Z hub; no logs at repo root.
-- Preserve TODO markers for unimplemented functionality instead of partial code.
-- Remember to call out CONFIG-001 bridge requirement in design doc; missing that will cause future regressions.
-- Avoid guessing checksum in test—leave placeholder assertion (e.g., `pytest.skip` or `assert False, "Fixture not generated"`).
-- Do not run full pytest suite; only the targeted selector for RED validation.
-- Ensure stub script imports remain minimal (argparse, pathlib, typing) so unused torch imports don't break without implementation.
-- Verify new files follow ASCII + shebang conventions and include module docstring referencing plan.
-- Update docs/fix_plan immediately after work; no deferred ledger updates.
+- Do not leave generator producing 1087 samples; enforce deterministic first-64 subset or update acceptance criteria.
+- Keep diffraction normalized (no photon scaling) and validate max < 10.0 per test expectation.
+- Ensure metadata JSON includes checksum and `subset_size`; missing fields will fail tests.
+- Avoid loading torch in generator; stick to numpy/json/hashlib so CLI stays lightweight.
+- Do not commit binary fixtures outside `tests/fixtures/pytorch_integration/`; keep repo root clean.
+- When running pytest, ensure the newly generated fixture is committed so future loops can reuse it.
+- Do not change tests to skip—make them pass via fixture generation.
+- Maintain ASCII encoding in notes; no fancy formatting outside markdown basics.
+- Preserve red log under original timestamp; store new GREEN log only under 2025-10-19T225900Z.
+- Remember to update docs/fix_plan and plan tables before ending loop to keep ledger authoritative.
 
 Pointers:
 - plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T215300Z/phase_b_fixture/fixture_scope.md#3
-- specs/data_contracts.md:12
-- docs/workflows/pytorch.md:200
-- docs/findings.md:18
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T215300Z/phase_b_fixture/fixture_scope.md
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T220500Z/phase_b_fixture/generator_design.md
+- specs/data_contracts.md#L1
+- docs/workflows/pytorch.md#L1
+- docs/findings.md:12
 
-Next Up: 1. TEST-PYTORCH-001 B2.C — implement generator + GREEN run once RED artifacts captured.
+Next Up: 1. TEST-PYTORCH-001 B3.A — point integration regression at the new fixture once generator + documentation are complete.
