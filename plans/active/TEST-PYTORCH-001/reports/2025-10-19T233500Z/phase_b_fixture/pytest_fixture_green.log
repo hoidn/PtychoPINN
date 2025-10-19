@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 7 items
+
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_file_exists PASSED [ 14%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_outputs_match_contract PASSED [ 28%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_sidecar_exists PASSED [ 42%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_content_valid PASSED [ 57%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_coordinate_coverage PASSED [ 71%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_loads_with_rawdata PASSED [ 85%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_compatible_with_pytorch_dataloader PASSED [100%]
+
+============================== 7 passed in 3.82s ===============================
