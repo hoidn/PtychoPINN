@@ -41,7 +41,7 @@ Exit Criteria: Spec patch drafted, reviewed, and referenced from fix_plan; findi
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Draft spec amendments | [ ] | Update `specs/ptychodus_api_spec.md` §4.1–§4.6 with PyTorch backend selection details (config flag, dispatch behaviour, persistence expectations). Stage working copy in `reports/2025-10-19T205832Z/phase_e3_spec_patch.md` before editing the spec. |
+| C1 | Draft spec amendments | [P] | Draft ready (2025-10-19 Attempt #14): `phase_e3_spec_patch.md` captures §4.8 requirements (config literals, CONFIG-001 enforcement, error handling) with references to `ptycho/workflows/backend_selector.py` & `tests/torch/test_backend_selection.py`. Next step: apply text to `specs/ptychodus_api_spec.md` once reviewed. |
 | C2 | Align knowledge base | [ ] | If new policies arise (e.g., backend flag usage), append entries to `docs/findings.md` with evidence paths. Document outcome in the spec patch file. |
 | C3 | Review with governance log | [ ] | Cross-check `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` and `phase_f_torch_mandatory.md` to verify no contradictions. Note confirmations (or discrepancies) in the spec patch report. |
 
@@ -65,4 +65,3 @@ Exit Criteria: Handoff document authored, plan checklist updated, and fix_plan a
 - `docs/workflows/pytorch.md`
 - `docs/findings.md#POLICY-001`
 - `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T201500Z/phase_d2_completion/parity_update.md`
-

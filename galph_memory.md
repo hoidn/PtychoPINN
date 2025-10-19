@@ -1045,3 +1045,16 @@
   - Rewrote `input.md` directing Ralph to execute Phase A (inventory) tasks only, storing outputs in `phase_e3_docs_inventory.md`; reiterated that no docs/spec edits should occur yet.
 - Next steps for Ralph: complete Phase A checklist (A1–A3) per the new plan, then report findings before starting documentation changes.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T211300Z: Phase E3 backend-selection spec planning
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS — Phase E3 backend selection & documentation sync
+- Action type: Planning
+- Mode: Docs
+- Findings consulted: POLICY-001 (PyTorch mandatory), FORMAT-001 (NPZ guard).
+- Work performed:
+  - Reviewed backend selector implementation (`ptycho/workflows/backend_selector.py:121-165`) and red tests (`tests/torch/test_backend_selection.py:59-170`) to align spec language.
+  - Authored `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_spec_patch.md` outlining proposed §4.8 guarantees (config literals, CONFIG-001 enforcement, dispatcher routing, error messaging, results metadata, persistence parity).
+  - Logged loop summary at `summary_phase_e3_spec_planning.md` and marked `phase_e3_docs_plan.md` C1 as `[P]` pending governance review + spec patch application.
+  - Appended Attempt #14 to docs/fix_plan.md referencing new artifacts and no-test policy.
+- Next steps: Secure governance sign-off on §4.8 draft, then delegate Phase E3.B doc edits and C2/C3 knowledge-base sync; author Phase E3.D handoff brief.
+- <Action State>: [ready_for_implementation]
