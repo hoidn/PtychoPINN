@@ -18,6 +18,38 @@
 - Remember to relocate stray `train_debug.log` (currently at repo root) into this directory alongside the new log if it originates from the run.
 
 ## Next Steps Checklist
-- [ ] Capture fresh integration log (`pytest_integration_current.log`)
-- [ ] Draft `diagnostics.md` summarising failure + remediation hypotheses
-- [ ] Reference artifacts from docs/fix_plan.md Attempt #29 and update plan checklist D1 once evidence is in place
+- [x] Capture fresh integration log (`pytest_integration_current.log`) — COMPLETE (Attempt #30)
+- [x] Draft `diagnostics.md` summarising failure + remediation hypotheses — COMPLETE (Attempt #30)
+- [x] Reference artifacts from docs/fix_plan.md Attempt #30 and update plan checklist D1 once evidence is in place — COMPLETE (Attempt #30)
+
+## Outcomes (Attempt #30 - 2025-10-19)
+
+**Test Execution:**
+- Command: `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee pytest_integration_current.log`
+- Runtime: 17.11s
+- Result: FAILED (expected)
+
+**Artifacts Captured:**
+- `pytest_integration_current.log` (17KB) — Full pytest output with stack trace
+- `train_debug.log` (80KB) — Training subprocess debug output (relocated from repo root)
+- `diagnostics.md` — Comprehensive failure analysis with remediation hypotheses
+
+**Failure Confirmation:**
+Training subprocess succeeded; checkpoint created at `<output_dir>/checkpoints/last.ckpt`. Inference subprocess failed with identical `TypeError` as 2025-10-17 baseline:
+```
+TypeError: PtychoPINN_Lightning.__init__() missing 4 required positional arguments:
+'model_config', 'data_config', 'training_config', and 'inference_config'
+```
+
+**Key Findings:**
+1. **No behavioral change** vs baseline — Lightning checkpoint loading failure persists
+2. **Root cause:** `load_from_checkpoint()` requires hyperparameters to be serialized in checkpoint payload, but current implementation may not preserve dataclass config objects correctly
+3. **Impact:** Violates persistence contract per `specs/ptychodus_api_spec.md` §4.6
+
+**Remediation Path (Next Loops):**
+Three hypotheses documented in `diagnostics.md`:
+- Hypothesis 1: Missing or incomplete `save_hyperparameters()` payload
+- Hypothesis 2: Load path missing hyperparameter restoration logic
+- Hypothesis 3: Dataclass serialization compatibility issue
+
+Recommended next action: Inspect checkpoint payload with `torch.load()` to verify `hyper_parameters` key contents and determine which hypothesis is correct (see diagnostics.md §Next Hypotheses).
