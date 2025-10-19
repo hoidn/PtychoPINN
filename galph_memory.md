@@ -961,5 +961,8 @@
 - Focus issue: TEST-PYTORCH-001 — PyTorch integration regression test plan bootstrap
 - Action type: Planning
 - Mode: TDD
-- Notes: Dependencies satisfied (INTEGRATE-PYTORCH-001 Phase E2 complete; POLICY-001 enforced). Preparing to convert charter at `plans/pytorch_integration_test_plan.md` into phased implementation plan under `plans/active/TEST-PYTORCH-001/implementation.md`.
-- <Action State>: [planning]
+- Notes:
+  - Dependencies satisfied (INTEGRATE-PYTORCH-001 Phase E2 complete; POLICY-001 enforced).
+  - Migrated charter into phased plan `plans/active/TEST-PYTORCH-001/implementation.md` with artifact map + Phase A–D checklists.
+  - Updated docs/fix_plan Attempt #1 for TEST-PYTORCH-001 and rewrote `input.md` directing Ralph to execute Phase A baseline (new artifact hub `2025-10-19T115303Z`).
+- <Action State>: [ready_for_implementation]
