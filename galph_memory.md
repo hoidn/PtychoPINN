@@ -835,3 +835,13 @@
   - Updated `phase_d2_completion.md` C1 row to `[x]`, appended Attempt #22 to docs/fix_plan.md, and seeded summary.md in new report dir.
   - Rewrote `input.md` (Mode=TDD) directing Ralph to execute Phase C2 red tests with artifact path `pytest_stitch_red.log`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T083917Z: Phase C3 implementation staging
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS — Phase C3 `_reassemble_cdi_image_torch`
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes:
+  - Created Phase C3 playbook (`reports/2025-10-19T084016Z/.../phase_c3_playbook.md`) capturing dataset_path fix + Lightning predict flow.
+  - Updated `phase_d2_completion.md` C3/C4 guidance and augmented 2025-10-19T081500Z summary with C2 red status + TypeError blocker note.
+  - Logged Attempt #24 in docs/fix_plan.md and rewrote `input.md` directing Ralph through C3 implementation and green pytest run.
+- <Action State>: [ready_for_implementation]
