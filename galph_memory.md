@@ -918,3 +918,18 @@
 - Steering: Rewrote `input.md` (Mode=TDD) directing Ralph through RED→GREEN dtype tests and integration rerun, with logs captured under the new timestamp. Emphasised keeping waveforms float32 and preserving artifact hygiene.
 - Open questions: Need evidence on where float64 originates (loader tensors vs Lightning module). RED test should assert dtype before fix.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T105248Z: Loop Focus Declaration
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase D1e — Resolve Lightning inference shape mismatch (tensor 572 vs 1080)
+- Action type: Planning
+- Mode: TDD
+- Notes: Coin flip (heads) triggered commit review (last 10); dtype enforcement (c823b80) is clean, integration now blocked solely by decoder merge mismatch.
+- Findings scan: CONFIG-001 (params bridge) and FORMAT-001 (NPZ auto-transpose) remain applicable; no prior shape-specific ledger entry.
+- Document review: `specs/ptychodus_api_spec.md` §4.6 (decoder/stitching contract), `docs/workflows/pytorch.md` §§6–7 (Lightning inference), `plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md`, prior `debug_shape_triage.md` (C4) for parity patterns.
+- Key updates:
+  - Created new artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/` with `d1e_shape_plan.md`, `shape_mismatch_triage.md`, and refreshed `summary.md`.
+  - Added D1e row to `phase_d2_completion.md`; drafted phased plan (evidence → TDD fix → integration validation) with checklist IDs D1e.A1–C3.
+  - Registered new fix-plan entry `[INTEGRATE-PYTORCH-001-D1E]` plus Attempt #38 describing planning deliverables; `docs/fix_plan.md` now points to new artifacts.
+  - Rewrote `input.md` (Mode=TDD) directing Ralph to capture fresh integration log, instrument decoder shapes under env guard, update triage memo, and author RED regression test `TestDecoderLastShapeParity`.
+- Observations: Current integration log (2025-10-19T110500Z) shows failure at `Decoder_last.forward` when `probe_big` branch active; need explicit crop/pad parity with TensorFlow before resuming D2/D3 work.
+- <Action State>: [planning]

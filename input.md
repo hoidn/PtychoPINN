@@ -1,48 +1,48 @@
-Summary: Enforce float32 tensors in PyTorch inference so Lightning convolution accepts checkpoint-loaded batches without dtype mismatch
+Summary: Capture decoder shape evidence and author RED test for Lightning probe_big merge mismatch before implementing fix
 Mode: TDD
-Focus: INTEGRATE-PYTORCH-001-STUBS — Phase D1d PyTorch inference dtype mismatch
+Focus: INTEGRATE-PYTORCH-001-D1E — Resolve Lightning decoder shape mismatch (Phase D1e)
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32 -vv; pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/{pytest_dtype_red.log,pytest_dtype_green.log,pytest_integration_dtype_green.log,summary.md,dtype_triage.md,train_debug.log}
+Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv; pytest tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_shape_alignment -vv
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/{summary.md,d1e_shape_plan.md,shape_mismatch_triage.md,pytest_integration_shape_red.log,shape_trace.md,pytest_decoder_shape_red.log}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-STUBS D1d @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Add pytest coverage asserting `_build_inference_dataloader`/`_reassemble_cdi_image_torch` keep batches float32; run `pytest tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_batches_remain_float32 -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/pytest_dtype_red.log` (tests: targeted selector)
-2. INTEGRATE-PYTORCH-001-STUBS D1d @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Implement dtype enforcement (cast tensors to `torch.float32` before Lightning forward) and rerun `pytest tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_batches_remain_float32 -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/pytest_dtype_green.log` (tests: targeted selector)
-3. INTEGRATE-PYTORCH-001-STUBS D1d @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Re-run `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/pytest_integration_dtype_green.log` to confirm dtype fix holds end-to-end (tests: targeted selector)
-4. INTEGRATE-PYTORCH-001-STUBS D1d @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update `summary.md`, flip D1d row to `[x]`, record docs/fix_plan.md Attempt (paths above), and note any follow-up risks (tests: none)
+1. INTEGRATE-PYTORCH-001-D1E D1e.A1 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Reproduce the failing integration selector via `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/pytest_integration_shape_red.log` (tests: targeted selector)
+2. INTEGRATE-PYTORCH-001-D1E D1e.A2 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Add temporary env-gated logging around `Decoder_last.forward` to record `x`, `x1`, and `x2` shapes; run `TORCH_DECODER_TRACE=1 pytest tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_batches_remain_float32 -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/shape_trace.md` then remove instrumentation before finishing (tests: targeted selector)
+3. INTEGRATE-PYTORCH-001-D1E D1e.A3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Update `shape_mismatch_triage.md` with captured shapes, hypotheses, and proposed fix direction (tests: none)
+4. INTEGRATE-PYTORCH-001-D1E D1e.B1 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md — Author failing pytest `TestDecoderLastShapeParity::test_probe_big_shape_alignment` and capture RED run via `pytest tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_shape_alignment -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/pytest_decoder_shape_red.log` (tests: targeted selector)
 
-If Blocked: Capture the failing selector output into the artifact directory (e.g., `tee .../pytest_dtype_blocked.log`), keep D1d `[P]`, and document the blocker in `dtype_triage.md` plus docs/fix_plan.md before pausing.
+If Blocked: Preserve failing selector output in the artifact directory (`.../pytest_integration_shape_blocked.log` or `.../pytest_decoder_shape_blocked.log`), keep D1e rows `[P]`, and document blockers + hypotheses in `shape_mismatch_triage.md` before stopping.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md: current D1d row gates parity work until float32 enforcement is proven.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/dtype_triage.md: documents failure stack trace and hypotheses; follow it for evidence collection.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T134500Z/phase_d2_completion/pytest_integration_checkpoint_green.log: shows Lightning load succeeding followed by float64 crash.
-- specs/data_contracts.md §1: mandates diffraction tensors remain float32; regression test should encode this contract.
-- docs/workflows/pytorch.md §§5–7: orchestrator expectations, including deterministic CPU loaders and dtype parity with TensorFlow.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md (D1e row): checklist gates remaining Phase D milestones.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md: phased plan defines evidence → TDD workflow.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/shape_mismatch_triage.md: working hypotheses for mismatch.
+- specs/ptychodus_api_spec.md §4.6: decoder/stitching contract that PyTorch must mirror.
+- docs/workflows/pytorch.md §§6–7: Lightning inference expectations (probe handling, stitching).
 
 How-To Map:
-- Tests: Add `TestReassembleCdiImageTorchFloat32` in `tests/torch/test_workflows_components.py` (pytest style). Build fixtures that reuse Phase C scaffolding (`MockLightningModule` etc.) and assert `X_batch.dtype is torch.float32` while running `_reassemble_cdi_image_torch` via helper. Expect current code to raise `RuntimeError`; structure the test so the failure is a pytest assertion (not `pytest.raises`).
-- Instrumentation: Within the test, inspect `dtype` of `infer_loader.dataset.tensors[0]` and capture in assertion messages so log output proves regression.
-- Implementation guidance: In `_build_inference_dataloader`, call `infer_X = infer_X.to(torch.float32, copy=False)` before wrapping in `TensorDataset`. Inside `_reassemble_cdi_image_torch`, ensure `X_batch = X_batch.to(torch.float32)` prior to model invocation. Avoid altering coordinates/offset dtypes (they remain float64 per contract).
-- Integration: After unit tests pass, re-run the targeted integration selector with `tee` into the artifact path to confirm the dtype fix resolves the original failure.
-- Artifact hygiene: Keep all logs under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/`; do not recreate `train_debug.log` at repo root.
+- Temporary instrumentation: wrap `Decoder_last.forward` with env check `if os.getenv("TORCH_DECODER_TRACE"):` and log tensor shapes via `logger.info`. Remove the code (or guard behind env check) before concluding the loop.
+- Integration reproduction: use dataset referenced in previous runs (no new fixtures) and ensure `update_legacy_dict` executes before pipeline (already handled by CLI).
+- Shape trace: after instrumentation run, copy relevant log lines into `shape_trace.md` (include tensor names, shapes, dtype) and note whether probe_big branch triggered.
+- Red test scaffolding: mirror TensorFlow decoder behaviour by constructing mock tensors shaped `(batch, channels, N, N)` with `probe_big=True`, assert `outputs.shape` equals expected `(batch, n_filters_scale * 32, N, N)` (or parity result). Use fixtures from existing Lightning tests where possible.
+- Artifact hygiene: Keep all logs and notes under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/`; delete temporary checkpoints once shape evidence captured.
 
 Pitfalls To Avoid:
-- Do not downcast complex tensors (`Y`, `probe`)—only the diffraction amplitude batches should be float32.
-- Avoid introducing torch dependencies at module import time; guard new torch calls within existing try/except blocks.
-- Preserve deterministic loader settings (respect `config.sequential_sampling` and seed).
-- Ensure pytest tests stay in native pytest style (no `unittest.TestCase`).
-- Keep artifact logs small (use `-vv` only on targeted selectors) and delete temporary checkpoints after tests.
-- Do not touch TensorFlow baseline modules (`ptycho/model.py`, `ptycho/tf_helper.py`).
-- Make sure integration rerun uses the same dataset path defined in plan; no ad-hoc fixtures.
-- Capture both red and green logs to show TDD progression.
-- Update plan + fix_plan in the same loop; leaving D1d `[ ]` without rationale is non-compliant.
+- Do not leave debug logging enabled without env guard; remove instrumentation before committing.
+- Avoid mutating TensorFlow baseline files (`ptycho/model.py`, `ptycho/tf_helper.py`).
+- Keep dtype enforcement from D1d intact; do not revert recent float32 casts.
+- Ensure new pytest uses native pytest style (no unittest mix) and references plan artifacts.
+- When adding tests, avoid hard-coding absolute paths; reuse fixtures/configs from existing tests.
+- Do not skip params.cfg bridge — verify `update_legacy_dict` runs in tests via existing fixtures.
+- Limit logging noise; shape trace file should summarize essential data, not entire pytest output.
+- Maintain deterministic seeds when generating mock tensors to keep tests stable.
+- Revert instrumentation patches before running red test to prevent unintended logging assertions.
 
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md#L70
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/dtype_triage.md
-- specs/data_contracts.md:34
-- docs/workflows/pytorch.md:74
-- tests/torch/test_workflows_components.py:1076
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:68
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/shape_mismatch_triage.md
+- ptycho_torch/model.py:312
+- tests/torch/test_workflows_components.py:1530
 
-Next Up: D2 parity summary refresh once dtype enforcement is green.
+Next Up: Implement decoder crop/pad parity (D1e.B2) once red test and evidence land.
