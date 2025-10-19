@@ -26,6 +26,11 @@ import pytest
 from pathlib import Path
 import numpy as np
 
+try:
+    import torch
+except ImportError:
+    torch = None
+
 # Add to conftest.py TORCH_OPTIONAL_MODULES if not already present
 # This test must run without torch runtime
 
@@ -1520,3 +1525,225 @@ class TestReassembleCdiImageTorchGreen:
         assert isinstance(results["obj_tensor_full"], np.ndarray), "obj_tensor_full must be array"
         assert isinstance(results["global_offsets"], np.ndarray), "global_offsets must be array"
         assert isinstance(results["containers"], dict), "containers must be dict"
+
+
+class TestReassembleCdiImageTorchFloat32:
+    """
+    Phase D1d dtype enforcement tests — verify float32 tensor preservation.
+
+    Context:
+    - Integration test fails with RuntimeError: Input type (double) and bias type (float)
+    - Root cause: Inference dataloader yields float64 tensors to Lightning module
+    - Spec requirement: specs/data_contracts.md §1 mandates diffraction arrays be float32
+    - TensorFlow parity: TF pipeline maintains float32 throughout inference
+
+    Test Strategy:
+    - RED: Assert _build_inference_dataloader preserves float32 from container
+    - GREEN: Cast infer_X to torch.float32 before TensorDataset construction
+    - Regression: Verify integration test completes without dtype mismatch
+
+    Artifacts:
+    - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/dtype_triage.md
+    - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/pytest_dtype_red.log
+    - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/pytest_dtype_green.log
+    """
+
+    @pytest.fixture
+    def minimal_training_config(self):
+        """Create minimal TrainingConfig fixture for dtype tests."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='pinn',
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            batch_size=4,
+        )
+
+        return training_config
+
+    @pytest.fixture
+    def float32_container_fixture(self):
+        """
+        Create mock container dict with explicit float32 tensors.
+
+        This fixture emulates the output of _ensure_container after Phase C,
+        where X and coords_nominal should be float32 per data contract.
+        Uses dict interface for duck-typing compatibility with _build_inference_dataloader.
+        """
+        try:
+            import torch
+        except ImportError:
+            pytest.skip("PyTorch not available")
+
+        # Create deterministic float32 tensors matching data contract
+        n_samples = 20
+        N = 64
+
+        X_full = torch.randn(n_samples, N, N, dtype=torch.float32)
+        coords_nominal = torch.randn(n_samples, 2, dtype=torch.float32)
+        local_offsets = torch.randn(n_samples, 1, 2, 1, dtype=torch.float64)  # Can be float64
+        global_offsets = torch.randn(n_samples, 1, 2, 1, dtype=torch.float64)  # Can be float64
+
+        # Return dict-like container compatible with _get_tensor helper
+        container = {
+            'X': X_full,
+            'coords_nominal': coords_nominal,
+            'local_offsets': local_offsets,
+            'global_offsets': global_offsets,
+        }
+
+        return container
+
+    def test_batches_remain_float32(
+        self,
+        minimal_training_config,
+        float32_container_fixture
+    ):
+        """
+        RED TEST: _build_inference_dataloader must preserve float32 dtype.
+
+        Requirement:
+        - specs/data_contracts.md §1: diffraction arrays MUST be float32
+        - docs/workflows/pytorch.md §7: PyTorch parity must maintain dtype consistency
+
+        Expected behavior (after GREEN implementation):
+        - infer_X from container is torch.float32
+        - After _build_inference_dataloader construction, batches remain float32
+        - Lightning module receives float32 tensors (avoids float64 bias mismatch)
+
+        Current behavior (RED phase):
+        - _build_inference_dataloader uses torch.from_numpy without dtype enforcement
+        - If numpy array is float64 (from legacy code), tensor is also float64
+        - Batches yielded as float64 trigger RuntimeError in Conv2d layers
+
+        Test mechanism:
+        - Supply PtychoDataContainerTorch with float32 X and coords
+        - Build inference dataloader via _build_inference_dataloader
+        - Iterate loader and assert X_batch.dtype is torch.float32
+        - Expect FAILURE because current implementation lacks dtype cast
+
+        Rationale:
+        - Codifies DATA-001 float32 contract for PyTorch inference path
+        - Prevents regression after dtype enforcement fix
+        - Mirrors TensorFlow baseline behavior (maintains float32 throughout)
+        """
+        from ptycho_torch.workflows.components import _build_inference_dataloader
+
+        # Verify fixture provides float32 container (precondition)
+        assert float32_container_fixture['X'].dtype == torch.float32, \
+            "Test fixture must provide float32 X tensor"
+        assert float32_container_fixture['coords_nominal'].dtype == torch.float32, \
+            "Test fixture must provide float32 coords tensor"
+
+        # Build inference dataloader
+        infer_loader = _build_inference_dataloader(
+            float32_container_fixture,
+            minimal_training_config
+        )
+
+        # Iterate loader and assert dtype preservation
+        batch_count = 0
+        for batch in infer_loader:
+            X_batch, coords_batch = batch
+
+            # CRITICAL ASSERTION: X_batch must remain float32
+            assert X_batch.dtype == torch.float32, \
+                f"X_batch dtype is {X_batch.dtype}, expected torch.float32. " \
+                f"Inference dataloader must cast tensors to float32 before yielding batches " \
+                f"to prevent 'Input type (double) and bias type (float)' runtime errors. " \
+                f"See plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/dtype_triage.md"
+
+            # coords can remain float32 (they are already float32 from container)
+            assert coords_batch.dtype == torch.float32, \
+                f"coords_batch dtype is {coords_batch.dtype}, expected torch.float32"
+
+            batch_count += 1
+
+        # Ensure we actually iterated batches
+        assert batch_count > 0, "Dataloader must yield at least one batch"
+
+    def test_dataloader_casts_float64_to_float32(
+        self,
+        minimal_training_config
+    ):
+        """
+        RED TEST: _build_inference_dataloader must cast float64 numpy arrays to float32.
+
+        Context:
+        - Integration test shows `RuntimeError: Input type (double) and bias type (float)`
+        - Root cause: numpy arrays may be float64 from legacy code or checkpoint reload
+        - When `torch.from_numpy` converts float64 array, tensor remains float64
+        - Lightning Conv2d layers expect float32, causing dtype mismatch
+
+        Requirement:
+        - specs/data_contracts.md §1: diffraction arrays MUST be float32
+        - Inference path must enforce float32 regardless of input dtype
+
+        Test mechanism:
+        - Create mock container with float64 numpy arrays (simulates legacy data)
+        - Build inference dataloader
+        - Assert batches are cast to float32 despite float64 input
+        - Expect FAILURE because current implementation lacks dtype enforcement
+
+        Rationale:
+        - Catches the actual bug causing integration test failure
+        - Validates dtype enforcement handles worst-case (float64 input)
+        - Once GREEN, guarantees robustness against legacy data sources
+        """
+        try:
+            import torch
+            import numpy as np
+        except ImportError:
+            pytest.skip("PyTorch not available")
+
+        from ptycho_torch.workflows.components import _build_inference_dataloader
+
+        # Create mock container with float64 arrays (simulates legacy/checkpoint data)
+        n_samples = 20
+        N = 64
+
+        # CRITICAL: Use float64 to simulate the actual bug
+        X_float64 = np.random.randn(n_samples, N, N).astype(np.float64)
+        coords_float64 = np.random.randn(n_samples, 2).astype(np.float64)
+
+        container = {
+            'X': X_float64,  # Will be converted to torch.float64 by torch.from_numpy
+            'coords_nominal': coords_float64,
+        }
+
+        # Build inference dataloader
+        infer_loader = _build_inference_dataloader(
+            container,
+            minimal_training_config
+        )
+
+        # Iterate loader and assert dtype enforcement
+        batch_count = 0
+        for batch in infer_loader:
+            X_batch, coords_batch = batch
+
+            # CRITICAL ASSERTION: Must cast to float32 despite float64 input
+            assert X_batch.dtype == torch.float32, \
+                f"X_batch dtype is {X_batch.dtype}, expected torch.float32. " \
+                f"Inference dataloader MUST cast float64 arrays to float32 before yielding batches. " \
+                f"Current failure: 'Input type (double) and bias type (float)' in Conv2d forward. " \
+                f"Fix: Add `infer_X = infer_X.to(torch.float32, copy=False)` before TensorDataset construction. " \
+                f"See plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/dtype_triage.md"
+
+            assert coords_batch.dtype == torch.float32, \
+                f"coords_batch dtype is {coords_batch.dtype}, expected torch.float32"
+
+            batch_count += 1
+
+        # Ensure we actually iterated batches
+        assert batch_count > 0, "Dataloader must yield at least one batch"

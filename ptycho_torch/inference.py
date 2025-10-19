@@ -487,8 +487,12 @@ Examples:
 
     try:
         # Extract data from NPZ
-        diffraction = torch.from_numpy(test_data['diffraction']).to(args.device)
-        probe = torch.from_numpy(test_data['probeGuess']).to(args.device)
+        # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 to prevent Conv2d dtype mismatch
+        # Requirement: specs/data_contracts.md §1 mandates diffraction arrays be float32
+        # Root cause: torch.from_numpy preserves dtype; legacy NPZ files may contain float64
+        # Symptom: RuntimeError "Input type (double) and bias type (float)" in model forward
+        diffraction = torch.from_numpy(test_data['diffraction']).to(args.device, dtype=torch.float32)
+        probe = torch.from_numpy(test_data['probeGuess']).to(args.device, dtype=torch.complex64)
 
         # Handle different diffraction shapes (H, W, n) vs (n, H, W)
         # Per specs/data_contracts.md, diffraction should be (H, W, n)

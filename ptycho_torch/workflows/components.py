@@ -435,6 +435,14 @@ def _build_inference_dataloader(
         batch_size = infer_X.size(0) if isinstance(infer_X, torch.Tensor) else 5
         infer_coords = torch.randn(batch_size, 2)
 
+    # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 to prevent Lightning Conv2d dtype mismatch
+    # Requirement: specs/data_contracts.md §1 mandates diffraction arrays be float32
+    # Root cause: torch.from_numpy preserves dtype; legacy/checkpoint data may be float64
+    # Symptom: RuntimeError "Input type (double) and bias type (float)" in Lightning forward
+    # Solution: Explicit cast before TensorDataset construction
+    infer_X = infer_X.to(torch.float32, copy=False)
+    infer_coords = infer_coords.to(torch.float32, copy=False)
+
     infer_dataset = TensorDataset(infer_X, infer_coords)
 
     # Create deterministic loader
@@ -687,6 +695,9 @@ def _reassemble_cdi_image_torch(
         for batch in infer_loader:
             # batch is (X, coords) from TensorDataset
             X_batch, coords_batch = batch
+            # DTYPE ENFORCEMENT (Phase D1d): Ensure float32 before Lightning forward
+            # Defensive cast in case dataloader bypass occurs or future refactoring breaks upstream cast
+            X_batch = X_batch.to(torch.float32)
             # For simplicity in MVP, assume model takes X only (coords may be unused)
             # Real implementation should match Lightning module's forward signature
             # For now, call the model and expect complex output
