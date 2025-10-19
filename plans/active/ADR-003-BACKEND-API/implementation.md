@@ -12,9 +12,9 @@ Exit Criteria: Shared inventory of CLI/programmatic parameters, execution config
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| A1 | Inventory CLI flags and programmatic entry points | [ ] | Follow `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T225905Z/phase_a_inventory/plan.md` (tasks A1.a–A1.c). Populate `cli_inventory.md` with flag → config mappings, required/optional status, and TensorFlow parity notes. |
-| A2 | Catalogue backend-specific execution knobs | [ ] | Execute tasks A2.a–A2.c in the same plan. Produce `execution_knobs.md` documenting Lightning/device knobs, current definitions, and proposed home (factory override vs execution config). |
-| A3 | Confirm overlaps with existing plans | [ ] | Complete tasks A3.a–A3.c (overlap audit) in the Phase A plan. Record ownership decisions and missing ADR doc status in `overlap_notes.md`, then summarise in `summary.md`. |
+| A1 | Inventory CLI flags and programmatic entry points | [x] | ✅ 2025-10-19 — Captured 19 add_argument calls to `logs/a1_cli_flags.txt`. Mapped 9 training flags + 10 inference flags to config fields with file:line citations. Identified 5 critical semantic mismatches (epoch naming, activation defaults, neighbor count, probe size, n_groups terminology) + 11 feature gaps (6 PyTorch, 5 TF). Artifact: `cli_inventory.md` (21KB). |
+| A2 | Catalogue backend-specific execution knobs | [x] | ✅ 2025-10-19 — Cataloged 54 unique parameters across 11 categories (Lightning, MLflow, distributed, logging, scheduler, checkpointing, inference). Recommended 35 knobs for `PyTorchExecutionConfig` dataclass. Identified 9 hardcoded values requiring CLI exposure (learning_rate, accelerator, num_workers, early_stop_patience, scheduler_type). Artifact: `execution_knobs.md` (265 lines). |
+| A3 | Confirm overlaps with existing plans | [x] | ✅ 2025-10-19 — Audited 15 topics against INTEGRATE-PYTORCH-001 + TEST-PYTORCH-001. Confirmed 7 complete (CLI, config bridge, Lightning, MLflow, persistence, fixtures, parity). Identified 2 critical gaps for ADR-003 ownership (factory patterns, PyTorchExecutionConfig). Flagged 1 governance gap (ADR-003.md missing). No blockers for Phase B. Artifact: `overlap_notes.md` (17KB), `summary.md` (compact summary). |
 
 ### Phase B — Configuration Factories
 Goal: Centralize canonical `TF*Config` construction for PyTorch backend via shared factories.
