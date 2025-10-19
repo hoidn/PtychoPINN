@@ -1,0 +1,18 @@
+Fixture generator invoked (STUB MODE)
+  Source:       datasets/Run1084_recon3_postPC_shrunk_3.npz
+  Output:       tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+  Subset size:  64
+  Metadata:     tests/fixtures/pytorch_integration/minimal_dataset_v1.json
+
+✓ Fixture generated: tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+✓ Metadata written:  tests/fixtures/pytorch_integration/minimal_dataset_v1.json
+✓ SHA256 checksum:   20df0caa3a99a06736a8c90b7ede522d5303fa5615da0360a90d75105b908dac
+Fixture generator invoked (STUB MODE)
+  Source:       datasets/Run1084_recon3_postPC_shrunk_3.npz
+  Output:       tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+  Subset size:  64
+  Metadata:     tests/fixtures/pytorch_integration/minimal_dataset_v1.json
+
+✓ Fixture generated: tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+✓ Metadata written:  tests/fixtures/pytorch_integration/minimal_dataset_v1.json
+✓ SHA256 checksum:   6c2fbea0dcadd950385a54383e6f5f731282156d19ca4634a5a19ba3d1a5899c

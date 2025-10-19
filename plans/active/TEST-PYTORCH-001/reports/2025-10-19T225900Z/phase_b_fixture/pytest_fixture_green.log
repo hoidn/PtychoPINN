@@ -1,0 +1,112 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 7 items
+
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_file_exists PASSED [ 14%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_outputs_match_contract PASSED [ 28%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_sidecar_exists PASSED [ 42%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_content_valid PASSED [ 57%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_coordinate_coverage PASSED [ 71%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_loads_with_rawdata FAILED [ 85%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_compatible_with_pytorch_dataloader FAILED [100%]
+
+=================================== FAILURES ===================================
+_________ TestFixtureIntegrationSmoke.test_fixture_loads_with_rawdata __________
+
+self = <test_fixture_pytorch_integration.TestFixtureIntegrationSmoke object at 0x743d96d64310>
+
+    def test_fixture_loads_with_rawdata(self):
+        """
+        Fixture must be loadable by ptycho.raw_data.RawData.from_file().
+    
+        Expected Behavior (RED phase):
+            Skipped
+    
+        Expected Behavior (GREEN phase):
+            RawData.from_file() succeeds without errors
+        """
+        if not FIXTURE_PATH.exists():
+            pytest.skip(f"Fixture not generated: {FIXTURE_PATH}")
+    
+        from ptycho.raw_data import RawData
+    
+        # Attempt to load fixture (will validate NPZ schema compatibility)
+        try:
+            raw_data = RawData.from_file(str(FIXTURE_PATH))
+        except Exception as e:
+            pytest.fail(
+                f"Fixture failed to load via RawData.from_file(): {e}. "
+                f"Fixture may violate DATA-001 contract or have missing required keys."
+            )
+    
+        # Basic sanity checks on loaded data
+>       assert raw_data.diffraction.shape[0] == EXPECTED_N_SUBSET, \
+               ^^^^^^^^^^^^^^^^^^^^
+            f"RawData diffraction N dimension {raw_data.diffraction.shape[0]} != expected {EXPECTED_N_SUBSET}"
+E       AttributeError: 'RawData' object has no attribute 'diffraction'
+
+tests/torch/test_fixture_pytorch_integration.py:281: AttributeError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+----------------------------- Captured stderr call -----------------------------
+2025-10-19 15:11:35.871927: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760911895.883286 1156681 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760911895.887188 1156681 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760911895.898103 1156681 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760911895.898120 1156681 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760911895.898123 1156681 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760911895.898125 1156681 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 15:11:35.900961: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 15:11:38.021801: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 15:11:38.021837: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 15:11:38.021843: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 15:11:38.021846: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 15:11:38.021851: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 15:11:38.021853: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 15:11:38.021880: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 15:11:38.021895: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 15:11:38.021898: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+_ TestFixtureIntegrationSmoke.test_fixture_compatible_with_pytorch_dataloader __
+
+self = <test_fixture_pytorch_integration.TestFixtureIntegrationSmoke object at 0x743d96d64990>
+
+    def test_fixture_compatible_with_pytorch_dataloader(self):
+        """
+        Fixture must be compatible with PyTorch PtychoDataset (smoke test).
+    
+        Expected Behavior (RED phase):
+            Skipped
+    
+        Expected Behavior (GREEN phase):
+            PtychoDataset instantiation succeeds
+        """
+        pytest.importorskip("torch", reason="PyTorch not available (expected in TF-only CI)")
+    
+        if not FIXTURE_PATH.exists():
+            pytest.skip(f"Fixture not generated: {FIXTURE_PATH}")
+    
+        from ptycho.raw_data import RawData
+>       from ptycho_torch.data import PtychoDataset
+E       ModuleNotFoundError: No module named 'ptycho_torch.data'
+
+tests/torch/test_fixture_pytorch_integration.py:300: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_loads_with_rawdata - AttributeError: 'RawData' object has no attribute 'diffraction'
+FAILED tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_compatible_with_pytorch_dataloader - ModuleNotFoundError: No module named 'ptycho_torch.data'
+========================= 2 failed, 5 passed in 3.97s ==========================
