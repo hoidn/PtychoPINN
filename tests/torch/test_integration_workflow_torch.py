@@ -50,12 +50,13 @@ def cuda_cpu_env(monkeypatch):
 @pytest.fixture
 def data_file():
     """
-    Return path to the canonical dataset used for PyTorch integration testing.
+    Return path to the minimal fixture for PyTorch integration testing.
 
-    Dataset: Run1084_recon3_postPC_shrunk_3.npz (35 MB, 1087 scan positions)
-    Per TEST-PYTORCH-001 baseline inventory at reports/2025-10-19T115303Z/baseline/inventory.md
+    Dataset: minimal_dataset_v1.npz (64 scan positions, deterministic subset)
+    Per TEST-PYTORCH-001 Phase B3 plan at reports/2025-10-19T214052Z/phase_b_fixture/plan.md
+    Previous: Run1084_recon3_postPC_shrunk_3.npz (35 MB, 1087 scan positions) - Phase B1 baseline
     """
-    return project_root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
+    return project_root / "tests" / "fixtures" / "pytorch_integration" / "minimal_dataset_v1.npz"
 
 
 # ============================================================================
@@ -92,16 +93,18 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
     inference_output_dir = tmp_path / "pytorch_output"
 
     # --- 1. Training Step (PyTorch) ---
+    # CLI parameters aligned with Phase B1 scope (fixture n_subset=64, deterministic config)
+    # Preserves CONFIG-001 ordering per docs/workflows/pytorch.md §12
     train_command = [
         sys.executable, "-m", "ptycho_torch.train",
         "--train_data_file", str(data_file),
         "--test_data_file", str(data_file),
         "--output_dir", str(training_output_dir),
-        "--max_epochs", "2",
-        "--n_images", "64",
+        "--max_epochs", "2",  # Aligned with Phase B1 runtime budget (<45s)
+        "--n_images", "64",   # Matches fixture subset size
         "--gridsize", "1",
         "--batch_size", "4",
-        "--device", "cpu",
+        "--device", "cpu",    # Deterministic CPU-only execution per cuda_cpu_env fixture
         "--disable_mlflow",
     ]
 
@@ -124,12 +127,13 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
     checkpoint_path = training_output_dir / "checkpoints" / "last.ckpt"
 
     # --- 2. Inference Step (PyTorch) ---
+    # Inference parameters aligned with Phase B1 scope (subset inference on minimal fixture)
     inference_command = [
         sys.executable, "-m", "ptycho_torch.inference",
         "--model_path", str(training_output_dir),
         "--test_data", str(data_file),
         "--output_dir", str(inference_output_dir),
-        "--n_images", "32",
+        "--n_images", "32",  # Half of fixture size for faster inference validation
         "--device", "cpu",
     ]
 
