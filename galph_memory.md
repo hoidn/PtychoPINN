@@ -1183,3 +1183,13 @@
   - Logged Attempt #41 in docs/fix_plan.md documenting plan sync + new artifact hub `reports/2025-10-19T233500Z/phase_b_fixture/` for upcoming B3 work.
   - Rewrote `input.md` (Mode=TDD) directing Ralph to execute Phase B3.A/B3.B: fix remaining smoke tests, rewire integration regression to the minimal fixture, capture new pytest logs, and update plan/ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T224242Z: Focus declaration for B3.C documentation alignment
+- Focus issue: TEST-PYTORCH-001 Phase B3 (documentation close-out)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes:
+  - B3.A/B3.B artifacts verified at `reports/2025-10-19T233500Z/phase_b_fixture/`; implementation plan reflected `[P]` state and docs/workflows update pending (per summary.md).
+  - Updated `implementation.md` B3 row to `[P]`, logged fix_plan Attempt #43 noting doc follow-ups, and provisioned next artifact hub `reports/2025-10-19T224546Z/phase_b_fixture/`.
+  - Reissued input.md (Mode: Docs) directing Ralph to execute B3.C (workflow doc refresh + plan/ledger alignment) with new artifact expectations.
+- <Action State>: [ready_for_implementation]

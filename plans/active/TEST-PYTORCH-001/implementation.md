@@ -35,7 +35,7 @@ Exit Criteria: Lightweight fixture committed (or documented sourcing), CLI overr
 | --- | --- | --- | --- |
 | B1 | Design minimal NPZ/probe fixture | [x] | Evidence: `reports/2025-10-19T215300Z/phase_b_fixture/{dataset_probe.txt,logs/,fixture_scope.md}` captures dataset telemetry, runtime sweep (21.91s/17.11s), and nine acceptance criteria guiding fixture construction. |
 | B2 | Codify deterministic config overrides | [x] | ✅ 2025-10-19 — Fixture generator implemented + documented (see `reports/2025-10-19T225900Z/phase_b_fixture/{fixture_generation.log,pytest_fixture_green.log,fixture_notes.md,summary.md}`). Core contract tests pass; remaining smoke failures (RawData attribute, PyTorch import path) deferred to Phase B3 integration work. |
-| B3 | Wire fixture loader helper | [ ] | Execute Phase B3 (plan.md): point integration test to new fixture, adjust CLI overrides, validate runtime, and update docs/ledger. Ensure helper utilities live under `tests/fixtures/pytorch_integration/` per plan guidance. |
+| B3 | Wire fixture loader helper | [P] | ✅ B3.A/B3.B complete — integration test now consumes `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` (see `reports/2025-10-19T233500Z/phase_b_fixture/{pytest_fixture_green.log,pytest_integration_fixture.log,summary.md}`). Remaining B3.C: update docs/workflows/pytorch.md §11 with new runtime/fixture guidance, refresh this table to `[x]`, and append docs/fix_plan Attempt citing 2025-10-19T233500Z artifacts once documentation lands. Follow step-by-step checklist in `reports/2025-10-19T214052Z/phase_b_fixture/plan.md`. |
 
 ---
 

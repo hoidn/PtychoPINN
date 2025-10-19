@@ -1,49 +1,42 @@
-Summary: Wire the PyTorch regression onto the new minimal fixture and clear the remaining smoke-test failures.
-Mode: TDD
+Summary: Capture the minimal fixture runtime outcomes in project docs and close Phase B3 paperwork.
+Mode: Docs
 Focus: [TEST-PYTORCH-001] Author PyTorch integration workflow regression — Phase B3 fixture wiring
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_fixture_pytorch_integration.py -vv, pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
-Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/{summary.md,pytest_fixture_green.log,pytest_integration_fixture.log}
+Mapped tests: none — docs-only
+Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T224546Z/phase_b_fixture/{workflow_updates.md,summary.md}
 
 Do Now:
-1. TEST-PYTORCH-001 B3.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Update `tests/torch/test_fixture_pytorch_integration.py` smoke tests to load via `raw_data.diff3d` and import `PtychoDataset` from `ptycho_torch.dataloader`, then point `tests/torch/test_integration_workflow_torch.py` `data_file` fixture and CLI overrides at `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` (preserve CONFIG-001 ordering, keep deterministic CPU flags); tests: none.
-2. TEST-PYTORCH-001 B3.B @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_fixture_pytorch_integration.py -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/pytest_fixture_green.log` and `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/pytest_integration_fixture.log`; update plan rows B3.A/B3.B to `[x]`, flip implementation.md B2→B3 status, and append docs/fix_plan Attempt summarizing the GREEN evidence; tests: pytest tests/torch/test_fixture_pytorch_integration.py -vv, pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv.
+1. TEST-PYTORCH-001 B3.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Refresh `docs/workflows/pytorch.md` §11 so it references the minimal fixture (`tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`), 3.82s smoke runtime, 14.53s integration runtime, and updated CI guardrails; document the edits in `plans/active/TEST-PYTORCH-001/reports/2025-10-19T224546Z/phase_b_fixture/workflow_updates.md`; tests: none.
+2. TEST-PYTORCH-001 B3.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — After the doc refresh, mark `plans/active/TEST-PYTORCH-001/implementation.md` B3 `[x]`, append a docs/fix_plan Attempt citing the new artifact hub, and capture loop notes in `plans/active/TEST-PYTORCH-001/reports/2025-10-19T224546Z/phase_b_fixture/summary.md`; tests: none.
 
-If Blocked: Capture failing command output under `plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/`, leave B3 rows `[P]`, and log the blocker (with traceback + hypothesis) in docs/fix_plan Attempts plus plan.md notes before exiting the loop.
+If Blocked: Capture the conflicting data (old vs new runtimes, dataset references) in `workflow_updates.md`, leave B3.C `[P]`, and log the blocker in docs/fix_plan.md with the supporting evidence path.
 
 Priorities & Rationale:
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md B3 rows — Only remaining blockers before Phase B can close.
-- specs/data_contracts.md §1 — Smoke tests must assert against canonical DATA-001 keys after generator changes.
-- docs/workflows/pytorch.md §§4–8 — Confirms RawData expectations and CLI guardrails when swapping datasets.
-- docs/findings.md (POLICY-001, FORMAT-001) — PyTorch dependency + legacy `(H,W,N)` transpose policy inform fixture handling.
-- plans/active/TEST-PYTORCH-001/implementation.md Phase B — Keeps initiative ledger synchronized with new artifact paths.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md — Documents the 14.53s runtime that now needs to live in the workflow guide.
+- docs/workflows/pytorch.md:246 — Section 11 still reports the 35.9s baseline from Phase D1; it must reflect the minimal fixture evidence.
+- plans/active/TEST-PYTORCH-001/implementation.md:47 — B3 row is `[P]` until documentation is updated.
+- docs/fix_plan.md:187 — Attempts history must record B3.C completion for traceability.
 
 How-To Map:
-- Adjust smoke assertions to use `raw_data.diff3d` or `raw_data.diffraction` helper accessors; reference `ptycho/raw_data.py` lines 296-332 for available fields.
-- Import `PtychoDataset` from `ptycho_torch.dataloader` and instantiate with the generated fixture to ensure loader compatibility.
-- Update integration test `data_file` fixture to point at `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`; align CLI flags (`--n_images`, `--max_epochs`, seeds) with Phase B1 scope so runtime stays <45s.
-- After edits, run the two mapped pytest selectors with `CUDA_VISIBLE_DEVICES=""` and capture logs using `tee` into the new artifact hub.
-- Record runtime deltas and observations in `plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md`, then mark B3.A/B3.B `[x]`, update implementation.md, and append docs/fix_plan Attempt with artifact references.
+- `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` before quoting commands or runtime budgets.
+- Edit `docs/workflows/pytorch.md` Section 11 to swap in the new dataset path, 3.82s smoke runtime, 14.53s integration runtime, and clarify CI thresholds (<45s fixture target, 90s CI cap, 60s warning).
+- Run `git diff docs/workflows/pytorch.md` to verify only the intended section changed; capture the narrative of changes in `workflow_updates.md`.
+- Update `implementation.md` B3 row and `docs/fix_plan.md` within the same loop so the ledger, plan, and docs stay in sync.
 
 Pitfalls To Avoid:
-- Do not delete the legacy canonical dataset; keep references to both fixtures in docs.
-- Avoid reintroducing randomness—if sampling parameters are changed, document seeds.
-- Keep pytest selectors targeted; do not run full suite unless necessary at loop end.
-- Ensure new imports stay local to tests (avoid modifying production modules unless required).
-- Do not modify core physics modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
-- Preserve existing RED log artifacts; store new GREEN logs only under the 2025-10-19T233500Z hub.
-- Maintain ASCII-only updates when editing plan/docs.
-- Re-run `update_legacy_dict` guard checks if integration test CLI flow diverges; document any deviations.
-- Update plan/docs before finishing even if tests stay red.
-- Keep fixture NPZ/JSON under version control; do not relocate without updating metadata.
+- Do not regress the documented requirement to call `CUDA_VISIBLE_DEVICES=""` in the regression selector.
+- Keep canonical dataset references elsewhere intact; only swap the default regression fixture narrative.
+- Avoid introducing new runtime numbers without citing the 2025-10-19T233500Z logs.
+- Do not delete or relocate the existing 2025-10-19T233500Z artifact directory.
+- Preserve ASCII formatting and existing `<doc-ref>` tags.
+- Ensure the new artifact hub `2025-10-19T224546Z` includes both `workflow_updates.md` and `summary.md`.
+- Don’t alter `data/memmap/meta.json` further unless documenting the rationale.
 
 Pointers:
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md
-- plans/active/TEST-PYTORCH-001/implementation.md
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T225900Z/phase_b_fixture/fixture_notes.md
-- specs/data_contracts.md
-- docs/workflows/pytorch.md
-- docs/findings.md#policy-001
-- docs/findings.md#FORMAT-001
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md:56
+- docs/workflows/pytorch.md:246
+- plans/active/TEST-PYTORCH-001/implementation.md:47
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md:5
+- docs/fix_plan.md:187
 
-Next Up: 1. TEST-PYTORCH-001 B3.C — document runtime delta and update workflows once fixture integration stays green.
+Next Up: 1. TEST-PYTORCH-001 Phase D variance sweeps once documentation close-out is green.
