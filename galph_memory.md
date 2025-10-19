@@ -813,3 +813,14 @@
   - Created artifact directory `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T014317Z/phase_d2_completion/` with README placeholder, updated phase plan + blueprint B2 rows (including dataloader helper + Trainer guidance), and refreshed docs/fix_plan Attempt #9 to point at the new path.
   - Reissued `input.md` (Mode=TDD) with explicit config translation reminders, `_build_lightning_dataloaders` helper expectations, deterministic seeding, Trainer configuration, and targeted pytest/log capture instructions.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-18T171000Z: Focus reset for B4 test green pass
+- Reviewed upstream sync (`git pull --rebase` no changes) and prior galph memory entries (latest 2025-10-18T160000Z) before selecting new focus.
+- Coin flip = heads; inspected recent commits (`git log --oneline -12`, `git show 75a1d98`, `git show 44c373b`) — Ralph loops stuck on stale B2 directive, repeatedly verifying identical results, no regressions introduced.
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS — advance Phase B.B4 (turn Lightning regression tests green / resolve fixture failure).
+- Action type: Review or housekeeping (plan/input realignment + checklist hygiene).
+- Mode: TDD (emphasis on green-lighting TestTrainWithLightning* suite before Phase C).
+- Findings ping: POLICY-001 (PyTorch mandatory), FORMAT-001 (data contract) remain the only relevant ledger entries; no Lightning-specific findings yet.
+- Cached context reuse: Re-read `docs/fix_plan.md`, `phase_d2_completion.md`, `phase_b2_implementation.md`, and `reports/2025-10-18T014317Z/phase_d2_completion/summary.md` to confirm B2 completed and failure isolated to test stub inheriting from non-Lightning base.
+- Actions: Created artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T171500Z/phase_d2_completion/summary.md`, updated `phase_d2_completion.md` B4 guidance to call for LightningModule-compatible stub, appended Attempt #20 in fix plan, and rewrote `input.md` to direct Ralph through stub fix + targeted pytest capture.
+- <Action State>: [ready_for_implementation]
