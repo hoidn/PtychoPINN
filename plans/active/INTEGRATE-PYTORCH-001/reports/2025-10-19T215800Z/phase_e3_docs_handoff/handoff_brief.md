@@ -170,6 +170,23 @@ pytest tests/torch/test_model_manager.py::test_load_tensorflow_checkpoint_with_p
 | **Parity Validation Suite** | Nightly or per-commit to `ptycho_torch/` | Code changes in PyTorch stack | CPU-only CI worker |
 | **Model Manager Cross-Backend** | Weekly or on-demand | Cross-backend changes | Any CI worker |
 
+**Monitoring Frequency Detail:**
+
+- **Per-PR (Pre-Merge):**
+  - Mandatory for all PRs touching `ptycho_torch/`, `tests/torch/`, or backend selection code
+  - Run Integration Workflow + Backend Selection Suite as blocking gate
+  - Budget: ≤2 minutes total (90s integration + 5s backend suite + overhead)
+
+- **Nightly Automated Runs:**
+  - Execute full Parity Validation Suite (config bridge, Lightning, stitching, checkpoint, decoder)
+  - Capture runtime trends; alert if integration workflow >60s (1.7× baseline)
+  - Archive pytest logs under `plans/active/TEST-PYTORCH-001/reports/<timestamp>/nightly/`
+
+- **Weekly Deep Validation:**
+  - Full torch test suite: `pytest tests/torch/ -vv`
+  - Cross-backend checkpoint compatibility validation
+  - Environment refresh (update Python/PyTorch/Lightning, revalidate guardrails)
+
 **CI Environment Notes:**
 - Use `CUDA_VISIBLE_DEVICES=""` to enforce CPU-only execution (CUDA hardware optional for PyTorch tests)
 - TensorFlow-only CI environments automatically skip `tests/torch/` via directory-based pytest collection rules (`tests/conftest.py`)
@@ -231,7 +248,49 @@ assert ckpt['hyper_parameters'] is not None
 | **Backend Dispatcher** | INTEGRATE-PYTORCH-001 | Routing failures, silent fallbacks, invalid backend handling | `ptycho/workflows/backend_selector.py` maintainer (if present) |
 | **Checkpoint Persistence** | INTEGRATE-PYTORCH-001 | Hyperparameter serialization failures, cross-backend load errors | `docs/fix_plan.md` [INTEGRATE-PYTORCH-001-D1C] |
 
-### 3.4. Escalation Workflow
+### 3.4. Escalation Triggers (Critical Thresholds)
+
+Automated monitoring MUST flag the following conditions for immediate investigation:
+
+| Trigger ID | Condition | Severity | Notification Target | Response SLA |
+|:-----------|:----------|:---------|:--------------------|:-------------|
+| **RT-001** | Integration workflow runtime >90s | CRITICAL | TEST-PYTORCH-001 owner | <4 hours |
+| **RT-002** | Integration workflow runtime >60s (3 consecutive runs) | WARNING | TEST-PYTORCH-001 owner | <24 hours |
+| **RT-003** | Integration workflow runtime <20s | WARNING | INTEGRATE-PYTORCH-001 owner | <24 hours (incomplete execution suspected) |
+| **FAIL-001** | Integration workflow test FAILED status | CRITICAL | Both initiatives | <2 hours |
+| **FAIL-002** | Backend selection suite any FAILED | CRITICAL | INTEGRATE-PYTORCH-001 owner | <2 hours |
+| **FAIL-003** | Checkpoint loading failure (TypeError on config kwargs) | HIGH | INTEGRATE-PYTORCH-001 owner | <4 hours |
+| **POLICY-001** | PyTorch ImportError in `tests/torch/` (local dev) | HIGH | Developer + TEST-PYTORCH-001 owner | Immediate (install torch>=2.2) |
+| **CONFIG-001** | Shape mismatch errors (gridsize sync) | HIGH | INTEGRATE-PYTORCH-001 owner | <4 hours |
+| **FORMAT-001** | NPZ transpose IndexError | MEDIUM | INTEGRATE-PYTORCH-001 owner | <24 hours |
+| **PARITY-001** | Decoder shape mismatch (tensor dimension errors) | HIGH | INTEGRATE-PYTORCH-001 owner | <4 hours |
+| **ARTIF-001** | Missing checkpoint artifacts (hyper_parameters key) | HIGH | INTEGRATE-PYTORCH-001 owner | <4 hours |
+| **ARTIF-002** | Reconstruction PNG files <1KB or missing | MEDIUM | INTEGRATE-PYTORCH-001 owner | <24 hours |
+
+**Automated Alert Logic (CI Integration):**
+
+```python
+# Pseudo-code for CI monitoring hook
+if runtime > 90:
+    alert("RT-001: CRITICAL - Integration test timeout", severity="critical")
+elif runtime > 60:
+    if consecutive_count(runtime > 60) >= 3:
+        alert("RT-002: WARNING - Sustained runtime degradation", severity="warning")
+elif runtime < 20:
+    alert("RT-003: WARNING - Suspiciously fast execution", severity="warning")
+
+if test_status == "FAILED":
+    if "checkpoint" in error_message and "TypeError" in error_message:
+        alert("FAIL-003: Checkpoint loading regression", severity="high", owner="INTEGRATE-PYTORCH-001")
+    elif "shape" in error_message or "dimension" in error_message:
+        alert("PARITY-001: Decoder shape mismatch", severity="high", owner="INTEGRATE-PYTORCH-001")
+    else:
+        alert("FAIL-001: Integration workflow failure", severity="critical", owner="both")
+```
+
+**Reference:** Runtime thresholds from `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md` §3.1.
+
+### 3.5. Escalation Workflow
 
 When regression failures occur:
 
@@ -251,16 +310,18 @@ When regression failures occur:
    - Error message + stack trace
    - Runtime (if timeout)
    - Diff from known-good baseline (runtime, artifact sizes, checkpoint keys)
+   - Match against escalation trigger ID from §3.4 table
 
 4. **File Issue:**
-   - Append to `docs/fix_plan.md` Attempts history for owning initiative (per matrix above)
+   - Append to `docs/fix_plan.md` Attempts history for owning initiative (per §3.3 ownership matrix + §3.4 trigger target)
    - Create timestamped artifact directory under `plans/active/<initiative>/reports/<timestamp>/escalation/`
-   - Include: `failure.log`, `env.txt`, pytest selector, reproduction command
+   - Include: `failure.log`, `env.txt`, pytest selector, reproduction command, trigger ID
 
 5. **Reference Authorities:**
    - Runtime issues: `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`
    - Backend config issues: `specs/ptychodus_api_spec.md` §4.8
    - Checkpoint issues: `docs/workflows/pytorch.md` §6 (checkpoint management)
+   - Escalation trigger definitions: This document §3.4
 
 ---
 
