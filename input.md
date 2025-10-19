@@ -1,48 +1,50 @@
-Summary: Align Phase D documentation with runtime evidence and fix_plan ledger.
+
+Summary: Capture Phase E3 gap inventory for docs/spec handoff before editing artifacts.
 Mode: Docs
-Focus: [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2
+Focus: [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2 — Phase E3 inventory
 Branch: feature/torchapi
-Mapped tests: none — evidence-only
-Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T201900Z/phase_d_hardening/{doc_alignment_notes.md,summary.md}
+Mapped tests: none — documentation inventory
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/{phase_e3_docs_inventory.md,summary.md}
 
 Do Now:
-1. TEST-PYTORCH-001 D2.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Update `plans/active/TEST-PYTORCH-001/implementation.md` Phase D table (mark D1 `[x]`, document D2 completion references) and capture a short summary in `plans/active/TEST-PYTORCH-001/reports/2025-10-19T201900Z/phase_d_hardening/doc_alignment_notes.md` (tests: none).
-2. TEST-PYTORCH-001 D2.B @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Append a new Attempt entry to `docs/fix_plan.md` citing D2 documentation updates and the 2025-10-19T201900Z artifact hub (tests: none).
-3. TEST-PYTORCH-001 D2.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Refresh `docs/workflows/pytorch.md` testing section with the pytest selector, 36s±5s baseline, ≤90s CI guardrail, and POLICY-001/FORMAT-001 reminders; record the edits plus any supplemental notes in `plans/active/TEST-PYTORCH-001/reports/2025-10-19T201900Z/phase_d_hardening/summary.md` (tests: none).
+1. INTEGRATE-PYTORCH-001-STUBS A.A1 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md — Build documentation gap inventory covering workflow/architecture/onboarding docs (tests: none).
+2. INTEGRATE-PYTORCH-001-STUBS A.A2 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md — Capture spec & findings deltas with file:line anchors (tests: none).
+3. INTEGRATE-PYTORCH-001-STUBS A.A3 @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md — Note TEST-PYTORCH-001 handoff requirements and owners (tests: none).
 
-If Blocked: If documentation scope expands beyond Phase D2 (e.g., spec conflicts or missing parity evidence), capture the issue in `plans/active/TEST-PYTORCH-001/reports/2025-10-19T201900Z/phase_d_hardening/doc_alignment_notes.md`, update `plans/active/TEST-PYTORCH-001/implementation.md` D2 row to `[P]` with the blocker description, and log the impediment in `docs/fix_plan.md` Attempts before stopping.
+If Blocked: Record the blocker inside phase_e3_docs_inventory.md, mark the affected checklist row `[P]` in phase_e3_docs_plan.md, and summarize the issue in docs/fix_plan.md before stopping.
 
 Priorities & Rationale:
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Phase D checklist calls for D2 documentation before CI follow-up.
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md — Source for selector command, runtime mean (35.92s), and guardrails.
-- plans/active/TEST-PYTORCH-001/implementation.md#L55 — D1 row still `[ ]`; needs to reference D1 artifacts before D3 work commences.
-- docs/workflows/pytorch.md#L151 — Testing guidance lacks the modern pytest selector and runtime expectations established in Phase C/D1.
-- docs/findings.md#POLICY-001 — Mandatory PyTorch dependency must be cited in updated workflow docs.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md: new phased checklist defines Phase A inventory scope.
+- docs/fix_plan.md: latest Attempt #12 keeps focus on finishing Phase E deliverables before code changes.
+- docs/workflows/pytorch.md: section 11 shows current messaging; inventory must flag remaining TensorFlow-only language.
+- specs/ptychodus_api_spec.md §4.1–§4.6: normative contract needs annotations for backend selection.
+- plans/active/TEST-PYTORCH-001/implementation.md §Phase D: informs handoff expectations for CI guidance.
 
 How-To Map:
-- Create artifact hub: `mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T201900Z/phase_d_hardening`
-- Plan update: edit `plans/active/TEST-PYTORCH-001/implementation.md` D1/D2 rows; cite `runtime_profile.md`, `doc_alignment_notes.md`, and updated workflow section.
-- Notes capture: write `doc_alignment_notes.md` summarizing which files changed, key references, and outstanding risks; update `summary.md` in the new hub with exit-criteria confirmation for D2.
-- Fix plan: add Attempt #11 (Phase D2 documentation alignment) under `[INTEGRATE-PYTORCH-001-STUBS]`, including artifact paths and highlights of documentation changes.
-- Workflow doc: add a new subsection (e.g., "## 11. Regression Test & Runtime Expectations") covering the pytest selector, runtime baselines, CI guardrails, artifact discipline, and POLICY-001/FORMAT-001 reminders; ensure links to `runtime_profile.md` and the new hub.
+- Create or append `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_inventory.md` with three headings: Developer Docs, Spec & Findings, TEST-PYTORCH-001 Handoff.
+- Run `rg -n "backend" docs/workflows/pytorch.md README.md docs/architecture.md` and log the relevant lines with notes on whether text already reflects PyTorch availability.
+- Use `rg -n "NotImplementedError" docs/workflows/pytorch.md docs/architecture.md` to confirm legacy warnings; capture any remaining hits.
+- Skim `specs/ptychodus_api_spec.md` lines 143-213 and note missing guidance on backend flags, fail-fast behaviour, or persistence parity.
+- Review `plans/active/TEST-PYTORCH-001/implementation.md` Phase D table (lines 55-66) and list selectors/guardrails TEST-PYTORCH-001 needs surfaced in the eventual handoff.
+- Summaries should reference files with file:line anchors and cite POLICY-001 / FORMAT-001 where relevant.
 
 Pitfalls To Avoid:
-- Do not reuse the 2025-10-19T193425Z directory for new notes—create and reference the 2025-10-19T201900Z hub.
-- Keep `plans/active/TEST-PYTORCH-001/implementation.md` checklist IDs intact; update only the State and guidance columns.
-- When editing `docs/workflows/pytorch.md`, stay within documentation scope—no code changes or new promises about unimplemented features.
-- Preserve prior runtime data (35.86s/35.98s/35.92s); cite them accurately instead of rounding aggressively.
-- Reference POLICY-001 and FORMAT-001 explicitly; avoid inventing new policy IDs.
-- Use Markdown tables/lists consistently; do not introduce HTML snippets.
-- Ensure fix_plan Attempt references both the runtime_profile and the new docs edits.
-- Avoid deleting historical summaries in the 2025-10-19T193425Z hub; only add new context in the fresh hub.
-- Run no tests; this loop is docs-only per Mode.
-- Keep artifact filenames lowercase with underscores to match repository conventions.
+- Do not edit documentation/spec files yet; this loop is inventory only.
+- Avoid running tests; Mode=Docs.
+- Keep new notes inside the 2025-10-19T205832Z report directory; do not create additional timestamp folders.
+- Do not advance plan rows beyond Phase A until the inventory is complete and linked.
+- Maintain neutral tone—document facts, not proposed fixes.
+- Ensure inventory cites both the stale text and the intended remediation hint.
+- Leave existing parity docs untouched; reference them instead of duplicating content.
+- Preserve markdown tables when adding notes to the plan.
+- Keep commands reproducible; record full command lines in the inventory file.
+- Remember to update docs/fix_plan.md in a future loop after actual edits, not during this inventory pass.
 
 Pointers:
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md
-- plans/active/TEST-PYTORCH-001/implementation.md#L55
-- docs/workflows/pytorch.md#L151
-- docs/fix_plan.md#L118
-- docs/findings.md#POLICY-001
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md:1
+- docs/workflows/pytorch.md:246
+- specs/ptychodus_api_spec.md:143
+- plans/active/TEST-PYTORCH-001/implementation.md:55
+- plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md:46
 
-Next Up: TEST-PYTORCH-001 D3 CI integration follow-up once documentation is aligned.
+Next Up: Phase E3 — execute Phase B documentation updates once inventory lands.

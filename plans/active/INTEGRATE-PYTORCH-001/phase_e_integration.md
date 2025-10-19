@@ -47,6 +47,7 @@ Exit Criteria: Torch-optional failing tests documenting the integration gap, gre
 Goal: Ensure documentation, specs, and downstream initiatives reflect the new backend, and hand off to TEST-PYTORCH-001/production teams.
 Prereqs: E1–E2 tasks completed with successful regression runs.
 Exit Criteria: Updated documentation and spec excerpts, ledger entries recorded, and follow-up actions queued for TEST-PYTORCH-001.
+Planning Reference: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md` outlines the phased checklist for this work.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |

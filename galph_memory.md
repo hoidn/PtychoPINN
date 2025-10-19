@@ -1033,3 +1033,15 @@
   - fix_plan Attempts stop at #10; next entry must document D2 updates and new artifact hub.
 - Steering: Rewrote `input.md` (Mode=Docs) directing Ralph to execute Phase D2 tasks (plan update, fix_plan attempt, workflow doc refresh) and stage new notes under `plans/active/TEST-PYTORCH-001/reports/2025-10-19T201900Z/phase_d_hardening/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T205500Z: Phase E3 planning directive
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS — Phase E3 documentation & spec handoff
+- Action type: Planning
+- Mode: Docs
+- Findings consulted: POLICY-001 (PyTorch mandatory) and FORMAT-001 (legacy NPZ transpose guard) remain authoritative; no new findings required.
+- Key actions:
+  - Authored phased plan at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md` outlining Phase A inventory, Phase B documentation edits, Phase C spec sync, and Phase D handoff tasks; captured summary stub in the same directory.
+  - Updated `phase_e_integration.md` E3 section to reference the new planning artifact and appended Attempt #12 to `docs/fix_plan.md` documenting this planning loop.
+  - Rewrote `input.md` directing Ralph to execute Phase A (inventory) tasks only, storing outputs in `phase_e3_docs_inventory.md`; reiterated that no docs/spec edits should occur yet.
+- Next steps for Ralph: complete Phase A checklist (A1–A3) per the new plan, then report findings before starting documentation changes.
+- <Action State>: [ready_for_implementation]
