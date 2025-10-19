@@ -1,0 +1,76 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_run_pytorch_train_save_load_infer ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-640/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/datasets/Run1084_recon3_postPC_shrunk_3.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
+        """
+        Tests the complete PyTorch train → save → load → infer workflow.
+    
+        This validates the PyTorch model persistence layer by simulating a real
+        user workflow across separate processes, mirroring the TensorFlow integration test.
+    
+        Phase: C1 (RED)
+        Expected Behavior (Phase C2 implementation target):
+        1. Training subprocess creates Lightning checkpoint
+        2. Checkpoint artifact saved to <output_dir>/checkpoints/last.ckpt or wts.h5.zip
+        3. Inference subprocess loads checkpoint and generates reconstructions
+        4. Output images created in inference output directory
+    
+        Current Status: FAILING — _run_pytorch_workflow stub raises NotImplementedError
+        """
+        # Call helper function which currently raises NotImplementedError
+>       result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_integration_workflow_torch.py:116: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-640/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/datasets/Run1084_recon3_postPC_shrunk_3.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
+        """
+        Execute PyTorch train→save→load→infer workflow via subprocess calls.
+    
+        Parameters:
+            tmp_path: pytest tmp_path fixture for output directories
+            data_file: Path to NPZ dataset
+            cuda_cpu_env: Environment dict with CUDA_VISIBLE_DEVICES=""
+    
+        Returns:
+            SimpleNamespace with:
+                - training_output_dir: Path to training outputs
+                - inference_output_dir: Path to inference outputs
+                - checkpoint_path: Path to Lightning checkpoint
+                - recon_amp_path: Path to amplitude reconstruction PNG
+                - recon_phase_path: Path to phase reconstruction PNG
+    
+        Raises:
+            NotImplementedError: Stub implementation for Phase C1 RED test
+    
+        Phase: C1 (RED)
+        TODO: Implement in Phase C2 (GREEN) by porting subprocess logic from legacy unittest
+        """
+>       raise NotImplementedError("PyTorch pytest harness not implemented (Phase C1 stub)")
+E       NotImplementedError: PyTorch pytest harness not implemented (Phase C1 stub)
+
+tests/torch/test_integration_workflow_torch.py:88: NotImplementedError
+=========================== short test summary info ============================
+FAILED tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer - NotImplementedError: PyTorch pytest harness not implemented (Phase C1 stub)
+============================== 1 failed in 0.83s ===============================
