@@ -95,6 +95,7 @@
 - Working Plan: `plans/active/ADR-003-BACKEND-API/implementation.md`
 - Attempts History:
   * [2025-10-17] Attempt #0 — Authored phased implementation plan + summary (`reports/2025-10-17T224444Z/plan_summary.md`).
+  * [2025-10-19] Attempt #1 — Phase A planning refresh (Mode: Docs). Established artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T225905Z/phase_a_inventory/` with `plan.md` (task breakdown A1.a–A3.c) and `summary.md`. Updated implementation plan Phase A rows to reference new plan tasks and deliverables (`cli_inventory.md`, `execution_knobs.md`, `overlap_notes.md`). Input for next loop will direct execution of Phase A CLI inventory + knob catalog. No tests run.
 - Exit Criteria:
   - Shared config factories in `ptycho_torch/config_factory.py` with unit tests for override validation.
   - `PyTorchExecutionConfig` dataclass introduced and consumed across training, inference, and bundle-loading workflows with pytest coverage.

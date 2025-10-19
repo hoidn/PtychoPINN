@@ -12,9 +12,9 @@ Exit Criteria: Shared inventory of CLI/programmatic parameters, execution config
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| A1 | Inventory CLI flags and programmatic entry points | [ ] | Document mapping of `train.py`/`inference.py` args → config fields; capture results under `reports/<timestamp>/cli_inventory.md`. |
-| A2 | Catalogue backend-specific execution knobs | [ ] | List Lightning/MLflow/device parameters currently used; map to proposed `PyTorchExecutionConfig`. |
-| A3 | Confirm overlaps with existing plans | [ ] | Reference `INTEGRATE-PYTORCH-001` plan to avoid duplication; note cross-plan dependencies. |
+| A1 | Inventory CLI flags and programmatic entry points | [ ] | Follow `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T225905Z/phase_a_inventory/plan.md` (tasks A1.a–A1.c). Populate `cli_inventory.md` with flag → config mappings, required/optional status, and TensorFlow parity notes. |
+| A2 | Catalogue backend-specific execution knobs | [ ] | Execute tasks A2.a–A2.c in the same plan. Produce `execution_knobs.md` documenting Lightning/device knobs, current definitions, and proposed home (factory override vs execution config). |
+| A3 | Confirm overlaps with existing plans | [ ] | Complete tasks A3.a–A3.c (overlap audit) in the Phase A plan. Record ownership decisions and missing ADR doc status in `overlap_notes.md`, then summarise in `summary.md`. |
 
 ### Phase B — Configuration Factories
 Goal: Centralize canonical `TF*Config` construction for PyTorch backend via shared factories.
@@ -65,4 +65,3 @@ Exit Criteria: `api/` surface deprecated, ADR status set to Accepted, ledger upd
 - All artefacts stored under `plans/active/ADR-003-BACKEND-API/reports/<ISO8601>/` with descriptive filenames.
 - Tests follow native pytest style; full-suite runs coordinated with existing integration plans.
 - Reference this plan from docs/fix_plan.md entry `[ADR-003-BACKEND-API]`.
-

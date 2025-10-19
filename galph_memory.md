@@ -1193,3 +1193,22 @@
   - Updated `implementation.md` B3 row to `[P]`, logged fix_plan Attempt #43 noting doc follow-ups, and provisioned next artifact hub `reports/2025-10-19T224546Z/phase_b_fixture/`.
   - Reissued input.md (Mode: Docs) directing Ralph to execute B3.C (workflow doc refresh + plan/ledger alignment) with new artifact expectations.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T225707Z: Focus declaration for ADR-003 Phase A
+- Focus issue: ADR-003-BACKEND-API Phase A (architecture carve-out / inventory)
+- Action type: Planning
+- Mode: Docs
+- Findings check: `docs/findings.md` → POLICY-001, FORMAT-001 remain active constraints for PyTorch backend work.
+- Coin flip = heads → Reviewed latest engineer commits (`git show e57b8e91`, `git show bcb21b69`); Phase B3 docs + fixture wiring clean, no regressions detected, plan/ledger updates aligned with exit criteria.
+- Documentation reviewed for this focus:
+  - `specs/ptychodus_api_spec.md` §4 — reconstructor lifecycle contract and backend routing.
+  - `docs/workflows/pytorch.md` §§5–12 — current PyTorch workflow guidance and regression expectations.
+  - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` — CLI wiring decisions to avoid duplicating work.
+  - `ptycho_torch/train.py` (cli_main), `ptycho_torch/inference.py` (new + MLflow CLI), `ptycho_torch/config_params.py`, `ptycho_torch/config_bridge.py` — current surfaces to inventory.
+  - Noted absence of `docs/architecture/adr/ADR-003.md`; captured follow-up in new plan (A3.c).
+- Plan updates:
+  - Created Phase A execution blueprint at `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T225905Z/phase_a_inventory/plan.md` with tasks A1.a–A3.c plus verification checklist; companion `summary.md` added.
+  - Implementation plan Phase A rows now reference the new artifact hub and required outputs (`cli_inventory.md`, `execution_knobs.md`, `overlap_notes.md`).
+  - Logged docs/fix_plan Attempt #1 detailing this planning loop and artifact paths.
+- Steering: Rewrote `input.md` (Mode: Docs) directing Ralph through Phase A deliverables with explicit commands, artifact expectations, and wrap-up steps.
+- <Action State>: [ready_for_implementation]
