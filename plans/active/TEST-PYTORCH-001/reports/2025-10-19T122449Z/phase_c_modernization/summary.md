@@ -50,9 +50,8 @@ pytest tests/ -v
 | Artifact | Path | Purpose |
 |---|---|---|
 | GREEN log | `pytest_modernization_green.log` | Captured targeted test passing in 35.86s |
+| Training debug log | `train_debug.log` (80KB) | Relocated from repo root; subprocess training output for reference |
 | This summary | `summary.md` | Implementation evidence for Phase C2 completion |
-
-No `train_debug.log` generated (subprocess output captured via `capture_output=True`)
 
 ## Exit Criteria Validation
 

@@ -185,7 +185,7 @@ def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
 
     Implementation: _run_pytorch_workflow executes train/infer via subprocess
     """
-    # Call helper function which currently raises NotImplementedError
+    # Execute complete workflow via subprocess helper (Phase C2 implementation)
     result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
 
     # Assertions (will execute once helper is implemented in Phase C2)
