@@ -46,9 +46,9 @@ Exit Criteria: New pytest-based test(s) passing locally with targeted selector, 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Author RED pytest test | [ ] | Convert current unittest class into pytest-style functions using fixtures for tmp paths and configs. Initial run (`pytest tests/torch/test_pytorch_integration.py::test_train_save_load_infer -vv`) should fail; record log at `reports/<TS>/tdd/pytest_integration_red.log`. |
-| C2 | Implement orchestration glue | [ ] | Patch `ptycho_torch.train`/`inference` (or workflow wrapper) as needed so targeted test passes. Maintain device/dtype neutrality and reuse config profile. Capture GREEN log at `reports/<TS>/tdd/pytest_integration_green.log`. |
-| C3 | Validate artifact set + metrics | [ ] | Verify checkpoint + reconstruction outputs exist, inspect metadata (dtype/shape) and log results in `reports/<TS>/tdd/artifact_audit.md`. |
+| C1 | Author RED pytest test | [ ] | Follow `plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md` (Phase C1) to convert `tests/torch/test_integration_workflow_torch.py` to pytest style with `_run_pytorch_workflow` stub. Capture failure log at `reports/<TS>/phase_c_modernization/pytest_modernization_red.log`. |
+| C2 | Implement orchestration glue | [ ] | Implement helper + assertions per plan (Phase C2) so selector `pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv` passes. Maintain CPU determinism (`CUDA_VISIBLE_DEVICES=""`) and reuse subprocess commands. Capture GREEN log at `reports/<TS>/phase_c_modernization/pytest_modernization_green.log`. |
+| C3 | Validate artifact set + metrics | [ ] | Perform artifact audit + documentation updates per plan (Phase C3). Record findings in `reports/<TS>/phase_c_modernization/artifact_audit.md` and update charter/docstrings before marking row complete. |
 
 ---
 
@@ -68,7 +68,7 @@ Exit Criteria: CI-ready guidance, parity metrics, ledger updates, and follow-on 
 ## Artifact Map Template
 - `plans/active/TEST-PYTORCH-001/reports/<ISO>/baseline/` — Phase A inventory + logs
 - `plans/active/TEST-PYTORCH-001/reports/<ISO>/fixture/` — Fixture notes, config profiles
-- `plans/active/TEST-PYTORCH-001/reports/<ISO>/tdd/` — RED/GREEN logs, artifact audits
+- `plans/active/TEST-PYTORCH-001/reports/<ISO>/phase_c_modernization/` — Pytest migration plan, RED/GREEN logs, artifact audits
 - `plans/active/TEST-PYTORCH-001/reports/<ISO>/summary.md` — Loop-level summary & decisions
 
 ## References

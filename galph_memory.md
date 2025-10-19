@@ -966,3 +966,17 @@
   - Migrated charter into phased plan `plans/active/TEST-PYTORCH-001/implementation.md` with artifact map + Phase A–D checklists.
   - Updated docs/fix_plan Attempt #1 for TEST-PYTORCH-001 and rewrote `input.md` directing Ralph to execute Phase A baseline (new artifact hub `2025-10-19T115303Z`).
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T120321Z: Phase C modernization plan
+- Focus issue: TEST-PYTORCH-001 — Phase C PyTorch integration test modernization
+- Action type: Planning
+- Mode: TDD
+- Coin flip (heads): Reviewed last ~10 commits — Ralph’s recent evidence-only commits (`f6f1479`, `631794f`) align with plan; no regressions detected.
+- Findings check: POLICY-001 (PyTorch mandatory) and FORMAT-001 (NPZ transpose heuristic) remain governing for this work.
+- Plan updates:
+  - Authored `plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md` detailing Phase C1–C3 with helper stub RED → GREEN workflow plus artifact expectations; added loop summary.
+  - Refreshed `plans/active/TEST-PYTORCH-001/implementation.md` Phase C table to point at the new plan and artifact directory.
+  - Logged Attempt #3 in `docs/fix_plan.md` linking the plan and timestamped hub.
+- Steering: Rewrote `input.md` directing Ralph to execute Phase C1 (pytest skeleton + RED run) and record artifacts; ensured docs/fix_plan update is part of Do Now.
+- Next focus: Ralph to implement C1.A–C1.D, capture RED log, then progress to helper implementation in a later loop.
+- <Action State>: [ready_for_implementation]

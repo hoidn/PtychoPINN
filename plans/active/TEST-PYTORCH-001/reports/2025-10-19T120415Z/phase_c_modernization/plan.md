@@ -1,0 +1,72 @@
+# Phase C — PyTorch Integration Test Modernization (pytest)
+
+## Context
+- Initiative: TEST-PYTORCH-001 — PyTorch integration regression guard
+- Phase Goal: Replace the legacy `unittest.TestCase` harness with a native pytest workflow that enforces the train→save→load→infer contract while capturing deterministic environment setup and artifact validation.
+- Dependencies:
+  - `plans/active/TEST-PYTORCH-001/implementation.md` (Phase checklist owner)
+  - `plans/pytorch_integration_test_plan.md` (charter scope + acceptance criteria)
+  - `specs/ptychodus_api_spec.md` §4.5–§4.6 (reconstructor lifecycle contract)
+  - `docs/workflows/pytorch.md` §§5–8 (CLI + deterministic settings)
+  - Findings: POLICY-001 (PyTorch mandatory), FORMAT-001 (legacy NPZ transpose guard)
+- Baseline Evidence: `plans/active/TEST-PYTORCH-001/reports/2025-10-19T115303Z/baseline/{inventory.md,pytest_integration_current.log,summary.md}`
+
+## TDD Strategy
+We will author a new pytest-style regression in `tests/torch/test_integration_workflow_torch.py` using fixtures and helper functions. The RED phase introduces a helper stub that raises `NotImplementedError`, guaranteeing a failing test. The GREEN phase implements the helper by reusing the proven subprocess workflow from the legacy unittest harness. Validation then confirms artifact expectations and updates documentation to reflect GREEN status.
+
+### Phase C1 — RED: Pytest Skeleton & Helper Stub
+Goal: Establish pytest-native structure and ensure the new test fails before porting implementation.
+Prereqs: Phase A baseline complete; confirm current unittest passes (see baseline log); no code modifications pending in same file.
+Exit Criteria: Pytest version of the integration test exists, legacy unittest path disabled, and the new pytest selector fails with a captured RED log referencing the stubbed helper.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| C1.A | Draft pytest module scaffolding | [ ] | Convert `tests/torch/test_integration_workflow_torch.py` to pytest style: remove `unittest.TestCase`, import `pytest`, and define module-level fixtures (`cuda_cpu_env`, `data_file`, `tmp_paths`). Keep torch policy docstrings reference. |
+| C1.B | Introduce helper stub | [ ] | Add `_run_pytorch_workflow` helper that currently raises `NotImplementedError("PyTorch pytest harness not implemented")`. Ensure the new test calls this helper to guarantee failure. |
+| C1.C | Author failing pytest test | [ ] | Create `def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env): ...` that invokes `_run_pytorch_workflow`. Include assertions mirroring legacy test (checkpoint exists, recon images exist) but expect execution to raise `NotImplementedError`. Use `with pytest.raises(NotImplementedError):` to force failure once helper implemented → adjust during GREEN. |
+| C1.D | Capture RED run | [ ] | Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv` and store output at `plans/active/TEST-PYTORCH-001/reports/<TS>/phase_c_modernization/pytest_modernization_red.log`. Keep legacy unittest test skipped (e.g., annotate with `@pytest.mark.skip(reason="Migrated to pytest harness")`) to avoid double execution. |
+
+### Phase C2 — GREEN: Helper Implementation & Deterministic Harness
+Goal: Implement the helper to mirror the successful subprocess workflow, ensuring deterministic CPU execution and artifact checks.
+Prereqs: Phase C1 RED artifacts committed; helper stub present; legacy unittest either removed or skipped.
+Exit Criteria: Pytest test passes, reproducing previous assertions; helper encapsulates subprocess commands with environment controls; logs stored.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| C2.A | Implement `_run_pytorch_workflow` | [ ] | Port subprocess logic from the legacy unittest into the helper: invoke `ptycho_torch.train` and `ptycho_torch.inference` with the same CLI arguments, propagate `CUDA_VISIBLE_DEVICES=""`, and surface stdout/stderr when return codes non-zero. Ensure the helper returns a dataclass or simple namespace with paths to checkpoint and recon images for assertions. |
+| C2.B | Update pytest assertions | [ ] | Replace the `pytest.raises` expectation with actual success checks: verify return codes, checkpoint existence (Lightning `last.ckpt`), and amplitude/phase images >1 KB. Maintain coverage for POLICY-001 and FORMAT-001 by asserting dtype/env prerequisites when possible. |
+| C2.C | Remove/skips legacy unittest | [ ] | Delete the old `TestPyTorchIntegrationWorkflow` class or convert it into thin wrappers that delegate to the new helper, ensuring no duplicate runtime. Update module docstring to reflect GREEN status (`Phase E2.C complete`, etc.). |
+| C2.D | Capture GREEN run | [ ] | Run the same selector and store log at `plans/active/TEST-PYTORCH-001/reports/<TS>/phase_c_modernization/pytest_modernization_green.log`. Record runtime and artifact paths for validation phase. |
+
+### Phase C3 — Validation & Documentation Alignment
+Goal: Confirm artifacts, update auxiliary documentation, and mark plan/fix-plan progress.
+Prereqs: GREEN log captured; pytest test stable.
+Exit Criteria: Artifact audit recorded, documentation updated, fix plan attempt logged with links.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| C3.A | Artifact audit | [ ] | Inspect `training_output_dir` and `inference_output_dir` produced during the GREEN run. Document locations, file sizes, and dtype notes in `plans/active/TEST-PYTORCH-001/reports/<TS>/phase_c_modernization/artifact_audit.md`. |
+| C3.B | Update documentation | [ ] | Refresh `plans/pytorch_integration_test_plan.md` to mark open questions resolved (CLI exists, helpers implemented) and update runtime expectations. Update module docstring in `tests/torch/test_integration_workflow_torch.py` to reflect GREEN status. |
+| C3.C | Ledger updates | [ ] | Append Attempt entry in `docs/fix_plan.md` summarizing RED→GREEN TDD, log paths, and documentation updates. Update `plans/active/TEST-PYTORCH-001/implementation.md` checklist rows (C1–C3) to `[x]`. |
+
+## Artifact Discipline
+- Use timestamp directory `plans/active/TEST-PYTORCH-001/reports/<TS>/phase_c_modernization/` for all logs and notes.
+- Recommended filenames:
+  - `pytest_modernization_red.log`
+  - `pytest_modernization_green.log`
+  - `artifact_audit.md`
+  - `summary.md` (loop-level narrative)
+
+## Command Reference
+- RED run selector: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv`
+- GREEN run selector: same as above (post implementation)
+- Full regression (optional, post-change): `pytest tests/torch/test_integration_workflow_torch.py -vv`
+- Logs must be captured via `tee` or shell redirection into the artifact directory.
+
+## Risks & Mitigations
+- **Runtime Regression (>120s)**: If runtime increases, revisit dataset fixture or adopt Phase B minimization plan.
+- **Artifact Drift**: Ensure helper returns the actual output paths so assertions stay coupled to produced artifacts; update audit quickly if CLI paths change.
+- **Environment Leakage**: Use context managers to temporarily modify `os.environ` within helper; restore original values to avoid cross-test pollution.
+
+## Next Steps After Phase C
+- Proceed to Phase D (documentation + CI integration) as outlined in the main implementation plan once C1–C3 tasks are complete and logged.

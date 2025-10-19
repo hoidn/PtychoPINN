@@ -1,48 +1,46 @@
-Summary: Capture PyTorch integration baseline evidence for TEST-PYTORCH-001 Phase A
+Summary: Begin Phase C by converting the PyTorch integration workflow test to a pytest skeleton with a stubbed helper that fails (RED).
 Mode: TDD
-Focus: TEST-PYTORCH-001 — PyTorch integration regression plan (Phase A)
+Focus: TEST-PYTORCH-001 — Phase C pytest modernization
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv
-Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T115303Z/{baseline/inventory.md,baseline/pytest_integration_current.log,baseline/summary.md}
+Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
+Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/{plan.md,summary.md,pytest_modernization_red.log}
 
 Do Now:
-1. TEST-PYTORCH-001 A1 @ plans/active/TEST-PYTORCH-001/implementation.md#L16 — Review existing PyTorch integration coverage (charter + current unittest) and record blockers in `baseline/inventory.md` (tests: none).
-2. TEST-PYTORCH-001 A2 @ plans/active/TEST-PYTORCH-001/implementation.md#L23 — Run baseline selector `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` and capture full output with `tee` to `baseline/pytest_integration_current.log`.
-3. TEST-PYTORCH-001 A3 @ plans/active/TEST-PYTORCH-001/implementation.md#L24 — Summarize environment prerequisites (flags, dataset path, runtime, exit status) in `baseline/summary.md`, highlighting gaps that block a ≤120s CPU regression (tests: none).
+1. TEST-PYTORCH-001 C1.A–C1.D @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — Port `tests/torch/test_integration_workflow_torch.py` to pytest fixtures with `_run_pytorch_workflow` stub and run the selector (expect failure) capturing `pytest_modernization_red.log` (tests: pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv).
+2. TEST-PYTORCH-001 C1.D follow-up @ docs/fix_plan.md — Append Attempt entry documenting the RED run, stub helper, and artifact path (tests: none).
 
-If Blocked: If the selector fails before hitting CLI (e.g., missing torch extras), document the failure, traceback, and environment info in `baseline/summary.md`, mark the command as `BLOCKED` with exit code, and notify in docs/fix_plan Attempts rather than modifying workflows.
+If Blocked: If the selector errors before the stub is hit (e.g., import failure), capture the full traceback to `pytest_modernization_red.log`, revert only the pytest conversion, and note the failure and restoration in docs/fix_plan Attempts before exiting.
 
 Priorities & Rationale:
-- plans/active/TEST-PYTORCH-001/implementation.md:1 anchors the phased plan; Phase A must be complete before fixture work.
-- tests/torch/test_integration_workflow_torch.py:1 documents current unittest harness that still reflects red-phase assumptions.
-- specs/ptychodus_api_spec.md:191 enforces train→infer contract that the regression must cover; gaps become plan risks.
-- docs/workflows/pytorch.md:120 captures deterministic Lightning settings we must obey during baseline run.
-- docs/findings.md:8 (POLICY-001) reminds us torch>=2.2 is mandatory; record if environment deviates.
+- plans/active/TEST-PYTORCH-001/implementation.md:41 — Phase C checklist now references the modernization plan; completing C1 unblocks GREEN work.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — Defines the RED helper stub strategy so we stay within TDD.
+- tests/torch/test_integration_workflow_torch.py:1 — Legacy unittest harness to convert; docstrings must reflect GREEN status post-migration.
+- specs/ptychodus_api_spec.md:180 — Reconstructor lifecycle contract the integration test enforces.
+- docs/workflows/pytorch.md:120 — Captures deterministic CPU execution requirements (`CUDA_VISIBLE_DEVICES=""`).
 
 How-To Map:
-- `mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T115303Z/baseline`
-- Review sources for inventory: `plans/pytorch_integration_test_plan.md`, `tests/torch/test_integration_workflow_torch.py`, prior parity logs under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/`
-- Baseline run: `CUDA_VISIBLE_DEVICES=\"\" pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T115303Z/baseline/pytest_integration_current.log`
-- Record runtime (wall clock) and checkpoint paths in `baseline/summary.md`; note whether command already finishes within ≤120s.
-- If logs exceed guidance, compress with `gzip` after tee (optional) but keep plaintext copy per artifact policy.
+- Create a working branch backup if needed (`git status` should stay clean apart from intended edits).
+- In `tests/torch/test_integration_workflow_torch.py`, replace `unittest.TestCase` with pytest-style fixtures (`pytest`, `tmp_path`, helper stub). Add `_run_pytorch_workflow` raising `NotImplementedError`.
+- Mark the old unittest class skipped or remove it once the pytest function exists to avoid duplicate runtime.
+- Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/pytest_modernization_red.log`.
+- Update docs/fix_plan Attempt history with selector, failure message, and artifact path referencing C1 progress.
 
 Pitfalls To Avoid:
-- Do not edit production code or tests this loop—evidence only.
-- Keep artifacts under the timestamped baseline directory; nothing at repo root.
-- Avoid truncating pytest output; ensure `tee` captures full trace.
-- Respect POLICY-001: fail fast if torch unavailable instead of skipping.
-- Note deterministic knobs (`--disable_mlflow`, seeds) even if already default; missing notes break Phase B.
-- Do not assume dataset small enough; measure and document.
-- Ensure temporary directories created by test are within tmpfs; no lingering artifacts outside baseline dir.
-- Leave unittest-to-pytest migration decisions for later phases; only describe impacts now.
-- Do not mark fix_plan tasks complete until evidence is recorded in docs/fix_plan Attempts.
+- Do not let both unittest and pytest variants run simultaneously—ensure only the pytest path executes.
+- Keep helper stub raising `NotImplementedError` for RED; do not implement the helper yet.
+- Maintain artifact hygiene by writing logs only under `phase_c_modernization/`.
+- Preserve existing CLI argument set; avoid editing production scripts this loop.
+- Leave CUDA disabled for reproducibility by exporting `CUDA_VISIBLE_DEVICES=""` when running pytest.
+- Avoid mixing unittest assertions with pytest `assert`; the new function should use native asserts.
+- Do not mark Phase C checklist rows complete until RED evidence recorded in plan + fix plan.
+- Ensure environment modifications (e.g., `os.environ`) are scoped; do not leak state beyond the test.
+- Keep docstrings accurate—flag GREEN status change for next loop but do not rewrite them yet if causing merge noise.
 
 Pointers:
-- plans/active/TEST-PYTORCH-001/implementation.md:16
-- tests/torch/test_integration_workflow_torch.py:58
-- plans/pytorch_integration_test_plan.md:1
-- specs/ptychodus_api_spec.md:191
-- docs/workflows/pytorch.md:180
-- docs/findings.md:8
+- plans/active/TEST-PYTORCH-001/implementation.md#L40
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md
+- tests/torch/test_integration_workflow_torch.py:1
+- specs/ptychodus_api_spec.md:180
+- docs/workflows/pytorch.md:120
 
-Next Up: If Phase A closes early, prepare fixture minimization outline (B1–B3) using insights from baseline runtime.
+Next Up: C2 (implement helper + GREEN run) after RED evidence is captured and logged.
