@@ -183,7 +183,8 @@ class RawDataTorch:
         nsamples: int = 1,
         seed: Optional[int] = None,
         sequential_sampling: bool = False,
-        gridsize: Optional[int] = None
+        gridsize: Optional[int] = None,
+        dataset_path: Optional[str] = None
     ) -> Dict[str, np.ndarray]:
         """
         Generate nearest-neighbor grouped data by delegating to TensorFlow RawData.
@@ -198,6 +199,7 @@ class RawDataTorch:
             seed: Optional random seed for reproducibility
             sequential_sampling: If True, use first N points instead of random (default False)
             gridsize: Explicit gridsize override (if None, uses params.cfg['gridsize'])
+            dataset_path: Optional path for caching (forwarded to TensorFlow, currently ignored for caching)
 
         Returns:
             Dictionary containing grouped data with keys (per data_contracts.md §2):
@@ -230,7 +232,7 @@ class RawDataTorch:
             N=N,
             K=K,
             nsamples=nsamples,
-            dataset_path=None,  # Deprecated parameter (kept for compatibility)
+            dataset_path=dataset_path,  # Forwarded to TensorFlow (currently ignored for caching)
             seed=seed,
             sequential_sampling=sequential_sampling,
             gridsize=gridsize
