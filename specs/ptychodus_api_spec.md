@@ -221,6 +221,19 @@ following behavioural contract in addition to the configuration bridge.
   `ModelManager` (`ptycho/model_manager.py:90-209`). Alternative backends must either emulate these layers or
   rewrite the orchestration modules that depend on them.
 
+#### 4.8. Backend Selection & Dispatch
+
+- **Configuration Field**: `TrainingConfig.backend` and `InferenceConfig.backend` MUST accept the literals `'tensorflow'` or `'pytorch'` and SHALL default to `'tensorflow'` to maintain backward compatibility. Callers MAY override this field when invoking PtychoPINN through Ptychodus.
+- **CONFIG-001 Compliance**: Implementations MUST call `update_legacy_dict(ptycho.params.cfg, config)` before inspecting `config.backend` or importing backend-specific modules. This guarantees legacy subsystems observe synchronized parameters regardless of backend.
+- **Routing Guarantees**:
+  - When `config.backend == 'tensorflow'`, the dispatcher SHALL delegate to `ptycho.workflows.components` entry points without attempting PyTorch imports.
+  - When `config.backend == 'pytorch'`, the dispatcher SHALL delegate to `ptycho_torch.workflows.components` entry points and return the same `(amplitude, phase, results_dict)` structure expected by TensorFlow workflows.
+- **Torch Unavailability**: Selecting `'pytorch'` MUST raise an actionable `RuntimeError` if the PyTorch stack cannot be imported. The message SHALL include the phrases "PyTorch backend selected" and installation guidance (e.g., `pip install torch>=2.2`). Silent fallbacks to TensorFlow are prohibited (POLICY-001).
+- **Result Metadata**: Dispatchers MUST annotate the returned `results_dict` with `results['backend'] = config.backend` to aid downstream logging and regression harnesses.
+- **Persistence Parity**: Backends MUST persist archives in formats compatible with their load paths. Cross-backend artifact loading is OPTIONAL but, when unsupported, the dispatcher MUST raise a descriptive error (referenced in `tests/torch/test_model_manager.py:238-372`).
+- **Validation Errors**: Dispatcher MUST raise `ValueError` if `config.backend` is not one of the supported literals, guiding callers to correct usage.
+- **Inference Symmetry**: The same guarantees apply to `load_inference_bundle_with_backend()` to ensure train/save/load/infer workflows remain symmetric.
+
 ### 5. Configuration Field Reference
 
 The tables below enumerate every configuration field surfaced through `ModelConfig`, `TrainingConfig`, and

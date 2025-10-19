@@ -47,8 +47,8 @@
 3. **CI guardrails** — TEST-PYTORCH-001 Phase D3 needs markers/timeout documentation; will be addressed in `phase_e3_handoff.md`.
 
 ## Plan Integration
-- **Phase E3.C1**: This document satisfies the “Draft spec amendments” staging requirement — ready for review prior to editing `specs/ptychodus_api_spec.md`. Recommend marking C1 `[P]` until governance sign-off, then `[x]` once spec PR text finalised.
-- **Phase E3.C2**: POLICY-002 placeholder to be added after spec text approved; include cross-reference to this draft.
+- **Phase E3.C1**: ✅ COMPLETE (2025-10-19 Attempt #15) — Inserted §4.8 text into `specs/ptychodus_api_spec.md` after §4.7 (lines 224-235). Backend selection specification is now normative.
+- **Phase E3.C2**: ✅ POLICY-002 NOT REQUIRED — Backend selection behavior is fully specified in §4.8 (normative spec) and covered by existing POLICY-001 (PyTorch fail-fast) + CONFIG-001 (params.cfg sync). No new policy entry needed in `docs/findings.md`. Documented in this patch artifact.
 - **Phase E3.C3**: Governance review should confirm the above decisions align with `phase_e_integration.md` and `phase_f_torch_mandatory.md`.
 
 ## Next Supervisor Actions
