@@ -1,0 +1,50 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_outputs_match_contract SKIPPEDes/pytorch_integration/minimal_d
+ataset_v1.npz)                                                           [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_fixture_pytorch_integration.py:95: Fixture not generated: /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+============================== 1 skipped in 0.84s ==============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 7 items
+
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_file_exists SKIPPEDxtures/pytorch_integration/minimal_dataset_
+v1.npz. Expected during TDD RED phase (B2.B). Run
+scripts/tools/make_pytorch_integration_fixture.py to generate.)          [ 14%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_outputs_match_contract SKIPPEDes/pytorch_integration/minimal_d
+ataset_v1.npz)                                                           [ 28%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_sidecar_exists SKIPPEDes/pytorch_integration/minimal_dataset_
+v1.npz)                                                                  [ 42%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_content_valid SKIPPED [ 57%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_coordinate_coverage SKIPPEDes/pytorch_integration/minimal_dataset_v1.n
+pz)                                                                      [ 71%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_loads_with_rawdata SKIPPEDes/pytorch_integration/minim
+al_dataset_v1.npz)                                                       [ 85%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_compatible_with_pytorch_dataloader SKIPPEDs/pytorch_
+integration/minimal_dataset_v1.npz)                                      [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_fixture_pytorch_integration.py:73: Fixture not generated yet: /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz. Expected during TDD RED phase (B2.B). Run scripts/tools/make_pytorch_integration_fixture.py to generate.
+SKIPPED [1] tests/torch/test_fixture_pytorch_integration.py:95: Fixture not generated: /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+SKIPPED [1] tests/torch/test_fixture_pytorch_integration.py:157: Fixture not generated: /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+SKIPPED [1] tests/torch/test_fixture_pytorch_integration.py:180: Fixture or metadata missing
+SKIPPED [1] tests/torch/test_fixture_pytorch_integration.py:224: Fixture not generated: /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+SKIPPED [1] tests/torch/test_fixture_pytorch_integration.py:267: Fixture not generated: /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+SKIPPED [1] tests/torch/test_fixture_pytorch_integration.py:297: Fixture not generated: /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz
+============================== 7 skipped in 0.83s ==============================
