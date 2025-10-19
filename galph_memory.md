@@ -903,3 +903,18 @@
 - Steering: Rewrote `input.md` directing Ralph to create new checkpoint serialization tests (red log, implementation, integration rerun, documentation) and updated docs/fix_plan Attempt #33 accordingly.
 - Next risks: anticipate Lightning dataclass serialisation quirks (Path/Tensor fields) — flagged in How-To Map to convert to primitives and rebuild dataclasses on load.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T105500Z: D1d dtype remediation planning kickoff
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase D1d — PyTorch inference dtype mismatch
+- Action type: Planning
+- Mode: TDD
+- Coin flip: tails — skipped additional commit audit per instructions.
+- Findings check: `rg "dtype" docs/findings.md` → DATA-001 is the only relevant ledger (float32 contract).
+- Evidence summary:
+  - Integration selector now fails post-checkpoint load with `RuntimeError: Input type (double) and bias type (float)` (see `reports/2025-10-19T134500Z/phase_d2_completion/pytest_integration_checkpoint_green.log`).
+  - Inspected `_ensure_container`, `_build_inference_dataloader`, and `_reassemble_cdi_image_torch`; no explicit `.double()` call, so dtype drift likely occurs during loader collation or Lightning preprocessing. Hypotheses captured for future evidence work.
+- Artifacts: Created `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T110500Z/phase_d2_completion/{dtype_triage.md,summary.md,train_debug.log}` documenting failure signature, hypotheses, and pending TDD steps.
+- Plan updates: Added D1d row to `phase_d2_completion.md` gating dtype remediation before D2/D3; updated docs/fix_plan Attempt #35 with triage and artifact pointers.
+- Steering: Rewrote `input.md` (Mode=TDD) directing Ralph through RED→GREEN dtype tests and integration rerun, with logs captured under the new timestamp. Emphasised keeping waveforms float32 and preserving artifact hygiene.
+- Open questions: Need evidence on where float64 originates (loader tensors vs Lightning module). RED test should assert dtype before fix.
+- <Action State>: [ready_for_implementation]
