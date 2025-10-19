@@ -1173,3 +1173,13 @@
 - Steering: Rewrote `input.md` for B2.A/B2.B (design doc + RED pytest) with artifact hub `2025-10-19T220500Z`; emphasized argparse stub + failing selector `pytest ...::test_fixture_outputs_match_contract -vv`; Mode=TDD to enforce RED-first workflow.
 - Risks / Follow-ups: Ensure new pytest encodes acceptance criteria without hardcoding checksum; generator implementation (B2.C) deferred until RED captured.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T222218Z: Focus setup for B2 handoff
+- Focus issue: TEST-PYTORCH-001 Phase B2 handoff to Phase B3
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes:
+  - Confirmed B2 artifacts (`reports/2025-10-19T225900Z/phase_b_fixture/`) satisfy plan exit criteria; aligned `phase_b_fixture/plan.md` B2.C/B2.D and implementation.md Phase B2 row to `[x]`.
+  - Logged Attempt #41 in docs/fix_plan.md documenting plan sync + new artifact hub `reports/2025-10-19T233500Z/phase_b_fixture/` for upcoming B3 work.
+  - Rewrote `input.md` (Mode=TDD) directing Ralph to execute Phase B3.A/B3.B: fix remaining smoke tests, rewire integration regression to the minimal fixture, capture new pytest logs, and update plan/ledger.
+- <Action State>: [ready_for_implementation]
