@@ -21,6 +21,7 @@
 - [x] Capture fresh integration log (`pytest_integration_current.log`) — COMPLETE (Attempt #30)
 - [x] Draft `diagnostics.md` summarising failure + remediation hypotheses — COMPLETE (Attempt #30)
 - [x] Reference artifacts from docs/fix_plan.md Attempt #30 and update plan checklist D1 once evidence is in place — COMPLETE (Attempt #30)
+- [ ] Inspect Lightning checkpoint `hyper_parameters` payload and capture findings in `checkpoint_inspection.md` (Phase D1b)
 
 ## Outcomes (Attempt #30 - 2025-10-19)
 

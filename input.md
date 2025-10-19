@@ -1,50 +1,66 @@
-Summary: Capture the post-C4 integration-test failure and prep Phase D diagnostics
-Mode: TDD
-Focus: INTEGRATE-PYTORCH-001-STUBS — Finish PyTorch workflow stubs deferred from Phase D2
+Summary: Inspect Lightning checkpoint hyperparameters to unblock Phase D remediation
+Mode: none
+Focus: INTEGRATE-PYTORCH-001-STUBS — Phase D1b Lightning checkpoint inspection
 Branch: feature/torchapi
-Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/{summary.md,pytest_integration_current.log}
+Mapped tests: none — evidence-only
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T123000Z/phase_d2_completion/{summary.md,checkpoint_dump.txt,checkpoint_inspection.md}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-STUBS D1 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Run `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/pytest_integration_current.log` (tests: targeted)
-2. INTEGRATE-PYTORCH-001-STUBS D1 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Create `diagnostics.md` in the same report directory summarising the failure signature (stack trace snippet, checkpoint path, differences vs. 2025-10-17 baseline) and relocate any new `train_debug.log` into that directory (tests: none)
-3. INTEGRATE-PYTORCH-001-STUBS D3 @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Update `summary.md` checklist, keep D1 `[ ]` until the test passes, and record Attempt #30 in docs/fix_plan.md with the new log and diagnostics links (tests: none)
+1. INTEGRATE-PYTORCH-001-STUBS D1b @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Run `python -m ptycho_torch.train --train_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --test_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --output_dir plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T123000Z/phase_d2_completion/checkpoint_run --max_epochs 2 --n_images 64 --gridsize 1 --batch_size 4 --device cpu --disable_mlflow` to reproduce `last.ckpt` under the new artifact directory (tests: none)
+2. INTEGRATE-PYTORCH-001-STUBS D1b @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Load `checkpoint_run/checkpoints/last.ckpt` with torch and dump `hyper_parameters` key info to `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T123000Z/phase_d2_completion/checkpoint_dump.txt` (tests: none)
+3. INTEGRATE-PYTORCH-001-STUBS D1b @ plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md — Summarise findings in `checkpoint_inspection.md`, tick off `summary.md` + plan checklist D1b, and add docs/fix_plan.md Attempt #32 referencing the new evidence (tests: none)
 
-If Blocked: Store whatever portion of the pytest output you captured into `pytest_integration_current.log`, jot the failure mode in `diagnostics.md`, and note the blocker plus log path in docs/fix_plan.md before pausing.
+If Blocked: Capture whatever stdout/stderr you have from the training command into `checkpoint_dump.txt`, note the blocker in `checkpoint_inspection.md`, leave D1b as `[P]`, and document the failure plus file paths in docs/fix_plan.md before pausing.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:65 — D1 now demands a fresh integration run + diagnostics before remediation.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/summary.md:8 — Defines the immediate objectives and artifact expectations for this timestamp.
-- specs/ptychodus_api_spec.md:205 — Persistence contract requires loading checkpoints without extra constructor args; present failure violates this spec clause.
-- docs/workflows/pytorch.md:260 — Troubleshooting section documents the current TypeError and reminds us to refresh checkpoints with hyperparameters.
-- docs/findings.md:8 — POLICY-001 keeps PyTorch mandatory; ensure the integration run continues to honour torch-enabled pathways.
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:66 — D1b requires checkpoint inspection evidence before we choose a remediation path.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/summary.md:24 — Outstanding checklist item tracks this inspection task.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T123000Z/phase_d2_completion/summary.md:1 — Reserved artifact hub for this loop; keep all outputs there.
+- specs/ptychodus_api_spec.md:205 — Persistence contract demands Lightning checkpoints load without extra constructor args; inspection confirms which contract clause is violated.
+- docs/workflows/pytorch.md:260 — Troubleshooting guidance highlights the current TypeError and informs expected checkpoint contents.
 
 How-To Map:
-- Run the targeted pytest command from repo root: `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/pytest_integration_current.log`
-- After the run, create diagnostics via `cat > plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/diagnostics.md` (include summary, stack trace excerpt, checkpoint path, comparison vs. baseline log).
-- If `train_debug.log` appears at repo root, move it with `mv train_debug.log plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/`.
-- Update `summary.md` checklist items to reflect captured artifacts, then adjust docs/fix_plan.md attempts (add Attempt #30) citing both the log and diagnostics file.
-- Keep plan checklist D1 `[ ]` until the test goes green; add a note in diagnostics about next hypotheses (e.g., `save_hyperparameters` payload inspection) for continuity.
+- Ensure artifact directory exists (already provisioned). Training command (Step 1) writes into `checkpoint_run/`; allow it to finish (~2 min CPU).
+- After training, inspect checkpoint with:
+  `python - <<'PY' > plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T123000Z/phase_d2_completion/checkpoint_dump.txt`
+  ```python
+  from pathlib import Path
+  import torch
+
+  ckpt_path = Path('plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T123000Z/phase_d2_completion/checkpoint_run/checkpoints/last.ckpt')
+  checkpoint = torch.load(ckpt_path, map_location='cpu')
+  print('Checkpoint keys:', sorted(checkpoint.keys()))
+  hyper = checkpoint.get('hyper_parameters')
+  print('hyper_parameters type:', type(hyper))
+  if isinstance(hyper, dict):
+      for key, value in hyper.items():
+          print(f"{key}: {type(value)} → {value!r}")
+  else:
+      print('hyper_parameters repr:', repr(hyper))
+  ```
+  `PY`
+- If the checkpoint is large, keep only the dump + md note in git: delete `checkpoint_run/checkpoints/last.ckpt` once inspection is complete (`rm -rf` the `checkpoint_run` directory) to avoid committing big binaries.
+- Author `checkpoint_inspection.md` in the same directory with summary bullets (presence/absence of config objects, serialization format, next hypotheses). Reference `checkpoint_dump.txt` and the training command used.
+- Update `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T123000Z/phase_d2_completion/summary.md` pending tasks to `[x]`, mark `phase_d2_completion.md` D1b `[x]`, and record docs/fix_plan.md Attempt #32 with artifact links and findings.
 
 Pitfalls To Avoid:
-- Do not mark D1 complete or flip plan/state flags until the integration test runs green.
-- Avoid deleting or overwriting the baseline 2025-10-17 log; we need it for regression comparison.
-- Keep all new artifacts under `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/`; no loose files at repo root.
-- Maintain CPU-only execution paths; don’t enable CUDA-only flags in the integration test.
-- Refrain from editing stable physics modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`) while triaging.
-- Don’t silence the failing test; we rely on the red state to guide remediation.
-- Ensure pytest command uses exact selector listed—no extra modules or env flags.
-- Capture the full traceback in diagnostics; partial snippets make future debugging harder.
-- Preserve TDD discipline: only move to implementation after documenting red evidence.
-- Keep Git history clean—stage and commit only once artifacts and plan updates are in place.
+- Do not commit large `.ckpt` binaries; keep only textual summaries in git.
+- Don’t run the full pytest integration suite again—this loop is evidence-only.
+- Avoid editing production code or tests; stick to scripts and documentation artifacts.
+- Keep CONFIG-001 compliance intact by running the CLI exactly as provided (no manual params.cfg hacks).
+- Ensure `checkpoint_dump.txt` captures full key/type info; partial logs won’t unblock remediation.
+- Maintain artifact hygiene—everything from this loop stays under the 2025-10-19T123000Z directory.
+- Remember to increment docs/fix_plan.md Attempts and reference both dump + markdown outputs.
+- If the training command fails, copy stderr into the artifact directory before cleaning up.
+- Don’t leave temporary files outside the artifact directory; delete `checkpoint_run` after dumping info.
+- Keep Mode `none` — no test runs expected this loop.
 
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:65
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/summary.md:8
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T233109Z/phase_d2_completion/pytest_integration_baseline.log
+- plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md:66
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T095900Z/phase_d2_completion/summary.md:24
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T123000Z/phase_d2_completion/summary.md:1
 - specs/ptychodus_api_spec.md:205
 - docs/workflows/pytorch.md:260
-- docs/findings.md:8
 
 Next Up:
-- Begin persisting Lightning hyperparameters (or adapters) so `PtychoPINN_Lightning.load_from_checkpoint` no longer raises the missing-arguments TypeError once diagnostics are captured.
+- Phase D2 remediation: inspect checkpoint payload structure (e.g., evaluate `save_hyperparameters` usage) or draft failing test for Lightning load path once inspection confirms gaps.

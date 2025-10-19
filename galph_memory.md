@@ -882,3 +882,13 @@
   - Logged docs/fix_plan.md Attempt #29 describing the transition into Phase D.
 - Outstanding: Integration test still red due to `PtychoPINN_Lightning.__init__` missing config args; need fresh log + diagnostics to start remediation.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T123000Z: D1b checkpoint evidence setup
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase D1b (Lightning checkpoint hyperparameters)
+- Action type: Evidence collection (setup)
+- Mode: none
+- Updates: Added D1b row to phase_d2_completion.md and extended 2025-10-19T095900Z summary checklist; provisioned `reports/2025-10-19T123000Z/phase_d2_completion/` with summary scaffold for checkpoint inspection artifacts.
+- Guidance: Directed engineer to rerun `ptycho_torch.train` with artifact-scoped output, dump `torch.load` metadata to `checkpoint_dump.txt`, document findings in `checkpoint_inspection.md`, update plan/summary, and log docs/fix_plan Attempt #32.
+- Findings references: POLICY-001 remains applicable; no Lightning-specific ledger entries yet. Inspection will confirm whether `save_hyperparameters()` captures configs.
+- Follow-up: Expect Ralph to execute the three-step Do Now, delete bulky checkpoints after dumping metadata, and mark D1b complete with new evidence.
+- <Action State>: [ready_for_implementation]
