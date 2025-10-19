@@ -23,9 +23,9 @@ Exit Criteria: Factory modules authored with TDD coverage and linked to config b
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Draft factory design doc | [ ] | Outline required inputs/outputs, validation rules, and override semantics. Store under `reports/<timestamp>/factory_design.md`. |
-| B2 | Implement training/inference factory functions | [ ] | Author `ptycho_torch/config_factory.py` with unit tests (pytest) ensuring override enforcement. |
-| B3 | Update config bridge tests | [ ] | Extend `tests/torch/test_config_bridge.py` to assert factories produce valid canonical configs end-to-end. |
+| B1 | Draft factory design doc | [ ] | Follow `reports/2025-10-19T232336Z/phase_b_factories/plan.md` §B1 to author `factory_design.md`, `override_matrix.md`, and decision log before code changes. |
+| B2 | Implement training/inference factory functions | [ ] | Execute TDD scaffold per `plan.md` §B2: add `ptycho_torch/config_factory.py` skeleton + failing pytest coverage, then iterate to GREEN. |
+| B3 | Update config bridge tests | [ ] | Refactor parity tests to consume factories (`plan.md` §B3) and ensure `tests/torch/test_config_bridge.py`/new modules validate canonical config emission end-to-end. |
 
 ### Phase C — Core Workflow Refactor
 Goal: Embed canonical + execution config pattern into `ptycho_torch/workflows/components.py` and downstream helpers.

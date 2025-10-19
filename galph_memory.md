@@ -1208,7 +1208,25 @@
   - Noted absence of `docs/architecture/adr/ADR-003.md`; captured follow-up in new plan (A3.c).
 - Plan updates:
   - Created Phase A execution blueprint at `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T225905Z/phase_a_inventory/plan.md` with tasks A1.a–A3.c plus verification checklist; companion `summary.md` added.
-  - Implementation plan Phase A rows now reference the new artifact hub and required outputs (`cli_inventory.md`, `execution_knobs.md`, `overlap_notes.md`).
-  - Logged docs/fix_plan Attempt #1 detailing this planning loop and artifact paths.
+- Implementation plan Phase A rows now reference the new artifact hub and required outputs (`cli_inventory.md`, `execution_knobs.md`, `overlap_notes.md`).
+- Logged docs/fix_plan Attempt #1 detailing this planning loop and artifact paths.
 - Steering: Rewrote `input.md` (Mode: Docs) directing Ralph through Phase A deliverables with explicit commands, artifact expectations, and wrap-up steps.
+- <Action State>: [ready_for_implementation]
+
+## 2025-10-19T232222Z: Phase B planning package
+- Focus issue: ADR-003-BACKEND-API Phase B (Configuration Factories)
+- Action type: Planning
+- Mode: Docs
+- Findings check: `docs/findings.md` → POLICY-001 (PyTorch mandatory) and FORMAT-001 (NPZ transpose guard) remain active constraints for factory design.
+- Documentation reviewed:
+  - `specs/ptychodus_api_spec.md` §4 — confirm reconstructor lifecycle + CONFIG-001 obligations.
+  - `docs/workflows/pytorch.md` §§5–12 — CLI/runtime expectations and regression guardrails.
+  - `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md` — existing CLI wiring to avoid duplication.
+  - Phase A artefacts (`cli_inventory.md`, `execution_knobs.md`, `overlap_notes.md`) — source data for override mapping.
+  - Code refs: `ptycho_torch/train.py`, `ptycho_torch/inference.py`, `ptycho_torch/config_bridge.py`, `ptycho_torch/workflows/components.py`, `tests/torch/test_config_bridge.py` to scope refactor touchpoints.
+- Actions this loop:
+  - Created Phase B factory plan at `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md` plus companion `summary.md` capturing open questions (execution config location, CLI ownership).
+  - Updated `plans/active/ADR-003-BACKEND-API/implementation.md` Phase B guidance to reference the new plan sections (§B1–B3).
+  - Logged docs/fix_plan Attempt #3 summarising planning outcomes and artefact paths.
+- Next steps for Ralph: Execute B1.a–B1.c from the new plan (author `factory_design.md`, `override_matrix.md`, document spec deltas) before moving to RED scaffold.
 - <Action State>: [ready_for_implementation]
