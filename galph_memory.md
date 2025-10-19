@@ -892,3 +892,14 @@
 - Findings references: POLICY-001 remains applicable; no Lightning-specific ledger entries yet. Inspection will confirm whether `save_hyperparameters()` captures configs.
 - Follow-up: Expect Ralph to execute the three-step Do Now, delete bulky checkpoints after dumping metadata, and mark D1b complete with new evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T100944Z: D1c hyperparameter remediation plan
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS Phase D1c — Lightning hyperparameter serialization fix
+- Action type: Planning
+- Mode: TDD
+- Coin flip: tails — skipped commit audit per instructions.
+- Findings review: `docs/findings.md` has no Lightning entries; treated as greenfield. Re-read key refs (`specs/ptychodus_api_spec.md` §4.6, `docs/workflows/pytorch.md` §6) and inspected `ptycho_torch/model.py` — `save_hyperparameters` absent in `PtychoPINN_Lightning`.
+- Plan updates: Added D1c row to `phase_d2_completion.md` with red→green checklist, provisioned `reports/2025-10-19T134500Z/phase_d2_completion/`, and authored planning brief at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T101500Z/phase_d2_completion/d1c_hyperparam_plan.md`.
+- Steering: Rewrote `input.md` directing Ralph to create new checkpoint serialization tests (red log, implementation, integration rerun, documentation) and updated docs/fix_plan Attempt #33 accordingly.
+- Next risks: anticipate Lightning dataclass serialisation quirks (Path/Tensor fields) — flagged in How-To Map to convert to primitives and rebuild dataclasses on load.
+- <Action State>: [ready_for_implementation]
