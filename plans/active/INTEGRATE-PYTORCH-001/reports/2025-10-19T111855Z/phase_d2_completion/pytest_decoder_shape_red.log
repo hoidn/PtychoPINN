@@ -1,0 +1,136 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 2 items
+
+tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_shape_alignment FAILED [ 50%]
+tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_false_no_mismatch PASSED [100%]
+
+=================================== FAILURES ===================================
+__________ TestDecoderLastShapeParity.test_probe_big_shape_alignment ___________
+
+self = <test_workflows_components.TestDecoderLastShapeParity object at 0x723c8f10ecd0>
+
+    def test_probe_big_shape_alignment(self):
+        """
+        Test that Decoder_last.forward() returns spatially consistent outputs when probe_big=True.
+    
+        Expected Behavior (TensorFlow parity):
+            When probe_big=True, the decoder combines two paths (x1 and x2) via element-wise addition.
+            Both paths MUST produce tensors with identical spatial dimensions (height, width) to enable
+            addition without RuntimeError.
+    
+        Implementation Fix (Phase D1e.B2):
+            PyTorch decoder center-crops x2 to match x1 spatial dimensions before addition,
+            mirroring TensorFlow's trim_and_pad_output logic. This resolves the shape mismatch
+            where x1 padding (540 → 572) produced smaller dims than x2 upsampling (540 → 1080).
+    
+        Test Strategy:
+            Construct representative decoder input with realistic gridsize=1, N=64 dimensions,
+            instantiate Decoder_last with probe_big=True, execute forward(), and assert:
+            (1) No RuntimeError (successful addition after spatial alignment)
+            (2) Output spatial dimensions match x1 path dimensions (height, width padded by N/4)
+        """
+        import torch
+        from ptycho_torch.config_params import ModelConfig, DataConfig
+        from ptycho_torch.model import Decoder_last
+    
+        # --- 1. Configuration (realistic gridsize=1, N=64 case) ---
+        model_config = ModelConfig(
+            mode='Unsupervised',
+            probe_big=True,  # Enable x2 branch (requires spatial alignment fix)
+            n_filters_scale=2,
+            decoder_last_c_outer_fraction=0.25
+        )
+        data_config = DataConfig(
+            N=64,
+            grid_size=(1, 1)  # gridsize=1
+        )
+    
+        # --- 2. Construct representative decoder input ---
+        # Based on shape trace evidence:
+        # Input to Decoder_last: (batch=8, in_channels=64, height=32, width=540)
+        # After encoder stack, spatial dims are typically H=N//2, W varies (e.g., 540 for probe_big cases)
+        batch_size = 8
+        in_channels = 64
+        out_channels = 1
+        height = 32  # Typical encoder output height (N=64 → 32 after pooling)
+        width = 540  # Width observed in shape trace (varies based on probe handling)
+    
+        x_input = torch.randn(batch_size, in_channels, height, width)
+    
+        # --- 3. Instantiate Decoder_last ---
+        decoder = Decoder_last(
+            model_config=model_config,
+            data_config=data_config,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            activation=torch.sigmoid,
+            name='decoder_shape_parity_test',
+            batch_norm=False
+        )
+        decoder.eval()  # Inference mode (no dropout)
+    
+        # --- 4. Execute forward and assert successful completion (GREEN phase) ---
+>       output = decoder.forward(x_input)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_workflows_components.py:1838: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = Decoder_last(
+  (conv1): Conv2d(48, 1, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (conv_up_block): ConvUpBlo..., 1, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (padding): ConstantPad2d(padding=(16, 16, 16, 16), value=0)
+)
+x = tensor([[[[ 9.7137e-01, -6.2298e-01, -5.4598e-01,  ..., -5.3844e-02,
+           -2.9083e+00, -1.2174e+00],
+          [...996e-01],
+          [-4.9580e-01,  8.7821e-01, -1.4153e+00,  ...,  6.5068e-02,
+           -1.3396e-01, -2.1945e+00]]]])
+
+    def forward(self,x):
+        # Path 1
+        x1_in = x[:, :-self.c_outer, :, :]
+        # x1_in = self.upsample(x1_in) #(N//2, N//2) -> N,N
+        x1 = self.conv1(x1_in)
+        if self.batch_norm and self.bn1:
+             x1 = self.bn1(x1) # Apply BN before activation
+        x1 = self.activation(x1) #05-20-2025 for now
+        x1 = self.padding(x1)
+    
+        if not self.model_config.probe_big:
+            return x1
+    
+        # Path 2
+        x2 = self.conv_up_block(x[:, -self.c_outer:, :, :])
+        x2 = self.conv2(x2)
+        if self.batch_norm and self.bn2:
+             x2 = self.bn2(x2) # Apply BN before silu
+    
+        x2 = F.silu(x2) #05-20-2025 for now
+    
+>       outputs = x1 + x2
+                  ^^^^^^^
+E       RuntimeError: The size of tensor a (572) must match the size of tensor b (1080) at non-singleton dimension 3
+
+ptycho_torch/model.py:366: RuntimeError
+----------------------------- Captured stderr call -----------------------------
+2025-10-19 04:24:49.124441: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760873089.136599  852141 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760873089.140882  852141 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760873089.153103  852141 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760873089.153147  852141 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760873089.153150  852141 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760873089.153152  852141 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 04:24:49.156114: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_shape_alignment - RuntimeError: The size of tensor a (572) must match the size of tensor b (1080) at non-singleton dimension 3
+========================= 1 failed, 1 passed in 5.26s ==========================
