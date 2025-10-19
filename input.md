@@ -1,44 +1,41 @@
-Summary: Extend the PyTorch handoff brief with monitoring cadence and escalation triggers for TEST-PYTORCH-001 Phase D3 guidance.
+Summary: Capture Phase E close-out narrative and tee up fix_plan closure for INTEGRATE-PYTORCH-001.
 Mode: Docs
-Focus: [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2 — Phase E3.D follow-ups
+Focus: [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2 — Phase E Close-Out
 Branch: feature/torchapi
 Mapped tests: none — documentation
-Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T223500Z/phase_e3_docs_handoff/{monitoring_update.md}
+Artifacts: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T225500Z/phase_e_closeout/{closure_summary.md}
 
 Do Now:
-1. INTEGRATE-PYTORCH-001-STUBS D3.A–D3.B @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md — Update `handoff_brief.md` (2025-10-19T215800Z folder) with monitoring cadence (per-PR/nightly/weekly) and explicit escalation triggers (runtime >90s, POLICY-001/CONFIG-001 violations), then capture a `monitoring_update.md` summary under 2025-10-19T223500Z/phase_e3_docs_handoff/ (tests: none).
-2. INTEGRATE-PYTORCH-001-STUBS D3.A–D3.B @ plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md — Mark D3 rows `[x]` with artifact pointers and append docs/fix_plan.md Attempt summarizing monitoring guidance + escalation matrix (tests: none).
+1. INTEGRATE-PYTORCH-001-STUBS CO1 @ plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md — Author closure_summary.md under plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T225500Z/phase_e_closeout/ capturing Phase E1–E3 exit evidence, runtime guardrails, and monitoring handoff details; tests: none.
+2. INTEGRATE-PYTORCH-001-STUBS CO2 @ plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md — Append docs/fix_plan Attempt summarizing closure readiness, referencing closure_summary.md and listing remaining follow-ups (e.g., dataloader), marking CO2 when done; tests: none.
 
-If Blocked: Document outstanding questions in `monitoring_update.md`, flag D3 row `[P]`, update docs/fix_plan.md Attempts, and notify supervisor before exiting.
+If Blocked: Record unresolved gaps in closure_summary.md, leave CO1/CO2 as [P], update docs/fix_plan Attempt with blockers, and notify supervisor via galph_memory.md before exiting.
 
 Priorities & Rationale:
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T215800Z/phase_e3_docs_handoff/handoff_brief.md — Base document to extend with monitoring directives.
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md — Source for runtime guardrails and thresholds.
-- specs/ptychodus_api_spec.md:224 — Normative backend dispatch guarantees to reiterate when defining escalation triggers.
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md — Checklist authority for D3.A/D3.B tasks.
-- docs/findings.md#POLICY-001 — Reinforces PyTorch dependency requirement in escalation criteria.
+- plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md:65 — Close-Out checklist and CO1/CO2 task definitions anchor the work.
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T223500Z/phase_e3_docs_handoff/monitoring_update.md — Monitoring cadence and escalation triggers must be referenced in the closure narrative.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md — Source for runtime guardrails cited in the summary.
+- docs/fix_plan.md:6 — Ledger entry needs an Attempt capturing closure readiness per CO2.
 
 How-To Map:
-- mkdir -p plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T223500Z/phase_e3_docs_handoff
-- Update `handoff_brief.md` §2 (selectors) with cadence bullets (per-PR/nightly/weekly) and §3 (artifact expectations) with explicit escalation triggers (runtime budget breaches, checkpoint load failures, POLICY-001 violations).
-- Author `monitoring_update.md` summarizing new cadence table, trigger thresholds, notification workflow, and any open questions; link back to updated sections.
-- After edits, set D3 rows to `[x]` in `phase_e3_docs_plan.md` with inline reference to `monitoring_update.md`, then append Attempt entry to `docs/fix_plan.md` capturing Mode=Docs, artifacts, and remaining next steps.
+- mkdir -p plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T225500Z/phase_e_closeout
+- Summarize E1–E3 evidence in closure_summary.md with bullet links to: phase_e_integration.md exit checklist, parity_update.md (2025-10-19T201500Z), monitoring_update.md, runtime_profile.md, and relevant Attempts (#32-45).
+- Include section listing pending follow-ups (e.g., INTEGRATE-PYTORCH-001-DATALOADER) and recommended next initiatives.
+- After drafting, update docs/fix_plan.md Attempts with a new entry citing closure_summary.md, noting CO1 completion, outstanding work, and proposed next steps before status change.
+- Mark CO1/CO2 states `[x]` in phase_e_integration.md once edits land, keeping artifact links inline.
 
 Pitfalls To Avoid:
-- Do not invent new policy IDs; leverage POLICY-001/CONFIG-001/FORMAT-001 references already established.
-- Keep runtime thresholds aligned with runtime_profile.md (≤90s max, 60s warning, 36s±5s baseline, <20s incomplete) and cite source.
-- Maintain ASCII formatting and heading style in `handoff_brief.md`; no TODO placeholders.
-- Record any unresolved monitoring questions in `monitoring_update.md` instead of leaving implicit.
-- Ensure new summary lives under the 2025-10-19T223500Z timestamp; no stray files at repo root.
-- Skip test execution; this is a documentation-only loop.
-- Note exact selectors and commands rather than paraphrasing (quote them in backticks).
-- Update plan and ledger only after documentation edits are complete to keep traceability clean.
+- Do not re-run tests; this loop is documentation-only.
+- Keep all new artifacts under the 2025-10-19T225500Z/phase_e_closeout/ directory.
+- Reference authoritative artifacts (runtime_profile.md, parity_update.md) rather than re-describing results from memory.
+- Document remaining gaps explicitly; no vague "to-do" wording.
+- Maintain ASCII headings and consistent Markdown tables; no unchecked checklist items left ambiguous.
 
 Pointers:
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T215800Z/phase_e3_docs_handoff/handoff_brief.md:45
+- plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md:60
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T223500Z/phase_e3_docs_handoff/monitoring_update.md:1
 - plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md:12
-- specs/ptychodus_api_spec.md:224
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T205832Z/phase_e3_docs_plan.md:94
-- docs/fix_plan.md:6
+- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T201500Z/phase_d2_completion/parity_update.md:5
+- docs/fix_plan.md:63
 
-Next Up: Draft closure recommendation for INTEGRATE-PYTORCH-001 once monitoring cadence is accepted.
+Next Up: Evaluate whether to spin off INTEGRATE-PYTORCH-001-DATALOADER as a dedicated fix_plan item once closure summary is approved.

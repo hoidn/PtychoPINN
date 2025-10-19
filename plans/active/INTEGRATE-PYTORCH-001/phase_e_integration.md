@@ -58,6 +58,14 @@ Planning Reference: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T20583
 ---
 
 ### Exit Checklist
-- [ ] Phase E1 artifacts stored and referenced; backend-selection tests failing as expected before implementation.
-- [ ] Phase E2 integration tests capture PyTorch gaps then pass with wiring in place; parity report archived.
-- [ ] Documentation, spec updates, and TEST-PYTORCH-001 handoff complete with ledger entries and risk notes.
+- [x] Phase E1 artifacts stored and referenced; backend-selection tests failing as expected before implementation. (`reports/2025-10-17T173826Z/phase_e_callchain/{static.md,summary.md}`, `phase_e_red_backend_selection.log`, `phase_e_backend_design.md`)
+- [x] Phase E2 integration tests capture PyTorch gaps then pass with wiring in place; parity report archived. (`reports/2025-10-19T111855Z/phase_d2_completion/pytest_integration_shape_green.log`, `reports/2025-10-19T201500Z/phase_d2_completion/parity_update.md`)
+- [x] Documentation, spec updates, and TEST-PYTORCH-001 handoff complete with ledger entries and risk notes. (`reports/2025-10-19T210000Z/phase_e3_docs_update/summary.md`, `reports/2025-10-19T205832Z/phase_e3_spec_update.md`, `reports/2025-10-19T223500Z/phase_e3_docs_handoff/monitoring_update.md`, docs/fix_plan Attempt #44)
+
+### Phase E Close-Out
+Goal: Capture final exit narrative and prepare fix_plan closure recommendation for INTEGRATE-PYTORCH-001.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| CO1 | Author Phase E closure summary with exit checklist validation | [ ] | Draft `closure_summary.md` under `plans/active/INTEGRATE-PYTORCH-001/reports/<timestamp>/phase_e_closeout/` enumerating E1–E3 evidence, runtime guardrails, and monitoring handoff, referencing Attempts #32-45. |
+| CO2 | Append fix_plan closure recommendation | [ ] | Once CO1 complete, add docs/fix_plan Attempt summarizing closure readiness and flag any remaining follow-ups (e.g., [INTEGRATE-PYTORCH-001-DATALOADER]) before proposing status change. |
