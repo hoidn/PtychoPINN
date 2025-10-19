@@ -61,8 +61,8 @@ Planning reference: `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/ph
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Record runtime + resource profile | [ ] | Follow plan D1.A–D1.C: aggregate Phase C2/C3 runtimes, capture environment telemetry (`env_snapshot.txt`), and document guardrails in `runtime_profile.md` under `reports/2025-10-19T193425Z/phase_d_hardening/`. |
-| D2 | Update documentation + ledger | [ ] | Execute plan D2.A–D2.C: refresh this table, append fix_plan Attempt, and update `docs/workflows/pytorch.md` testing guidance with selector + runtime citing `runtime_profile.md`. |
+| D1 | Record runtime + resource profile | [x] | ✅ 2025-10-19 — Runtime profile complete at `reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`. Aggregated C2/C3/D1 runtimes (mean 35.92s, variance 0.17%). Environment documented: Python 3.11.13, PyTorch 2.8.0+cu128, Ryzen 9 5950X (32 CPUs), 128GB RAM. Guardrails defined: ≤90s CI max, 60s warning, 36s±5s baseline. Artifacts: `env_snapshot.txt`, `pytest_modernization_phase_d.log`, `runtime_profile.md`. |
+| D2 | Update documentation + ledger | [x] | ✅ 2025-10-19 — Documentation alignment complete (Attempt #11). Updated this implementation plan D1 row with artifact citations. Appended `docs/fix_plan.md` [TEST-PYTORCH-001] Attempt #11 with Phase D2 summary referencing runtime profile (2025-10-19T193425Z) and updated workflow doc. Refreshed `docs/workflows/pytorch.md` §11 (new "Regression Test & Runtime Expectations" subsection) with pytest selector, 36s±5s baseline, ≤90s CI guardrail, POLICY-001/FORMAT-001 reminders. Artifacts: `reports/2025-10-19T201900Z/phase_d_hardening/{doc_alignment_notes.md,summary.md}`. |
 | D3 | CI integration follow-up | [ ] | Execute plan D3.A–D3.C: review CI config, decide on pytest markers/skip policy, and record outcomes + follow-up tickets in `ci_notes.md` within the same artifact hub. |
 
 ---

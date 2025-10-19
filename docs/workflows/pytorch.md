@@ -243,7 +243,58 @@ plt.subplot(122); plt.imshow(phase); plt.title('Phase')
 plt.show()
 ```
 
-## 11. Troubleshooting
+## 11. Regression Test & Runtime Expectations
+
+The PyTorch integration workflow is validated by a comprehensive pytest regression test that exercises the complete train→save→load→infer cycle.
+
+### Test Selector
+
+```bash
+CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
+```
+
+**Environment Requirement:** `CUDA_VISIBLE_DEVICES=""` enforces CPU-only execution per test contract (enforced via `cuda_cpu_env` fixture).
+
+### Runtime Performance
+
+- **Baseline Runtime:** 35.9s ± 0.5s (observed mean: 35.92s, variance: 0.17%)
+- **CI Budget:** ≤90s on modern CPU hardware (2.5× baseline; allows for slower CI infrastructure)
+- **Warning Threshold:** 60s (1.7× baseline triggers investigation)
+
+**Environment:** Verified on Python 3.11.13, PyTorch 2.8.0+cu128, Lightning 2.5.5, Ryzen 9 5950X (32 CPUs), 128GB RAM.
+
+**Performance Profile:** See `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md` for full telemetry.
+
+### Determinism Guarantees
+
+- Lightning `deterministic=True` + `seed_everything()` enforce reproducible runs
+- Checkpoint persistence with embedded hyperparameters (Phase D1c, INTEGRATE-PYTORCH-001 Attempts #32-34)
+- State-free model reload (no manual config kwargs required)
+
+### Test Coverage
+
+The regression validates:
+1. **Training Phase:** Lightning orchestration with grouped data, 2 epochs, checkpoint save
+2. **Persistence Phase:** Checkpoint bundle stored at `{output_dir}/checkpoints/last.ckpt`
+3. **Load Phase:** Model restored from checkpoint without manual config injection
+4. **Inference Phase:** Lightning prediction + image reassembly + PNG export
+5. **Artifact Validation:** Reconstruction images (amplitude/phase) exist with >1KB size
+
+### Data Contract Compliance
+
+- **POLICY-001:** PyTorch >=2.2 is mandatory (see `docs/findings.md#POLICY-001`)
+- **FORMAT-001:** NPZ auto-transpose guard handles legacy (H,W,N) format (see `docs/findings.md#FORMAT-001`)
+- Dataset: Canonical format per `specs/data_contracts.md` §1 (diffraction=amplitude, float32)
+
+### CI Integration Notes
+
+- **Recommended Timeout:** 120s (conservative 3.3× baseline)
+- **Retry Policy:** 1 retry on timeout (accounts for CI jitter)
+- **Markers:** Consider `@pytest.mark.integration` + `@pytest.mark.slow` for selective execution
+
+**Reference:** See `plans/active/TEST-PYTORCH-001/implementation.md` for phased test development history.
+
+## 12. Troubleshooting
 
 ### PyTorch Import Errors
 
@@ -270,7 +321,7 @@ See <doc-ref type="troubleshooting">docs/debugging/TROUBLESHOOTING.md#shape-mism
 
 **Solution:** Retrain with current codebase or use legacy load path (under development in Phase D4).
 
-## 12. Keeping Parity with TensorFlow
+## 13. Keeping Parity with TensorFlow
 
 When introducing new features to PyTorch workflows:
 
