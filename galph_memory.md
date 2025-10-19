@@ -933,3 +933,15 @@
   - Rewrote `input.md` (Mode=TDD) directing Ralph to capture fresh integration log, instrument decoder shapes under env guard, update triage memo, and author RED regression test `TestDecoderLastShapeParity`.
 - Observations: Current integration log (2025-10-19T110500Z) shows failure at `Decoder_last.forward` when `probe_big` branch active; need explicit crop/pad parity with TensorFlow before resuming D2/D3 work.
 - <Action State>: [planning]
+
+## 2025-10-19T111636Z: D1e evidence review (phase handoff)
+- Focus issue: INTEGRATE-PYTORCH-001-D1E — Lightning decoder shape mismatch Phase B stewardship
+- Action type: Review or housekeeping
+- Mode: TDD
+- Coin flip: heads — reviewed last ~10 commits; Ralph’s Attempt #39 captured evidence but kept the regression test expecting the RuntimeError, so no RED failure was generated. No regressions spotted, but we need to convert the test to assert the intended parity.
+- Housekeeping done this loop:
+  - Logged Attempt #39 in `docs/fix_plan.md` covering the new logs, shape trace, and partial test scaffold; updated `phase_d2_completion.md` D1e row and refreshed `summary.md` with current state.
+  - Relocated stray `train_debug.log` to `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/` to satisfy artifact policy.
+  - Provisioned timestamp `2025-10-19T111855Z` for the next loop’s RED/GREEN logs and rewrote `input.md` with explicit test-fix-integration steps.
+- Outstanding guidance: ensure TestDecoderLastShapeParity now expects success, centre-crop `x2`, capture red/green logs, rerun integration, and update docs/fix_plan with Attempt #40 once green.
+- <Action State>: [ready_for_implementation]
