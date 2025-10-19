@@ -1,0 +1,6 @@
+keys: ['diffraction', 'objectGuess', 'probeGuess', 'xcoords', 'xcoords_start', 'ycoords', 'ycoords_start']
+diff_shape (64, 64, 1087) dtype float64 min 0.0 max 1.7035770708222235
+objectGuess (227, 226) complex128
+probeGuess (64, 64) complex128
+xcoords float64 count 1087 min 34.41161595623848 max 79.28087207942583
+ycoords float64 count 1087 min 35.76291640620743 max 79.10709370020433
