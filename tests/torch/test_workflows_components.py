@@ -1747,3 +1747,176 @@ class TestReassembleCdiImageTorchFloat32:
 
         # Ensure we actually iterated batches
         assert batch_count > 0, "Dataloader must yield at least one batch"
+
+
+class TestDecoderLastShapeParity:
+    """
+    Phase D1e.B1 — Decoder shape alignment regression tests.
+
+    Tests the PyTorch `Decoder_last` spatial dimension parity with TensorFlow baseline
+    when `probe_big=True`, ensuring x1 and x2 paths produce compatible shapes for addition.
+
+    Background:
+        Integration test fails with "The size of tensor a (572) must match the size of tensor b (1080)"
+        at `ptycho_torch/model.py:366` (`outputs = x1 + x2`). Root cause: Path 1 (x1) uses
+        padding (540 → 572) while Path 2 (x2) uses 2× upsampling (540 → 1080), creating
+        asymmetric spatial dimensions.
+
+    Evidence:
+        plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/shape_trace.md
+        plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/shape_mismatch_triage.md
+
+    TDD Phase: RED — This test documents the failure before implementing the fix (D1e.B2).
+
+    References:
+        - Phase plan: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/d1e_shape_plan.md
+        - TensorFlow baseline: ptycho/model.py:360-410 (Decoder_last with trim_and_pad_output)
+        - PyTorch implementation: ptycho_torch/model.py:299-393 (Decoder_last)
+    """
+
+    def test_probe_big_shape_alignment(self):
+        """
+        Test that Decoder_last.forward() returns spatially consistent outputs when probe_big=True.
+
+        Expected Behavior (TensorFlow parity):
+            When probe_big=True, the decoder combines two paths (x1 and x2) via element-wise addition.
+            Both paths MUST produce tensors with identical spatial dimensions (height, width) to enable
+            addition without RuntimeError.
+
+        Current Failure (Phase D1e RED):
+            x1 shape: (batch, 1, 64, 572) — conv1 + padding (N/4=16 pixels per side)
+            x2 shape: (batch, 1, 64, 1080) — conv_up_block (2× upsample) + conv2
+            Addition fails: 572 ≠ 1080 on dimension 3
+
+        Test Strategy:
+            Construct representative decoder input with realistic gridsize=1, N=64 dimensions,
+            instantiate Decoder_last with probe_big=True, and assert forward() raises RuntimeError
+            citing the shape mismatch (572 vs 1080).
+
+        Exit Criteria for GREEN (D1e.B2):
+            After implementing center-crop on x2 to match x1 spatial dims, this test should pass
+            (no RuntimeError), confirming spatial parity.
+        """
+        import torch
+        from ptycho_torch.config_params import ModelConfig, DataConfig
+        from ptycho_torch.model import Decoder_last
+
+        # --- 1. Configuration (realistic gridsize=1, N=64 case) ---
+        model_config = ModelConfig(
+            mode='Unsupervised',
+            probe_big=True,  # Enable x2 branch to trigger shape mismatch
+            n_filters_scale=2,
+            decoder_last_c_outer_fraction=0.25
+        )
+        data_config = DataConfig(
+            N=64,
+            grid_size=(1, 1)  # gridsize=1
+        )
+
+        # --- 2. Construct representative decoder input ---
+        # Based on shape trace evidence:
+        # Input to Decoder_last: (batch=8, in_channels=64, height=32, width=540)
+        # After encoder stack, spatial dims are typically H=N//2, W varies (e.g., 540 for probe_big cases)
+        batch_size = 8
+        in_channels = 64
+        out_channels = 1
+        height = 32  # Typical encoder output height (N=64 → 32 after pooling)
+        width = 540  # Width observed in shape trace (varies based on probe handling)
+
+        x_input = torch.randn(batch_size, in_channels, height, width)
+
+        # --- 3. Instantiate Decoder_last ---
+        decoder = Decoder_last(
+            model_config=model_config,
+            data_config=data_config,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            activation=torch.sigmoid,
+            name='decoder_shape_parity_test',
+            batch_norm=False
+        )
+        decoder.eval()  # Inference mode (no dropout)
+
+        # --- 4. Execute forward and expect RuntimeError (RED phase) ---
+        with pytest.raises(RuntimeError, match=r"The size of tensor a \(\d+\) must match the size of tensor b \(\d+\)"):
+            _ = decoder.forward(x_input)
+
+        # Additional diagnostic: Capture exact shapes if forward doesn't raise (should not happen in RED)
+        # This serves as documentation when debugging unexpected passes
+        try:
+            output = decoder.forward(x_input)
+            pytest.fail(
+                f"Expected RuntimeError due to shape mismatch, but forward() succeeded. "
+                f"Output shape: {output.shape}. "
+                f"This indicates either: (1) test input dimensions incorrect, or (2) decoder already fixed. "
+                f"Review shape trace evidence at plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T105248Z/phase_d2_completion/shape_trace.md"
+            )
+        except RuntimeError:
+            # Expected path (RED phase)
+            pass
+
+    def test_probe_big_false_no_mismatch(self):
+        """
+        Test that Decoder_last.forward() succeeds when probe_big=False (x2 branch disabled).
+
+        Expected Behavior:
+            When probe_big=False, only path 1 (x1) executes, returning directly after conv1 + padding.
+            No shape mismatch occurs because x2 branch (upsampling) is skipped.
+
+        This test validates that the shape mismatch is specific to the probe_big=True case and
+        ensures baseline decoder functionality remains intact.
+        """
+        import torch
+        from ptycho_torch.config_params import ModelConfig, DataConfig
+        from ptycho_torch.model import Decoder_last
+
+        # --- 1. Configuration with probe_big=False ---
+        model_config = ModelConfig(
+            mode='Unsupervised',
+            probe_big=False,  # Disable x2 branch
+            n_filters_scale=2
+        )
+        data_config = DataConfig(
+            N=64,
+            grid_size=(1, 1)
+        )
+
+        # --- 2. Construct decoder input (same dims as test_probe_big_shape_alignment) ---
+        batch_size = 8
+        in_channels = 64
+        out_channels = 1
+        height = 32
+        width = 540
+
+        x_input = torch.randn(batch_size, in_channels, height, width)
+
+        # --- 3. Instantiate Decoder_last ---
+        decoder = Decoder_last(
+            model_config=model_config,
+            data_config=data_config,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            activation=torch.sigmoid,
+            name='decoder_probe_big_false',
+            batch_norm=False
+        )
+        decoder.eval()
+
+        # --- 4. Execute forward and expect success (no RuntimeError) ---
+        output = decoder.forward(x_input)
+
+        # --- 5. Validate output shape (path 1 only) ---
+        # Expected: (batch, out_channels, height_upsampled, width_padded)
+        # After conv1: preserves spatial dims → (8, 1, 32, 540)
+        # After padding (N/4=16 per side): (8, 1, 32, 572)
+        # Note: height dimension may be upsampled by conv transpose in earlier encoder layers (32 → 64)
+        # For this test, we assert output is 4D and has expected batch/channel counts
+        assert output.ndim == 4, f"Expected 4D output, got {output.ndim}D: {output.shape}"
+        assert output.shape[0] == batch_size, f"Batch size mismatch: {output.shape[0]} != {batch_size}"
+        assert output.shape[1] == out_channels, f"Channel count mismatch: {output.shape[1]} != {out_channels}"
+
+        # Width after padding: original 540 + 2*(N/4) = 540 + 32 = 572
+        expected_width = width + 2 * (data_config.N // 4)
+        assert output.shape[3] == expected_width, \
+            f"Width mismatch: {output.shape[3]} != {expected_width}. " \
+            f"Expected: input_width ({width}) + 2*padding ({data_config.N // 4} per side) = {expected_width}"

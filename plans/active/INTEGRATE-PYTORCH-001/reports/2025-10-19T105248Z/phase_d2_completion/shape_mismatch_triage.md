@@ -17,11 +17,42 @@
 2. **Padding asymmetry vs TensorFlow crop** — PyTorch path applies `ConstantPad2d` whereas TensorFlow uses center crop/pad. Lack of crop in PyTorch may increase spatial extent beyond original grid.
 3. **Input tensor layout difference** — `x` fed into `Decoder_last` may already be channel-last (after previous fixes), but `conv` layers expect channel-first. Need to confirm we permute correctly before decode stage.
 
-## Evidence To Gather (Phase A Targets)
-- Shape trace for `x`, `x1`, `x2`, and `outputs` within `Decoder_last.forward`.
-- Compare with TensorFlow decoder shapes for identical checkpoint (if available).
-- Determine whether mismatch occurs only when `model_config.probe_big` is True (i.e., when `x2` branch active).
+## Evidence Collected (Phase A Complete)
 
-## Next Steps
-- Follow Phase D1e checklist (`d1e_shape_plan.md`) to collect shape traces and convert hypotheses into targeted tests.
-- Update this triage with confirmed root cause once instrumentation data collected.
+### Shape Trace Results (from `shape_trace.md`)
+Captured via `TORCH_DECODER_TRACE=1` during inference on gridsize=1, N=64 model:
+
+```
+Input x shape: torch.Size([8, 64, 32, 540])
+After path1 (conv1 + padding): x1 shape: torch.Size([8, 1, 64, 572])
+Path2 input x2_in shape: torch.Size([8, 8, 32, 540])
+After conv_up_block: x2 shape: torch.Size([8, 64, 64, 1080])
+After conv2 + silu: x2 shape: torch.Size([8, 1, 64, 1080])
+About to add: x1.shape=torch.Size([8, 1, 64, 572]), x2.shape=torch.Size([8, 1, 64, 1080])
+```
+
+### Root Cause Analysis
+**Confirmed**: The shape mismatch (572 vs 1080 on dimension 3) is caused by asymmetric spatial transformations in the two decoder paths:
+
+1. **Path 1 (x1)**: `conv1` preserves input spatial dims (32×540), then `padding` adds N/4=16 pixels on each side → **32×572** (height gets upsampled via conv transpose in earlier layers to 64, so final is 64×572)
+2. **Path 2 (x2)**: `conv_up_block` applies 2×2 upsampling (32×540 → 64×1080), then `conv2` preserves those dims → **64×1080**
+
+The padding on x1 (32 pixels total width) is **insufficient** to match the 2× upsampling on x2 (540 → 1080).
+
+### Hypothesis Validation
+- ✅ **Hypothesis 1 (Upsample scale factor mismatch)**: Confirmed. The 2×2 upsampling in `ConvUpBlock` doubles spatial dimensions from 540 to 1080, while padding only adds 32 pixels (540 → 572).
+- ❌ **Hypothesis 2 (Padding asymmetry vs TensorFlow crop)**: Partial. Padding is applied correctly, but the *amount* is wrong. Should match upsampled dims, not just add N/4.
+- ⚠️ **Hypothesis 3 (Input tensor layout difference)**: Not the primary issue; shapes are consistent within decoder (batch=8, channels vary correctly).
+
+### Required Fix
+The decoder must ensure x1 and x2 have **identical spatial dimensions** before addition. Three approaches considered:
+
+**Option A (Crop x2)**: Center-crop x2 from 64×1080 to 64×572 to match x1
+**Option B (Pad x1 further)**: Extend padding on x1 from 32 total pixels to 540 pixels (to reach 1080) - **not feasible, would distort reconstruction**
+**Option C (Adjust upsampling)**: Change `ConvUpBlock` scale factor from (2,2) to match padding ratio - **breaks parity with TensorFlow**
+
+**Recommended**: **Option A (Center-crop x2)** to maintain TensorFlow parity. TensorFlow decoder uses `trim_and_pad_output` helper to align spatial dims (see `ptycho/model.py:368` commented line `outputs = hh.trim_and_pad_output(outputs, self.data_config, self.model_config)`).
+
+## Next Steps (Phase B)
+- D1e.B1: Author failing pytest `TestDecoderLastShapeParity::test_probe_big_shape_alignment` encoding this mismatch
+- D1e.B2: Implement center-crop on x2 before addition (mirror TensorFlow `trim_and_pad_output` logic or use PyTorch functional crop)
