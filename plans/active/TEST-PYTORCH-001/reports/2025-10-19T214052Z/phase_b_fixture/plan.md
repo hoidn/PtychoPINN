@@ -17,9 +17,9 @@ Exit Criteria: Written analysis capturing dataset statistics, config knob sensit
 
 | ID | Task Description | State | How/Why & Guidance (including API / document / artifact / source file references) |
 | --- | --- | --- | --- |
-| B1.A | Capture canonical dataset profile | [ ] | Run `python plans/active/TEST-PYTORCH-001/scripts/profile_fixture_dataset.py` (**new script, see B2.A**) or ad-hoc notebook to log `diffraction` orientation, dtype, min/max, and counts (N,H,W). Store findings in `reports/<TS>/phase_b_fixture/fixture_scope.md`. Cross-check against data contract (`specs/data_contracts.md` §1) and FORMAT-001 auto-transpose notes. |
-| B1.B | Measure runtime sensitivity to CLI knobs | [ ] | Execute two targeted dry runs of the PyTorch regression (training only) varying `--max_epochs` (1 vs 2) and `--n_images` (16 vs 64) with `CUDA_VISIBLE_DEVICES=""` to quantify impact on elapsed time. Record commands, timings, and resulting artifact sizes in `fixture_scope.md`. Use existing helper `_run_pytorch_workflow` in `tests/torch/test_integration_workflow_torch.py` as baseline and log outputs under `reports/<TS>/phase_b_fixture/logs/`. |
-| B1.C | Define fixture acceptance criteria | [ ] | Based on B1.A/B1.B, draft bullet list in `fixture_scope.md` covering: desired `n_images`, target runtime (<45s CPU), required coordinate spread (ensure >1 scan group), dtype conversions (diffraction→float32, complex arrays→complex64), and compatibility with CONFIG-001 bridging. |
+| B1.A | Capture canonical dataset profile | [x] | ✔ `reports/2025-10-19T215300Z/phase_b_fixture/dataset_probe.txt` + `fixture_scope.md` document `(H,W,N)=(64,64,1087)` orientation, dtype violations, and coordinate ranges (DATA-001 + FORMAT-001 references). |
+| B1.B | Measure runtime sensitivity to CLI knobs | [x] | ✔ `reports/2025-10-19T215300Z/phase_b_fixture/logs/train_ep2_n64.log` + `train_ep1_n16.log` capture CPU-only dry runs (21.91s / 17.11s) with CLI overrides noted in `fixture_scope.md`. |
+| B1.C | Define fixture acceptance criteria | [x] | ✔ `reports/2025-10-19T215300Z/phase_b_fixture/fixture_scope.md` §3 lists nine acceptance criteria (n_subset=64, dtype downcasts, runtime <45s, checksum metadata) derived from telemetry. |
 
 ---
 

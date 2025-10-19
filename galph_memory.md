@@ -1147,3 +1147,13 @@
   - Rewrote `input.md` (Mode: Perf) directing Ralph to execute B1.A–B1.C with commands for dataset profiling and runtime sweeps; provisioned artifact hub `2025-10-19T215300Z/phase_b_fixture/`.
 - Open questions: Need confirmation that reducing `n_images` to ~16 still exercises grouping logic—flagged in plan as criterion to validate during B1/B2.
 - <Action State>: [ready_for_implementation]
+
+
+## 2025-10-19T215218Z: Phase B2 fixture kickoff prep
+- Focus issue: TEST-PYTORCH-001 Phase B2 fixture generator TDD prep
+- Action type: Review or housekeeping
+- Mode: TDD
+- Findings: Validated Ralph’s Phase B1 artifacts (`reports/2025-10-19T215300Z/phase_b_fixture/{dataset_probe.txt,logs/,fixture_scope.md}`) against DATA-001 + FORMAT-001; marked B1 rows `[x]` in `phase_b_fixture/plan.md` and `implementation.md`; appended docs/fix_plan Attempt #37 documenting supervisor sign-off.
+- Steering: Rewrote `input.md` for B2.A/B2.B (design doc + RED pytest) with artifact hub `2025-10-19T220500Z`; emphasized argparse stub + failing selector `pytest ...::test_fixture_outputs_match_contract -vv`; Mode=TDD to enforce RED-first workflow.
+- Risks / Follow-ups: Ensure new pytest encodes acceptance criteria without hardcoding checksum; generator implementation (B2.C) deferred until RED captured.
+- <Action State>: [ready_for_implementation]
