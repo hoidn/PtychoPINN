@@ -1,0 +1,21 @@
+ptycho_torch/train.py:380:    parser.add_argument('--train_data_file', type=str,
+ptycho_torch/train.py:382:    parser.add_argument('--test_data_file', type=str,
+ptycho_torch/train.py:384:    parser.add_argument('--output_dir', type=str,
+ptycho_torch/train.py:386:    parser.add_argument('--max_epochs', type=int, default=100,
+ptycho_torch/train.py:388:    parser.add_argument('--n_images', type=int, default=512,
+ptycho_torch/train.py:390:    parser.add_argument('--gridsize', type=int, default=2,
+ptycho_torch/train.py:392:    parser.add_argument('--batch_size', type=int, default=4,
+ptycho_torch/train.py:394:    parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu',
+ptycho_torch/train.py:396:    parser.add_argument('--disable_mlflow', action='store_true',
+ptycho_torch/train.py:400:    parser.add_argument('--ptycho_dir', type=str,
+ptycho_torch/train.py:402:    parser.add_argument('--config', type=str,
+ptycho_torch/inference.py:343:    parser.add_argument(
+ptycho_torch/inference.py:349:    parser.add_argument(
+ptycho_torch/inference.py:355:    parser.add_argument(
+ptycho_torch/inference.py:361:    parser.add_argument(
+ptycho_torch/inference.py:367:    parser.add_argument(
+ptycho_torch/inference.py:374:    parser.add_argument(
+ptycho_torch/inference.py:582:        parser.add_argument('--run_id', type = str, help = "Unique run id associated with training run")
+ptycho_torch/inference.py:583:        parser.add_argument('--infer_dir', type = str, help = "Inference directory")
+ptycho_torch/inference.py:584:        parser.add_argument('--file_index', type = int, default = 0, help = "File index if more than one file in infer_dir")
+ptycho_torch/inference.py:585:        parser.add_argument('--config', type = str, default = None, help = "Config to override loaded values")
