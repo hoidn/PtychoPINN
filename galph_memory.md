@@ -1131,3 +1131,19 @@
 - Plan: mark fix_plan status `done`, update Active Focus toward TEST-PYTORCH-001 Phase D3, refresh input.md for new directives, ensure no lingering blockers.
 - Loop outcome: Updated `docs/fix_plan.md` (status → done, Active Focus → TEST-PYTORCH-001 CI hardening), rewrote `input.md` with D3 CI-integration checklist + artifact path `2025-10-19T232500Z`, captured findings in ci_notes placeholder guidance.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T213905Z: Phase B fixture planning kickoff
+- Focus issue: TEST-PYTORCH-001 — Phase B fixture minimization & deterministic config
+- Action type: Planning
+- Mode: Docs
+- Context & findings:
+  - Reviewed `docs/index.md`, specs, architecture, debugging guide, workflows, TESTING_GUIDE`, `docs/fix_plan.md`, `plans/active/TEST-PYTORCH-001/implementation.md`, and `plans/pytorch_integration_test_plan.md` to confirm outstanding work is confined to Phase B (fixture minimization still `[ ]`).
+  - Coin flip → heads; audited recent work (`git show cebac33dd`) confirming Ralph’s Phase D3 CI-strategy commit is documentation-only and aligns with ledger updates/artifacts (`ci_notes.md`, `summary.md`).
+  - Baseline dataset probe (ad-hoc NPZ load) captured axes `(64, 64, 1087)`, float64 amplitude, complex128 probe/object; confirms need for dtype downcast + axis reorder when creating fixture. Existing runtime (35–36s) acceptable but plan targets <45s after fixture swap for headroom.
+- Actions this loop:
+  - Authored Phase B roadmap at `plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md` with phased sub-checklists (B1 scope telemetry, B2 generator TDD, B3 regression wiring) plus supporting `summary.md`.
+  - Updated `plans/active/TEST-PYTORCH-001/implementation.md` Phase B rows to point to the new plan and clarified execution expectations.
+  - Logged Attempt #14 in `docs/fix_plan.md` recording the planning loop and artefacts.
+  - Rewrote `input.md` (Mode: Perf) directing Ralph to execute B1.A–B1.C with commands for dataset profiling and runtime sweeps; provisioned artifact hub `2025-10-19T215300Z/phase_b_fixture/`.
+- Open questions: Need confirmation that reducing `n_images` to ~16 still exercises grouping logic—flagged in plan as criterion to validate during B1/B2.
+- <Action State>: [ready_for_implementation]

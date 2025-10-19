@@ -1,42 +1,61 @@
-Summary: Define CI integration strategy for the PyTorch regression (Phase D3).
-Mode: Docs
-Focus: [TEST-PYTORCH-001] Author PyTorch integration workflow regression — Phase D3 CI integration
+Summary: Capture Phase B fixture scope telemetry for PyTorch regression.
+Mode: Perf
+Focus: [TEST-PYTORCH-001] Author PyTorch integration workflow regression — Phase B1 fixture requirements
 Branch: feature/torchapi
-Mapped tests: none — documentation
-Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T232500Z/phase_d_hardening/{ci_notes.md,summary.md}
+Mapped tests: none — measurement loop
+Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T215300Z/phase_b_fixture/{fixture_scope.md,logs/}
 
 Do Now:
-1. TEST-PYTORCH-001 D3.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Inspect docs/development/TEST_SUITE_INDEX.md plus `.github/workflows/` configs to inventory where the torch integration selector should run; capture notes in ci_notes.md; tests: none.
-2. TEST-PYTORCH-001 D3.B @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Decide on execution command/markers (`pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv`), skip conditions, and runtime guardrails; document in ci_notes.md with explicit rationale; tests: none.
-3. TEST-PYTORCH-001 D3.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md — Log any follow-up automation tasks in ci_notes.md, update plans/active/TEST-PYTORCH-001/implementation.md D3 row to [x], and append a docs/fix_plan.md Attempt summarizing Phase D3; tests: none.
+1. TEST-PYTORCH-001 B1.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Profile Run1084 dataset axes/dtypes/counts; record results in fixture_scope.md; tests: none.
+2. TEST-PYTORCH-001 B1.B @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Run paired training dry-runs (epochs/n_images sweep) to measure runtime/output size; save terminals to logs/ and summarize in fixture_scope.md; tests: none.
+3. TEST-PYTORCH-001 B1.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Draft acceptance criteria bullets (target runtime, subset size, dtype conversions) in fixture_scope.md; tests: none.
 
-If Blocked: Record unanswered questions in ci_notes.md, leave D3 rows as [P], note blockers in docs/fix_plan.md Attempt, and alert supervisor via galph_memory.md before closing loop.
+If Blocked: Document unresolved questions plus partial measurements in fixture_scope.md, leave B1 rows `[P]`, and note blockers in docs/fix_plan.md Attempts before ending the loop.
 
 Priorities & Rationale:
-- plans/active/TEST-PYTORCH-001/implementation.md:73 — D3 checklist defines CI integration deliverables.
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md:92 — Detailed D3.A–D3.C task guidance to follow precisely.
-- docs/fix_plan.md:118 — Ledger entry expects CI strategy evidence before closing initiative.
-- docs/TESTING_GUIDE.md:24 — Integration tier policies inform runtime expectations and gating rules.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md — Phase B1 tasks define scope before generator work.
+- specs/data_contracts.md:16 — Canonical dtype/shape expectations for new fixture.
+- docs/workflows/pytorch.md:120 — CONFIG-001 enforcement and CLI knobs referenced during runtime sweeps.
+- plans/pytorch_integration_test_plan.md:15 — Original fixture intent requiring deterministic subset.
 
 How-To Map:
-- mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T232500Z/phase_d_hardening
-- ls .github/workflows && cat .github/workflows/*.yml | rg "tests/torch" -n to check existing coverage.
-- rg "integration workflow" docs/TESTING_GUIDE.md -n to align with integration tier guidance.
-- Summarize findings, commands, and recommended CI hook in ci_notes.md; capture decisions + open questions in summary.md.
-- After documentation, edit plans/active/TEST-PYTORCH-001/implementation.md and docs/fix_plan.md with artifact links and state updates.
+- mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T215300Z/phase_b_fixture/logs
+- python - <<'PY' > plans/active/TEST-PYTORCH-001/reports/2025-10-19T215300Z/phase_b_fixture/dataset_probe.txt
+from pathlib import Path
+import numpy as np
+path = Path('datasets/Run1084_recon3_postPC_shrunk_3.npz')
+with np.load(path) as data:
+    keys = sorted(data.files)
+    print('keys:', keys)
+    arr = data['diffraction'] if 'diffraction' in data else data.get('diff3d')
+    print('diff_shape', arr.shape, 'dtype', arr.dtype, 'min', float(arr.min()), 'max', float(arr.max()))
+    if 'Y' in data:
+        print('Y_shape', data['Y'].shape, 'dtype', data['Y'].dtype)
+    print('objectGuess', data['objectGuess'].shape, data['objectGuess'].dtype)
+    print('probeGuess', data['probeGuess'].shape, data['probeGuess'].dtype)
+    for key in ('xcoords','ycoords'):
+        if key in data:
+            vals = data[key]
+            print(key, vals.dtype, 'count', vals.shape[0], 'min', float(vals.min()), 'max', float(vals.max()))
+PY
+- For each runtime sample, run:
+  - `CUDA_VISIBLE_DEVICES="" time python -m ptycho_torch.train --train_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --test_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --output_dir tmp/phase_b_fixture/run_ep2_n64 --max_epochs 2 --n_images 64 --gridsize 1 --batch_size 4 --device cpu --disable_mlflow`
+  - `CUDA_VISIBLE_DEVICES="" time python -m ptycho_torch.train --train_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --test_data_file datasets/Run1084_recon3_postPC_shrunk_3.npz --output_dir tmp/phase_b_fixture/run_ep1_n16 --max_epochs 1 --n_images 16 --gridsize 1 --batch_size 2 --device cpu --disable_mlflow`
+  Capture stdout/stderr with `tee` into `plans/active/TEST-PYTORCH-001/reports/2025-10-19T215300Z/phase_b_fixture/logs/train_ep*_*.log`, then remove `tmp/phase_b_fixture/run_*` directories after collecting artifact sizes via `du -sh` (record numbers in fixture_scope.md).
+- Summarize dataset probe + timing deltas inside fixture_scope.md (include runtime, exit status, artifact sizes, and observations about dtype/orientation).
 
 Pitfalls To Avoid:
-- Do not modify CI configs or run pytest in this loop (documentation-only).
-- Keep all new artifacts under the specified 2025-10-19T232500Z directory.
-- Cite authoritative sources (runtime_profile.md, spec §4.8) instead of recollection.
-- Document skip conditions explicitly (e.g., requires torch>=2.2, canonical dataset).
-- When updating plan/ledger, include precise artifact paths and completion notes.
+- Do not modify tests or generator scripts yet; this loop is evidence-only.
+- Keep CUDA disabled (CPU-only) for both runs to match existing runtime profile.
+- Clean up tmp directories after measurements to avoid polluting the repo.
+- Record exact commands/outputs; no paraphrasing in fixture_scope.md.
+- If runtime exceeds 2 minutes, stop and flag in fixture_scope.md instead of retrying endlessly.
 
 Pointers:
-- plans/active/TEST-PYTORCH-001/implementation.md:63
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/plan.md:70
-- docs/TESTING_GUIDE.md:20
-- docs/fix_plan.md:107
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md:12
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md
+- plans/active/TEST-PYTORCH-001/implementation.md:38
+- specs/data_contracts.md:12
+- docs/workflows/pytorch.md:210
+- docs/findings.md:8
 
-Next Up: 1. TEST-PYTORCH-001 Phase D3 implementation of CI automation if decision requires follow-on changes.
+Next Up: 1. TEST-PYTORCH-001 Phase B2 generator design + TDD stub once scope doc finalized.

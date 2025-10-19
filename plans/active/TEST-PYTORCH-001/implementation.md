@@ -33,9 +33,9 @@ Exit Criteria: Lightweight fixture committed (or documented sourcing), CLI overr
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Design minimal NPZ/probe fixture | [ ] | If existing dataset exceeds runtime budget, use `scripts/tools/subsample_npz.py` (or new script) to create `tests/fixtures/pytorch_integration/minimal_train.npz`. Document provenance + checksum in `reports/<TS>/fixture/fixture_notes.md`. |
-| B2 | Codify deterministic config overrides | [ ] | Define shared config snippet (epochs, batch size, seed, gridsize) in `reports/<TS>/fixture/config_profile.md`. Ensure aligns with `TrainingConfig` fields and POLICY-001 expectations. |
-| B3 | Wire fixture loader helper | [ ] | Author helper (e.g., `tests/fixtures/pytorch_integration/__init__.py`) returning Paths, ensuring `update_legacy_dict` executed before data access. Capture usage example + ROI in `config_profile.md`. |
+| B1 | Design minimal NPZ/probe fixture | [ ] | Follow `plans/active/TEST-PYTORCH-001/reports/2025-10-19T214052Z/phase_b_fixture/plan.md` Phase B1 checklist. Produce `fixture_scope.md` with dataset stats, runtime sensitivity logs, and acceptance criteria before touching generators. |
+| B2 | Codify deterministic config overrides | [ ] | Execute Phase B2 (plan.md) via TDD: author generator design + red test, implement `scripts/tools/make_pytorch_integration_fixture.py`, capture pytest logs, and document fixture metadata under `reports/<TS>/phase_b_fixture/`. |
+| B3 | Wire fixture loader helper | [ ] | Execute Phase B3 (plan.md): point integration test to new fixture, adjust CLI overrides, validate runtime, and update docs/ledger. Ensure helper utilities live under `tests/fixtures/pytorch_integration/` per plan guidance. |
 
 ---
 
