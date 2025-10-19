@@ -1,0 +1,196 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 8 items
+
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_raises_not_implemented PASSED [ 12%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] PASSED [ 25%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] PASSED [ 37%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] PASSED [ 50%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] PASSED [ 62%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] PASSED [ 75%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble FAILED [ 87%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_return_contract PASSED [100%]
+
+=================================== FAILURES ===================================
+_ TestReassembleCdiImageTorchRed.test_run_cdi_example_torch_do_stitching_delegates_to_reassemble _
+
+self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x7c2d271df110>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-615/test_run_cdi_example_torch_do_0'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7c2c52567490>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c2c52567b50>
+
+    def test_run_cdi_example_torch_do_stitching_delegates_to_reassemble(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+        monkeypatch
+    ):
+        """
+        RED TEST: run_cdi_example_torch(do_stitching=True) MUST delegate to stitching path.
+    
+        Requirement: Phase D2.C workflow integration — ensure orchestration calls reassembly.
+    
+        TensorFlow baseline (ptycho/workflows/components.py:676-732):
+        - run_cdi_example(..., do_stitching=True) invokes reassemble_cdi_image
+        - Stitching runs AFTER training completes
+        - Returns (recon_amp, recon_phase, results) when stitching enabled
+        - Returns (None, None, results) when do_stitching=False
+    
+        Expected behavior:
+        - Red phase: run_cdi_example_torch raises NotImplementedError via reassemble call
+        - Green phase: runs training, then calls _reassemble_cdi_image_torch with test_data
+        - Stitching results populate amplitude/phase return values
+    
+        Test mechanism:
+        - Monkeypatch training path to avoid heavyweight Lightning execution
+        - Call run_cdi_example_torch with do_stitching=True
+        - Assert NotImplementedError propagates from _reassemble_cdi_image_torch
+    
+        Validation coverage:
+        - Confirms orchestration wiring exists
+        - Ensures stitching path is reachable from public API
+        - Documents return value contract for downstream consumers (e.g., ptychodus)
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+    
+        # Bridge config (CONFIG-001)
+        update_legacy_dict(params.cfg, minimal_training_config)
+    
+        # Monkeypatch _train_with_lightning to skip training (avoid GPU dependency)
+        def mock_train_with_lightning(train_container, test_container, config):
+            """Stub that returns minimal results without actual training."""
+            return {
+                "history": {"train_loss": [0.5]},
+                "containers": {"train": train_container, "test": test_container},
+                "models": {
+                    "lightning_module": None,  # Sentinel (stitching doesn't need trained model for red test)
+                    "trainer": None,
+                },
+            }
+    
+        monkeypatch.setattr(
+            torch_components,
+            "_train_with_lightning",
+            mock_train_with_lightning
+        )
+    
+        # RED PHASE ASSERTION: expect NotImplementedError from stitching path
+        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
+>           torch_components.run_cdi_example_torch(
+                train_data=dummy_raw_data,
+                test_data=dummy_raw_data,  # Use same data for test (deterministic)
+                config=minimal_training_config,
+                flip_x=False,
+                flip_y=False,
+                transpose=False,
+                M=128,
+                do_stitching=True,  # CRITICAL: enable stitching path
+            )
+
+tests/torch/test_workflows_components.py:1337: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:155: in run_cdi_example_torch
+    train_results = train_cdi_model_torch(train_data, test_data, config)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho_torch/workflows/components.py:625: in train_cdi_model_torch
+    train_container = _ensure_container(train_data, config)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data = <ptycho_torch.raw_data_bridge.RawDataTorch object at 0x7c2c52939e50>
+config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-615/test_run_cdi_example_torch_do_0'), sequential_sampling=False, backend='tensorflow')
+
+    def _ensure_container(
+        data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
+        config: TrainingConfig
+    ) -> 'PtychoDataContainerTorch':
+        """
+        Normalize input data to PtychoDataContainerTorch using Phase C adapters.
+    
+        This helper mirrors the pattern in ptycho.workflows.components.create_ptycho_data_container,
+        providing a single normalization pathway for all data types.
+    
+        Args:
+            data: Input data (RawData, RawDataTorch, or PtychoDataContainerTorch)
+            config: TrainingConfig for grouped data generation parameters
+    
+        Returns:
+            PtychoDataContainerTorch: Normalized container ready for Lightning training
+    
+        Raises:
+            TypeError: If data is not one of the supported types
+            ImportError: If Phase C adapters not available (should not occur in Phase D2.B)
+    
+        Implementation Notes:
+            - RawData → wrap with RawDataTorch, generate_grouped_data, then PtychoDataContainerTorch
+            - RawDataTorch → generate_grouped_data → PtychoDataContainerTorch
+            - PtychoDataContainerTorch → return as-is (already normalized)
+        """
+        # Phase C adapters are now mandatory (imported at module level)
+    
+        # Case 1: Already a container - return as-is
+        if hasattr(data, 'X') and hasattr(data, 'Y'):  # Duck-type check for PtychoDataContainerTorch
+            logger.debug("Input is already PtychoDataContainerTorch, returning as-is")
+            return data
+    
+        # Case 2: TensorFlow RawData - wrap with RawDataTorch
+        if isinstance(data, RawData):
+            logger.debug("Converting RawData → RawDataTorch → PtychoDataContainerTorch")
+            # Wrap with RawDataTorch (Phase C adapter)
+            # Note: Y patches are embedded in TF RawData and will be extracted during grouping
+            torch_raw_data = RawDataTorch(
+                xcoords=data.xcoords,
+                ycoords=data.ycoords,
+                diff3d=data.diff3d,
+                probeGuess=data.probeGuess,
+                scan_index=data.scan_index,
+                objectGuess=data.objectGuess,
+                config=config  # Pass config for update_legacy_dict call
+            )
+            data = torch_raw_data
+    
+        # Case 3: RawDataTorch - generate grouped data
+        if hasattr(data, 'generate_grouped_data'):
+            logger.debug("Generating grouped data from RawDataTorch")
+>           grouped_data = data.generate_grouped_data(
+                N=config.model.N,
+                K=config.neighbor_count,
+                nsamples=config.n_groups,
+                dataset_path=str(config.train_data_file) if config.train_data_file else None,
+                sequential_sampling=config.sequential_sampling,
+                gridsize=config.model.gridsize,
+            )
+E           TypeError: RawDataTorch.generate_grouped_data() got an unexpected keyword argument 'dataset_path'
+
+ptycho_torch/workflows/components.py:247: TypeError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble - TypeError: RawDataTorch.generate_grouped_data() got an unexpected keyword argument 'dataset_path'
+========================= 1 failed, 7 passed in 3.84s ==========================
