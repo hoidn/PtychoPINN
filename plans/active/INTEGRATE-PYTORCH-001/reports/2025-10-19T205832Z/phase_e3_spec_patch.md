@@ -49,7 +49,7 @@
 ## Plan Integration
 - **Phase E3.C1**: ✅ COMPLETE (2025-10-19 Attempt #15) — Inserted §4.8 text into `specs/ptychodus_api_spec.md` after §4.7 (lines 224-235). Backend selection specification is now normative.
 - **Phase E3.C2**: ✅ POLICY-002 NOT REQUIRED — Backend selection behavior is fully specified in §4.8 (normative spec) and covered by existing POLICY-001 (PyTorch fail-fast) + CONFIG-001 (params.cfg sync). No new policy entry needed in `docs/findings.md`. Documented in this patch artifact.
-- **Phase E3.C3**: Governance review should confirm the above decisions align with `phase_e_integration.md` and `phase_f_torch_mandatory.md`.
+- **Phase E3.C3**: ✅ 2025-10-19 Attempt #16 — Confirmed §4.8 aligns with `phase_e_integration.md` and `phase_f_torch_mandatory.md`; documented review in `reports/2025-10-19T202600Z/phase_e3_governance_review.md`. No spec redlines required.
 
 ## Next Supervisor Actions
 1. Secure feedback on §4.8 draft (architecture + governance stakeholders).
@@ -58,4 +58,3 @@
    - Refresh docs per checklist above.
    - Log docs/fix_plan.md Attempt #14 referencing this draft and subsequent edits.
 3. Prepare `phase_e3_handoff.md` capturing CI/test ownership for TEST-PYTORCH-001 Phase D3.
-

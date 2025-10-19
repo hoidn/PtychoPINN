@@ -52,7 +52,7 @@ Planning Reference: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T20583
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | E3.A | Update workflow documentation | [ ] | Revise `docs/workflows/pytorch.md` and author Ptychodus user-facing notes (target `architectural_context.md` or new doc). Store diff summary in `phase_e_docs_update.md`; highlight backend toggle instructions. |
-| E3.B | Sync specs & findings | [ ] | Draft spec amendments for §4.1–4.6 describing dual-backend behaviour; log CONFIG-XXX follow-up in `docs/findings.md`. Capture working copy in `phase_e_spec_patch.md`. Explicitly document that GUI flows remain unsupported in headless environments. |
+| E3.B | Sync specs & findings | [x] | ✅ 2025-10-19 Attempt #16: Added spec §4.8 \"Backend Selection & Dispatch\" (`specs/ptychodus_api_spec.md:224-235`) and documented findings review (POLICY-001/CONFIG-001 sufficient). Evidence: `reports/2025-10-19T205832Z/{phase_e3_spec_patch.md,phase_e3_spec_update.md}` plus governance confirmation `reports/2025-10-19T202600Z/phase_e3_governance_review.md`. |
 | E3.C | Prepare TEST-PYTORCH-001 handoff | [ ] | Summarize remaining risks, test selectors, and ownership matrix in `phase_e_handoff.md`. Include checklist verifying that TEST-PYTORCH-001 can bootstrap without re-discovering Phase E decisions. |
 
 ---

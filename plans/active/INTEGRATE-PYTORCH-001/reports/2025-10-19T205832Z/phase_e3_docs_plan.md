@@ -43,7 +43,7 @@ Exit Criteria: Spec patch drafted, reviewed, and referenced from fix_plan; findi
 | --- | --- | --- | --- |
 | C1 | Draft spec amendments | [x] | ✅ 2025-10-19 Attempt #15: Inserted §4.8 text into `specs/ptychodus_api_spec.md` after §4.7 (lines 224-235). Backend selection specification now normative. Source: `phase_e3_spec_patch.md`. Evidence: `phase_e3_spec_update.md`. |
 | C2 | Align knowledge base | [x] | ✅ 2025-10-19 Attempt #15: Reviewed `docs/findings.md` — POLICY-002 NOT REQUIRED. Backend selection behavior fully specified in §4.8 (normative spec) and covered by existing POLICY-001 (PyTorch fail-fast) + CONFIG-001 (params.cfg sync). Decision documented in `phase_e3_spec_patch.md` and `phase_e3_spec_update.md`. |
-| C3 | Review with governance log | [ ] | Cross-check `plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md` and `phase_f_torch_mandatory.md` to verify no contradictions. Note confirmations (or discrepancies) in the spec patch report. |
+| C3 | Review with governance log | [x] | ✅ 2025-10-19 Attempt #16: Cross-checked `phase_e_integration.md` and `phase_f_torch_mandatory.md`; no conflicts with §4.8 spec addition. Documented results in `reports/2025-10-19T202600Z/phase_e3_governance_review.md` and updated spec patch notes. |
 
 ### Phase D — TEST-PYTORCH-001 Handoff Package
 Goal: Produce a concise handoff describing how TEST-PYTORCH-001 should validate PyTorch integration inside Ptychodus and track ongoing maintenance.
