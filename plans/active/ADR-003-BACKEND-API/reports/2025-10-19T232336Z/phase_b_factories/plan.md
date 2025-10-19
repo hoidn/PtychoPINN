@@ -3,8 +3,8 @@
 ## Context
 - Initiative: ADR-003-BACKEND-API — Standardize PyTorch backend API
 - Phase Goal: Introduce centralized factory helpers that translate canonical TensorFlow configs + PyTorch execution overrides into the objects consumed by the backend, eliminating duplicated wiring in CLI/workflow entry points.
-- Dependencies: `specs/ptychodus_api_spec.md` §4 (reconstructor lifecycle), `docs/workflows/pytorch.md` §§5–12, `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`, `plans/active/TEST-PYTORCH-001/implementation.md`, PyTorch config singletons (`ptycho_torch/config_params.py`), translation adapters (`ptycho_torch/config_bridge.py`).
-- Artifact Discipline: Store all Phase B artefacts under `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/`. Provide per-task `summary.md` updates and capture pytest logs via `tee`.
+- Dependencies: `specs/ptychodus_api_spec.md` §4 (reconstructor lifecycle), `docs/workflows/pytorch.md` §§5–12, `plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md`, `plans/active/TEST-PYTORCH-001/implementation.md`, canonical config dataclasses (`ptycho/config/config.py`), translation adapters (`ptycho_torch/config_bridge.py`).
+- Artifact Discipline: Store Phase B1 artefacts under `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/`. Subsequent B2/B3 execution logs and summaries move to `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/`. Provide per-task `summary.md` updates and capture pytest logs via `tee`.
 
 ### Phase B1 — Factory Design Blueprint
 Goal: Define the factory architecture, including inputs, outputs, override strategy, and the execution config surface. Deliver design documentation before touching code.
@@ -30,9 +30,9 @@ Exit Criteria:
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B2.a | Create factory module skeleton | [ ] | Add `ptycho_torch/config_factory.py` with docstring referencing `factory_design.md`. Define function signatures (e.g., `build_training_artifacts(config, execution, overrides)`), but raise `NotImplementedError` to keep RED state. Ensure module imports execution config dataclass placeholder. |
-| B2.b | Author failing pytest coverage | [ ] | Extend `tests/torch/test_config_bridge.py` or create `tests/torch/test_config_factory.py` to encode expected factory behaviour: (1) factories return dataclasses + overrides dict, (2) bridge consumption populates `params.cfg`, (3) execution overrides applied deterministically. Capture RED run via `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/pytest_factory_red.log`. |
-| B2.c | Update implementation plan & ledger | [ ] | Mark `plans/active/ADR-003-BACKEND-API/implementation.md` B1 rows `[x]`, B2 rows `[P]` with references to RED artefacts. Append docs/fix_plan Attempt summarising RED phase. |
+| B2.a | Create factory module skeleton | [ ] | Add `ptycho_torch/config_factory.py` with docstring referencing `factory_design.md`. Define function signatures (e.g., `build_training_artifacts(config, execution, overrides)`), but raise `NotImplementedError` to keep RED state. Import `PyTorchExecutionConfig` from `ptycho.config.config` (Option A) even if it is still a placeholder to cement dependency direction. |
+| B2.b | Author failing pytest coverage | [ ] | Extend `tests/torch/test_config_bridge.py` or create `tests/torch/test_config_factory.py` to encode expected factory behaviour: (1) factories return dataclasses + overrides dict, (2) bridge consumption populates `params.cfg`, (3) execution overrides applied deterministically. Capture RED run via `CUDA_VISIBLE_DEVICES=\"\" pytest tests/torch/test_config_factory.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/pytest_factory_red.log`. |
+| B2.c | Update implementation plan & ledger | [ ] | Mark `plans/active/ADR-003-BACKEND-API/implementation.md` B1 rows `[x]`, B2 rows `[P]` with references to RED artefacts in `.../phase_b2_skeleton/`. Append docs/fix_plan Attempt summarising RED phase. |
 
 ### Phase B3 — Factory Implementation & Bridge Integration
 Goal: Implement factories, wire workflows/CLI to use them, and update config bridge tests to assert new behaviour.

@@ -23,8 +23,8 @@ Exit Criteria: Factory modules authored with TDD coverage and linked to config b
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1 | Draft factory design doc | [x] | ✅ 2025-10-19 — Delivered 4 comprehensive design documents (1,629 lines total): `factory_design.md` (420 lines, factory architecture + integration strategy), `override_matrix.md` (584 lines, 80+ fields mapped with precedence rules), `open_questions.md` (625 lines, governance decisions + spec impacts), `summary.md` (exit criteria validation). Mapped all PyTorch CLI flags to config fields with file:line citations. Identified 16 missing CLI flags, 4 naming divergences, 2 critical default mismatches (nphotons, K). Defined 5-level override precedence, CONFIG-001 compliance checkpoints, and factory testing strategy (RED/GREEN phases). **Blocking:** Q1 (PyTorchExecutionConfig placement) requires supervisor approval before B2. Recommendation: Option A (canonical location `ptycho/config/config.py`). Artifacts: `reports/2025-10-19T232336Z/phase_b_factories/`. |
-| B2 | Implement training/inference factory functions | [ ] | Execute TDD scaffold per `plan.md` §B2: add `ptycho_torch/config_factory.py` skeleton + failing pytest coverage, then iterate to GREEN. **Blocked on B1 Q1 resolution.** |
+| B1 | Draft factory design doc | [x] | ✅ 2025-10-19 — Delivered 4 comprehensive design documents (1,629 lines total): `factory_design.md` (420 lines, factory architecture + integration strategy), `override_matrix.md` (584 lines, 80+ fields mapped with precedence rules), `open_questions.md` (625 lines, governance decisions + spec impacts), `summary.md` (exit criteria validation). Mapped all PyTorch CLI flags to config fields with file:line citations. Identified 16 missing CLI flags, 4 naming divergences, 2 critical default mismatches (nphotons, K). Defined 5-level override precedence, CONFIG-001 compliance checkpoints, and factory testing strategy (RED/GREEN phases). **Supervisor Decision (2025-10-19T234458Z):** Option A approved — implement `PyTorchExecutionConfig` in `ptycho/config/config.py` with execution-only docstring. Phase B2 now unblocked. Artifacts: `reports/2025-10-19T232336Z/phase_b_factories/`. |
+| B2 | Implement training/inference factory functions | [ ] | Execute TDD scaffold per `plan.md` §B2: add `ptycho_torch/config_factory.py` skeleton + failing pytest coverage, then iterate to GREEN. Use artifact hub `reports/2025-10-19T234600Z/phase_b2_skeleton/` for RED logs + design notes. |
 | B3 | Update config bridge tests | [ ] | Refactor parity tests to consume factories (`plan.md` §B3) and ensure `tests/torch/test_config_bridge.py`/new modules validate canonical config emission end-to-end. |
 
 ### Phase C — Core Workflow Refactor
@@ -34,7 +34,7 @@ Exit Criteria: Workflows accept dual configs, Lightning orchestration centralize
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Introduce `PyTorchExecutionConfig` | [ ] | Add dataclass to `config_params.py` with device/strategy/precision flags plus docs. |
+| C1 | Introduce `PyTorchExecutionConfig` | [ ] | Implement dataclass in `ptycho/config/config.py` (Option A) with execution-only docstring, device/strategy/precision fields, and POLICY-001 reference. |
 | C2 | Refactor training/inference workflows | [ ] | Update `run_pytorch_training_workflow`/`run_pytorch_inference_workflow` to consume execution config, ensure CONFIG-001 guard remains. |
 | C3 | Update helper pathways | [ ] | Ensure `_train_with_lightning`, inference loaders, and persistence helpers honor execution config settings. |
 | C4 | Add workflow-level tests | [ ] | Add pytest coverage verifying device selection, MLflow toggles, and params.cfg updates. |

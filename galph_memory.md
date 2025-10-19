@@ -1230,3 +1230,15 @@
   - Logged docs/fix_plan Attempt #3 summarising planning outcomes and artefact paths.
 - Next steps for Ralph: Execute B1.a–B1.c from the new plan (author `factory_design.md`, `override_matrix.md`, document spec deltas) before moving to RED scaffold.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T234458Z: Focus declaration for ADR-003 Q1 decision
+- Focus issue: ADR-003-BACKEND-API Phase B (resolve Q1, unblock B2)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Recorded focus before edits.
+- Decisions & Updates:
+  - Approved Option A for PyTorchExecutionConfig placement; documented decision in `open_questions.md` and `summary.md`.
+  - Refreshed `implementation.md` B1/B2 rows and Phase B plan to reference canonical location and new artifact hub `reports/2025-10-19T234600Z/phase_b2_skeleton/`.
+  - Added fix_plan Attempt #5 capturing the decision loop; created new report directory for B2 RED work and rewrote `input.md` (Mode=TDD) to drive skeleton + failing tests.
+- Next Supervisor Notes: Monitor B2 RED artifacts (`pytest_factory_red.log`, summary) and ensure dataclass definition work moves to Phase C1.
+- <Action State>: [ready_for_implementation]

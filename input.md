@@ -1,49 +1,49 @@
-Summary: Capture ADR-003 Phase B1 factory design artifacts before any code edits
-Mode: Docs
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase B1 factory blueprint
+Summary: Capture PyTorch config factory RED scaffold and unblock implementation work
+Mode: TDD
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase B2 factory skeleton
 Branch: feature/torchapi
-Mapped tests: none — docs-only
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/{factory_design.md,override_matrix.md,open_questions.md,summary.md}
+Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv (expected RED)
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/{summary.md,pytest_factory_red.log}
 
 Do Now:
-1. ADR-003-BACKEND-API B1.a @ plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md — draft `factory_design.md` with module layout, function signatures, integration call sites (CLI + workflows); tests: none.
-2. ADR-003-BACKEND-API B1.b @ plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md — build `override_matrix.md` mapping each config/execution field to its data source and default; tests: none.
-3. ADR-003-BACKEND-API B1.c @ plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md — record open questions + required spec/ADR updates in `open_questions.md`; summarise outcomes + blockers in `summary.md`; tests: none.
-4. Implementation sync — update `plans/active/ADR-003-BACKEND-API/implementation.md` B1 row to `[x]`, note new artifacts in summary, and append docs/fix_plan Attempt if any surprises emerge; tests: none.
+1. ADR-003-BACKEND-API B2.a @ plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md — add `ptycho_torch/config_factory.py` skeleton with Option-A import of `PyTorchExecutionConfig`; tests: none.
+2. ADR-003-BACKEND-API B2.b @ plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md — author failing pytest coverage under `tests/torch/test_config_factory.py` and capture RED log via CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/pytest_factory_red.log; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv.
+3. ADR-003-BACKEND-API B2.c @ plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md — update implementation plan, fix_plan Attempts, and draft `summary.md` under phase_b2_skeleton documenting RED state + outstanding gaps; tests: none.
 
-If Blocked: Capture the ambiguous detail (flag name, override source, spec conflict) in `open_questions.md`, leave B1 tasks `[P]`, and note the blocker + artifact path in docs/fix_plan.md before stopping.
+If Blocked: Record the missing prerequisite (e.g., dataclass attribute absent) in `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/summary.md`, leave B2 rows `[P]`, and append a fix_plan attempt describing the blocker before stopping.
 
 Priorities & Rationale:
-- ptycho_torch/config_bridge.py:1 — Bridge already defines canonical translation; factories must build atop it without duplication.
-- ptycho_torch/train.py:366 — Current CLI wires configs manually; design needs to replace this with factory calls.
-- ptycho_torch/workflows/components.py:459 — `_train_with_lightning` constructs PyTorch configs inline; capture integration touchpoints for factory adoption.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T225905Z/phase_a_inventory/execution_knobs.md — Source list of execution-only knobs for override matrix.
-- plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md — Reference prior CLI commitments to maintain parity.
+- specs/ptychodus_api_spec.md §4.8 — Backend selection requires CONFIG-001 sync before factories run.
+- plans/active/ADR-003-BACKEND-API/implementation.md (B2 row) — Phase guidance now references Option-A decision and new artifact hub.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/factory_design.md §3 — Function signatures and override flow to mirror in skeleton/tests.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/override_matrix.md §5 — Field precedence to encode in test assertions.
+- POLICY-001 (docs/findings.md#POLICY-001) — Ensure tests enforce PyTorch mandatory behavior (RuntimeError if torch missing).
 
 How-To Map:
-- Export authoritative commands doc: `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` before recording any command guidance.
-- Reuse Phase A grep for flag inventory if needed (`rg --no-heading --line-number "add_argument" ptycho_torch/train.py ptycho_torch/inference.py`).
-- For workflow touchpoints, inspect `_train_with_lightning` + `_reassemble_cdi_image_torch` (`sed -n '459,620p' ptycho_torch/workflows/components.py`).
-- When building override matrix, cross-reference TensorFlow dataclasses (`rg "class .*Config" -n ptycho/config/config.py`) to confirm canonical field names.
-- Record any unresolved spec impacts in `open_questions.md` with explicit follow-up owner (spec vs ADR team). Update `summary.md` with bullet list of deliverables + outstanding questions.
+- export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md before recording commands.
+- Create `ptycho_torch/config_factory.py` with module docstring referencing factory_design.md; define public helpers (`create_training_payload`, `create_inference_payload`, `infer_probe_size`, `populate_legacy_params`) that raise NotImplementedError and import `PyTorchExecutionConfig` from `ptycho.config.config` (use type hints only; no logic yet).
+- Author `tests/torch/test_config_factory.py` using pytest style: fixtures should instantiate canonical configs via existing helpers, assert factories currently raise NotImplementedError, and encode expected outputs (payload dataclasses, override dict). Keep runtime ≤5s; rely on minimal datasets from TEST-PYTORCH-001 when referencing file paths.
+- Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/pytest_factory_red.log` to capture the RED failure (expect NotImplementedError).
+- Summarize findings in `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/summary.md`, noting Option-A dependency, test selector, failure message, and next GREEN objectives.
+- Update `plans/active/ADR-003-BACKEND-API/implementation.md` (B2 row `[P]` with log reference) and append docs/fix_plan Attempt #6 reflecting RED completion plus artifact links.
 
 Pitfalls To Avoid:
-- Do not edit production code or tests during this docs loop.
-- Keep artefacts under the specified timestamp directory; avoid renaming existing Phase A files.
-- Use ASCII tables in `override_matrix.md`; include file:line citations for each entry.
-- Distinguish canonical config fields from execution-only knobs—avoid merging them without rationale.
-- Reflect POLICY-001 and FORMAT-001 constraints explicitly where relevant.
-- Do not invent CLI flags; document gaps relative to TensorFlow interface instead.
-- Capture RED/Green expectations for upcoming phases but do not pre-create test files yet.
-- Maintain consistency with TEST-PYTORCH-001 runtime guardrails (<90s integration) when proposing future validation steps.
-- If unsure where `PyTorchExecutionConfig` should live, log options rather than choosing unilaterally.
-- Update implementation plan and fix_plan in the same loop when task states change.
+- Do not implement factory logic yet—stay RED with explicit NotImplementedError.
+- Keep imports device/dtype neutral; no torch.cuda calls or implicit GPU selection.
+- Avoid touching `ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py` (protected core logic).
+- Ensure pytest file uses native pytest constructs only (no unittest.TestCase mix-in).
+- Store all new artefacts under the 2025-10-19T234600Z directory; no logs at repo root.
+- Do not commit generated datasets or large binaries—reuse minimal fixtures already in repo.
+- Maintain CONFIG-001 order: tests should call `update_legacy_dict` before using legacy modules.
+- Record failure message verbatim in summary; do not paraphrase without context.
+- Leave TODOs in code only if tied to plan IDs (use comments sparingly).
+- Keep runtime budgets in mind; skip slow selectors unless required by plan.
 
 Pointers:
-- ptycho_torch/train.py:366
-- ptycho_torch/inference.py:293
-- ptycho_torch/workflows/components.py:459
-- ptycho_torch/config_bridge.py:1
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/factory_design.md:120
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/override_matrix.md:210
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/open_questions.md:1
+- plans/active/ADR-003-BACKEND-API/implementation.md:24
+- docs/findings.md#L8
 
-Next Up: 1. Execute B2 RED scaffold (factory skeleton + failing pytest) once design artefacts are complete.
+Next Up: 1. Promote B2 to GREEN once factory helpers return payloads and tests pass (reuse same selector). 2. Begin C1 dataclass field implementation in `ptycho/config/config.py` after RED evidence is archived.

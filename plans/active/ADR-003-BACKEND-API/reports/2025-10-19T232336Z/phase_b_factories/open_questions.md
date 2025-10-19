@@ -52,7 +52,11 @@ The factory design introduces a new dataclass `PyTorchExecutionConfig` containin
 - Spec updates (`specs/ptychodus_api_spec.md` §6) easier with single file
 - Precedent: TensorFlow configs already mix model topology (ModelConfig) with training knobs (TrainingConfig)
 
-**Blocking:** Phase B2 skeleton creation depends on this decision.
+**Decision (2025-10-19T234458Z, Supervisor):** Proceed with **Option A**. Implement `PyTorchExecutionConfig` in `ptycho/config/config.py` alongside the canonical dataclasses. Document the execution-only scope in the class docstring and reference POLICY-001 to reinforce PyTorch mandatory status.
+
+**Follow-up Guidance:** Update Phase B2 plan items to treat this as an approved prerequisite. When authoring the dataclass, ensure imports are device/dtype neutral and avoid side effects during module import.
+
+**Blocking:** Phase B2 skeleton creation depends on this decision. ✅ **Resolved**
 
 ---
 

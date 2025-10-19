@@ -70,21 +70,19 @@ create_training_payload(
 
 ---
 
-## 4. Outstanding Blocker: Q1 Resolution
+## 4. Q1 Decision — PyTorchExecutionConfig Placement (Resolved)
 
-**Question:** Should `PyTorchExecutionConfig` live in `ptycho/config/config.py` (canonical) or `ptycho_torch/config_params.py` (backend-specific)?
+**Decision (2025-10-19T234458Z, Supervisor):** Adopt **Option A** — define `PyTorchExecutionConfig` in `ptycho/config/config.py` beside the canonical dataclasses. Include an execution-only docstring noting Lightning/Trainer scope and reference POLICY-001 to reaffirm PyTorch as a required dependency.
 
-**Recommendation:** **Option A** (canonical location)
-
-**Rationale:**
+**Rationale Recap:**
 1. Single source of truth for all @dataclass configs
 2. Easier discoverability alongside ModelConfig, TrainingConfig, InferenceConfig
 3. Simpler spec updates (single file)
 4. Follows existing pattern
 
-**Impact:** Blocks Phase B2 skeleton creation
-
-**Request:** Supervisor approve Option A or provide alternative guidance
+**Action Items:**
+- Phase B2 tasks should import the dataclass from the canonical module and ensure no backend-specific side effects in module import.
+- When the dataclass is implemented, update `specs/ptychodus_api_spec.md` §6 draft to capture the execution config schema.
 
 ---
 
@@ -103,8 +101,8 @@ create_training_payload(
 
 **Prerequisites:**
 - [x] Phase B1 artifacts delivered
-- [ ] Q1 resolved (PyTorchExecutionConfig placement) **← BLOCKER**
-- [ ] Supervisor approval
+- [x] Q1 resolved (PyTorchExecutionConfig placement)
+- [x] Supervisor approval
 
 **Phase B2 Tasks:**
 1. Create `ptycho_torch/config_factory.py` skeleton (NotImplementedError placeholders)
