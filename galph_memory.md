@@ -1020,3 +1020,16 @@
   - Rewrote `input.md` (Mode=Perf) directing Ralph to execute D1 tasks (runtime log capture, env snapshot, runtime_profile authoring).
 - Open question: Phase B fixture minimization still marked `[ ]`; keep deferred unless runtime budget regresses.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T194813Z: Phase D2 documentation alignment prep
+- Focus issue: TEST-PYTORCH-001 — Phase D regression hardening & documentation (D2 documentation updates)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Coin flip outcome: heads — audited db7eee96 (Phase D1) and confirmed runtime evidence captured but implementation table still lists D1 as `[ ]`.
+- Notes:
+  - Reviewed `runtime_profile.md`, `env_snapshot.txt`, and `summary.md` under `2025-10-19T193425Z/phase_d_hardening/`; evidence is complete and ready to cite.
+  - `plans/active/TEST-PYTORCH-001/implementation.md#L55` needs D1 marked `[x]` with artifact pointers; D2 row will capture new doc work.
+  - `docs/workflows/pytorch.md` lacks regression test guidance—must add selector, runtime guardrails, and POLICY-001/FORMAT-001 reminders sourced from runtime profile.
+  - fix_plan Attempts stop at #10; next entry must document D2 updates and new artifact hub.
+- Steering: Rewrote `input.md` (Mode=Docs) directing Ralph to execute Phase D2 tasks (plan update, fix_plan attempt, workflow doc refresh) and stage new notes under `plans/active/TEST-PYTORCH-001/reports/2025-10-19T201900Z/phase_d_hardening/`.
+- <Action State>: [ready_for_implementation]
