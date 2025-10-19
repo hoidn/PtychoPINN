@@ -1,50 +1,50 @@
-Summary: Turn the PyTorch integration pytest from RED to GREEN by wiring `_run_pytorch_workflow` to the real train→infer subprocess pipeline and validating artifacts.
-Mode: TDD
+Summary: Clean up Phase C2 artifacts and document Phase C3 evidence for the PyTorch integration pytest.
+Mode: Docs
 Focus: TEST-PYTORCH-001 — Phase C pytest modernization
 Branch: feature/torchapi
 Mapped tests: pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
-Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/{summary.md,pytest_modernization_green.log}
+Artifacts: plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/{artifact_audit.md,pytest_modernization_rerun.log,summary.md}
 
 Do Now:
-1. TEST-PYTORCH-001 C2.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — Implement `_run_pytorch_workflow` to launch the documented train/infer subprocesses and return a SimpleNamespace with artifact paths (tests: none).
-2. TEST-PYTORCH-001 C2.B+C2.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — Update pytest assertions for success, refresh module docstring/status, and retire the skipped unittest scaffolding (tests: none).
-3. TEST-PYTORCH-001 C2.D @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md + docs/fix_plan.md — Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/pytest_modernization_green.log`, capture any `train_debug.log` into the same directory, summarize results, and log Attempt #6 in docs/fix_plan.md before exiting.
+1. TEST-PYTORCH-001 C2 cleanup @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — `git mv train_debug.log plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/train_debug.log`, refresh `summary.md` in that directory to note the log, update the in-module comment in `tests/torch/test_integration_workflow_torch.py:188` (remove “currently raises NotImplementedError”), and flip the C2 row in `plans/active/TEST-PYTORCH-001/implementation.md` to `[x]` with a completion note (tests: none).
+2. TEST-PYTORCH-001 C3.A @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — Re-run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/pytest_modernization_rerun.log`, record the returned tmp_path in notes, and inspect the generated training/inference folders for artifact details (tests: pytest … -vv).
+3. TEST-PYTORCH-001 C3.B+C3.C @ plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md — Capture findings in `artifact_audit.md`, add a fresh `summary.md` for this loop, update `plans/active/TEST-PYTORCH-001/implementation.md` (note C3 progress), and log Attempt #7 in `docs/fix_plan.md` with paths to the new artifacts (tests: none).
 
-If Blocked: If either subprocess returns non-zero, keep the helper raising a descriptive `RuntimeError`, capture the failing log to the new timestamped directory, and document the exact command/output in docs/fix_plan.md Attempt history instead of proceeding.
+If Blocked: If the rerun fails or artifacts are missing, keep the new directory, store the failing log and any stdout/stderr dumps there, and document the failure mode + hypotheses in `artifact_audit.md` before updating docs/fix_plan.md.
 
 Priorities & Rationale:
-- tests/torch/test_integration_workflow_torch.py:65 — Helper still raises `NotImplementedError`, blocking GREEN run.
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md:36 — Phase C2 checklist defines the implementation/validation contract to satisfy this loop.
-- docs/workflows/pytorch.md:128 — Checkpoint layout and deterministic trainer settings must remain intact when driving subprocesses.
-- specs/ptychodus_api_spec.md:193 — Persistence contract requires checkpoint + recon artifacts after train/infer.
-- docs/findings.md:8 — POLICY-001 mandates PyTorch availability; selector must assume torch is installed.
+- train_debug.log currently sits at repo root; plan & ledger require it under `plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/`.
+- tests/torch/test_integration_workflow_torch.py:188 still claims the helper raises `NotImplementedError`, contradicting C2 implementation.
+- plans/active/TEST-PYTORCH-001/implementation.md:50 shows C2 `[ ]` even though GREEN run succeeded; ledger accuracy depends on flipping it.
+- Phase C3 plan (plan.md §C3) expects artifact audit + documentation; no evidence exists yet for those rows.
+- docs/findings.md#POLICY-001 requires PyTorch selectors to remain targeted; rerun log documents compliance.
 
 How-To Map:
-- Create the artifact directory: `mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization`.
-- In `_run_pytorch_workflow`, derive `training_output_dir = tmp_path / "training_outputs"` and `inference_output_dir = tmp_path / "pytorch_output"`; use `env = dict(cuda_cpu_env)` so CUDA stays disabled.
-- Reproduce the subprocess commands from `git show 77f793c^:tests/torch/test_integration_workflow_torch.py` (train command with `--train_data_file`, `--test_data_file`, `--output_dir`, `--max_epochs 2`, `--n_images 64`, `--batch_size 4`, `--device cpu`, `--disable_mlflow`; inference command using `ptycho_torch.inference` and `--model_path`, `--test_data`, `--output_dir`, `--n_images 32`, `--device cpu`).
-- Call `subprocess.run(..., capture_output=True, text=True, env=env, check=False)` for each command; if `returncode != 0`, raise `RuntimeError` with stdout/stderr in the message.
-- After successful runs, compute canonical paths (`checkpoint_path = training_output_dir / "checkpoints" / "last.ckpt"`, `recon_amp_path = inference_output_dir / "reconstructed_amplitude.png"`, etc.) and return `SimpleNamespace` populated with these paths.
-- Update `test_run_pytorch_train_save_load_infer` to consume the namespace, assert on `returncode`-derived behavior (no exception), then verify artifact existence and file sizes > 1 KB.
-- Remove the skipped unittest class (or convert to thin delegators) and refresh the module docstring to reflect Phase C2 GREEN once the test passes.
-- Run the mapped pytest selector with `CUDA_VISIBLE_DEVICES=""` and `tee` the output to `pytest_modernization_green.log`; move any generated `train_debug.log` into the same timestamped directory.
-- Append a short narrative to `plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/summary.md` (runtime, artifact paths, follow-ups), update the Phase C2 rows in `plan.md` / `implementation.md`, and add Attempt #6 to `docs/fix_plan.md` linking the new artifacts.
+- Move log: `git mv train_debug.log plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/train_debug.log`.
+- Update existing summary: append a short bullet noting the relocated log and its relevance.
+- Create new artifact hub: `mkdir -p plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization`.
+- Targeted rerun: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/pytest_modernization_rerun.log`.
+- After pytest, note `tmp_path` (print from log or inspect `pytest-of-*` directories) and record artifact sizes/checkpoints in `artifact_audit.md`.
+- Update plan + ledger: edit `plans/active/TEST-PYTORCH-001/implementation.md` C2 to `[x]`, add C3 notes; append Attempt #7 in `docs/fix_plan.md` with new artifact paths.
+- New loop summary: add runtime + findings to `plans/active/TEST-PYTORCH-001/reports/2025-10-19T130900Z/phase_c_modernization/summary.md`.
 
 Pitfalls To Avoid:
-- Do not leave `train_debug.log` at repo root—relocate it to the new artifact directory.
-- Keep environment edits scoped; always start from `cuda_cpu_env` instead of mutating `os.environ`.
-- Avoid changing PyTorch workflow scripts (`ptycho_torch/train.py`, `inference.py`) in this loop.
-- Ensure subprocess commands run inside the pytest helper; do not shell out in the test body itself.
-- Return a namespace/object with path attributes; do not rely on globals or implicit working directories.
-- Preserve deterministic CPU execution (no accidental GPU usage or random seeds removed).
-- Keep assertions specific—check both existence and minimum size so regressions surface early.
-- Update documentation artifacts in the same loop; leaving plan checkboxes stale will block the next supervisor review.
+- Do not leave train_debug.log at repo root after this loop.
+- Keep CUDA disabled via `cuda_cpu_env`; avoid mutating global `os.environ`.
+- Treat pytest rerun artifacts as transient—capture sizes/paths immediately before cleanup.
+- Do not adjust subprocess CLI parameters; maintain Phase C2 settings.
+- Avoid touching PyTorch workflow source files; focus on tests and documentation.
+- Ensure artifact filenames match exactly (case-sensitive) when recording in audit.
+- Update all referenced documents in the same loop; no stale checkboxes or ledger omissions.
+- Retain pytest log in the new timestamped directory even when green.
+- Use `git add` on moved log to prevent deletion.
+- Keep Do Now scope tight—no extra refactors.
 
 Pointers:
-- tests/torch/test_integration_workflow_torch.py:65 — Helper + pytest test to implement.
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md:34 — Detailed C2 guidance.
-- docs/workflows/pytorch.md:128 — Checkpoint/determinism rules for Lightning workflows.
-- specs/ptychodus_api_spec.md:193 — Persistence expectations after training/inference.
-- docs/findings.md:8 — PyTorch dependency policy to respect.
+- plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md#phase-c3 — Checklist for this work.
+- tests/torch/test_integration_workflow_torch.py:1-210 — Pytest harness & comments to update.
+- plans/active/TEST-PYTORCH-001/implementation.md:35-60 — Phase C tracking table.
+- docs/fix_plan.md:140-170 — TEST-PYTORCH-001 attempts history (append #7).
+- docs/workflows/pytorch.md:120-160 — Artifact expectations for train/infer pipeline.
 
-Next Up: Phase C3 (artifact audit + documentation alignment) once the GREEN run and Attempt #6 are captured.
+Next Up: Phase C3 completion unlocks Phase D hardening (CI markers + documentation updates).

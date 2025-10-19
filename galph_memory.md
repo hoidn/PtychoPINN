@@ -992,3 +992,18 @@
   - Marked C1.A–C1.D as complete in `plan.md`, refreshed summary next-actions, and recorded Attempt #5 in `docs/fix_plan.md`.
   - Rewrote `input.md` directing Ralph to execute Phase C2 GREEN run with new artifact hub `2025-10-19T122449Z`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T130150Z: Phase C3 housekeeping directive
+- Focus issue: TEST-PYTORCH-001 — Phase C pytest modernization
+- Action type: Review or housekeeping
+- Mode: Docs
+- Coin flip: heads; audited last ~10 commits (36b3f82, af67ec6) confirming helper implementation succeeded but hygiene left incomplete.
+- Key findings:
+  - `train_debug.log` remained at repo root after Ralph's loop; must live under `plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/`.
+  - `plans/active/TEST-PYTORCH-001/implementation.md` still marks Phase C2 `[ ]` despite GREEN evidence.
+  - `tests/torch/test_integration_workflow_torch.py:188` comment still claims the helper raises `NotImplementedError`.
+  - No artifact audit exists for C3 rows in the phased plan; need new timestamp hub (`2025-10-19T130900Z`) with rerun log + documentation.
+- Document review reused `plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md`, `docs/fix_plan.md`, `specs/ptychodus_api_spec.md` §4.5–4.6, and `docs/workflows/pytorch.md` §§5–8.
+- Rewrote `input.md` (Mode=Docs) instructing Ralph to move the log, rerun targeted pytest (`CUDA_VISIBLE_DEVICES="" pytest ...`), capture `artifact_audit.md` + `summary.md` under the new timestamp, and update plan/ledger accordingly.
+- Logged Attempt #7 in `docs/fix_plan.md` capturing these gaps; no new artifacts this loop.
+- <Action State>: [ready_for_implementation]
