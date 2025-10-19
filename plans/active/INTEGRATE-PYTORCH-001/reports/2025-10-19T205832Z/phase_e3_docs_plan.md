@@ -19,9 +19,9 @@ Exit Criteria: Inventory document capturing deltas, target file anchors, and own
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| A1 | Catalogue documentation gaps | [ ] | Read `docs/workflows/pytorch.md`, `README.md`, `docs/ARCHITECTURE.md`, and `docs/DEVELOPER_GUIDE.md` sections that mention backend selection or workflow status. Record outdated statements (e.g., TensorFlow-only assumptions, references to NotImplementedError) in `reports/2025-10-19T205832Z/phase_e3_docs_inventory.md`. |
-| A2 | Audit spec & findings coverage | [ ] | Compare `specs/ptychodus_api_spec.md` §4 and `docs/findings.md` entries against Phase E expectations (backend flag, fail-fast policy, TEST-PYTORCH-001 requirements). Document necessary spec amendments in the same inventory file with line anchors. |
-| A3 | Map downstream handoff needs | [ ] | Coordinate with TEST-PYTORCH-001 plan (`plans/active/TEST-PYTORCH-001/implementation.md`) and note which selectors, fixtures, or governance decisions must be surfaced in the eventual handoff (`phase_e_handoff.md`). Capture notes + owners in the inventory. |
+| A1 | Catalogue documentation gaps | [x] | ✅ 2025-10-19 Attempt #13: Surveyed 4 files (pytorch.md, README.md, architecture.md, CLAUDE.md). Found 1 HIGH gap (missing backend selection API in pytorch.md), 3 LOW/MEDIUM enhancements. Zero NotImplementedError warnings. Evidence: `phase_e3_docs_inventory.md` §A.A1. |
+| A2 | Audit spec & findings coverage | [x] | ✅ 2025-10-19 Attempt #13: Reviewed ptychodus_api_spec.md §1/§2.2/§4 and findings.md (POLICY-001, FORMAT-001). **BLOCKING:** §4.8 backend selection spec MISSING (how PtychoPINNTrainableReconstructor chooses backend). POLICY-002 placeholder recommended. Evidence: `phase_e3_docs_inventory.md` §A.A2. |
+| A3 | Map downstream handoff needs | [x] | ✅ 2025-10-19 Attempt #13: Identified 4 handoff items for TEST-PYTORCH-001 Phase D3: CI execution guidance (markers/timeout/skip policy), parity selectors (6 critical tests), fixture coordination (canonical dataset approved), ownership matrix. Evidence: `phase_e3_docs_inventory.md` §A.A3. |
 
 ### Phase B — Documentation Updates (Developer-Facing)
 Goal: Update developer-facing documentation so engineers can enable the PyTorch backend through Ptychodus with clear instructions and warnings.
