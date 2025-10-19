@@ -10,8 +10,8 @@ Test Coverage:
 3. Reconstruction output validation
 4. CONFIG-001 compliance (params.cfg synchronization)
 
-Implementation Status: Phase C1 (RED) — Pytest modernization with helper stub.
-Tests will fail with NotImplementedError until Phase C2 implementation.
+Implementation Status: Phase C2 (GREEN) — Pytest modernization complete.
+Helper function `_run_pytorch_workflow` now executes train/infer subprocesses.
 
 References:
 - Phase C plan: plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/plan.md
@@ -80,12 +80,85 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
             - recon_phase_path: Path to phase reconstruction PNG
 
     Raises:
-        NotImplementedError: Stub implementation for Phase C1 RED test
+        RuntimeError: If training or inference subprocess fails
 
-    Phase: C1 (RED)
-    TODO: Implement in Phase C2 (GREEN) by porting subprocess logic from legacy unittest
+    Phase: C2 (GREEN)
+    Implementation: Ported from legacy unittest harness with subprocess commands
     """
-    raise NotImplementedError("PyTorch pytest harness not implemented (Phase C1 stub)")
+    from types import SimpleNamespace
+
+    # Define output paths
+    training_output_dir = tmp_path / "training_outputs"
+    inference_output_dir = tmp_path / "pytorch_output"
+
+    # --- 1. Training Step (PyTorch) ---
+    train_command = [
+        sys.executable, "-m", "ptycho_torch.train",
+        "--train_data_file", str(data_file),
+        "--test_data_file", str(data_file),
+        "--output_dir", str(training_output_dir),
+        "--max_epochs", "2",
+        "--n_images", "64",
+        "--gridsize", "1",
+        "--batch_size", "4",
+        "--device", "cpu",
+        "--disable_mlflow",
+    ]
+
+    train_result = subprocess.run(
+        train_command,
+        capture_output=True,
+        text=True,
+        env=cuda_cpu_env,
+        check=False
+    )
+
+    if train_result.returncode != 0:
+        raise RuntimeError(
+            f"PyTorch training failed with return code {train_result.returncode}\n"
+            f"STDOUT:\n{train_result.stdout}\n"
+            f"STDERR:\n{train_result.stderr}"
+        )
+
+    # Find checkpoint path (Lightning default location)
+    checkpoint_path = training_output_dir / "checkpoints" / "last.ckpt"
+
+    # --- 2. Inference Step (PyTorch) ---
+    inference_command = [
+        sys.executable, "-m", "ptycho_torch.inference",
+        "--model_path", str(training_output_dir),
+        "--test_data", str(data_file),
+        "--output_dir", str(inference_output_dir),
+        "--n_images", "32",
+        "--device", "cpu",
+    ]
+
+    infer_result = subprocess.run(
+        inference_command,
+        capture_output=True,
+        text=True,
+        env=cuda_cpu_env,
+        check=False
+    )
+
+    if infer_result.returncode != 0:
+        raise RuntimeError(
+            f"PyTorch inference failed with return code {infer_result.returncode}\n"
+            f"STDOUT:\n{infer_result.stdout}\n"
+            f"STDERR:\n{infer_result.stderr}"
+        )
+
+    # Define expected output paths
+    recon_amp_path = inference_output_dir / "reconstructed_amplitude.png"
+    recon_phase_path = inference_output_dir / "reconstructed_phase.png"
+
+    return SimpleNamespace(
+        training_output_dir=training_output_dir,
+        inference_output_dir=inference_output_dir,
+        checkpoint_path=checkpoint_path,
+        recon_amp_path=recon_amp_path,
+        recon_phase_path=recon_phase_path
+    )
 
 
 # ============================================================================
@@ -103,14 +176,14 @@ def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
     This validates the PyTorch model persistence layer by simulating a real
     user workflow across separate processes, mirroring the TensorFlow integration test.
 
-    Phase: C1 (RED)
-    Expected Behavior (Phase C2 implementation target):
-    1. Training subprocess creates Lightning checkpoint
-    2. Checkpoint artifact saved to <output_dir>/checkpoints/last.ckpt or wts.h5.zip
-    3. Inference subprocess loads checkpoint and generates reconstructions
-    4. Output images created in inference output directory
+    Phase: C2 (GREEN)
+    Behavior:
+    1. Training subprocess creates Lightning checkpoint at checkpoints/last.ckpt
+    2. Inference subprocess loads checkpoint and generates reconstructions
+    3. Output images created in inference output directory
+    4. Assertions verify artifact existence and non-empty file sizes
 
-    Current Status: FAILING — _run_pytorch_workflow stub raises NotImplementedError
+    Implementation: _run_pytorch_workflow executes train/infer via subprocess
     """
     # Call helper function which currently raises NotImplementedError
     result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)

@@ -33,10 +33,10 @@ Exit Criteria: Pytest test passes, reproducing previous assertions; helper encap
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C2.A | Implement `_run_pytorch_workflow` | [ ] | Port subprocess logic from the legacy unittest into the helper: invoke `ptycho_torch.train` and `ptycho_torch.inference` with the same CLI arguments, propagate `CUDA_VISIBLE_DEVICES=""`, and surface stdout/stderr when return codes non-zero. Ensure the helper returns a dataclass or simple namespace with paths to checkpoint and recon images for assertions. |
-| C2.B | Update pytest assertions | [ ] | Replace the `pytest.raises` expectation with actual success checks: verify return codes, checkpoint existence (Lightning `last.ckpt`), and amplitude/phase images >1 KB. Maintain coverage for POLICY-001 and FORMAT-001 by asserting dtype/env prerequisites when possible. |
-| C2.C | Remove/skips legacy unittest | [ ] | Delete the old `TestPyTorchIntegrationWorkflow` class or convert it into thin wrappers that delegate to the new helper, ensuring no duplicate runtime. Update module docstring to reflect GREEN status (`Phase E2.C complete`, etc.). |
-| C2.D | Capture GREEN run | [ ] | Run the same selector and store log at `plans/active/TEST-PYTORCH-001/reports/<TS>/phase_c_modernization/pytest_modernization_green.log`. Record runtime and artifact paths for validation phase. |
+| C2.A | Implement `_run_pytorch_workflow` | [x] | ✅ 2025-10-19 — Ported subprocess logic from legacy unittest (commit 77f793c). Helper invokes train/infer with CLI args, propagates CUDA_VISIBLE_DEVICES="", surfaces stdout/stderr on failure, and returns SimpleNamespace with artifact paths (lines 65-161). |
+| C2.B | Update pytest assertions | [x] | ✅ 2025-10-19 — Assertions execute and pass: checkpoint exists, recon_amp/recon_phase exist, file sizes >1KB. No changes needed to test body (lines 188-196) as original assertions were already correct. |
+| C2.C | Remove/skips legacy unittest | [x] | ✅ 2025-10-19 — Legacy `TestPyTorchIntegrationWorkflow` class already skipped in Phase C1 (lines 133-151). Module docstring updated from "Phase C1 (RED)" to "Phase C2 (GREEN)" (lines 1-21). Test docstring updated with GREEN behavior expectations (lines 172-187). |
+| C2.D | Capture GREEN run | [x] | ✅ 2025-10-19 — Executed `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv` and captured log via tee to `plans/active/TEST-PYTORCH-001/reports/2025-10-19T122449Z/phase_c_modernization/pytest_modernization_green.log`. Result: 1 PASSED in 35.86s. |
 
 ### Phase C3 — Validation & Documentation Alignment
 Goal: Confirm artifacts, update auxiliary documentation, and mark plan/fix-plan progress.
