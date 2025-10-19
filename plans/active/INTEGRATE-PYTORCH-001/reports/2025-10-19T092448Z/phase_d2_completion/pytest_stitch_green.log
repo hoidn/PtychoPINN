@@ -1,0 +1,26 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 16 items / 8 deselected / 8 selected
+
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_guard_without_train_results PASSED [ 12%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] PASSED [ 25%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] PASSED [ 37%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] PASSED [ 50%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] PASSED [ 62%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] PASSED [ 75%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble PASSED [ 87%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_return_contract PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/model_manager.py:115: UserWarning: Incomplete dual-model bundle: found {'lightning_module'}, expected {'autoencoder', 'diffraction_to_obj'}. Reconstructor may fail to load archive.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 8 passed, 8 deselected, 1 warning in 9.11s ==================
