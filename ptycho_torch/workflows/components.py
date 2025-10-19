@@ -252,7 +252,9 @@ def _ensure_container(
             gridsize=config.model.gridsize,
         )
         # Create PtychoDataContainerTorch from grouped data
-        container = PtychoDataContainerTorch(grouped_data)
+        # Extract probe from RawDataTorch (required by PtychoDataContainerTorch constructor)
+        probe = data.probeGuess
+        container = PtychoDataContainerTorch(grouped_data, probe)
         return container
 
     # Case 4: Unknown type

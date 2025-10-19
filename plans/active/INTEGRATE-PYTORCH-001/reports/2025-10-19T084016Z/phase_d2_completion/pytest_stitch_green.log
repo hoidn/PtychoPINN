@@ -6,214 +6,25 @@ PyTorch version: 2.8.0+cu128
 rootdir: /home/ollie/Documents/PtychoPINN2
 configfile: pyproject.toml
 plugins: anyio-4.9.0
-collecting ... collected 8 items
+collecting ... collected 16 items / 8 deselected / 8 selected
 
-tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_raises_not_implemented FAILED [ 12%]
-tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] FAILED [ 25%]
-tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] FAILED [ 37%]
-tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] FAILED [ 50%]
-tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] FAILED [ 62%]
-tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] FAILED [ 75%]
-tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble FAILED [ 87%]
-tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_return_contract FAILED [100%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_guard_without_train_results PASSED [ 12%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] FAILED [ 25%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] FAILED [ 37%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] FAILED [ 50%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] FAILED [ 62%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] FAILED [ 75%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble FAILED [ 87%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_return_contract FAILED [100%]
 
 =================================== FAILURES ===================================
-_ TestReassembleCdiImageTorchRed.test_reassemble_cdi_image_torch_raises_not_implemented _
+_ TestReassembleCdiImageTorchGreen.test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] _
 
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea603bcc90>
+self = <test_workflows_components.TestReassembleCdiImageTorchGreen object at 0x775ab8e3b910>
 params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc0'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e998bc9c50>
-
-    def test_reassemble_cdi_image_torch_raises_not_implemented(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST exist but raise NotImplementedError.
-    
-        Requirement: Phase D2.C2 — establish stitching path contract before implementation.
-    
-        Expected behavior (red phase):
-        - Function signature exists in ptycho_torch/workflows/components.py
-        - Calling _reassemble_cdi_image_torch raises NotImplementedError
-        - Error message indicates "stitching path not yet implemented" or similar
-    
-        Green-phase expectation (Phase C3):
-        - Function runs Lightning inference on test_data
-        - Returns (recon_amp, recon_phase, results) tuple
-        - recon_amp/recon_phase are 2D numpy arrays (amplitude/phase of stitched image)
-    
-        Test mechanism:
-        - Import _reassemble_cdi_image_torch directly
-        - Call with minimal fixture data
-        - Assert NotImplementedError with descriptive match pattern
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config to params.cfg (CONFIG-001 gate)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
->           torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=False,
-                flip_y=False,
-                transpose=False,
-                M=128,  # Canvas size for reassembly
-            )
-
-tests/torch/test_workflows_components.py:1212: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-test_data = <ptycho.raw_data.RawData object at 0x75e998bc9c50>
-config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc0'), sequential_sampling=False, backend='tensorflow')
-flip_x = False, flip_y = False, transpose = False, M = 128, train_results = None
-
-    def _reassemble_cdi_image_torch(
-        test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-        config: TrainingConfig,
-        flip_x: bool,
-        flip_y: bool,
-        transpose: bool,
-        M: int,
-        train_results: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Any, Any, Dict[str, Any]]:
-        """
-        Reassemble CDI image using trained PyTorch model.
-    
-        This function provides API parity with ptycho.workflows.components.reassemble_cdi_image,
-        orchestrating model inference and patch reassembly to produce final reconstruction.
-    
-        Args:
-            test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
-            config: TrainingConfig for inference parameters
-            flip_x: Whether to flip the x coordinates during reconstruction
-            flip_y: Whether to flip the y coordinates during reconstruction
-            transpose: Whether to transpose the image by swapping dimensions
-            M: Parameter for reassemble_position function
-            train_results: Optional training results dict containing 'models' with trained Lightning module
-    
-        Returns:
-            Tuple containing:
-            - recon_amp: Reconstructed amplitude array (np.ndarray)
-            - recon_phase: Reconstructed phase array (np.ndarray)
-            - results: Dictionary with intermediate outputs (obj_tensor_full, global_offsets, etc.)
-    
-        Raises:
-            RuntimeError: If PyTorch not available or train_results not provided
-            ValueError: If models dict missing from train_results
-    
-        Example:
-            >>> train_results = run_cdi_example_torch(train_data, test_data, config, do_stitching=False)
-            >>> recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
-            ...     test_data, config, flip_x=False, flip_y=False, transpose=False, M=20,
-            ...     train_results=train_results
-            ... )
-        """
-        # torch-optional import guarded here
-        try:
-            import torch
-            import numpy as np
-        except ImportError as e:
-            raise RuntimeError(
-                "PyTorch backend requires torch. "
-                "Install with: pip install -e .[torch]\n"
-                "See docs/findings.md#policy-001 for PyTorch requirement policy."
-            ) from e
-    
-        # Validate train_results contains models
-        if train_results is None:
-            # For backward compatibility with tests expecting NotImplementedError,
-            # raise NotImplementedError to maintain RED test expectations
->           raise NotImplementedError(
-                "PyTorch stitching path requires train_results with trained Lightning module. "
-                "Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. "
-                "See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status."
-            )
-E           NotImplementedError: PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.
-
-ptycho_torch/workflows/components.py:662: NotImplementedError
-
-During handling of the above exception, another exception occurred:
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea603bcc90>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc0'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e998bc9c50>
-
-    def test_reassemble_cdi_image_torch_raises_not_implemented(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST exist but raise NotImplementedError.
-    
-        Requirement: Phase D2.C2 — establish stitching path contract before implementation.
-    
-        Expected behavior (red phase):
-        - Function signature exists in ptycho_torch/workflows/components.py
-        - Calling _reassemble_cdi_image_torch raises NotImplementedError
-        - Error message indicates "stitching path not yet implemented" or similar
-    
-        Green-phase expectation (Phase C3):
-        - Function runs Lightning inference on test_data
-        - Returns (recon_amp, recon_phase, results) tuple
-        - recon_amp/recon_phase are 2D numpy arrays (amplitude/phase of stitched image)
-    
-        Test mechanism:
-        - Import _reassemble_cdi_image_torch directly
-        - Call with minimal fixture data
-        - Assert NotImplementedError with descriptive match pattern
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config to params.cfg (CONFIG-001 gate)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError
->       with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-E       AssertionError: Regex pattern did not match.
-E        Regex: 'stitching.*not.*implement'
-E        Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-
-tests/torch/test_workflows_components.py:1211: AssertionError
----------------------------- Captured stdout setup -----------------------------
-diff3d shape: (20, 64, 64)
-probeGuess shape: (64, 64)
-scan_index shape: (20,)
-objectGuess shape: (128, 128)
-xcoords shape: (20,)
-ycoords shape: (20,)
-xcoords_start shape: (20,)
-ycoords_start shape: (20,)
----------------------------- Captured stderr setup -----------------------------
-2025-10-19 01:47:59.486812: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1760863679.498074  717008 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1760863679.501826  717008 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1760863679.512706  717008 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1760863679.512720  717008 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1760863679.512723  717008 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1760863679.512726  717008 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-10-19 01:47:59.515521: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-_ TestReassembleCdiImageTorchRed.test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] _
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363410>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc1'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e99883d390>
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-621/test_reassemble_cdi_image_torc1'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7759fc5b5c90>
+stitch_train_results = {'history': {'train_loss': [0.1, 0.05]}, 'models': {'lightning_module': MockLightningModule(), 'trainer': None}}
 flip_x = False, flip_y = False, transpose = False
 
     @pytest.mark.parametrize("flip_x,flip_y,transpose", [
@@ -228,31 +39,35 @@ flip_x = False, flip_y = False, transpose = False
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data,
+        stitch_train_results,
         flip_x,
         flip_y,
         transpose
     ):
         """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
+        GREEN TEST: _reassemble_cdi_image_torch honors flip/transpose parameters.
     
         Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
         TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
         transforms via flip_x, flip_y, transpose parameters before reassembly.
     
         Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
+        - Function accepts flip_x, flip_y, transpose parameters
+        - Returns (recon_amp, recon_phase, results) tuple
+        - Amplitude/phase are 2D numpy arrays with finite values
+        - Output shape invariant under flip/transpose (same canvas size)
+        - global_offsets in results dict reflect coordinate transforms
     
         Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
+        - Parametrize over 5 representative flag combinations
+        - Supply train_results with mock Lightning module
+        - Assert successful execution (no exceptions)
+        - Validate output structure and finiteness
     
         Rationale for parametrization:
         - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
+        - Ensures implementation handles all transform combinations
+        - Provides clear failure message surfacing which transform broke
         """
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import update_legacy_dict
@@ -261,1136 +76,82 @@ flip_x = False, flip_y = False, transpose = False
         # Bridge config (CONFIG-001)
         update_legacy_dict(params.cfg, minimal_training_config)
     
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
->           torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=flip_x,
-                flip_y=flip_y,
-                transpose=transpose,
-                M=128,
-            )
-
-tests/torch/test_workflows_components.py:1268: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-test_data = <ptycho.raw_data.RawData object at 0x75e99883d390>
-config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc1'), sequential_sampling=False, backend='tensorflow')
-flip_x = False, flip_y = False, transpose = False, M = 128, train_results = None
-
-    def _reassemble_cdi_image_torch(
-        test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-        config: TrainingConfig,
-        flip_x: bool,
-        flip_y: bool,
-        transpose: bool,
-        M: int,
-        train_results: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Any, Any, Dict[str, Any]]:
-        """
-        Reassemble CDI image using trained PyTorch model.
-    
-        This function provides API parity with ptycho.workflows.components.reassemble_cdi_image,
-        orchestrating model inference and patch reassembly to produce final reconstruction.
-    
-        Args:
-            test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
-            config: TrainingConfig for inference parameters
-            flip_x: Whether to flip the x coordinates during reconstruction
-            flip_y: Whether to flip the y coordinates during reconstruction
-            transpose: Whether to transpose the image by swapping dimensions
-            M: Parameter for reassemble_position function
-            train_results: Optional training results dict containing 'models' with trained Lightning module
-    
-        Returns:
-            Tuple containing:
-            - recon_amp: Reconstructed amplitude array (np.ndarray)
-            - recon_phase: Reconstructed phase array (np.ndarray)
-            - results: Dictionary with intermediate outputs (obj_tensor_full, global_offsets, etc.)
-    
-        Raises:
-            RuntimeError: If PyTorch not available or train_results not provided
-            ValueError: If models dict missing from train_results
-    
-        Example:
-            >>> train_results = run_cdi_example_torch(train_data, test_data, config, do_stitching=False)
-            >>> recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
-            ...     test_data, config, flip_x=False, flip_y=False, transpose=False, M=20,
-            ...     train_results=train_results
-            ... )
-        """
-        # torch-optional import guarded here
-        try:
-            import torch
-            import numpy as np
-        except ImportError as e:
-            raise RuntimeError(
-                "PyTorch backend requires torch. "
-                "Install with: pip install -e .[torch]\n"
-                "See docs/findings.md#policy-001 for PyTorch requirement policy."
-            ) from e
-    
-        # Validate train_results contains models
-        if train_results is None:
-            # For backward compatibility with tests expecting NotImplementedError,
-            # raise NotImplementedError to maintain RED test expectations
->           raise NotImplementedError(
-                "PyTorch stitching path requires train_results with trained Lightning module. "
-                "Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. "
-                "See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status."
-            )
-E           NotImplementedError: PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.
-
-ptycho_torch/workflows/components.py:662: NotImplementedError
-
-During handling of the above exception, another exception occurred:
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363410>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc1'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e99883d390>
-flip_x = False, flip_y = False, transpose = False
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
->       with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-E       AssertionError: Regex pattern did not match.
-E        Regex: 'stitching.*not.*implement'
-E        Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-
-tests/torch/test_workflows_components.py:1267: AssertionError
----------------------------- Captured stdout setup -----------------------------
-diff3d shape: (20, 64, 64)
-probeGuess shape: (64, 64)
-scan_index shape: (20,)
-objectGuess shape: (128, 128)
-xcoords shape: (20,)
-ycoords shape: (20,)
-xcoords_start shape: (20,)
-ycoords_start shape: (20,)
-_ TestReassembleCdiImageTorchRed.test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] _
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363690>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc2'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e98dfc19d0>
-flip_x = True, flip_y = False, transpose = False
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
->           torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=flip_x,
-                flip_y=flip_y,
-                transpose=transpose,
-                M=128,
-            )
-
-tests/torch/test_workflows_components.py:1268: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-test_data = <ptycho.raw_data.RawData object at 0x75e98dfc19d0>
-config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc2'), sequential_sampling=False, backend='tensorflow')
-flip_x = True, flip_y = False, transpose = False, M = 128, train_results = None
-
-    def _reassemble_cdi_image_torch(
-        test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-        config: TrainingConfig,
-        flip_x: bool,
-        flip_y: bool,
-        transpose: bool,
-        M: int,
-        train_results: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Any, Any, Dict[str, Any]]:
-        """
-        Reassemble CDI image using trained PyTorch model.
-    
-        This function provides API parity with ptycho.workflows.components.reassemble_cdi_image,
-        orchestrating model inference and patch reassembly to produce final reconstruction.
-    
-        Args:
-            test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
-            config: TrainingConfig for inference parameters
-            flip_x: Whether to flip the x coordinates during reconstruction
-            flip_y: Whether to flip the y coordinates during reconstruction
-            transpose: Whether to transpose the image by swapping dimensions
-            M: Parameter for reassemble_position function
-            train_results: Optional training results dict containing 'models' with trained Lightning module
-    
-        Returns:
-            Tuple containing:
-            - recon_amp: Reconstructed amplitude array (np.ndarray)
-            - recon_phase: Reconstructed phase array (np.ndarray)
-            - results: Dictionary with intermediate outputs (obj_tensor_full, global_offsets, etc.)
-    
-        Raises:
-            RuntimeError: If PyTorch not available or train_results not provided
-            ValueError: If models dict missing from train_results
-    
-        Example:
-            >>> train_results = run_cdi_example_torch(train_data, test_data, config, do_stitching=False)
-            >>> recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
-            ...     test_data, config, flip_x=False, flip_y=False, transpose=False, M=20,
-            ...     train_results=train_results
-            ... )
-        """
-        # torch-optional import guarded here
-        try:
-            import torch
-            import numpy as np
-        except ImportError as e:
-            raise RuntimeError(
-                "PyTorch backend requires torch. "
-                "Install with: pip install -e .[torch]\n"
-                "See docs/findings.md#policy-001 for PyTorch requirement policy."
-            ) from e
-    
-        # Validate train_results contains models
-        if train_results is None:
-            # For backward compatibility with tests expecting NotImplementedError,
-            # raise NotImplementedError to maintain RED test expectations
->           raise NotImplementedError(
-                "PyTorch stitching path requires train_results with trained Lightning module. "
-                "Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. "
-                "See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status."
-            )
-E           NotImplementedError: PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.
-
-ptycho_torch/workflows/components.py:662: NotImplementedError
-
-During handling of the above exception, another exception occurred:
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363690>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc2'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e98dfc19d0>
-flip_x = True, flip_y = False, transpose = False
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
->       with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-E       AssertionError: Regex pattern did not match.
-E        Regex: 'stitching.*not.*implement'
-E        Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-
-tests/torch/test_workflows_components.py:1267: AssertionError
----------------------------- Captured stdout setup -----------------------------
-diff3d shape: (20, 64, 64)
-probeGuess shape: (64, 64)
-scan_index shape: (20,)
-objectGuess shape: (128, 128)
-xcoords shape: (20,)
-ycoords shape: (20,)
-xcoords_start shape: (20,)
-ycoords_start shape: (20,)
-_ TestReassembleCdiImageTorchRed.test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] _
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363910>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc3'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e98df8c1d0>
-flip_x = False, flip_y = True, transpose = False
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
->           torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=flip_x,
-                flip_y=flip_y,
-                transpose=transpose,
-                M=128,
-            )
-
-tests/torch/test_workflows_components.py:1268: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-test_data = <ptycho.raw_data.RawData object at 0x75e98df8c1d0>
-config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc3'), sequential_sampling=False, backend='tensorflow')
-flip_x = False, flip_y = True, transpose = False, M = 128, train_results = None
-
-    def _reassemble_cdi_image_torch(
-        test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-        config: TrainingConfig,
-        flip_x: bool,
-        flip_y: bool,
-        transpose: bool,
-        M: int,
-        train_results: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Any, Any, Dict[str, Any]]:
-        """
-        Reassemble CDI image using trained PyTorch model.
-    
-        This function provides API parity with ptycho.workflows.components.reassemble_cdi_image,
-        orchestrating model inference and patch reassembly to produce final reconstruction.
-    
-        Args:
-            test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
-            config: TrainingConfig for inference parameters
-            flip_x: Whether to flip the x coordinates during reconstruction
-            flip_y: Whether to flip the y coordinates during reconstruction
-            transpose: Whether to transpose the image by swapping dimensions
-            M: Parameter for reassemble_position function
-            train_results: Optional training results dict containing 'models' with trained Lightning module
-    
-        Returns:
-            Tuple containing:
-            - recon_amp: Reconstructed amplitude array (np.ndarray)
-            - recon_phase: Reconstructed phase array (np.ndarray)
-            - results: Dictionary with intermediate outputs (obj_tensor_full, global_offsets, etc.)
-    
-        Raises:
-            RuntimeError: If PyTorch not available or train_results not provided
-            ValueError: If models dict missing from train_results
-    
-        Example:
-            >>> train_results = run_cdi_example_torch(train_data, test_data, config, do_stitching=False)
-            >>> recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
-            ...     test_data, config, flip_x=False, flip_y=False, transpose=False, M=20,
-            ...     train_results=train_results
-            ... )
-        """
-        # torch-optional import guarded here
-        try:
-            import torch
-            import numpy as np
-        except ImportError as e:
-            raise RuntimeError(
-                "PyTorch backend requires torch. "
-                "Install with: pip install -e .[torch]\n"
-                "See docs/findings.md#policy-001 for PyTorch requirement policy."
-            ) from e
-    
-        # Validate train_results contains models
-        if train_results is None:
-            # For backward compatibility with tests expecting NotImplementedError,
-            # raise NotImplementedError to maintain RED test expectations
->           raise NotImplementedError(
-                "PyTorch stitching path requires train_results with trained Lightning module. "
-                "Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. "
-                "See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status."
-            )
-E           NotImplementedError: PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.
-
-ptycho_torch/workflows/components.py:662: NotImplementedError
-
-During handling of the above exception, another exception occurred:
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363910>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc3'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e98df8c1d0>
-flip_x = False, flip_y = True, transpose = False
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
->       with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-E       AssertionError: Regex pattern did not match.
-E        Regex: 'stitching.*not.*implement'
-E        Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-
-tests/torch/test_workflows_components.py:1267: AssertionError
----------------------------- Captured stdout setup -----------------------------
-diff3d shape: (20, 64, 64)
-probeGuess shape: (64, 64)
-scan_index shape: (20,)
-objectGuess shape: (128, 128)
-xcoords shape: (20,)
-ycoords shape: (20,)
-xcoords_start shape: (20,)
-ycoords_start shape: (20,)
-_ TestReassembleCdiImageTorchRed.test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] _
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363b90>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc4'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e99836e110>
-flip_x = False, flip_y = False, transpose = True
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
->           torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=flip_x,
-                flip_y=flip_y,
-                transpose=transpose,
-                M=128,
-            )
-
-tests/torch/test_workflows_components.py:1268: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-test_data = <ptycho.raw_data.RawData object at 0x75e99836e110>
-config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc4'), sequential_sampling=False, backend='tensorflow')
-flip_x = False, flip_y = False, transpose = True, M = 128, train_results = None
-
-    def _reassemble_cdi_image_torch(
-        test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-        config: TrainingConfig,
-        flip_x: bool,
-        flip_y: bool,
-        transpose: bool,
-        M: int,
-        train_results: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Any, Any, Dict[str, Any]]:
-        """
-        Reassemble CDI image using trained PyTorch model.
-    
-        This function provides API parity with ptycho.workflows.components.reassemble_cdi_image,
-        orchestrating model inference and patch reassembly to produce final reconstruction.
-    
-        Args:
-            test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
-            config: TrainingConfig for inference parameters
-            flip_x: Whether to flip the x coordinates during reconstruction
-            flip_y: Whether to flip the y coordinates during reconstruction
-            transpose: Whether to transpose the image by swapping dimensions
-            M: Parameter for reassemble_position function
-            train_results: Optional training results dict containing 'models' with trained Lightning module
-    
-        Returns:
-            Tuple containing:
-            - recon_amp: Reconstructed amplitude array (np.ndarray)
-            - recon_phase: Reconstructed phase array (np.ndarray)
-            - results: Dictionary with intermediate outputs (obj_tensor_full, global_offsets, etc.)
-    
-        Raises:
-            RuntimeError: If PyTorch not available or train_results not provided
-            ValueError: If models dict missing from train_results
-    
-        Example:
-            >>> train_results = run_cdi_example_torch(train_data, test_data, config, do_stitching=False)
-            >>> recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
-            ...     test_data, config, flip_x=False, flip_y=False, transpose=False, M=20,
-            ...     train_results=train_results
-            ... )
-        """
-        # torch-optional import guarded here
-        try:
-            import torch
-            import numpy as np
-        except ImportError as e:
-            raise RuntimeError(
-                "PyTorch backend requires torch. "
-                "Install with: pip install -e .[torch]\n"
-                "See docs/findings.md#policy-001 for PyTorch requirement policy."
-            ) from e
-    
-        # Validate train_results contains models
-        if train_results is None:
-            # For backward compatibility with tests expecting NotImplementedError,
-            # raise NotImplementedError to maintain RED test expectations
->           raise NotImplementedError(
-                "PyTorch stitching path requires train_results with trained Lightning module. "
-                "Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. "
-                "See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status."
-            )
-E           NotImplementedError: PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.
-
-ptycho_torch/workflows/components.py:662: NotImplementedError
-
-During handling of the above exception, another exception occurred:
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363b90>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc4'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e99836e110>
-flip_x = False, flip_y = False, transpose = True
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
->       with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-E       AssertionError: Regex pattern did not match.
-E        Regex: 'stitching.*not.*implement'
-E        Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-
-tests/torch/test_workflows_components.py:1267: AssertionError
----------------------------- Captured stdout setup -----------------------------
-diff3d shape: (20, 64, 64)
-probeGuess shape: (64, 64)
-scan_index shape: (20,)
-objectGuess shape: (128, 128)
-xcoords shape: (20,)
-ycoords shape: (20,)
-xcoords_start shape: (20,)
-ycoords_start shape: (20,)
-_ TestReassembleCdiImageTorchRed.test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] _
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363e10>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc5'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e98dfc0f50>
-flip_x = True, flip_y = True, transpose = True
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
->           torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=flip_x,
-                flip_y=flip_y,
-                transpose=transpose,
-                M=128,
-            )
-
-tests/torch/test_workflows_components.py:1268: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-test_data = <ptycho.raw_data.RawData object at 0x75e98dfc0f50>
-config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc5'), sequential_sampling=False, backend='tensorflow')
-flip_x = True, flip_y = True, transpose = True, M = 128, train_results = None
-
-    def _reassemble_cdi_image_torch(
-        test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-        config: TrainingConfig,
-        flip_x: bool,
-        flip_y: bool,
-        transpose: bool,
-        M: int,
-        train_results: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Any, Any, Dict[str, Any]]:
-        """
-        Reassemble CDI image using trained PyTorch model.
-    
-        This function provides API parity with ptycho.workflows.components.reassemble_cdi_image,
-        orchestrating model inference and patch reassembly to produce final reconstruction.
-    
-        Args:
-            test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
-            config: TrainingConfig for inference parameters
-            flip_x: Whether to flip the x coordinates during reconstruction
-            flip_y: Whether to flip the y coordinates during reconstruction
-            transpose: Whether to transpose the image by swapping dimensions
-            M: Parameter for reassemble_position function
-            train_results: Optional training results dict containing 'models' with trained Lightning module
-    
-        Returns:
-            Tuple containing:
-            - recon_amp: Reconstructed amplitude array (np.ndarray)
-            - recon_phase: Reconstructed phase array (np.ndarray)
-            - results: Dictionary with intermediate outputs (obj_tensor_full, global_offsets, etc.)
-    
-        Raises:
-            RuntimeError: If PyTorch not available or train_results not provided
-            ValueError: If models dict missing from train_results
-    
-        Example:
-            >>> train_results = run_cdi_example_torch(train_data, test_data, config, do_stitching=False)
-            >>> recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
-            ...     test_data, config, flip_x=False, flip_y=False, transpose=False, M=20,
-            ...     train_results=train_results
-            ... )
-        """
-        # torch-optional import guarded here
-        try:
-            import torch
-            import numpy as np
-        except ImportError as e:
-            raise RuntimeError(
-                "PyTorch backend requires torch. "
-                "Install with: pip install -e .[torch]\n"
-                "See docs/findings.md#policy-001 for PyTorch requirement policy."
-            ) from e
-    
-        # Validate train_results contains models
-        if train_results is None:
-            # For backward compatibility with tests expecting NotImplementedError,
-            # raise NotImplementedError to maintain RED test expectations
->           raise NotImplementedError(
-                "PyTorch stitching path requires train_results with trained Lightning module. "
-                "Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. "
-                "See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status."
-            )
-E           NotImplementedError: PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.
-
-ptycho_torch/workflows/components.py:662: NotImplementedError
-
-During handling of the above exception, another exception occurred:
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54363e10>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc5'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e98dfc0f50>
-flip_x = True, flip_y = True, transpose = True
-
-    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
-        (False, False, False),  # No transforms
-        (True, False, False),   # Flip X only
-        (False, True, False),   # Flip Y only
-        (False, False, True),   # Transpose only
-        (True, True, True),     # All transforms
-    ])
-    def test_reassemble_cdi_image_torch_flip_transpose_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        flip_x,
-        flip_y,
-        transpose
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
-    
-        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
-        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
-        transforms via flip_x, flip_y, transpose parameters before reassembly.
-    
-        Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
-    
-        Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
-    
-        Rationale for parametrization:
-        - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
->       with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-E       AssertionError: Regex pattern did not match.
-E        Regex: 'stitching.*not.*implement'
-E        Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-
-tests/torch/test_workflows_components.py:1267: AssertionError
----------------------------- Captured stdout setup -----------------------------
-diff3d shape: (20, 64, 64)
-probeGuess shape: (64, 64)
-scan_index shape: (20,)
-objectGuess shape: (128, 128)
-xcoords shape: (20,)
-ycoords shape: (20,)
-xcoords_start shape: (20,)
-ycoords_start shape: (20,)
-_ TestReassembleCdiImageTorchRed.test_run_cdi_example_torch_do_stitching_delegates_to_reassemble _
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54370390>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_run_cdi_example_torch_do_0'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e98dfa03d0>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x75e98dfa1610>
-
-    def test_run_cdi_example_torch_do_stitching_delegates_to_reassemble(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-        monkeypatch
-    ):
-        """
-        RED TEST: run_cdi_example_torch(do_stitching=True) MUST delegate to stitching path.
-    
-        Requirement: Phase D2.C workflow integration — ensure orchestration calls reassembly.
-    
-        TensorFlow baseline (ptycho/workflows/components.py:676-732):
-        - run_cdi_example(..., do_stitching=True) invokes reassemble_cdi_image
-        - Stitching runs AFTER training completes
-        - Returns (recon_amp, recon_phase, results) when stitching enabled
-        - Returns (None, None, results) when do_stitching=False
-    
-        Expected behavior:
-        - Red phase: run_cdi_example_torch raises NotImplementedError via reassemble call
-        - Green phase: runs training, then calls _reassemble_cdi_image_torch with test_data
-        - Stitching results populate amplitude/phase return values
-    
-        Test mechanism:
-        - Monkeypatch training path to avoid heavyweight Lightning execution
-        - Call run_cdi_example_torch with do_stitching=True
-        - Assert NotImplementedError propagates from _reassemble_cdi_image_torch
-    
-        Validation coverage:
-        - Confirms orchestration wiring exists
-        - Ensures stitching path is reachable from public API
-        - Documents return value contract for downstream consumers (e.g., ptychodus)
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # Monkeypatch _train_with_lightning to skip training (avoid GPU dependency)
-        def mock_train_with_lightning(train_container, test_container, config):
-            """Stub that returns minimal results without actual training."""
-            return {
-                "history": {"train_loss": [0.5]},
-                "containers": {"train": train_container, "test": test_container},
-                "models": {
-                    "lightning_module": None,  # Sentinel (stitching doesn't need trained model for red test)
-                    "trainer": None,
-                },
-            }
-    
-        monkeypatch.setattr(
-            torch_components,
-            "_train_with_lightning",
-            mock_train_with_lightning
+        # GREEN PHASE VALIDATION: expect successful stitching with all transform combos
+>       recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
+            test_data=dummy_raw_data,
+            config=minimal_training_config,
+            flip_x=flip_x,
+            flip_y=flip_y,
+            transpose=transpose,
+            M=128,
+            train_results=stitch_train_results  # CRITICAL: provide trained model
         )
-    
-        # RED PHASE ASSERTION: expect NotImplementedError from stitching path
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
->           torch_components.run_cdi_example_torch(
-                train_data=dummy_raw_data,
-                test_data=dummy_raw_data,  # Use same data for test (deterministic)
-                config=minimal_training_config,
-                flip_x=False,
-                flip_y=False,
-                transpose=False,
-                M=128,
-                do_stitching=True,  # CRITICAL: enable stitching path
-            )
 
-tests/torch/test_workflows_components.py:1337: 
+tests/torch/test_workflows_components.py:1321: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-ptycho_torch/workflows/components.py:155: in run_cdi_example_torch
-    train_results = train_cdi_model_torch(train_data, test_data, config)
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-ptycho_torch/workflows/components.py:778: in train_cdi_model_torch
-    train_container = _ensure_container(train_data, config)
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho_torch/workflows/components.py:720: in _reassemble_cdi_image_torch
+    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1255: in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py:153: in error_handler
+    raise e.with_traceback(filtered_tb) from None
+/tmp/__autograph_generated_fileucaku3ac.py:106: in tf__shift_and_sum
+    result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-data = <ptycho_torch.raw_data_bridge.RawDataTorch object at 0x75e99871e9d0>
-config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_run_cdi_example_torch_do_0'), sequential_sampling=False, backend='tensorflow')
+    @ag__.autograph_artifact
+    def _streaming():
+        with ag__.FunctionScope('_streaming', 'fscope_2', ag__.STD) as fscope_2:
+            do_return_2 = False
+            retval__2 = ag__.UndefinedReturnValue()
+            chunk_sz = ag__.converted_call(ag__.ld(tf).constant, (1024, ag__.ld(tf).int32), None, fscope_2)
+            result = ag__.converted_call(ag__.ld(tf).zeros, ([ag__.ld(padded_size), ag__.ld(padded_size), 1],), dict(dtype=ag__.ld(obj_tensor).dtype), fscope_2)
+            i = ag__.converted_call(ag__.ld(tf).constant, (0, ag__.ld(tf).int32), None, fscope_2)
+    
+            @ag__.autograph_artifact
+            def cond(i, res):
+                with ag__.FunctionScope('cond', 'fscope_3', ag__.STD) as fscope_3:
+                    do_return_3 = False
+                    retval__3 = ag__.UndefinedReturnValue()
+                    try:
+                        do_return_3 = True
+                        retval__3 = ag__.ld(i) < ag__.ld(num_patches)
+                    except:
+                        do_return_3 = False
+                        raise
+                    return fscope_3.ret(retval__3, do_return_3)
+    
+            @ag__.autograph_artifact
+            def body(i, res):
+                with ag__.FunctionScope('body', 'fscope_4', ag__.STD) as fscope_4:
+                    do_return_4 = False
+                    retval__4 = ag__.UndefinedReturnValue()
+                    end_idx = ag__.converted_call(ag__.ld(tf).minimum, (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(num_patches)), None, fscope_4)
+                    batch_imgs = ag__.ld(cropped_obj)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_offs = ag__.ld(adjusted_offsets)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_imgs = ag__.converted_call(ag__.ld(_tf_pad_sym), (ag__.ld(batch_imgs), ag__.ld(dynamic_pad)), None, fscope_4)
+                    batch_offs = ag__.converted_call(ag__.ld(tf).reshape, (ag__.ld(batch_offs), (-1, 2)), None, fscope_4)
+                    translated = ag__.converted_call(ag__.ld(translate), (ag__.ld(batch_imgs), ag__.ld(batch_offs)), dict(interpolation='bilinear'), fscope_4)
+                    try:
+                        do_return_4 = True
+                        retval__4 = (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(res) + ag__.converted_call(ag__.ld(tf).reduce_sum, (ag__.ld(translated),), dict(axis=0), fscope_4))
+                    except:
+                        do_return_4 = False
+                        raise
+                    return fscope_4.ret(retval__4, do_return_4)
+>           _, result = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           ValueError: in user code:
+E           
+E               File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+E                   _, result = tf.while_loop(cond, body, [i, result])
+E           
+E               ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
 
-    def _ensure_container(
-        data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-        config: TrainingConfig
-    ) -> 'PtychoDataContainerTorch':
-        """
-        Normalize input data to PtychoDataContainerTorch using Phase C adapters.
-    
-        This helper mirrors the pattern in ptycho.workflows.components.create_ptycho_data_container,
-        providing a single normalization pathway for all data types.
-    
-        Args:
-            data: Input data (RawData, RawDataTorch, or PtychoDataContainerTorch)
-            config: TrainingConfig for grouped data generation parameters
-    
-        Returns:
-            PtychoDataContainerTorch: Normalized container ready for Lightning training
-    
-        Raises:
-            TypeError: If data is not one of the supported types
-            ImportError: If Phase C adapters not available (should not occur in Phase D2.B)
-    
-        Implementation Notes:
-            - RawData → wrap with RawDataTorch, generate_grouped_data, then PtychoDataContainerTorch
-            - RawDataTorch → generate_grouped_data → PtychoDataContainerTorch
-            - PtychoDataContainerTorch → return as-is (already normalized)
-        """
-        # Phase C adapters are now mandatory (imported at module level)
-    
-        # Case 1: Already a container - return as-is
-        if hasattr(data, 'X') and hasattr(data, 'Y'):  # Duck-type check for PtychoDataContainerTorch
-            logger.debug("Input is already PtychoDataContainerTorch, returning as-is")
-            return data
-    
-        # Case 2: TensorFlow RawData - wrap with RawDataTorch
-        if isinstance(data, RawData):
-            logger.debug("Converting RawData → RawDataTorch → PtychoDataContainerTorch")
-            # Wrap with RawDataTorch (Phase C adapter)
-            # Note: Y patches are embedded in TF RawData and will be extracted during grouping
-            torch_raw_data = RawDataTorch(
-                xcoords=data.xcoords,
-                ycoords=data.ycoords,
-                diff3d=data.diff3d,
-                probeGuess=data.probeGuess,
-                scan_index=data.scan_index,
-                objectGuess=data.objectGuess,
-                config=config  # Pass config for update_legacy_dict call
-            )
-            data = torch_raw_data
-    
-        # Case 3: RawDataTorch - generate grouped data
-        if hasattr(data, 'generate_grouped_data'):
-            logger.debug("Generating grouped data from RawDataTorch")
-            grouped_data = data.generate_grouped_data(
-                N=config.model.N,
-                K=config.neighbor_count,
-                nsamples=config.n_groups,
-                dataset_path=str(config.train_data_file) if config.train_data_file else None,
-                sequential_sampling=config.sequential_sampling,
-                gridsize=config.model.gridsize,
-            )
-            # Create PtychoDataContainerTorch from grouped data
->           container = PtychoDataContainerTorch(grouped_data)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E           TypeError: PtychoDataContainerTorch.__init__() missing 1 required positional argument: 'probe'
-
-ptycho_torch/workflows/components.py:255: TypeError
+/tmp/__autograph_generated_fileucaku3ac.py:98: ValueError
 ---------------------------- Captured stdout setup -----------------------------
 diff3d shape: (20, 64, 64)
 probeGuess shape: (64, 64)
@@ -1413,62 +174,64 @@ DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strat
 INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
 neighbor-sampled diffraction shape (10, 64, 64, 4)
 ----------------------------- Captured stderr call -----------------------------
-I0000 00:00:1760863682.502452  717008 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1760863682.503832  717008 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22137 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+I0000 00:00:1760865151.211019  745906 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1760865151.212387  745906 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22137 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1760863683.497204  717008 service.cc:152] XLA service 0x2fa3fde0 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1760863683.497231  717008 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-10-19 01:48:03.510804: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1760863683.530720  717008 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1760863683.660420  717008 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-_ TestReassembleCdiImageTorchRed.test_reassemble_cdi_image_torch_return_contract _
+I0000 00:00:1760865152.254663  745906 service.cc:152] XLA service 0x27b2c600 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1760865152.254689  745906 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-10-19 02:12:32.268037: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1760865152.287527  745906 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1760865152.408746  745906 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+_ TestReassembleCdiImageTorchGreen.test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] _
 
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54370a90>
+self = <test_workflows_components.TestReassembleCdiImageTorchGreen object at 0x775ab8e3bb90>
 params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc6'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e9986e0750>
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-621/test_reassemble_cdi_image_torc2'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7759a014ee10>
+stitch_train_results = {'history': {'train_loss': [0.1, 0.05]}, 'models': {'lightning_module': MockLightningModule(), 'trainer': None}}
+flip_x = True, flip_y = False, transpose = False
 
-    def test_reassemble_cdi_image_torch_return_contract(
+    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
+        (False, False, False),  # No transforms
+        (True, False, False),   # Flip X only
+        (False, True, False),   # Flip Y only
+        (False, False, True),   # Transpose only
+        (True, True, True),     # All transforms
+    ])
+    def test_reassemble_cdi_image_torch_flip_transpose_contract(
         self,
         params_cfg_snapshot,
         minimal_training_config,
-        dummy_raw_data
+        dummy_raw_data,
+        stitch_train_results,
+        flip_x,
+        flip_y,
+        transpose
     ):
         """
-        RED TEST: _reassemble_cdi_image_torch MUST return (recon_amp, recon_phase, results).
+        GREEN TEST: _reassemble_cdi_image_torch honors flip/transpose parameters.
     
-        Requirement: API parity with TensorFlow reassemble_cdi_image per spec §4.5.
+        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
+        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
+        transforms via flip_x, flip_y, transpose parameters before reassembly.
     
-        TensorFlow baseline signature (ptycho/workflows/components.py:582):
-        ```python
-        def reassemble_cdi_image(test_data, config, flip_x=False, flip_y=False,
-                                  transpose=False, coord_scale=1, M=None):
-            ...
-            return recon_amp, recon_phase, results
-        ```
-    
-        Expected PyTorch signature (ptycho_torch/workflows/components.py:532):
-        ```python
-        def _reassemble_cdi_image_torch(test_data, config, flip_x=False, flip_y=False,
-                                         transpose=False, M=None):
-            ...
-            return recon_amp, recon_phase, results
-        ```
-    
-        Return value contract (green phase):
-        - recon_amp: 2D numpy array (float32), stitched amplitude image
-        - recon_phase: 2D numpy array (float32), stitched phase image
-        - results: dict containing {"obj_tensor_full", "global_offsets", ...}
+        Expected behavior (all parameter combinations):
+        - Function accepts flip_x, flip_y, transpose parameters
+        - Returns (recon_amp, recon_phase, results) tuple
+        - Amplitude/phase are 2D numpy arrays with finite values
+        - Output shape invariant under flip/transpose (same canvas size)
+        - global_offsets in results dict reflect coordinate transforms
     
         Test mechanism:
-        - Red phase: NotImplementedError prevents return inspection
-        - Green phase: validate return tuple structure and types
-        - This test documents the API contract for implementer
+        - Parametrize over 5 representative flag combinations
+        - Supply train_results with mock Lightning module
+        - Assert successful execution (no exceptions)
+        - Validate output structure and finiteness
     
-        Rationale:
-        - Ensures signature compatibility with TensorFlow baseline
-        - Prevents silent breaking changes to return format
-        - Codifies downstream consumer expectations (ptychodus integration)
+        Rationale for parametrization:
+        - Documents TF parity requirement explicitly in test corpus
+        - Ensures implementation handles all transform combinations
+        - Provides clear failure message surfacing which transform broke
         """
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import update_legacy_dict
@@ -1477,152 +240,82 @@ dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e9986e0750>
         # Bridge config (CONFIG-001)
         update_legacy_dict(params.cfg, minimal_training_config)
     
-        # RED PHASE: Document expected behavior via assertion message
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
->           recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=False,
-                flip_y=False,
-                transpose=False,
-                M=128,
-            )
+        # GREEN PHASE VALIDATION: expect successful stitching with all transform combos
+>       recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
+            test_data=dummy_raw_data,
+            config=minimal_training_config,
+            flip_x=flip_x,
+            flip_y=flip_y,
+            transpose=transpose,
+            M=128,
+            train_results=stitch_train_results  # CRITICAL: provide trained model
+        )
 
-tests/torch/test_workflows_components.py:1399: 
+tests/torch/test_workflows_components.py:1321: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:720: in _reassemble_cdi_image_torch
+    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1255: in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py:153: in error_handler
+    raise e.with_traceback(filtered_tb) from None
+/tmp/__autograph_generated_fileucaku3ac.py:106: in tf__shift_and_sum
+    result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-test_data = <ptycho.raw_data.RawData object at 0x75e9986e0750>
-config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc6'), sequential_sampling=False, backend='tensorflow')
-flip_x = False, flip_y = False, transpose = False, M = 128, train_results = None
+    @ag__.autograph_artifact
+    def _streaming():
+        with ag__.FunctionScope('_streaming', 'fscope_2', ag__.STD) as fscope_2:
+            do_return_2 = False
+            retval__2 = ag__.UndefinedReturnValue()
+            chunk_sz = ag__.converted_call(ag__.ld(tf).constant, (1024, ag__.ld(tf).int32), None, fscope_2)
+            result = ag__.converted_call(ag__.ld(tf).zeros, ([ag__.ld(padded_size), ag__.ld(padded_size), 1],), dict(dtype=ag__.ld(obj_tensor).dtype), fscope_2)
+            i = ag__.converted_call(ag__.ld(tf).constant, (0, ag__.ld(tf).int32), None, fscope_2)
+    
+            @ag__.autograph_artifact
+            def cond(i, res):
+                with ag__.FunctionScope('cond', 'fscope_3', ag__.STD) as fscope_3:
+                    do_return_3 = False
+                    retval__3 = ag__.UndefinedReturnValue()
+                    try:
+                        do_return_3 = True
+                        retval__3 = ag__.ld(i) < ag__.ld(num_patches)
+                    except:
+                        do_return_3 = False
+                        raise
+                    return fscope_3.ret(retval__3, do_return_3)
+    
+            @ag__.autograph_artifact
+            def body(i, res):
+                with ag__.FunctionScope('body', 'fscope_4', ag__.STD) as fscope_4:
+                    do_return_4 = False
+                    retval__4 = ag__.UndefinedReturnValue()
+                    end_idx = ag__.converted_call(ag__.ld(tf).minimum, (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(num_patches)), None, fscope_4)
+                    batch_imgs = ag__.ld(cropped_obj)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_offs = ag__.ld(adjusted_offsets)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_imgs = ag__.converted_call(ag__.ld(_tf_pad_sym), (ag__.ld(batch_imgs), ag__.ld(dynamic_pad)), None, fscope_4)
+                    batch_offs = ag__.converted_call(ag__.ld(tf).reshape, (ag__.ld(batch_offs), (-1, 2)), None, fscope_4)
+                    translated = ag__.converted_call(ag__.ld(translate), (ag__.ld(batch_imgs), ag__.ld(batch_offs)), dict(interpolation='bilinear'), fscope_4)
+                    try:
+                        do_return_4 = True
+                        retval__4 = (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(res) + ag__.converted_call(ag__.ld(tf).reduce_sum, (ag__.ld(translated),), dict(axis=0), fscope_4))
+                    except:
+                        do_return_4 = False
+                        raise
+                    return fscope_4.ret(retval__4, do_return_4)
+>           _, result = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           ValueError: in user code:
+E           
+E               File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+E                   _, result = tf.while_loop(cond, body, [i, result])
+E           
+E               ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
 
-    def _reassemble_cdi_image_torch(
-        test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-        config: TrainingConfig,
-        flip_x: bool,
-        flip_y: bool,
-        transpose: bool,
-        M: int,
-        train_results: Optional[Dict[str, Any]] = None
-    ) -> Tuple[Any, Any, Dict[str, Any]]:
-        """
-        Reassemble CDI image using trained PyTorch model.
-    
-        This function provides API parity with ptycho.workflows.components.reassemble_cdi_image,
-        orchestrating model inference and patch reassembly to produce final reconstruction.
-    
-        Args:
-            test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
-            config: TrainingConfig for inference parameters
-            flip_x: Whether to flip the x coordinates during reconstruction
-            flip_y: Whether to flip the y coordinates during reconstruction
-            transpose: Whether to transpose the image by swapping dimensions
-            M: Parameter for reassemble_position function
-            train_results: Optional training results dict containing 'models' with trained Lightning module
-    
-        Returns:
-            Tuple containing:
-            - recon_amp: Reconstructed amplitude array (np.ndarray)
-            - recon_phase: Reconstructed phase array (np.ndarray)
-            - results: Dictionary with intermediate outputs (obj_tensor_full, global_offsets, etc.)
-    
-        Raises:
-            RuntimeError: If PyTorch not available or train_results not provided
-            ValueError: If models dict missing from train_results
-    
-        Example:
-            >>> train_results = run_cdi_example_torch(train_data, test_data, config, do_stitching=False)
-            >>> recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
-            ...     test_data, config, flip_x=False, flip_y=False, transpose=False, M=20,
-            ...     train_results=train_results
-            ... )
-        """
-        # torch-optional import guarded here
-        try:
-            import torch
-            import numpy as np
-        except ImportError as e:
-            raise RuntimeError(
-                "PyTorch backend requires torch. "
-                "Install with: pip install -e .[torch]\n"
-                "See docs/findings.md#policy-001 for PyTorch requirement policy."
-            ) from e
-    
-        # Validate train_results contains models
-        if train_results is None:
-            # For backward compatibility with tests expecting NotImplementedError,
-            # raise NotImplementedError to maintain RED test expectations
->           raise NotImplementedError(
-                "PyTorch stitching path requires train_results with trained Lightning module. "
-                "Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. "
-                "See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status."
-            )
-E           NotImplementedError: PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.
-
-ptycho_torch/workflows/components.py:662: NotImplementedError
-
-During handling of the above exception, another exception occurred:
-
-self = <test_workflows_components.TestReassembleCdiImageTorchRed object at 0x75ea54370a90>
-params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
-minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-617/test_reassemble_cdi_image_torc6'), sequential_sampling=False, backend='tensorflow')
-dummy_raw_data = <ptycho.raw_data.RawData object at 0x75e9986e0750>
-
-    def test_reassemble_cdi_image_torch_return_contract(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data
-    ):
-        """
-        RED TEST: _reassemble_cdi_image_torch MUST return (recon_amp, recon_phase, results).
-    
-        Requirement: API parity with TensorFlow reassemble_cdi_image per spec §4.5.
-    
-        TensorFlow baseline signature (ptycho/workflows/components.py:582):
-        ```python
-        def reassemble_cdi_image(test_data, config, flip_x=False, flip_y=False,
-                                  transpose=False, coord_scale=1, M=None):
-            ...
-            return recon_amp, recon_phase, results
-        ```
-    
-        Expected PyTorch signature (ptycho_torch/workflows/components.py:532):
-        ```python
-        def _reassemble_cdi_image_torch(test_data, config, flip_x=False, flip_y=False,
-                                         transpose=False, M=None):
-            ...
-            return recon_amp, recon_phase, results
-        ```
-    
-        Return value contract (green phase):
-        - recon_amp: 2D numpy array (float32), stitched amplitude image
-        - recon_phase: 2D numpy array (float32), stitched phase image
-        - results: dict containing {"obj_tensor_full", "global_offsets", ...}
-    
-        Test mechanism:
-        - Red phase: NotImplementedError prevents return inspection
-        - Green phase: validate return tuple structure and types
-        - This test documents the API contract for implementer
-    
-        Rationale:
-        - Ensures signature compatibility with TensorFlow baseline
-        - Prevents silent breaking changes to return format
-        - Codifies downstream consumer expectations (ptychodus integration)
-        """
-        from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-    
-        # Bridge config (CONFIG-001)
-        update_legacy_dict(params.cfg, minimal_training_config)
-    
-        # RED PHASE: Document expected behavior via assertion message
->       with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-E       AssertionError: Regex pattern did not match.
-E        Regex: 'stitching.*not.*implement'
-E        Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-
-tests/torch/test_workflows_components.py:1398: AssertionError
+/tmp/__autograph_generated_fileucaku3ac.py:98: ValueError
 ---------------------------- Captured stdout setup -----------------------------
 diff3d shape: (20, 64, 64)
 probeGuess shape: (64, 64)
@@ -1632,27 +325,866 @@ xcoords shape: (20,)
 ycoords shape: (20,)
 xcoords_start shape: (20,)
 ycoords_start shape: (20,)
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+_ TestReassembleCdiImageTorchGreen.test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] _
+
+self = <test_workflows_components.TestReassembleCdiImageTorchGreen object at 0x775ab8e2f850>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-621/test_reassemble_cdi_image_torc3'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7759a0289a50>
+stitch_train_results = {'history': {'train_loss': [0.1, 0.05]}, 'models': {'lightning_module': MockLightningModule(), 'trainer': None}}
+flip_x = False, flip_y = True, transpose = False
+
+    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
+        (False, False, False),  # No transforms
+        (True, False, False),   # Flip X only
+        (False, True, False),   # Flip Y only
+        (False, False, True),   # Transpose only
+        (True, True, True),     # All transforms
+    ])
+    def test_reassemble_cdi_image_torch_flip_transpose_contract(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+        stitch_train_results,
+        flip_x,
+        flip_y,
+        transpose
+    ):
+        """
+        GREEN TEST: _reassemble_cdi_image_torch honors flip/transpose parameters.
+    
+        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
+        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
+        transforms via flip_x, flip_y, transpose parameters before reassembly.
+    
+        Expected behavior (all parameter combinations):
+        - Function accepts flip_x, flip_y, transpose parameters
+        - Returns (recon_amp, recon_phase, results) tuple
+        - Amplitude/phase are 2D numpy arrays with finite values
+        - Output shape invariant under flip/transpose (same canvas size)
+        - global_offsets in results dict reflect coordinate transforms
+    
+        Test mechanism:
+        - Parametrize over 5 representative flag combinations
+        - Supply train_results with mock Lightning module
+        - Assert successful execution (no exceptions)
+        - Validate output structure and finiteness
+    
+        Rationale for parametrization:
+        - Documents TF parity requirement explicitly in test corpus
+        - Ensures implementation handles all transform combinations
+        - Provides clear failure message surfacing which transform broke
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+    
+        # Bridge config (CONFIG-001)
+        update_legacy_dict(params.cfg, minimal_training_config)
+    
+        # GREEN PHASE VALIDATION: expect successful stitching with all transform combos
+>       recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
+            test_data=dummy_raw_data,
+            config=minimal_training_config,
+            flip_x=flip_x,
+            flip_y=flip_y,
+            transpose=transpose,
+            M=128,
+            train_results=stitch_train_results  # CRITICAL: provide trained model
+        )
+
+tests/torch/test_workflows_components.py:1321: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:720: in _reassemble_cdi_image_torch
+    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1255: in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py:153: in error_handler
+    raise e.with_traceback(filtered_tb) from None
+/tmp/__autograph_generated_fileucaku3ac.py:106: in tf__shift_and_sum
+    result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @ag__.autograph_artifact
+    def _streaming():
+        with ag__.FunctionScope('_streaming', 'fscope_2', ag__.STD) as fscope_2:
+            do_return_2 = False
+            retval__2 = ag__.UndefinedReturnValue()
+            chunk_sz = ag__.converted_call(ag__.ld(tf).constant, (1024, ag__.ld(tf).int32), None, fscope_2)
+            result = ag__.converted_call(ag__.ld(tf).zeros, ([ag__.ld(padded_size), ag__.ld(padded_size), 1],), dict(dtype=ag__.ld(obj_tensor).dtype), fscope_2)
+            i = ag__.converted_call(ag__.ld(tf).constant, (0, ag__.ld(tf).int32), None, fscope_2)
+    
+            @ag__.autograph_artifact
+            def cond(i, res):
+                with ag__.FunctionScope('cond', 'fscope_3', ag__.STD) as fscope_3:
+                    do_return_3 = False
+                    retval__3 = ag__.UndefinedReturnValue()
+                    try:
+                        do_return_3 = True
+                        retval__3 = ag__.ld(i) < ag__.ld(num_patches)
+                    except:
+                        do_return_3 = False
+                        raise
+                    return fscope_3.ret(retval__3, do_return_3)
+    
+            @ag__.autograph_artifact
+            def body(i, res):
+                with ag__.FunctionScope('body', 'fscope_4', ag__.STD) as fscope_4:
+                    do_return_4 = False
+                    retval__4 = ag__.UndefinedReturnValue()
+                    end_idx = ag__.converted_call(ag__.ld(tf).minimum, (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(num_patches)), None, fscope_4)
+                    batch_imgs = ag__.ld(cropped_obj)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_offs = ag__.ld(adjusted_offsets)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_imgs = ag__.converted_call(ag__.ld(_tf_pad_sym), (ag__.ld(batch_imgs), ag__.ld(dynamic_pad)), None, fscope_4)
+                    batch_offs = ag__.converted_call(ag__.ld(tf).reshape, (ag__.ld(batch_offs), (-1, 2)), None, fscope_4)
+                    translated = ag__.converted_call(ag__.ld(translate), (ag__.ld(batch_imgs), ag__.ld(batch_offs)), dict(interpolation='bilinear'), fscope_4)
+                    try:
+                        do_return_4 = True
+                        retval__4 = (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(res) + ag__.converted_call(ag__.ld(tf).reduce_sum, (ag__.ld(translated),), dict(axis=0), fscope_4))
+                    except:
+                        do_return_4 = False
+                        raise
+                    return fscope_4.ret(retval__4, do_return_4)
+>           _, result = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           ValueError: in user code:
+E           
+E               File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+E                   _, result = tf.while_loop(cond, body, [i, result])
+E           
+E               ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+
+/tmp/__autograph_generated_fileucaku3ac.py:98: ValueError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+_ TestReassembleCdiImageTorchGreen.test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] _
+
+self = <test_workflows_components.TestReassembleCdiImageTorchGreen object at 0x775ab8e3a910>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-621/test_reassemble_cdi_image_torc4'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x775984765650>
+stitch_train_results = {'history': {'train_loss': [0.1, 0.05]}, 'models': {'lightning_module': MockLightningModule(), 'trainer': None}}
+flip_x = False, flip_y = False, transpose = True
+
+    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
+        (False, False, False),  # No transforms
+        (True, False, False),   # Flip X only
+        (False, True, False),   # Flip Y only
+        (False, False, True),   # Transpose only
+        (True, True, True),     # All transforms
+    ])
+    def test_reassemble_cdi_image_torch_flip_transpose_contract(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+        stitch_train_results,
+        flip_x,
+        flip_y,
+        transpose
+    ):
+        """
+        GREEN TEST: _reassemble_cdi_image_torch honors flip/transpose parameters.
+    
+        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
+        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
+        transforms via flip_x, flip_y, transpose parameters before reassembly.
+    
+        Expected behavior (all parameter combinations):
+        - Function accepts flip_x, flip_y, transpose parameters
+        - Returns (recon_amp, recon_phase, results) tuple
+        - Amplitude/phase are 2D numpy arrays with finite values
+        - Output shape invariant under flip/transpose (same canvas size)
+        - global_offsets in results dict reflect coordinate transforms
+    
+        Test mechanism:
+        - Parametrize over 5 representative flag combinations
+        - Supply train_results with mock Lightning module
+        - Assert successful execution (no exceptions)
+        - Validate output structure and finiteness
+    
+        Rationale for parametrization:
+        - Documents TF parity requirement explicitly in test corpus
+        - Ensures implementation handles all transform combinations
+        - Provides clear failure message surfacing which transform broke
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+    
+        # Bridge config (CONFIG-001)
+        update_legacy_dict(params.cfg, minimal_training_config)
+    
+        # GREEN PHASE VALIDATION: expect successful stitching with all transform combos
+>       recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
+            test_data=dummy_raw_data,
+            config=minimal_training_config,
+            flip_x=flip_x,
+            flip_y=flip_y,
+            transpose=transpose,
+            M=128,
+            train_results=stitch_train_results  # CRITICAL: provide trained model
+        )
+
+tests/torch/test_workflows_components.py:1321: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:720: in _reassemble_cdi_image_torch
+    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1255: in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py:153: in error_handler
+    raise e.with_traceback(filtered_tb) from None
+/tmp/__autograph_generated_fileucaku3ac.py:106: in tf__shift_and_sum
+    result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @ag__.autograph_artifact
+    def _streaming():
+        with ag__.FunctionScope('_streaming', 'fscope_2', ag__.STD) as fscope_2:
+            do_return_2 = False
+            retval__2 = ag__.UndefinedReturnValue()
+            chunk_sz = ag__.converted_call(ag__.ld(tf).constant, (1024, ag__.ld(tf).int32), None, fscope_2)
+            result = ag__.converted_call(ag__.ld(tf).zeros, ([ag__.ld(padded_size), ag__.ld(padded_size), 1],), dict(dtype=ag__.ld(obj_tensor).dtype), fscope_2)
+            i = ag__.converted_call(ag__.ld(tf).constant, (0, ag__.ld(tf).int32), None, fscope_2)
+    
+            @ag__.autograph_artifact
+            def cond(i, res):
+                with ag__.FunctionScope('cond', 'fscope_3', ag__.STD) as fscope_3:
+                    do_return_3 = False
+                    retval__3 = ag__.UndefinedReturnValue()
+                    try:
+                        do_return_3 = True
+                        retval__3 = ag__.ld(i) < ag__.ld(num_patches)
+                    except:
+                        do_return_3 = False
+                        raise
+                    return fscope_3.ret(retval__3, do_return_3)
+    
+            @ag__.autograph_artifact
+            def body(i, res):
+                with ag__.FunctionScope('body', 'fscope_4', ag__.STD) as fscope_4:
+                    do_return_4 = False
+                    retval__4 = ag__.UndefinedReturnValue()
+                    end_idx = ag__.converted_call(ag__.ld(tf).minimum, (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(num_patches)), None, fscope_4)
+                    batch_imgs = ag__.ld(cropped_obj)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_offs = ag__.ld(adjusted_offsets)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_imgs = ag__.converted_call(ag__.ld(_tf_pad_sym), (ag__.ld(batch_imgs), ag__.ld(dynamic_pad)), None, fscope_4)
+                    batch_offs = ag__.converted_call(ag__.ld(tf).reshape, (ag__.ld(batch_offs), (-1, 2)), None, fscope_4)
+                    translated = ag__.converted_call(ag__.ld(translate), (ag__.ld(batch_imgs), ag__.ld(batch_offs)), dict(interpolation='bilinear'), fscope_4)
+                    try:
+                        do_return_4 = True
+                        retval__4 = (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(res) + ag__.converted_call(ag__.ld(tf).reduce_sum, (ag__.ld(translated),), dict(axis=0), fscope_4))
+                    except:
+                        do_return_4 = False
+                        raise
+                    return fscope_4.ret(retval__4, do_return_4)
+>           _, result = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           ValueError: in user code:
+E           
+E               File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+E                   _, result = tf.while_loop(cond, body, [i, result])
+E           
+E               ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+
+/tmp/__autograph_generated_fileucaku3ac.py:98: ValueError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+_ TestReassembleCdiImageTorchGreen.test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] _
+
+self = <test_workflows_components.TestReassembleCdiImageTorchGreen object at 0x775ab8e3a190>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-621/test_reassemble_cdi_image_torc5'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x775984690890>
+stitch_train_results = {'history': {'train_loss': [0.1, 0.05]}, 'models': {'lightning_module': MockLightningModule(), 'trainer': None}}
+flip_x = True, flip_y = True, transpose = True
+
+    @pytest.mark.parametrize("flip_x,flip_y,transpose", [
+        (False, False, False),  # No transforms
+        (True, False, False),   # Flip X only
+        (False, True, False),   # Flip Y only
+        (False, False, True),   # Transpose only
+        (True, True, True),     # All transforms
+    ])
+    def test_reassemble_cdi_image_torch_flip_transpose_contract(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+        stitch_train_results,
+        flip_x,
+        flip_y,
+        transpose
+    ):
+        """
+        GREEN TEST: _reassemble_cdi_image_torch honors flip/transpose parameters.
+    
+        Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
+        TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
+        transforms via flip_x, flip_y, transpose parameters before reassembly.
+    
+        Expected behavior (all parameter combinations):
+        - Function accepts flip_x, flip_y, transpose parameters
+        - Returns (recon_amp, recon_phase, results) tuple
+        - Amplitude/phase are 2D numpy arrays with finite values
+        - Output shape invariant under flip/transpose (same canvas size)
+        - global_offsets in results dict reflect coordinate transforms
+    
+        Test mechanism:
+        - Parametrize over 5 representative flag combinations
+        - Supply train_results with mock Lightning module
+        - Assert successful execution (no exceptions)
+        - Validate output structure and finiteness
+    
+        Rationale for parametrization:
+        - Documents TF parity requirement explicitly in test corpus
+        - Ensures implementation handles all transform combinations
+        - Provides clear failure message surfacing which transform broke
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+    
+        # Bridge config (CONFIG-001)
+        update_legacy_dict(params.cfg, minimal_training_config)
+    
+        # GREEN PHASE VALIDATION: expect successful stitching with all transform combos
+>       recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
+            test_data=dummy_raw_data,
+            config=minimal_training_config,
+            flip_x=flip_x,
+            flip_y=flip_y,
+            transpose=transpose,
+            M=128,
+            train_results=stitch_train_results  # CRITICAL: provide trained model
+        )
+
+tests/torch/test_workflows_components.py:1321: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:720: in _reassemble_cdi_image_torch
+    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1255: in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py:153: in error_handler
+    raise e.with_traceback(filtered_tb) from None
+/tmp/__autograph_generated_fileucaku3ac.py:106: in tf__shift_and_sum
+    result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @ag__.autograph_artifact
+    def _streaming():
+        with ag__.FunctionScope('_streaming', 'fscope_2', ag__.STD) as fscope_2:
+            do_return_2 = False
+            retval__2 = ag__.UndefinedReturnValue()
+            chunk_sz = ag__.converted_call(ag__.ld(tf).constant, (1024, ag__.ld(tf).int32), None, fscope_2)
+            result = ag__.converted_call(ag__.ld(tf).zeros, ([ag__.ld(padded_size), ag__.ld(padded_size), 1],), dict(dtype=ag__.ld(obj_tensor).dtype), fscope_2)
+            i = ag__.converted_call(ag__.ld(tf).constant, (0, ag__.ld(tf).int32), None, fscope_2)
+    
+            @ag__.autograph_artifact
+            def cond(i, res):
+                with ag__.FunctionScope('cond', 'fscope_3', ag__.STD) as fscope_3:
+                    do_return_3 = False
+                    retval__3 = ag__.UndefinedReturnValue()
+                    try:
+                        do_return_3 = True
+                        retval__3 = ag__.ld(i) < ag__.ld(num_patches)
+                    except:
+                        do_return_3 = False
+                        raise
+                    return fscope_3.ret(retval__3, do_return_3)
+    
+            @ag__.autograph_artifact
+            def body(i, res):
+                with ag__.FunctionScope('body', 'fscope_4', ag__.STD) as fscope_4:
+                    do_return_4 = False
+                    retval__4 = ag__.UndefinedReturnValue()
+                    end_idx = ag__.converted_call(ag__.ld(tf).minimum, (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(num_patches)), None, fscope_4)
+                    batch_imgs = ag__.ld(cropped_obj)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_offs = ag__.ld(adjusted_offsets)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_imgs = ag__.converted_call(ag__.ld(_tf_pad_sym), (ag__.ld(batch_imgs), ag__.ld(dynamic_pad)), None, fscope_4)
+                    batch_offs = ag__.converted_call(ag__.ld(tf).reshape, (ag__.ld(batch_offs), (-1, 2)), None, fscope_4)
+                    translated = ag__.converted_call(ag__.ld(translate), (ag__.ld(batch_imgs), ag__.ld(batch_offs)), dict(interpolation='bilinear'), fscope_4)
+                    try:
+                        do_return_4 = True
+                        retval__4 = (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(res) + ag__.converted_call(ag__.ld(tf).reduce_sum, (ag__.ld(translated),), dict(axis=0), fscope_4))
+                    except:
+                        do_return_4 = False
+                        raise
+                    return fscope_4.ret(retval__4, do_return_4)
+>           _, result = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           ValueError: in user code:
+E           
+E               File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+E                   _, result = tf.while_loop(cond, body, [i, result])
+E           
+E               ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+
+/tmp/__autograph_generated_fileucaku3ac.py:98: ValueError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+_ TestReassembleCdiImageTorchGreen.test_run_cdi_example_torch_do_stitching_delegates_to_reassemble _
+
+self = <test_workflows_components.TestReassembleCdiImageTorchGreen object at 0x775ab8e3be10>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-621/test_run_cdi_example_torch_do_0'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x775984684a10>
+stitch_train_results = {'history': {'train_loss': [0.1, 0.05]}, 'models': {'lightning_module': MockLightningModule(), 'trainer': None}}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7759846868d0>
+
+    def test_run_cdi_example_torch_do_stitching_delegates_to_reassemble(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+        stitch_train_results,
+        monkeypatch
+    ):
+        """
+        GREEN TEST: run_cdi_example_torch(do_stitching=True) delegates to stitching path.
+    
+        Requirement: Phase D2.C workflow integration — ensure orchestration calls reassembly.
+    
+        TensorFlow baseline (ptycho/workflows/components.py:676-732):
+        - run_cdi_example(..., do_stitching=True) invokes reassemble_cdi_image
+        - Stitching runs AFTER training completes
+        - Returns (recon_amp, recon_phase, results) when stitching enabled
+        - Returns (None, None, results) when do_stitching=False
+    
+        Expected behavior:
+        - Runs training (mocked), then calls _reassemble_cdi_image_torch with test_data
+        - Stitching results populate amplitude/phase return values
+        - Returns (recon_amp, recon_phase, results) when do_stitching=True
+    
+        Test mechanism:
+        - Monkeypatch training path to return stitch_train_results fixture (avoid GPU)
+        - Call run_cdi_example_torch with do_stitching=True
+        - Assert amplitude/phase are returned (not None)
+        - Validate outputs are numpy arrays
+    
+        Validation coverage:
+        - Confirms orchestration wiring exists
+        - Ensures stitching path is reachable from public API
+        - Documents return value contract for downstream consumers (e.g., ptychodus)
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+    
+        # Bridge config (CONFIG-001)
+        update_legacy_dict(params.cfg, minimal_training_config)
+    
+        # Monkeypatch _train_with_lightning to return mock results with Lightning module
+        def mock_train_with_lightning(train_container, test_container, config):
+            """Stub that returns train_results with mock Lightning module."""
+            # Return the stitch_train_results fixture enriched with containers
+            results = stitch_train_results.copy()
+            results["containers"] = {"train": train_container, "test": test_container}
+            return results
+    
+        monkeypatch.setattr(
+            torch_components,
+            "_train_with_lightning",
+            mock_train_with_lightning
+        )
+    
+        # GREEN PHASE VALIDATION: expect successful stitching
+>       recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
+            train_data=dummy_raw_data,
+            test_data=dummy_raw_data,  # Use same data for test (deterministic)
+            config=minimal_training_config,
+            flip_x=False,
+            flip_y=False,
+            transpose=False,
+            M=128,
+            do_stitching=True,  # CRITICAL: enable stitching path
+        )
+
+tests/torch/test_workflows_components.py:1403: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:165: in run_cdi_example_torch
+    recon_amp, recon_phase, reassemble_results = _reassemble_cdi_image_torch(
+ptycho_torch/workflows/components.py:720: in _reassemble_cdi_image_torch
+    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1255: in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py:153: in error_handler
+    raise e.with_traceback(filtered_tb) from None
+/tmp/__autograph_generated_fileucaku3ac.py:106: in tf__shift_and_sum
+    result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @ag__.autograph_artifact
+    def _streaming():
+        with ag__.FunctionScope('_streaming', 'fscope_2', ag__.STD) as fscope_2:
+            do_return_2 = False
+            retval__2 = ag__.UndefinedReturnValue()
+            chunk_sz = ag__.converted_call(ag__.ld(tf).constant, (1024, ag__.ld(tf).int32), None, fscope_2)
+            result = ag__.converted_call(ag__.ld(tf).zeros, ([ag__.ld(padded_size), ag__.ld(padded_size), 1],), dict(dtype=ag__.ld(obj_tensor).dtype), fscope_2)
+            i = ag__.converted_call(ag__.ld(tf).constant, (0, ag__.ld(tf).int32), None, fscope_2)
+    
+            @ag__.autograph_artifact
+            def cond(i, res):
+                with ag__.FunctionScope('cond', 'fscope_3', ag__.STD) as fscope_3:
+                    do_return_3 = False
+                    retval__3 = ag__.UndefinedReturnValue()
+                    try:
+                        do_return_3 = True
+                        retval__3 = ag__.ld(i) < ag__.ld(num_patches)
+                    except:
+                        do_return_3 = False
+                        raise
+                    return fscope_3.ret(retval__3, do_return_3)
+    
+            @ag__.autograph_artifact
+            def body(i, res):
+                with ag__.FunctionScope('body', 'fscope_4', ag__.STD) as fscope_4:
+                    do_return_4 = False
+                    retval__4 = ag__.UndefinedReturnValue()
+                    end_idx = ag__.converted_call(ag__.ld(tf).minimum, (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(num_patches)), None, fscope_4)
+                    batch_imgs = ag__.ld(cropped_obj)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_offs = ag__.ld(adjusted_offsets)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_imgs = ag__.converted_call(ag__.ld(_tf_pad_sym), (ag__.ld(batch_imgs), ag__.ld(dynamic_pad)), None, fscope_4)
+                    batch_offs = ag__.converted_call(ag__.ld(tf).reshape, (ag__.ld(batch_offs), (-1, 2)), None, fscope_4)
+                    translated = ag__.converted_call(ag__.ld(translate), (ag__.ld(batch_imgs), ag__.ld(batch_offs)), dict(interpolation='bilinear'), fscope_4)
+                    try:
+                        do_return_4 = True
+                        retval__4 = (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(res) + ag__.converted_call(ag__.ld(tf).reduce_sum, (ag__.ld(translated),), dict(axis=0), fscope_4))
+                    except:
+                        do_return_4 = False
+                        raise
+                    return fscope_4.ret(retval__4, do_return_4)
+>           _, result = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           ValueError: in user code:
+E           
+E               File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+E                   _, result = tf.while_loop(cond, body, [i, result])
+E           
+E               ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+
+/tmp/__autograph_generated_fileucaku3ac.py:98: ValueError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+_ TestReassembleCdiImageTorchGreen.test_reassemble_cdi_image_torch_return_contract _
+
+self = <test_workflows_components.TestReassembleCdiImageTorchGreen object at 0x775ab8e3c150>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'silu', 'backend': 'tensorflow', 'batch_size': 2, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1, model_type='pinn', amp_activation='silu', object...th('/tmp/pytest-of-ollie/pytest-621/test_reassemble_cdi_image_torc6'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7759fc709810>
+stitch_train_results = {'history': {'train_loss': [0.1, 0.05]}, 'models': {'lightning_module': MockLightningModule(), 'trainer': None}}
+
+    def test_reassemble_cdi_image_torch_return_contract(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+        stitch_train_results
+    ):
+        """
+        GREEN TEST: _reassemble_cdi_image_torch returns (recon_amp, recon_phase, results).
+    
+        Requirement: API parity with TensorFlow reassemble_cdi_image per spec §4.5.
+    
+        TensorFlow baseline signature (ptycho/workflows/components.py:582):
+        ```python
+        def reassemble_cdi_image(test_data, config, flip_x=False, flip_y=False,
+                                  transpose=False, coord_scale=1, M=None):
+            ...
+            return recon_amp, recon_phase, results
+        ```
+    
+        Implemented PyTorch signature (ptycho_torch/workflows/components.py:606-614):
+        ```python
+        def _reassemble_cdi_image_torch(test_data, config, flip_x=False, flip_y=False,
+                                         transpose=False, M=None, train_results=None):
+            ...
+            return recon_amp, recon_phase, results
+        ```
+    
+        Return value contract:
+        - recon_amp: 2D numpy array (float), stitched amplitude image
+        - recon_phase: 2D numpy array (float), stitched phase image
+        - results: dict containing {"obj_tensor_full", "global_offsets", "containers"}
+    
+        Test mechanism:
+        - Supply train_results with mock Lightning module
+        - Validate return tuple structure and types
+        - Ensure all required keys present in results dict
+    
+        Rationale:
+        - Ensures signature compatibility with TensorFlow baseline
+        - Prevents silent breaking changes to return format
+        - Codifies downstream consumer expectations (ptychodus integration)
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+    
+        # Bridge config (CONFIG-001)
+        update_legacy_dict(params.cfg, minimal_training_config)
+    
+        # GREEN PHASE VALIDATION: validate return contract
+>       recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
+            test_data=dummy_raw_data,
+            config=minimal_training_config,
+            flip_x=False,
+            flip_y=False,
+            transpose=False,
+            M=128,
+            train_results=stitch_train_results  # CRITICAL: provide trained model
+        )
+
+tests/torch/test_workflows_components.py:1473: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:720: in _reassemble_cdi_image_torch
+    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ptycho/tf_helper.py:1255: in reassemble_position
+    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py:153: in error_handler
+    raise e.with_traceback(filtered_tb) from None
+/tmp/__autograph_generated_fileucaku3ac.py:106: in tf__shift_and_sum
+    result = ag__.converted_call(ag__.ld(tf).cond, (ag__.ld(total_texels) < ag__.ld(mem_cap_texels), ag__.ld(_vectorised), ag__.ld(_streaming)), None, fscope)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    @ag__.autograph_artifact
+    def _streaming():
+        with ag__.FunctionScope('_streaming', 'fscope_2', ag__.STD) as fscope_2:
+            do_return_2 = False
+            retval__2 = ag__.UndefinedReturnValue()
+            chunk_sz = ag__.converted_call(ag__.ld(tf).constant, (1024, ag__.ld(tf).int32), None, fscope_2)
+            result = ag__.converted_call(ag__.ld(tf).zeros, ([ag__.ld(padded_size), ag__.ld(padded_size), 1],), dict(dtype=ag__.ld(obj_tensor).dtype), fscope_2)
+            i = ag__.converted_call(ag__.ld(tf).constant, (0, ag__.ld(tf).int32), None, fscope_2)
+    
+            @ag__.autograph_artifact
+            def cond(i, res):
+                with ag__.FunctionScope('cond', 'fscope_3', ag__.STD) as fscope_3:
+                    do_return_3 = False
+                    retval__3 = ag__.UndefinedReturnValue()
+                    try:
+                        do_return_3 = True
+                        retval__3 = ag__.ld(i) < ag__.ld(num_patches)
+                    except:
+                        do_return_3 = False
+                        raise
+                    return fscope_3.ret(retval__3, do_return_3)
+    
+            @ag__.autograph_artifact
+            def body(i, res):
+                with ag__.FunctionScope('body', 'fscope_4', ag__.STD) as fscope_4:
+                    do_return_4 = False
+                    retval__4 = ag__.UndefinedReturnValue()
+                    end_idx = ag__.converted_call(ag__.ld(tf).minimum, (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(num_patches)), None, fscope_4)
+                    batch_imgs = ag__.ld(cropped_obj)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_offs = ag__.ld(adjusted_offsets)[ag__.ld(i):ag__.ld(end_idx)]
+                    batch_imgs = ag__.converted_call(ag__.ld(_tf_pad_sym), (ag__.ld(batch_imgs), ag__.ld(dynamic_pad)), None, fscope_4)
+                    batch_offs = ag__.converted_call(ag__.ld(tf).reshape, (ag__.ld(batch_offs), (-1, 2)), None, fscope_4)
+                    translated = ag__.converted_call(ag__.ld(translate), (ag__.ld(batch_imgs), ag__.ld(batch_offs)), dict(interpolation='bilinear'), fscope_4)
+                    try:
+                        do_return_4 = True
+                        retval__4 = (ag__.ld(i) + ag__.ld(chunk_sz), ag__.ld(res) + ag__.converted_call(ag__.ld(tf).reduce_sum, (ag__.ld(translated),), dict(axis=0), fscope_4))
+                    except:
+                        do_return_4 = False
+                        raise
+                    return fscope_4.ret(retval__4, do_return_4)
+>           _, result = ag__.converted_call(ag__.ld(tf).while_loop, (ag__.ld(cond), ag__.ld(body), [ag__.ld(i), ag__.ld(result)]), None, fscope_2)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           ValueError: in user code:
+E           
+E               File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+E                   _, result = tf.while_loop(cond, body, [i, result])
+E           
+E               ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+
+/tmp/__autograph_generated_fileucaku3ac.py:98: ValueError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (20, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (20,)
+objectGuess shape: (128, 128)
+xcoords shape: (20,)
+ycoords shape: (20,)
+xcoords_start shape: (20,)
+ycoords_start shape: (20,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
 =========================== short test summary info ============================
-FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_raises_not_implemented - AssertionError: Regex pattern did not match.
- Regex: 'stitching.*not.*implement'
- Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] - AssertionError: Regex pattern did not match.
- Regex: 'stitching.*not.*implement'
- Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] - AssertionError: Regex pattern did not match.
- Regex: 'stitching.*not.*implement'
- Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] - AssertionError: Regex pattern did not match.
- Regex: 'stitching.*not.*implement'
- Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] - AssertionError: Regex pattern did not match.
- Regex: 'stitching.*not.*implement'
- Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] - AssertionError: Regex pattern did not match.
- Regex: 'stitching.*not.*implement'
- Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble - TypeError: PtychoDataContainerTorch.__init__() missing 1 required positional argument: 'probe'
-FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchRed::test_reassemble_cdi_image_torch_return_contract - AssertionError: Regex pattern did not match.
- Regex: 'stitching.*not.*implement'
- Input: 'PyTorch stitching path requires train_results with trained Lightning module. Pass train_results from run_cdi_example_torch(..., do_stitching=False) output. See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status.'
-============================== 8 failed in 5.38s ===============================
+FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] - ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] - ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] - ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] - ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] - ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble - ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+FAILED tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_return_contract - ValueError: in user code:
+
+    File "/home/ollie/Documents/PtychoPINN2/ptycho/tf_helper.py", line 1180, in _streaming  *
+        _, result = tf.while_loop(cond, body, [i, result])
+
+    ValueError: Input tensor `cond/zeros:0` enters the loop with shape (None, None, 1), but has shape (None, None, 64) after one iteration. To allow the shape to vary across iterations, use the `shape_invariants` argument of tf.while_loop to specify a less-specific shape.
+================== 7 failed, 1 passed, 8 deselected in 8.95s ===================

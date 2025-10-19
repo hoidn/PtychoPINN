@@ -1073,13 +1073,12 @@ class TestTrainWithLightningRed:
             assert module_handle is not None, "Module handle must not be None"
 
 
-class TestReassembleCdiImageTorchRed:
+class TestReassembleCdiImageTorchGreen:
     """
-    Phase D2.C2 red tests — PyTorch stitching path contract validation.
+    Phase D2.C4 green tests — PyTorch stitching path validation.
 
-    These tests document the expected behavior of `_reassemble_cdi_image_torch`
-    and `run_cdi_example_torch(..., do_stitching=True)` before implementation.
-    All tests MUST fail with NotImplementedError until Phase C3 implementation lands.
+    These tests validate the implemented behavior of `_reassemble_cdi_image_torch`
+    and `run_cdi_example_torch(..., do_stitching=True)` after Phase C3 implementation.
 
     Requirements (from inference_design.md + specs/ptychodus_api_spec.md §4.5):
     1. _reassemble_cdi_image_torch MUST run Lightning inference on test data
@@ -1088,13 +1087,13 @@ class TestReassembleCdiImageTorchRed:
     4. run_cdi_example_torch(..., do_stitching=True) MUST delegate to stitching path
 
     Test Strategy:
-    - Use deterministic dummy data to avoid GPU dependency
-    - Assert NotImplementedError is raised (red phase)
-    - Parametrize flip/transpose combinations to codify contract
-    - Validate error message surfaces context for implementer
+    - Use mock Lightning module returning deterministic complex outputs
+    - Validate amplitude/phase outputs are numpy arrays with expected shapes
+    - Parametrize flip/transpose combinations to verify coordinate transforms
+    - Keep focused guard test for train_results=None backward compatibility
 
     Artifacts:
-    - Red log: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T081500Z/phase_d2_completion/pytest_stitch_red.log
+    - Green log: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/pytest_stitch_green.log
     """
 
     @pytest.fixture
@@ -1174,30 +1173,80 @@ class TestReassembleCdiImageTorchRed:
             objectGuess=obj,
         )
 
-    def test_reassemble_cdi_image_torch_raises_not_implemented(
+    @pytest.fixture
+    def mock_lightning_module(self):
+        """
+        Create minimal Lightning module stub for stitching tests.
+
+        Returns a lightweight mock that:
+        - Inherits from lightning.LightningModule (satisfies isinstance checks)
+        - Implements eval() method (no-op but required for eval mode)
+        - Implements __call__(X) returning deterministic complex64 tensor
+        - Output shape: (batch, N, N) complex - simplified for MVP stitching
+        - Uses torch.ones for deterministic, finite outputs
+        """
+        import torch
+        import lightning.pytorch as pl
+
+        class MockLightningModule(pl.LightningModule):
+            def __init__(self, N=64):
+                super().__init__()
+                self.N = N
+
+            def forward(self, X):
+                """
+                Return deterministic complex tensor for testing.
+                X shape: (batch, gridsize**2, N, N)
+                Output: (batch, N, N) complex - simplified for MVP stitching
+                """
+                batch_size = X.shape[0]
+                # Create deterministic complex output (amplitude=1, phase=0.5 rad)
+                real = torch.ones(batch_size, self.N, self.N, dtype=torch.float32)
+                imag = torch.ones(batch_size, self.N, self.N, dtype=torch.float32) * 0.5
+                return torch.complex(real, imag)
+
+        return MockLightningModule(N=64)
+
+    @pytest.fixture
+    def stitch_train_results(self, mock_lightning_module):
+        """
+        Create train_results dict fixture for stitching tests.
+
+        Provides minimal structure required by _reassemble_cdi_image_torch:
+        - models['lightning_module']: Trained (mocked) Lightning module
+        - history: Training loss (placeholder)
+        """
+        return {
+            "models": {
+                "lightning_module": mock_lightning_module,
+                "trainer": None,  # Not needed for inference
+            },
+            "history": {"train_loss": [0.1, 0.05]},
+        }
+
+    def test_reassemble_cdi_image_torch_guard_without_train_results(
         self,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data
     ):
         """
-        RED TEST: _reassemble_cdi_image_torch MUST exist but raise NotImplementedError.
+        REGRESSION TEST: _reassemble_cdi_image_torch raises NotImplementedError when train_results=None.
 
-        Requirement: Phase D2.C2 — establish stitching path contract before implementation.
+        Requirement: Preserve backward-compatible guard for tests expecting NotImplementedError.
 
-        Expected behavior (red phase):
+        Expected behavior:
         - Function signature exists in ptycho_torch/workflows/components.py
-        - Calling _reassemble_cdi_image_torch raises NotImplementedError
-        - Error message indicates "stitching path not yet implemented" or similar
+        - Calling without train_results parameter (or train_results=None) raises NotImplementedError
+        - Error message indicates "not yet fully implemented without train_results"
 
-        Green-phase expectation (Phase C3):
-        - Function runs Lightning inference on test_data
-        - Returns (recon_amp, recon_phase, results) tuple
-        - recon_amp/recon_phase are 2D numpy arrays (amplitude/phase of stitched image)
+        Implementation note (from ptycho_torch/workflows/components.py:659-666):
+        - train_results parameter is required for Lightning inference
+        - Guard exists at lines 659-666 to maintain RED test expectations
+        - This test documents that omitting train_results is intentionally unsupported
 
         Test mechanism:
-        - Import _reassemble_cdi_image_torch directly
-        - Call with minimal fixture data
+        - Call _reassemble_cdi_image_torch WITHOUT train_results parameter
         - Assert NotImplementedError with descriptive match pattern
         """
         from ptycho_torch.workflows import components as torch_components
@@ -1207,8 +1256,8 @@ class TestReassembleCdiImageTorchRed:
         # Bridge config to params.cfg (CONFIG-001 gate)
         update_legacy_dict(params.cfg, minimal_training_config)
 
-        # RED PHASE ASSERTION: expect NotImplementedError
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
+        # GUARD ASSERTION: expect NotImplementedError when train_results omitted
+        with pytest.raises(NotImplementedError, match="not yet fully implemented without train_results"):
             torch_components._reassemble_cdi_image_torch(
                 test_data=dummy_raw_data,
                 config=minimal_training_config,
@@ -1216,6 +1265,7 @@ class TestReassembleCdiImageTorchRed:
                 flip_y=False,
                 transpose=False,
                 M=128,  # Canvas size for reassembly
+                train_results=None  # CRITICAL: explicit None to trigger guard
             )
 
     @pytest.mark.parametrize("flip_x,flip_y,transpose", [
@@ -1230,31 +1280,35 @@ class TestReassembleCdiImageTorchRed:
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data,
+        stitch_train_results,
         flip_x,
         flip_y,
         transpose
     ):
         """
-        RED TEST: _reassemble_cdi_image_torch MUST accept flip/transpose parameters.
+        GREEN TEST: _reassemble_cdi_image_torch honors flip/transpose parameters.
 
         Requirement: TensorFlow parity per specs/ptychodus_api_spec.md §4.5.
         TensorFlow baseline (ptycho/workflows/components.py:582-666) applies coordinate
         transforms via flip_x, flip_y, transpose parameters before reassembly.
 
         Expected behavior (all parameter combinations):
-        - Red phase: NotImplementedError regardless of transform flags
-        - Green phase: coordinate transforms applied to global_offsets before stitching
-        - Amplitude/phase output shape invariant under flip/transpose (same canvas size)
+        - Function accepts flip_x, flip_y, transpose parameters
+        - Returns (recon_amp, recon_phase, results) tuple
+        - Amplitude/phase are 2D numpy arrays with finite values
+        - Output shape invariant under flip/transpose (same canvas size)
+        - global_offsets in results dict reflect coordinate transforms
 
         Test mechanism:
-        - Parametrize over all 5 representative flag combinations
-        - Assert NotImplementedError for each configuration (red phase)
-        - Codify contract that implementation MUST honor these parameters
+        - Parametrize over 5 representative flag combinations
+        - Supply train_results with mock Lightning module
+        - Assert successful execution (no exceptions)
+        - Validate output structure and finiteness
 
         Rationale for parametrization:
         - Documents TF parity requirement explicitly in test corpus
-        - Prevents regression if implementer overlooks transform logic
-        - Provides clear failure message surfacing which transform failed
+        - Ensures implementation handles all transform combinations
+        - Provides clear failure message surfacing which transform broke
         """
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import update_legacy_dict
@@ -1263,26 +1317,42 @@ class TestReassembleCdiImageTorchRed:
         # Bridge config (CONFIG-001)
         update_legacy_dict(params.cfg, minimal_training_config)
 
-        # RED PHASE ASSERTION: expect NotImplementedError for all parameter combos
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-            torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=flip_x,
-                flip_y=flip_y,
-                transpose=transpose,
-                M=128,
-            )
+        # GREEN PHASE VALIDATION: expect successful stitching with all transform combos
+        recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
+            test_data=dummy_raw_data,
+            config=minimal_training_config,
+            flip_x=flip_x,
+            flip_y=flip_y,
+            transpose=transpose,
+            M=128,
+            train_results=stitch_train_results  # CRITICAL: provide trained model
+        )
+
+        # Validate return structure
+        assert isinstance(recon_amp, np.ndarray), "recon_amp must be numpy array"
+        assert isinstance(recon_phase, np.ndarray), "recon_phase must be numpy array"
+        assert recon_amp.ndim == 2, "recon_amp must be 2D (stitched image)"
+        assert recon_phase.ndim == 2, "recon_phase must be 2D (stitched image)"
+        assert isinstance(results, dict), "results must be dict"
+
+        # Validate finite outputs (no NaN/Inf from stitching)
+        assert np.all(np.isfinite(recon_amp)), "recon_amp must have finite values"
+        assert np.all(np.isfinite(recon_phase)), "recon_phase must have finite values"
+
+        # Validate results payload
+        assert "global_offsets" in results, "results must contain global_offsets"
+        assert "obj_tensor_full" in results, "results must contain obj_tensor_full"
 
     def test_run_cdi_example_torch_do_stitching_delegates_to_reassemble(
         self,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data,
+        stitch_train_results,
         monkeypatch
     ):
         """
-        RED TEST: run_cdi_example_torch(do_stitching=True) MUST delegate to stitching path.
+        GREEN TEST: run_cdi_example_torch(do_stitching=True) delegates to stitching path.
 
         Requirement: Phase D2.C workflow integration — ensure orchestration calls reassembly.
 
@@ -1293,14 +1363,15 @@ class TestReassembleCdiImageTorchRed:
         - Returns (None, None, results) when do_stitching=False
 
         Expected behavior:
-        - Red phase: run_cdi_example_torch raises NotImplementedError via reassemble call
-        - Green phase: runs training, then calls _reassemble_cdi_image_torch with test_data
+        - Runs training (mocked), then calls _reassemble_cdi_image_torch with test_data
         - Stitching results populate amplitude/phase return values
+        - Returns (recon_amp, recon_phase, results) when do_stitching=True
 
         Test mechanism:
-        - Monkeypatch training path to avoid heavyweight Lightning execution
+        - Monkeypatch training path to return stitch_train_results fixture (avoid GPU)
         - Call run_cdi_example_torch with do_stitching=True
-        - Assert NotImplementedError propagates from _reassemble_cdi_image_torch
+        - Assert amplitude/phase are returned (not None)
+        - Validate outputs are numpy arrays
 
         Validation coverage:
         - Confirms orchestration wiring exists
@@ -1314,17 +1385,13 @@ class TestReassembleCdiImageTorchRed:
         # Bridge config (CONFIG-001)
         update_legacy_dict(params.cfg, minimal_training_config)
 
-        # Monkeypatch _train_with_lightning to skip training (avoid GPU dependency)
+        # Monkeypatch _train_with_lightning to return mock results with Lightning module
         def mock_train_with_lightning(train_container, test_container, config):
-            """Stub that returns minimal results without actual training."""
-            return {
-                "history": {"train_loss": [0.5]},
-                "containers": {"train": train_container, "test": test_container},
-                "models": {
-                    "lightning_module": None,  # Sentinel (stitching doesn't need trained model for red test)
-                    "trainer": None,
-                },
-            }
+            """Stub that returns train_results with mock Lightning module."""
+            # Return the stitch_train_results fixture enriched with containers
+            results = stitch_train_results.copy()
+            results["containers"] = {"train": train_container, "test": test_container}
+            return results
 
         monkeypatch.setattr(
             torch_components,
@@ -1332,27 +1399,35 @@ class TestReassembleCdiImageTorchRed:
             mock_train_with_lightning
         )
 
-        # RED PHASE ASSERTION: expect NotImplementedError from stitching path
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-            torch_components.run_cdi_example_torch(
-                train_data=dummy_raw_data,
-                test_data=dummy_raw_data,  # Use same data for test (deterministic)
-                config=minimal_training_config,
-                flip_x=False,
-                flip_y=False,
-                transpose=False,
-                M=128,
-                do_stitching=True,  # CRITICAL: enable stitching path
-            )
+        # GREEN PHASE VALIDATION: expect successful stitching
+        recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
+            train_data=dummy_raw_data,
+            test_data=dummy_raw_data,  # Use same data for test (deterministic)
+            config=minimal_training_config,
+            flip_x=False,
+            flip_y=False,
+            transpose=False,
+            M=128,
+            do_stitching=True,  # CRITICAL: enable stitching path
+        )
+
+        # Validate stitching outputs were populated
+        assert recon_amp is not None, "recon_amp must not be None when do_stitching=True"
+        assert recon_phase is not None, "recon_phase must not be None when do_stitching=True"
+        assert isinstance(recon_amp, np.ndarray), "recon_amp must be numpy array"
+        assert isinstance(recon_phase, np.ndarray), "recon_phase must be numpy array"
+        assert recon_amp.ndim == 2, "recon_amp must be 2D stitched image"
+        assert recon_phase.ndim == 2, "recon_phase must be 2D stitched image"
 
     def test_reassemble_cdi_image_torch_return_contract(
         self,
         params_cfg_snapshot,
         minimal_training_config,
-        dummy_raw_data
+        dummy_raw_data,
+        stitch_train_results
     ):
         """
-        RED TEST: _reassemble_cdi_image_torch MUST return (recon_amp, recon_phase, results).
+        GREEN TEST: _reassemble_cdi_image_torch returns (recon_amp, recon_phase, results).
 
         Requirement: API parity with TensorFlow reassemble_cdi_image per spec §4.5.
 
@@ -1364,23 +1439,23 @@ class TestReassembleCdiImageTorchRed:
             return recon_amp, recon_phase, results
         ```
 
-        Expected PyTorch signature (ptycho_torch/workflows/components.py:532):
+        Implemented PyTorch signature (ptycho_torch/workflows/components.py:606-614):
         ```python
         def _reassemble_cdi_image_torch(test_data, config, flip_x=False, flip_y=False,
-                                         transpose=False, M=None):
+                                         transpose=False, M=None, train_results=None):
             ...
             return recon_amp, recon_phase, results
         ```
 
-        Return value contract (green phase):
-        - recon_amp: 2D numpy array (float32), stitched amplitude image
-        - recon_phase: 2D numpy array (float32), stitched phase image
-        - results: dict containing {"obj_tensor_full", "global_offsets", ...}
+        Return value contract:
+        - recon_amp: 2D numpy array (float), stitched amplitude image
+        - recon_phase: 2D numpy array (float), stitched phase image
+        - results: dict containing {"obj_tensor_full", "global_offsets", "containers"}
 
         Test mechanism:
-        - Red phase: NotImplementedError prevents return inspection
-        - Green phase: validate return tuple structure and types
-        - This test documents the API contract for implementer
+        - Supply train_results with mock Lightning module
+        - Validate return tuple structure and types
+        - Ensure all required keys present in results dict
 
         Rationale:
         - Ensures signature compatibility with TensorFlow baseline
@@ -1394,22 +1469,30 @@ class TestReassembleCdiImageTorchRed:
         # Bridge config (CONFIG-001)
         update_legacy_dict(params.cfg, minimal_training_config)
 
-        # RED PHASE: Document expected behavior via assertion message
-        with pytest.raises(NotImplementedError, match="stitching.*not.*implement"):
-            recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
-                test_data=dummy_raw_data,
-                config=minimal_training_config,
-                flip_x=False,
-                flip_y=False,
-                transpose=False,
-                M=128,
-            )
+        # GREEN PHASE VALIDATION: validate return contract
+        recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
+            test_data=dummy_raw_data,
+            config=minimal_training_config,
+            flip_x=False,
+            flip_y=False,
+            transpose=False,
+            M=128,
+            train_results=stitch_train_results  # CRITICAL: provide trained model
+        )
 
-        # GREEN PHASE validation (uncomment once Phase C3 complete):
-        # assert isinstance(recon_amp, np.ndarray), "recon_amp must be numpy array"
-        # assert isinstance(recon_phase, np.ndarray), "recon_phase must be numpy array"
-        # assert recon_amp.ndim == 2, "recon_amp must be 2D (stitched image)"
-        # assert recon_phase.ndim == 2, "recon_phase must be 2D (stitched image)"
-        # assert isinstance(results, dict), "results must be dict"
-        # assert "obj_tensor_full" in results, "results must contain obj_tensor_full"
-        # assert "global_offsets" in results, "results must contain global_offsets"
+        # Validate return tuple structure
+        assert isinstance(recon_amp, np.ndarray), "recon_amp must be numpy array"
+        assert isinstance(recon_phase, np.ndarray), "recon_phase must be numpy array"
+        assert recon_amp.ndim == 2, "recon_amp must be 2D (stitched image)"
+        assert recon_phase.ndim == 2, "recon_phase must be 2D (stitched image)"
+
+        # Validate results dict structure
+        assert isinstance(results, dict), "results must be dict"
+        assert "obj_tensor_full" in results, "results must contain obj_tensor_full"
+        assert "global_offsets" in results, "results must contain global_offsets"
+        assert "containers" in results, "results must contain containers"
+
+        # Validate nested structures
+        assert isinstance(results["obj_tensor_full"], np.ndarray), "obj_tensor_full must be array"
+        assert isinstance(results["global_offsets"], np.ndarray), "global_offsets must be array"
+        assert isinstance(results["containers"], dict), "containers must be dict"
