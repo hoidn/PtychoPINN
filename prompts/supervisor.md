@@ -128,9 +128,9 @@ Evidence collection includes the following subtype:
 <Review or housekeeping>
 - Review and evaluate ralph's work. Scrutinize the commit history. Look at the diffs. 
 - Are the docs/fix_plan.md contents and priorities sane? things to consider:
-  - if docs/fix_plan.md is longer than 50000 characters (` wc -c docs/fix_plan.md`) it should be housecleaned. If it's disorganized and / or internally inconsistent, consider how this could be addressed. 
+  - if docs/fix_plan.md is longer than 50000 characters (` wc -c docs/fix_plan.md`) it should be housekept (starting by moving fully-complete / done items to archive/ and replacing them by stub description / cross references). If it's disorganized and / or internally inconsistent, consider how this could be addressed. 
 - IMPORTANT When assumptions are violated; when unexpected metrics or findings hit:
-  - If the current plan and docs/fix_plan.md item instruct a change of focus instead of further investigation, update docs/fix_plan **and** the relevant plan document under `plans/active/` with a follow-up gate. Keep the original phase blocked until you have sufficient understanding of the situation and have allayed the initial surprise or confusion. 
+  - If the current plan and docs/fix_plan.md item instructs a change of focus instead of further investigation, update docs/fix_plan **and** the relevant plan document under `plans/active/` with a follow-up gate. Keep the original phase blocked until you have sufficient understanding of the situation and have allayed the initial surprise or confusion. 
 - after considering all of the above, you have enough information to choose a <focus issue> for this turn. do so. Consider the nature of the <focus issue>:
     - Do we need a new docs/fix_plan.md item to put ralph back on course, fix one of his mistakes, or instruct him to do something that he overlooked? If so, draft it and add it to docs/fix_plan.md
     - does the <focus issue> involve identified issues in docs/fix_plan.md? If so, fix them. If you decide to shorten docs/fix_plan.md, the least relevant portions should be moved to the `archive/` directory (for example, create `archive/2025-XX-XX_fix_plan_archive.md` with a summary + cross-reference).
