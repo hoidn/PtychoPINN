@@ -26,9 +26,9 @@ Exit Criteria:
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1.A | Aggregate runtime evidence | [ ] | Parse C2 GREEN (`2025-10-19T122449Z`) and C3 rerun logs to confirm typical duration (≈36s). Record stats in `runtime_profile.md` with citation snippets. |
-| D1.B | Document environment & resource context | [ ] | Capture `python -m ptycho_torch.env_report` (if available) or manual `python -V`, `pip show torch`, `lscpu` snippets. Note CPU cores, RAM, and whether GPU disabled. Store outputs in `runtime_profile.md` and `env_snapshot.txt`. |
-| D1.C | Identify performance guardrails | [ ] | Summarize acceptable runtime variance (e.g., ≤90s on CI CPU nodes). Reference `docs/workflows/pytorch.md` §§6–8 for device guidance. |
+| D1.A | Aggregate runtime evidence | [x] | Parse C2 GREEN (`2025-10-19T122449Z`) and C3 rerun logs to confirm typical duration (≈36s). Record stats in `runtime_profile.md` with citation snippets. **COMPLETE:** Aggregated C2 (35.86s), C3 (35.98s), D1 (35.92s) logs with 0.17% variance. Evidence in `runtime_profile.md` §1. |
+| D1.B | Document environment & resource context | [x] | Capture `python -m ptycho_torch.env_report` (if available) or manual `python -V`, `pip show torch`, `lscpu` snippets. Note CPU cores, RAM, and whether GPU disabled. Store outputs in `runtime_profile.md` and `env_snapshot.txt`. **COMPLETE:** Captured Python 3.11.13, PyTorch 2.8.0+cu128, Lightning 2.5.5, Ryzen 9 5950X (32 CPUs), 128GB RAM via command sequence. Evidence in `env_snapshot.txt` (3.6 KB). |
+| D1.C | Identify performance guardrails | [x] | Summarize acceptable runtime variance (e.g., ≤90s on CI CPU nodes). Reference `docs/workflows/pytorch.md` §§6–8 for device guidance. **COMPLETE:** Defined four guardrail thresholds (≤90s CI max, 60s warning, 36s±5s baseline, 20s minimum) with variance analysis (CPU freq, I/O, dataset). Evidence in `runtime_profile.md` §3. |
 
 ---
 
