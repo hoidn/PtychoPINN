@@ -824,3 +824,14 @@
 - Cached context reuse: Re-read `docs/fix_plan.md`, `phase_d2_completion.md`, `phase_b2_implementation.md`, and `reports/2025-10-18T014317Z/phase_d2_completion/summary.md` to confirm B2 completed and failure isolated to test stub inheriting from non-Lightning base.
 - Actions: Created artifact hub `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T171500Z/phase_d2_completion/summary.md`, updated `phase_d2_completion.md` B4 guidance to call for LightningModule-compatible stub, appended Attempt #20 in fix plan, and rewrote `input.md` to direct Ralph through stub fix + targeted pytest capture.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T080000Z: Phase C kickoff prep
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS — Phase C1 inference design
+- Action type: Planning
+- Mode: Docs
+- Notes:
+  - Coin flip → tails, so skipped additional commit audit.
+  - Authored `reports/2025-10-19T081500Z/phase_d2_completion/inference_design.md` capturing Lightning prediction → Torch reassembly flow, test plan, and risks.
+  - Updated `phase_d2_completion.md` C1 row to `[x]`, appended Attempt #22 to docs/fix_plan.md, and seeded summary.md in new report dir.
+  - Rewrote `input.md` (Mode=TDD) directing Ralph to execute Phase C2 red tests with artifact path `pytest_stitch_red.log`.
+- <Action State>: [ready_for_implementation]
