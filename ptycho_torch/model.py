@@ -363,6 +363,23 @@ class Decoder_last(nn.Module):
 
         x2 = F.silu(x2) #05-20-2025 for now
 
+        # Center-crop x2 to match x1 spatial dimensions (Phase D1e.B2 fix)
+        # x1 shape: (batch, channels, height, width_padded)
+        # x2 shape: (batch, channels, height_upsampled, width_upsampled)
+        # After upsampling, x2 may be larger than x1 due to 2× scale factor
+        # Apply center crop to align spatial dims before addition
+        if x1.shape[2] != x2.shape[2] or x1.shape[3] != x2.shape[3]:
+            # Compute crop offsets for center alignment
+            h_diff = x2.shape[2] - x1.shape[2]
+            w_diff = x2.shape[3] - x1.shape[3]
+            h_start = h_diff // 2
+            w_start = w_diff // 2
+            h_end = h_start + x1.shape[2]
+            w_end = w_start + x1.shape[3]
+
+            # Center-crop x2 to match x1
+            x2 = x2[:, :, h_start:h_end, w_start:w_end]
+
         outputs = x1 + x2
 
         # outputs = hh.trim_and_pad_output(outputs, self.data_config, self.model_config)

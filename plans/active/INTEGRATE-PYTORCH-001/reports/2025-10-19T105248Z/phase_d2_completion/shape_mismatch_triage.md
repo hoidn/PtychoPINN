@@ -53,6 +53,18 @@ The decoder must ensure x1 and x2 have **identical spatial dimensions** before a
 
 **Recommended**: **Option A (Center-crop x2)** to maintain TensorFlow parity. TensorFlow decoder uses `trim_and_pad_output` helper to align spatial dims (see `ptycho/model.py:368` commented line `outputs = hh.trim_and_pad_output(outputs, self.data_config, self.model_config)`).
 
-## Next Steps (Phase B)
-- D1e.B1: Author failing pytest `TestDecoderLastShapeParity::test_probe_big_shape_alignment` encoding this mismatch
-- D1e.B2: Implement center-crop on x2 before addition (mirror TensorFlow `trim_and_pad_output` logic or use PyTorch functional crop)
+## Implementation (Phase B — COMPLETE)
+- D1e.B1: ✅ Authored failing pytest `TestDecoderLastShapeParity::test_probe_big_shape_alignment` (Attempt #40)
+- D1e.B2: ✅ Implemented center-crop in `ptycho_torch/model.py:366-381` (Attempt #40)
+- D1e.B3: ✅ Decoder regression tests GREEN (2/2 passing in 5.26s)
+
+## GREEN Evidence (Phase C — COMPLETE)
+- Targeted test: `pytest tests/torch/test_workflows_components.py::TestDecoderLastShapeParity -vv` → **2/2 PASSED**
+- Integration test: `pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` → **1/1 PASSED in 20.44s**
+- Full regression: `pytest tests/ -v` → **236 passed, 16 skipped, 1 xfailed, ZERO new failures**
+
+**Artifacts:**
+- Summary: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T111855Z/phase_d2_completion/summary.md`
+- Logs: `pytest_decoder_shape_red.log`, `pytest_decoder_shape_green.log`, `pytest_integration_shape_green.log`
+
+**Fix Validated:** Center-crop approach successfully aligns decoder spatial dimensions. PyTorch integration workflow now completes end-to-end without shape mismatch errors.
