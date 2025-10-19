@@ -14,6 +14,17 @@ Developers looking to contribute to the codebase or understand its deeper archit
 - **Resolution**: PtychoPINN outperforms existing deep learning models for ptychographic reconstruction in terms of image quality, with a 10 dB PSNR increase and a 3- to 6-fold gain in linear resolution. Generalizability and robustness are also improved.
 - **Scalability and Speed**: PtychoPINN is two or three orders of magnitude as fast as iterative scanning CDI reconstruction.
 
+### Dual-Backend Architecture
+
+PtychoPINN supports both TensorFlow and PyTorch backends for production workflows:
+
+- **Default Backend**: TensorFlow remains the default backend for backward compatibility with existing integrations.
+- **PyTorch Backend**: Production-ready PyTorch implementation available via Lightning orchestration (`ptycho_torch/workflows/components.py`). The PyTorch backend provides equivalent functionality with deterministic training, checkpoint persistence, and full inference/stitching capabilities.
+- **Backend Selection**: Configure backend choice through `TrainingConfig.backend` or `InferenceConfig.backend` fields (`'tensorflow'` or `'pytorch'`). See [PyTorch Workflow Guide](./docs/workflows/pytorch.md) §12 for configuration details.
+- **Runtime Evidence**: PyTorch integration validated with ~36s runtime baseline on CPU (test suite: `tests/torch/test_integration_workflow_torch.py`). Detailed performance metrics documented at `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
+
+Both backends share the same data pipeline and configuration system, ensuring consistent behavior across workflows.
+
 ![Architecture diagram](diagram/lett.png)
 <!---
 *Fig. 1: Caption for the figure.*

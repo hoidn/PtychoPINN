@@ -58,6 +58,10 @@ This file provides the core instructions for the Claude AI agent working on the 
   PyTorch is a required dependency for this project as of Phase F (INTEGRATE-PYTORCH-001). All code in `ptycho_torch/` and `tests/torch/` assumes PyTorch is installed. The package specifies `torch>=2.2` in `setup.py` install_requires. Tests in `tests/torch/` are automatically skipped in TensorFlow-only CI environments via directory-based pytest collection rules in `tests/conftest.py`, but will fail with actionable ImportError messages if PyTorch is missing in local development. Migration rationale and evidence documented in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md` and Phase F implementation logs (`docs/fix_plan.md` INTEGRATE-PYTORCH-001 history). This policy is captured in <doc-ref type="findings">docs/findings.md#policy-001</doc-ref>.
 </directive>
 
+<directive level="important" purpose="PyTorch Backend Selection">
+  When using the PyTorch backend through Ptychodus integration, configure the backend field in `TrainingConfig` or `InferenceConfig` with the literal `'pytorch'` (default is `'tensorflow'` for backward compatibility). **CRITICAL:** PyTorch workflows require the same CONFIG-001 initialization as TensorFlow—you MUST call `update_legacy_dict(params.cfg, config)` before any data loading or model construction to ensure legacy modules observe synchronized parameters. Backend selection routing and fail-fast behavior are specified in <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.8. For complete configuration steps, see <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref> §12. Runtime parity evidence is documented at `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
+</directive>
+
 ---
 
 ## 3. 📚 Authoritative Document Pointers
