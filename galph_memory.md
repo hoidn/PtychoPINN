@@ -980,3 +980,15 @@
 - Steering: Rewrote `input.md` directing Ralph to execute Phase C1 (pytest skeleton + RED run) and record artifacts; ensured docs/fix_plan update is part of Do Now.
 - Next focus: Ralph to implement C1.A–C1.D, capture RED log, then progress to helper implementation in a later loop.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-19T122137Z: Loop 90 Focus Setup
+- Coin flip: heads (performed commit review; latest engineer loop followed Do Now but left `train_debug.log` at repo root).
+- Focus issue: TEST-PYTORCH-001 — Phase C pytest modernization (C2 helper implementation prep + housekeeping).
+- Action type: Review or housekeeping.
+- Mode: TDD.
+- Notes:
+  - Confirmed Attempt #4 delivered the pytest RED conversion; inspected `tests/torch/test_integration_workflow_torch.py` to verify stub + assertions.
+  - Relocated `train_debug.log` into `plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/` and updated `summary.md` highlights.
+  - Marked C1.A–C1.D as complete in `plan.md`, refreshed summary next-actions, and recorded Attempt #5 in `docs/fix_plan.md`.
+  - Rewrote `input.md` directing Ralph to execute Phase C2 GREEN run with new artifact hub `2025-10-19T122449Z`.
+- <Action State>: [ready_for_implementation]

@@ -21,10 +21,10 @@ Exit Criteria: Pytest version of the integration test exists, legacy unittest pa
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1.A | Draft pytest module scaffolding | [ ] | Convert `tests/torch/test_integration_workflow_torch.py` to pytest style: remove `unittest.TestCase`, import `pytest`, and define module-level fixtures (`cuda_cpu_env`, `data_file`, `tmp_paths`). Keep torch policy docstrings reference. |
-| C1.B | Introduce helper stub | [ ] | Add `_run_pytorch_workflow` helper that currently raises `NotImplementedError("PyTorch pytest harness not implemented")`. Ensure the new test calls this helper to guarantee failure. |
-| C1.C | Author failing pytest test | [ ] | Create `def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env): ...` that invokes `_run_pytorch_workflow`. Include assertions mirroring legacy test (checkpoint exists, recon images exist) but expect execution to raise `NotImplementedError`. Use `with pytest.raises(NotImplementedError):` to force failure once helper implemented → adjust during GREEN. |
-| C1.D | Capture RED run | [ ] | Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv` and store output at `plans/active/TEST-PYTORCH-001/reports/<TS>/phase_c_modernization/pytest_modernization_red.log`. Keep legacy unittest test skipped (e.g., annotate with `@pytest.mark.skip(reason="Migrated to pytest harness")`) to avoid double execution. |
+| C1.A | Draft pytest module scaffolding | [x] | ✅ 2025-10-19 — Converted module to pytest style with fixtures (`cuda_cpu_env`, `data_file`), updated docstring references, and skipped legacy unittest class. |
+| C1.B | Introduce helper stub | [x] | ✅ 2025-10-19 — Added `_run_pytorch_workflow` helper that raises `NotImplementedError("PyTorch pytest harness not implemented (Phase C1 stub)")` to force RED failure. |
+| C1.C | Author failing pytest test | [x] | ✅ 2025-10-19 — Authored `test_run_pytorch_train_save_load_infer` calling the stub and documenting target assertions. Helper raises before assertions execute, ensuring the RED failure. |
+| C1.D | Capture RED run | [x] | ✅ 2025-10-19 — Executed `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv` and stored log at `plans/active/TEST-PYTORCH-001/reports/2025-10-19T120415Z/phase_c_modernization/pytest_modernization_red.log`. Legacy unittest class marked skipped to prevent duplicate runtime. |
 
 ### Phase C2 — GREEN: Helper Implementation & Deterministic Harness
 Goal: Implement the helper to mirror the successful subprocess workflow, ensuring deterministic CPU execution and artifact checks.
