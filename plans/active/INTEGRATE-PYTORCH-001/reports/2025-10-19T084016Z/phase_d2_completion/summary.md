@@ -16,3 +16,8 @@ Artifact Hub: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phas
 Implementation uses TensorFlow reassembly for MVP parity. Tests require modernization for GREEN phase.
 
 See docs/fix_plan.md Attempt #25 for full details.
+
+## Next Steps
+
+- Modernize `TestReassembleCdiImageTorch*` cases to assert the new stitched outputs (supply `train_results` fixtures, validate amplitude/phase arrays, and preserve a regression covering the `train_results=None` guard).
+- Re-run `pytest tests/torch/test_workflows_components.py -k ReassembleCdiImageTorch -vv | tee pytest_stitch_green.log` and update plan/report with green evidence once assertions pass.

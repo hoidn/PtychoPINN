@@ -152,7 +152,7 @@
 
 - Findings check: `rg "CONFIG" docs/findings.md` → CONFIG-001 remains the guardrail for params.cfg sequencing (no new findings).
 - Documentation review: leaned on `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T041908Z/summary.md` for P0/P1 prioritization, `config_schema_map.md` for field semantics, and `specs/ptychodus_api_spec.md` (§5) to confirm probe_mask/nphotons expectations. Noted torch-dependent import at `ptycho_torch/config_params.py:1` as primary harness blocker.
-- Coin flip = heads → audited recent commits. `512205b` adds the parity matrix assets; `f7fb9f0` drops `train_debug.log` at repo root — flag for future cleanup/move under reports to avoid polluting top-level tree.
+- Coin flip = heads → audited recent commits. `512205b` adds the parity matrix assets; `f7fb9f0` drops `train_debug.txt` at repo root — flag for future cleanup/move under reports to avoid polluting top-level tree.
 - Plan updates: Marked B4 complete in `plans/active/INTEGRATE-PYTORCH-001/implementation.md` and recorded the new B5 row pointing at `reports/2025-10-17T050930Z/parity_green_plan.md`. Authored the green-phase plan detailing Phase A (torch shim), Phase B (probe_mask/nphotons), and downstream verification tasks.
 - Ledger: Added Attempt #14 documenting the planning handoff; refreshed `input.md` directing Ralph to execute Phase A and capture `pytest_phaseA.log`.
 - Follow-up for Ralph: Implement torch-optional import shim, update pytest gating per plan, run targeted selector, then proceed with probe_mask/nphotons fixes per Phase B.
@@ -178,7 +178,7 @@
 - Review summary: Confirmed adapter P0 fixes landed (Attempt #17) but parity plan still showed Phase A open. Updated `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T050930Z/parity_green_plan.md` (Phase A marked complete, new B0 harness gate) and `plans/active/INTEGRATE-PYTORCH-001/implementation.md` (B3 marked ✅, B5 guidance refreshed).
 - Captured supervisor notes at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T051750Z/status_review.md`; highlights pytest harness refactor + probe_mask/nphotons verification as next actions.
 - Logged Attempt #18 in docs/fix_plan.md tying to the revised plan; rewrote input.md to focus Ralph on pytest refactor → targeted selectors (`pytest ...TestConfigBridgeParity`).
-- Reminder: `train_debug.log` still at repo root from earlier loop—flagged in status review for relocation during implementation.
+- Reminder: `train_debug.txt` still at repo root from earlier loop—flagged in status review for relocation during implementation.
 - Follow-up for Ralph: execute parity_green_plan Phase B0 conversion, capture logs in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T052500Z/`, then advance B2/B4 once pytest harness passes.
 - <Action State>: [ready_for_implementation]
 
@@ -394,7 +394,7 @@
 - Reviewed Phase D3.A callchain package (`reports/2025-10-17T104700Z/phase_d3_callchain/`) to extract dual-model archive + CONFIG-001 requirements for persistence shim.
 - Updated `plans/active/INTEGRATE-PYTORCH-001/phase_d_workflow.md` (D3.A marked complete, D3.B/C guidance expanded, D2.C log hygiene note) and `implementation.md` Phase D3 row acknowledging evidence.
 - Logged Attempt #50 in docs/fix_plan.md capturing hygiene + D3.B directive; rewrote input.md with cleanup step, new red test, and implementation guidance targeting `save_torch_bundle`.
-- Flagged stray `train_debug.log` for relocation next loop to maintain artifact storage policy.
+- Flagged stray `train_debug.txt` for relocation next loop to maintain artifact storage policy.
 - <Action State>: [ready_for_implementation]
 
 
@@ -844,4 +844,15 @@
   - Created Phase C3 playbook (`reports/2025-10-19T084016Z/.../phase_c3_playbook.md`) capturing dataset_path fix + Lightning predict flow.
   - Updated `phase_d2_completion.md` C3/C4 guidance and augmented 2025-10-19T081500Z summary with C2 red status + TypeError blocker note.
   - Logged Attempt #24 in docs/fix_plan.md and rewrote `input.md` directing Ralph through C3 implementation and green pytest run.
+- <Action State>: [ready_for_implementation]
+
+## 2025-10-19T190000Z: C4 Test Modernization Prep
+- Focus issue: INTEGRATE-PYTORCH-001-STUBS — Phase C4 test modernization
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes:
+  - Reviewed Ralph’s C3 implementation (commit ee0dcf3) and confirmed `_reassemble_cdi_image_torch` now requires `train_results`; existing “Red” tests fail because they still expect `NotImplementedError` and regex doesn’t match the new message (see `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T084016Z/phase_d2_completion/pytest_stitch_green.log`).
+  - Marked C3 `[x]` in `phase_d2_completion.md`, rewrote C4 row to call for test modernization + green evidence, and moved stray `train_debug.txt` into the same report directory.
+  - Updated summary.md Next Steps and docs/fix_plan Attempt #26 to capture the review outcome; refreshed `input.md` with concrete guidance (fixtures, stub Lightning module, pytest selector) for turning the suite green.
+- Follow-up: Ralph to modernize `TestReassembleCdiImageTorch*`, capture green log, and update summary/fix ledger.
 - <Action State>: [ready_for_implementation]
