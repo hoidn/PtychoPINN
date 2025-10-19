@@ -51,9 +51,9 @@ Planning Reference: `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-19T20583
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E3.A | Update workflow documentation | [ ] | Revise `docs/workflows/pytorch.md` and author Ptychodus user-facing notes (target `architectural_context.md` or new doc). Store diff summary in `phase_e_docs_update.md`; highlight backend toggle instructions. |
+| E3.A | Update workflow documentation | [x] | ✅ 2025-10-19 Attempt #17: Updated `docs/workflows/pytorch.md` §11–§12 with regression selector guidance and backend dispatcher instructions; refreshed `docs/architecture.md` dual-backend paragraph. Evidence archived at `reports/2025-10-19T210000Z/phase_e3_docs_update/{diff_notes.md,summary.md}`. |
 | E3.B | Sync specs & findings | [x] | ✅ 2025-10-19 Attempt #16: Added spec §4.8 \"Backend Selection & Dispatch\" (`specs/ptychodus_api_spec.md:224-235`) and documented findings review (POLICY-001/CONFIG-001 sufficient). Evidence: `reports/2025-10-19T205832Z/{phase_e3_spec_patch.md,phase_e3_spec_update.md}` plus governance confirmation `reports/2025-10-19T202600Z/phase_e3_governance_review.md`. |
-| E3.C | Prepare TEST-PYTORCH-001 handoff | [ ] | Summarize remaining risks, test selectors, and ownership matrix in `phase_e_handoff.md`. Include checklist verifying that TEST-PYTORCH-001 can bootstrap without re-discovering Phase E decisions. |
+| E3.C | Prepare TEST-PYTORCH-001 handoff | [x] | ✅ 2025-10-19 Attempt #43: Authored `handoff_brief.md` under `reports/2025-10-19T215800Z/phase_e3_docs_handoff/` with backend contract, selector cadence, artifact expectations, ownership matrix, and open questions for TEST-PYTORCH-001 Phase D3. Summary recorded in `summary.md`. |
 
 ---
 
