@@ -1500,3 +1500,10 @@
 - Will capture new hypotheses + next steps under fresh report directory before rewriting `input.md`.
 - Update: Reproduced failure with instrumentation; confirmed axis-order bug in `_build_lightning_dataloaders`. Added evidence summary at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103200Z/phase_c4d_coords_debug/summary.md` and refreshed plan B2 guidance to require permuting coords + adding regression test.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T095334Z: Focus selection
+- Focus issue: ADR-003-BACKEND-API Phase C4.D — B3 AT-parallel parity validation
+- Action type: Evidence collection
+- Mode: Parity
+- Notes: Continuing same initiative; refreshed `phase_c4d_blockers/plan.md` (B2→[x], B3 guidance updated for new ISO hub). Authored input.md directing Ralph to collect GREEN evidence under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/` (rerun gridsize regression, run bundle/integration selectors, execute CLI smoke with `--gridsize 2`, then update plan + fix_plan attempts).
+- <Action State>: [ready_for_implementation]
