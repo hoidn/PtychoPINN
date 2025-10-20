@@ -1321,3 +1321,27 @@
 - Logged Attempt #15 in `docs/fix_plan.md` (Mode: Docs) capturing housekeeping actions; no code/tests run.
 - Rewrote `input.md` directing engineer to author Phase C4 CLI integration plan (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/`).
 - <Action State>: [planning]
+
+## 2025-10-20T033244Z: Phase C4 design and RED prep selections
+- Focus issue: ADR-003-BACKEND-API Phase C4.A–C4.B (CLI design docs + RED tests)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Findings ledger review: `rg "PyTorch" docs/findings.md` → POLICY-001 (PyTorch mandatory) and FORMAT-001 (NPZ axis normalization) remain active; both reinforce accelerator/dtype requirements for new CLI flags and upcoming tests.
+- Documentation refresh (per instructions):
+  - `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/{plan.md,summary.md}` — authoritative scope for C4 tasks, artifact manifest, and deferred knobs.
+  - `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/override_matrix.md` — execution knob precedence + default sources for CLI exposure.
+  - `ptycho_torch/train.py:350-540` and `ptycho_torch/inference.py:260-460` — current argparse surfaces and hardcoded execution config wiring slated for refactor.
+  - `specs/ptychodus_api_spec.md` §§4.8, 6 and `docs/workflows/pytorch.md` §13 — contract references for backend routing & CLI documentation updates.
+  - `docs/TESTING_GUIDE.md` §“Authoring new tests” — TDD guidance for RED scaffolds.
+- Ralph’s latest loop audit: Phase C4 planning artifacts (`plan.md`, `summary.md`) present with detailed checklist; `phase_c_execution/plan.md` references new plan and `docs/fix_plan.md` Attempt #16 logs completion. No hygiene regressions detected; CLI code unchanged pending implementation.
+- Coin flip (tails) → skipped historical commit review this turn.
+- Decisions:
+  - No additional planning required; C4 plan is sufficiently detailed.
+  - Next engineer loop should tackle C4.A design docs + C4.B RED scaffolding before any implementation.
+  - Mode stays TDD to enforce RED-first workflow for new CLI tests.
+- Authored new `input.md` directing creation of four design artifacts, two pytest CLI modules (RED), captured logs, and ledger updates; commands include `|| true` to preserve RED outputs.
+- Follow-up expectations for Ralph:
+  - Produce `cli_flag_inventory.md`, `flag_selection_rationale.md`, `flag_naming_decisions.md`, `argparse_schema.md`.
+  - Add `tests/torch/test_cli_train_torch.py` and `tests/torch/test_cli_inference_torch.py`, run RED selectors with logs, draft `red_baseline.md`.
+  - Update `phase_c_execution/plan.md` (mark C4.A/C4.B `[x]`), refresh summary, and append docs/fix_plan Attempt entry referencing new artifacts.
+- <Action State>: [ready_for_implementation]
