@@ -29,10 +29,20 @@
 ## C1 status checkpoint (2025-10-20)
 - C1 complete: inference blueprint authored (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md`, 51 KB comprehensive spec). Captured helper reuse strategy, RawData ownership decision (Option A), inference orchestration extraction (Option 2), and RED test plan (5 delegation tests + 3 inference-mode shared helper tests). Design mirrors training CLI refactor for consistency.
 
+## C2 status checkpoint (2025-10-20)
+- C2 complete: Extended test suites with RED tests for inference thin wrapper delegation. 5/5 thin wrapper tests FAILED as expected (validate_paths, _run_inference_and_reconstruct, RawData delegation not yet implemented). 7/7 shared helper tests PASSED (inference mode already supported). Artifacts: `reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/`.
+
+## C3 status checkpoint (2025-10-20)
+- C3 complete: Implemented inference thin wrapper with helper delegation. Applied test fixes for keyword invocation and bundle loader contract. CLI inference selector: 9/9 PASSED in 4.59s. Integration selector: 1/1 PASSED in 16.75s. Artifacts: `reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/`.
+
+## C4 status checkpoint (2025-10-20, Attempt #52)
+- **C4 COMPLETE:** Updated `docs/workflows/pytorch.md:354-393` with inference thin wrapper documentation per `docs_gap_analysis.md` guidance. Changes: (i) corrected flag defaults table (`--accelerator='auto'`, `--inference-batch-size=None`), (ii) added "Helper-Based Configuration Flow" subsection documenting delegation to `cli/shared.py` helpers + `_run_inference_and_reconstruct()` orchestration with CONFIG-001 compliance guarantee, (iii) added example CLI command using minimal dataset fixture (`tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`) demonstrating current flag syntax (`--accelerator cpu --quiet`), (iv) documented expected output artifacts (amplitude/phase PNGs per `save_individual_reconstructions()` contract), (v) aligned deprecation notice with training section wording ("will be removed in Phase E (post-ADR acceptance)"), (vi) cited Phase D.C C3 GREEN evidence (9/9 tests). All five gaps identified in `docs_gap_analysis.md` addressed. No tests run (docs-only loop per input.md Mode: Docs). Artifacts: `reports/2025-10-20T123820Z/phase_d_cli_wrappers_inference_docs/{docs_gap_analysis.md,docs_update_summary.md}`. Plan row C4 marked `[x]`.
+- **Phase D.C COMPLETE:** All inference CLI thin wrapper tasks (C1 blueprint, C2 RED, C3 GREEN, C4 docs) delivered. Implementation mirrors training refactor architecture per ADR-003 Phase D blueprint. Ready for Phase D.D (smoke evidence + hygiene) or Phase E (governance/ADR formalization).
+
 ## Next steps for Ralph
-1. Phase D.C C3 fallout — update the two remaining thin-wrapper tests to reflect keyword invocation (`validate_paths(train_file=None, ...)`) and bundle loader contract (`{'diffraction_to_obj': mock_model}`), then restage targeted selector to GREEN under `reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/`.
-2. Relocate `train_debug.log` into the same artifact directory (or regenerate evidence) so repo root stays clean; document move in summary + ledger.
-3. Once selectors are GREEN, refresh `phase_d_cli_wrappers/plan.md` row C3 to `[x]`, drop updated summary snippets, and append docs/fix_plan Attempt entry with log references.
+1. Phase D.D (smoke evidence) — Execute documented train + inference CLI commands with minimal dataset fixture, capture runtime metrics, store logs under `reports/<timestamp>/phase_d_cli_wrappers/`.
+2. Phase D.D (ledger update) — Append Attempt #52 entry to docs/fix_plan.md documenting C4 completion with artifact references, then update implementation plan Phase D rows (D1–D3) with completion state.
+3. Phase D.D (hygiene + handoff) — Record hygiene commands (`git status`, cleanup checks), author `handoff_summary.md` listing remaining execution knobs (checkpoint callbacks, logger backend, scheduler) and Phase E governance inputs.
 
 **Artifacts Created:**  
 - `plan.md` — phased implementation roadmap with checklist IDs and guidance  

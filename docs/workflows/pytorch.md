@@ -357,13 +357,39 @@ The following execution config flags are available in `ptycho_torch/inference.py
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--accelerator` | str | `'cpu'` | Hardware accelerator type (`'cpu'`, `'gpu'`, `'tpu'`) |
+| `--accelerator` | str | `'auto'` | Hardware accelerator type (`'auto'`, `'cpu'`, `'gpu'`, `'cuda'`, `'tpu'`, `'mps'`). Auto-detects available device (cuda if available, else cpu). |
 | `--num-workers` | int | `0` | Number of DataLoader worker processes |
-| `--inference-batch-size` | int | `1` | Batch size for inference (overrides training batch_size) |
+| `--inference-batch-size` | int | `None` | Batch size for inference (default: None = reuse training batch_size from checkpoint) |
 | `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
 
 **Deprecated Flags:**
-- `--device`: Superseded by `--accelerator` (same deprecation policy as training CLI).
+- `--device`: Superseded by `--accelerator`. Using `--device` will emit a deprecation warning and map to `--accelerator` automatically. This flag will be removed in Phase E (post-ADR acceptance).
+
+**Helper-Based Configuration Flow (Phase D.C, 2025-10-20):**
+The inference CLI delegates to the same shared helper functions as training (`ptycho_torch/cli/shared.py`):
+- `resolve_accelerator()`: Auto-detects hardware or applies user choice, handles `--device` backward compatibility with deprecation warnings
+- `build_execution_config_from_args()`: Constructs `PyTorchExecutionConfig` with inference-mode validation
+- `validate_paths()`: Checks file existence and creates output directories
+
+Inference orchestration is extracted to `_run_inference_and_reconstruct()` helper (see `ptycho_torch/inference.py:520-640`) which loads the checkpoint bundle, prepares data, runs Lightning prediction, and saves amplitude/phase reconstructions as PNG artifacts. This delegation ensures CONFIG-001 compliance (factory functions populate `params.cfg` via `update_legacy_dict()` before data loading) and maintains parity with training CLI architecture.
+
+**Example CLI Command:**
+```bash
+# Run inference with minimal dataset fixture
+python -m ptycho_torch.inference \
+  --model_path outputs/trained_model \
+  --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
+  --output_dir outputs/inference_results \
+  --n_images 64 \
+  --accelerator cpu \
+  --quiet
+```
+
+**Expected Output Artifacts:**
+- `<output_dir>/reconstructed_amplitude.png`: Reconstructed amplitude image
+- `<output_dir>/reconstructed_phase.png`: Reconstructed phase image
+
+**Evidence:** Phase D.C C3 implementation validated thin wrapper behavior with 9/9 passing tests. See `tests/torch/test_cli_inference_torch.py` for delegation contract tests.
 
 ### CONFIG-001 Compliance
 
