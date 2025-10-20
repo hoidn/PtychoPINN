@@ -648,3 +648,103 @@ class TestLoadTorchBundle:
                 )
             else:
                 raise  # Unexpected NotImplementedError, re-raise
+
+    def test_reconstructs_models_from_bundle(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_torch_models
+    ):
+        """
+        Phase C4.D A1 TDD RED test: load_torch_bundle must reconstruct both models from wts.h5.zip.
+
+        Requirement: ADR-003-BACKEND-API Phase C4.D — unblock integration workflow by
+        implementing bundle loader that returns {'diffraction_to_obj', 'autoencoder'}
+        model dict + hydrated config per spec §4.6–§4.8 and CONFIG-001.
+
+        This test establishes the acceptance criteria for load_torch_bundle completion:
+        - Function MUST accept bundle base_path and return models dict + config
+        - Models dict MUST contain both 'diffraction_to_obj' and 'autoencoder' keys
+        - Each value MUST be a loaded nn.Module (or sentinel dict during torch-optional)
+        - Config MUST be reconstructed from serialized metadata (params.dill)
+        - params.cfg MUST be populated via CONFIG-001 bridge before model loading
+
+        Red-phase expectation (Phase A1):
+        - Currently RAISES NotImplementedError at ptycho_torch/model_manager.py:267
+        - Capturing RED log to pytest_load_bundle_red.log per plan guidance
+
+        Green-phase expectation (Phase A2/A3):
+        - RETURNS (models_dict, config) where models_dict has both model keys
+        - Each model is reconstructed via create_torch_model_with_gridsize helper
+        - Integration test passes bundle to workflows without NotImplementedError
+
+        Test mechanism (mirroring TensorFlow analogue):
+        - Generate temporary bundle via save_torch_bundle with minimal dual models
+        - Call load_torch_bundle expecting models dict return (not single model tuple)
+        - Validate returned structure matches TensorFlow ModelManager.load_multiple_models
+        - Assert both model names present in returned dict keys
+        """
+        pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
+
+        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+
+        # Save lightweight bundle with dual models (Phase A1 guidance: reuse minimal config)
+        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
+        base_path = tmp_path / "c4d_bundle_loader_test"
+
+        save_torch_bundle(
+            models_dict=dummy_torch_models,
+            base_path=str(base_path),
+            config=minimal_training_config
+        )
+
+        # Clear params.cfg to simulate fresh inference process (CONFIG-001 requirement)
+        params.cfg.clear()
+        assert params.cfg.get('N') is None, "Sanity check: params.cfg should be empty before load"
+
+        # Phase A2/A3: load_torch_bundle should return models dict + config
+        # (Currently raises NotImplementedError — RED baseline for Phase A1)
+        models_dict, loaded_config = load_torch_bundle(str(base_path))
+
+        # GREEN phase assertions (Phase A3):
+        # Validate models dict structure
+        assert isinstance(models_dict, dict), (
+            "load_torch_bundle MUST return models dict as first element of tuple"
+        )
+        assert 'diffraction_to_obj' in models_dict, (
+            "models_dict MUST contain 'diffraction_to_obj' key (spec §4.6 dual-model requirement)"
+        )
+        assert 'autoencoder' in models_dict, (
+            "models_dict MUST contain 'autoencoder' key (spec §4.6 dual-model requirement)"
+        )
+
+        # Validate models are non-None (basic smoke check)
+        assert models_dict['diffraction_to_obj'] is not None, (
+            "'diffraction_to_obj' model MUST be reconstructed and loaded"
+        )
+        assert models_dict['autoencoder'] is not None, (
+            "'autoencoder' model MUST be reconstructed and loaded"
+        )
+
+        # Validate loaded_config contains critical fields
+        assert loaded_config is not None, (
+            "load_torch_bundle MUST return config dict as second element of tuple"
+        )
+        assert loaded_config.get('N') == 64, (
+            f"Config MUST preserve N=64 from saved bundle, got {loaded_config.get('N')}"
+        )
+        assert loaded_config.get('gridsize') == 2, (
+            f"Config MUST preserve gridsize=2, got {loaded_config.get('gridsize')}"
+        )
+
+        # CONFIG-001 gate: params.cfg MUST be populated before model reconstruction
+        assert params.cfg.get('N') == 64, (
+            "CONFIG-001 VIOLATION: params.cfg['N'] not restored. "
+            "load_torch_bundle MUST call params.cfg.update() before returning."
+        )
+        assert params.cfg.get('gridsize') == 2, (
+            "CONFIG-001 VIOLATION: params.cfg['gridsize'] not restored."
+        )

@@ -991,14 +991,12 @@ def load_inference_bundle_torch(bundle_dir: Union[str, Path], model_name: str = 
     logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip via load_torch_bundle")
 
     # Delegate to load_torch_bundle (CONFIG-001 params restoration happens inside)
-    # Returns (model, params_dict) tuple
-    model, params_dict = load_torch_bundle(str(archive_path), model_name=model_name)
+    # Phase C4.D signature change: load_torch_bundle now returns (models_dict, params_dict)
+    # instead of (single_model, params_dict) to satisfy spec §4.6 dual-model requirement
+    models_dict, params_dict = load_torch_bundle(str(archive_path), model_name=model_name)
 
-    # Wrap model in dict for TensorFlow API parity
-    # TensorFlow load_inference_bundle returns dict of models; PyTorch mirrors this
-    models_dict = {model_name: model}
-
-    logger.info(f"Inference bundle loaded successfully. Model: {model_name}, Params keys: {list(params_dict.keys())[:5]}...")
+    logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
 
     # Return (models_dict, params_dict) matching TensorFlow baseline signature
+    # models_dict already contains both models per Phase C4.D implementation
     return models_dict, params_dict
