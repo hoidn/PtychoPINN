@@ -1,0 +1,118 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 25 items / 19 deselected / 6 selected
+
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_training_payload_execution_config_not_none FAILED [ 16%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_inference_payload_execution_config_not_none FAILED [ 33%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_defaults_applied FAILED [ 50%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_explicit_instance_propagates FAILED [ 66%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible FAILED [ 83%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_overrides_applied_records_execution_knobs FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestExecutionConfigOverrides.test_training_payload_execution_config_not_none _
+
+self = <test_config_factory.TestExecutionConfigOverrides object at 0x7f9e7d145550>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-664/test_training_payload_executio0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_lqsf1fo9')
+
+    def test_training_payload_execution_config_not_none(self, mock_train_npz, temp_output_dir):
+        """Factory returns execution_config (not None placeholder)."""
+>       from ptycho.config.config import PyTorchExecutionConfig
+E       ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+
+tests/torch/test_config_factory.py:447: ImportError
+_ TestExecutionConfigOverrides.test_inference_payload_execution_config_not_none _
+
+self = <test_config_factory.TestExecutionConfigOverrides object at 0x7f9e7d145bd0>
+mock_checkpoint_dir = PosixPath('/tmp/pytest-of-ollie/pytest-664/test_inference_payload_executi0/mock_checkpoint')
+mock_test_npz = PosixPath('/tmp/pytest-of-ollie/pytest-664/test_inference_payload_executi0/mock_test.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_wbc3fx8r')
+
+    def test_inference_payload_execution_config_not_none(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
+        """Inference factory returns execution_config instance."""
+>       from ptycho.config.config import PyTorchExecutionConfig
+E       ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+
+tests/torch/test_config_factory.py:460: ImportError
+_____ TestExecutionConfigOverrides.test_execution_config_defaults_applied ______
+
+self = <test_config_factory.TestExecutionConfigOverrides object at 0x7f9e7d146250>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-664/test_execution_config_defaults0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_ic4sckzz')
+
+    def test_execution_config_defaults_applied(self, mock_train_npz, temp_output_dir):
+        """Execution config uses dataclass defaults when not overridden."""
+>       from ptycho.config.config import PyTorchExecutionConfig
+E       ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+
+tests/torch/test_config_factory.py:474: ImportError
+_ TestExecutionConfigOverrides.test_execution_config_explicit_instance_propagates _
+
+self = <test_config_factory.TestExecutionConfigOverrides object at 0x7f9e7d146910>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-664/test_execution_config_explicit0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_8xm1ujka')
+
+    def test_execution_config_explicit_instance_propagates(self, mock_train_npz, temp_output_dir):
+        """User-provided execution_config instance propagates through payload."""
+>       from ptycho.config.config import PyTorchExecutionConfig
+E       ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+
+tests/torch/test_config_factory.py:489: ImportError
+_____ TestExecutionConfigOverrides.test_execution_config_fields_accessible _____
+
+self = <test_config_factory.TestExecutionConfigOverrides object at 0x7f9e7d146f90>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-664/test_execution_config_fields_a0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_xxhh8man')
+
+    def test_execution_config_fields_accessible(self, mock_train_npz, temp_output_dir):
+        """All critical execution fields are accessible from payload."""
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+        # GREEN phase: Verify key execution knobs are accessible
+        exec_cfg = payload.execution_config
+>       assert hasattr(exec_cfg, 'accelerator')
+E       AssertionError: assert False
+E        +  where False = hasattr(None, 'accelerator')
+
+tests/torch/test_config_factory.py:517: AssertionError
+_ TestExecutionConfigOverrides.test_overrides_applied_records_execution_knobs __
+
+self = <test_config_factory.TestExecutionConfigOverrides object at 0x7f9e7d147610>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-664/test_overrides_applied_records0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_qv8_92ok')
+
+    def test_overrides_applied_records_execution_knobs(self, mock_train_npz, temp_output_dir):
+        """Factory audit trail includes execution config knobs when applied."""
+>       from ptycho.config.config import PyTorchExecutionConfig
+E       ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+
+tests/torch/test_config_factory.py:525: ImportError
+=============================== warnings summary ===============================
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:252: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:571: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_training_payload_execution_config_not_none - ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+FAILED tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_inference_payload_execution_config_not_none - ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+FAILED tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_defaults_applied - ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+FAILED tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_explicit_instance_propagates - ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+FAILED tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible - AssertionError: assert False
+ +  where False = hasattr(None, 'accelerator')
+FAILED tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_overrides_applied_records_execution_knobs - ImportError: cannot import name 'PyTorchExecutionConfig' from 'ptycho.config.config' (/home/ollie/Documents/PtychoPINN2/ptycho/config/config.py)
+================= 6 failed, 19 deselected, 2 warnings in 3.82s =================
