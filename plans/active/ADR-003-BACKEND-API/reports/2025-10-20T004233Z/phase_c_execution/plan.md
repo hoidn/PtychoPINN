@@ -48,10 +48,10 @@ Exit Criteria: `_train_with_lightning` accepts execution config, passes knobs to
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C3.C1 | Update `_train_with_lightning` signature | [ ] | Follow `reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md` §C3.A (tasks C3.A1–C3.A3) to restore exports and add execution_config parameter; capture RED log before wiring. |
-| C3.C2 | Integrate execution config in inference helpers | [ ] | Execute plan §C3.B (tasks C3.B1–C3.B2) to propagate dataloader knobs and inference batch size, documenting CPU-only constraints. |
-| C3.C3 | Extend workflow tests | [ ] | Implement plan §C3.C (tasks C3.C1–C3.C3) — create failing tests in `tests/torch/test_workflows_components.py`, capture `pytest_workflows_execution_red.log`, then GREEN evidence. |
-| C3.C4 | Update plan + summary | [ ] | Complete plan §C3.D and update `phase_c_execution/summary.md` + fix ledger. Ensure logs stored under `phase_c3_workflow_integration/`. |
+| C3.C1 | Update `_train_with_lightning` signature | [x] | ✅ 2025-10-20 — Execution config parameter threaded per `phase_c3_workflow_integration/summary.md` (tasks C3.A1–C3.A3). RED/GREEN logs: `pytest_workflows_execution_{red,green}.log`. |
+| C3.C2 | Integrate execution config in inference helpers | [x] | ✅ 2025-10-20 — DataLoader wiring complete (plan §C3.B) with batch size + num_workers overrides; evidence captured in `summary.md` + GREEN selector log. |
+| C3.C3 | Extend workflow tests | [x] | ✅ 2025-10-20 — Added Trainer/inference pytest coverage (plan §C3.C). RED log stored prior to implementation; GREEN selector confirms deterministic checks. |
+| C3.C4 | Update plan + summary | [x] | ✅ 2025-10-20 — `phase_c_execution/summary.md` updated, fix ledger Attempt #95 logged, artifacts consolidated under `phase_c3_workflow_integration/`. |
 
 ### Phase C4 — CLI + Documentation Finalisation
 Goal: Collapse CLI wrappers onto factories with execution config exposure and align documentation.

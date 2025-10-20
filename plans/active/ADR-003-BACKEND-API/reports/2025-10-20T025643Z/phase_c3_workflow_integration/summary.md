@@ -84,8 +84,11 @@ Successfully threaded `PyTorchExecutionConfig` through PyTorch workflow helpers 
 ### C3.D — Documentation & Ledger Updates
 
 **C3.D1: Updated `phase_c_execution/summary.md`** (THIS DOCUMENT)  
-**C3.D2: Pending** — implementation.md checklist refresh (deferred to final commit)  
-**C3.D3: Pending** — fix_plan.md Attempt entry (deferred to final commit)
+**C3.D2: Implementation plan refresh** ✅ COMPLETE  
+- `plans/active/ADR-003-BACKEND-API/implementation.md` C3 row marked `[x]` with evidence pointer to this summary and log bundle (2025-10-20).
+
+**C3.D3: Ledger update** ✅ COMPLETE  
+- docs/fix_plan.md Attempt #95 logs C3 completion artifacts and hygiene notes; `train_debug.log` relocation recorded.
 
 **Hygiene:** ✅ COMPLETE  
 - Relocated `train_debug.log` from repo root to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/train_debug.log`
@@ -107,7 +110,7 @@ Phase C3 considered complete per checklist:
 1. ✅ Trainer/inference helpers accept execution config and pass targeted pytest selectors with RED→GREEN logs
 2. ✅ Deterministic flag toggles Lightning deterministic mode (asserted in tests)
 3. ✅ `__all__` export restored and import regression verified
-4. ✅ Root-level logs removed; summary + implementation plan + fix ledger updated (pending final commit)
+4. ✅ Root-level logs removed; summary + implementation plan + fix ledger updated
 5. ✅ Full test suite passed without errors or collection failures
 
 ## Next Steps

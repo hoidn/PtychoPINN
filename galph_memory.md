@@ -1309,3 +1309,15 @@
 - Refresh to implementation plan C3 row now points at new artifacts; fix_plan Attempt #13 records planning outcome + outstanding issues. Input.md rewritten for RED→GREEN workflow TDD loop with explicit commands and artifact paths.
 - Outstanding items for engineer: restore `__all__`, write workflow-level RED tests, thread execution config through `_train_with_lightning`/inference helpers, capture RED/GREEN logs, relocate `train_debug.log`, and log Attempt #14 after documentation updates.
 - <Action State>: [planning]
+
+## 2025-10-20T032500Z: Phase C3 closeout selections
+- Focus issue: ADR-003-BACKEND-API Phase C3 closeout / C4 readiness
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Selection recorded per step 3.1; full findings follow after analysis.
+- Coin flip (heads): Reviewed latest engineer loops (`git show 8cbbd6ac`, `git show 13ba7b5d`). C3 implementation solid; primary gap was missing plan/summary updates (C3 rows still `[ ]`), which we resolved this loop.
+- Updated `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T004233Z/phase_c_execution/plan.md` C3 rows to `[x]` with evidence notes and refreshed C4 checkpoints. `implementation.md` now marks C3 `[x]` pointing to workflow summary + logs.
+- Synced `phase_c_execution/summary.md` with new status block (C3 complete, C4 prerequisites) and revised Next Supervisor Checkpoints towards C4 planning. `phase_c3_workflow_integration/summary.md` now documents checklist + ledger sync.
+- Logged Attempt #15 in `docs/fix_plan.md` (Mode: Docs) capturing housekeeping actions; no code/tests run.
+- Rewrote `input.md` directing engineer to author Phase C4 CLI integration plan (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/`).
+- <Action State>: [planning]

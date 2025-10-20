@@ -1,50 +1,47 @@
-Summary: Thread PyTorch execution config through workflow helpers and restore exports (Phase C3)
-Mode: TDD
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C3 workflow integration
+Summary: Draft Phase C4 CLI integration blueprint (ADR-003-BACKEND-API)
+Mode: Docs
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4 CLI integration
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py -k execution_config -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/{plan.md,summary.md,pytest_workflows_execution_red.log,pytest_workflows_execution_green.log}
+Mapped tests: none — evidence-only
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/{plan.md,summary.md}
 
 Do Now:
-1. ADR-003-BACKEND-API C3.A1+C3.C3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md — reintroduce `__all__` exports, author failing workflow tests, capture RED via CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py -k execution_config -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/pytest_workflows_execution_red.log (tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py -k execution_config -vv).
-2. ADR-003-BACKEND-API C3.A2+C3.A3+C3.B1+C3.B2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md — thread execution config through `_train_with_lightning` and inference helpers, then rerun CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py -k execution_config -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/pytest_workflows_execution_green.log.
-3. ADR-003-BACKEND-API C3.D1+C3.D3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md — document trainer/inference wiring in phase_c_execution/summary.md, relocate root-level train_debug.log into the C3 report folder (or delete if duplicate), and log Attempt #14 in docs/fix_plan.md (tests: none).
+1. ADR-003-BACKEND-API C4-planning @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — author Phase C4 CLI integration plan (flag mapping, workflow entry points, reproduction selectors, artifact checklist); tests: none.
+2. ADR-003-BACKEND-API C4-crossref @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/summary.md — capture narrative summary, update implementation/phase plan checklists with new references, and log Attempt in docs/fix_plan.md (tests: none).
 
-If Blocked: Capture the failing workflow selector output with notes in phase_c3_workflow_integration/summary.md, leave C3 tasks at [P], and record the blocker plus log path in docs/fix_plan.md Attempts.
+If Blocked: Document incomplete flag inventory or conflicting CLI behaviour in summary.md, note blockers in phase_c_execution/summary.md and docs/fix_plan.md, leave C4 rows at [P].
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md — authoritative C3 checklist (IDs C3.A1–C3.D3).
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T004233Z/phase_c_execution/summary.md — updated checkpoints highlighting `__all__` regression and log hygiene.
-- ptycho_torch/workflows/components.py: `_train_with_lightning` / inference helpers accept new execution config wiring.
-- tests/torch/test_workflows_components.py — target module for new TDD coverage.
-- specs/ptychodus_api_spec.md §4.8 — backend selection contract; ensure CONFIG-001 order preserved.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T004233Z/phase_c_execution/plan.md — C4 checklist awaiting detailed plan.
+- ptycho_torch/train.py:420-560 & ptycho_torch/inference.py:150-260 — authoritative CLI surfaces requiring mapping.
+- specs/ptychodus_api_spec.md §4.8 & docs/workflows/pytorch.md §13 — contract references for backend/CLI alignment.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/summary.md — capture deferred knobs that must appear in C4 plan.
 
 How-To Map:
-- Set AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md before running pytest.
-- Implement workflow tests under `tests/torch/test_workflows_components.py` (use pytest fixtures already in module); add markers if runtime > 5s.
-- For RED run: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py -k execution_config -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/pytest_workflows_execution_red.log`.
-- After wiring Trainer/inference updates, rerun the same selector and store output as `.../pytest_workflows_execution_green.log`.
-- When relocating `train_debug.log`, move it to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/train_debug.log` (or remove if redundant) before committing.
-- Update `phase_c_execution/summary.md` and `plans/active/ADR-003-BACKEND-API/implementation.md` to mark C3 tasks complete after GREEN proof; append Attempt entry in `docs/fix_plan.md` with artifact links.
+- Create directory `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/` with `plan.md` (phased checklist per prompts/plan template) and `summary.md`.
+- Enumerate CLI flags / config knobs (train & inference) with file:line citations; map each to execution config fields and override precedence (reference `override_matrix.md`).
+- Define targeted pytest selectors for future execution: e.g., `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -k execution_config -vv` (stub if test missing); include in plan checklist.
+- Update `phase_c_execution/plan.md` C4 rows to reference the new plan directory; mark planning subtasks `[x]` only when artefacts saved.
+- Append new Attempt entry in docs/fix_plan.md noting plan artefacts and outstanding decisions.
 
 Pitfalls To Avoid:
-- Do not mutate factories or config bridge ordering—`update_legacy_dict` must remain before workflow imports.
-- Keep Lightning Trainer kwargs CPU-safe (accelerator='cpu' unless GPU available); guard GPU-only knobs with skips.
-- Preserve deterministic behaviour: ensure seed handling unaffected when passing execution config.
-- Avoid dropping existing workflow tests; extend file rather than rewriting sections wholesale.
-- Keep all logs in the C3 report directory; no artifacts at repo root.
-- Maintain ASCII-only edits; respect protected modules (ptycho/model.py, ptycho/diffsim.py, ptycho/tf_helper.py).
-- Capture RED log before implementation per TDD; do not skip RED phase.
-- Ensure __all__ export restoration includes PyTorchExecutionConfig alongside existing names.
-- Only run full pytest module once GREEN; rely on targeted selector for development.
-- When editing tests, stay within pytest style (no unittest imports).
+- Do not modify production code or tests in this loop; planning artifacts only.
+- Keep new plan ASCII; avoid copying large logs into docs.
+- Ensure artifact paths use ISO timestamps and live under the specified directory.
+- Reference authoritative docs (specs/ptychodus_api_spec.md, docs/workflows/pytorch.md) when making decisions.
+- Do not promise CLI flag behaviour that contradicts CONFIG-001 or POLICY-001.
+- Avoid inventing pytest selectors without verifying target files; cite source modules.
+- Maintain CONFIG-001 ordering in proposed workflows (update_legacy_dict before torched imports).
+- Record deferred knobs explicitly rather than silently dropping them.
+- Keep notes about existing train_debug.log hygiene—no new root-level files.
+- Follow TDD policy even in planning: identify RED selectors to be authored later.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md#L1
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T004233Z/phase_c_execution/summary.md#L40
-- ptycho_torch/workflows/components.py#L120
-- tests/torch/test_workflows_components.py#L20
-- specs/ptychodus_api_spec.md#L220
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T004233Z/phase_c_execution/plan.md:56
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/summary.md:1
+- ptycho_torch/train.py:400
+- ptycho_torch/inference.py:149
+- specs/ptychodus_api_spec.md:226
 
 Next Up:
-1. ADR-003-BACKEND-API Phase C4 — expose execution knobs via CLI wrappers once workflows are green.
+1. Execute Phase C4 implementation tasks (wiring CLI flags + tests) once plan approved.

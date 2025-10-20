@@ -22,6 +22,12 @@
 - **Artifacts Relocated:** All logs/docs for C1 reside under `reports/2025-10-20T004233Z/phase_c_execution/`. No stray `train_debug.log` remaining at repo root.
 - **C2 ENTRY CONDITIONS:** Factories already GREEN from Phase B3 (`create_*_payload` returning canonical structs). Ready to inject execution-config wiring without breaking CONFIG-001 bridge.
 
+## Status Update (2025-10-20T032500Z)
+- **C3 COMPLETE:** `_train_with_lightning` and inference helpers now accept `PyTorchExecutionConfig` and thread Trainer/DataLoader kwargs per `reports/2025-10-20T025643Z/phase_c3_workflow_integration/summary.md`. RED→GREEN evidence captured in `pytest_workflows_execution_{red,green}.log`; full regression (`pytest_full_suite.log`) passed clean.
+- **Exports Restored:** `ptycho/config/config.py` `__all__` list reinstated so downstream imports (Ptychodus integration) resolve `PyTorchExecutionConfig`.
+- **Hygiene:** Root-level `train_debug.log` relocated to the C3 report directory; plan/ledger entries updated (docs/fix_plan.md Attempt #95).
+- **C4 ENTRY CONDITIONS:** CLI wrappers still build configs manually; execution config knobs (scheduler, logger_backend, checkpoint callbacks) remain deferred. C4 can proceed once CLI flag surface + test plan are finalised.
+
 ## Risks & Mitigations
 - **Field Drift:** If Lightning knobs diverge from dataclass defaults, document delta in `design_delta.md` and update override matrix at the same time.
 - **Trainer Signature Changes:** Wrap Lightning Trainer invocation in helper to minimise blast radius; tests in `tests/torch/test_workflows_components.py` will catch regressions.
@@ -29,11 +35,10 @@
 - **Artifact Discipline:** CLI runs may emit `train_debug.log`; mandate relocation to this plan directory at the end of each loop.
 
 ## Next Supervisor Checkpoints
-1. Coordinate C2 RED run: factories should fail while returning placeholder execution_config until wiring lands; capture selector `pytest tests/torch/test_config_factory.py -k ExecutionConfig`.
-2. Review C2 GREEN evidence confirming payloads emit real dataclasses and override precedence is documented in `phase_c_execution/summary.md`.
-3. For C3, ensure workflow tests assert Trainer kwargs (accelerator, deterministic) on CPU-only runs before approving CLI work; follow checklist in `reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md`.
-4. Maintain artifact hygiene — relocate any Lightning logs into phase directories; root-level `train_debug.log` reappeared during C2 and must be moved/deleted per C3.D tasks.
-5. Restore `__all__` exports in `ptycho/config/config.py` prior to wiring workflows (regression tracked as task C3.A1).
+1. Author Phase C4 detailed plan (CLI surfaces + documentation) or refine existing checklist with flag mapping + command selectors.
+2. Direct engineer to expose execution config knobs via `ptycho_torch/train.py` / `inference.py`, keeping CONFIG-001 sequencing intact.
+3. Ensure CLI regression tests and documentation updates are scoped (tests/torch CLI modules + docs/workflows/pytorch.md §13).
+4. Continue enforcing artifact hygiene — CLI runs must store logs under Phase C directories; no root-level leftovers.
 
 ## Open Questions To Track
 - Do we expose MLflow/Logger control in Phase C or defer to Phase D/ADR governance? (Flag in `design_delta.md` during C1.)
