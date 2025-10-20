@@ -212,8 +212,9 @@ following behavioural contract in addition to the configuration bridge.
 - `save_model()` calls `ptycho.model_manager.save`, which ultimately produces the same archive layout expected by
   `open_model()` (`ptychodus/src/ptychodus/model/ptychopinn/reconstructor.py:194-195`).
 
-#### 4.7. TensorFlow-Specific Requirements
+#### 4.7. Backend-Specific Runtime Requirements
 
+**TensorFlow Path:**
 - The pipeline assumes TensorFlow tensors throughout (`ptycho.loader`, `ptycho.tf_helper`, `ptycho.model`).
   Replacing TensorFlow with another framework requires shims for dtype conversion, TensorFlow-specific custom
   layers, and helper utilities invoked during load/save.
@@ -221,18 +222,73 @@ following behavioural contract in addition to the configuration bridge.
   `ModelManager` (`ptycho/model_manager.py:90-209`). Alternative backends must either emulate these layers or
   rewrite the orchestration modules that depend on them.
 
+**PyTorch Path:**
+- The PyTorch backend (`ptycho_torch/`) MUST use PyTorch Lightning (`lightning.pytorch.Trainer`) for training orchestration and checkpoint management. Implementations SHALL instantiate `PtychoPINN_Lightning` modules with execution config validation via `__post_init__` (see §4.9).
+- Checkpoint persistence MUST produce `wts.h5.zip` archives compatible with the TensorFlow persistence contract (§4.6), containing both Lightning `.ckpt` state and bundled hyperparameters for state-free reload.
+- CLI entrypoints (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) MUST delegate to shared helper functions (`ptycho_torch/cli/shared.py`) for path validation, accelerator resolution, and execution config construction. Helpers SHALL emit deprecation warnings for legacy flags (`--device`, `--disable_mlflow`) and map them to modern equivalents (`--accelerator`, `--quiet`).
+- Execution config objects (`PyTorchExecutionConfig`, see §4.9) MUST NOT populate `params.cfg` via `update_legacy_dict`; they control runtime behavior only. Canonical configs (`TrainingConfig`, `InferenceConfig`) continue to bridge via CONFIG-001.
+- Runtime failures SHALL raise actionable errors: `RuntimeError` if PyTorch >=2.2 unavailable (POLICY-001), `ValueError` for invalid execution config fields, `FileNotFoundError` for missing data/checkpoint paths (Phase C2 evidence: `ptycho_torch/cli/shared.py:validate_paths`).
+
 #### 4.8. Backend Selection & Dispatch
 
 - **Configuration Field**: `TrainingConfig.backend` and `InferenceConfig.backend` MUST accept the literals `'tensorflow'` or `'pytorch'` and SHALL default to `'tensorflow'` to maintain backward compatibility. Callers MAY override this field when invoking PtychoPINN through Ptychodus.
 - **CONFIG-001 Compliance**: Implementations MUST call `update_legacy_dict(ptycho.params.cfg, config)` before inspecting `config.backend` or importing backend-specific modules. This guarantees legacy subsystems observe synchronized parameters regardless of backend.
+- **Execution Config Merge**: For PyTorch paths, dispatchers MUST accept optional `PyTorchExecutionConfig` objects (programmatic) or build them via `build_execution_config_from_args(args, mode)` (CLI). Factories SHALL apply execution config overrides at priority level 2 (between explicit overrides and dataclass defaults) and log applied values. See §4.9 for execution config contract.
 - **Routing Guarantees**:
   - When `config.backend == 'tensorflow'`, the dispatcher SHALL delegate to `ptycho.workflows.components` entry points without attempting PyTorch imports.
   - When `config.backend == 'pytorch'`, the dispatcher SHALL delegate to `ptycho_torch.workflows.components` entry points and return the same `(amplitude, phase, results_dict)` structure expected by TensorFlow workflows.
 - **Torch Unavailability**: Selecting `'pytorch'` MUST raise an actionable `RuntimeError` if the PyTorch stack cannot be imported. The message SHALL include the phrases "PyTorch backend selected" and installation guidance (e.g., `pip install torch>=2.2`). Silent fallbacks to TensorFlow are prohibited (POLICY-001).
 - **Result Metadata**: Dispatchers MUST annotate the returned `results_dict` with `results['backend'] = config.backend` to aid downstream logging and regression harnesses.
 - **Persistence Parity**: Backends MUST persist archives in formats compatible with their load paths. Cross-backend artifact loading is OPTIONAL but, when unsupported, the dispatcher MUST raise a descriptive error (referenced in `tests/torch/test_model_manager.py:238-372`).
-- **Validation Errors**: Dispatcher MUST raise `ValueError` if `config.backend` is not one of the supported literals, guiding callers to correct usage.
+- **Validation Errors**: Dispatcher MUST raise `ValueError` if `config.backend` is not one of the supported literals, guiding callers to correct usage. Factories MUST raise `ValueError` for invalid execution config fields and `FileNotFoundError` for missing paths (Phase C2 validation evidence).
 - **Inference Symmetry**: The same guarantees apply to `load_inference_bundle_with_backend()` to ensure train/save/load/infer workflows remain symmetric.
+
+#### 4.9. PyTorch Execution Configuration Contract
+
+The PyTorch backend exposes a dedicated execution configuration dataclass (`PyTorchExecutionConfig`, defined in `ptycho/config/config.py:178-258`) that controls runtime behavior orthogonal to the canonical data/model configs. This configuration:
+
+- **MUST NOT** populate `params.cfg` via `update_legacy_dict` (CONFIG-001 applies only to canonical configs).
+- **SHALL** be validated on instantiation via `__post_init__` raising `ValueError` for invalid fields.
+- **IS** applied at priority level 2 in the factory override precedence (between explicit overrides and dataclass defaults).
+
+**Field Categories and Validation Rules:**
+
+1. **Lightning Trainer Knobs:**
+   - `accelerator` (str, default `'cpu'`): Hardware device. MUST be in `{'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}`. CLI defaults to `'auto'` via helper resolution.
+   - `strategy` (str, default `'auto'`): Distributed strategy. Validated downstream; future CLI exposure planned (Phase E.B2).
+   - `deterministic` (bool, default `True`): Enforce reproducibility. Controlled via `--deterministic` / `--no-deterministic` flags.
+   - `gradient_clip_val` (float|None, default `None`): Gradient clipping threshold. Planned CLI exposure (Phase E.B2 backlog).
+   - `accum_steps` (int, default `1`): Gradient accumulation steps. MUST be > 0. CLI backlog (Phase E.B2).
+
+2. **DataLoader Knobs:**
+   - `num_workers` (int, default `0`): Worker process count. MUST be ≥ 0. Exposed via `--num-workers`.
+   - `pin_memory` (bool, default `False`): Enable CUDA pinned memory. GPU-specific; safe default for CPU.
+   - `persistent_workers` (bool, default `False`): Keep workers alive between epochs. Only valid when `num_workers > 0`.
+   - `prefetch_factor` (int|None, default `None`): Batches to prefetch per worker. Not yet exposed via CLI.
+
+3. **Optimization Knobs:**
+   - `learning_rate` (float, default `1e-3`): Optimizer learning rate. MUST be > 0. Exposed via `--learning-rate`.
+   - `scheduler` (str, default `'Default'`): LR scheduler type. CLI exposure planned (Phase E.B2).
+
+4. **Checkpoint/Logging Knobs:**
+   - `enable_progress_bar` (bool, default `False`): Show training progress. Derived from `--quiet` flag inversion.
+   - `enable_checkpointing` (bool, default `True`): Lightning automatic checkpointing. CLI exposure planned (Phase E.B1).
+   - `checkpoint_save_top_k` (int, default `1`): Number of best checkpoints to retain. MUST be ≥ 0. CLI backlog (Phase E.B1).
+   - `checkpoint_monitor_metric` (str, default `'val_loss'`): Metric for best checkpoint selection. CLI backlog (Phase E.B1).
+   - `early_stop_patience` (int, default `100`): Early stopping patience epochs. MUST be > 0. CLI backlog (Phase E.B1).
+   - `logger_backend` (str|None, default `None`): Experiment tracking backend. Pending governance decision (Phase E.B3).
+
+5. **Inference Knobs:**
+   - `inference_batch_size` (int|None, default `None`): Override batch size for inference. MUST be > 0 if set. Exposed via `--inference-batch-size`. When `None`, reuses training `batch_size`.
+   - `middle_trim` (int, default `0`): Inference trimming parameter. Not yet implemented (documented as TODO).
+   - `pad_eval` (bool, default `False`): Padding for evaluation. Not yet implemented.
+
+**CLI Integration:**
+- Shared helpers in `ptycho_torch/cli/shared.py` provide `build_execution_config_from_args(args, mode)` and `resolve_accelerator(args)` for deprecation-aware flag parsing.
+- Factory functions (`ptycho_torch/config_factory.py`) merge execution config into payload dataclasses and log applied overrides.
+- CLI scripts MUST NOT manually instantiate `PyTorchExecutionConfig`; delegate to helpers for consistency.
+
+**Reference Implementation:** See `ptycho/config/config.py:178-258` (dataclass definition + validation), `ptycho_torch/cli/shared.py` (CLI helpers), `ptycho_torch/config_factory.py` (factory integration), and Phase C2 validation tests (`tests/torch/test_config_factory.py`).
 
 ### 5. Configuration Field Reference
 
@@ -313,34 +369,51 @@ The `KEY_MAPPINGS` dictionary in `config/config.py` defines the translation rule
 
 ### 7. CLI Reference — Execution Configuration Flags
 
-The PyTorch backend (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) exposes execution-level configuration knobs through command-line flags. These flags control runtime behavior and complement the model/data configuration fields documented in §5.
+The PyTorch backend (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) exposes execution-level configuration knobs through command-line flags. These flags control runtime behavior and complement the model/data configuration fields documented in §5. See §4.9 for the complete `PyTorchExecutionConfig` contract.
 
 #### 7.1. Training CLI Execution Flags
 
-These flags map to `PyTorchExecutionConfig` fields via factory override precedence (see §4.8 for CONFIG-001 ordering).
+These flags map to `PyTorchExecutionConfig` fields via factory override precedence (see §4.9 for validation rules and §4.8 for CONFIG-001 ordering).
 
 | CLI Flag | Type | Default | Config Field | Description |
 |----------|------|---------|--------------|-------------|
-| `--accelerator` | str | `'cpu'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator type: `'cpu'`, `'gpu'`, `'tpu'` |
-| `--deterministic` / `--no-deterministic` | bool | `True` | `PyTorchExecutionConfig.deterministic` | Enable reproducible training with fixed RNG seeds |
-| `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count (0 = main thread) |
-| `--learning-rate` | float | `1e-3` | `PyTorchExecutionConfig.learning_rate` | Optimizer learning rate |
+| `--accelerator` | str | `'auto'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator: `'auto'` (detect GPU, default), `'cpu'` (CPU-only), `'gpu'`/`'cuda'` (NVIDIA GPU), `'tpu'` (Google TPU), `'mps'` (Apple Silicon). Dataclass default is `'cpu'`; CLI helper overrides to `'auto'`. |
+| `--deterministic` / `--no-deterministic` | bool | `True` | `PyTorchExecutionConfig.deterministic` | Enable reproducible training with fixed RNG seeds. Use `--no-deterministic` to disable for potential performance gains (results become non-reproducible). |
+| `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count (0 = main thread only, CPU-safe). Typical values: 2-8 for multi-core systems. |
+| `--learning-rate` | float | `1e-3` | `PyTorchExecutionConfig.learning_rate` | Optimizer learning rate. Must be > 0. |
+| `--quiet` | flag | `False` | `PyTorchExecutionConfig.enable_progress_bar` | Suppress progress bars and reduce console logging. Inverted to populate `enable_progress_bar` (`--quiet` → `False`). |
+
+**Deprecated Flags:**
+- `--device` (str): Superseded by `--accelerator`. Using `--device` emits a deprecation warning and maps to `--accelerator`. Will be removed in Phase E post-ADR acceptance. Use `--accelerator` instead.
+- `--disable_mlflow` (flag): MLflow integration not yet implemented; flag is accepted but has no effect. Use `--quiet` to suppress progress output instead.
 
 **Factory Integration:** CLI scripts call `create_training_payload()` with `overrides` dict containing CLI-specified values. The factory applies these overrides after loading defaults and before returning the `TrainingPayload` dataclass (which includes both canonical `TFTrainingConfig` and `PyTorchExecutionConfig`).
 
 **CONFIG-001 Compliance:** The factory ensures `update_legacy_dict(ptycho.params.cfg, tf_config)` is called before any data loading or model construction, guaranteeing legacy subsystems observe synchronized parameters regardless of execution config values.
 
+**Planned Exposure (Phase E.B Backlog):**
+The following `PyTorchExecutionConfig` fields are not yet exposed via CLI but are accessible programmatically:
+- Checkpoint controls: `--checkpoint-save-top-k`, `--checkpoint-monitor`, `--checkpoint-mode`, `--early-stop-patience` (Phase E.B1)
+- Scheduler / accumulation: `--scheduler`, `--accumulate-grad-batches` (Phase E.B2)
+- Logger backend: Decision pending governance (Phase E.B3)
+
 #### 7.2. Inference CLI Execution Flags
 
 | CLI Flag | Type | Default | Config Field | Description |
 |----------|------|---------|--------------|-------------|
-| `--accelerator` | str | `'cpu'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator type: `'cpu'`, `'gpu'`, `'tpu'` |
-| `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count |
-| `--inference-batch-size` | int | `1` | `PyTorchExecutionConfig.inference_batch_size` | Batch size for inference (overrides training batch_size) |
+| `--accelerator` | str | `'auto'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator: `'auto'` (detect GPU, default), `'cpu'`, `'gpu'`/`'cuda'`, `'tpu'`, `'mps'`. Dataclass default is `'cpu'`; CLI helper overrides to `'auto'`. |
+| `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count (0 = synchronous, CPU-safe). Typical values: 2-8 for multi-core systems. |
+| `--inference-batch-size` | int | `None` | `PyTorchExecutionConfig.inference_batch_size` | Batch size for inference DataLoader. When `None` (default), reuses training `batch_size` from checkpoint. Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU. |
+| `--quiet` | flag | `False` | `PyTorchExecutionConfig.enable_progress_bar` | Suppress progress bars and reduce console logging. Inverted to populate `enable_progress_bar`. |
 
-**Reference Implementation:** See `ptycho_torch/train.py:381-452` (training flags), `ptycho_torch/inference.py:365-412` (inference flags), and `ptycho_torch/config_factory.py` for factory integration logic.
+**Deprecated Flags:**
+- `--device` (str): Superseded by `--accelerator`. Using `--device` emits a deprecation warning and maps to `--accelerator`. Will be removed in Phase E post-ADR acceptance.
+
+**Reference Implementation:** See `ptycho_torch/train.py:381-460` (training flags), `ptycho_torch/inference.py:420-520` (inference flags), `ptycho_torch/cli/shared.py` (CLI helpers: `resolve_accelerator`, `build_execution_config_from_args`, `validate_paths`), and `ptycho_torch/config_factory.py` for factory integration logic.
 
 **Validation Evidence:** Phase C4.D manual CLI smoke test with gridsize=2 confirmed all execution flags operate correctly. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log`.
+
+**Note:** For programmatic access to execution-only parameters not yet exposed via CLI (checkpoint knobs, scheduler, logger backend), instantiate `PyTorchExecutionConfig` directly and pass to factory functions. See §4.9 for complete field reference and validation rules.
 
 ### 8. Usage Guidelines for Developers
 
