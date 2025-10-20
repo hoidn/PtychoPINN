@@ -1,0 +1,143 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 9 items
+
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip PASSED [ 11%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_num_workers_flag_roundtrip PASSED [ 22%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_inference_batch_size_flag_roundtrip PASSED [ 33%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_multiple_execution_config_flags PASSED [ 44%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_delegates_to_validate_paths FAILED [ 55%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_delegates_to_helper_for_data_loading FAILED [ 66%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_delegates_to_inference_helper PASSED [ 77%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_calls_save_individual_reconstructions PASSED [ 88%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_quiet_flag_suppresses_progress_output PASSED [100%]
+
+=================================== FAILURES ===================================
+_______ TestInferenceCLIThinWrapper.test_cli_delegates_to_validate_paths _______
+
+self = <test_cli_inference_torch.TestInferenceCLIThinWrapper object at 0x75fb83b65550>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-773/test_cli_delegates_to_validate0/model', '--test_data', '/tmp/pytest-...e0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-773/test_cli_delegates_to_validate0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x75fab35c3c10>
+
+    def test_cli_delegates_to_validate_paths(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: CLI calls validate_paths() before factory invocation.
+    
+        Expected RED Failure:
+        - AssertionError: validate_paths() not called (inline validation still present)
+    
+        Success Criteria (GREEN):
+        - validate_paths() called exactly once with (train_file=None, test_file, output_dir)
+        - Called BEFORE create_inference_payload (CONFIG-001 ordering)
+        """
+        from unittest.mock import MagicMock, patch, call
+    
+        mock_validate_paths = MagicMock()
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(n_groups=32),
+            pt_data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),
+        )
+        mock_bundle_loader = MagicMock(return_value=({}, {}))
+        mock_raw_data = MagicMock()
+    
+        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
+             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data):
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
+    
+            try:
+                cli_main()
+            except (SystemExit, Exception):
+                pass  # Expected to fail after helper calls
+    
+        # Assert validate_paths was called
+        assert mock_validate_paths.called, \
+            "validate_paths() was not called - CLI still using inline validation"
+    
+        # Assert called with correct arguments
+        call_args = mock_validate_paths.call_args
+>       assert call_args[0][0] is None, "train_file should be None for inference mode"
+               ^^^^^^^^^^^^^^^
+E       IndexError: tuple index out of range
+
+tests/torch/test_cli_inference_torch.py:279: IndexError
+----------------------------- Captured stdout call -----------------------------
+Loaded configuration from model checkpoint
+Test data: /tmp/pytest-of-ollie/pytest-773/test_cli_delegates_to_validate0/test.npz
+Output directory: /tmp/pytest-of-ollie/pytest-773/test_cli_delegates_to_validate0/inference_outputs
+N groups: 32
+Execution config: accelerator=cpu, num_workers=<MagicMock name='mock().execution_config.num_workers' id='129719611313488'>
+__ TestInferenceCLIThinWrapper.test_cli_delegates_to_helper_for_data_loading ___
+
+self = <test_cli_inference_torch.TestInferenceCLIThinWrapper object at 0x75fb83b65c90>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-773/test_cli_delegates_to_helper_f0/model', '--test_data', '/tmp/pytest-...f0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-773/test_cli_delegates_to_helper_f0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x75fab35c1090>
+
+    def test_cli_delegates_to_helper_for_data_loading(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: CLI calls RawData.from_file() for test data loading.
+    
+        Expected RED Failure:
+        - May pass if current CLI already loads RawData (Option A decision)
+        - OR may fail if workflow is expected to load data (Option B)
+    
+        Success Criteria (GREEN):
+        - RawData.from_file() called exactly once with test_data path
+        - Called AFTER factory invocation (CONFIG-001 already satisfied)
+        """
+        from unittest.mock import MagicMock, patch
+    
+        mock_validate_paths = MagicMock()
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(n_groups=32),
+            pt_data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),
+        )
+        mock_bundle_loader = MagicMock(return_value=({}, {}))
+        mock_raw_data_from_file = MagicMock(return_value=MagicMock())
+    
+        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
+             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho.raw_data.RawData.from_file', mock_raw_data_from_file):
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
+    
+            try:
+                cli_main()
+            except (SystemExit, Exception):
+                pass
+    
+        # Assert RawData.from_file() was called
+>       assert mock_raw_data_from_file.called, \
+            "RawData.from_file() was not called - data loading delegation broken"
+E       AssertionError: RawData.from_file() was not called - data loading delegation broken
+E       assert False
+E        +  where False = <MagicMock id='129719611290768'>.called
+
+tests/torch/test_cli_inference_torch.py:321: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Loaded configuration from model checkpoint
+Test data: /tmp/pytest-of-ollie/pytest-773/test_cli_delegates_to_helper_f0/test.npz
+Output directory: /tmp/pytest-of-ollie/pytest-773/test_cli_delegates_to_helper_f0/inference_outputs
+N groups: 32
+Execution config: accelerator=cpu, num_workers=<MagicMock name='mock().execution_config.num_workers' id='129719611157200'>
+=========================== short test summary info ============================
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_delegates_to_validate_paths - IndexError: tuple index out of range
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_delegates_to_helper_for_data_loading - AssertionError: RawData.from_file() was not called - data loading delegation broken
+assert False
+ +  where False = <MagicMock id='129719611290768'>.called
+========================= 2 failed, 7 passed in 4.61s ==========================

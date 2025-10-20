@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 4 items / 2 deselected / 2 selected
+
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer PASSED [ 50%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle_legacy SKIPPED [100%]
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/torch/test_integration_workflow_torch.py: Migrated to pytest-native test_run_pytorch_train_save_load_infer
+================= 1 passed, 1 skipped, 2 deselected in 16.80s ==================
