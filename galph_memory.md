@@ -1430,3 +1430,13 @@
 - Updated docs/fix_plan.md Attempt #27 referencing the 2025-10-20T070610Z report hub.
 - Reissued input.md directing TDD test + Poisson loss parity, integration rerun, and ledger wrap-up.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T074135Z: C4.D3 parity review kickoff
+- Focus issue: ADR-003-BACKEND-API Phase C4.D3 (Poisson parity wrap-up)
+- Action type: Review or housekeeping
+- Mode: Parity
+- Notes:
+  - Reviewed last commits (`e10395e7`, `bc5cc397`); Poisson fix is solid, but targeted integration log missing and root-level `train_debug.log` reappeared.
+  - Updated C4.D3 plan row to record the remaining `load_torch_bundle` dependency and created supervisor summary at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T074135Z/phase_c4_cli_integration_review/summary.md`.
+  - New Do Now directs Ralph to capture `pytest_integration.log`, run manual CLI smoke (C4.D4), and clean up hygiene before C4.E.
+- <Action State>: [ready_for_implementation]
