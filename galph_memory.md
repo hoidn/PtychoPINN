@@ -1363,3 +1363,13 @@
   - Rewrote `input.md` directing engineer to execute C4.C implementation + C4.D validation (argparse flags, factory delegation, CLI pytest selectors, manual smoke) and capture GREEN logs under the existing report directory.
   - Logged Attempt #19 in `docs/fix_plan.md` documenting plan sync + new steering instructions.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T042220Z: C4.C review + steering
+- Focus issue: ADR-003-BACKEND-API Phase C4 CLI integration
+- Action type: Review or housekeeping
+- Mode: TDD
+- Key actions: marked plan rows C4.C1–C4.C3 `[x]` (C4.C4 `[P]`), added review note at plans/active/ADR-003-BACKEND-API/reports/2025-10-20T041803Z/review.md, recorded Attempt #14 in docs/fix_plan.md, rewrote input.md with new Do Now checklist + artifact hub 2025-10-20T044500Z, highlighted data/memmap/meta.json drift for cleanup.
+- Findings: training CLI factory wiring is green; inference CLI still bypasses create_inference_payload() causing pytest FileNotFoundError; refactor_notes.md missing; memmap metadata mutated by commit ce376dee.
+- Next steps for Ralph: implement C4.C6/C4.C7 via factory, author refactor_notes.md, restore memmap metadata, rerun targeted selectors, update plan + ledger.
+- <Action State>: [ready_for_implementation]
+

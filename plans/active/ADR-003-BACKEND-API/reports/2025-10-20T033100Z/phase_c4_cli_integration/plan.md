@@ -70,18 +70,18 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
-| C4.C1 | Add execution config argparse flags | [ ] | Insert argparse arguments after existing flags (around line 370-380): `--accelerator` (default 'auto'), `--deterministic` (action='store_true', default True), `--num-workers` (type=int, default=0), `--learning-rate` (type=float, default=1e-3). Include help text from `argparse_schema.md`. |
-| C4.C2 | Replace ad-hoc config construction with factory | [ ] | At lines 464-545 (current config construction block): (a) Remove manual `DataConfig`, `ModelConfig`, `TrainingConfig` instantiation. (b) Call `create_training_payload()` factory with CLI args bundled as overrides dict. (c) Extract `tf_training_config` from payload for CONFIG-001 bridge. Reference `factory_design.md` §3 for call pattern. |
-| C4.C3 | Thread execution config to workflows | [ ] | After factory call, extract `payload.execution_config`. Pass to workflow entry point: `run_cdi_example_torch(..., execution_config=payload.execution_config)`. Ensure `_train_with_lightning` receives it (already wired in C3). |
-| C4.C4 | Remove hardcoded overrides | [ ] | Eliminate hardcoded `nphotons=1e9` (line 530), `K=7` (line 477), `experiment_name='ptychopinn_pytorch'` (line 494). Let factory defaults govern; only override if CLI flag present. Document removed hardcodes in `refactor_notes.md`. |
+| C4.C1 | Add execution config argparse flags | [x] | ✅ 2025-10-20 — `ptycho_torch/train.py:381-452` now defines `--accelerator/--device`, `--deterministic/--no-deterministic`, `--num-workers`, and `--learning-rate` with help text lifted from `argparse_schema.md`. |
+| C4.C2 | Replace ad-hoc config construction with factory | [x] | ✅ 2025-10-20 — Manual config assembly removed; CLI now calls `create_training_payload()` with overrides dict (`train.py:513-560`) and relies on payload dataclasses for CONFIG-001 bridging. |
+| C4.C3 | Thread execution config to workflows | [x] | ✅ 2025-10-20 — CLI instantiates `PyTorchExecutionConfig` and passes it through to `main(..., execution_config=execution_config)` (`train.py:493-508, 567-587`), satisfying C3 wiring. |
+| C4.C4 | Remove hardcoded overrides | [P] | Code path no longer injects `nphotons`, `K`, or `experiment_name`, but required artefact `refactor_notes.md` is still missing. Author doc summarising removed constants before marking complete. |
 
 #### Inference CLI Updates (`ptycho_torch/inference.py`)
 
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
-| C4.C5 | Add inference execution config flags | [ ] | Insert argparse flags (around line 330-340): `--inference-batch-size` (type=int, default=None, help='Override batch size for inference DataLoader'), `--num-workers` (type=int, default=0). |
-| C4.C6 | Replace ad-hoc config with factory call | [ ] | At inference config construction (approx lines 400-450): Call `create_inference_payload()` with CLI overrides dict. Extract `payload.execution_config` and pass to inference workflow helpers. |
-| C4.C7 | Maintain CONFIG-001 ordering | [ ] | Ensure factory call happens before any `RawData` or model loading. Verify `update_legacy_dict()` call still precedes workflow dispatch. Add assertion or log statement confirming params.cfg populated. |
+| C4.C5 | Add inference execution config flags | [x] | ✅ 2025-10-20 — `ptycho_torch/inference.py:365-412` exposes `--accelerator`, `--num-workers`, and `--inference-batch-size` per schema doc. |
+| C4.C6 | Replace ad-hoc config with factory call | [ ] | CLI still constructs configs manually and never calls `create_inference_payload()`, causing patched tests to attempt real checkpoint loading (`pytest_cli_inference_green.log`, FileNotFoundError). |
+| C4.C7 | Maintain CONFIG-001 ordering | [ ] | Pending factory adoption. Current path loads NPZ/checkpoints before params.cfg bridge, violating plan guidance. |
 
 **Exit Criteria:** Both CLI scripts refactored to use factories, execution config flags accepted and forwarded, hardcoded values eliminated, CONFIG-001 compliance maintained.
 
