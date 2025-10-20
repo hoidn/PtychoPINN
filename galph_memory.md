@@ -1411,3 +1411,12 @@
 - Steering: New `input.md` directs Ralph to add a RED test for bundle persistence, reroute the CLI through `run_cdi_example_torch`, adjust `_train_with_lightning` outputs, provide a checkpoint fallback in inference, and then update plan/ledger once GREEN.
 - Notes: Integration remains blocked on bundle generation; checkpoint fallback is a temporary guard until `load_torch_bundle` is implemented. Ensure new logs land under the 2025-10-20T060955Z report hub.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T073500Z: C4.D3 dataloader parity plan
+- Focus issue: ADR-003-BACKEND-API Phase C4.D3 integration regression (Lightning compute_loss crash)
+- Action type: Debug
+- Mode: Parity
+- Key findings: `_build_lightning_dataloaders()` still returns `(Tensor, Tensor)` tuples, so `compute_loss` indexing fails (`IndexError`). Captured probe + summary under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T073500Z/phase_c4_cli_integration_debug/{dataloader_probe.txt,dataloader_summary.md}`.
+- Plan updates: C4.D3 row in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md` now calls for TDD regression + refactor to reuse `TensorDictDataLoader`/`Collate_Lightning`. Logged Attempt #26 in docs/fix_plan.md.
+- Next loop guidance: add pytest regression in `TestWorkflowsComponentsTraining`, rework `_build_lightning_dataloaders`, rerun integration selector, then close out C4.D3.
+- <Action State>: [ready_for_implementation]

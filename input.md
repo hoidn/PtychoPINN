@@ -1,51 +1,40 @@
-Summary: Make the PyTorch training CLI emit the spec-required wts.h5.zip bundle while keeping inference CLI functional so the integration workflow passes.
+Summary: Restore PyTorch Lightning dataloader parity so compute_loss stops crashing during the integration workflow.
 Mode: Parity
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4 CLI integration
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4 CLI integration (C4.D3)
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T060955Z/phase_c4_cli_integration_debug/{triage.md,pytest_cli_train_bundle_red.log,pytest_cli_train_bundle_green.log,pytest_integration.log,pytest_cli_inference.log}
-
+Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_dataloader_tensor_dict_structure -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T080500Z/phase_c4_cli_integration_debug/{pytest_dataloader_red.log,pytest_dataloader_green.log,pytest_integration.log}
 Do Now:
-1. ADR-003-BACKEND-API C4.D3 bundle TDD @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — add pytest `test_bundle_persistence` under `TestExecutionConfigCLI` that monkeypatches `ptycho_torch.train.save_torch_bundle` and asserts the new CLI path invokes it with both autoencoder/diffraction_to_obj keys; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence -vv.
-2. ADR-003-BACKEND-API C4.D3 workflow persistence implementation @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — route the new training CLI through `run_cdi_example_torch`, update `_train_with_lightning` to emit a dual-model bundle (diffraction_to_obj module + autoencoder sentinel), and ensure `save_torch_bundle` writes `{output_dir}/wts.h5.zip`; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence -vv.
-3. ADR-003-BACKEND-API C4.D3 integration rerun @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — rerun the PyTorch integration selector and capture a fresh log showing training+inference succeed with the bundle present; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv.
-4. ADR-003-BACKEND-API C4.D3 inference guard @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — keep CLI execution-config tests green while adding a temporary fallback so inference still loads `last.ckpt` if bundle loading raises NotImplementedError; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv.
-5. ADR-003-BACKEND-API C4.F wrap-up @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — update plan row C4.D3, extend summary with bundle findings, and log Attempt #25 in docs/fix_plan.md referencing the new artifacts; tests: none.
-
-If Blocked: tee the failing selector output to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T060955Z/phase_c4_cli_integration_debug/blocker.log`, note whether the CLI still calls legacy `main()` or `save_torch_bundle` rejects the models dict, set C4.D3 back to `[P]` with the blocker note, then stop.
-
+1. ADR-003-BACKEND-API C4.D3 dataloader RED test @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — add `test_lightning_dataloader_tensor_dict_structure` in `tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining`, then run CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_dataloader_tensor_dict_structure -vv (expect FAIL, tee to pytest_dataloader_red.log).
+2. ADR-003-BACKEND-API C4.D3 dataloader implementation @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — refactor `_build_lightning_dataloaders` to emit TensorDict-style batches (reuse `TensorDictDataLoader`/`Collate_Lightning` from `ptycho_torch.dataloader`) so compute_loss sees `images/coords_relative/rms_scaling_constant/physics_scaling_constant`, then rerun CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_dataloader_tensor_dict_structure -vv (tee to pytest_dataloader_green.log).
+3. ADR-003-BACKEND-API C4.D3 integration validation @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — rerun CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv (tee to pytest_integration.log) and confirm the workflow completes with bundle + checkpoint artifacts present.
+4. ADR-003-BACKEND-API C4.D3 ledger wrap-up @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — mark C4.D3 `[x]`, update `summary.md` with dataloader parity notes, and log Attempt #26 follow-up in docs/fix_plan.md referencing the new artifact directory; tests: none.
+If Blocked: capture failing selector output to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T080500Z/phase_c4_cli_integration_debug/blocker.log`, note whether batches still lack TensorDict keys or downstream persistence fails, update C4.D3 back to `[P]` with the blocker reason, then stop.
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md (row C4.D3) — exit criteria now hinge on producing the bundle while keeping regression green.
-- specs/ptychodus_api_spec.md:149 — backend contract mandates `MODEL_FILE_NAME = 'wts.h5.zip'`.
-- docs/workflows/pytorch.md:125 — training workflow must persist `{output_dir}/wts.h5.zip`.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T060955Z/phase_c4_cli_integration_debug/triage.md — documents the bundle gap and workflow fallback expectations.
-- tests/torch/test_model_manager.py:150 — defines the dual-model requirement (`autoencoder`, `diffraction_to_obj`) enforced by `save_torch_bundle`.
-
+- C4.D3 plan row (plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md) — integration remains red until Lightning batches mirror TensorFlow structure.
+- dataloader_summary.md (plans/active/ADR-003-BACKEND-API/reports/2025-10-20T073500Z/phase_c4_cli_integration_debug/dataloader_summary.md) — documents root cause and expected batch keys.
+- specs/ptychodus_api_spec.md:§4.6 — dual-model bundle contract enforced by integration test; pipeline must deliver proper inputs to Lightning before persistence.
+- docs/workflows/pytorch.md:§12 — describes execution config + loader parity requirements for PyTorch backend.
+- ptycho_torch/train_utils.py:217-308 — legacy DataModule reference for TensorDictDataLoader/Collate_Lightning usage.
 How-To Map:
-- RED test: monkeypatch `ptycho_torch.train.save_torch_bundle` and `ptycho_torch.train.run_cdi_example_torch` so the CLI runs fast; expect the mock to see a models dict with both keys. Capture RED log as `pytest_cli_train_bundle_red.log`.
-- Implementation: in `ptycho_torch/train.py` branch the new interface to load `RawData` (use `payload.tf_training_config` & payload execution config) and call `run_cdi_example_torch(train_data, test_data, payload.tf_training_config, do_stitching=False, output_dir=output_dir)`. Ensure `_train_with_lightning` returns `{'diffraction_to_obj': model, 'autoencoder': {'_sentinel': 'autoencoder'}}` so `save_torch_bundle` accepts the payload. After the call, surface the CLI status messages and skip the legacy `main()` invocations. Store the GREEN log as `pytest_cli_train_bundle_green.log`.
-- Integration: rerun the selector and tee to `pytest_integration.log`. Expect wts.h5.zip alongside checkpoints; if inference still needs the old checkpoint, catch `NotImplementedError` inside CLI and call the legacy loader path with a warning so the test completes.
-- Inference CLI fallback: wrap the bundle-loading block in try/except, logging the bundle path when successful and falling back to the prior checkpoint loader (without removing spec-compliant code) when the bundle loader raises `NotImplementedError`. Capture test output in `pytest_cli_inference.log`.
-- Documentation: once tests pass, mark C4.D3 `[x]` in plan, append the key decisions to `summary.md`, and add Attempt #25 to `docs/fix_plan.md` with artifact links.
-
+- RED run: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_dataloader_tensor_dict_structure -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T080500Z/phase_c4_cli_integration_debug/pytest_dataloader_red.log`
+- GREEN run: after refactor, repeat the same command and tee to `pytest_dataloader_green.log`.
+- Integration: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T080500Z/phase_c4_cli_integration_debug/pytest_integration.log`
+- Use `TensorDictDataLoader` and `Collate_Lightning` from `ptycho_torch.dataloader` to build batches; ensure probe/scaling tensors propagate so compute_loss indexes `[1]` and `[2]` successfully.
 Pitfalls To Avoid:
-- Do not remove the factory or CONFIG-001 calls when rerouting the CLI.
-- Keep `save_torch_bundle` invocation single-shot; no duplicate archives or legacy writes.
-- Preserve tqdm/logging behaviour (`--disable-mlflow` should still suppress progress bars).
-- Avoid importing torch-heavy modules at module scope in tests; stick to mocks.
-- Maintain ASCII formatting and existing import ordering in modified files.
-- Do not delete historical logs under other timestamped directories.
-- Ensure fallback code only triggers on `NotImplementedError`, not real IO errors.
-- Leave legacy CLI interface untouched (only adjust new interface branch).
-- Update `_train_with_lightning` without breaking existing unit tests (respect execution config fields).
-- Capture every test run with `tee` into the specified artifact directory.
-
+- Do not drop existing execution-config threading when editing `_build_lightning_dataloaders` — keep deterministic seeding intact.
+- Preserve CONFIG-001 sequencing: `_ensure_container` must still be called before loader construction; no data access before params.cfg updated.
+- Avoid reintroducing torch-optional code paths (POLICY-001). Batches should stay on CPU but must use torch tensors.
+- Keep new pytest test purely in pytest style (no unittest mix).
+- Do not modify bundle persistence logic introduced in Attempt #25; focus only on dataloader structure.
+- Ensure new dataset helper respects gridsize>1 channel counts (use container attributes so tests cover both 1×1 and grouped cases).
+- Capture all command output via tee into the designated artifact directory.
+- Leave `tests/fixtures/pytorch_integration/minimal_dataset_v1.json` untouched; fixture generation lives under TEST-PYTORCH-001.
+- No logging noise at repo root; keep new notes under the timestamped report directory.
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:94
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T060955Z/phase_c4_cli_integration_debug/triage.md
-- ptycho_torch/train.py:360
-- ptycho_torch/workflows/components.py:470
-- ptycho_torch/model_manager.py:85
-- specs/ptychodus_api_spec.md:149
-
-Next Up: 1) Implement real `load_torch_bundle` reconstruction so the inference CLI can drop the checkpoint fallback; 2) Phase C4.E documentation updates once persistence is green.
+- ptycho_torch/workflows/components.py:260-352 — current `_build_lightning_dataloaders` stub.
+- ptycho_torch/dataloader.py:430-646 — reference implementation for TensorDictDataLoader + Collate_Lightning.
+- ptycho_torch/model.py:1115-1140 — `compute_loss` expectations for batch layout.
+- tests/torch/test_workflows_components.py:200-520 — fixture definitions and training tests to extend.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T073500Z/phase_c4_cli_integration_debug/dataloader_summary.md.
+Next Up: (1) Phase C4.F documentation/ledger wrap-up once integration stays green; (2) revisit CLI manual smoke test (plan row C4.D4) if time permits.
