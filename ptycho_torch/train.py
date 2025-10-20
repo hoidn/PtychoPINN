@@ -475,6 +475,70 @@ Examples:
         )
     )
 
+    # Checkpoint and early stopping flags (Phase EB1.B - ADR-003)
+    parser.add_argument(
+        '--enable-checkpointing',
+        dest='enable_checkpointing',
+        action='store_true',
+        default=True,
+        help=(
+            'Enable automatic model checkpointing during training (default: enabled). '
+            'Checkpoints are saved based on monitored metric performance. '
+            'Use --disable-checkpointing to turn off.'
+        )
+    )
+    parser.add_argument(
+        '--disable-checkpointing',
+        dest='enable_checkpointing',
+        action='store_false',
+        help='Disable automatic model checkpointing during training.'
+    )
+    parser.add_argument(
+        '--checkpoint-save-top-k',
+        type=int,
+        default=1,
+        dest='checkpoint_save_top_k',
+        help=(
+            'Number of best checkpoints to keep (default: 1). '
+            'Set to -1 to save all checkpoints, 0 to disable saving. '
+            'Best checkpoints are determined by --checkpoint-monitor metric.'
+        )
+    )
+    parser.add_argument(
+        '--checkpoint-monitor',
+        type=str,
+        default='val_loss',
+        dest='checkpoint_monitor_metric',
+        help=(
+            'Metric to monitor for checkpoint selection (default: val_loss). '
+            'Common options: val_loss, train_loss, val_accuracy. '
+            'Must match a metric logged by the Lightning module.'
+        )
+    )
+    parser.add_argument(
+        '--checkpoint-mode',
+        type=str,
+        default='min',
+        choices=['min', 'max'],
+        dest='checkpoint_mode',
+        help=(
+            'Mode for checkpoint metric optimization (default: min). '
+            'Use "min" for metrics where lower is better (e.g., loss), '
+            '"max" for metrics where higher is better (e.g., accuracy).'
+        )
+    )
+    parser.add_argument(
+        '--early-stop-patience',
+        type=int,
+        default=100,
+        dest='early_stop_patience',
+        help=(
+            'Early stopping patience in epochs (default: 100). '
+            'Training stops if monitored metric does not improve for this many epochs. '
+            'Set to large value (e.g., 1000) to effectively disable early stopping.'
+        )
+    )
+
     # Legacy interface flags (backward compatibility)
     parser.add_argument('--ptycho_dir', type=str,
                        help='Path to ptycho directory (legacy interface)')

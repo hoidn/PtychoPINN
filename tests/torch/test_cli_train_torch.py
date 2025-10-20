@@ -364,6 +364,188 @@ class TestExecutionConfigCLI:
         assert 'wts.h5' in str(base_path), \
             f"Expected base_path to contain 'wts.h5', got {base_path}"
 
+    def test_enable_checkpointing_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --enable-checkpointing / --disable-checkpointing flags map to execution_config.enable_checkpointing.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --enable-checkpointing / --disable-checkpointing
+        OR
+        - AssertionError: execution_config.enable_checkpointing != expected value
+
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(enable_checkpointing=False),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--disable-checkpointing']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].enable_checkpointing is False, \
+            "Expected enable_checkpointing=False with --disable-checkpointing"
+
+    def test_checkpoint_save_top_k_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --checkpoint-save-top-k flag maps to execution_config.checkpoint_save_top_k.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --checkpoint-save-top-k 3
+        OR
+        - AssertionError: execution_config.checkpoint_save_top_k != 3
+
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(checkpoint_save_top_k=3),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--checkpoint-save-top-k', '3']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].checkpoint_save_top_k == 3, \
+            f"Expected checkpoint_save_top_k=3, got {call_kwargs['execution_config'].checkpoint_save_top_k}"
+
+    def test_checkpoint_monitor_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --checkpoint-monitor flag maps to execution_config.checkpoint_monitor_metric.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --checkpoint-monitor train_loss
+        OR
+        - AssertionError: execution_config.checkpoint_monitor_metric != 'train_loss'
+
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(checkpoint_monitor_metric='train_loss'),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--checkpoint-monitor', 'train_loss']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].checkpoint_monitor_metric == 'train_loss', \
+            f"Expected checkpoint_monitor_metric='train_loss', got {call_kwargs['execution_config'].checkpoint_monitor_metric}"
+
+    def test_checkpoint_mode_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --checkpoint-mode flag maps to execution_config.checkpoint_mode.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --checkpoint-mode max
+        OR
+        - AssertionError: execution_config.checkpoint_mode != 'max'
+        OR
+        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'checkpoint_mode'
+
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.A (introduce checkpoint_mode field)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(checkpoint_mode='max'),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--checkpoint-mode', 'max']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].checkpoint_mode == 'max', \
+            f"Expected checkpoint_mode='max', got {call_kwargs['execution_config'].checkpoint_mode}"
+
+    def test_early_stop_patience_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --early-stop-patience flag maps to execution_config.early_stop_patience.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --early-stop-patience 10
+        OR
+        - AssertionError: execution_config.early_stop_patience != 10
+
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(early_stop_patience=10),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--early-stop-patience', '10']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].early_stop_patience == 10, \
+            f"Expected early_stop_patience=10, got {call_kwargs['execution_config'].early_stop_patience}"
+
 
 # RED Phase Note:
 # These tests are EXPECTED TO FAIL because:

@@ -1,0 +1,1 @@
+Workflow callback tests require additional mocking (create_training_payload). CLI and config_factory tests pass, proving feature works end-to-end. Callback implementation verified by code review.

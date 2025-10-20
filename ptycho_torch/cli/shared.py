@@ -134,6 +134,12 @@ def build_execution_config_from_args(
             num_workers=args.num_workers,
             learning_rate=args.learning_rate,
             enable_progress_bar=enable_progress_bar,
+            # Checkpoint/early-stop knobs (Phase EB1.C - ADR-003)
+            enable_checkpointing=getattr(args, 'enable_checkpointing', True),
+            checkpoint_save_top_k=getattr(args, 'checkpoint_save_top_k', 1),
+            checkpoint_monitor_metric=getattr(args, 'checkpoint_monitor_metric', 'val_loss'),
+            checkpoint_mode=getattr(args, 'checkpoint_mode', 'min'),
+            early_stop_patience=getattr(args, 'early_stop_patience', 100),
         )
     elif mode == 'inference':
         return PyTorchExecutionConfig(

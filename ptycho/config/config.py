@@ -210,7 +210,7 @@ class PyTorchExecutionConfig:
         1. Lightning Trainer knobs: accelerator, strategy, deterministic, gradient_clip_val
         2. DataLoader knobs: num_workers, pin_memory, persistent_workers, prefetch_factor
         3. Optimization knobs: learning_rate, scheduler, accum_steps
-        4. Checkpoint/logging knobs: enable_progress_bar, checkpoint_save_top_k, early_stop_patience
+        4. Checkpoint/logging knobs: enable_progress_bar, enable_checkpointing, checkpoint_save_top_k, checkpoint_monitor_metric, checkpoint_mode, early_stop_patience
         5. Inference knobs: inference_batch_size, middle_trim, pad_eval
     """
     # Lightning Trainer knobs
@@ -235,6 +235,7 @@ class PyTorchExecutionConfig:
     enable_checkpointing: bool = True  # Enable Lightning automatic checkpointing
     checkpoint_save_top_k: int = 1  # How many best checkpoints to keep
     checkpoint_monitor_metric: str = 'val_loss'  # Metric for best checkpoint selection
+    checkpoint_mode: str = 'min'  # Mode for checkpoint monitoring: 'min' (lower is better) or 'max' (higher is better)
     early_stop_patience: int = 100  # Early stopping patience epochs (hardcoded in legacy code)
 
     # Logging knobs (MLflow deferred to Phase D per open_questions.md)
@@ -252,7 +253,7 @@ class PyTorchExecutionConfig:
         Raises:
             ValueError: If validation fails with descriptive message
 
-        Validation Rules (from training_refactor.md §Component 2):
+        Validation Rules (from training_refactor.md §Component 2 + EB1.A):
             1. accelerator must be in whitelist {'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}
             2. num_workers must be non-negative
             3. learning_rate must be positive
@@ -260,6 +261,7 @@ class PyTorchExecutionConfig:
             5. accum_steps must be positive
             6. checkpoint_save_top_k must be non-negative
             7. early_stop_patience must be positive
+            8. checkpoint_mode must be in whitelist {'min', 'max'}
 
         Notes:
             - Warnings for deterministic+num_workers handled in CLI helper (build_execution_config_from_args)
@@ -307,6 +309,14 @@ class PyTorchExecutionConfig:
         if self.early_stop_patience <= 0:
             raise ValueError(
                 f"early_stop_patience must be positive, got {self.early_stop_patience}"
+            )
+
+        # Checkpoint mode whitelist
+        valid_checkpoint_modes = {'min', 'max'}
+        if self.checkpoint_mode not in valid_checkpoint_modes:
+            raise ValueError(
+                f"Invalid checkpoint_mode: '{self.checkpoint_mode}'. "
+                f"Expected one of {sorted(valid_checkpoint_modes)}."
             )
 
 

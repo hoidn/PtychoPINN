@@ -687,6 +687,43 @@ def _train_with_lightning(
         from ptycho.config.config import PyTorchExecutionConfig
         execution_config = PyTorchExecutionConfig()
 
+    # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
+    callbacks = []
+    if execution_config.enable_checkpointing:
+        from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+
+        # Determine if we have validation data to use val metrics
+        has_validation = test_container is not None
+
+        # ModelCheckpoint callback (ADR-003 Phase EB1.D)
+        # Only use val_loss monitoring if validation data is available
+        monitor_metric = execution_config.checkpoint_monitor_metric
+        if 'val_' in monitor_metric and not has_validation:
+            # Fall back to train_loss if val metric requested but no validation data
+            monitor_metric = monitor_metric.replace('val_', 'train_')
+
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=str(output_dir / "checkpoints"),
+            filename='epoch={epoch:02d}-val_loss={val_loss:.4f}' if has_validation else 'epoch={epoch:02d}',
+            monitor=monitor_metric,
+            mode=execution_config.checkpoint_mode,
+            save_top_k=execution_config.checkpoint_save_top_k,
+            save_last=True,  # Always keep last checkpoint for recovery
+            verbose=False,
+        )
+        callbacks.append(checkpoint_callback)
+
+        # EarlyStopping callback (ADR-003 Phase EB1.D)
+        # Only add early stopping if validation data is available (otherwise no metric to monitor)
+        if has_validation:
+            early_stop_callback = EarlyStopping(
+                monitor=monitor_metric,
+                mode=execution_config.checkpoint_mode,
+                patience=execution_config.early_stop_patience,
+                verbose=False,
+            )
+            callbacks.append(early_stop_callback)
+
     # Build Trainer kwargs from execution config (Phase C3.A3)
     trainer = L.Trainer(
         max_epochs=config.nepochs,
@@ -699,6 +736,7 @@ def _train_with_lightning(
         # Checkpoint/logging knobs
         enable_progress_bar=execution_config.enable_progress_bar or debug_mode,
         enable_checkpointing=execution_config.enable_checkpointing,
+        callbacks=callbacks,  # EB1.D: Pass configured callbacks to Trainer
         # Standard settings
         devices=1,  # Single device for MVP; multi-GPU later
         log_every_n_steps=1,

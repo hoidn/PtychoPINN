@@ -2750,3 +2750,241 @@ class TestInferenceExecutionConfig:
                 )
             else:
                 raise
+
+
+class TestLightningCheckpointCallbacks:
+    """
+    Phase EB1.E RED Tests: Verify Lightning checkpoint/early-stop callbacks are configured.
+
+    Requirements (ADR-003 Phase EB1.D):
+    - _train_with_lightning MUST instantiate ModelCheckpoint callback when enable_checkpointing=True
+    - ModelCheckpoint MUST use execution_config.checkpoint_save_top_k, checkpoint_monitor_metric, checkpoint_mode
+    - _train_with_lightning MUST instantiate EarlyStopping callback with execution_config.early_stop_patience
+    - Callbacks MUST be passed to Lightning Trainer.fit()
+
+    Expected RED Behavior:
+    - Tests FAIL because _train_with_lightning does not instantiate ModelCheckpoint/EarlyStopping
+    - Tests FAIL because callback configuration does not respect execution_config fields
+    - AttributeError if checkpoint_mode field doesn't exist yet
+
+    References:
+    - input.md EB1.E (checkpoint controls RED tests)
+    - plans/.../phase_e_execution_knobs/plan.md §EB1.D (Lightning callback integration)
+    """
+
+    @pytest.fixture
+    def minimal_training_config(self):
+        """Minimal TrainingConfig for callback tests."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        model_config = ModelConfig(N=64, gridsize=1, model_type='pinn')
+        return TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            n_groups=10,
+            batch_size=4,
+            nepochs=2,
+            neighbor_count=1,
+            nphotons=1e9,
+        )
+
+    def test_model_checkpoint_callback_configured(self, minimal_training_config, monkeypatch):
+        """
+        RED Test: _train_with_lightning instantiates ModelCheckpoint with execution_config values.
+
+        Expected RED Failure:
+        - ModelCheckpoint not instantiated (no callback wiring yet)
+        OR
+        - ModelCheckpoint instantiated but doesn't respect execution_config fields
+        OR
+        - AttributeError: checkpoint_mode field doesn't exist
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+
+        try:
+            from lightning.pytorch.callbacks import ModelCheckpoint
+        except ImportError:
+            pytest.skip("Lightning not available")
+
+        # Create execution config with checkpoint overrides
+        exec_config = PyTorchExecutionConfig(
+            enable_checkpointing=True,
+            checkpoint_save_top_k=3,
+            checkpoint_monitor_metric='train_loss',
+            checkpoint_mode='max',
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+
+        # Mock ModelCheckpoint to spy on instantiation
+        mock_checkpoint_cls = MagicMock(spec=ModelCheckpoint)
+        mock_checkpoint_instance = MagicMock()
+        mock_checkpoint_cls.return_value = mock_checkpoint_instance
+
+        # Mock Trainer to avoid actual training
+        mock_trainer_cls = MagicMock()
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+
+        # Mock data containers to avoid actual data loading
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()
+
+        with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
+             patch('lightning.Trainer', mock_trainer_cls):
+            from ptycho_torch.workflows.components import _train_with_lightning
+
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about callback setup
+
+        # GREEN Phase Assertions:
+        # 1. ModelCheckpoint was instantiated
+        assert mock_checkpoint_cls.called, \
+            "ModelCheckpoint not instantiated (_train_with_lightning does not wire checkpoint callback)"
+
+        # 2. ModelCheckpoint was configured with execution_config values
+        call_kwargs = mock_checkpoint_cls.call_args.kwargs
+        assert call_kwargs.get('save_top_k') == 3, \
+            f"Expected save_top_k=3, got {call_kwargs.get('save_top_k')}"
+        assert call_kwargs.get('monitor') == 'train_loss', \
+            f"Expected monitor='train_loss', got {call_kwargs.get('monitor')}"
+        assert call_kwargs.get('mode') == 'max', \
+            f"Expected mode='max', got {call_kwargs.get('mode')}"
+
+    def test_early_stopping_callback_configured(self, minimal_training_config, monkeypatch):
+        """
+        RED Test: _train_with_lightning instantiates EarlyStopping with execution_config values.
+
+        Expected RED Failure:
+        - EarlyStopping not instantiated (no callback wiring yet)
+        OR
+        - EarlyStopping instantiated but doesn't respect early_stop_patience
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+
+        try:
+            from lightning.pytorch.callbacks import EarlyStopping
+        except ImportError:
+            pytest.skip("Lightning not available")
+
+        # Create execution config with early stopping override
+        exec_config = PyTorchExecutionConfig(
+            early_stop_patience=5,
+            checkpoint_monitor_metric='val_loss',
+            checkpoint_mode='min',
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+
+        # Mock EarlyStopping to spy on instantiation
+        mock_early_stop_cls = MagicMock(spec=EarlyStopping)
+        mock_early_stop_instance = MagicMock()
+        mock_early_stop_cls.return_value = mock_early_stop_instance
+
+        # Mock Trainer to avoid actual training
+        mock_trainer_cls = MagicMock()
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+
+        # Mock data containers
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()
+
+        with patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
+             patch('lightning.Trainer', mock_trainer_cls):
+            from ptycho_torch.workflows.components import _train_with_lightning
+
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about callback setup
+
+        # GREEN Phase Assertions:
+        # 1. EarlyStopping was instantiated
+        assert mock_early_stop_cls.called, \
+            "EarlyStopping not instantiated (_train_with_lightning does not wire early stopping callback)"
+
+        # 2. EarlyStopping was configured with execution_config patience
+        call_kwargs = mock_early_stop_cls.call_args.kwargs
+        assert call_kwargs.get('patience') == 5, \
+            f"Expected patience=5, got {call_kwargs.get('patience')}"
+        assert call_kwargs.get('monitor') == 'val_loss', \
+            f"Expected monitor='val_loss', got {call_kwargs.get('monitor')}"
+        assert call_kwargs.get('mode') == 'min', \
+            f"Expected mode='min', got {call_kwargs.get('mode')}"
+
+    def test_disable_checkpointing_skips_callbacks(self, minimal_training_config, monkeypatch):
+        """
+        RED Test: When enable_checkpointing=False, ModelCheckpoint/EarlyStopping are NOT instantiated.
+
+        Expected RED Failure:
+        - Callbacks instantiated even when checkpointing disabled
+        OR
+        - Logic to skip callbacks doesn't exist yet
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+
+        try:
+            from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+        except ImportError:
+            pytest.skip("Lightning not available")
+
+        # Create execution config with checkpointing disabled
+        exec_config = PyTorchExecutionConfig(
+            enable_checkpointing=False,  # DISABLE checkpointing
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+
+        # Mock callbacks to spy on instantiation
+        mock_checkpoint_cls = MagicMock(spec=ModelCheckpoint)
+        mock_early_stop_cls = MagicMock(spec=EarlyStopping)
+
+        # Mock Trainer
+        mock_trainer_cls = MagicMock()
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+
+        # Mock data containers
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()
+
+        with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
+             patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
+             patch('lightning.Trainer', mock_trainer_cls):
+            from ptycho_torch.workflows.components import _train_with_lightning
+
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass
+
+        # GREEN Phase Assertions:
+        # When checkpointing disabled, callbacks should NOT be instantiated
+        assert not mock_checkpoint_cls.called, \
+            "ModelCheckpoint instantiated despite enable_checkpointing=False"
+        assert not mock_early_stop_cls.called, \
+            "EarlyStopping instantiated despite enable_checkpointing=False"

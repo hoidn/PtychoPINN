@@ -592,6 +592,72 @@ class TestExecutionConfigOverrides:
         assert 'accelerator' in payload.overrides_applied or payload.execution_config.accelerator == 'cpu'
         assert 'num_workers' in payload.overrides_applied or payload.execution_config.num_workers == 4
 
+    def test_checkpoint_knobs_propagate_through_factory(self, mock_train_npz, temp_output_dir):
+        """
+        RED Test: Checkpoint control knobs propagate from execution_config to payload.
+
+        Expected RED Failure:
+        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'checkpoint_mode'
+        OR
+        - AssertionError: Checkpoint fields do not match expected values
+
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.C (factory wiring)
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        custom_exec_cfg = PyTorchExecutionConfig(
+            enable_checkpointing=False,
+            checkpoint_save_top_k=3,
+            checkpoint_monitor_metric='train_loss',
+            checkpoint_mode='max',
+            early_stop_patience=10,
+        )
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+            execution_config=custom_exec_cfg,
+        )
+
+        # GREEN phase assertions:
+        exec_cfg = payload.execution_config
+        assert exec_cfg.enable_checkpointing is False
+        assert exec_cfg.checkpoint_save_top_k == 3
+        assert exec_cfg.checkpoint_monitor_metric == 'train_loss'
+        assert exec_cfg.checkpoint_mode == 'max'
+        assert exec_cfg.early_stop_patience == 10
+
+    def test_checkpoint_defaults_respected(self, mock_train_npz, temp_output_dir):
+        """
+        RED Test: Checkpoint knobs use dataclass defaults when not overridden.
+
+        Expected RED Failure:
+        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'checkpoint_mode'
+        OR
+        - AssertionError: Default values do not match expected
+
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.A (schema audit)
+        """
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+
+        # GREEN phase assertions (verify defaults from PyTorchExecutionConfig):
+        exec_cfg = payload.execution_config
+        assert exec_cfg.enable_checkpointing is True  # Default per dataclass
+        assert exec_cfg.checkpoint_save_top_k == 1  # Default per dataclass
+        assert exec_cfg.checkpoint_monitor_metric == 'val_loss'  # Default per dataclass
+        assert hasattr(exec_cfg, 'checkpoint_mode')  # New field in EB1.A
+        assert exec_cfg.checkpoint_mode == 'min'  # Expected default for loss metrics
+        assert exec_cfg.early_stop_patience == 100  # Default per dataclass
+
 
 # ============================================================================
 # Test Category 7: Probe Size Inference Helper
