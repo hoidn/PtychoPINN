@@ -154,6 +154,78 @@ class InferenceConfig:
             # Use object.__setattr__ to modify dataclass
             object.__setattr__(self, 'n_groups', self.n_images)
 
+@dataclass
+class PyTorchExecutionConfig:
+    """
+    PyTorch-specific execution configuration for runtime behavior control.
+
+    This configuration controls PyTorch Lightning execution knobs, dataloader settings,
+    and optimization parameters that do NOT exist in TensorFlow canonical configs.
+    These fields are backend-specific and should not be bridged to params.cfg via
+    update_legacy_dict (CONFIG-001 applies only to canonical configs).
+
+    Design Context:
+        - Introduced in ADR-003 Phase C1 to centralize execution-only parameters
+        - Fields sourced from override_matrix.md §5 (PyTorch Execution Configuration)
+        - Priority level 2 in override precedence (between explicit overrides and CLI defaults)
+        - Referenced by: ptycho_torch/config_factory.py (factory payload construction)
+        - Consumed by: ptycho_torch/workflows/components.py (Lightning Trainer + DataLoader)
+
+    Usage:
+        >>> from ptycho.config.config import PyTorchExecutionConfig
+        >>> exec_cfg = PyTorchExecutionConfig(
+        ...     accelerator='cpu',
+        ...     deterministic=True,
+        ...     num_workers=4,
+        ...     enable_progress_bar=False,
+        ... )
+        >>> # Pass to factory:
+        >>> payload = create_training_payload(..., execution_config=exec_cfg)
+
+    Policy Compliance:
+        - POLICY-001: PyTorch >=2.2 required for all ptycho_torch/ code
+        - CONFIG-001: This config is execution-only; does NOT populate params.cfg
+
+    Field Categories:
+        1. Lightning Trainer knobs: accelerator, strategy, deterministic, gradient_clip_val
+        2. DataLoader knobs: num_workers, pin_memory, persistent_workers, prefetch_factor
+        3. Optimization knobs: learning_rate, scheduler, accum_steps
+        4. Checkpoint/logging knobs: enable_progress_bar, checkpoint_save_top_k, early_stop_patience
+        5. Inference knobs: inference_batch_size, middle_trim, pad_eval
+    """
+    # Lightning Trainer knobs
+    accelerator: str = 'cpu'  # Options: 'cpu', 'gpu', 'tpu', 'mps', 'auto'
+    strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
+    deterministic: bool = True  # Enforce reproducibility (seed_everything + deterministic mode)
+    gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
+    accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)
+
+    # DataLoader knobs
+    num_workers: int = 0  # Number of dataloader worker processes (0 = main process only; CPU-safe)
+    pin_memory: bool = False  # Pin memory for faster CPU→GPU transfer (GPU-only; False for CPU safety)
+    persistent_workers: bool = False  # Keep workers alive between epochs (requires num_workers > 0)
+    prefetch_factor: Optional[int] = None  # Batches to prefetch per worker (None = default 2)
+
+    # Optimization knobs
+    learning_rate: float = 1e-3  # Optimizer learning rate (hardcoded in legacy code)
+    scheduler: str = 'Default'  # LR scheduler type: 'Default', 'Exponential', 'MultiStage'
+
+    # Checkpoint/logging knobs
+    enable_progress_bar: bool = False  # Show training progress bar (derived from config.debug in legacy code)
+    enable_checkpointing: bool = True  # Enable Lightning automatic checkpointing
+    checkpoint_save_top_k: int = 1  # How many best checkpoints to keep
+    checkpoint_monitor_metric: str = 'val_loss'  # Metric for best checkpoint selection
+    early_stop_patience: int = 100  # Early stopping patience epochs (hardcoded in legacy code)
+
+    # Logging knobs (MLflow deferred to Phase D per open_questions.md)
+    logger_backend: Optional[str] = None  # Experiment tracking backend: None, 'tensorboard', 'wandb', 'mlflow'
+
+    # Inference-specific knobs
+    inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
+    middle_trim: int = 0  # Inference trimming parameter (not yet implemented)
+    pad_eval: bool = False  # Padding for evaluation (not yet implemented)
+
+
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
     if config.gridsize <= 0:

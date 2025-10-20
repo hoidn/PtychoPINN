@@ -61,14 +61,9 @@ from ptycho_torch.config_params import (
     InferenceConfig as PTInferenceConfig,
 )
 
-# Import for Option A: PyTorchExecutionConfig will be added to ptycho.config.config
+# Import PyTorchExecutionConfig (Option A canonical location per ADR-003 Phase C1)
 # Per supervisor decision at 2025-10-19T234458Z (factory_design.md §2.2)
-# For now, using type annotation only to avoid import error during RED phase
-try:
-    from ptycho.config.config import PyTorchExecutionConfig
-except ImportError:
-    # Placeholder for RED phase; Option A implementation pending in ptycho/config/config.py
-    PyTorchExecutionConfig = None  # type: ignore
+from ptycho.config.config import PyTorchExecutionConfig
 
 
 @dataclass
@@ -85,7 +80,7 @@ class TrainingPayload:
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_model_config: PTModelConfig  # PyTorch singleton
     pt_training_config: PTTrainingConfig  # PyTorch singleton
-    execution_config: Any  # PyTorchExecutionConfig (type: ignore during RED phase)
+    execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
@@ -102,7 +97,7 @@ class InferencePayload:
     tf_inference_config: TFInferenceConfig  # Canonical TensorFlow format
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_inference_config: PTInferenceConfig  # PyTorch singleton
-    execution_config: Any  # PyTorchExecutionConfig (type: ignore during RED phase)
+    execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
@@ -110,7 +105,7 @@ def create_training_payload(
     train_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    execution_config: Optional[PyTorchExecutionConfig] = None,
 ) -> TrainingPayload:
     """
     Create complete training configuration payload.
@@ -260,13 +255,26 @@ def create_training_payload(
     # Step 5: Populate params.cfg (CONFIG-001 compliance checkpoint)
     populate_legacy_params(tf_training_config)
 
-    # Step 6: Return TrainingPayload with all config objects + audit trail
+    # Step 6: Construct execution config (Phase C2.B1+C2.B2)
+    # If execution_config not provided, instantiate default PyTorchExecutionConfig
+    if execution_config is None:
+        execution_config = PyTorchExecutionConfig()
+
+    # Merge execution knobs into overrides_applied audit trail (Phase C2.B2)
+    # Record applied execution knobs for transparency
+    overrides_applied['accelerator'] = execution_config.accelerator
+    overrides_applied['deterministic'] = execution_config.deterministic
+    overrides_applied['num_workers'] = execution_config.num_workers
+    overrides_applied['enable_progress_bar'] = execution_config.enable_progress_bar
+    overrides_applied['learning_rate'] = execution_config.learning_rate
+
+    # Step 7: Return TrainingPayload with all config objects + audit trail
     return TrainingPayload(
         tf_training_config=tf_training_config,
         pt_data_config=pt_data_config,
         pt_model_config=pt_model_config,
         pt_training_config=pt_training_config,
-        execution_config=execution_config,  # Pass through (may be None)
+        execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )
 
@@ -276,7 +284,7 @@ def create_inference_payload(
     test_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    execution_config: Optional[PyTorchExecutionConfig] = None,
 ) -> InferencePayload:
     """
     Create complete inference configuration payload.
@@ -419,12 +427,23 @@ def create_inference_payload(
     # Step 5: Populate params.cfg (CONFIG-001 compliance checkpoint)
     populate_legacy_params(tf_inference_config)
 
-    # Step 6: Return InferencePayload with all config objects + audit trail
+    # Step 6: Construct execution config (Phase C2.B1+C2.B2)
+    # If execution_config not provided, instantiate default PyTorchExecutionConfig
+    if execution_config is None:
+        execution_config = PyTorchExecutionConfig()
+
+    # Merge execution knobs into overrides_applied audit trail (Phase C2.B2)
+    # Record applied execution knobs for transparency
+    overrides_applied['accelerator'] = execution_config.accelerator
+    overrides_applied['num_workers'] = execution_config.num_workers
+    overrides_applied['inference_batch_size'] = execution_config.inference_batch_size
+
+    # Step 7: Return InferencePayload with all config objects + audit trail
     return InferencePayload(
         tf_inference_config=tf_inference_config,
         pt_data_config=pt_data_config,
         pt_inference_config=pt_inference_config,
-        execution_config=execution_config,  # Pass through (may be None)
+        execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )
 

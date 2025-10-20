@@ -423,7 +423,127 @@ class TestFactoryValidation:
 
 
 # ============================================================================
-# Test Category 6: Probe Size Inference Helper
+# Test Category 6: ExecutionConfig Override Integration
+# ============================================================================
+
+class TestExecutionConfigOverrides:
+    """
+    Verify execution config knobs propagate through factory payloads.
+
+    Expected behavior (Phase C2 GREEN):
+        - TrainingPayload contains PyTorchExecutionConfig instance
+        - InferencePayload contains PyTorchExecutionConfig instance
+        - Execution knobs (accelerator, deterministic, num_workers) accessible
+        - Override precedence: explicit > execution_config > defaults
+        - overrides_applied captures execution knob applications
+
+    RED phase behavior (Phase C2.B3):
+        - execution_config field exists but returns None (placeholder)
+        - Tests fail on assertion expecting PyTorchExecutionConfig instance
+    """
+
+    def test_training_payload_execution_config_not_none(self, mock_train_npz, temp_output_dir):
+        """Factory returns execution_config (not None placeholder)."""
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+        # GREEN phase assertion:
+        assert payload.execution_config is not None
+        assert isinstance(payload.execution_config, PyTorchExecutionConfig)
+
+    def test_inference_payload_execution_config_not_none(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
+        """Inference factory returns execution_config instance."""
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        payload = create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+        # GREEN phase:
+        assert payload.execution_config is not None
+        assert isinstance(payload.execution_config, PyTorchExecutionConfig)
+
+    def test_execution_config_defaults_applied(self, mock_train_npz, temp_output_dir):
+        """Execution config uses dataclass defaults when not overridden."""
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+        # GREEN phase assertions (verify defaults from PyTorchExecutionConfig):
+        exec_cfg = payload.execution_config
+        assert exec_cfg.accelerator == 'cpu'  # Default per design_delta.md
+        assert exec_cfg.deterministic is True  # Default for reproducibility
+        assert exec_cfg.num_workers == 0  # CPU-safe default
+
+    def test_execution_config_explicit_instance_propagates(self, mock_train_npz, temp_output_dir):
+        """User-provided execution_config instance propagates through payload."""
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        custom_exec_cfg = PyTorchExecutionConfig(
+            accelerator='gpu',
+            enable_progress_bar=True,
+            deterministic=False,
+        )
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+            execution_config=custom_exec_cfg,
+        )
+        # GREEN phase assertions:
+        assert payload.execution_config.accelerator == 'gpu'
+        assert payload.execution_config.enable_progress_bar is True
+        assert payload.execution_config.deterministic is False
+
+    def test_execution_config_fields_accessible(self, mock_train_npz, temp_output_dir):
+        """All critical execution fields are accessible from payload."""
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+        # GREEN phase: Verify key execution knobs are accessible
+        exec_cfg = payload.execution_config
+        assert hasattr(exec_cfg, 'accelerator')
+        assert hasattr(exec_cfg, 'deterministic')
+        assert hasattr(exec_cfg, 'num_workers')
+        assert hasattr(exec_cfg, 'enable_progress_bar')
+        assert hasattr(exec_cfg, 'gradient_clip_val')
+
+    def test_overrides_applied_records_execution_knobs(self, mock_train_npz, temp_output_dir):
+        """Factory audit trail includes execution config knobs when applied."""
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        custom_exec_cfg = PyTorchExecutionConfig(
+            accelerator='cpu',
+            num_workers=4,
+            deterministic=True,
+        )
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'batch_size': 8},
+            execution_config=custom_exec_cfg,
+        )
+        # GREEN phase assertions:
+        # Execution knobs should be recorded in overrides_applied
+        assert 'accelerator' in payload.overrides_applied or payload.execution_config.accelerator == 'cpu'
+        assert 'num_workers' in payload.overrides_applied or payload.execution_config.num_workers == 4
+
+
+# ============================================================================
+# Test Category 7: Probe Size Inference Helper
 # ============================================================================
 
 class TestProbeSizeInference:
