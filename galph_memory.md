@@ -1271,3 +1271,15 @@
   - docs/fix_plan.md updated (Attempt #8) capturing planning outcomes; new plan cross-referenced for Ralph.
 - Next steps for Ralph: Follow `phase_b3_implementation/plan.md` Phase B3.A tasks — implement training payload + params bridge, capture targeted GREEN log, then proceed to inference helpers per plan.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T004233Z: Phase C planning package
+- Focus issue: ADR-003-BACKEND-API Phase C — introduce PyTorchExecutionConfig + workflow refactor handoff
+- Action type: Planning
+- Mode: Docs
+- Context review: Confirmed dependencies satisfied (INTEGRATE-PYTORCH-001 phases complete) and audited Ralph’s B3 GREEN artefacts (`phase_b3_implementation/{summary.md,pytest_factory_green.log}`); noted root-level `train_debug.log` generated during full suite.
+- Actions this loop:
+  - Marked implementation plan B3 row `[x]` and refreshed Phase C rows to reference new guidance.
+  - Authored Phase C execution plan + summary at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T004233Z/phase_c_execution/{plan.md,summary.md}` with detailed checklists for C1–C4 (dataclass, factory wiring, workflow integration, CLI exposure).
+  - Updated docs/fix_plan.md (Attempt #10) with planning outcome + log relocation reminder; rewrote `input.md` (Mode=TDD) directing Ralph to execute C1 tasks and move `train_debug.log` into the plan directory.
+- Open items: Await RED→GREEN evidence for tests/torch/test_execution_config.py and relocation of `train_debug.log` under `phase_c_execution/`.
+- <Action State>: [ready_for_implementation]
