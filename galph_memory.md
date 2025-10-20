@@ -1539,3 +1539,15 @@
   - Logged Attempt #39 in `docs/fix_plan.md` capturing planning deliverables.
   - Reissued `input.md` directing Ralph to execute Phase A (baseline) tasks with artifact hub `2025-10-20T131500Z/phase_d_cli_wrappers_baseline/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T105324Z: Phase D.B steering (training CLI thin wrapper)
+- Focus issue: ADR-003-BACKEND-API Phase D — Training CLI thin wrapper (Plan B1–B3)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes:
+  - Reviewed baseline artefacts (`...131500Z/phase_d_cli_wrappers_baseline/{baseline.md,design_notes.md}`) and confirmed prerequisites satisfied.
+  - Expanded `phase_d_cli_wrappers/plan.md` B1 guidance to capture RawData ownership, helper placement, accelerator deprecation messaging, and MLflow toggle expectations for the upcoming blueprint.
+  - Added Attempt #41 in `docs/fix_plan.md` documenting the plan refresh and new steering instructions.
+  - Rewrote `input.md` to direct `training_refactor.md` blueprint + RED pytest coverage with artefacts under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/`.
+- Follow-up for Ralph: produce the blueprint, add RED tests/log, update plan states, and log the attempt per Do Now.
+- <Action State>: [ready_for_implementation]

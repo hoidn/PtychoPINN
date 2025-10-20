@@ -1,50 +1,49 @@
-Summary: Capture Phase D baseline evidence and design decisions before refactoring the PyTorch CLIs.
-Mode: Docs
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D.A Baseline
+Summary: Draft the Phase D training CLI thin-wrapper blueprint and capture RED pytest coverage before refactoring.
+Mode: TDD
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D.B (Training CLI thin wrapper)
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/{baseline.md,pytest_cli_train_baseline.log,pytest_cli_inference_baseline.log,design_notes.md}
+Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv (expected RED after new tests)
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/{training_refactor.md,pytest_cli_train_thin_red.log,summary.md}
 
 Do Now:
-1. ADR-003-BACKEND-API A1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:13 — Inventory the current training/inference CLI call graph and save findings to baseline.md; tests: none
-2. ADR-003-BACKEND-API A2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:14 — Run the documented CLI pytest selectors and archive logs to the artifact hub; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv
-3. ADR-003-BACKEND-API A3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:15 — Author design_notes.md covering legacy flag handling decisions and deprecation strategy; tests: none
+1. ADR-003-BACKEND-API B1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:24 — Author `training_refactor.md` (store in the new artifact hub) detailing helper/module layout, delegation flow, RawData ownership, accelerator warning strategy, and `disable_mlflow` handling; tests: none
+2. ADR-003-BACKEND-API B2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:25 — Extend `tests/torch/test_cli_train_torch.py` with RED coverage for the thin wrapper (new helper dispatch, legacy warning, payload handoff) and run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv || true`, teeing output to `pytest_cli_train_thin_red.log`; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv
+3. ADR-003-BACKEND-API plan sync @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:24+25 — Update checklist states (B1→`[x]`, B2→`[P]` or `[x]` per outcomes), capture loop notes in `summary.md`, and append the Attempt entry in docs/fix_plan.md referencing the new artifact hub; tests: none
 
-If Blocked: Record the blocker in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/blocker.md, revert any partial plan checklist updates, and note the issue in docs/fix_plan.md before stopping.
+If Blocked: Capture the blocker in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/blocker.md`, roll back any premature checklist changes, and log the issue in docs/fix_plan.md before pausing.
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:6 — Phase D requires baseline inventory before refactors can start.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123500Z/phase_c4f_closeout/summary.md:214 — Phase D prerequisites call for a call-graph snapshot and legacy flag decisions.
-- specs/ptychodus_api_spec.md:190 — Backend routing/CLI contracts must remain intact during refactor.
-- docs/workflows/pytorch.md:420 — Current CLI usage expectations provide the comparison target for thin wrappers.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:22-27 — Phase D.B requires a blueprint and RED tests before code edits.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/baseline.md:10-76 — Baseline call graph highlights duplicated RawData loading and execution-config logic the blueprint must address.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/design_notes.md:9-78 — Legacy flag decisions (D1–D8) must be encoded in the plan and exercised by new tests.
+- specs/ptychodus_api_spec.md:191-201 — Training workflow contract demands the CLI continue delegating to canonical workflows post-refactor.
+- docs/workflows/pytorch.md:387-405 — Backend routing rules guide accelerator/CONFIG-001 handling for the redesigned entry points.
 
 How-To Map:
-- `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline`
-- For A1, inspect `ptycho_torch/train.py` and `ptycho_torch/inference.py`, optionally run `python -m scripts.tools.print_import_tree ptycho_torch.train` and `python -m scripts.tools.print_import_tree ptycho_torch.inference`; capture module/function flow with file:line anchors in `baseline.md`.
-- For A2, run the selectors with logging:  
-  `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/pytest_cli_train_baseline.log`  
-  `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/pytest_cli_inference_baseline.log`
-- Summarise assumptions discovered during A2 (mock usage, fixtures, skip markers) in `baseline.md`.
-- For A3, outline how `--device`, `--accelerator`, and `--disable_mlflow` should behave post-refactor; tag decisions that require Phase E governance in `design_notes.md`.
-- Update the plan checklist states (A1–A3 → `[x]`) once artifacts are stored and notes complete.
+- `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training`
+- For B1, structure `training_refactor.md` with: overview, helper/module diagram, call flow (legacy vs new), hand-off to `run_cdi_example_torch`, accelerator resolution helper plan, MLflow toggle mapping, open questions list.
+- For B2, add pytest coverage (native pytest style) to `tests/torch/test_cli_train_torch.py`, relying on mocks/fixtures to assert helper dispatch and warnings. Keep implementation TODOs minimal.
+- Run the selector via `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/pytest_cli_train_thin_red.log || true` so failing tests remain visible.
+- Summarise outputs and open issues in `summary.md` (include decisions, failing assertion highlights, follow-up actions).
+- Update plan checklist cells directly in `phase_d_cli_wrappers/plan.md` and log the attempt in `docs/fix_plan.md` with artifact references.
 
 Pitfalls To Avoid:
-- No production code changes in this loop.
-- Keep all logs and notes inside the specified artifact directory.
-- Do not modify or re-run integration fixture generators; baseline only.
-- Preserve existing pytest skip/xfail markers when running selectors.
-- Note any unexpected test failures immediately instead of masking them.
-- Do not delete or relocate legacy CLI descriptions before decisions are logged.
-- Avoid introducing new TODO headings; log open questions in design_notes.md instead.
-- Maintain CONFIG-001 mindset when considering future refactors (update_legacy_dict ordering).
-- Run commands from repository root to keep relative paths valid.
-- Clean up temporary directories created during inspection (e.g., `__pycache__`).
+- Do not modify production CLI code in this loop—focus on docs and tests only.
+- Keep new tests RED; avoid temporary hotfixes that accidentally make them pass.
+- Store every artifact (md, log) in the specified timestamped directory; no repo-root debris.
+- Maintain pytest style (no unittest mix-ins, no shared state across tests).
+- Ensure new tests remain deterministic (set fixtures/seeds explicitly if needed).
+- Reference helper names consistently with the blueprint to avoid churn later.
+- Document any lingering legacy dependencies instead of removing them prematurely.
+- Honour CONFIG-001 ordering in design—call it out where the blueprint expects `update_legacy_dict`.
+- Record deprecation warnings in tests without asserting on exact strings unless stabilised.
+- Clean tmp outputs (if any) before finishing the loop.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md
-- plans/active/ADR-003-BACKEND-API/implementation.md:42
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123500Z/phase_c4f_closeout/summary.md:182
-- specs/ptychodus_api_spec.md:178
-- docs/workflows/pytorch.md:398
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:22-52
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/baseline.md:10-76
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/design_notes.md:20-118
+- specs/ptychodus_api_spec.md:191-205
+- docs/workflows/pytorch.md:387-421
 
-Next Up: Begin Phase B (training CLI thin wrapper) once baseline evidence and design decisions are locked.
+Next Up: Phase D.B3 implementation (thin wrapper refactor + GREEN tests) once the blueprint and RED coverage are in place.
