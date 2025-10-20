@@ -1,52 +1,47 @@
-Summary: Implement the Phase D training CLI thin wrapper and turn RED tests GREEN using the new helper module.
-Mode: TDD
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D.B (Training CLI thin wrapper, B3 implementation)
+Summary: Refresh training CLI docs/hygiene after thin-wrapper landing.
+Mode: Docs
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D.B (Training CLI thin wrapper, B4 documentation + hygiene)
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_shared.py -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py -k train_cli -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/{summary.md,pytest_cli_shared_green.log,pytest_cli_train_green.log,pytest_workflows_train_cli_green.log}
+Mapped tests: none — docs-only
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/{summary.md}
 
 Do Now:
-1. ADR-003-BACKEND-API B3.a @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:32 — Create `ptycho_torch/cli/__init__.py` and `ptycho_torch/cli/shared.py` implementing `resolve_accelerator`, `build_execution_config_from_args`, and `validate_paths` per `training_refactor.md`; tests: none
-2. ADR-003-BACKEND-API B3.b+B3.c @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:33+34 — Extend `PyTorchExecutionConfig.__post_init__()` with new validation rules and refactor `ptycho_torch/train.py` CLI to use helpers (`--quiet` alias, deprecated `--device` messaging, helper calls); tests: none
-3. ADR-003-BACKEND-API B3.d @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:35 — Run and capture GREEN selectors (tee to artifact hub):
-   - `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_shared.py -vv`
-   - `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -vv`
-   - `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py -k train_cli -vv`
-4. ADR-003-BACKEND-API B3.e @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:36 — Update plan checklist states, refresh `summary.md`, append Attempt entry in docs/fix_plan.md, and write loop summary (`summary.md`) referencing GREEN logs and code deltas; tests: none
+1. ADR-003-BACKEND-API B4 (docs refresh) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:37 — Update `docs/workflows/pytorch.md` CLI sections with the new `--quiet` behaviour, `--device` deprecation messaging, and helper-based flow; revise `tests/torch/test_cli_shared.py` module docstring/comments to reflect current GREEN status; tests: none
+2. ADR-003-BACKEND-API B4 (hygiene + ledger) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:37 — Move `train_debug.log` into the new artifact hub, capture a brief summary.md for the doc/hygiene updates, mark implementation.md D1 row `[x]`, and append Attempt #44 in docs/fix_plan.md; tests: none
 
-If Blocked: Capture the blocker in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/blocker.md`, revert any premature checklist changes, and note the issue inside docs/fix_plan.md before pausing.
+If Blocked: Document the blocker in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/blocker.md`, keep B4 `[ ]`, and log the stall in docs/fix_plan.md before pausing.
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:32-36 — B3 checklist defines helper module scope, validation updates, CLI refactor, and test evidence required for Phase D.B completion.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/training_refactor.md:120-356 — Blueprint captures exact helper semantics, warning behaviour, and RawData ownership choices driving the implementation.
-- tests/torch/test_cli_shared.py:1 — Newly added RED tests encode the thin-wrapper acceptance criteria and must pass in this loop.
-- specs/ptychodus_api_spec.md:191-210 — CLI contract and CONFIG-001 requirements demand legacy bridge order and backend routing remain intact.
-- docs/workflows/pytorch.md:387-421 — Workflow guide documents accelerator flag usage and deprecation messaging that must remain consistent post-refactor.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:37 — B4 exit criteria require doc updates plus artifact hygiene before D1 can close.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/summary.md — Next steps section lists documentation and log relocation as immediate follow-ups.
+- plans/active/ADR-003-BACKEND-API/implementation.md:71 — D1 row remains `[ ]` until docs + hygiene land; this loop should flip it.
+- tests/torch/test_cli_shared.py:1 — Docstring still describes RED scaffolds; needs alignment with GREEN helper coverage.
+- specs/ptychodus_api_spec.md:206 — CLI contract requires documenting accelerator/legacy flag behaviour consistently across guides.
 
 How-To Map:
-- Create artifact hub: `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl`.
-- Implement helpers in `ptycho_torch/cli/shared.py`: rehouse accelerator/device resolution, path validation (with `Path.mkdir(parents=True, exist_ok=True)`), and execution config construction using `PyTorchExecutionConfig`. Ensure warnings align with blueprint (DeprecationWarning for `--device`, UserWarning for deterministic+num_workers>0) and keep functions pure.
-- Update `PyTorchExecutionConfig.__post_init__()` (`ptycho/config/config.py`) to enforce accelerator whitelist (`{"auto","cpu","gpu","cuda","tpu","mps"}`), non-negative workers, positive learning rates/batch sizes, and raise `ValueError` with clear messages when violated.
-- Refactor `ptycho_torch/train.py`: add `--quiet` argparse flag (alias for legacy `--disable_mlflow`), annotate `--device` help text with deprecation notice, replace inline accelerator/path logic with helper calls, ensure CONFIG-001 ordering (`update_legacy_dict` before data loading) remains untouched, retain RawData loading (Option A), and route helper outputs into factory payload.
-- After implementation, run each mapped pytest command with `CUDA_VISIBLE_DEVICES=""` and `tee` into artifact hub (`pytest_cli_shared_green.log`, `pytest_cli_train_green.log`, `pytest_workflows_train_cli_green.log`).
-- Update `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md` B3.a–B3.d to `[x]`, log outcomes in the new `summary.md`, and append Attempt entry in docs/fix_plan.md referencing artifact paths.
+- `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs`
+- Update `docs/workflows/pytorch.md` §§3–5 & CLI examples to mention `--quiet`, `--disable_mlflow` deprecation, and helper-based configuration flow; cite helper path `ptycho_torch/cli/shared.py`.
+- In `tests/torch/test_cli_shared.py`, replace RED-phase language with notes that these were formerly RED and now guard helper behaviour; keep pytest style intact.
+- Move `train_debug.log` → `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/train_debug.log`.
+- After edits, update `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/summary.md` with doc changes + hygiene actions, set implementation.md D1 `[x]`, and record Attempt #44 in docs/fix_plan.md referencing the new artifact path.
+- No pytest runs required this loop (docs/hygiene only).
 
 Pitfalls To Avoid:
-- Do not remove RawData loading yet—Option A keeps it inside the CLI for Phase D.
-- Keep helper functions side-effect free beyond warnings; no direct logging or filesystem writes.
-- Preserve CONFIG-001 order (`update_legacy_dict` call sequence) and backend routing logic.
-- Maintain pytest style in existing tests—avoid introducing `unittest.TestCase` or shared state mutations.
-- Ensure help text/deprecation warnings match blueprint wording to keep docs aligned.
-- Avoid broad try/except around helper imports; let failures surface for GREEN tests.
-- Don’t run full pytest suite; capture only the mapped selectors.
-- Store all artifacts under the specified timestamped directory—no repo-root logs.
-- Keep CLI default behaviours identical (accelerator default `cpu`, deterministic `True`).
+- Don’t leave `train_debug.log` at repo root after this loop.
+- Keep doc changes aligned with CONFIG-001 ordering; don’t imply helpers bypass update_legacy_dict.
+- Preserve pytest-native structure in tests; avoid reintroducing unittest mixins.
+- Refrain from editing core model/workflow logic (only docs + comments this loop).
+- Maintain artifact naming under the timestamped reports directory (no crosstalk with prior hubs).
+- When moving logs, use `mv` instead of re-creating to keep timestamps intact.
+- Keep doc text consistent with `specs/ptychodus_api_spec.md` terminology.
+- Document any open questions in the new summary before closing the loop.
+- Run `git status` before staging to ensure only doc files changed.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:32-36
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/training_refactor.md:120-356
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:37
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/summary.md
+- plans/active/ADR-003-BACKEND-API/implementation.md:67
+- docs/workflows/pytorch.md:1
 - tests/torch/test_cli_shared.py:1
-- ptycho/config/config.py:105
-- ptycho_torch/train.py:380
 
-Next Up: Begin Phase D.B4 documentation updates once the training CLI implementation is green.
+Next Up: Kick off Phase D.C blueprint (plan.md C1) once D1 closes.

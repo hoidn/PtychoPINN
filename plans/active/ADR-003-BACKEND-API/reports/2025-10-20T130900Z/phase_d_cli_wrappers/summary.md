@@ -21,9 +21,14 @@
 - **MLflow + deterministic defaults:** Need to ensure CLI wrappers preserve current behaviour of `--disable_mlflow` toggles and deterministic warnings when `num_workers > 0`.
 - **Integration runtime:** Smoke commands in Phase D must reuse the minimal dataset fixture to stay within CI budgets documented in TEST-PYTORCH-001 reports.
 
+## B3 status checkpoint (2025-10-20)
+- B3.a–B3.d complete: helper package, execution-config validation, and training CLI thin wrapper merged with GREEN evidence (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`).
+- B3.e complete: plan checklist updated, this summary refreshed, and docs/fix_plan Attempt #43 logged for traceability.
+
 ## Next steps for Ralph
-1. Drive Phase D.B implementation by executing B3.a–B3.d (helpers → validation → CLI refactor → GREEN selectors) and capture artifacts in a new `phase_d_cli_wrappers_training_impl/` hub.
-2. Once B3 passes, advance to documentation tidy-up (B4) or begin Phase C blueprinting as capacity allows, keeping plan checklists and `docs/fix_plan.md` in sync after each loop.
+1. Execute Phase D.B B4 — update `docs/workflows/pytorch.md` CLI guidance with new `--quiet` behaviour, document `--device` deprecation messaging, and revise lingering RED-phase language in `tests/torch/test_cli_shared.py` to reflect current GREEN status.
+2. Relocate stray CLI logs (e.g., `train_debug.log`) into the Phase D report hub before closing B4, then mark implementation plan D1 `[x]` once documentation and hygiene land.
+3. After B4, begin Phase D.C (inference CLI blueprint + RED scaffolds) per plan if capacity allows.
 
 **Artifacts Created:**  
 - `plan.md` — phased implementation roadmap with checklist IDs and guidance  

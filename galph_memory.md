@@ -1561,3 +1561,16 @@
 - Notes: Expanded Phase D plan with B3.a–B3.e checklist + helper/test guidance, refreshed summary next-steps, logged Attempt #42 in fix ledger, and issued new input.md steering implementation with artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`.
 - Follow-up for Ralph: implement helpers + CLI refactor per B3 checklist, capture GREEN logs, update plan + ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T112523Z: Phase D.B B3 wrap-up review
+- Focus issue: ADR-003-BACKEND-API Phase D.B (Training CLI thin wrapper B3 wrap-up)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Findings:
+  - Verified helper module, execution-config validation, and CLI refactor match blueprint; GREEN logs archived under `reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`.
+  - Updated `phase_d_cli_wrappers/plan.md` B3.a–B3.e to `[x]` and expanded B4 row to include doc refresh + log relocation (`train_debug.log` still at repo root).
+  - Refreshed plan summary with B3 status checkpoint, noted next steps (docs update, hygiene, inference blueprint).
+  - Added Attempt #43 to `docs/fix_plan.md` and annotated implementation plan D1 to reflect remaining B4 work.
+  - Reissued `input.md` for B4 docs/hygiene, directing artifacts to `reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/`.
+- Open items: Update `docs/workflows/pytorch.md`, revise `tests/torch/test_cli_shared.py` docstring language, move `train_debug.log` into artifact hub, flip implementation D1 `[x]` post-doc updates.
+- <Action State>: [ready_for_implementation]

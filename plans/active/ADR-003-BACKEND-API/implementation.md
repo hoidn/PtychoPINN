@@ -46,7 +46,7 @@ Exit Criteria: CLI scripts delegate entirely to workflows; backwards-compat CLI 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Update training CLI | [ ] | Follow `reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md` Phase B (B1–B4): blueprint, RED tests, thin-wrapper implementation, docs updates. Preserve legacy path decisions captured in Phase A notes. |
+| D1 | Update training CLI | [ ] | Phase B blueprint + RED scaffolding complete; B3 implementation (helpers, validation, CLI refactor) landed with GREEN logs in `reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`. Remaining work: Phase B.B4 documentation refresh + artifact hygiene (move stray CLI logs) before flipping D1 to `[x]`. |
 | D2 | Update inference CLI | [ ] | Execute `phase_d_cli_wrappers/plan.md` Phase C (C1–C4): inference blueprint, RED coverage, refactor, documentation alignment. Verify bundle loading + integration selector. |
 | D3 | Smoke tests & docs | [ ] | Complete `phase_d_cli_wrappers/plan.md` Phase D (D1–D3): smoke commands, ledger updates, hygiene + handoff summary. Reference TEST-PYTORCH-001 runtime guardrails. |
 
