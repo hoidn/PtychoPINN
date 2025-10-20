@@ -1,0 +1,279 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_run_pytorch_train_save_load_infer ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-690/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
+        """
+        Tests the complete PyTorch train → save → load → infer workflow.
+    
+        This validates the PyTorch model persistence layer by simulating a real
+        user workflow across separate processes, mirroring the TensorFlow integration test.
+    
+        Phase: C2 (GREEN)
+        Behavior:
+        1. Training subprocess creates Lightning checkpoint at checkpoints/last.ckpt
+        2. Inference subprocess loads checkpoint and generates reconstructions
+        3. Output images created in inference output directory
+        4. Assertions verify artifact existence and non-empty file sizes
+    
+        Implementation: _run_pytorch_workflow executes train/infer via subprocess
+        """
+        # Execute complete workflow via subprocess helper (Phase C2 implementation)
+>       result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_integration_workflow_torch.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-690/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
+        """
+        Execute PyTorch train→save→load→infer workflow via subprocess calls.
+    
+        Parameters:
+            tmp_path: pytest tmp_path fixture for output directories
+            data_file: Path to NPZ dataset
+            cuda_cpu_env: Environment dict with CUDA_VISIBLE_DEVICES=""
+    
+        Returns:
+            SimpleNamespace with:
+                - training_output_dir: Path to training outputs
+                - inference_output_dir: Path to inference outputs
+                - checkpoint_path: Path to Lightning checkpoint
+                - recon_amp_path: Path to amplitude reconstruction PNG
+                - recon_phase_path: Path to phase reconstruction PNG
+    
+        Raises:
+            RuntimeError: If training or inference subprocess fails
+    
+        Phase: C2 (GREEN)
+        Implementation: Ported from legacy unittest harness with subprocess commands
+        """
+        from types import SimpleNamespace
+    
+        # Define output paths
+        training_output_dir = tmp_path / "training_outputs"
+        inference_output_dir = tmp_path / "pytorch_output"
+    
+        # --- 1. Training Step (PyTorch) ---
+        # CLI parameters aligned with Phase B1 scope (fixture n_subset=64, deterministic config)
+        # Preserves CONFIG-001 ordering per docs/workflows/pytorch.md §12
+        train_command = [
+            sys.executable, "-m", "ptycho_torch.train",
+            "--train_data_file", str(data_file),
+            "--test_data_file", str(data_file),
+            "--output_dir", str(training_output_dir),
+            "--max_epochs", "2",  # Aligned with Phase B1 runtime budget (<45s)
+            "--n_images", "64",   # Matches fixture subset size
+            "--gridsize", "1",
+            "--batch_size", "4",
+            "--device", "cpu",    # Deterministic CPU-only execution per cuda_cpu_env fixture
+            "--disable_mlflow",
+        ]
+    
+        train_result = subprocess.run(
+            train_command,
+            capture_output=True,
+            text=True,
+            env=cuda_cpu_env,
+            check=False
+        )
+    
+        if train_result.returncode != 0:
+>           raise RuntimeError(
+                f"PyTorch training failed with return code {train_result.returncode}\n"
+                f"STDOUT:\n{train_result.stdout}\n"
+                f"STDERR:\n{train_result.stderr}"
+            )
+E           RuntimeError: PyTorch training failed with return code 1
+E           STDOUT:
+E           No GPU found, using CPU instead.
+E           Using new CLI interface with factory-based config (ADR-003)
+E           Creating configuration via factory (CONFIG-001 compliance)...
+E           ✓ Factory created configs: N=64, gridsize=(1, 1), epochs=2
+E           ✓ Execution config: accelerator=cpu, deterministic=True, learning_rate=0.001
+E           Starting training with 2 epochs...
+E           Starting training loop. Loading configs...
+E           Creating data module
+E           Creating model...
+E           Decoder Block 1: No attention module added.
+E           Decoder Block 2: No attention module added.
+E           Decoder Block 1: No attention module added.
+E           Decoder Block 2: No attention module added.
+E           training_config name: Synthetic_Runs
+E           [Rank 0] Beginning model training/final data prep... (MLflow disabled)
+E           [DataModule prepare_data] Global Rank: 0. Creating/Verifying map.
+E           [DataModule setup] Stage: TrainerFn.FITTING, Global Rank: 0. Loading map.
+E           [DataModule setup] remake = True
+E           Creating dataset...
+E           Calculating dataset length with coordinate bounds...
+E           For file /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz, maximum x_range is (np.float64(35.28876207528512), np.float64(77.82671324125869)), yrange is (np.float64(36.08723987167515), np.float64(78.038355606719))
+E           Creating memory mapped tensor dictionary...
+E           Memory map length: 238
+E           Memory map creation time: 0.0010333061218261719
+E           Populating memory map for dataset 0
+E           Start - end = 238
+E           [Rank 0] FATAL ERROR during map creation/saving: The expanded size of the tensor (238) must match the existing size (64) at non-singleton dimension 0.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [64, 1, 1, 2]
+E           Training failed: The expanded size of the tensor (238) must match the existing size (64) at non-singleton dimension 0.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [64, 1, 1, 2]
+E           
+E           STDERR:
+E           2025-10-19 22:14:09.544520: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+E           WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E           E0000 00:00:1760937249.555760 1434139 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E           E0000 00:00:1760937249.559491 1434139 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+E           W0000 00:00:1760937249.570410 1434139 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760937249.570421 1434139 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760937249.570423 1434139 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760937249.570424 1434139 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           2025-10-19 22:14:09.573472: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E           To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+E           2025-10-19 22:14:11.525840: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+E           2025-10-19 22:14:11.525863: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+E           2025-10-19 22:14:11.525867: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+E           2025-10-19 22:14:11.525870: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+E           2025-10-19 22:14:11.525873: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+E           2025-10-19 22:14:11.525875: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+E           2025-10-19 22:14:11.525897: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+E           2025-10-19 22:14:11.525910: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+E           2025-10-19 22:14:11.525915: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+E           /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:600: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+E             warnings.warn(
+E           INFO:pytorch_lightning.utilities.rank_zero:GPU available: False, used: False
+E           INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+E           INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+E           Traceback (most recent call last):
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 634, in cli_main
+E               main(
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 338, in main
+E               trainer.fit(model, datamodule = data_module)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 560, in fit
+E               call._call_and_handle_interrupt(
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 49, in _call_and_handle_interrupt
+E               return trainer_fn(*args, **kwargs)
+E                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 598, in _fit_impl
+E               self._run(model, ckpt_path=ckpt_path)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 973, in _run
+E               call._call_setup_hook(self)  # allow user to set up LightningModule in accelerator environment
+E               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 108, in _call_setup_hook
+E               _call_lightning_datamodule_hook(trainer, "setup", stage=fn)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 199, in _call_lightning_datamodule_hook
+E               return fn(*args, **kwargs)
+E                      ^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train_utils.py", line 257, in setup
+E               full_dataset = PtychoDataset(
+E                              ^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 252, in __init__
+E               self.memory_map_data(self.file_list)
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 533, in memory_map_data
+E               mmap_ptycho["coords_center"][start:end] = torch.from_numpy(coords_com)
+E               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+E           RuntimeError: The expanded size of the tensor (238) must match the existing size (64) at non-singleton dimension 0.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [64, 1, 1, 2]
+
+tests/torch/test_integration_workflow_torch.py:120: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer - RuntimeError: PyTorch training failed with return code 1
+STDOUT:
+No GPU found, using CPU instead.
+Using new CLI interface with factory-based config (ADR-003)
+Creating configuration via factory (CONFIG-001 compliance)...
+✓ Factory created configs: N=64, gridsize=(1, 1), epochs=2
+✓ Execution config: accelerator=cpu, deterministic=True, learning_rate=0.001
+Starting training with 2 epochs...
+Starting training loop. Loading configs...
+Creating data module
+Creating model...
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+training_config name: Synthetic_Runs
+[Rank 0] Beginning model training/final data prep... (MLflow disabled)
+[DataModule prepare_data] Global Rank: 0. Creating/Verifying map.
+[DataModule setup] Stage: TrainerFn.FITTING, Global Rank: 0. Loading map.
+[DataModule setup] remake = True
+Creating dataset...
+Calculating dataset length with coordinate bounds...
+For file /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz, maximum x_range is (np.float64(35.28876207528512), np.float64(77.82671324125869)), yrange is (np.float64(36.08723987167515), np.float64(78.038355606719))
+Creating memory mapped tensor dictionary...
+Memory map length: 238
+Memory map creation time: 0.0010333061218261719
+Populating memory map for dataset 0
+Start - end = 238
+[Rank 0] FATAL ERROR during map creation/saving: The expanded size of the tensor (238) must match the existing size (64) at non-singleton dimension 0.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [64, 1, 1, 2]
+Training failed: The expanded size of the tensor (238) must match the existing size (64) at non-singleton dimension 0.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [64, 1, 1, 2]
+
+STDERR:
+2025-10-19 22:14:09.544520: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760937249.555760 1434139 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760937249.559491 1434139 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760937249.570410 1434139 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760937249.570421 1434139 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760937249.570423 1434139 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760937249.570424 1434139 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 22:14:09.573472: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 22:14:11.525840: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 22:14:11.525863: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 22:14:11.525867: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 22:14:11.525870: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 22:14:11.525873: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 22:14:11.525875: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 22:14:11.525897: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 22:14:11.525910: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 22:14:11.525915: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+/home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:600: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: False, used: False
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 634, in cli_main
+    main(
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 338, in main
+    trainer.fit(model, datamodule = data_module)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 560, in fit
+    call._call_and_handle_interrupt(
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 49, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 598, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 973, in _run
+    call._call_setup_hook(self)  # allow user to set up LightningModule in accelerator environment
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 108, in _call_setup_hook
+    _call_lightning_datamodule_hook(trainer, "setup", stage=fn)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 199, in _call_lightning_datamodule_hook
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train_utils.py", line 257, in setup
+    full_dataset = PtychoDataset(
+                   ^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 252, in __init__
+    self.memory_map_data(self.file_list)
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 533, in memory_map_data
+    mmap_ptycho["coords_center"][start:end] = torch.from_numpy(coords_com)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+RuntimeError: The expanded size of the tensor (238) must match the existing size (64) at non-singleton dimension 0.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [64, 1, 1, 2]
+============================== 1 failed in 6.89s ===============================
