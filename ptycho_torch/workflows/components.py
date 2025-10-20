@@ -388,6 +388,18 @@ def _build_lightning_dataloaders(
 
             # Build tensor dict with required keys for compute_loss
             coords_rel = self.coords_relative[idx] if self.coords_relative is not None else torch.zeros(1, 2)
+
+            # CRITICAL: Fix coords_relative axis order for Translation compatibility
+            # TensorFlow RawData.generate_grouped_data returns coords_relative with shape (..., 1, 2, C)
+            # where C = gridsize². PyTorch Translation helper expects (..., C, 1, 2) format.
+            # See: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103200Z/phase_c4d_coords_debug/summary.md
+            if coords_rel is not None and coords_rel.ndim == 4:
+                # DataLoader batched case: (batch, 1, 2, C) → (batch, C, 1, 2)
+                coords_rel = coords_rel.permute(0, 3, 1, 2).contiguous()
+            elif coords_rel is not None and coords_rel.ndim == 3:
+                # Single sample case: (1, 2, C) → (C, 1, 2)
+                coords_rel = coords_rel.permute(2, 0, 1).contiguous()
+
             rms_scale = self.rms_scaling_constant[idx] if self.rms_scaling_constant is not None else torch.ones(1, 1, 1, 1)
             phys_scale = self.physics_scaling_constant[idx] if self.physics_scaling_constant is not None else torch.ones(1, 1, 1, 1)
 

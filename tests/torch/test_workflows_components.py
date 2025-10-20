@@ -712,6 +712,99 @@ class TestWorkflowsComponentsTraining:
             f"See docs/findings.md#BUG-TF-001 for channel mismatch pattern."
         )
 
+    def test_coords_relative_layout(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        dummy_raw_data
+    ):
+        """
+        Coords Relative Tensor Layout Test — dataloader MUST provide (batch, C, 1, 2) shaped coords_relative.
+
+        Requirement: input.md Do Now #1 (2025-10-20 Phase C4.D.B2) — The current axis ordering bug
+        causes coords_relative to arrive as (batch, 1, 2, C) which triggers Translation reshape crash
+        when reassemble_patches_position_real broadcasts with norm_factor.
+
+        Design contract (phase_c4d_coords_debug/summary.md):
+        - _build_lightning_dataloaders MUST permute coords_relative from raw (batch, 1, 2, C)
+          to expected (batch, C, 1, 2) before batching
+        - Tensors MUST be .contiguous() before .view() operations
+        - This layout matches the TensorFlow tf_helper contract for Translation inputs
+
+        Test mechanism:
+        - Create TrainingConfig with gridsize=2 (C=4)
+        - Build Lightning dataloaders via _build_lightning_dataloaders
+        - Extract a batch from train_loader
+        - Assert batch['coords_relative'].shape == (batch_size, 4, 1, 2)
+
+        Expected failure mode (RED phase):
+        - Current implementation hands coords_relative shaped (batch, 1, 2, 4)
+        - Assertion fails: shape[-3:] == (1, 2, 4) != expected (4, 1, 2)
+
+        GREEN phase fix:
+        - Refactor _build_lightning_dataloaders to permute coords_relative axes
+        - Apply .contiguous() before batching to keep view() happy
+        - Rerun test → assertion passes with (batch, 4, 1, 2) shape
+        """
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        import torch
+
+        # Create TrainingConfig with gridsize=2 (C = 2×2 = 4)
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,  # C = 4 channels
+            model_type='pinn',
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=2,
+            batch_size=4,  # Explicit batch size for shape check
+        )
+
+        # Populate params.cfg (CONFIG-001 requirement)
+        update_legacy_dict(params.cfg, training_config)
+
+        # Convert RawData to PtychoDataContainerTorch via _ensure_container
+        # This will call generate_grouped_data internally
+        train_container = torch_components._ensure_container(
+            data=dummy_raw_data,
+            config=training_config
+        )
+
+        # Build Lightning dataloaders (the function under test)
+        train_loader, _ = torch_components._build_lightning_dataloaders(
+            train_container=train_container,
+            test_container=None,
+            config=training_config
+        )
+
+        # Extract one batch from the dataloader
+        # Batch structure: (tensor_dict, probe, scaling) per Phase D2.C contract
+        batch = next(iter(train_loader))
+        tensor_dict = batch[0]  # Extract the first element (dict with coords_relative, etc.)
+
+        # RED PHASE ASSERTION: coords_relative must be shaped (batch, C, 1, 2)
+        expected_C = training_config.model.gridsize ** 2  # 2×2 = 4
+        expected_shape_suffix = (expected_C, 1, 2)
+
+        actual_shape = tensor_dict['coords_relative'].shape
+        actual_shape_suffix = actual_shape[-3:]  # Extract last 3 dims (C, 1, 2)
+
+        assert actual_shape_suffix == expected_shape_suffix, (
+            f"coords_relative tensor MUST have shape suffix (C, 1, 2) where C={expected_C}, "
+            f"but got shape={actual_shape} with suffix={actual_shape_suffix}. "
+            f"Current axis order causes Translation.view() to fail in reassemble_patches_position_real. "
+            f"See plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103200Z/phase_c4d_coords_debug/summary.md"
+        )
+
 
 class TestWorkflowsComponentsRun:
     """
