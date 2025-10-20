@@ -1672,3 +1672,14 @@
 - Key checks: Confirmed spec redline landed (commit 893a9f86) and plan row E.A2 marked `[x]`; inspected `docs/workflows/pytorch.md` training flag table still listing `--accelerator` default `'cpu'` (mismatch with CLI/parser default `'auto'`). Noted absence of execution-config summary in `docs/findings.md`.
 - Outputs: Updated `phase_e_governance/plan.md` E.A3 guidance, created new artifact hub timestamp (2025-10-20T151734Z), and rewrote `input.md` with concrete Doc-mode steps (workflow table fix, CONFIG-002 finding, ledger sync). Engineer now has clear deliverables and storage paths.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T152932Z: Phase E.B execution knob hardening blueprint
+- Focus issue: ADR-003-BACKEND-API — Phase E.B (Execution Knob Hardening), emphasising E.B1 checkpoint & early-stop controls.
+- Action type: Planning
+- Mode: none
+- Findings review: Coin flip (heads) → audited latest engineer commits (`893a9f86`, `a5bac0e8`) — both documentation-only, aligned with spec redline; no regressions detected.
+- Outputs:
+  - Authored Phase E.B blueprint (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md`) detailing EB1–EB4 tasks, TDD selectors, artifact routing, and references.
+  - Updated implementation plan row E2 to cite the new blueprint; appended Attempt #57 in `docs/fix_plan.md`.
+- Guidance for next loop (Ralph): Focus on EB1.A–EB1.E per blueprint (schema audit through Lightning callbacks/tests) storing evidence under `.../phase_e_execution_knobs/<TS>/`.
+- <Action State>: [ready_for_implementation]

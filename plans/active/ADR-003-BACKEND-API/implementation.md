@@ -58,7 +58,7 @@ Exit Criteria: `api/` surface deprecated, ADR status set to Accepted, ledger upd
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | E1 | Governance dossier | [ ] | Follow `reports/2025-10-20T133500Z/phase_e_governance/plan.md` Phase E.A checklist (ADR addendum, spec redline, workflow guide updates). |
-| E2 | Execution knobs hardening | [ ] | Execute Phase E.B checklist from `phase_e_governance/plan.md` (checkpoint/early-stop flags, scheduler + gradient controls, logger decision, extended smoke coverage). |
+| E2 | Execution knobs hardening | [ ] | Execute Phase E.B checklist via new blueprint `reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md` (detailed tasks EB1–EB4: checkpoint/early-stop flags, scheduler + gradient controls, logger decision, extended smoke coverage) with RED→GREEN evidence per subphase. |
 | E3 | Deprecation & closure | [ ] | Complete Phase E.C checklist (legacy API deprecation, ledger/plan closure, archive summary). |
 
 ## Reporting Discipline
