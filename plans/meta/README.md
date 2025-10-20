@@ -51,6 +51,18 @@
 
 **Status:** PROPOSED - pending review and approval
 
+### Infrastructure Optimizations
+**File:** `INFRASTRUCTURE_OPTIMIZATIONS.md`
+**Purpose:** System-level efficiency improvements based on 89 iterations (complements PROCESS_OPTIMIZATIONS.md)
+**Key Content:**
+- 8 infrastructure optimizations (OPT-5 through OPT-12)
+- Context caching, git sync reduction, prompt size optimization
+- Complexity-based routing, incremental context building
+- Expected 2-3x speedup through reduced overhead
+- Combined with process optimizations: 5-8x total speedup
+
+**Status:** PROPOSED - pending review and approval
+
 ### CLAUDE.md Updates
 **File:** `CLAUDE_MD_UPDATES.md`
 **Purpose:** Specific directive additions to prevent test infrastructure issues

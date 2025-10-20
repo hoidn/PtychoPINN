@@ -4,6 +4,8 @@
 **Expected Impact:** 2.6x speedup, improved quality, reduced rework
 **Priority:** HIGH (implements learnings from 6.5 hours of development)
 
+**See also:** `INFRASTRUCTURE_OPTIMIZATIONS.md` for system-level efficiency improvements (context caching, git sync reduction, etc.). Combined impact: **5-8x total speedup**.
+
 ---
 
 ## Executive Summary
