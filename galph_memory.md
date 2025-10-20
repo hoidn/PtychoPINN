@@ -1490,3 +1490,13 @@
 - Diagnosis: when CLI builds configs via `create_training_payload`, `neighbor_count` is omitted so factory falls back to 6; `_train_with_lightning` reuses that value and `_build_lightning_dataloaders` emits six offsets (wrong shape) even for `gridsize=1`. Need to wire canonical default (4) through CLI/factory overrides before rerunning selectors.
 - Updated `phase_c4d_blockers/plan.md` (B1→[x], B2→[P] with new guidance, B3 blocked) and logged Attempt #32 in `docs/fix_plan.md`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T102800Z: C4.D shape-mismatch debugging setup
+- Focus issue: ADR-003-BACKEND-API Phase C4.D (Lightning training parity — B2/B3)
+- Action type: Debug
+- Mode: TDD
+- Notes: Coin flip → tails (skipped retrospective). Findings consulted: CONFIG-001, BUG-TF-001, OVERSAMPLING-001.
+- Initial evidence review confirms integration selector still fails with `Translation(...).view` reshape error (`size 16 → shape [4,2,1]`). Factory defaults now emit `neighbor_count=4`; failure likely due to dataloader reshaping of `coords_relative` (channel axis misaligned) rather than neighbor_count fallback.
+- Will capture new hypotheses + next steps under fresh report directory before rewriting `input.md`.
+- Update: Reproduced failure with instrumentation; confirmed axis-order bug in `_build_lightning_dataloaders`. Added evidence summary at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103200Z/phase_c4d_coords_debug/summary.md` and refreshed plan B2 guidance to require permuting coords + adding regression test.
+- <Action State>: [ready_for_implementation]
