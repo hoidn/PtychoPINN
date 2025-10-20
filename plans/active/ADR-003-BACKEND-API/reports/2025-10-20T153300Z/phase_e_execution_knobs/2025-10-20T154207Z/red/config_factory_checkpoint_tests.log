@@ -1,0 +1,96 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 2 items
+
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_checkpoint_knobs_propagate_through_factory FAILED [ 50%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_checkpoint_defaults_respected FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestExecutionConfigOverrides.test_checkpoint_knobs_propagate_through_factory _
+
+self = <test_config_factory.TestExecutionConfigOverrides object at 0x7e7e071dcf50>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-778/test_checkpoint_knobs_propagat0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_l2kp4f9k')
+
+    def test_checkpoint_knobs_propagate_through_factory(self, mock_train_npz, temp_output_dir):
+        """
+        RED Test: Checkpoint control knobs propagate from execution_config to payload.
+    
+        Expected RED Failure:
+        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'checkpoint_mode'
+        OR
+        - AssertionError: Checkpoint fields do not match expected values
+    
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.C (factory wiring)
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+>       custom_exec_cfg = PyTorchExecutionConfig(
+            enable_checkpointing=False,
+            checkpoint_save_top_k=3,
+            checkpoint_monitor_metric='train_loss',
+            checkpoint_mode='max',
+            early_stop_patience=10,
+        )
+E       TypeError: PyTorchExecutionConfig.__init__() got an unexpected keyword argument 'checkpoint_mode'
+
+tests/torch/test_config_factory.py:610: TypeError
+_______ TestExecutionConfigOverrides.test_checkpoint_defaults_respected ________
+
+self = <test_config_factory.TestExecutionConfigOverrides object at 0x7e7e071dd350>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-778/test_checkpoint_defaults_respe0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_c8j59roy')
+
+    def test_checkpoint_defaults_respected(self, mock_train_npz, temp_output_dir):
+        """
+        RED Test: Checkpoint knobs use dataclass defaults when not overridden.
+    
+        Expected RED Failure:
+        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'checkpoint_mode'
+        OR
+        - AssertionError: Default values do not match expected
+    
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.A (schema audit)
+        """
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+    
+        # GREEN phase assertions (verify defaults from PyTorchExecutionConfig):
+        exec_cfg = payload.execution_config
+        assert exec_cfg.enable_checkpointing is True  # Default per dataclass
+        assert exec_cfg.checkpoint_save_top_k == 1  # Default per dataclass
+        assert exec_cfg.checkpoint_monitor_metric == 'val_loss'  # Default per dataclass
+>       assert hasattr(exec_cfg, 'checkpoint_mode')  # New field in EB1.A
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert False
+E        +  where False = hasattr(PyTorchExecutionConfig(accelerator='cpu', strategy='auto', deterministic=True, gradient_clip_val=None, accum_steps=1, num_workers=0, pin_memory=False, persistent_workers=False, prefetch_factor=None, learning_rate=0.001, scheduler='Default', enable_progress_bar=False, enable_checkpointing=True, checkpoint_save_top_k=1, checkpoint_monitor_metric='val_loss', early_stop_patience=100, logger_backend=None, inference_batch_size=None, middle_trim=0, pad_eval=False), 'checkpoint_mode')
+
+tests/torch/test_config_factory.py:657: AssertionError
+=============================== warnings summary ===============================
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_checkpoint_defaults_respected
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_checkpoint_defaults_respected
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_checkpoint_knobs_propagate_through_factory - TypeError: PyTorchExecutionConfig.__init__() got an unexpected keyword argument 'checkpoint_mode'
+FAILED tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_checkpoint_defaults_respected - AssertionError: assert False
+ +  where False = hasattr(PyTorchExecutionConfig(accelerator='cpu', strategy='auto', deterministic=True, gradient_clip_val=None, accum_steps=1, num_workers=0, pin_memory=False, persistent_workers=False, prefetch_factor=None, learning_rate=0.001, scheduler='Default', enable_progress_bar=False, enable_checkpointing=True, checkpoint_save_top_k=1, checkpoint_monitor_metric='val_loss', early_stop_patience=100, logger_backend=None, inference_batch_size=None, middle_trim=0, pad_eval=False), 'checkpoint_mode')
+======================== 2 failed, 2 warnings in 3.78s =========================

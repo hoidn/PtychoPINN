@@ -1,0 +1,312 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 5 items
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_enable_checkpointing_flag FAILED [ 20%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_save_top_k_flag FAILED [ 40%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_monitor_flag FAILED [ 60%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_mode_flag FAILED [ 80%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_early_stop_patience_flag FAILED [100%]
+
+=================================== FAILURES ===================================
+____________ TestExecutionConfigCLI.test_enable_checkpointing_flag _____________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x78b1159886d0>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-777/test_enable_checkpointing_flag0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-777/test_enable_checkpointing_flag0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x78b26b7903d0>
+
+    def test_enable_checkpointing_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --enable-checkpointing / --disable-checkpointing flags map to execution_config.enable_checkpointing.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --enable-checkpointing / --disable-checkpointing
+        OR
+        - AssertionError: execution_config.enable_checkpointing != expected value
+    
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(enable_checkpointing=False),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--disable-checkpointing']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='132702125834576'>.called
+
+tests/torch/test_cli_train_torch.py:397: AssertionError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-10-20 08:42:16.805005: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760974936.816167 1785545 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760974936.819993 1785545 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760974936.830883 1785545 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760974936.830897 1785545 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760974936.830900 1785545 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760974936.830902 1785545 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-20 08:42:16.833565: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-20 08:42:19.051463: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-20 08:42:19.051498: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-20 08:42:19.051504: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-20 08:42:19.051507: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-20 08:42:19.051511: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-20 08:42:19.051514: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-20 08:42:19.051542: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-20 08:42:19.051560: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-20 08:42:19.051564: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow] [--quiet]
+                [--accelerator {auto,cpu,gpu,cuda,tpu,mps}] [--deterministic]
+                [--no-deterministic] [--num-workers NUM_WORKERS]
+                [--learning-rate LEARNING_RATE] [--ptycho_dir PTYCHO_DIR]
+                [--config CONFIG]
+train.py: error: unrecognized arguments: --disable-checkpointing
+____________ TestExecutionConfigCLI.test_checkpoint_save_top_k_flag ____________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x78b1159897d0>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-777/test_checkpoint_save_top_k_fla0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-777/test_checkpoint_save_top_k_fla0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x78b04386a9d0>
+
+    def test_checkpoint_save_top_k_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --checkpoint-save-top-k flag maps to execution_config.checkpoint_save_top_k.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --checkpoint-save-top-k 3
+        OR
+        - AssertionError: execution_config.checkpoint_save_top_k != 3
+    
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(checkpoint_save_top_k=3),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--checkpoint-save-top-k', '3']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='132698442471504'>.called
+
+tests/torch/test_cli_train_torch.py:433: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow] [--quiet]
+                [--accelerator {auto,cpu,gpu,cuda,tpu,mps}] [--deterministic]
+                [--no-deterministic] [--num-workers NUM_WORKERS]
+                [--learning-rate LEARNING_RATE] [--ptycho_dir PTYCHO_DIR]
+                [--config CONFIG]
+train.py: error: unrecognized arguments: --checkpoint-save-top-k 3
+_____________ TestExecutionConfigCLI.test_checkpoint_monitor_flag ______________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x78b115989ad0>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-777/test_checkpoint_monitor_flag0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-777/test_checkpoint_monitor_flag0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x78b0437052d0>
+
+    def test_checkpoint_monitor_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --checkpoint-monitor flag maps to execution_config.checkpoint_monitor_metric.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --checkpoint-monitor train_loss
+        OR
+        - AssertionError: execution_config.checkpoint_monitor_metric != 'train_loss'
+    
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(checkpoint_monitor_metric='train_loss'),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--checkpoint-monitor', 'train_loss']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='132698441007440'>.called
+
+tests/torch/test_cli_train_torch.py:469: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow] [--quiet]
+                [--accelerator {auto,cpu,gpu,cuda,tpu,mps}] [--deterministic]
+                [--no-deterministic] [--num-workers NUM_WORKERS]
+                [--learning-rate LEARNING_RATE] [--ptycho_dir PTYCHO_DIR]
+                [--config CONFIG]
+train.py: error: unrecognized arguments: --checkpoint-monitor train_loss
+_______________ TestExecutionConfigCLI.test_checkpoint_mode_flag _______________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x78b11598a010>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-777/test_checkpoint_mode_flag0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-777/test_checkpoint_mode_flag0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x78b043718790>
+
+    def test_checkpoint_mode_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --checkpoint-mode flag maps to execution_config.checkpoint_mode.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --checkpoint-mode max
+        OR
+        - AssertionError: execution_config.checkpoint_mode != 'max'
+        OR
+        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'checkpoint_mode'
+    
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.A (introduce checkpoint_mode field)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(checkpoint_mode='max'),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--checkpoint-mode', 'max']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='132698441090704'>.called
+
+tests/torch/test_cli_train_torch.py:507: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow] [--quiet]
+                [--accelerator {auto,cpu,gpu,cuda,tpu,mps}] [--deterministic]
+                [--no-deterministic] [--num-workers NUM_WORKERS]
+                [--learning-rate LEARNING_RATE] [--ptycho_dir PTYCHO_DIR]
+                [--config CONFIG]
+train.py: error: unrecognized arguments: --checkpoint-mode max
+_____________ TestExecutionConfigCLI.test_early_stop_patience_flag _____________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x78b11598a2d0>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-777/test_early_stop_patience_flag0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-777/test_early_stop_patience_flag0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x78b04371f790>
+
+    def test_early_stop_patience_flag(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --early-stop-patience flag maps to execution_config.early_stop_patience.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --early-stop-patience 10
+        OR
+        - AssertionError: execution_config.early_stop_patience != 10
+    
+        References:
+        - input.md EB1.E (checkpoint controls RED tests)
+        - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(early_stop_patience=10),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--early-stop-patience', '10']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='132698441118352'>.called
+
+tests/torch/test_cli_train_torch.py:543: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow] [--quiet]
+                [--accelerator {auto,cpu,gpu,cuda,tpu,mps}] [--deterministic]
+                [--no-deterministic] [--num-workers NUM_WORKERS]
+                [--learning-rate LEARNING_RATE] [--ptycho_dir PTYCHO_DIR]
+                [--config CONFIG]
+train.py: error: unrecognized arguments: --early-stop-patience 10
+=========================== short test summary info ============================
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_enable_checkpointing_flag - AssertionError: assert False
+ +  where False = <MagicMock id='132702125834576'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_save_top_k_flag - AssertionError: assert False
+ +  where False = <MagicMock id='132698442471504'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_monitor_flag - AssertionError: assert False
+ +  where False = <MagicMock id='132698441007440'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_mode_flag - AssertionError: assert False
+ +  where False = <MagicMock id='132698441090704'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_early_stop_patience_flag - AssertionError: assert False
+ +  where False = <MagicMock id='132698441118352'>.called
+============================== 5 failed in 4.92s ===============================
