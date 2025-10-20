@@ -1463,3 +1463,20 @@
 - Notes: Continuing same initiative after loader implementation; need to understand `'dict' object has no attribute "eval"'` integration failure logged in `pytest_integration_phase_a.log`.
 - Updates: Marked phase_c4d_blockers Phase A rows `[x]`, added B4 checklist row for bundle introspection, captured supervisor findings in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T090900Z/debug/summary.md`, and rewrote `input.md` directing evidence-first TDD on bundle contents (new regression test + fix).
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T100500Z: C4.D gridsize triage
+- Focus issue: ADR-003-BACKEND-API Phase C4.D (Lightning training gridsize parity)
+- Action type: Debug
+- Mode: TDD
+- Findings:
+  - Reviewed latest Ralph commits (`7dd2fa6e`, `d2ab30c3`) and confirmed bundle loader regression closed; integration now fails only on checkpoint assertion (adjusted already).
+  - Root cause of channel mismatch isolated to `_train_with_lightning` (`ptycho_torch/workflows/components.py:620-647`) — it reconstructs PyTorch configs manually and leaves `PTModelConfig.C_model` at default 1, so Lightning conv layers expect one channel while dataloaders emit `grid_size**2`.
+  - Confirmed config factory already computes `C`/`C_model` correctly; fix strategy is to reuse factory-derived dataclasses rather than rebuilding them inside `_train_with_lightning`.
+- Plan updates:
+  - Marked `phase_c4d_blockers/plan.md` row B4 `[x]` and expanded B2 guidance to call out `_train_with_lightning` + `C_model` propagation.
+  - Established new artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103500Z/phase_c4d_gridsize_fix/` for RED/GREEN logs and CLI smoke.
+- Steering:
+  - Rewrote `input.md` (TDD mode) directing Ralph to add `test_lightning_training_respects_gridsize`, refactor `_train_with_lightning` to reuse factory configs, rerun integration + CLI smoke, and capture all logs under the new report directory.
+  - Logged Attempt #31 in `docs/fix_plan.md` documenting diagnosis and plan adjustments.
+- Hygiene note: `train_debug.log` resurfaced at repo root from earlier evidence; reminded Ralph via How-To Map/Pitfalls to keep artifacts under timestamped directories.
+- <Action State>: [ready_for_implementation]
