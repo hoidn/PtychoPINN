@@ -452,25 +452,58 @@ Examples:
             f"Import error: {e}"
         )
 
+    # Phase C4.C6+C4.C7: Delegate to factory for CONFIG-001 compliance (ADR-003)
+    # Replaces manual checkpoint loading and config construction with centralized
+    # factory pattern. The factory handles:
+    # 1. Path validation and checkpoint discovery
+    # 2. CONFIG-001 bridging (update_legacy_dict before any IO)
+    # 3. Config translation (PyTorch → TensorFlow canonical dataclasses)
+    # 4. Execution config merging with override precedence
+
+    from ptycho_torch.config_factory import create_inference_payload
+    from ptycho.raw_data import RawData
+
     # Convert paths to Path objects
     model_path = Path(args.model_path)
     test_data_path = Path(args.test_data)
     output_dir = Path(args.output_dir)
 
-    # Validate input paths
-    if not model_path.exists():
-        raise FileNotFoundError(
-            f"Model path does not exist: {model_path}\n"
-            "Provide a valid training output directory containing a checkpoint."
+    # Build overrides dict for factory
+    overrides = {
+        'n_groups': args.n_images,  # Map CLI arg to config field
+    }
+
+    # Call factory to construct all configs and populate params.cfg
+    try:
+        payload = create_inference_payload(
+            model_path=model_path,
+            test_data_file=test_data_path,
+            output_dir=output_dir,
+            overrides=overrides,
+            execution_config=execution_config,
         )
 
-    if not test_data_path.exists():
-        raise FileNotFoundError(
-            f"Test data file does not exist: {test_data_path}\n"
-            "Provide a valid NPZ file conforming to specs/data_contracts.md"
+        # Extract configs from payload (factory already populated params.cfg)
+        pt_data_config = payload.pt_data_config
+        tf_inference_config = payload.tf_inference_config
+        execution_config = payload.execution_config
+
+        if not args.quiet:
+            print(f"Loaded configuration from model checkpoint")
+            print(f"Test data: {test_data_path}")
+            print(f"Output directory: {output_dir}")
+            print(f"N groups: {tf_inference_config.n_groups}")
+            print(f"Execution config: accelerator={execution_config.accelerator}, "
+                  f"num_workers={execution_config.num_workers}")
+
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to create inference payload.\n"
+            f"Error: {e}\n"
+            "Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001."
         )
 
-    # Locate Lightning checkpoint
+    # Load checkpoint via Lightning (factory validated path exists)
     checkpoint_candidates = [
         model_path / "checkpoints" / "last.ckpt",  # Lightning default
         model_path / "wts.pt",                      # Custom bundle format
@@ -487,83 +520,72 @@ Examples:
         raise FileNotFoundError(
             f"No Lightning checkpoint found in {model_path}.\n"
             f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
-            "Ensure training completed successfully and checkpoint was saved."
+            "Factory validated model directory, but checkpoint file missing."
         )
-
-    if not args.quiet:
-        print(f"Loading Lightning checkpoint from: {checkpoint_path}")
-        print(f"Test data: {test_data_path}")
-        print(f"Output directory: {output_dir}")
-        print(f"Device: {args.device}")
-        print(f"N images: {args.n_images}")
 
     # Load Lightning module from checkpoint
     try:
+        import torch
         from ptycho_torch.model import PtychoPINN_Lightning
 
         model = PtychoPINN_Lightning.load_from_checkpoint(
             str(checkpoint_path),
-            map_location=args.device
+            map_location='cpu',  # Use execution_config.accelerator for device placement
         )
         model.eval()
-        model.to(args.device)
+
+        # Resolve device from execution config
+        device_map = {
+            'cpu': 'cpu',
+            'gpu': 'cuda',
+            'cuda': 'cuda',
+            'mps': 'mps',
+            'auto': 'cuda' if torch.cuda.is_available() else 'cpu',
+        }
+        device = device_map.get(execution_config.accelerator, 'cpu')
+        model.to(device)
 
         if not args.quiet:
-            print(f"Successfully loaded model from checkpoint")
-            print(f"Model type: {type(model).__name__}")
+            print(f"Loaded Lightning checkpoint from: {checkpoint_path}")
+            print(f"Model device: {device}")
+
     except Exception as e:
         raise RuntimeError(
             f"Failed to load Lightning checkpoint from {checkpoint_path}.\n"
             f"Error: {e}\n"
-            "Ensure checkpoint was saved during training and is compatible with current code."
+            "Ensure checkpoint is compatible with current code version."
         )
 
-    # Load test data
+    # Load test data via RawData (factory already validated path)
+    # NOTE: params.cfg already populated by factory, so RawData.from_file is safe to call
     try:
-        import torch
-        test_data = np.load(test_data_path)
+        raw_data = RawData.from_file(str(test_data_path))
 
         if not args.quiet:
-            print(f"Loaded test data with keys: {list(test_data.keys())}")
+            print(f"Loaded test data: {raw_data.diff3d.shape[0]} scan positions")
 
-        # Validate required fields (per specs/data_contracts.md)
-        required_fields = ['diffraction', 'probeGuess', 'objectGuess']
-        missing_fields = [f for f in required_fields if f not in test_data]
-        if missing_fields:
-            raise ValueError(
-                f"Test data missing required fields: {missing_fields}\n"
-                f"Available fields: {list(test_data.keys())}\n"
-                "Ensure NPZ conforms to specs/data_contracts.md"
-            )
     except Exception as e:
         raise RuntimeError(
             f"Failed to load test data from {test_data_path}.\n"
-            f"Error: {e}"
+            f"Error: {e}\n"
+            "Ensure NPZ conforms to specs/data_contracts.md"
         )
 
-    # Run inference using the model's existing inference pipeline
-    # NOTE: This is a simplified inference path for Phase E2.C2.
-    # Full reconstruction using reassembly logic is handled by the existing
-    # load_and_predict() function. For now, we perform a forward pass and
-    # extract amplitude/phase from the autoencoder output.
-
+    # Run simplified inference (Phase E2.C2 path, not full reassembly workflow)
+    # Full production inference via _reassemble_cdi_image_torch in workflows/components.py
     try:
-        # Extract data from NPZ
-        # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 to prevent Conv2d dtype mismatch
-        # Requirement: specs/data_contracts.md §1 mandates diffraction arrays be float32
-        # Root cause: torch.from_numpy preserves dtype; legacy NPZ files may contain float64
-        # Symptom: RuntimeError "Input type (double) and bias type (float)" in model forward
-        diffraction = torch.from_numpy(test_data['diffraction']).to(args.device, dtype=torch.float32)
-        probe = torch.from_numpy(test_data['probeGuess']).to(args.device, dtype=torch.complex64)
+        # Extract data from RawData
+        # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 per DATA-001
+        diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
+        probe = torch.from_numpy(raw_data.probeGuess).to(device, dtype=torch.complex64)
 
         # Handle different diffraction shapes (H, W, n) vs (n, H, W)
-        # Per specs/data_contracts.md, diffraction should be (H, W, n)
         if diffraction.ndim == 3 and diffraction.shape[-1] < diffraction.shape[0]:
             # Transpose from (H, W, n) to (n, H, W)
             diffraction = diffraction.permute(2, 0, 1)
 
-        # Limit to n_images
-        diffraction = diffraction[:args.n_images]
+        # Limit to n_groups
+        diffraction = diffraction[:tf_inference_config.n_groups]
 
         # Add channel dimension if needed: (n, H, W) -> (n, 1, H, W)
         if diffraction.ndim == 3:
@@ -578,20 +600,17 @@ Examples:
             probe = probe.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, H, W)
 
         # Prepare dummy positions (needed for forward pass signature)
-        # In real reconstruction, these come from scan positions
         batch_size = diffraction.shape[0]
-        positions = torch.zeros((batch_size, 1, 1, 2), device=args.device)
+        positions = torch.zeros((batch_size, 1, 1, 2), device=device)
 
         # Prepare scaling factors (simplified for Phase E2.C2)
-        # Full scaling logic handled by dataloader in production
-        input_scale_factor = torch.ones((batch_size, 1, 1, 1), device=args.device)
+        input_scale_factor = torch.ones((batch_size, 1, 1, 1), device=device)
 
         if not args.quiet:
             print(f"Running inference on {batch_size} images...")
 
         # Forward pass through model
         with torch.no_grad():
-            # Use forward_predict to get complex reconstruction
             reconstruction = model.forward_predict(
                 diffraction,
                 positions,
