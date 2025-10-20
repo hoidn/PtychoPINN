@@ -1,0 +1,342 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 6 items
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accelerator_flag_roundtrip FAILED [ 16%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_deterministic_flag_roundtrip FAILED [ 33%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_no_deterministic_flag_roundtrip FAILED [ 50%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip FAILED [ 66%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_learning_rate_flag_roundtrip FAILED [ 83%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_multiple_execution_config_flags FAILED [100%]
+
+=================================== FAILURES ===================================
+____________ TestExecutionConfigCLI.test_accelerator_flag_roundtrip ____________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x71ae92b183d0>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-668/test_accelerator_flag_roundtri0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-668/test_accelerator_flag_roundtri0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71ae7ecda0d0>
+
+    def test_accelerator_flag_roundtrip(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --accelerator flag maps to execution_config.accelerator.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --accelerator cpu
+        OR
+        - AssertionError: execution_config.accelerator != 'cpu'
+        """
+        # Patch factory to capture execution_config argument
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            data_config=MagicMock(),
+            pt_model_config=MagicMock(),
+            pt_training_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),  # Expected value
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            # Simulate CLI invocation with --accelerator cpu
+            test_args = minimal_train_args + ['--accelerator', 'cpu']
+    
+            # Import and invoke CLI main (will fail in RED phase)
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass  # CLI may exit; catch to inspect mock calls
+    
+        # Assert factory was called with execution_config containing accelerator='cpu'
+>       assert mock_factory.called, "Factory was not called"
+E       AssertionError: Factory was not called
+E       assert False
+E        +  where False = <MagicMock id='124994511891664'>.called
+
+tests/torch/test_cli_train_torch.py:84: AssertionError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-10-19 20:44:07.604181: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760931847.615683 1377197 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760931847.619851 1377197 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760931847.630939 1377197 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760931847.630957 1377197 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760931847.630959 1377197 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760931847.630961 1377197 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 20:44:07.633670: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 20:44:09.724992: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 20:44:09.725028: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 20:44:09.725034: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 20:44:09.725038: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 20:44:09.725042: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 20:44:09.725045: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 20:44:09.725072: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 20:44:09.725088: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 20:44:09.725091: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow]
+                [--ptycho_dir PTYCHO_DIR] [--config CONFIG]
+train.py: error: unrecognized arguments: --accelerator cpu
+___________ TestExecutionConfigCLI.test_deterministic_flag_roundtrip ___________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x71ae7ecda550>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-668/test_deterministic_flag_roundt0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-668/test_deterministic_flag_roundt0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71adacaf8950>
+
+    def test_deterministic_flag_roundtrip(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --deterministic flag maps to execution_config.deterministic=True.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --deterministic
+        OR
+        - AssertionError: execution_config.deterministic != True
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(deterministic=True),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--deterministic']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='124990742037648'>.called
+
+tests/torch/test_cli_train_torch.py:116: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow]
+                [--ptycho_dir PTYCHO_DIR] [--config CONFIG]
+train.py: error: unrecognized arguments: --deterministic
+_________ TestExecutionConfigCLI.test_no_deterministic_flag_roundtrip __________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x71ae7ecd8190>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-668/test_no_deterministic_flag_rou0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-668/test_no_deterministic_flag_rou0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71adac908510>
+
+    def test_no_deterministic_flag_roundtrip(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --no-deterministic flag maps to execution_config.deterministic=False.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --no-deterministic
+        OR
+        - AssertionError: execution_config.deterministic != False
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(deterministic=False),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--no-deterministic']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='124990738433488'>.called
+
+tests/torch/test_cli_train_torch.py:148: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow]
+                [--ptycho_dir PTYCHO_DIR] [--config CONFIG]
+train.py: error: unrecognized arguments: --no-deterministic
+____________ TestExecutionConfigCLI.test_num_workers_flag_roundtrip ____________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x71ae7ecd8790>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-668/test_num_workers_flag_roundtri0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-668/test_num_workers_flag_roundtri0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71adac90f950>
+
+    def test_num_workers_flag_roundtrip(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --num-workers flag maps to execution_config.num_workers.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --num-workers 4
+        OR
+        - AssertionError: execution_config.num_workers != 4
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(num_workers=4),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--num-workers', '4']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='124990738449424'>.called
+
+tests/torch/test_cli_train_torch.py:180: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow]
+                [--ptycho_dir PTYCHO_DIR] [--config CONFIG]
+train.py: error: unrecognized arguments: --num-workers 4
+___________ TestExecutionConfigCLI.test_learning_rate_flag_roundtrip ___________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x71ae7ecd9910>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-668/test_learning_rate_flag_roundt0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-668/test_learning_rate_flag_roundt0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71adac921490>
+
+    def test_learning_rate_flag_roundtrip(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --learning-rate flag maps to execution_config.learning_rate.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --learning-rate 5e-4
+        OR
+        - AssertionError: execution_config.learning_rate != 5e-4
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(learning_rate=5e-4),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--learning-rate', '5e-4']
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='124990738533392'>.called
+
+tests/torch/test_cli_train_torch.py:212: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow]
+                [--ptycho_dir PTYCHO_DIR] [--config CONFIG]
+train.py: error: unrecognized arguments: --learning-rate 5e-4
+_________ TestExecutionConfigCLI.test_multiple_execution_config_flags __________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x71ae7ecd8d50>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-668/test_multiple_execution_config0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-668/test_multiple_execution_config0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71adacad1090>
+
+    def test_multiple_execution_config_flags(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: Multiple execution config flags work together.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments (any of the new flags)
+        OR
+        - AssertionError: execution_config fields do not match expected values
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(
+                accelerator='gpu',
+                deterministic=False,
+                num_workers=8,
+                learning_rate=1e-3,
+            ),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + [
+                '--accelerator', 'gpu',
+                '--no-deterministic',
+                '--num-workers', '8',
+                '--learning-rate', '1e-3',
+            ]
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+>       assert mock_factory.called
+E       AssertionError: assert False
+E        +  where False = <MagicMock id='124990740313360'>.called
+
+tests/torch/test_cli_train_torch.py:254: AssertionError
+----------------------------- Captured stderr call -----------------------------
+usage: train.py [-h] [--train_data_file TRAIN_DATA_FILE]
+                [--test_data_file TEST_DATA_FILE] [--output_dir OUTPUT_DIR]
+                [--max_epochs MAX_EPOCHS] [--n_images N_IMAGES]
+                [--gridsize GRIDSIZE] [--batch_size BATCH_SIZE]
+                [--device {cpu,cuda}] [--disable_mlflow]
+                [--ptycho_dir PTYCHO_DIR] [--config CONFIG]
+train.py: error: unrecognized arguments: --accelerator gpu --no-deterministic --num-workers 8 --learning-rate 1e-3
+=========================== short test summary info ============================
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accelerator_flag_roundtrip - AssertionError: Factory was not called
+assert False
+ +  where False = <MagicMock id='124994511891664'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_deterministic_flag_roundtrip - AssertionError: assert False
+ +  where False = <MagicMock id='124990742037648'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_no_deterministic_flag_roundtrip - AssertionError: assert False
+ +  where False = <MagicMock id='124990738433488'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip - AssertionError: assert False
+ +  where False = <MagicMock id='124990738449424'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_learning_rate_flag_roundtrip - AssertionError: assert False
+ +  where False = <MagicMock id='124990738533392'>.called
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_multiple_execution_config_flags - AssertionError: assert False
+ +  where False = <MagicMock id='124990740313360'>.called
+============================== 6 failed in 5.03s ===============================
