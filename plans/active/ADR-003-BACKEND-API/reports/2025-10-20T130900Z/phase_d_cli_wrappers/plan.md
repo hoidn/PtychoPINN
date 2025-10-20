@@ -34,7 +34,7 @@ Exit Criteria: Training CLI delegates to factory/workflow helpers, tests updated
 | B3.c | Refactor training CLI | [x] | ✅ 2025-10-20 — `ptycho_torch/train.py` delegates to helpers, exposes `--quiet`, marks legacy flags deprecated, and preserves CONFIG-001 ordering. RawData stays in CLI per Option A pending Phase D.C decisions. |
 | B3.d | Turn RED tests GREEN | [x] | ✅ 2025-10-20 — Targeted selectors GREEN with logs: `pytest_cli_shared_green.log`, `pytest_cli_train_green.log`, `pytest_workflows_train_cli_green.log` under `reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`. |
 | B3.e | Summarise + update plan ledger | [x] | ✅ 2025-10-20 — Checklist states updated, `summary.md` refreshed (B3 recap), docs/fix_plan Attempt #43 recorded with artifact links. |
-| B4 | Update docs + plan status | [ ] | Refresh `docs/workflows/pytorch.md` CLI example, add deprecation note for `--device` & legacy interface, relocate stray CLI logs (e.g., move `train_debug.log` under the Phase D report hub), and mark implementation plan D1 rows `[x]` once documentation + hygiene complete. |
+| B4 | Update docs + plan status | [x] | ✅ 2025-10-20 — Documentation refresh + hygiene complete. `docs/workflows/pytorch.md` updated with `--quiet`, deprecated flag guidance, and helper flow; `tests/torch/test_cli_shared.py` docstring revised to GREEN status; `train_debug.log` relocated to `reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/`. Implementation plan D1 marked `[x]`; see same hub `summary.md` for deliverables. |
 
 ### Phase C — Inference CLI Thin Wrapper (maps to implementation.md D2)
 Goal: Mirror training refactor for inference CLI, ensuring bundle loading + reconstruction rely on shared helpers.

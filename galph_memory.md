@@ -1574,3 +1574,15 @@
   - Reissued `input.md` for B4 docs/hygiene, directing artifacts to `reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/`.
 - Open items: Update `docs/workflows/pytorch.md`, revise `tests/torch/test_cli_shared.py` docstring language, move `train_debug.log` into artifact hub, flip implementation D1 `[x]` post-doc updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T113821Z: Phase D.C kickoff prep
+- Focus issue: ADR-003-BACKEND-API Phase D — inference CLI thin wrapper (Plan §C1–C4)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Updates this loop:
+  - Marked `phase_d_cli_wrappers/plan.md` B4 `[x]` with completion notes and artifact pointer (`reports/2025-10-20T112811Z/...`).
+  - Refreshed `phase_d_cli_wrappers/summary.md` to highlight B4 completion and redirect next steps to inference blueprint + RED staging.
+  - Logged Attempt #45 in `docs/fix_plan.md` documenting the plan refresh and new steering memo.
+  - Overwrote `input.md` launching Phase D.C C1 blueprint work with artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/`.
+- Open questions for execution loop: confirm helper placement vs shared module, decide RawData ownership for inference, align CLI warnings with spec §4.8.
+- <Action State>: [ready_for_implementation]

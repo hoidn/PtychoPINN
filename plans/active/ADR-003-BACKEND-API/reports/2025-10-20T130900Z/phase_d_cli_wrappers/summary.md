@@ -21,14 +21,15 @@
 - **MLflow + deterministic defaults:** Need to ensure CLI wrappers preserve current behaviour of `--disable_mlflow` toggles and deterministic warnings when `num_workers > 0`.
 - **Integration runtime:** Smoke commands in Phase D must reuse the minimal dataset fixture to stay within CI budgets documented in TEST-PYTORCH-001 reports.
 
-## B3 status checkpoint (2025-10-20)
+## B3/B4 status checkpoint (2025-10-20)
 - B3.a–B3.d complete: helper package, execution-config validation, and training CLI thin wrapper merged with GREEN evidence (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`).
 - B3.e complete: plan checklist updated, this summary refreshed, and docs/fix_plan Attempt #43 logged for traceability.
+- B4 complete: documentation refresh, test docstring update, and artifact hygiene captured under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/`. Implementation plan D1 now `[x]`; docs/fix_plan Attempt #44 documents deliverables.
 
 ## Next steps for Ralph
-1. Execute Phase D.B B4 — update `docs/workflows/pytorch.md` CLI guidance with new `--quiet` behaviour, document `--device` deprecation messaging, and revise lingering RED-phase language in `tests/torch/test_cli_shared.py` to reflect current GREEN status.
-2. Relocate stray CLI logs (e.g., `train_debug.log`) into the Phase D report hub before closing B4, then mark implementation plan D1 `[x]` once documentation and hygiene land.
-3. After B4, begin Phase D.C (inference CLI blueprint + RED scaffolds) per plan if capacity allows.
+1. Phase D.C C1 — draft `inference_refactor.md` blueprint outlining helper layout, RawData ownership, deprecation messaging, and CONFIG-001 enforcement for inference CLI. Store under `plans/active/ADR-003-BACKEND-API/reports/<TS>/phase_d_cli_wrappers_inference/`.
+2. Phase D.C C2 — stage RED coverage in `tests/torch/test_cli_inference_torch.py` (or companion module) capturing expected helper delegation failures before implementation; archive RED log alongside the blueprint.
+3. Prepare for Phase D.C C3 by enumerating required refactors in the blueprint (delegation flow, helper reuse, warning semantics) so implementation can follow the same helper pattern as training CLI.
 
 **Artifacts Created:**  
 - `plan.md` — phased implementation roadmap with checklist IDs and guidance  
