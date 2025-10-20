@@ -208,6 +208,9 @@ def create_training_payload(
     )
 
     # ModelConfig: Extract model architecture fields from overrides
+    # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C to ensure
+    # PyTorch helpers (reassemble_patches_position_real) receive tensor shapes
+    # consistent with the grouping strategy. Fixes ADR-003 C4.D3 coords_relative mismatch.
     pt_model_config = PTModelConfig(
         mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
         amp_activation=overrides.get('amp_activation', 'silu'),
@@ -215,6 +218,8 @@ def create_training_payload(
         object_big=overrides.get('object_big', True),
         probe_big=overrides.get('probe_big', False),
         intensity_scale_trainable=overrides.get('intensity_scale_trainable', False),
+        C_forward=C,  # Match data config channel count
+        C_model=C,    # Match data config channel count
     )
 
     # TrainingConfig: Extract training-specific fields from overrides
@@ -398,12 +403,15 @@ def create_inference_payload(
     # ModelConfig: Extract model architecture fields from overrides (for config_bridge)
     # Note: In inference, model config typically loaded from checkpoint, but we need
     # a ModelConfig instance for config_bridge translation
+    # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C (ADR-003 C4.D3)
     pt_model_config = PTModelConfig(
         mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
         amp_activation=overrides.get('amp_activation', 'silu'),
         n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
         object_big=overrides.get('object_big', True),
         probe_big=overrides.get('probe_big', False),
+        C_forward=C,  # Match data config channel count
+        C_model=C,    # Match data config channel count
     )
 
     # InferenceConfig: Extract inference-specific fields from overrides
