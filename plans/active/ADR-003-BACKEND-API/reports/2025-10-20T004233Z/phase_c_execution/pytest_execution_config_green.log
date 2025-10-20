@@ -1,0 +1,29 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 17 items
+
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDefaults::test_hardware_defaults PASSED [  5%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDefaults::test_dataloader_defaults PASSED [ 11%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDefaults::test_optimization_defaults PASSED [ 17%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDefaults::test_checkpointing_defaults PASSED [ 23%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDefaults::test_logging_defaults PASSED [ 29%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDefaults::test_inference_defaults PASSED [ 35%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigInstantiation::test_can_instantiate_with_defaults PASSED [ 41%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigInstantiation::test_can_override_single_field PASSED [ 47%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigInstantiation::test_can_override_multiple_fields PASSED [ 52%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigInstantiation::test_optional_fields_accept_none PASSED [ 58%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigInstantiation::test_optional_fields_accept_values PASSED [ 64%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigInstantiation::test_repr_contains_all_fields PASSED [ 70%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDocumentation::test_has_docstring PASSED [ 76%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDocumentation::test_docstring_mentions_policy_001 PASSED [ 82%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDocumentation::test_docstring_mentions_config_001 PASSED [ 88%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDocumentation::test_has_type_annotations PASSED [ 94%]
+tests/torch/test_execution_config.py::TestPyTorchExecutionConfigDocumentation::test_fields_match_design PASSED [100%]
+
+============================== 17 passed in 0.85s ==============================
