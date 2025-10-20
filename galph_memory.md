@@ -1455,3 +1455,11 @@
 - Logged new fix-plan entry `[INTEGRATE-PYTORCH-001-REASSEMBLY]` to track removal of the TensorFlow helper from `_reassemble_cdi_image_torch` in favor of native PyTorch reassembly.
 - Exit criteria cover pure-PyTorch implementation, parity tests, and artifact storage under Phase D2 completion plan.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T090500Z: Focus selection
+- Focus issue: [ADR-003-BACKEND-API] Phase C4.D (post-bundle loader inference failure)
+- Action type: Debug
+- Mode: Parity
+- Notes: Continuing same initiative after loader implementation; need to understand `'dict' object has no attribute "eval"'` integration failure logged in `pytest_integration_phase_a.log`.
+- Updates: Marked phase_c4d_blockers Phase A rows `[x]`, added B4 checklist row for bundle introspection, captured supervisor findings in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T090900Z/debug/summary.md`, and rewrote `input.md` directing evidence-first TDD on bundle contents (new regression test + fix).
+- <Action State>: [ready_for_implementation]
