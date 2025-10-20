@@ -1,0 +1,6 @@
+tmp/cli_train_smoke:
+checkpoints
+wts.h5.zip
+
+tmp/cli_train_smoke/checkpoints:
+epoch=0-step=4.ckpt

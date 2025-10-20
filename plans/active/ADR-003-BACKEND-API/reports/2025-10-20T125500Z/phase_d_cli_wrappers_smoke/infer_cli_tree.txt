@@ -1,0 +1,3 @@
+tmp/cli_infer_smoke:
+reconstructed_amplitude.png
+reconstructed_phase.png
