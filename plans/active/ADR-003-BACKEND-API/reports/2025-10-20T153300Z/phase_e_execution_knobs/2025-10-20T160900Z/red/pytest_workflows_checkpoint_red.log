@@ -1,0 +1,188 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 30 items / 27 deselected / 3 selected
+
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_model_checkpoint_callback_configured FAILED [ 33%]
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_early_stopping_callback_configured FAILED [ 66%]
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_disable_checkpointing_skips_callbacks PASSED [100%]
+
+=================================== FAILURES ===================================
+__ TestLightningCheckpointCallbacks.test_model_checkpoint_callback_configured __
+
+self = <test_workflows_components.TestLightningCheckpointCallbacks object at 0x7dcf9815f8d0>
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7dcf986ccd10>
+
+    def test_model_checkpoint_callback_configured(self, minimal_training_config, monkeypatch):
+        """
+        RED Test: _train_with_lightning instantiates ModelCheckpoint with execution_config values.
+    
+        Expected RED Failure:
+        - ModelCheckpoint not instantiated (no callback wiring yet)
+        OR
+        - ModelCheckpoint instantiated but doesn't respect execution_config fields
+        OR
+        - AttributeError: checkpoint_mode field doesn't exist
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+    
+        try:
+            from lightning.pytorch.callbacks import ModelCheckpoint
+        except ImportError:
+            pytest.skip("Lightning not available")
+    
+        # Create execution config with checkpoint overrides
+        exec_config = PyTorchExecutionConfig(
+            enable_checkpointing=True,
+            checkpoint_save_top_k=3,
+            checkpoint_monitor_metric='train_loss',
+            checkpoint_mode='max',
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+    
+        # Mock ModelCheckpoint to spy on instantiation
+        mock_checkpoint_cls = MagicMock(spec=ModelCheckpoint)
+        mock_checkpoint_instance = MagicMock()
+        mock_checkpoint_cls.return_value = mock_checkpoint_instance
+    
+        # Mock Trainer to avoid actual training
+        mock_trainer_cls = MagicMock()
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+    
+        # Mock data containers to avoid actual data loading
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()
+    
+        with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
+             patch('lightning.Trainer', mock_trainer_cls):
+            from ptycho_torch.workflows.components import _train_with_lightning
+    
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about callback setup
+    
+        # GREEN Phase Assertions:
+        # 1. ModelCheckpoint was instantiated
+>       assert mock_checkpoint_cls.called, \
+            "ModelCheckpoint not instantiated (_train_with_lightning does not wire checkpoint callback)"
+E       AssertionError: ModelCheckpoint not instantiated (_train_with_lightning does not wire checkpoint callback)
+E       assert False
+E        +  where False = <MagicMock spec='ModelCheckpoint' id='138330567593360'>.called
+
+tests/torch/test_workflows_components.py:2851: AssertionError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-10-20 09:07:27.125977: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760976447.137302 1806339 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760976447.141199 1806339 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760976447.152191 1806339 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760976447.152203 1806339 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760976447.152206 1806339 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760976447.152208 1806339 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-20 09:07:27.154896: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-20 09:07:28.801463: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-20 09:07:28.801498: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-20 09:07:28.801504: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-20 09:07:28.801507: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-20 09:07:28.801511: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-20 09:07:28.801514: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-20 09:07:28.801541: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-20 09:07:28.801557: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-20 09:07:28.801560: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+___ TestLightningCheckpointCallbacks.test_early_stopping_callback_configured ___
+
+self = <test_workflows_components.TestLightningCheckpointCallbacks object at 0x7dcf9815fd50>
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7dcec9764190>
+
+    def test_early_stopping_callback_configured(self, minimal_training_config, monkeypatch):
+        """
+        RED Test: _train_with_lightning instantiates EarlyStopping with execution_config values.
+    
+        Expected RED Failure:
+        - EarlyStopping not instantiated (no callback wiring yet)
+        OR
+        - EarlyStopping instantiated but doesn't respect early_stop_patience
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+    
+        try:
+            from lightning.pytorch.callbacks import EarlyStopping
+        except ImportError:
+            pytest.skip("Lightning not available")
+    
+        # Create execution config with early stopping override
+        exec_config = PyTorchExecutionConfig(
+            early_stop_patience=5,
+            checkpoint_monitor_metric='val_loss',
+            checkpoint_mode='min',
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+    
+        # Mock EarlyStopping to spy on instantiation
+        mock_early_stop_cls = MagicMock(spec=EarlyStopping)
+        mock_early_stop_instance = MagicMock()
+        mock_early_stop_cls.return_value = mock_early_stop_instance
+    
+        # Mock Trainer to avoid actual training
+        mock_trainer_cls = MagicMock()
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+    
+        # Mock data containers
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()
+    
+        with patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
+             patch('lightning.Trainer', mock_trainer_cls):
+            from ptycho_torch.workflows.components import _train_with_lightning
+    
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about callback setup
+    
+        # GREEN Phase Assertions:
+        # 1. EarlyStopping was instantiated
+>       assert mock_early_stop_cls.called, \
+            "EarlyStopping not instantiated (_train_with_lightning does not wire early stopping callback)"
+E       AssertionError: EarlyStopping not instantiated (_train_with_lightning does not wire early stopping callback)
+E       assert False
+E        +  where False = <MagicMock spec='EarlyStopping' id='138327209925328'>.called
+
+tests/torch/test_workflows_components.py:2920: AssertionError
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_model_checkpoint_callback_configured - AssertionError: ModelCheckpoint not instantiated (_train_with_lightning does not wire checkpoint callback)
+assert False
+ +  where False = <MagicMock spec='ModelCheckpoint' id='138330567593360'>.called
+FAILED tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_early_stopping_callback_configured - AssertionError: EarlyStopping not instantiated (_train_with_lightning does not wire early stopping callback)
+assert False
+ +  where False = <MagicMock spec='EarlyStopping' id='138327209925328'>.called
+================== 2 failed, 1 passed, 27 deselected in 4.92s ==================

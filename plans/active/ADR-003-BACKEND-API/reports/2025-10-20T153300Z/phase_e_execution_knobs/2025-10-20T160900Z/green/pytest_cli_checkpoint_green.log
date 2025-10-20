@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 12 items / 8 deselected / 4 selected
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_enable_checkpointing_flag PASSED [ 25%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_save_top_k_flag PASSED [ 50%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_monitor_flag PASSED [ 75%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_mode_flag PASSED [100%]
+
+======================= 4 passed, 8 deselected in 4.90s ========================

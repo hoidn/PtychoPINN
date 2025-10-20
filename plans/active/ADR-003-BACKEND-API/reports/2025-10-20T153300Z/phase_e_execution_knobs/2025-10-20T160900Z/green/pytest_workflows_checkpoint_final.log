@@ -1,0 +1,101 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 30 items / 27 deselected / 3 selected
+
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_model_checkpoint_callback_configured PASSED [ 33%]
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_early_stopping_callback_configured FAILED [ 66%]
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_disable_checkpointing_skips_callbacks PASSED [100%]
+
+=================================== FAILURES ===================================
+___ TestLightningCheckpointCallbacks.test_early_stopping_callback_configured ___
+
+self = <test_workflows_components.TestLightningCheckpointCallbacks object at 0x73f97263ac50>
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x73f8a8224bd0>
+
+    def test_early_stopping_callback_configured(self, minimal_training_config, monkeypatch):
+        """
+        RED Test: _train_with_lightning instantiates EarlyStopping with execution_config values.
+    
+        Expected RED Failure:
+        - EarlyStopping not instantiated (no callback wiring yet)
+        OR
+        - EarlyStopping instantiated but doesn't respect early_stop_patience
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+    
+        try:
+            from lightning.pytorch.callbacks import EarlyStopping
+        except ImportError:
+            pytest.skip("Lightning not available")
+    
+        # Create execution config with early stopping override
+        exec_config = PyTorchExecutionConfig(
+            early_stop_patience=5,
+            checkpoint_monitor_metric='val_loss',
+            checkpoint_mode='min',
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+    
+        # Mock EarlyStopping to spy on instantiation
+        mock_early_stop_cls = MagicMock(spec=EarlyStopping)
+        mock_early_stop_instance = MagicMock()
+        mock_early_stop_cls.return_value = mock_early_stop_instance
+    
+        # Mock Trainer to avoid actual training
+        mock_trainer_cls = MagicMock()
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+    
+        # Mock data containers
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()
+    
+        from ptycho_torch.workflows.components import _train_with_lightning
+    
+        # Patch at import site inside the function
+        with patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
+             patch('lightning.pytorch.Trainer', mock_trainer_cls):
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about callback setup
+    
+        # GREEN Phase Assertions:
+        # 1. EarlyStopping was instantiated
+>       assert mock_early_stop_cls.called, \
+            "EarlyStopping not instantiated (_train_with_lightning does not wire early stopping callback)"
+E       AssertionError: EarlyStopping not instantiated (_train_with_lightning does not wire early stopping callback)
+E       assert False
+E        +  where False = <MagicMock spec='EarlyStopping' id='127511812762512'>.called
+
+tests/torch/test_workflows_components.py:2939: AssertionError
+=============================== warnings summary ===============================
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_model_checkpoint_callback_configured
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_model_checkpoint_callback_configured
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_early_stopping_callback_configured - AssertionError: EarlyStopping not instantiated (_train_with_lightning does not wire early stopping callback)
+assert False
+ +  where False = <MagicMock spec='EarlyStopping' id='127511812762512'>.called
+============ 1 failed, 2 passed, 27 deselected, 2 warnings in 4.98s ============
