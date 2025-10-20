@@ -1289,3 +1289,15 @@
 - Updated `docs/fix_plan.md` last-updated date and archive banner; file now 53,011 bytes (down from 123,657).
 - Remaining active items: ADR-003 backend API, dataloader indexing follow-ups, lightning decoder handoff, TEST-PYTORCH-001.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T010816Z: ADR-003 Phase C1 review & C2 handoff
+- Focus issue: ADR-003-BACKEND-API Phase C1 closeout / C2 readiness
+- Action type: Review or housekeeping
+- Mode: Docs
+- Findings:
+  - Coin flip → heads. Reviewed Ralph commits (`8159dcf1`, `6e444b66`); Phase C1 delivered PyTorchExecutionConfig dataclass + pytest module with clean RED→GREEN logs. Spec §4.8/§6 and docs/workflows/pytorch.md §12 updated; no regressions detected.
+  - Verified artifacts under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T004233Z/phase_c_execution/` (design_delta.md, pytest logs) and marked implementation.md C1 row `[x]`.
+  - Refreshed Phase C summary to document C1 completion and articulated C2 checkpoints; fix_plan Attempt #11 records evidence + test results.
+  - Authored new input.md directing TDD wiring of execution config through factories (C2.B1–C2.B4) with artifact hub `reports/2025-10-20T010900Z/phase_c2_factory_wiring/`.
+- Open questions: monitor execution override precedence decisions during C2; ensure overrides_applied captures accelerator/deterministic/num_workers.
+- <Action State>: [ready_for_implementation]

@@ -34,7 +34,7 @@ Exit Criteria: Workflows accept dual configs, Lightning orchestration centralize
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Introduce `PyTorchExecutionConfig` | [ ] | Follow `reports/2025-10-20T004233Z/phase_c_execution/plan.md` §C1: reconcile field list, add dataclass + exports in `ptycho/config/config.py`, land RED→GREEN tests (`tests/torch/test_execution_config.py`), and update spec/workflow docs with execution-config contract. |
+| C1 | Introduce `PyTorchExecutionConfig` | [x] | ✅ 2025-10-20 — Dataclass landed in `ptycho/config/config.py` with `__all__` export and POLICY-001/CONFIG-001 docstring. Field reconciliation recorded in `reports/2025-10-20T004233Z/phase_c_execution/design_delta.md`; RED→GREEN evidence captured (`pytest_execution_config_red.log`, `pytest_execution_config_green.log`). Spec §4.8/§6 and `docs/workflows/pytorch.md` §12 updated to describe execution config contract. |
 | C2 | Refactor training/inference workflows | [ ] | Execute plan §C2: update factory payloads to emit real `PyTorchExecutionConfig` instances, merge overrides, and extend factory tests for execution-knob precedence (`pytest ... -k ExecutionConfig`). Document decisions in `phase_c_execution/summary.md`. |
 | C3 | Update helper pathways | [ ] | Execute plan §C3: thread execution config through `_train_with_lightning` and inference helpers, assert Lightning Trainer kwargs via `tests/torch/test_workflows_components.py`. Capture RED/GREEN logs under `phase_c_execution/`. |
 | C4 | Add workflow-level tests | [ ] | Execute plan §C4: expose knobs via CLI flags, refactor CLI wrappers onto factories, add CLI regression tests, and refresh docs/specs. Store evidence + Attempt entries per plan checklist. |

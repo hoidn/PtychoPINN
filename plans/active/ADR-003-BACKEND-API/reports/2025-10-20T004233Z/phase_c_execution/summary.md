@@ -17,6 +17,11 @@
 - `phase_b3_implementation/summary.md` — confirms factory payloads now GREEN and ready for execution-config wiring.
 - `specs/ptychodus_api_spec.md` §4, §6 and `docs/workflows/pytorch.md` §§5–13 — authoritative contracts that must be updated during C1/C4.
 
+## Status Update (2025-10-20T010816Z)
+- **C1 COMPLETE:** `PyTorchExecutionConfig` now lives in `ptycho/config/config.py` with `__all__` export; defaults match `design_delta.md` inventory. Tests captured RED→GREEN cycle via `pytest_execution_config_{red,green}.log` (17 cases). Spec §4.8/§6 and workflow guide §12 refreshed to describe execution-config contract.
+- **Artifacts Relocated:** All logs/docs for C1 reside under `reports/2025-10-20T004233Z/phase_c_execution/`. No stray `train_debug.log` remaining at repo root.
+- **C2 ENTRY CONDITIONS:** Factories already GREEN from Phase B3 (`create_*_payload` returning canonical structs). Ready to inject execution-config wiring without breaking CONFIG-001 bridge.
+
 ## Risks & Mitigations
 - **Field Drift:** If Lightning knobs diverge from dataclass defaults, document delta in `design_delta.md` and update override matrix at the same time.
 - **Trainer Signature Changes:** Wrap Lightning Trainer invocation in helper to minimise blast radius; tests in `tests/torch/test_workflows_components.py` will catch regressions.
@@ -24,10 +29,10 @@
 - **Artifact Discipline:** CLI runs may emit `train_debug.log`; mandate relocation to this plan directory at the end of each loop.
 
 ## Next Supervisor Checkpoints
-1. Confirm C1 RED→GREEN evidence (new test module + dataclass export) and that spec/workflow docs were updated.
-2. Ensure factories now emit real `PyTorchExecutionConfig` instances and that execution overrides appear in audit trails.
-3. Verify workflow tests assert Trainer kwargs (accelerator, deterministic) and pass on CPU-only runs.
-4. Review CLI changes + docs updates before approving Phase D (legacy API deprecation) work.
+1. Coordinate C2 RED run: factories should fail while returning placeholder execution_config until wiring lands; capture selector `pytest tests/torch/test_config_factory.py -k ExecutionConfig`.
+2. Review C2 GREEN evidence confirming payloads emit real dataclasses and override precedence is documented in `phase_c_execution/summary.md`.
+3. For C3, ensure workflow tests assert Trainer kwargs (accelerator, deterministic) on CPU-only runs before approving CLI work.
+4. Maintain artifact hygiene — relocate any Lightning logs into `phase_c_execution/` timestamped directories.
 
 ## Open Questions To Track
 - Do we expose MLflow/Logger control in Phase C or defer to Phase D/ADR governance? (Flag in `design_delta.md` during C1.)
@@ -35,4 +40,4 @@
 - Confirm whether existing CLI smoke tests cover inference-only scenarios; if not, add new test case in Phase C4.D3.
 
 ## Action State
-- <Action State>: [planning]
+- <Action State>: [ready_for_implementation]
