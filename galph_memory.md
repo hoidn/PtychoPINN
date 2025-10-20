@@ -1450,3 +1450,8 @@
   - Authored follow-on execution plan at `reports/2025-10-20T083500Z/phase_c4d_blockers/{plan.md,summary.md}` covering bundle loader TDD (Phase A) and gridsize parity (Phase B).
   - Updated existing C4 plan rows + implementation ledger to reference the new blocker plan.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T011200Z: Added reassembly follow-up
+- Logged new fix-plan entry `[INTEGRATE-PYTORCH-001-REASSEMBLY]` to track removal of the TensorFlow helper from `_reassemble_cdi_image_torch` in favor of native PyTorch reassembly.
+- Exit criteria cover pure-PyTorch implementation, parity tests, and artifact storage under Phase D2 completion plan.
+- <Action State>: [ready_for_implementation]

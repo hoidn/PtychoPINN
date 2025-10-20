@@ -62,6 +62,20 @@
 - Status: archived 2025-10-20 — see `archive/2025-10-20_fix_plan_archive.md#integrate-pytorch-001-d1e-resolve-lightning-decoder-shape-mismatch-phase-d1e`.
 - Notes: Decoder parity with TensorFlow validated; decoder tests guard shape semantics. Remaining integration risks tracked separately.
 
+## [INTEGRATE-PYTORCH-001-REASSEMBLY] Replace TensorFlow reassembly bridge with native PyTorch implementation
+- Depends on: INTEGRATE-PYTORCH-001-STUBS; INTEGRATE-PYTORCH-001 Phase D2 parity evidence
+- Spec/AT: `docs/workflows/pytorch.md` §§5–7; `plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md`; `ptycho_torch/reassembly_alpha.py`
+- Priority: High
+- Status: pending
+- Owner/Date: Codex Agent/2025-10-20
+- Working Plan: `plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md` (Phase D2 follow-up backlog)
+- Attempts History:
+  * [2025-10-20] Attempt #0 — Identified TensorFlow dependency in `_reassemble_cdi_image_torch`; confirmed native PyTorch barycentric reassembly available in `ptycho_torch/reassembly_alpha.py`. Logged follow-up to remove cross-backend dependency.
+- Exit Criteria:
+  - `_reassemble_cdi_image_torch` uses a pure-PyTorch reassembly path (e.g., barycentric accumulator) with no TensorFlow imports.
+  - Targeted regression test asserts parity against TensorFlow output (amplitude/phase) on canonical dataset.
+  - Artifact log stored under `plans/active/INTEGRATE-PYTORCH-001/reports/<timestamp>/reassembly_refactor/` documenting implementation and benchmarks.
+
 ## [TEST-PYTORCH-001] Author PyTorch integration workflow regression
 - Depends on: INTEGRATE-PYTORCH-001 (Phase E2 complete); POLICY-001 torch-required rollout
 - Spec/AT: `specs/ptychodus_api_spec.md` §4 (reconstructor lifecycle), `docs/workflows/pytorch.md` §§2–6, `docs/TESTING_GUIDE.md` (integration tier), `plans/pytorch_integration_test_plan.md`
