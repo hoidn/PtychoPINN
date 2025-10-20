@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 23 items / 16 deselected / 7 selected
+
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_inference_mode PASSED [ 14%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_quiet_flag PASSED [ 28%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_quiet_or_disable_mlflow_both_true PASSED [ 42%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_train_file_for_inference_mode PASSED [ 57%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfigInferenceMode::test_inference_mode_defaults PASSED [ 71%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfigInferenceMode::test_inference_mode_custom_batch_size PASSED [ 85%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfigInferenceMode::test_inference_mode_respects_quiet PASSED [100%]
+
+======================= 7 passed, 16 deselected in 3.55s =======================
