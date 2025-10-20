@@ -108,12 +108,12 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
-| C4.E1 | Update workflow guide CLI sections | [ ] | Refresh `docs/workflows/pytorch.md` §13 (or create if missing): Document new execution config flags with examples, defaults, and use cases. Include CLI command templates for common workflows (CPU training, GPU training, custom learning rate). Cross-reference `argparse_schema.md`. |
-| C4.E2 | Update spec CLI tables | [ ] | Add new flags to `specs/ptychodus_api_spec.md` (create §7 "CLI Reference" if missing): Table format: Flag \| Type \| Default \| Description \| Config Field. Include both training and inference flags. |
-| C4.E3 | Refresh CLAUDE.md | [ ] | Update `CLAUDE.md` §5 "Key Commands" with new CLI examples using execution config flags. Keep examples minimal (1-2 lines). |
-| C4.E4 | Update implementation plan | [ ] | Mark `plans/active/ADR-003-BACKEND-API/implementation.md` Phase C4 rows complete with artifact pointers (this plan, logs, refactor notes). Update checklist verification status. |
+| C4.E1 | Update workflow guide CLI sections | [x] | ✅ 2025-10-20 — `docs/workflows/pytorch.md` §12 documents execution config flags, includes validated gridsize=2 CLI example, and cites CONFIG-001 + Phase C4.D evidence. Artifact: `reports/2025-10-20T120500Z/phase_c4_docs_update/summary.md`. |
+| C4.E2 | Update spec CLI tables | [x] | ✅ 2025-10-20 — `specs/ptychodus_api_spec.md` §7 adds training/inference flag tables with config-field mappings, override precedence notes, and manual CLI smoke reference. |
+| C4.E3 | Refresh CLAUDE.md | [x] | ✅ 2025-10-20 — `CLAUDE.md` Key Commands now include PyTorch CLI example covering `--accelerator`, `--deterministic`, `--num-workers`, `--learning-rate`, with CONFIG-001 reminder. |
+| C4.E4 | Update implementation plan | [x] | ✅ 2025-10-20 — `plans/active/ADR-003-BACKEND-API/implementation.md` Phase C4 row updated with C4.E completion note and artifact pointer. |
 
-**Exit Criteria:** Four docs updated with CLI references, examples accurate, spec tables complete.
+**Exit Criteria:** Completed — docs + plan updated, evidence logged at `reports/2025-10-20T120500Z/phase_c4_docs_update/`.
 
 ---
 
@@ -162,7 +162,7 @@ Per C3 summary and `override_matrix.md` analysis, the following knobs are **inte
 - [x] **C4.B:** CLI test scaffolds authored with 6+ RED tests, logs captured
 - [x] **C4.C:** Training + inference CLI refactored to use factories, hardcoded values eliminated
 - [x] **C4.D:** Targeted CLI tests, factory smoke, full integration selector, and manual CLI smoke all GREEN. Evidence stored at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/`.
-- [ ] **C4.E:** Four docs updated (workflow guide §13, spec CLI tables, CLAUDE.md examples, implementation plan)
+- [x] **C4.E:** Docs & plan updated (`docs/workflows/pytorch.md` §12, `specs/ptychodus_api_spec.md` §7, `CLAUDE.md` Key Commands, implementation plan) with evidence at `reports/2025-10-20T120500Z/phase_c4_docs_update/`
 - [ ] **C4.F:** Summary authored, fix_plan Attempt logged, Phase D prep notes captured, hygiene verified
 
 **Phase C Complete Gate:** All C4 subtasks `[x]`, exit criteria validated, artifacts consolidated under timestamped report directory.

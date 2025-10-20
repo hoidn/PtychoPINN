@@ -195,3 +195,16 @@ Module scope: CLI/config (argparse + execution config integration)
 ---
 
 **Loop COMPLETE:** Phase C4.A (design) + C4.B (RED scaffolds) delivered. Ready for Phase C4.C (GREEN implementation) in next loop.
+
+---
+
+## 2025-10-20T120500Z — Documentation Update Snapshot (C4.E)
+
+- **Scope:** Completed C4.E tasks (workflow guide, spec CLI tables, CLAUDE.md, implementation plan update).
+- **Artifacts:** `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/{summary.md,docs_diff.txt}`.
+- **Highlights:**
+  - `docs/workflows/pytorch.md` §12 now documents execution config flags with gridsize=2 CLI example and CONFIG-001 guidance.
+  - `specs/ptychodus_api_spec.md` §7 adds training/inference CLI flag tables mapped to `PyTorchExecutionConfig`.
+  - `CLAUDE.md` Key Commands include PyTorch CLI example using new flags; CONFIG-001 bridging note retained.
+  - Implementation plan Phase C4 row updated with completion timestamp and artifact pointer.
+- **Next:** Proceed with C4.F checklist (comprehensive summary, fix_plan Attempt entry, Phase D prep notes, hygiene check).

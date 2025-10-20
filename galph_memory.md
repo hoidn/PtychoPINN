@@ -1518,3 +1518,13 @@
 - Plan status: `phase_c4d_blockers/plan.md` shows C tasks `[ ]`; `phase_c4d_at_parallel/summary.md` indicates exit criteria met. Need to mark plan rows `[x]`, update parent plan summary, and log fix_plan Attempt #35.
 - Actions taken: marked `phase_c4d_blockers/plan.md` C1–C3 `[x]`, refreshed its summary, updated `phase_c4_cli_integration/plan.md` (C4.D3/C4.D4 + verification checklist), appended Attempt #35 in `docs/fix_plan.md`, and issued new input.md targeting Phase C4.E documentation updates with artifact hub `2025-10-20T120500Z/phase_c4_docs_update/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T121500Z: Phase C4.F setup
+- Focus issue: ADR-003-BACKEND-API Phase C4.F (close-out summary + ledger hygiene)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Notes: Coin flip (heads) → reviewed last ~10 commits (2433ba40 doc updates OK; b9c21abe evidence logs; 0b91687c plan updates) — no regressions observed, but plan checklist still shows C4.E `[ ]` and fix_plan lacks attempt entry for documentation loop.
+- Preparatory docs: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md`, `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/summary.md`, `docs/workflows/pytorch.md`, `specs/ptychodus_api_spec.md`, `CLAUDE.md`, `docs/fix_plan.md`.
+- Pending work this loop: update C4.E checklist states, record documentation attempt in ledger, craft next input for C4.F deliverables.
+- Actions taken: Marked C4.E rows `[x]` in plan checklist, appended documentation snapshot to plan summary, recorded Attempt #37 in fix_plan, drafted new `input.md` for C4.F close-out with artifact hub instructions.
+- <Action State>: [ready_for_implementation]

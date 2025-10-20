@@ -1,48 +1,49 @@
-Summary: Update PyTorch CLI documentation (Phase C4.E) so the new execution-config flags and validation evidence are captured across spec, workflow guide, and plan.
+Summary: Close Phase C4 by shipping the summary, ledger entry, and hygiene checks for documentation work.
 Mode: Docs
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4.E (documentation updates)
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4.F (close-out)
 Branch: feature/torchapi
 Mapped tests: none — docs-only
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/{summary.md,docs_diff.txt}
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123500Z/phase_c4f_closeout/{summary.md,ledger_update.md}
 
 Do Now:
-1. ADR-003-BACKEND-API C4.E1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — Revise docs/workflows/pytorch.md §12–§13 to document the new CLI execution config flags (accelerator, deterministic, num-workers, learning-rate, inference-batch-size) with UPDATED examples reflecting the gridsize=2 smoke; include link to phase_c4d_at_parallel/summary.md; tests: none
-2. ADR-003-BACKEND-API C4.E2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — Extend specs/ptychodus_api_spec.md (CLI tables) to add training/inference execution-config flag mappings, citing PyTorchExecutionConfig fields and CONFIG-001 ordering; tests: none
-3. ADR-003-BACKEND-API C4.E3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — Refresh CLAUDE.md “Key Commands”/PyTorch sections with a concise CLI example that shows deterministic + accelerator usage and points to the new docs; tests: none
-4. ADR-003-BACKEND-API C4.E4 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — Update implementation.md (Phase C4 rows) to reference the new documentation artifacts and log a short summary in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/summary.md; tests: none
+1. ADR-003-BACKEND-API C4.F1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:126 — Author Phase C4 summary covering doc updates, test evidence, deferred knobs; tests: none
+2. ADR-003-BACKEND-API C4.F2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:127 — Append new Attempt entry to docs/fix_plan.md (C4 close-out) with artifact links + exit criteria; tests: none
+3. ADR-003-BACKEND-API C4.F3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:128 — Capture Phase D prep notes in the new summary (deferred knobs, owners, prerequisites); tests: none
+4. ADR-003-BACKEND-API C4.F4 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:129 — Run hygiene check (git status, stray files) and document outcome in ledger_update.md; tests: none
 
-If Blocked: Capture the blocker in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/blocker.md, note which document could not be updated, revert plan rows C4.E* to [P], and record the reason in docs/fix_plan.md before stopping.
+If Blocked: Log the blocker in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123500Z/phase_c4f_closeout/blocker.md, revert checklist states in plan.md back to [P], and note the issue in docs/fix_plan.md before stopping.
 
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md §4.8 and plan C4.E mandate documenting the CLI knobs for governance.
-- docs/workflows/pytorch.md needs parity evidence so users can run gridsize=2 confidently.
-- CLAUDE.md quick commands are authoritative for agents; they must reflect the new flag vocabulary.
-- implementation.md Phase C4 checklist must stay authoritative for downstream planning.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:120 — C4.F checklist is the remaining gate before Phase D work can begin.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/summary.md:1 — Documentation artifacts must be reflected in the closing summary.
+- docs/fix_plan.md:143 — Ledger needs a fresh Attempt entry capturing C4.F deliverables.
+- plans/active/ADR-003-BACKEND-API/implementation.md:40 — Implementation plan expects C4 finalized prior to Phase D.
 
 How-To Map:
-- Edit docs/workflows/pytorch.md to add a subsection summarizing the five execution-config flags, include the exact CLI command from manual_cli_smoke_gs2.log, and reference summary.md in the new artifact directory.
-- Update specs/ptychodus_api_spec.md by inserting a table under §4 or new §7 mapping each flag → dataclass field → factory override precedence.
-- In CLAUDE.md, refresh the PyTorch command snippet (Section 5) to show `--accelerator cpu --deterministic --num-workers 0 --learning-rate 1e-3 --gridsize 2` and mention CONFIG-001 bridge.
-- After documentation edits, append a new paragraph in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/summary.md capturing what changed, with bullet links to each file and spec references.
+- Create the artifact directory before writing (`mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123500Z/phase_c4f_closeout`).
+- Draft `summary.md` capturing: CLI flag exposure scope, key evidence (tests/logs), documentation deltas (with section numbers), exit-criteria checklist, and explicit list of deferred knobs for Phase D.
+- Update `docs/fix_plan.md` Attempts History with a new entry summarizing Phase C4.F (timestamp, tasks, artifact paths, confirmation of hygiene check).
+- Record hygiene verification steps (commands run, findings) in `ledger_update.md`; include `git status` output snapshot after cleanup.
+- After edits, ensure plan checklist C4.F rows are marked `[x]` where appropriate and reference the new artifacts.
 
 Pitfalls To Avoid:
-- Do not modify production code or tests; this loop is documentation-only.
-- Keep all new artifacts inside the timestamped reports/2025-10-20T120500Z directory.
-- Maintain CONFIG-001 language consistency (bridge before data/model construction).
-- Preserve existing Markdown cross-reference tags (<doc-ref>, etc.).
-- Avoid removing historical context from docs; append or clearly replace outdated snippets.
-- Double-check spelling of flags (`--num-workers`, not `--num_workers`).
-- Reference artifact paths relative to repo root (no absolute paths).
-- Do not delete prior logs or summaries when updating plan/summary files—append updates.
-- Ensure summary.md lists pending Phase C4.F tasks to avoid premature closure.
-- Run spellcheck or read-through manually—no automated tooling required.
+- Do not modify production Python modules or tests in this loop.
+- Keep all new artifacts inside the specified timestamped directory (no root-level logs).
+- Reference existing evidence (e.g., phase_c4d_at_parallel logs) rather than re-running tests.
+- Preserve numbering/formatting in docs/fix_plan.md (no renumbering of prior attempts).
+- Ensure summary cites exact filenames and paths for cross-reference.
+- Run hygiene checks after documentation work to capture final repository state.
+- Avoid duplicating content already captured in the Phase C4.E summary; link instead.
+- Keep narrative concise—focus on evidence, exit criteria, and next steps.
+- When quoting plan items, use their IDs exactly (C4.F1–C4.F4).
+- Confirm no temporary files remain in `tmp/` or repository root before finishing.
 
 Pointers:
-- docs/workflows/pytorch.md
-- specs/ptychodus_api_spec.md
-- CLAUDE.md
-- plans/active/ADR-003-BACKEND-API/implementation.md
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/summary.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:120
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/summary.md:180
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/summary.md:1
+- docs/fix_plan.md:140
+- plans/active/ADR-003-BACKEND-API/implementation.md:40
 
 Next Up:
-- Phase C4.F close-out (comprehensive summary + fix_plan handoff) once documentation is refreshed.
+- Phase D1 (PyTorch training CLI refactor) once C4.F artifacts are merged.
