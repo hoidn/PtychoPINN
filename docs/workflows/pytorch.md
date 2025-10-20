@@ -314,7 +314,7 @@ The following execution config flags are available in `ptycho_torch/train.py`:
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--accelerator` | str | `'cpu'` | Hardware accelerator type (`'cpu'`, `'gpu'`, `'tpu'`) |
+| `--accelerator` | str | `'auto'` | Hardware accelerator: `'auto'` (detect GPU, default), `'cpu'` (CPU-only), `'gpu'`/`'cuda'` (NVIDIA GPU), `'tpu'` (Google TPU), `'mps'` (Apple Silicon). Dataclass default is `'cpu'`; CLI helper overrides to `'auto'`. |
 | `--deterministic` / `--no-deterministic` | bool | `True` | Enable deterministic training (reproducibility) |
 | `--num-workers` | int | `0` | Number of DataLoader worker processes (0 = main thread) |
 | `--learning-rate` | float | `1e-3` | Optimizer learning rate |
@@ -348,6 +348,8 @@ The training CLI delegates to shared helper functions in `ptycho_torch/cli/share
 - `validate_paths()`: Checks file existence and creates output directories
 
 These helpers enforce CONFIG-001 compliance by calling factory functions that populate `params.cfg` via `update_legacy_dict()` before data loading or model construction. See `ptycho_torch/config_factory.py` for factory implementation details.
+
+**PyTorch Execution Configuration:** For the complete catalog of execution configuration fields (17 total, including programmatic-only parameters like checkpoint controls, scheduler, and logger backend), see <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.9 "PyTorch Execution Configuration Contract". The spec documents validation rules, priority levels, and CONFIG-001 isolation guarantees.
 
 **Evidence:** Phase C4.D validation confirmed gridsize=2 training with execution config flags completes successfully. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log` for full smoke test output.
 
