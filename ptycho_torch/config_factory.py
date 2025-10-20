@@ -194,9 +194,14 @@ def create_training_payload(
 
     # Step 3: Build PyTorch singleton configs with defaults + overrides
     # DataConfig: Extract data-related fields from overrides
+    grid_size = overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1)))
+    # Compute C from grid_size (number of channels = gridsize_x * gridsize_y)
+    C = grid_size[0] * grid_size[1]
+
     pt_data_config = PTDataConfig(
         N=N,
-        grid_size=overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1))),
+        grid_size=grid_size,
+        C=C,  # Set C based on grid_size
         nphotons=overrides.get('nphotons', 1e5),  # PyTorch default
         K=overrides.get('neighbor_count', 6),  # PyTorch default=6
         probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
@@ -378,9 +383,14 @@ def create_inference_payload(
 
     # Step 3: Build PyTorch singleton configs with defaults + overrides
     # DataConfig: Extract data-related fields from overrides
+    grid_size = overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1)))
+    # Compute C from grid_size (number of channels = gridsize_x * gridsize_y)
+    C = grid_size[0] * grid_size[1]
+
     pt_data_config = PTDataConfig(
         N=N,
-        grid_size=overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1))),
+        grid_size=grid_size,
+        C=C,  # Set C based on grid_size
         K=overrides.get('neighbor_count', 6),  # PyTorch default=6
         probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
     )
