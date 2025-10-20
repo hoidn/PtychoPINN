@@ -1,0 +1,1009 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 4 items
+
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip FAILED [ 25%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_num_workers_flag_roundtrip FAILED [ 50%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_inference_batch_size_flag_roundtrip FAILED [ 75%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_multiple_execution_config_flags FAILED [100%]
+
+=================================== FAILURES ===================================
+_______________ TestInferenceCLI.test_accelerator_flag_roundtrip _______________
+
+self = <test_cli_inference_torch.TestInferenceCLI object at 0x71e385334050>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model', '--test_data', '/tmp/pytest-...i0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71e3853a7290>
+
+    def test_accelerator_flag_roundtrip(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: --accelerator flag maps to execution_config.accelerator.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --accelerator cpu
+        OR
+        - AssertionError: execution_config.accelerator != 'cpu'
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(),
+            data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+            test_args = minimal_inference_args + ['--accelerator', 'cpu']
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + test_args)
+    
+            try:
+>               cli_main()
+
+tests/torch/test_cli_inference_torch.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cli_main():
+        """
+        CLI entrypoint for PyTorch Lightning checkpoint inference.
+    
+        This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
+        a command-line interface for loading trained PyTorch models and generating
+        reconstructions from test data.
+    
+        Usage:
+            python -m ptycho_torch.inference \\
+                --model_path <training_output_dir> \\
+                --test_data <npz_file> \\
+                --output_dir <inference_output_dir> \\
+                --n_images 32 \\
+                --device cpu \\
+                [--quiet]
+    
+        Expected Output Artifacts:
+            - <output_dir>/reconstructed_amplitude.png
+            - <output_dir>/reconstructed_phase.png
+    
+        References:
+            - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+            - Test contract: tests/torch/test_integration_workflow_torch.py
+            - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        """
+        parser = argparse.ArgumentParser(
+            description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+    Examples:
+      # Run inference on trained model
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
+          --output_dir inference_outputs \\
+          --n_images 32 \\
+          --device cpu
+    
+      # Run with quiet output
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data test.npz \\
+          --output_dir outputs \\
+          --n_images 64 \\
+          --device cuda \\
+          --quiet
+            """
+        )
+    
+        parser.add_argument(
+            '--model_path',
+            type=str,
+            required=True,
+            help='Path to training output directory containing Lightning checkpoint (expects checkpoints/last.ckpt or wts.pt)'
+        )
+        parser.add_argument(
+            '--test_data',
+            type=str,
+            required=True,
+            help='Path to test data NPZ file (must conform to specs/data_contracts.md)'
+        )
+        parser.add_argument(
+            '--output_dir',
+            type=str,
+            required=True,
+            help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
+        )
+        parser.add_argument(
+            '--n_images',
+            type=int,
+            default=32,
+            help='Number of images to use for reconstruction (default: 32)'
+        )
+        parser.add_argument(
+            '--device',
+            type=str,
+            choices=['cpu', 'cuda'],
+            default='cpu',
+            help='Device to run inference on (cpu or cuda, default: cpu)'
+        )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Suppress progress output'
+        )
+    
+        # Execution config flags (Phase C4.C5 - ADR-003)
+        parser.add_argument(
+            '--accelerator',
+            type=str,
+            default='auto',
+            choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+            help=(
+                'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+                'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+            )
+        )
+        parser.add_argument(
+            '--num-workers',
+            type=int,
+            default=0,
+            dest='num_workers',
+            help=(
+                'Number of DataLoader worker processes (default: 0 = synchronous). '
+                'Typical values: 2-8 for multi-core systems.'
+            )
+        )
+        parser.add_argument(
+            '--inference-batch-size',
+            type=int,
+            default=None,
+            dest='inference_batch_size',
+            help=(
+                'Batch size for inference DataLoader (default: None = use training batch_size). '
+                'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+            )
+        )
+    
+        args = parser.parse_args()
+    
+        # Phase C4.C6: Create execution config from CLI args (ADR-003)
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
+            )
+    
+        # Validate execution config args
+        if args.num_workers < 0:
+            raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+        if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+            raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+    
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=args.inference_batch_size,
+            enable_progress_bar=(not args.quiet),
+        )
+    
+        # Fail-fast: Check Lightning availability
+        try:
+            import lightning as L
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch Lightning backend requires 'lightning' and 'torch' packages. "
+                "Install via: pip install -e .[torch]\n"
+                f"Import error: {e}"
+            )
+    
+        # Convert paths to Path objects
+        model_path = Path(args.model_path)
+        test_data_path = Path(args.test_data)
+        output_dir = Path(args.output_dir)
+    
+        # Validate input paths
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"Model path does not exist: {model_path}\n"
+                "Provide a valid training output directory containing a checkpoint."
+            )
+    
+        if not test_data_path.exists():
+            raise FileNotFoundError(
+                f"Test data file does not exist: {test_data_path}\n"
+                "Provide a valid NPZ file conforming to specs/data_contracts.md"
+            )
+    
+        # Locate Lightning checkpoint
+        checkpoint_candidates = [
+            model_path / "checkpoints" / "last.ckpt",  # Lightning default
+            model_path / "wts.pt",                      # Custom bundle format
+            model_path / "model.pt",                    # Alternative naming
+        ]
+    
+        checkpoint_path = None
+        for candidate in checkpoint_candidates:
+            if candidate.exists():
+                checkpoint_path = candidate
+                break
+    
+        if checkpoint_path is None:
+>           raise FileNotFoundError(
+                f"No Lightning checkpoint found in {model_path}.\n"
+                f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
+                "Ensure training completed successfully and checkpoint was saved."
+            )
+E           FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model.
+E           Searched for: ['/tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model/model.pt']
+E           Ensure training completed successfully and checkpoint was saved.
+
+ptycho_torch/inference.py:487: FileNotFoundError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-10-19 21:06:24.546040: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760933184.557406 1386301 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760933184.561152 1386301 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760933184.572167 1386301 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760933184.572184 1386301 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760933184.572187 1386301 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760933184.572189 1386301 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 21:06:24.574891: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 21:06:26.644986: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 21:06:26.645026: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 21:06:26.645032: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 21:06:26.645036: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 21:06:26.645040: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 21:06:26.645043: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 21:06:26.645069: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 21:06:26.645090: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 21:06:26.645093: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+_______________ TestInferenceCLI.test_num_workers_flag_roundtrip _______________
+
+self = <test_cli_inference_torch.TestInferenceCLI object at 0x71e37b83b410>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model', '--test_data', '/tmp/pytest-...i0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71e2aad6a810>
+
+    def test_num_workers_flag_roundtrip(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: --num-workers flag maps to execution_config.num_workers.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --num-workers 4
+        OR
+        - AssertionError: execution_config.num_workers != 4
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(),
+            execution_config=MagicMock(num_workers=4),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+            test_args = minimal_inference_args + ['--num-workers', '4']
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + test_args)
+    
+            try:
+>               cli_main()
+
+tests/torch/test_cli_inference_torch.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cli_main():
+        """
+        CLI entrypoint for PyTorch Lightning checkpoint inference.
+    
+        This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
+        a command-line interface for loading trained PyTorch models and generating
+        reconstructions from test data.
+    
+        Usage:
+            python -m ptycho_torch.inference \\
+                --model_path <training_output_dir> \\
+                --test_data <npz_file> \\
+                --output_dir <inference_output_dir> \\
+                --n_images 32 \\
+                --device cpu \\
+                [--quiet]
+    
+        Expected Output Artifacts:
+            - <output_dir>/reconstructed_amplitude.png
+            - <output_dir>/reconstructed_phase.png
+    
+        References:
+            - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+            - Test contract: tests/torch/test_integration_workflow_torch.py
+            - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        """
+        parser = argparse.ArgumentParser(
+            description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+    Examples:
+      # Run inference on trained model
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
+          --output_dir inference_outputs \\
+          --n_images 32 \\
+          --device cpu
+    
+      # Run with quiet output
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data test.npz \\
+          --output_dir outputs \\
+          --n_images 64 \\
+          --device cuda \\
+          --quiet
+            """
+        )
+    
+        parser.add_argument(
+            '--model_path',
+            type=str,
+            required=True,
+            help='Path to training output directory containing Lightning checkpoint (expects checkpoints/last.ckpt or wts.pt)'
+        )
+        parser.add_argument(
+            '--test_data',
+            type=str,
+            required=True,
+            help='Path to test data NPZ file (must conform to specs/data_contracts.md)'
+        )
+        parser.add_argument(
+            '--output_dir',
+            type=str,
+            required=True,
+            help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
+        )
+        parser.add_argument(
+            '--n_images',
+            type=int,
+            default=32,
+            help='Number of images to use for reconstruction (default: 32)'
+        )
+        parser.add_argument(
+            '--device',
+            type=str,
+            choices=['cpu', 'cuda'],
+            default='cpu',
+            help='Device to run inference on (cpu or cuda, default: cpu)'
+        )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Suppress progress output'
+        )
+    
+        # Execution config flags (Phase C4.C5 - ADR-003)
+        parser.add_argument(
+            '--accelerator',
+            type=str,
+            default='auto',
+            choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+            help=(
+                'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+                'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+            )
+        )
+        parser.add_argument(
+            '--num-workers',
+            type=int,
+            default=0,
+            dest='num_workers',
+            help=(
+                'Number of DataLoader worker processes (default: 0 = synchronous). '
+                'Typical values: 2-8 for multi-core systems.'
+            )
+        )
+        parser.add_argument(
+            '--inference-batch-size',
+            type=int,
+            default=None,
+            dest='inference_batch_size',
+            help=(
+                'Batch size for inference DataLoader (default: None = use training batch_size). '
+                'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+            )
+        )
+    
+        args = parser.parse_args()
+    
+        # Phase C4.C6: Create execution config from CLI args (ADR-003)
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
+            )
+    
+        # Validate execution config args
+        if args.num_workers < 0:
+            raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+        if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+            raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+    
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=args.inference_batch_size,
+            enable_progress_bar=(not args.quiet),
+        )
+    
+        # Fail-fast: Check Lightning availability
+        try:
+            import lightning as L
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch Lightning backend requires 'lightning' and 'torch' packages. "
+                "Install via: pip install -e .[torch]\n"
+                f"Import error: {e}"
+            )
+    
+        # Convert paths to Path objects
+        model_path = Path(args.model_path)
+        test_data_path = Path(args.test_data)
+        output_dir = Path(args.output_dir)
+    
+        # Validate input paths
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"Model path does not exist: {model_path}\n"
+                "Provide a valid training output directory containing a checkpoint."
+            )
+    
+        if not test_data_path.exists():
+            raise FileNotFoundError(
+                f"Test data file does not exist: {test_data_path}\n"
+                "Provide a valid NPZ file conforming to specs/data_contracts.md"
+            )
+    
+        # Locate Lightning checkpoint
+        checkpoint_candidates = [
+            model_path / "checkpoints" / "last.ckpt",  # Lightning default
+            model_path / "wts.pt",                      # Custom bundle format
+            model_path / "model.pt",                    # Alternative naming
+        ]
+    
+        checkpoint_path = None
+        for candidate in checkpoint_candidates:
+            if candidate.exists():
+                checkpoint_path = candidate
+                break
+    
+        if checkpoint_path is None:
+>           raise FileNotFoundError(
+                f"No Lightning checkpoint found in {model_path}.\n"
+                f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
+                "Ensure training completed successfully and checkpoint was saved."
+            )
+E           FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model.
+E           Searched for: ['/tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model/model.pt']
+E           Ensure training completed successfully and checkpoint was saved.
+
+ptycho_torch/inference.py:487: FileNotFoundError
+__________ TestInferenceCLI.test_inference_batch_size_flag_roundtrip ___________
+
+self = <test_cli_inference_torch.TestInferenceCLI object at 0x71e37b83b8d0>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model', '--test_data', '/tmp/pytest-...g0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71e2aac00ad0>
+
+    def test_inference_batch_size_flag_roundtrip(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: --inference-batch-size flag maps to execution_config.inference_batch_size.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --inference-batch-size 32
+        OR
+        - AssertionError: execution_config.inference_batch_size != 32
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(),
+            execution_config=MagicMock(inference_batch_size=32),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+            test_args = minimal_inference_args + ['--inference-batch-size', '32']
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + test_args)
+    
+            try:
+>               cli_main()
+
+tests/torch/test_cli_inference_torch.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cli_main():
+        """
+        CLI entrypoint for PyTorch Lightning checkpoint inference.
+    
+        This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
+        a command-line interface for loading trained PyTorch models and generating
+        reconstructions from test data.
+    
+        Usage:
+            python -m ptycho_torch.inference \\
+                --model_path <training_output_dir> \\
+                --test_data <npz_file> \\
+                --output_dir <inference_output_dir> \\
+                --n_images 32 \\
+                --device cpu \\
+                [--quiet]
+    
+        Expected Output Artifacts:
+            - <output_dir>/reconstructed_amplitude.png
+            - <output_dir>/reconstructed_phase.png
+    
+        References:
+            - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+            - Test contract: tests/torch/test_integration_workflow_torch.py
+            - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        """
+        parser = argparse.ArgumentParser(
+            description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+    Examples:
+      # Run inference on trained model
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
+          --output_dir inference_outputs \\
+          --n_images 32 \\
+          --device cpu
+    
+      # Run with quiet output
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data test.npz \\
+          --output_dir outputs \\
+          --n_images 64 \\
+          --device cuda \\
+          --quiet
+            """
+        )
+    
+        parser.add_argument(
+            '--model_path',
+            type=str,
+            required=True,
+            help='Path to training output directory containing Lightning checkpoint (expects checkpoints/last.ckpt or wts.pt)'
+        )
+        parser.add_argument(
+            '--test_data',
+            type=str,
+            required=True,
+            help='Path to test data NPZ file (must conform to specs/data_contracts.md)'
+        )
+        parser.add_argument(
+            '--output_dir',
+            type=str,
+            required=True,
+            help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
+        )
+        parser.add_argument(
+            '--n_images',
+            type=int,
+            default=32,
+            help='Number of images to use for reconstruction (default: 32)'
+        )
+        parser.add_argument(
+            '--device',
+            type=str,
+            choices=['cpu', 'cuda'],
+            default='cpu',
+            help='Device to run inference on (cpu or cuda, default: cpu)'
+        )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Suppress progress output'
+        )
+    
+        # Execution config flags (Phase C4.C5 - ADR-003)
+        parser.add_argument(
+            '--accelerator',
+            type=str,
+            default='auto',
+            choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+            help=(
+                'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+                'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+            )
+        )
+        parser.add_argument(
+            '--num-workers',
+            type=int,
+            default=0,
+            dest='num_workers',
+            help=(
+                'Number of DataLoader worker processes (default: 0 = synchronous). '
+                'Typical values: 2-8 for multi-core systems.'
+            )
+        )
+        parser.add_argument(
+            '--inference-batch-size',
+            type=int,
+            default=None,
+            dest='inference_batch_size',
+            help=(
+                'Batch size for inference DataLoader (default: None = use training batch_size). '
+                'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+            )
+        )
+    
+        args = parser.parse_args()
+    
+        # Phase C4.C6: Create execution config from CLI args (ADR-003)
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
+            )
+    
+        # Validate execution config args
+        if args.num_workers < 0:
+            raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+        if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+            raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+    
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=args.inference_batch_size,
+            enable_progress_bar=(not args.quiet),
+        )
+    
+        # Fail-fast: Check Lightning availability
+        try:
+            import lightning as L
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch Lightning backend requires 'lightning' and 'torch' packages. "
+                "Install via: pip install -e .[torch]\n"
+                f"Import error: {e}"
+            )
+    
+        # Convert paths to Path objects
+        model_path = Path(args.model_path)
+        test_data_path = Path(args.test_data)
+        output_dir = Path(args.output_dir)
+    
+        # Validate input paths
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"Model path does not exist: {model_path}\n"
+                "Provide a valid training output directory containing a checkpoint."
+            )
+    
+        if not test_data_path.exists():
+            raise FileNotFoundError(
+                f"Test data file does not exist: {test_data_path}\n"
+                "Provide a valid NPZ file conforming to specs/data_contracts.md"
+            )
+    
+        # Locate Lightning checkpoint
+        checkpoint_candidates = [
+            model_path / "checkpoints" / "last.ckpt",  # Lightning default
+            model_path / "wts.pt",                      # Custom bundle format
+            model_path / "model.pt",                    # Alternative naming
+        ]
+    
+        checkpoint_path = None
+        for candidate in checkpoint_candidates:
+            if candidate.exists():
+                checkpoint_path = candidate
+                break
+    
+        if checkpoint_path is None:
+>           raise FileNotFoundError(
+                f"No Lightning checkpoint found in {model_path}.\n"
+                f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
+                "Ensure training completed successfully and checkpoint was saved."
+            )
+E           FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model.
+E           Searched for: ['/tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model/model.pt']
+E           Ensure training completed successfully and checkpoint was saved.
+
+ptycho_torch/inference.py:487: FileNotFoundError
+____________ TestInferenceCLI.test_multiple_execution_config_flags _____________
+
+self = <test_cli_inference_torch.TestInferenceCLI object at 0x71e37b83bed0>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model', '--test_data', '/tmp/pytest-...g0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71e2aac74150>
+
+    def test_multiple_execution_config_flags(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: Multiple execution config flags work together.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments (any of the new flags)
+        OR
+        - AssertionError: execution_config fields do not match expected values
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(),
+            execution_config=MagicMock(
+                accelerator='gpu',
+                num_workers=8,
+                inference_batch_size=64,
+            ),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+            test_args = minimal_inference_args + [
+                '--accelerator', 'gpu',
+                '--num-workers', '8',
+                '--inference-batch-size', '64',
+            ]
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + test_args)
+    
+            try:
+>               cli_main()
+
+tests/torch/test_cli_inference_torch.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cli_main():
+        """
+        CLI entrypoint for PyTorch Lightning checkpoint inference.
+    
+        This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
+        a command-line interface for loading trained PyTorch models and generating
+        reconstructions from test data.
+    
+        Usage:
+            python -m ptycho_torch.inference \\
+                --model_path <training_output_dir> \\
+                --test_data <npz_file> \\
+                --output_dir <inference_output_dir> \\
+                --n_images 32 \\
+                --device cpu \\
+                [--quiet]
+    
+        Expected Output Artifacts:
+            - <output_dir>/reconstructed_amplitude.png
+            - <output_dir>/reconstructed_phase.png
+    
+        References:
+            - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+            - Test contract: tests/torch/test_integration_workflow_torch.py
+            - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        """
+        parser = argparse.ArgumentParser(
+            description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+    Examples:
+      # Run inference on trained model
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
+          --output_dir inference_outputs \\
+          --n_images 32 \\
+          --device cpu
+    
+      # Run with quiet output
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data test.npz \\
+          --output_dir outputs \\
+          --n_images 64 \\
+          --device cuda \\
+          --quiet
+            """
+        )
+    
+        parser.add_argument(
+            '--model_path',
+            type=str,
+            required=True,
+            help='Path to training output directory containing Lightning checkpoint (expects checkpoints/last.ckpt or wts.pt)'
+        )
+        parser.add_argument(
+            '--test_data',
+            type=str,
+            required=True,
+            help='Path to test data NPZ file (must conform to specs/data_contracts.md)'
+        )
+        parser.add_argument(
+            '--output_dir',
+            type=str,
+            required=True,
+            help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
+        )
+        parser.add_argument(
+            '--n_images',
+            type=int,
+            default=32,
+            help='Number of images to use for reconstruction (default: 32)'
+        )
+        parser.add_argument(
+            '--device',
+            type=str,
+            choices=['cpu', 'cuda'],
+            default='cpu',
+            help='Device to run inference on (cpu or cuda, default: cpu)'
+        )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Suppress progress output'
+        )
+    
+        # Execution config flags (Phase C4.C5 - ADR-003)
+        parser.add_argument(
+            '--accelerator',
+            type=str,
+            default='auto',
+            choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+            help=(
+                'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+                'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+            )
+        )
+        parser.add_argument(
+            '--num-workers',
+            type=int,
+            default=0,
+            dest='num_workers',
+            help=(
+                'Number of DataLoader worker processes (default: 0 = synchronous). '
+                'Typical values: 2-8 for multi-core systems.'
+            )
+        )
+        parser.add_argument(
+            '--inference-batch-size',
+            type=int,
+            default=None,
+            dest='inference_batch_size',
+            help=(
+                'Batch size for inference DataLoader (default: None = use training batch_size). '
+                'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+            )
+        )
+    
+        args = parser.parse_args()
+    
+        # Phase C4.C6: Create execution config from CLI args (ADR-003)
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
+            )
+    
+        # Validate execution config args
+        if args.num_workers < 0:
+            raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+        if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+            raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+    
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=args.inference_batch_size,
+            enable_progress_bar=(not args.quiet),
+        )
+    
+        # Fail-fast: Check Lightning availability
+        try:
+            import lightning as L
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch Lightning backend requires 'lightning' and 'torch' packages. "
+                "Install via: pip install -e .[torch]\n"
+                f"Import error: {e}"
+            )
+    
+        # Convert paths to Path objects
+        model_path = Path(args.model_path)
+        test_data_path = Path(args.test_data)
+        output_dir = Path(args.output_dir)
+    
+        # Validate input paths
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"Model path does not exist: {model_path}\n"
+                "Provide a valid training output directory containing a checkpoint."
+            )
+    
+        if not test_data_path.exists():
+            raise FileNotFoundError(
+                f"Test data file does not exist: {test_data_path}\n"
+                "Provide a valid NPZ file conforming to specs/data_contracts.md"
+            )
+    
+        # Locate Lightning checkpoint
+        checkpoint_candidates = [
+            model_path / "checkpoints" / "last.ckpt",  # Lightning default
+            model_path / "wts.pt",                      # Custom bundle format
+            model_path / "model.pt",                    # Alternative naming
+        ]
+    
+        checkpoint_path = None
+        for candidate in checkpoint_candidates:
+            if candidate.exists():
+                checkpoint_path = candidate
+                break
+    
+        if checkpoint_path is None:
+>           raise FileNotFoundError(
+                f"No Lightning checkpoint found in {model_path}.\n"
+                f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
+                "Ensure training completed successfully and checkpoint was saved."
+            )
+E           FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model.
+E           Searched for: ['/tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model/model.pt']
+E           Ensure training completed successfully and checkpoint was saved.
+
+ptycho_torch/inference.py:487: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip - FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model.
+Searched for: ['/tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-671/test_accelerator_flag_roundtri0/model/model.pt']
+Ensure training completed successfully and checkpoint was saved.
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_num_workers_flag_roundtrip - FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model.
+Searched for: ['/tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-671/test_num_workers_flag_roundtri0/model/model.pt']
+Ensure training completed successfully and checkpoint was saved.
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_inference_batch_size_flag_roundtrip - FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model.
+Searched for: ['/tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-671/test_inference_batch_size_flag0/model/model.pt']
+Ensure training completed successfully and checkpoint was saved.
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_multiple_execution_config_flags - FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model.
+Searched for: ['/tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-671/test_multiple_execution_config0/model/model.pt']
+Ensure training completed successfully and checkpoint was saved.
+============================== 4 failed in 4.60s ===============================

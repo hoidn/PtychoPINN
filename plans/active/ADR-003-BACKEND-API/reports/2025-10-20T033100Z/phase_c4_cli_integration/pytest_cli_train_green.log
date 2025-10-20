@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 6 items
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accelerator_flag_roundtrip PASSED [ 16%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_deterministic_flag_roundtrip PASSED [ 33%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_no_deterministic_flag_roundtrip PASSED [ 50%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip PASSED [ 66%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_learning_rate_flag_roundtrip PASSED [ 83%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_multiple_execution_config_flags PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py:569: UserWarning: num_workers > 0 with deterministic mode enabled. This may introduce non-determinism on some platforms. Consider using --num-workers 0 for strict reproducibility.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+========================= 6 passed, 1 warning in 4.98s =========================
