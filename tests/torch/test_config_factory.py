@@ -392,34 +392,34 @@ class TestFactoryValidation:
     def test_missing_n_groups_raises_error(self, mock_train_npz, temp_output_dir):
         """Factory raises ValueError if n_groups missing from overrides."""
         # Omit n_groups (required field)
-        payload = create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={},  # Missing n_groups!
-        )
-        # GREEN phase: expect ValueError("n_groups required")
+        with pytest.raises(ValueError, match="n_groups is required"):
+            payload = create_training_payload(
+                train_data_file=mock_train_npz,
+                output_dir=temp_output_dir,
+                overrides={},  # Missing n_groups!
+            )
 
     def test_nonexistent_train_data_file_raises_error(self, temp_output_dir):
         """Factory raises FileNotFoundError for missing train_data_file."""
-        payload = create_training_payload(
-            train_data_file=Path("/nonexistent/train.npz"),
-            output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
-        )
-        # GREEN phase: expect FileNotFoundError
+        with pytest.raises(FileNotFoundError, match="Training data file not found"):
+            payload = create_training_payload(
+                train_data_file=Path("/nonexistent/train.npz"),
+                output_dir=temp_output_dir,
+                overrides={'n_groups': 512},
+            )
 
     def test_missing_checkpoint_raises_error(self, mock_test_npz, temp_output_dir):
         """Factory raises ValueError if model_path missing wts.h5.zip."""
         bad_checkpoint_dir = temp_output_dir / "no_checkpoint"
         bad_checkpoint_dir.mkdir()
 
-        payload = create_inference_payload(
-            model_path=bad_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={'n_groups': 128},
-        )
-        # GREEN phase: expect ValueError("Model archive not found")
+        with pytest.raises(ValueError, match="Model archive not found"):
+            payload = create_inference_payload(
+                model_path=bad_checkpoint_dir,
+                test_data_file=mock_test_npz,
+                output_dir=temp_output_dir,
+                overrides={'n_groups': 128},
+            )
 
 
 # ============================================================================

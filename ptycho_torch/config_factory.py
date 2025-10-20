@@ -174,10 +174,100 @@ def create_training_payload(
         - Override precedence: .../override_matrix.md §6
         - Integration: .../factory_design.md §3 (CLI/workflow call sites)
     """
-    raise NotImplementedError(
-        "create_training_payload() is a Phase B2 RED scaffold. "
-        "Implementation pending in Phase B3.a per "
-        "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+    from ptycho_torch.config_bridge import to_model_config, to_training_config
+
+    # Defensive copy of overrides
+    overrides = overrides or {}
+    overrides_applied = dict(overrides)  # Audit trail
+
+    # Step 1: Validate required arguments
+    if not train_data_file.exists():
+        raise FileNotFoundError(f"Training data file not found: {train_data_file}")
+
+    if 'n_groups' not in overrides:
+        raise ValueError(
+            "n_groups is required in overrides (no default). "
+            "Provide as: overrides={'n_groups': 512, ...}"
+        )
+
+    # Step 2: Infer probe size from NPZ (or use override)
+    if 'N' in overrides:
+        N = overrides['N']
+    else:
+        N = infer_probe_size(train_data_file)
+        overrides_applied['N'] = N  # Record inferred value
+
+    # Step 3: Build PyTorch singleton configs with defaults + overrides
+    # DataConfig: Extract data-related fields from overrides
+    pt_data_config = PTDataConfig(
+        N=N,
+        grid_size=overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1))),
+        nphotons=overrides.get('nphotons', 1e5),  # PyTorch default
+        K=overrides.get('neighbor_count', 6),  # PyTorch default=6
+        probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
+    )
+
+    # ModelConfig: Extract model architecture fields from overrides
+    pt_model_config = PTModelConfig(
+        mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
+        amp_activation=overrides.get('amp_activation', 'silu'),
+        n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
+        object_big=overrides.get('object_big', True),
+        probe_big=overrides.get('probe_big', False),
+        intensity_scale_trainable=overrides.get('intensity_scale_trainable', False),
+    )
+
+    # TrainingConfig: Extract training-specific fields from overrides
+    pt_training_config = PTTrainingConfig(
+        epochs=overrides.get('max_epochs', overrides.get('nepochs', 50)),  # Handle both names
+        batch_size=overrides.get('batch_size', 16),  # PyTorch default
+        nll=overrides.get('nll_weight', 1.0) > 0,  # Convert float → bool
+    )
+
+    # Step 4: Translate to TensorFlow canonical configs via config_bridge
+    tf_model_config = to_model_config(pt_data_config, pt_model_config)
+
+    # Build overrides dict for config_bridge (includes required fields)
+    bridge_overrides = {
+        'train_data_file': train_data_file,
+        'output_dir': output_dir,
+        'n_groups': overrides['n_groups'],  # Required field (validated above)
+    }
+
+    # Handle nphotons: config_bridge requires explicit override if using PyTorch default
+    # to avoid silent divergence. Always include nphotons in bridge_overrides.
+    if 'nphotons' in overrides:
+        bridge_overrides['nphotons'] = overrides['nphotons']
+    else:
+        # Use PyTorch default and mark as explicit override to pass config_bridge validation
+        bridge_overrides['nphotons'] = pt_data_config.nphotons
+    # Add optional fields from overrides
+    if 'test_data_file' in overrides:
+        bridge_overrides['test_data_file'] = overrides['test_data_file']
+    if 'n_subsample' in overrides:
+        bridge_overrides['n_subsample'] = overrides['n_subsample']
+    if 'subsample_seed' in overrides:
+        bridge_overrides['subsample_seed'] = overrides['subsample_seed']
+
+    tf_training_config = to_training_config(
+        tf_model_config,
+        pt_data_config,
+        pt_model_config,
+        pt_training_config,
+        overrides=bridge_overrides
+    )
+
+    # Step 5: Populate params.cfg (CONFIG-001 compliance checkpoint)
+    populate_legacy_params(tf_training_config)
+
+    # Step 6: Return TrainingPayload with all config objects + audit trail
+    return TrainingPayload(
+        tf_training_config=tf_training_config,
+        pt_data_config=pt_data_config,
+        pt_model_config=pt_model_config,
+        pt_training_config=pt_training_config,
+        execution_config=execution_config,  # Pass through (may be None)
+        overrides_applied=overrides_applied,
     )
 
 
@@ -244,10 +334,98 @@ def create_inference_payload(
         - Design: .../factory_design.md §3.3
         - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
     """
-    raise NotImplementedError(
-        "create_inference_payload() is a Phase B2 RED scaffold. "
-        "Implementation pending in Phase B3.a per "
-        "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+    from ptycho_torch.config_bridge import to_model_config, to_inference_config
+
+    # Defensive copy of overrides
+    overrides = overrides or {}
+    overrides_applied = dict(overrides)  # Audit trail
+
+    # Step 1: Validate required arguments
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model directory not found: {model_path}")
+
+    # Check for checkpoint file
+    checkpoint_file = model_path / "wts.h5.zip"
+    if not checkpoint_file.exists():
+        raise ValueError(
+            f"Model archive not found: {checkpoint_file}. "
+            "Expected wts.h5.zip in model_path directory."
+        )
+
+    if not test_data_file.exists():
+        raise FileNotFoundError(f"Test data file not found: {test_data_file}")
+
+    if 'n_groups' not in overrides:
+        raise ValueError(
+            "n_groups is required in overrides (no default). "
+            "Provide as: overrides={'n_groups': 128, ...}"
+        )
+
+    # Step 2: Infer probe size from NPZ (or use override)
+    if 'N' in overrides:
+        N = overrides['N']
+    else:
+        N = infer_probe_size(test_data_file)
+        overrides_applied['N'] = N  # Record inferred value
+
+    # Step 3: Build PyTorch singleton configs with defaults + overrides
+    # DataConfig: Extract data-related fields from overrides
+    pt_data_config = PTDataConfig(
+        N=N,
+        grid_size=overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1))),
+        K=overrides.get('neighbor_count', 6),  # PyTorch default=6
+        probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
+    )
+
+    # ModelConfig: Extract model architecture fields from overrides (for config_bridge)
+    # Note: In inference, model config typically loaded from checkpoint, but we need
+    # a ModelConfig instance for config_bridge translation
+    pt_model_config = PTModelConfig(
+        mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
+        amp_activation=overrides.get('amp_activation', 'silu'),
+        n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
+        object_big=overrides.get('object_big', True),
+        probe_big=overrides.get('probe_big', False),
+    )
+
+    # InferenceConfig: Extract inference-specific fields from overrides
+    pt_inference_config = PTInferenceConfig(
+        batch_size=overrides.get('batch_size', 16),  # PyTorch default
+    )
+
+    # Step 4: Translate to TensorFlow canonical configs via config_bridge
+    tf_model_config = to_model_config(pt_data_config, pt_model_config)
+
+    # Build overrides dict for config_bridge (includes required fields)
+    bridge_overrides = {
+        'model_path': model_path,
+        'test_data_file': test_data_file,
+        'output_dir': output_dir,
+        'n_groups': overrides['n_groups'],  # Required field (validated above)
+    }
+    # Add optional fields from overrides
+    if 'n_subsample' in overrides:
+        bridge_overrides['n_subsample'] = overrides['n_subsample']
+    if 'subsample_seed' in overrides:
+        bridge_overrides['subsample_seed'] = overrides['subsample_seed']
+
+    tf_inference_config = to_inference_config(
+        tf_model_config,
+        pt_data_config,
+        pt_inference_config,
+        overrides=bridge_overrides
+    )
+
+    # Step 5: Populate params.cfg (CONFIG-001 compliance checkpoint)
+    populate_legacy_params(tf_inference_config)
+
+    # Step 6: Return InferencePayload with all config objects + audit trail
+    return InferencePayload(
+        tf_inference_config=tf_inference_config,
+        pt_data_config=pt_data_config,
+        pt_inference_config=pt_inference_config,
+        execution_config=execution_config,  # Pass through (may be None)
+        overrides_applied=overrides_applied,
     )
 
 
@@ -285,11 +463,55 @@ def infer_probe_size(data_file: Path) -> int:
         - Override precedence: .../override_matrix.md row "N"
         - NPZ data contract: specs/data_contracts.md §1
     """
-    raise NotImplementedError(
-        "infer_probe_size() is a Phase B2 RED scaffold. "
-        "Implementation pending in Phase B3.a per "
-        "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
-    )
+    import numpy as np
+    import warnings
+
+    fallback_N = 64
+
+    try:
+        # Load NPZ with allow_pickle=False for security
+        with np.load(data_file, allow_pickle=False) as npz_data:
+            if 'probeGuess' not in npz_data:
+                warnings.warn(
+                    f"probeGuess key missing from {data_file}. Using fallback N={fallback_N}.",
+                    UserWarning
+                )
+                return fallback_N
+
+            probe = npz_data['probeGuess']
+
+            # Extract first dimension (assumes square probe)
+            if probe.ndim < 2:
+                warnings.warn(
+                    f"probeGuess has invalid shape {probe.shape} (expected 2D square array). "
+                    f"Using fallback N={fallback_N}.",
+                    UserWarning
+                )
+                return fallback_N
+
+            N = probe.shape[0]
+
+            # Validate square probe
+            if probe.shape[0] != probe.shape[1]:
+                warnings.warn(
+                    f"probeGuess is non-square {probe.shape}. Using first dimension N={N}.",
+                    UserWarning
+                )
+
+            return N
+
+    except FileNotFoundError:
+        warnings.warn(
+            f"Data file {data_file} not found. Using fallback N={fallback_N}.",
+            UserWarning
+        )
+        return fallback_N
+    except Exception as e:
+        warnings.warn(
+            f"Error reading probeGuess from {data_file}: {e}. Using fallback N={fallback_N}.",
+            UserWarning
+        )
+        return fallback_N
 
 
 def populate_legacy_params(
@@ -334,8 +556,22 @@ def populate_legacy_params(
         - CONFIG-001: docs/findings.md CONFIG-001 (initialization order requirement)
         - Key mappings: ptycho/config/config.py KEY_MAPPINGS
     """
-    raise NotImplementedError(
-        "populate_legacy_params() is a Phase B2 RED scaffold. "
-        "Implementation pending in Phase B3.a per "
-        "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
-    )
+    from ptycho.config.config import update_legacy_dict
+    import ptycho.params as params
+    import warnings
+
+    # Type validation
+    if not isinstance(tf_config, (TFTrainingConfig, TFInferenceConfig)):
+        raise TypeError(
+            f"tf_config must be TrainingConfig or InferenceConfig instance, got {type(tf_config)}"
+        )
+
+    # Warn if params.cfg already populated (unless force=True)
+    if not force and params.cfg:
+        warnings.warn(
+            "params.cfg already populated. Set force=True to overwrite existing values.",
+            UserWarning
+        )
+
+    # Call the canonical bridge function (CONFIG-001 compliance)
+    update_legacy_dict(params.cfg, tf_config)
