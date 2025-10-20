@@ -80,8 +80,8 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
 | C4.C5 | Add inference execution config flags | [x] | ✅ 2025-10-20 — `ptycho_torch/inference.py:365-412` exposes `--accelerator`, `--num-workers`, and `--inference-batch-size` per schema doc. |
-| C4.C6 | Replace ad-hoc config with factory call | [ ] | CLI now invokes `create_inference_payload()` but immediately falls back to legacy checkpoint discovery (`last.ckpt`/`wts.pt`) and RawData loading, so unit tests still hit real IO. `pytest_cli_inference_green.log` shows FileNotFoundError because `wts.h5.zip` (spec file) is ignored and the CLI never exits after factory call. Refactor to consume payload outputs (or injected runner) instead of manual Lightning/RawData wiring. |
-| C4.C7 | Maintain CONFIG-001 ordering | [ ] | Factory populates params.cfg, but subsequent RawData.from_file execution (against empty tmp fixtures) breaks test isolation and obscures CONFIG-001 guarantees. Need to restructure CLI so the factory bridge remains the first IO touchpoint and downstream logic respects spec-compliant artefacts. |
+| C4.C6 | Replace ad-hoc config with factory call | [x] | ✅ 2025-10-20 — Inference CLI now consumes `load_inference_bundle_torch()` output (spec-compliant `wts.h5.zip`) instead of manual checkpoint discovery. Unit tests patch both factory + bundle loader, eliminating unintended IO. Evidence: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/summary.md`, `pytest_cli_inference_green.log`. |
+| C4.C7 | Maintain CONFIG-001 ordering | [x] | ✅ 2025-10-20 — Factory call remains first IO touchpoint; bundle loader restores `params.cfg` state before inference execution. Execution config wiring validated by 4/4 passing CLI tests (`pytest_cli_inference_green.log`). Summary referenced above captures sequencing review. |
 
 **Exit Criteria:** Both CLI scripts refactored to use factories, execution config flags accepted and forwarded, hardcoded values eliminated, CONFIG-001 compliance maintained.
 
@@ -93,9 +93,9 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
-| C4.D1 | Run targeted CLI tests | [ ] | Execute: `pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv` and `pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv`. Capture GREEN logs to `pytest_cli_train_green.log` and `pytest_cli_inference_green.log`. All tests must PASS. |
-| C4.D2 | Factory integration smoke | [ ] | Re-run factory tests: `pytest tests/torch/test_config_factory.py -k ExecutionConfig -vv`. Ensure no regressions (expect GREEN from C2). Capture log to `pytest_factory_smoke.log`. |
-| C4.D3 | Full regression suite | [ ] | Run: `CUDA_VISIBLE_DEVICES="" pytest tests/ -v 2>&1 \| tee pytest_full_suite_c4.log`. **Gate:** Zero new failures vs C3 baseline (271 passed, 17 skipped, 1 xfailed). Any failures → fix before proceeding. |
+| C4.D1 | Run targeted CLI tests | [x] | ✅ 2025-10-20 — `pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv` and `pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv` both GREEN. Logs: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/{pytest_cli_train_green.log,pytest_cli_inference_green.log}`. |
+| C4.D2 | Factory integration smoke | [x] | ✅ 2025-10-20 — Replayed factory selector (`pytest tests/torch/test_config_factory.py -k ExecutionConfig -vv`) with GREEN output. Log: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T044500Z/phase_c4_cli_integration/pytest_factory_smoke.log`. |
+| C4.D3 | Full regression suite | [P] | `CUDA_VISIBLE_DEVICES="" pytest tests/ -v` executed (log: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/pytest_full_suite_c4.log`) but integration selector still failing (`test_run_pytorch_train_save_load_infer` dataloader coords_relative shape mismatch). Remains open until failure resolved or scoped under dedicated initiative. |
 | C4.D4 | Manual CLI smoke test | [ ] | Execute training with new flags: `python -m ptycho_torch.train --train_data_file <path> --output_dir /tmp/cli_smoke --n_images 64 --max_epochs 1 --accelerator cpu --deterministic --num-workers 0 --learning-rate 1e-4`. Verify: (a) flags accepted, (b) no argparse errors, (c) checkpoint created, (d) logs show correct execution config values. Capture stdout to `manual_cli_smoke.log`. |
 
 **Exit Criteria:** All CLI tests GREEN, factory smoke GREEN, full suite passed, manual smoke successful with artifacts.
@@ -160,7 +160,7 @@ Per C3 summary and `override_matrix.md` analysis, the following knobs are **inte
 
 - [x] **C4.A:** Four design docs authored (flag inventory, selection rationale, naming decisions, argparse schema)
 - [x] **C4.B:** CLI test scaffolds authored with 6+ RED tests, logs captured
-- [ ] **C4.C:** Training + inference CLI refactored to use factories, hardcoded values eliminated
+- [x] **C4.C:** Training + inference CLI refactored to use factories, hardcoded values eliminated
 - [ ] **C4.D:** All CLI tests GREEN, factory smoke GREEN, full suite passed (271 passed, 0 new failures)
 - [ ] **C4.E:** Four docs updated (workflow guide §13, spec CLI tables, CLAUDE.md examples, implementation plan)
 - [ ] **C4.F:** Summary authored, fix_plan Attempt logged, Phase D prep notes captured, hygiene verified

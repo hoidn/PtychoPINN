@@ -1383,3 +1383,11 @@
   - Integration workflow fails even earlier: fixture NPZ missing (tests reference `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`). Highlighted need to regenerate fixture per TEST-PYTORCH-001 plan before C4.D can close; memmap drift will reappear once NPZ restored.
   - Updated `phase_c4_cli_integration/plan.md` (C4.C4 now `[x]`; C4.C6/C4.C7 guidance rewritten) and `docs/fix_plan.md` Attempt #5 describing next steps.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T052800Z: C4 ledger alignment prep (current loop)
+- Focus issue: ADR-003-BACKEND-API Phase C4 CLI integration (post C4.C6/C4.C7)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Actions: Verified commit 7aa3f736 — inference CLI now loads `wts.h5.zip`; CLI selectors green while integration workflow still fails on dataloader coords_relative mismatch. Updated C4 plan: marked C4.C6/C4.C7 and D1/D2 `[x]`, left C4.D3 `[P]` with log pointer. Added `plan_updates.md` under 2025-10-20T050500Z and logged docs/fix_plan Attempt #21 capturing new evidence + outstanding failure. Replaced input.md with dataloader-debug directive (new artifact hub 2025-10-20T061500Z). No new plan required.
+- Outstanding: Need dataloader shape fix before C4.D3 can close; documentation (C4.E) and ledger wrap-up (C4.F) still pending after integration passes.
+- <Action State>: [ready_for_implementation]

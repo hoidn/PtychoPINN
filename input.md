@@ -1,53 +1,50 @@
-Summary: Finish Phase C4 by refitting the inference CLI around the factory payload, then prove the CLI + integration selectors are green.
+Summary: Fix the coords_relative shape mismatch so the PyTorch integration workflow passes C4.D3.
 Mode: TDD
 Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4 CLI integration
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/{fixture_generation.log,pytest_cli_train_green.log,pytest_cli_inference_green.log,pytest_integration_green.log,plan_updates.md,summary.md}
+Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/phase_c4_cli_integration_debug/{analysis.md,pytest_integration_red.log,pytest_integration_green.log,pytest_cli_train_green.log,pytest_cli_inference_green.log}
 
 Do Now:
-1. ADR-003-BACKEND-API C4.C6+C4.C7 implementation @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — regenerate `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`, then refactor `ptycho_torch/inference.py` to consume `create_inference_payload()` + `load_inference_bundle_torch` without ad-hoc RawData/lightning setup; tests: none.
-2. ADR-003-BACKEND-API C4.D1+C4.D2 validation @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — run targeted CLI selectors and capture GREEN logs once implementation is in place; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv.
-3. ADR-003-BACKEND-API C4.D3+C4.D4 verification @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — execute the PyTorch integration workflow test and record manual observations if needed; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv.
-4. ADR-003-BACKEND-API C4.F plan/ledger sync @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — mark checklist rows, append summary.md + fix_plan Attempt with artefact links; tests: none.
+1. ADR-003-BACKEND-API C4.D3 diagnostics @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — rerun the PyTorch integration selector, capture the failing log, and record observed tensor shapes in `analysis.md`; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv (expect FAIL).
+2. ADR-003-BACKEND-API C4.D3 fix @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — modify the PyTorch dataloader so `coords_relative` written to the mmap matches the target shape contract; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv (expect PASS).
+3. ADR-003-BACKEND-API C4.D3 regression @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — rerun the targeted CLI selectors to confirm no regressions in execution-config wiring; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv.
+4. ADR-003-BACKEND-API C4.F1+C4.F2 wrap-up @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — update summary.md, plan.md statuses, and docs/fix_plan.md with Attempt #22 including new artifact links; tests: none.
 
-If Blocked: Capture the failing command output to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/blocker.log`, mark the relevant checklist ID `[P]` with notes, and log the blocker in docs/fix_plan.md before exiting.
+If Blocked: Capture the failing stack trace to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/phase_c4_cli_integration_debug/blocker.log`, mark C4.D3 `[P]` with notes in plan.md, append a blocker note to docs/fix_plan.md, and stop.
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md §C4.C — factory payload must own archive + params to stay CONFIG-001 compliant.
-- specs/ptychodus_api_spec.md §4.6 — Ptychodus integration expects `wts.h5.zip`; CLI needs to honor this contract.
-- ptycho_torch/workflows/components.py#L880 — `load_inference_bundle_torch` already encapsulates bundle loading + params bridge.
-- tests/torch/test_cli_inference_torch.py#L60 — acceptance tests assert execution_config wiring; they now expect the CLI to succeed instead of raising FileNotFoundError.
-- plans/active/TEST-PYTORCH-001/reports/2025-10-19T225900Z/phase_b_fixture/fixture_notes.md — documents how to regenerate the minimal PyTorch NPZ fixture referenced by the integration test.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:98 — C4.D3 cannot close while the integration workflow fails.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/summary.md — documents the coords_relative mismatch surfaced during full-suite run.
+- specs/data_contracts.md:28 — contraction demands grouped coordinate tensors obey the `(nsamples, 1, 2, gridsize²)` shape.
+- tests/torch/test_integration_workflow_torch.py:45 — orchestrates the failing workflow; use it to confirm behaviour after the fix.
+- ptycho_torch/dataloader.py:500 — mmap population path currently writing coords_relative with an extra dimension.
 
 How-To Map:
-- Fixture regeneration: `python scripts/tools/make_pytorch_integration_fixture.py --source datasets/Run1084_recon3_postPC_shrunk_3.npz --output tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --subset-size 64 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/fixture_generation.log`; commit both `.npz` and `.json` if they change.
-- CLI refactor: use `create_inference_payload()` for CONFIG-001, then call `load_inference_bundle_torch(model_path)` to obtain the Lightning module and params. Thread execution_config + payload configs into a dedicated helper so tests can patch that helper instead of exercising real IO. Keep `RawData` usage behind the helper so the CLI surface isn’t forced to open bogus tmp files during unit tests.
-- Targeted tests (store logs with `tee`):
-  - `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/pytest_cli_train_green.log`
-  - `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/pytest_cli_inference_green.log`
-  - `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/pytest_integration_green.log`
-- Record plan/summary updates to `plan_updates.md` and `summary.md` inside the same artefact directory before wrapping.
+- Capture RED evidence: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/phase_c4_cli_integration_debug/pytest_integration_red.log`.
+- While the test runs, add temporary shape logging via `analysis.md` (summaries only) — remove any inline print/debug code before yielding.
+- Compare PyTorch coords pipeline to TensorFlow reference: inspect `ptycho/raw_data.py` and `pytests` expecting `(nsamples, 1, 2, gridsize**2)`; adjust PyTorch path accordingly (likely reshape or transpose before writing to mmap).
+- After implementing the fix, rerun the selector and store success log: `.../pytest_integration_green.log`.
+- Re-run CLI guards, teeing outputs to `pytest_cli_train_green.log` and `pytest_cli_inference_green.log`.
+- Summarise findings, decisions, and directory contents in `analysis.md`; update plan statuses and docs/fix_plan.md once tests are green.
 
 Pitfalls To Avoid:
-- Do not reintroduce manual checkpoint search (`last.ckpt`/`wts.pt`); rely on `load_inference_bundle_torch` and the spec archive name.
-- Keep CONFIG-001 sequencing intact: factory must finish before any torch/npz IO.
-- Don’t leave regenerated fixture outputs or logs at repo root; everything belongs under the timestamped report directory.
-- Ensure the helper invoked by CLI is patchable so unit tests don’t need real NPZ data.
-- Preserve CUDA neutrality (`CUDA_VISIBLE_DEVICES=""`) for all pytest runs to match recorded baselines.
-- Update docs/fix_plan and plan checklists in the same loop; no stale statuses.
-- Watch for `params.cfg already populated` warnings—use factory-provided state instead of manual updates.
-- Keep outputs ASCII and respect existing code style when touching CLI.
-- Skip full-suite pytest reruns; stick to the mapped selectors unless new regressions surface.
-- Do not delete or skip the `.json` sidecar when regenerating the fixture.
+- Do not mask the integration failure by altering or skipping the test; the fix must address the mmap shape bug.
+- Avoid editing protected cores (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`); keep changes scoped to PyTorch dataloader/workflow code.
+- Ensure CONFIG-001 sequencing remains intact; do not bypass `update_legacy_dict`.
+- Preserve dtype contracts (coords tensors should stay float32/int64 as documented).
+- Keep temporary debug statements out of the final diff; use `analysis.md` for notes.
+- Do not delete or move existing artifacts from prior loops; add new logs under the fresh timestamp only.
+- Run only the mapped selectors; no full-suite reruns unless the plan explicitly requests it.
+- Confirm regenerated artifacts (if any) remain DATA-001 compliant before writing to repo.
+- Maintain ASCII-only edits; follow existing formatting in dataloader and plan files.
+- Remember to add docs/fix_plan Attempt #22 with artifact paths once work completes.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md#L80
-- ptycho_torch/inference.py:360
-- ptycho_torch/workflows/components.py:880
-- ptycho_torch/model_manager.py:187
-- tests/torch/test_cli_inference_torch.py:40
-- tests/fixtures/pytorch_integration/minimal_dataset_v1.json
-- specs/ptychodus_api_spec.md:205
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:90
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/summary.md:34
+- specs/data_contracts.md:28
+- tests/torch/test_integration_workflow_torch.py:45
+- ptycho_torch/dataloader.py:500
 
-Next Up: 1) Close C4.E documentation updates once C4.D evidence is green.
+Next Up: 1) Once C4.D3 is green, close C4.D4 manual smoke and progress to C4.E documentation updates.
