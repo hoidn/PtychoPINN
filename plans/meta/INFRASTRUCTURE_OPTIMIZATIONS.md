@@ -354,8 +354,12 @@ def build_supervisor_prompt(iteration_num, context):
 - Full loop: 21 min total
 - Some tasks could be done in 2 minutes by single agent
 - 12.5% retry rate suggests handoff communication gaps
+- ~26% of iterations are pure housekeeping (docs updates, plan logging)
+- ~30% of tasks could skip galph planning with no quality loss
 
 **Solution**: Route simple tasks to single-agent execution, keep two-agent loop for complex work
+
+**Note**: See detailed elaboration in conversation logs for multi-dimensional scoring, safety mechanisms, and real-world calibration
 
 ```python
 # scripts/orchestration/task_classifier.py
@@ -401,19 +405,65 @@ def classify_task(task_description, context):
     return TaskComplexity.MODERATE
 ```
 
-**Integration**:
-```bash
-# In supervisor workflow
-COMPLEXITY=$(python3 -m scripts.orchestration.task_classifier "$TASK")
+**Practical Realization**:
 
-if [ "$COMPLEXITY" = "simple" ]; then
-    # Skip galph planning, go direct to ralph
-    cat prompts/main.md | claude-direct
-else
-    # Standard two-agent loop
-    ./supervisor.sh && ./loop.sh
-fi
+Current workflow has no explicit task input - galph self-selects focus from fix_plan.md. Three integration approaches:
+
+**Approach A: Wrapper Script (Highest Impact)**
+```bash
+#!/usr/bin/env bash
+# run.sh - Smart executor with routing
+
+TASK_DESC="$1"
+COMPLEXITY=$(python3 -m scripts.orchestration.task_classifier \
+    --task "$TASK_DESC" \
+    --context sync/state.json)
+
+case "$COMPLEXITY" in
+    simple)
+        echo "🚀 Fast-track: Direct to ralph"
+        # Create minimal input.md
+        cat > input.md << EOF
+# Do Now (Fast-Track)
+$TASK_DESC
+Context: Simple task, no planning needed.
+EOF
+        ./loop.sh --fast-track
+        ;;
+    moderate|complex)
+        ./supervisor.sh --task "$TASK_DESC"
+        ./loop.sh
+        ;;
+esac
+
+# Usage: ./run.sh "Update fix_plan.md with attempt log"
 ```
+
+**Approach B: Galph Self-Routes (Less Disruptive)**
+
+Add Step 0 to prompts/supervisor.md:
+- Galph reads focus issue from fix_plan.md
+- Runs classifier on focus issue
+- If SIMPLE: creates minimal input.md, exits immediately (2 min)
+- If COMPLEX: proceeds with full planning (8 min)
+
+**Approach C: Post-Galph Routing (Incremental)**
+
+Galph declares complexity in input.md metadata:
+```markdown
+---
+complexity: simple
+estimated_time: 2min
+---
+# Do Now
+...
+```
+
+loop.sh reads metadata and adjusts ralph execution mode.
+
+**Recommended**: Start with Approach B (safest), migrate to Approach A after validation.
+
+**Key Constraint**: Current system has galph autonomously select focus from fix_plan.md (no user-specified task input). Approach A requires adding user task specification. Approach B works within existing autonomous workflow.
 
 **Impact**:
 - **30-50% time reduction for simple tasks** (21 min → 5-10 min)
