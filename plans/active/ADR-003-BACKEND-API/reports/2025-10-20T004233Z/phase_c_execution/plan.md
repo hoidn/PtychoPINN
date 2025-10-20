@@ -58,12 +58,14 @@ Goal: Collapse CLI wrappers onto factories with execution config exposure and al
 Prereqs: Phases C1–C3 GREEN.
 Exit Criteria: `ptycho_torch/train.py` / `inference.py` delegate to factories, expose execution knobs via CLI flags, CLI tests/dcos updated.
 
+**PLANNING COMPLETE (2025-10-20T033100Z):** Detailed Phase C4 execution plan authored at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md` with 24 checklist items across 6 phases (A-F). Summary available at same directory. See plan for detailed task breakdown, test selectors, and artifact manifest.
+
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C4.D1 | Update CLI argument surfaces | [ ] | Map Lightning knobs to argparse options (learning_rate, accelerator, num_workers, deterministic). Reference `override_matrix.md` for naming. Ensure CLI defaults match dataclass defaults. |
-| C4.D2 | Refactor CLI execution path | [ ] | Replace ad-hoc config construction with factory calls returning payloads, then call workflows with execution_config. Maintain CONFIG-001 ordering via factory. |
-| C4.D3 | Add CLI regression tests | [ ] | Author pytest CLI harness (extend `tests/torch/test_cli_train_torch.py`) verifying new flags round-trip into execution config. Capture logs under plan path. |
-| C4.D4 | Documentation & ledger close-out | [ ] | Update `docs/workflows/pytorch.md` CLI sections, refresh `specs/ptychodus_api_spec.md` CLI tables, and log Attempt in `docs/fix_plan.md`. Prepare close-out summary for Phase D handoff. |
+| C4.D1 | Update CLI argument surfaces | [ ] | See `plan.md` §C4.C1, §C4.C5 — Map Lightning knobs to argparse options (5 training flags, 2 inference flags). Reference `override_matrix.md` for naming. Ensure CLI defaults match dataclass defaults. |
+| C4.D2 | Refactor CLI execution path | [ ] | See `plan.md` §C4.C2, §C4.C6 — Replace ad-hoc config construction (train.py:464-545, inference.py:400-450) with factory calls returning payloads, then call workflows with execution_config. Maintain CONFIG-001 ordering via factory. |
+| C4.D3 | Add CLI regression tests | [ ] | See `plan.md` §C4.B (RED phase) and §C4.D (GREEN phase) — Author pytest CLI harness (extend `tests/torch/test_cli_train_torch.py`, create `test_cli_inference_torch.py`) verifying new flags round-trip into execution config. Capture logs under plan path. |
+| C4.D4 | Documentation & ledger close-out | [ ] | See `plan.md` §C4.E, §C4.F — Update `docs/workflows/pytorch.md` CLI sections, refresh `specs/ptychodus_api_spec.md` CLI tables, and log Attempt in `docs/fix_plan.md`. Prepare close-out summary for Phase D handoff. |
 
 ## Verification Checklist (to close Phase C)
 - [ ] All new/updated tests GREEN with logs stored under `phase_c_execution/`
