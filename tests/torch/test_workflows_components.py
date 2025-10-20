@@ -2788,16 +2788,9 @@ class TestLightningCheckpointCallbacks:
             nphotons=1e9,
         )
 
-    def test_model_checkpoint_callback_configured(self, minimal_training_config, monkeypatch):
+    def test_model_checkpoint_callback_configured(self, minimal_training_config, monkeypatch, tmp_path):
         """
-        RED Test: _train_with_lightning instantiates ModelCheckpoint with execution_config values.
-
-        Expected RED Failure:
-        - ModelCheckpoint not instantiated (no callback wiring yet)
-        OR
-        - ModelCheckpoint instantiated but doesn't respect execution_config fields
-        OR
-        - AttributeError: checkpoint_mode field doesn't exist
+        Test: _train_with_lightning instantiates ModelCheckpoint with execution_config values.
         """
         from ptycho.config.config import PyTorchExecutionConfig
         from unittest.mock import patch, MagicMock
@@ -2806,6 +2799,23 @@ class TestLightningCheckpointCallbacks:
             from lightning.pytorch.callbacks import ModelCheckpoint
         except ImportError:
             pytest.skip("Lightning not available")
+
+        # Create dummy NPZ files to satisfy path validation
+        import numpy as np
+        dummy_data = {
+            'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
+            'xcoords': np.random.rand(10),
+            'ycoords': np.random.rand(10),
+            'probeGuess': np.ones((64, 64), dtype=np.complex64),
+            'objectGuess': np.ones((128, 128), dtype=np.complex64),
+        }
+        train_file = tmp_path / "train.npz"
+        np.savez(str(train_file), **dummy_data)
+
+        # Update config with valid paths
+        minimal_training_config.train_data_file = train_file
+        minimal_training_config.test_data_file = None  # No test data for this test
+        minimal_training_config.output_dir = tmp_path / "outputs"
 
         # Create execution config with checkpoint overrides
         exec_config = PyTorchExecutionConfig(
@@ -2830,12 +2840,13 @@ class TestLightningCheckpointCallbacks:
 
         # Mock data containers to avoid actual data loading
         mock_train_container = MagicMock()
-        mock_test_container = MagicMock()
+        mock_test_container = None  # No validation data
 
+        from ptycho_torch.workflows.components import _train_with_lightning
+
+        # Patch callbacks and Trainer
         with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
-             patch('lightning.Trainer', mock_trainer_cls):
-            from ptycho_torch.workflows.components import _train_with_lightning
-
+             patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
                     train_container=mock_train_container,
@@ -2843,8 +2854,9 @@ class TestLightningCheckpointCallbacks:
                     config=minimal_training_config,
                     execution_config=exec_config,
                 )
-            except Exception:
-                pass  # May fail during training; we only care about callback setup
+            except Exception as e:
+                # May fail during training; we only care about callback setup
+                pass
 
         # GREEN Phase Assertions:
         # 1. ModelCheckpoint was instantiated
@@ -2860,14 +2872,15 @@ class TestLightningCheckpointCallbacks:
         assert call_kwargs.get('mode') == 'max', \
             f"Expected mode='max', got {call_kwargs.get('mode')}"
 
-    def test_early_stopping_callback_configured(self, minimal_training_config, monkeypatch):
-        """
-        RED Test: _train_with_lightning instantiates EarlyStopping with execution_config values.
+        # 3. Callback was passed to Trainer via callbacks list
+        trainer_call_kwargs = mock_trainer_cls.call_args.kwargs
+        callbacks_list = trainer_call_kwargs.get('callbacks', [])
+        assert mock_checkpoint_instance in callbacks_list, \
+            "ModelCheckpoint instance not found in Trainer callbacks list"
 
-        Expected RED Failure:
-        - EarlyStopping not instantiated (no callback wiring yet)
-        OR
-        - EarlyStopping instantiated but doesn't respect early_stop_patience
+    def test_early_stopping_callback_configured(self, minimal_training_config, monkeypatch, tmp_path):
+        """
+        Test: _train_with_lightning instantiates EarlyStopping with execution_config values.
         """
         from ptycho.config.config import PyTorchExecutionConfig
         from unittest.mock import patch, MagicMock
@@ -2876,6 +2889,25 @@ class TestLightningCheckpointCallbacks:
             from lightning.pytorch.callbacks import EarlyStopping
         except ImportError:
             pytest.skip("Lightning not available")
+
+        # Create dummy NPZ files
+        import numpy as np
+        dummy_data = {
+            'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
+            'xcoords': np.random.rand(10),
+            'ycoords': np.random.rand(10),
+            'probeGuess': np.ones((64, 64), dtype=np.complex64),
+            'objectGuess': np.ones((128, 128), dtype=np.complex64),
+        }
+        train_file = tmp_path / "train.npz"
+        test_file = tmp_path / "test.npz"
+        np.savez(str(train_file), **dummy_data)
+        np.savez(str(test_file), **dummy_data)
+
+        # Update config with valid paths
+        minimal_training_config.train_data_file = train_file
+        minimal_training_config.test_data_file = test_file  # Validation data for early stopping
+        minimal_training_config.output_dir = tmp_path / "outputs"
 
         # Create execution config with early stopping override
         exec_config = PyTorchExecutionConfig(
@@ -2899,12 +2931,13 @@ class TestLightningCheckpointCallbacks:
 
         # Mock data containers
         mock_train_container = MagicMock()
-        mock_test_container = MagicMock()
+        mock_test_container = MagicMock()  # Validation data present
 
+        from ptycho_torch.workflows.components import _train_with_lightning
+
+        # Patch callbacks and Trainer
         with patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
-             patch('lightning.Trainer', mock_trainer_cls):
-            from ptycho_torch.workflows.components import _train_with_lightning
-
+             patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
                     train_container=mock_train_container,
@@ -2915,7 +2948,7 @@ class TestLightningCheckpointCallbacks:
             except Exception:
                 pass  # May fail during training; we only care about callback setup
 
-        # GREEN Phase Assertions:
+        # Assertions:
         # 1. EarlyStopping was instantiated
         assert mock_early_stop_cls.called, \
             "EarlyStopping not instantiated (_train_with_lightning does not wire early stopping callback)"
@@ -2928,6 +2961,12 @@ class TestLightningCheckpointCallbacks:
             f"Expected monitor='val_loss', got {call_kwargs.get('monitor')}"
         assert call_kwargs.get('mode') == 'min', \
             f"Expected mode='min', got {call_kwargs.get('mode')}"
+
+        # 3. Callback was passed to Trainer via callbacks list
+        trainer_call_kwargs = mock_trainer_cls.call_args.kwargs
+        callbacks_list = trainer_call_kwargs.get('callbacks', [])
+        assert mock_early_stop_instance in callbacks_list, \
+            "EarlyStopping instance not found in Trainer callbacks list"
 
     def test_disable_checkpointing_skips_callbacks(self, minimal_training_config, monkeypatch):
         """
@@ -2967,11 +3006,12 @@ class TestLightningCheckpointCallbacks:
         mock_train_container = MagicMock()
         mock_test_container = MagicMock()
 
+        from ptycho_torch.workflows.components import _train_with_lightning
+
+        # Patch at import site inside the function
         with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
              patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
-             patch('lightning.Trainer', mock_trainer_cls):
-            from ptycho_torch.workflows.components import _train_with_lightning
-
+             patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
                     train_container=mock_train_container,
