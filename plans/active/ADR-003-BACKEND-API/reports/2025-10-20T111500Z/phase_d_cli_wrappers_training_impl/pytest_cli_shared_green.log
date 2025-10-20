@@ -1,0 +1,32 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 20 items
+
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_default_no_device PASSED [  5%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_legacy_device_cpu PASSED [ 10%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_legacy_device_cuda_maps_to_gpu PASSED [ 15%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_conflict_accelerator_wins PASSED [ 20%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_all_accelerator_values_passthrough PASSED [ 25%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_training_mode_defaults PASSED [ 30%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_training_mode_custom_values PASSED [ 35%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_inference_mode PASSED [ 40%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_emits_deterministic_warning PASSED [ 45%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_quiet_flag PASSED [ 50%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_disable_mlflow_flag PASSED [ 55%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_quiet_or_disable_mlflow_both_true PASSED [ 60%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_invalid_mode_raises_value_error PASSED [ 65%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_resolves_accelerator_from_device_flag PASSED [ 70%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_creates_output_dir PASSED [ 75%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_raises_if_train_file_missing PASSED [ 80%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_raises_if_test_file_missing PASSED [ 85%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_test_file PASSED [ 90%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_works_with_pathlib_path_objects PASSED [ 95%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_train_file_for_inference_mode PASSED [100%]
+
+============================== 20 passed in 3.58s ==============================

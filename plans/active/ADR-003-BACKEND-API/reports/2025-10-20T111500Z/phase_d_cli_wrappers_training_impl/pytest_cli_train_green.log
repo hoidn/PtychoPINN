@@ -1,0 +1,37 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 7 items
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accelerator_flag_roundtrip PASSED [ 14%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_deterministic_flag_roundtrip PASSED [ 28%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_no_deterministic_flag_roundtrip PASSED [ 42%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip PASSED [ 57%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_learning_rate_flag_roundtrip PASSED [ 71%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_multiple_execution_config_flags PASSED [ 85%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py:543: UserWarning: Deterministic mode with num_workers=4 may cause performance degradation. Consider setting --num-workers 0 for reproducibility.
+    execution_config = build_execution_config_from_args(args, mode='training')
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:547: UserWarning: Error reading probeGuess from /tmp/pytest-of-ollie/pytest-769/test_bundle_persistence0/train.npz: No data left in file. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 7 passed, 4 warnings in 4.94s =========================
