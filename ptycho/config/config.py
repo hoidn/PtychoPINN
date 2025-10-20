@@ -69,19 +69,6 @@ from typing import Dict, Any, Optional, Literal
 import yaml
 import warnings
 
-__all__ = [
-    'ModelConfig',
-    'PyTorchExecutionConfig',
-    'TrainingConfig',
-    'InferenceConfig',
-    'validate_model_config',
-    'validate_training_config',
-    'validate_inference_config',
-    'load_yaml_config',
-    'dataclass_to_legacy_dict',
-    'update_legacy_dict',
-]
-
 @dataclass(frozen=True)
 class ModelConfig:
     """Core model architecture parameters."""
@@ -96,72 +83,6 @@ class ModelConfig:
     pad_object: bool = True
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0
-
-@dataclass
-class PyTorchExecutionConfig:
-    """
-    PyTorch-specific execution parameters (ADR-003 Phase C).
-
-    These knobs control PyTorch backend runtime behavior: hardware selection,
-    optimization settings, logging, and checkpointing. They do NOT affect model
-    topology or data pipeline (use ModelConfig, TrainingConfig for those).
-
-    Execution config is orthogonal to the legacy params.cfg system (CONFIG-001).
-    It does not populate params.cfg and is consumed directly by PyTorch Lightning
-    Trainer and DataLoader instantiation in ptycho_torch.workflows.components.
-
-    Runtime Requirements:
-        - PyTorch >= 2.2 (POLICY-001: mandatory dependency for PyTorch backend)
-        - See docs/workflows/pytorch.md §§5-13 for usage examples
-        - See specs/ptychodus_api_spec.md §4.8 for backend selection contract
-
-    Field Groups:
-        Hardware & Distributed: accelerator, strategy, n_devices, deterministic
-        Data Loading: num_workers, pin_memory, persistent_workers, prefetch_factor
-        Optimization: learning_rate, scheduler, gradient_clip_val, accum_steps
-        Checkpointing: enable_checkpointing, checkpoint_save_top_k, checkpoint_monitor_metric, early_stop_patience
-        Logging: enable_progress_bar, logger_backend, disable_mlflow
-        Inference: inference_batch_size, middle_trim, pad_eval
-
-    References:
-        - docs/findings.md POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg sync)
-        - plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/override_matrix.md §5
-        - plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/factory_design.md §2.2
-    """
-
-    # Hardware & Distributed Training
-    accelerator: str = 'auto'  # cpu/gpu/tpu/mps/auto
-    strategy: str = 'auto'  # auto/ddp/fsdp/deepspeed
-    n_devices: int = 1
-    deterministic: bool = True  # Reproducibility flag
-
-    # Data Loading
-    num_workers: int = 0
-    pin_memory: bool = False
-    persistent_workers: bool = False
-    prefetch_factor: Optional[int] = None
-
-    # Optimization
-    learning_rate: float = 1e-3
-    scheduler: str = 'Default'  # Default/Exponential/MultiStage/Adaptive
-    gradient_clip_val: Optional[float] = None
-    accum_steps: int = 1
-
-    # Checkpointing & Early Stopping
-    enable_checkpointing: bool = True
-    checkpoint_save_top_k: int = 1
-    checkpoint_monitor_metric: str = 'val_loss'
-    early_stop_patience: int = 100
-
-    # Logging & Experiment Tracking
-    enable_progress_bar: bool = False  # Controlled by config.debug
-    logger_backend: Optional[str] = None  # tensorboard/wandb/mlflow
-    disable_mlflow: bool = False
-
-    # Inference-Specific
-    inference_batch_size: Optional[int] = None
-    middle_trim: int = 0
-    pad_eval: bool = False
 
 @dataclass
 class TrainingConfig:
