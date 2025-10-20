@@ -233,6 +233,7 @@ following behavioural contract in addition to the configuration bridge.
 - **Persistence Parity**: Backends MUST persist archives in formats compatible with their load paths. Cross-backend artifact loading is OPTIONAL but, when unsupported, the dispatcher MUST raise a descriptive error (referenced in `tests/torch/test_model_manager.py:238-372`).
 - **Validation Errors**: Dispatcher MUST raise `ValueError` if `config.backend` is not one of the supported literals, guiding callers to correct usage.
 - **Inference Symmetry**: The same guarantees apply to `load_inference_bundle_with_backend()` to ensure train/save/load/infer workflows remain symmetric.
+- **Execution Configuration**: The PyTorch backend accepts an optional `PyTorchExecutionConfig` dataclass that controls runtime behavior (hardware selection, optimization settings, logging, checkpointing). These execution parameters are orthogonal to the legacy `params.cfg` system (CONFIG-001) and consumed directly by PyTorch Lightning Trainer and DataLoader instantiation. See `ptycho/config/config.py:87-151` for the canonical definition and `docs/workflows/pytorch.md` §12 for integration guidance. Execution config fields include: accelerator, strategy, n_devices, deterministic (hardware/distributed), num_workers, pin_memory, persistent_workers, prefetch_factor (data loading), learning_rate, scheduler, gradient_clip_val, accum_steps (optimization), enable_checkpointing, checkpoint_save_top_k, checkpoint_monitor_metric, early_stop_patience (checkpointing), enable_progress_bar, logger_backend, disable_mlflow (logging), inference_batch_size, middle_trim, pad_eval (inference-specific).
 
 ### 5. Configuration Field Reference
 
@@ -298,6 +299,8 @@ updated in lockstep.
 ### 6. `KEY_MAPPINGS` Specification
 
 The `KEY_MAPPINGS` dictionary in `config/config.py` defines the translation rules. Below is a specification of these mappings:
+
+**Note:** `PyTorchExecutionConfig` (§4.8) does NOT use `KEY_MAPPINGS` or populate `params.cfg`. Execution config fields are consumed directly by PyTorch Lightning Trainer and DataLoader instantiation, keeping them orthogonal to the legacy global state system.
 
 | Modern Dataclass Field        | Legacy `params.cfg` Key     | Description                                                                                              |
 | :---------------------------- | :-------------------------- | :------------------------------------------------------------------------------------------------------- |

@@ -335,6 +335,71 @@ infer_config = InferenceConfig(
 
 **Default Behavior:** Both `TrainingConfig.backend` and `InferenceConfig.backend` default to `'tensorflow'` to maintain backward compatibility with existing Ptychodus integrations.
 
+### PyTorch Execution Configuration
+
+The PyTorch backend supports an optional `PyTorchExecutionConfig` dataclass (introduced in ADR-003 Phase C) that controls runtime behavior without affecting model topology or data pipeline:
+
+```python
+from ptycho.config.config import PyTorchExecutionConfig
+
+# Configure PyTorch-specific execution parameters
+execution_config = PyTorchExecutionConfig(
+    # Hardware & distributed training
+    accelerator='auto',        # cpu/gpu/tpu/mps/auto
+    strategy='auto',           # auto/ddp/fsdp/deepspeed
+    n_devices=1,
+    deterministic=True,        # Reproducibility flag
+
+    # Data loading
+    num_workers=0,
+    pin_memory=False,
+
+    # Optimization
+    learning_rate=1e-3,
+    scheduler='Default',       # Default/Exponential/MultiStage/Adaptive
+    gradient_clip_val=None,    # Optional gradient clipping
+
+    # Checkpointing
+    enable_checkpointing=True,
+    checkpoint_save_top_k=1,
+    early_stop_patience=100,
+
+    # Logging
+    enable_progress_bar=False,  # Controlled by config.debug
+    logger_backend=None,        # tensorboard/wandb/mlflow
+
+    # Inference-specific
+    inference_batch_size=None,  # Override batch_size for inference
+)
+```
+
+**Key Characteristics:**
+- **Orthogonal to `params.cfg`**: Execution config does NOT populate the legacy `params.cfg` dictionary (CONFIG-001 compliance maintained separately via `update_legacy_dict` on `TrainingConfig`/`InferenceConfig`)
+- **Direct consumption**: Fields are passed directly to PyTorch Lightning `Trainer` and `DataLoader` instantiation in `ptycho_torch.workflows.components`
+- **Optional parameter**: If not provided, factory functions use default values from the dataclass definition
+
+**Usage in Factory-Based Workflows (Phase C integration):**
+
+```python
+from ptycho_torch.config_factory import create_training_payload
+
+# Factory accepts execution_config parameter
+payload = create_training_payload(
+    train_data_file=Path('data.npz'),
+    output_dir=Path('outputs/'),
+    overrides={'n_groups': 512, 'batch_size': 4},
+    execution_config=PyTorchExecutionConfig(
+        accelerator='cpu',
+        enable_progress_bar=True,
+    ),
+)
+
+# Payload contains both TF canonical configs and PyTorch execution config
+run_cdi_example_torch(train_data, test_data, payload)
+```
+
+**Full field reference:** See `ptycho/config/config.py:87-151` or `specs/ptychodus_api_spec.md` §4.8.
+
 ### Dispatcher Routing
 
 Per the specification in `specs/ptychodus_api_spec.md` §4.8, the dispatcher guarantees:

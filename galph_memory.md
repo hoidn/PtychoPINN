@@ -1283,3 +1283,9 @@
   - Updated docs/fix_plan.md (Attempt #10) with planning outcome + log relocation reminder; rewrote `input.md` (Mode=TDD) directing Ralph to execute C1 tasks and move `train_debug.log` into the plan directory.
 - Open items: Await RED→GREEN evidence for tests/torch/test_execution_config.py and relocation of `train_debug.log` under `phase_c_execution/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T010229Z: Fix-plan housekeeping
+- Archived completed PyTorch integration items to `archive/2025-10-20_fix_plan_archive.md` and replaced their ledger entries with short stubs referencing the archive.
+- Updated `docs/fix_plan.md` last-updated date and archive banner; file now 53,011 bytes (down from 123,657).
+- Remaining active items: ADR-003 backend API, dataloader indexing follow-ups, lightning decoder handoff, TEST-PYTORCH-001.
+- <Action State>: [ready_for_implementation]
