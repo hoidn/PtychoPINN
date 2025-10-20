@@ -123,10 +123,10 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
-| C4.F1 | Author comprehensive summary | [ ] | Create `summary.md` documenting: (a) CLI flags added (5 training, 2 inference), (b) factory integration changes (file:line citations), (c) test results (RED→GREEN counts, regression status), (d) documentation updates (4 files), (e) exit criteria validation, (f) deferred work (Phase D knobs). Template similar to C3 summary. |
-| C4.F2 | Update fix_plan.md | [ ] | Append new Attempt entry under ADR-003-BACKEND-API in `docs/fix_plan.md`. Include: timestamp, phase label (C4), task summary, artifact paths, test results, exit criteria checklist, next phase pointer. Follow `prompts/update_fix_plan.md` template. |
-| C4.F3 | Phase D prep notes | [ ] | In `summary.md` §"Next Steps", enumerate Phase D prerequisites: (a) checkpoint callback knobs (`checkpoint_save_top_k`, `early_stop_patience`), (b) logger backend governance (MLflow vs TensorBoard), (c) LR scheduler selection (`scheduler` field), (d) remaining execution knobs (prefetch_factor, persistent_workers). Estimate effort and dependencies. |
-| C4.F4 | Hygiene verification | [ ] | Ensure no loose files at repo root (`train_debug.log`, `*.json` cache files). All artifacts under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/`. Run `git status` and relocate any strays. |
+| C4.F1 | Author comprehensive summary | [x] | ✅ `reports/2025-10-20T123500Z/phase_c4f_closeout/summary.md` captures CLI flag exposure, factory integration, RED→GREEN evidence, doc deltas, exit criteria, and deferred knobs for Phase D. |
+| C4.F2 | Update fix_plan.md | [x] | ✅ docs/fix_plan.md Attempt #38 appended (2025-10-20) with Phase C4 completion details and artifact links, per ledger update template. |
+| C4.F3 | Phase D prep notes | [x] | ✅ Phase D prerequisites documented in `phase_c4f_closeout/summary.md` §"Phase D Prerequisites" and mirrored in new Phase D plan (`reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md`). |
+| C4.F4 | Hygiene verification | [x] | ✅ `ledger_update.md` in `phase_c4f_closeout/` records hygiene commands/results (no stray artifacts). |
 
 **Exit Criteria:** Summary authored (comprehensive, with metrics), fix_plan Attempt logged, Phase D handoff notes captured, repo hygiene verified.
 

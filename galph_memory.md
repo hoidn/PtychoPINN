@@ -1528,3 +1528,14 @@
 - Pending work this loop: update C4.E checklist states, record documentation attempt in ledger, craft next input for C4.F deliverables.
 - Actions taken: Marked C4.E rows `[x]` in plan checklist, appended documentation snapshot to plan summary, recorded Attempt #37 in fix_plan, drafted new `input.md` for C4.F close-out with artifact hub instructions.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T130000Z: Phase D kickoff planning
+- Focus issue: ADR-003-BACKEND-API Phase D (CLI thin wrappers)
+- Action type: Planning
+- Mode: Docs
+- Notes:
+  - Authored phased plan + summary at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/{plan.md,summary.md}` covering Phase A baseline through Phase D smoke tasks.
+  - Updated implementation tracker: marked C4 `[x]`, linked D1–D3 rows to new plan; refreshed `phase_c4_cli_integration/plan.md` C4.F checklist to `[x]`.
+  - Logged Attempt #39 in `docs/fix_plan.md` capturing planning deliverables.
+  - Reissued `input.md` directing Ralph to execute Phase A (baseline) tasks with artifact hub `2025-10-20T131500Z/phase_d_cli_wrappers_baseline/`.
+- <Action State>: [ready_for_implementation]
