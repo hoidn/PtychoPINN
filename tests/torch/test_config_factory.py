@@ -153,51 +153,48 @@ class TestTrainingPayloadStructure:
 
     def test_training_payload_returns_dataclass(self, mock_train_npz, temp_output_dir):
         """Factory returns TrainingPayload dataclass instance."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512, 'batch_size': 4},
-            )
-            # GREEN phase assertions (will run after implementation):
-            # assert is_dataclass(payload)
-            # assert isinstance(payload, TrainingPayload)
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'batch_size': 4},
+        )
+        # GREEN phase assertions (will run after implementation):
+        assert is_dataclass(payload)
+        assert isinstance(payload, TrainingPayload)
 
     def test_training_payload_contains_tf_config(self, mock_train_npz, temp_output_dir):
         """Payload contains TensorFlow TrainingConfig instance."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512},
-            )
-            # GREEN phase: assert isinstance(payload.tf_training_config, TFTrainingConfig)
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+        # GREEN phase:
+        assert isinstance(payload.tf_training_config, TFTrainingConfig)
 
     def test_training_payload_contains_pytorch_configs(self, mock_train_npz, temp_output_dir):
         """Payload contains all three PyTorch singleton config instances."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512},
-            )
-            # GREEN phase assertions:
-            # assert isinstance(payload.pt_data_config, PTDataConfig)
-            # assert isinstance(payload.pt_model_config, PTModelConfig)
-            # assert isinstance(payload.pt_training_config, PTTrainingConfig)
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+        # GREEN phase assertions:
+        assert isinstance(payload.pt_data_config, PTDataConfig)
+        assert isinstance(payload.pt_model_config, PTModelConfig)
+        assert isinstance(payload.pt_training_config, PTTrainingConfig)
 
     def test_training_payload_contains_overrides_dict(self, mock_train_npz, temp_output_dir):
         """Payload includes audit trail of applied overrides."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512, 'batch_size': 8},
-            )
-            # GREEN phase assertions:
-            # assert 'n_groups' in payload.overrides_applied
-            # assert payload.overrides_applied['n_groups'] == 512
-            # assert payload.overrides_applied['batch_size'] == 8
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'batch_size': 8},
+        )
+        # GREEN phase assertions:
+        assert 'n_groups' in payload.overrides_applied
+        assert payload.overrides_applied['n_groups'] == 512
+        assert payload.overrides_applied['batch_size'] == 8
 
 
 class TestInferencePayloadStructure:
@@ -205,38 +202,37 @@ class TestInferencePayloadStructure:
 
     def test_inference_payload_returns_dataclass(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
         """Factory returns InferencePayload dataclass instance."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_inference_payload(
-                model_path=mock_checkpoint_dir,
-                test_data_file=mock_test_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 128},
-            )
-            # GREEN phase: assert isinstance(payload, InferencePayload)
+        payload = create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+        # GREEN phase:
+        assert isinstance(payload, InferencePayload)
 
     def test_inference_payload_contains_tf_config(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
         """Payload contains TensorFlow InferenceConfig instance."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_inference_payload(
-                model_path=mock_checkpoint_dir,
-                test_data_file=mock_test_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 128},
-            )
-            # GREEN phase: assert isinstance(payload.tf_inference_config, TFInferenceConfig)
+        payload = create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+        # GREEN phase:
+        assert isinstance(payload.tf_inference_config, TFInferenceConfig)
 
     def test_inference_payload_contains_pytorch_configs(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
         """Payload contains PyTorch inference config instances."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_inference_payload(
-                model_path=mock_checkpoint_dir,
-                test_data_file=mock_test_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 128},
-            )
-            # GREEN phase assertions:
-            # assert isinstance(payload.pt_data_config, PTDataConfig)
-            # assert isinstance(payload.pt_inference_config, PTInferenceConfig)
+        payload = create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+        # GREEN phase assertions:
+        assert isinstance(payload.pt_data_config, PTDataConfig)
+        assert isinstance(payload.pt_inference_config, PTInferenceConfig)
 
 
 # ============================================================================
@@ -257,39 +253,36 @@ class TestConfigBridgeTranslation:
 
     def test_grid_size_tuple_to_gridsize_int(self, mock_train_npz, temp_output_dir):
         """Factory converts grid_size (2, 2) → gridsize 2 via bridge."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512, 'gridsize': 2},
-            )
-            # GREEN phase assertions:
-            # assert payload.pt_data_config.grid_size == (2, 2)  # PyTorch tuple
-            # assert payload.tf_training_config.model.gridsize == 2  # TensorFlow int
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'gridsize': 2},
+        )
+        # GREEN phase assertions:
+        assert payload.pt_data_config.grid_size == (2, 2)  # PyTorch tuple
+        assert payload.tf_training_config.model.gridsize == 2  # TensorFlow int
 
     def test_epochs_to_nepochs_conversion(self, mock_train_npz, temp_output_dir):
         """Factory maps epochs → nepochs via bridge."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512, 'max_epochs': 20},
-            )
-            # GREEN phase assertions:
-            # assert payload.pt_training_config.epochs == 20  # PyTorch naming
-            # assert payload.tf_training_config.nepochs == 20  # TensorFlow naming
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'max_epochs': 20},
+        )
+        # GREEN phase assertions:
+        assert payload.pt_training_config.epochs == 20  # PyTorch naming
+        assert payload.tf_training_config.nepochs == 20  # TensorFlow naming
 
     def test_k_to_neighbor_count_conversion(self, mock_train_npz, temp_output_dir):
         """Factory maps K → neighbor_count via bridge."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512, 'neighbor_count': 7},
-            )
-            # GREEN phase assertions:
-            # assert payload.pt_data_config.K == 7  # PyTorch K
-            # assert payload.tf_training_config.neighbor_count == 7  # TensorFlow naming
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'neighbor_count': 7},
+        )
+        # GREEN phase assertions:
+        assert payload.pt_data_config.K == 7  # PyTorch K
+        assert payload.tf_training_config.neighbor_count == 7  # TensorFlow naming
 
 
 # ============================================================================
@@ -307,40 +300,39 @@ class TestLegacyParamsPopulation:
 
     def test_factory_populates_params_cfg(self, mock_train_npz, temp_output_dir):
         """Factory updates ptycho.params.cfg with config values."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            # Clear params.cfg before test
-            ptycho.params.cfg.clear()
+        # Clear params.cfg before test
+        ptycho.params.cfg.clear()
 
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512, 'gridsize': 2},
-            )
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'gridsize': 2},
+        )
 
-            # GREEN phase assertions:
-            # assert ptycho.params.cfg['gridsize'] == 2
-            # assert ptycho.params.cfg['N'] == 64  # Inferred from NPZ
-            # assert ptycho.params.cfg['n_groups'] == 512
+        # GREEN phase assertions:
+        assert ptycho.params.cfg['gridsize'] == 2
+        assert ptycho.params.cfg['N'] == 64  # Inferred from NPZ
+        assert ptycho.params.cfg['n_groups'] == 512
 
     def test_populate_legacy_params_helper(self, mock_train_npz, temp_output_dir):
         """populate_legacy_params() wrapper calls update_legacy_dict."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
-            # Construct minimal TF config
-            tf_config = TrainingConfig(
-                model=ModelConfig(N=64, gridsize=2),
-                train_data_file=mock_train_npz,
-                n_groups=512,
-            )
+        # Construct minimal TF config
+        tf_config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            train_data_file=mock_train_npz,
+            n_groups=512,
+        )
 
-            # Clear params.cfg
-            ptycho.params.cfg.clear()
+        # Clear params.cfg
+        ptycho.params.cfg.clear()
 
-            # Call factory helper
-            populate_legacy_params(tf_config)
+        # Call factory helper
+        populate_legacy_params(tf_config)
 
-            # GREEN phase: assert ptycho.params.cfg['gridsize'] == 2
+        # GREEN phase:
+        assert ptycho.params.cfg['gridsize'] == 2
 
 
 # ============================================================================
@@ -361,26 +353,25 @@ class TestOverridePrecedence:
 
     def test_override_dict_wins_over_defaults(self, mock_train_npz, temp_output_dir):
         """Overrides dict has highest precedence."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 1024, 'batch_size': 16},
-            )
-            # GREEN phase assertions:
-            # assert payload.tf_training_config.n_groups == 1024  # Override wins
-            # assert payload.tf_training_config.batch_size == 16
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 1024, 'batch_size': 16},
+        )
+        # GREEN phase assertions:
+        assert payload.tf_training_config.n_groups == 1024  # Override wins
+        assert payload.tf_training_config.batch_size == 16
 
     def test_probe_size_override_wins_over_inference(self, mock_train_npz, temp_output_dir):
         """Explicit N override takes precedence over inferred probe size."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            # NPZ has N=64 probe, but override specifies N=128
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512, 'N': 128},
-            )
-            # GREEN phase: assert payload.tf_training_config.model.N == 128
+        # NPZ has N=64 probe, but override specifies N=128
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'N': 128},
+        )
+        # GREEN phase:
+        assert payload.tf_training_config.model.N == 128
 
 
 # ============================================================================
@@ -400,38 +391,35 @@ class TestFactoryValidation:
 
     def test_missing_n_groups_raises_error(self, mock_train_npz, temp_output_dir):
         """Factory raises ValueError if n_groups missing from overrides."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            # Omit n_groups (required field)
-            payload = create_training_payload(
-                train_data_file=mock_train_npz,
-                output_dir=temp_output_dir,
-                overrides={},  # Missing n_groups!
-            )
-            # GREEN phase: expect ValueError("n_groups required")
+        # Omit n_groups (required field)
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={},  # Missing n_groups!
+        )
+        # GREEN phase: expect ValueError("n_groups required")
 
     def test_nonexistent_train_data_file_raises_error(self, temp_output_dir):
         """Factory raises FileNotFoundError for missing train_data_file."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            payload = create_training_payload(
-                train_data_file=Path("/nonexistent/train.npz"),
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 512},
-            )
-            # GREEN phase: expect FileNotFoundError
+        payload = create_training_payload(
+            train_data_file=Path("/nonexistent/train.npz"),
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+        # GREEN phase: expect FileNotFoundError
 
     def test_missing_checkpoint_raises_error(self, mock_test_npz, temp_output_dir):
         """Factory raises ValueError if model_path missing wts.h5.zip."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            bad_checkpoint_dir = temp_output_dir / "no_checkpoint"
-            bad_checkpoint_dir.mkdir()
+        bad_checkpoint_dir = temp_output_dir / "no_checkpoint"
+        bad_checkpoint_dir.mkdir()
 
-            payload = create_inference_payload(
-                model_path=bad_checkpoint_dir,
-                test_data_file=mock_test_npz,
-                output_dir=temp_output_dir,
-                overrides={'n_groups': 128},
-            )
-            # GREEN phase: expect ValueError("Model archive not found")
+        payload = create_inference_payload(
+            model_path=bad_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+        # GREEN phase: expect ValueError("Model archive not found")
 
 
 # ============================================================================
@@ -443,15 +431,15 @@ class TestProbeSizeInference:
 
     def test_infer_probe_size_from_npz(self, mock_train_npz):
         """Helper extracts probe size from NPZ metadata."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            N = infer_probe_size(mock_train_npz)
-            # GREEN phase: assert N == 64  # Mock fixture has 64x64 probe
+        N = infer_probe_size(mock_train_npz)
+        # GREEN phase:
+        assert N == 64  # Mock fixture has 64x64 probe
 
     def test_infer_probe_size_missing_file_fallback(self):
         """Helper returns fallback N=64 for missing NPZ file."""
-        with pytest.raises(NotImplementedError, match="Phase B2 RED scaffold"):
-            N = infer_probe_size(Path("/nonexistent/data.npz"))
-            # GREEN phase: assert N == 64  # Fallback per design decision
+        N = infer_probe_size(Path("/nonexistent/data.npz"))
+        # GREEN phase:
+        assert N == 64  # Fallback per design decision
 
 
 # ============================================================================
