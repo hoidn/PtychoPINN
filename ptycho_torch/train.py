@@ -628,18 +628,26 @@ Examples:
             traceback.print_exc()
             sys.exit(1)
 
-        # Call main() with bridged configs and execution config (Phase C4.C3)
+        # Call workflow-based training (Phase C4.D3 - bundle persistence)
         try:
             print(f"Starting training with {args.max_epochs} epochs...")
-            main(
-                str(ptycho_dir),
-                config_path=None,
-                existing_config=existing_config,
-                disable_mlflow=args.disable_mlflow,
-                output_dir=str(output_dir),
-                execution_config=execution_config  # Thread execution config to main()
+
+            # Load training data (CONFIG-001 already satisfied by factory)
+            from ptycho.raw_data import RawData
+            train_data = RawData.from_file(str(train_data_file))
+            test_data = RawData.from_file(str(test_data_file)) if test_data_file else None
+
+            # Route through run_cdi_example_torch for bundle persistence
+            from ptycho_torch.workflows.components import run_cdi_example_torch
+            amplitude, phase, results = run_cdi_example_torch(
+                train_data=train_data,
+                test_data=test_data,
+                config=payload.tf_training_config,
+                do_stitching=False  # CLI only needs training, not reconstruction
             )
+
             print(f"✓ Training completed successfully. Outputs saved to {output_dir}")
+            print(f"✓ Model bundle saved to {output_dir}/wts.h5.zip")
 
         except Exception as e:
             print(f"Training failed: {str(e)}")

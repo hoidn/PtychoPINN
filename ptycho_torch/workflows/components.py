@@ -495,7 +495,8 @@ def _train_with_lightning(
             - history: Dict with train_loss and optional val_loss trajectories
             - train_container: Original training container
             - test_container: Original test container
-            - models: Dict with 'lightning_module' and 'trainer' handles for persistence
+            - models: Dict with 'diffraction_to_obj' (Lightning module) and 'autoencoder' (sentinel)
+                      for dual-model bundle persistence per spec §4.6
 
     Raises:
         RuntimeError: If torch or lightning packages are not installed (POLICY-001)
@@ -629,14 +630,17 @@ def _train_with_lightning(
 
     logger.info("Lightning training complete")
 
-    # B2.7: Build results payload with models handle for persistence
+    # B2.7: Build results payload with dual-model dict for bundle persistence (Phase C4.D3)
+    # save_torch_bundle requires 'autoencoder' and 'diffraction_to_obj' keys per spec §4.6
+    # Since PyTorch uses a unified PtychoPINN_Lightning module, map diffraction_to_obj to the module
+    # and provide an autoencoder sentinel for spec compliance
     return {
         "history": history,
         "train_container": train_container,
         "test_container": test_container,
         "models": {
-            "lightning_module": model,
-            "trainer": trainer
+            "diffraction_to_obj": model,  # Main Lightning module
+            "autoencoder": {'_sentinel': 'autoencoder'}  # Sentinel for dual-model requirement
         }
     }
 
@@ -709,7 +713,8 @@ def _reassemble_cdi_image_torch(
     test_container = _ensure_container(test_data, config)
 
     # Step 2: Extract trained Lightning module and set to eval mode
-    lightning_module = train_results['models']['lightning_module']
+    # Extract Lightning module from dual-model dict (Phase C4.D3 structure)
+    lightning_module = train_results['models']['diffraction_to_obj']
     lightning_module.eval()
 
     # Step 3: Build inference dataloader

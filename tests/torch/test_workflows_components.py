@@ -1232,7 +1232,8 @@ class TestReassembleCdiImageTorchGreen:
         Create train_results dict fixture for stitching tests.
 
         Provides minimal structure required by _reassemble_cdi_image_torch:
-        - models['lightning_module']: Trained (mocked) Lightning module
+        - models['diffraction_to_obj']: Trained (mocked) Lightning module (Phase C4.D3 update)
+        - models['autoencoder']: Sentinel for dual-model bundle compliance
         - history: Training loss (placeholder)
 
         Note: trainer key omitted from models dict to avoid model_manager validation errors
@@ -1240,8 +1241,8 @@ class TestReassembleCdiImageTorchGreen:
         """
         return {
             "models": {
-                "lightning_module": mock_lightning_module,
-                # Omit trainer key - not needed for stitching and causes save errors if None
+                "diffraction_to_obj": mock_lightning_module,  # Phase C4.D3: new key structure
+                "autoencoder": {'_sentinel': 'autoencoder'},  # Dual-model bundle requirement
             },
             "history": {"train_loss": [0.1, 0.05]},
         }
