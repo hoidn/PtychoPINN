@@ -203,7 +203,7 @@ def create_training_payload(
         grid_size=grid_size,
         C=C,  # Set C based on grid_size
         nphotons=overrides.get('nphotons', 1e5),  # PyTorch default
-        K=overrides.get('neighbor_count', 6),  # PyTorch default=6
+        K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
         probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
     )
 
@@ -396,7 +396,7 @@ def create_inference_payload(
         N=N,
         grid_size=grid_size,
         C=C,  # Set C based on grid_size
-        K=overrides.get('neighbor_count', 6),  # PyTorch default=6
+        K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
         probe_scale=overrides.get('probe_scale', 1.0),  # PyTorch default
     )
 
