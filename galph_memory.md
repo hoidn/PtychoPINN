@@ -1399,3 +1399,15 @@
 - Findings: Factory leaves `ModelConfig.C_forward` at default 4 even when `grid_size=1`; helper assumes four channels and trips reshape in `Translation`. Verified via `create_training_payload()` probe (DataConfig.C==1, C_forward==4) and updated `phase_c4_cli_integration/plan.md` + new write-up `coords_relative_investigation.md` (2025-10-20T061500Z hub).
 - Steering: Rewrote input.md directing Ralph to add a TDD test for channel sync, patch the factory, then rerun integration + CLI selectors. New artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T070500Z/phase_c4_cli_integration_debug/` scaffolded with analysis checklist.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T061100Z: C4.D3 bundle triage handoff
+- Focus issue: ADR-003-BACKEND-API Phase C4.D3 integration failure (wts.h5.zip missing)
+- Action type: Debug (hypothesis triage)
+- Mode: Parity
+- Findings:
+  - Training CLI still routes through legacy `main()` and never writes `wts.h5.zip`; inference CLI now hard-requires the bundle, so integration dies immediately (logs: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T070500Z/.../pytest_integration.log`).
+  - `_train_with_lightning` emits `{'lightning_module', 'trainer'}` which violates `save_torch_bundle` dual-model contract; even after switching to workflows we must return `'diffraction_to_obj'` + `'autoencoder'` (sentinel acceptable) or persistence keeps failing.
+  - Captured triage + hypotheses in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T060955Z/phase_c4_cli_integration_debug/triage.md` and rewrote C4.D3 plan row to track the persistence gap.
+- Steering: New `input.md` directs Ralph to add a RED test for bundle persistence, reroute the CLI through `run_cdi_example_torch`, adjust `_train_with_lightning` outputs, provide a checkpoint fallback in inference, and then update plan/ledger once GREEN.
+- Notes: Integration remains blocked on bundle generation; checkpoint fallback is a temporary guard until `load_torch_bundle` is implemented. Ensure new logs land under the 2025-10-20T060955Z report hub.
+- <Action State>: [ready_for_implementation]
