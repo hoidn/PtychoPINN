@@ -1633,3 +1633,13 @@
 - Key gaps: doc still claims `--accelerator` default `'cpu'`, omits `_run_inference_and_reconstruct` helper narrative, lacks inference CLI example/outputs, and needs Phase E deprecation pointer.
 - Next steps for engineer: follow gap analysis to update workflow guide, produce docs_update_summary.md, flip plan row C4 to `[x]`, and log Attempt #52.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T125200Z: Phase D CLI smoke focus
+- Focus issue: ADR-003-BACKEND-API Phase D — CLI thin wrappers (smoke evidence D1–D3)
+- Action type: Evidence collection
+- Mode: Parity
+- Notes:
+  - Reviewed `phase_d_cli_wrappers/plan.md` Phase D rows plus related artifacts to confirm D1–D3 are the remaining blockers before Phase E.
+  - Skimmed CLI implementations (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) and PyTorch workflow guide §§11–13 to ensure commands/flag defaults align with spec §4.8 and findings CONFIG-001/POLICY-001.
+  - Rewrote `input.md` directing Ralph to gather training/inference smoke logs, sync plan + ledger, and author hygiene/hand-off notes under `reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/`.
+- <Action State>: [ready_for_implementation]
