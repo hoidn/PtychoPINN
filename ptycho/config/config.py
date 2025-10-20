@@ -69,6 +69,26 @@ from typing import Dict, Any, Optional, Literal
 import yaml
 import warnings
 
+# Export list for public API (ADR-003 Phase C3.A1)
+# Restores exports removed during Phase C2; ensures PyTorchExecutionConfig is discoverable
+__all__ = [
+    # Dataclass configurations
+    'ModelConfig',
+    'TrainingConfig',
+    'InferenceConfig',
+    'PyTorchExecutionConfig',
+    # Core compatibility bridge
+    'update_legacy_dict',
+    # Validation functions
+    'validate_model_config',
+    'validate_training_config',
+    'validate_inference_config',
+    # YAML loading
+    'load_yaml_config',
+    # Internal translation (exposed for advanced use)
+    'dataclass_to_legacy_dict',
+]
+
 @dataclass(frozen=True)
 class ModelConfig:
     """Core model architecture parameters."""

@@ -1923,3 +1923,365 @@ class TestDecoderLastShapeParity:
         assert output.shape[3] == expected_width, \
             f"Width mismatch: {output.shape[3]} != {expected_width}. " \
             f"Expected: input_width ({width}) + 2*padding ({data_config.N // 4} per side) = {expected_width}"
+
+
+class TestTrainWithLightningGreen:
+    """
+    Phase C3 execution config integration tests — validate PyTorchExecutionConfig wiring.
+
+    These tests validate that _train_with_lightning accepts PyTorchExecutionConfig
+    and properly threads execution knobs to Lightning Trainer and dataloaders per
+    ADR-003 Phase C3 requirements.
+
+    Design requirements (from phase_c3_workflow_integration/plan.md):
+    1. _train_with_lightning MUST accept execution_config: PyTorchExecutionConfig parameter
+    2. Trainer kwargs (accelerator, deterministic, gradient_clip_val) MUST reflect execution config
+    3. Dataloader kwargs (num_workers, pin_memory) MUST respect execution config
+    4. Deterministic flag MUST trigger Lightning deterministic mode
+
+    Test strategy:
+    - Use monkeypatch to spy on Trainer.__init__ kwargs
+    - Supply PyTorchExecutionConfig with non-default values
+    - Assert Trainer received correct overrides from execution config
+    - Validate dataloader builder honors num_workers/pin_memory
+    """
+
+    @pytest.fixture
+    def params_cfg_snapshot(self):
+        """Snapshot and restore params.cfg state across tests."""
+        from ptycho import params
+        original = params.cfg.copy()
+        yield params.cfg
+        params.cfg.clear()
+        params.cfg.update(original)
+
+    @pytest.fixture
+    def minimal_training_config(self):
+        """Create minimal TrainingConfig fixture for execution config tests."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='pinn',
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=2,
+        )
+
+        return training_config
+
+    @pytest.fixture
+    def dummy_raw_data(self):
+        """Create minimal RawData fixture for testing."""
+        from ptycho.raw_data import RawData
+
+        nsamples = 10
+        N = 64
+
+        dummy_coords = np.linspace(0, 9, nsamples)
+        dummy_diff = np.random.rand(nsamples, N, N).astype(np.float32)
+        dummy_probe = np.ones((N, N), dtype=np.complex64)
+        dummy_scan_index = np.arange(nsamples, dtype=int)
+
+        return RawData(
+            xcoords=dummy_coords,
+            ycoords=dummy_coords,
+            xcoords_start=dummy_coords,
+            ycoords_start=dummy_coords,
+            diff3d=dummy_diff,
+            probeGuess=dummy_probe,
+            scan_index=dummy_scan_index,
+        )
+
+    def test_execution_config_overrides_trainer(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST: _train_with_lightning MUST pass execution config knobs to Trainer.
+
+        Requirement: ADR-003 Phase C3.A3 — thread trainer kwargs from execution config.
+
+        Expected behavior (after wiring):
+        - When execution_config supplied, Trainer receives accelerator/deterministic/gradient_clip_val
+        - Values override defaults (e.g., accelerator='gpu', deterministic=False, gradient_clip_val=1.0)
+        - When execution_config=None, Trainer uses CPU-safe defaults
+
+        Test mechanism:
+        - Spy on Trainer.__init__ to capture kwargs
+        - Supply non-default PyTorchExecutionConfig (accelerator='gpu', deterministic=False)
+        - Assert Trainer received those exact values
+        - Expect FAILURE because _train_with_lightning currently ignores execution_config
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        # Spy to track Trainer.__init__ kwargs
+        trainer_init_kwargs = {"called": False, "kwargs": None}
+
+        class MockTrainer:
+            """Stub Trainer that records __init__ kwargs."""
+            def __init__(self, **kwargs):
+                trainer_init_kwargs["called"] = True
+                trainer_init_kwargs["kwargs"] = kwargs
+
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+
+        # Monkeypatch Lightning Trainer
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            MockTrainer
+        )
+
+        # Monkeypatch Lightning module to prevent errors
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+
+        # Create execution config with non-default values
+        exec_config = PyTorchExecutionConfig(
+            accelerator='gpu',  # Override default 'cpu'
+            deterministic=False,  # Override default True
+            gradient_clip_val=1.0,  # Override default None
+            num_workers=4,  # Override default 0
+        )
+
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+
+        # Call _train_with_lightning with execution_config
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            execution_config=exec_config  # CRITICAL: new parameter
+        )
+
+        # RED PHASE ASSERTION (will fail until Phase C3.A3 implements)
+        assert trainer_init_kwargs["called"], "Trainer must be instantiated"
+
+        kwargs = trainer_init_kwargs["kwargs"]
+
+        # Validate accelerator override
+        assert kwargs.get('accelerator') == 'gpu', (
+            "_train_with_lightning MUST pass execution_config.accelerator to Trainer. "
+            f"Expected 'gpu', got {kwargs.get('accelerator')}. "
+            "Phase C3.A3 RED: execution config not yet threaded through Trainer kwargs."
+        )
+
+        # Validate deterministic override
+        assert kwargs.get('deterministic') == False, (
+            "_train_with_lightning MUST pass execution_config.deterministic to Trainer. "
+            f"Expected False, got {kwargs.get('deterministic')}. "
+            "Phase C3.A3 RED: execution config not yet threaded through Trainer kwargs."
+        )
+
+        # Validate gradient clipping override
+        assert kwargs.get('gradient_clip_val') == 1.0, (
+            "_train_with_lightning MUST pass execution_config.gradient_clip_val to Trainer. "
+            f"Expected 1.0, got {kwargs.get('gradient_clip_val')}. "
+            "Phase C3.A3 RED: execution config not yet threaded through Trainer kwargs."
+        )
+
+    def test_execution_config_controls_determinism(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST: execution_config.deterministic MUST trigger Lightning deterministic mode.
+
+        Requirement: ADR-003 Phase C3.C2 — validate deterministic behaviour.
+
+        Expected behavior:
+        - When deterministic=True (default), Trainer receives deterministic=True
+        - This triggers torch.use_deterministic_algorithms(True) and seeds
+        - When deterministic=False, Trainer allows non-deterministic ops
+
+        Test mechanism:
+        - Supply execution_config with deterministic=True
+        - Assert Trainer.__init__ received deterministic=True kwarg
+        - Expect FAILURE because current stub doesn't wire deterministic flag
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        # Spy to track Trainer.__init__ kwargs
+        trainer_init_kwargs = {"called": False, "kwargs": None}
+
+        class MockTrainer:
+            def __init__(self, **kwargs):
+                trainer_init_kwargs["called"] = True
+                trainer_init_kwargs["kwargs"] = kwargs
+
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            MockTrainer
+        )
+
+        # Monkeypatch Lightning module
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+
+        # Create execution config with deterministic=True (default)
+        exec_config = PyTorchExecutionConfig(
+            deterministic=True,
+            accelerator='cpu'
+        )
+
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+
+        # Call _train_with_lightning
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            execution_config=exec_config
+        )
+
+        # RED PHASE ASSERTION
+        assert trainer_init_kwargs["called"], "Trainer must be instantiated"
+
+        kwargs = trainer_init_kwargs["kwargs"]
+
+        # Validate deterministic flag is passed
+        assert kwargs.get('deterministic') == True, (
+            "_train_with_lightning MUST pass execution_config.deterministic=True to Trainer. "
+            f"Expected True, got {kwargs.get('deterministic')}. "
+            "This flag triggers Lightning's deterministic mode (seeds + deterministic algorithms). "
+            "Phase C3.C2 RED: deterministic wiring not yet implemented."
+        )
+
+
+class TestInferenceExecutionConfig:
+    """
+    Phase C3.B inference execution config tests.
+
+    Validates that inference helpers respect execution config for dataloaders
+    and runtime overrides per ADR-003 Phase C3.B requirements.
+    """
+
+    @pytest.fixture
+    def params_cfg_snapshot(self):
+        """Snapshot and restore params.cfg state across tests."""
+        from ptycho import params
+        original = params.cfg.copy()
+        yield params.cfg
+        params.cfg.clear()
+        params.cfg.update(original)
+
+    @pytest.fixture
+    def minimal_training_config(self):
+        """Create minimal TrainingConfig fixture."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        model_config = ModelConfig(N=64, gridsize=2, model_type='pinn')
+
+        return TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            batch_size=4,
+            neighbor_count=4,
+            nphotons=1e9,
+        )
+
+    def test_inference_uses_execution_batch_size(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config
+    ):
+        """
+        RED TEST: _build_inference_dataloader MUST respect execution_config.inference_batch_size.
+
+        Requirement: ADR-003 Phase C3.B2 — support inference batch size override.
+
+        Expected behavior:
+        - When execution_config.inference_batch_size is set, dataloader uses that batch size
+        - When None, dataloader falls back to config.batch_size
+        - This enables CPU-safe inference with smaller batches
+
+        Test mechanism:
+        - Create mock container
+        - Supply execution_config with inference_batch_size=2 (override default 4)
+        - Build inference dataloader
+        - Assert dataloader.batch_size == 2
+        - Expect FAILURE because _build_inference_dataloader currently ignores execution_config
+        """
+        from ptycho_torch.workflows.components import _build_inference_dataloader
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        try:
+            import torch
+        except ImportError:
+            pytest.skip("PyTorch not available")
+
+        # Create mock container
+        container = {
+            'X': torch.randn(20, 64, 64, dtype=torch.float32),
+            'coords_nominal': torch.randn(20, 2, dtype=torch.float32),
+        }
+
+        # Create execution config with inference batch size override
+        exec_config = PyTorchExecutionConfig(
+            inference_batch_size=2,  # Override config.batch_size (4)
+            num_workers=0,
+            accelerator='cpu'
+        )
+
+        # Build inference dataloader (RED phase: execution_config not yet accepted)
+        # Need to update signature to accept execution_config parameter
+        try:
+            infer_loader = _build_inference_dataloader(
+                container,
+                minimal_training_config,
+                execution_config=exec_config  # CRITICAL: new parameter
+            )
+
+            # RED PHASE ASSERTION (will fail until C3.B2 implements)
+            assert infer_loader.batch_size == 2, (
+                "_build_inference_dataloader MUST respect execution_config.inference_batch_size. "
+                f"Expected batch_size=2, got {infer_loader.batch_size}. "
+                "Phase C3.B2 RED: inference batch size override not yet implemented."
+            )
+
+        except TypeError as e:
+            # Expected during RED phase: function doesn't accept execution_config yet
+            if 'execution_config' in str(e):
+                pytest.fail(
+                    "_build_inference_dataloader signature must be updated to accept "
+                    "execution_config parameter. Phase C3.B1 RED: parameter not yet added."
+                )
+            else:
+                raise

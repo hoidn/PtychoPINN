@@ -375,7 +375,8 @@ def _build_lightning_dataloaders(
 
 def _build_inference_dataloader(
     container: 'PtychoDataContainerTorch',
-    config: TrainingConfig
+    config: TrainingConfig,
+    execution_config: Optional['PyTorchExecutionConfig'] = None
 ) -> 'DataLoader':
     """
     Build deterministic PyTorch DataLoader for inference/stitching.
@@ -386,6 +387,7 @@ def _build_inference_dataloader(
     Args:
         container: Inference data container (PtychoDataContainerTorch or dict)
         config: TrainingConfig with batch_size setting
+        execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.B1)
 
     Returns:
         DataLoader: Sequential loader for inference predictions
@@ -393,7 +395,8 @@ def _build_inference_dataloader(
     Notes:
         - Always uses shuffle=False for deterministic stitching order
         - drop_last=False ensures all samples are processed
-        - Batch size defaults to 1 if not specified in config
+        - Batch size can be overridden via execution_config.inference_batch_size (Phase C3.B2)
+        - num_workers and pin_memory controlled by execution_config
         - Compatible with _build_lightning_dataloaders duck-typing pattern
     """
     # torch-optional import guarded here
@@ -445,21 +448,30 @@ def _build_inference_dataloader(
 
     infer_dataset = TensorDataset(infer_X, infer_coords)
 
-    # Create deterministic loader
+    # Import execution config defaults if not provided (Phase C3.B1)
+    if execution_config is None:
+        from ptycho.config.config import PyTorchExecutionConfig
+        execution_config = PyTorchExecutionConfig()
+
+    # Determine batch size: execution_config.inference_batch_size overrides config.batch_size (Phase C3.B2)
+    batch_size = execution_config.inference_batch_size or getattr(config, 'batch_size', 1)
+
+    # Create deterministic loader with execution config knobs
     return DataLoader(
         infer_dataset,
-        batch_size=getattr(config, 'batch_size', 1),  # Default to 1 for inference
+        batch_size=batch_size,  # Controlled by execution_config.inference_batch_size
         shuffle=False,  # Deterministic order for stitching
         drop_last=False,  # Process all samples
-        num_workers=0,
-        pin_memory=False
+        num_workers=execution_config.num_workers,  # Controlled by execution_config
+        pin_memory=execution_config.pin_memory  # GPU-only flag, CPU-safe default False
     )
 
 
 def _train_with_lightning(
     train_container: 'PtychoDataContainerTorch',
     test_container: Optional['PtychoDataContainerTorch'],
-    config: TrainingConfig
+    config: TrainingConfig,
+    execution_config: Optional['PyTorchExecutionConfig'] = None
 ) -> Dict[str, Any]:
     """
     Orchestrate Lightning trainer execution for PyTorch model training.
@@ -468,7 +480,7 @@ def _train_with_lightning(
     1. Derives PyTorch config objects from TensorFlow TrainingConfig
     2. Instantiates PtychoPINN_Lightning module with all four config dependencies
     3. Builds train/val dataloaders via _build_lightning_dataloaders helper
-    4. Configures Lightning Trainer with checkpoint/logging settings
+    4. Configures Lightning Trainer with checkpoint/logging settings (ADR-003 Phase C3)
     5. Executes training via trainer.fit()
     6. Returns structured results dict with history, containers, and module handle
 
@@ -476,6 +488,7 @@ def _train_with_lightning(
         train_container: Normalized training data container
         test_container: Optional normalized test data container
         config: TrainingConfig with training hyperparameters
+        execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.A2)
 
     Returns:
         Dict[str, Any]: Training results including:
@@ -491,6 +504,7 @@ def _train_with_lightning(
         - Blueprint: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md
         - Spec: specs/ptychodus_api_spec.md:187 (reconstructor lifecycle contract)
         - Findings: POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg already populated by caller)
+        - ADR-003 Phase C3: execution_config controls Trainer kwargs (accelerator, deterministic, gradient_clip_val)
     """
     # B2.2: torch-optional imports with POLICY-001 compliant error messaging
     try:
@@ -559,18 +573,32 @@ def _train_with_lightning(
     )
 
     # B2.5: Configure Trainer with settings from config
+    # C3.A3: Thread execution config values to Trainer kwargs
     output_dir = getattr(config, 'output_dir', Path('./outputs'))
     debug_mode = getattr(config, 'debug', False)
 
+    # Import execution config defaults if not provided
+    if execution_config is None:
+        from ptycho.config.config import PyTorchExecutionConfig
+        execution_config = PyTorchExecutionConfig()
+
+    # Build Trainer kwargs from execution config (Phase C3.A3)
     trainer = L.Trainer(
         max_epochs=config.nepochs,
-        accelerator='auto',
+        # Execution config overrides (ADR-003 Phase C3)
+        accelerator=execution_config.accelerator,  # CPU-safe default, GPU via override
+        strategy=execution_config.strategy,
+        deterministic=execution_config.deterministic,  # Triggers torch.use_deterministic_algorithms
+        gradient_clip_val=execution_config.gradient_clip_val,  # None = no clipping
+        accumulate_grad_batches=execution_config.accum_steps,
+        # Checkpoint/logging knobs
+        enable_progress_bar=execution_config.enable_progress_bar or debug_mode,
+        enable_checkpointing=execution_config.enable_checkpointing,
+        # Standard settings
         devices=1,  # Single device for MVP; multi-GPU later
         log_every_n_steps=1,
         default_root_dir=str(output_dir),
-        enable_progress_bar=debug_mode,  # Suppress progress bar unless debug
-        deterministic=True,  # Enforce reproducibility
-        logger=False,  # Disable default logger for now; MLflow added in B3
+        logger=False,  # Disable default logger for now; MLflow/TensorBoard added in Phase D
     )
 
     # B2.6: Execute training cycle
