@@ -565,6 +565,153 @@ class TestWorkflowsComponentsTraining:
         assert total_loss > 0, \
             f"Negative log-likelihood should be positive, got: {total_loss}"
 
+    def test_lightning_training_respects_gridsize(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        dummy_raw_data
+    ):
+        """
+        Gridsize Channel Parity Test — _train_with_lightning MUST propagate gridsize to model channels.
+
+        Requirement: docs/findings.md#BUG-TF-001 — gridsize > 1 yields channel mismatches
+        unless params.cfg['gridsize'] AND PyTorch model configs synchronize C = gridsize**2.
+
+        Design contract (phase_c4d_blockers/plan.md §B1-B2):
+        - When config.model.gridsize=2, PyTorch DataConfig MUST set C=4 (2×2)
+        - ModelConfig MUST set C_model=4 and C_forward=4 to match grouping
+        - PtychoPINN_Lightning first conv layer MUST expect 4 input channels (not 1)
+
+        Test mechanism:
+        - Create TrainingConfig with gridsize=2
+        - Monkeypatch PtychoPINN_Lightning to inspect first conv layer input channels
+        - Invoke _train_with_lightning
+        - Assert first conv layer has in_channels == gridsize**2 == 4
+
+        Expected failure mode (RED phase):
+        - _train_with_lightning manually builds PTDataConfig with default C=1
+        - Lightning module created with C_model=1 → first conv expects 1 channel
+        - Assertion fails: in_channels=1 != expected 4
+
+        GREEN phase fix:
+        - Refactor _train_with_lightning to reuse config_factory.create_training_payload
+        - Factory propagates gridsize → C via grid_size tuple → C = grid_size[0]*grid_size[1]
+        - ModelConfig receives C_model=4, Lightning module conv layers match
+        """
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho_torch.workflows import components as torch_components
+
+        # Spy to track Lightning module instantiation and inspect model structure
+        lightning_init_spy = {"called": False, "first_conv_in_channels": None}
+
+        # Store original PtychoPINN_Lightning before patching
+        from ptycho_torch.model import PtychoPINN_Lightning as OriginalLightningModule
+
+        def mock_lightning_init(model_config, data_config, training_config, inference_config):
+            """Spy that captures PtychoPINN_Lightning model structure."""
+            import torch
+            import lightning.pytorch as L
+
+            # Record that init was called
+            lightning_init_spy["called"] = True
+
+            # Use the ORIGINAL Lightning module (not the patched version) to inspect architecture
+            module = OriginalLightningModule(
+                model_config=model_config,
+                data_config=data_config,
+                training_config=training_config,
+                inference_config=inference_config
+            )
+
+            # Extract first conv layer input channels from the model
+            # The PtychoPINN architecture: model.autoencoder.encoder contains Conv2d layers
+            # Find the first Conv2d layer and record its in_channels
+            for layer in module.model.autoencoder.encoder.modules():
+                if isinstance(layer, torch.nn.Conv2d):
+                    lightning_init_spy["first_conv_in_channels"] = layer.in_channels
+                    break
+
+            # Return a stub module to avoid full training execution
+            class StubLightningModule(L.LightningModule):
+                def __init__(self):
+                    super().__init__()
+                    self.dummy_param = torch.nn.Parameter(torch.zeros(1))
+
+                def training_step(self, batch, batch_idx):
+                    return torch.tensor(0.0, requires_grad=True)
+
+                def configure_optimizers(self):
+                    return torch.optim.Adam(self.parameters(), lr=1e-3)
+
+            return StubLightningModule()
+
+        # Monkeypatch Lightning module constructor
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            mock_lightning_init
+        )
+
+        # Create minimal dummy NPZ file for factory validation
+        # (Factory validates file exists before proceeding with config construction)
+        import tempfile
+        tmpdir = Path(tempfile.mkdtemp())
+        dummy_npz = tmpdir / "dummy_train.npz"
+
+        # Create minimal NPZ with required keys for DATA-001 compliance
+        np.savez(
+            dummy_npz,
+            diffraction=np.ones((10, 64, 64), dtype=np.float32),
+            xcoords=np.linspace(0, 9, 10),
+            ycoords=np.linspace(0, 9, 10),
+            probeGuess=np.ones((64, 64), dtype=np.complex64),
+            objectGuess=np.ones((128, 128), dtype=np.complex64),
+        )
+
+        # Create TrainingConfig with gridsize=2 (requires 4 input channels)
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,  # CRITICAL: 2×2 grouping → 4 channels expected
+            model_type='pinn',
+        )
+
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=dummy_npz,  # Use temp file for factory validation
+            test_data_file=dummy_npz,   # Reuse for test data
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=2,
+        )
+
+        # Create minimal train_container
+        train_container = {
+            "X": np.ones((10, 64, 64)),
+            "Y": np.ones((10, 64, 64), dtype=np.complex64),
+        }
+
+        # Call _train_with_lightning with gridsize=2 config
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=training_config
+        )
+
+        # Assert Lightning module was instantiated
+        assert lightning_init_spy["called"], \
+            "_train_with_lightning must instantiate PtychoPINN_Lightning module"
+
+        # RED PHASE ASSERTION: Channel count must match gridsize**2
+        expected_channels = training_config.model.gridsize ** 2
+        actual_channels = lightning_init_spy["first_conv_in_channels"]
+
+        assert actual_channels == expected_channels, (
+            f"Lightning model first conv layer MUST have in_channels={expected_channels} "
+            f"when gridsize={training_config.model.gridsize}, but got in_channels={actual_channels}. "
+            f"This indicates _train_with_lightning is not propagating gridsize to PyTorch configs. "
+            f"See docs/findings.md#BUG-TF-001 for channel mismatch pattern."
+        )
+
 
 class TestWorkflowsComponentsRun:
     """

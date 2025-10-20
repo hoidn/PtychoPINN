@@ -610,36 +610,46 @@ def _train_with_lightning(
     logger.info("_train_with_lightning orchestrating Lightning training")
     logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
 
-    # B2.1: Derive Lightning config objects from TensorFlow TrainingConfig
-    # Note: config.model already contains ModelConfig with N, gridsize, etc.
-    # We need to construct PyTorch dataclass configs matching these values
+    # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
+    # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
+    # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
+    # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
+    from ptycho_torch.config_factory import create_training_payload
 
-    # Map model_type: 'pinn' → 'Unsupervised', 'supervised' → 'Supervised'
+    # Build factory overrides from TrainingConfig fields
+    # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
+    # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
+    #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
     mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+    factory_overrides = {
+        'n_groups': config.n_groups,  # Required by factory validation
+        'gridsize': config.model.gridsize,
+        'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
+        'amp_activation': config.model.amp_activation,
+        'n_filters_scale': config.model.n_filters_scale,
+        'nphotons': config.nphotons,
+        'neighbor_count': config.neighbor_count,
+        'max_epochs': config.nepochs,
+        'batch_size': getattr(config, 'batch_size', 16),
+    }
 
-    pt_data_config = PTDataConfig(
-        N=config.model.N,
-        grid_size=(config.model.gridsize, config.model.gridsize),
-        nphotons=config.nphotons,
-        K=config.neighbor_count,
+    # Create payload with factory-derived PyTorch configs
+    payload = create_training_payload(
+        train_data_file=config.train_data_file,
+        output_dir=getattr(config, 'output_dir', Path('./outputs')),
+        execution_config=execution_config,  # Pass through from caller
+        overrides=factory_overrides
     )
 
-    pt_model_config = PTModelConfig(
-        mode=mode_map.get(config.model.model_type, 'Unsupervised'),
-        amp_activation=config.model.amp_activation or 'silu',
-        n_filters_scale=config.model.n_filters_scale,
-    )
+    # Extract PyTorch configs from payload (gridsize → C propagation already applied)
+    pt_data_config = payload.pt_data_config
+    pt_model_config = payload.pt_model_config
+    pt_training_config = payload.pt_training_config
 
-    pt_training_config = PTTrainingConfig(
-        epochs=config.nepochs,
-        learning_rate=1e-4,  # Default; can expose via config later
-        device=getattr(config, 'device', 'cpu'),
-    )
-
+    # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
     pt_inference_config = PTInferenceConfig()
-    # Minimal for now; persistence may need additional fields
 
-    # B2.4: Instantiate PtychoPINN_Lightning with all four config objects
+    # B2.4: Instantiate PtychoPINN_Lightning with factory-derived config objects
     model = PtychoPINN_Lightning(
         model_config=pt_model_config,
         data_config=pt_data_config,
