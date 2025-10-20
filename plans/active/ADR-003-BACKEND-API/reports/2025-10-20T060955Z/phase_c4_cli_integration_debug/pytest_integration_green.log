@@ -1,0 +1,417 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_run_pytorch_train_save_load_infer ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-705/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
+        """
+        Tests the complete PyTorch train → save → load → infer workflow.
+    
+        This validates the PyTorch model persistence layer by simulating a real
+        user workflow across separate processes, mirroring the TensorFlow integration test.
+    
+        Phase: C2 (GREEN)
+        Behavior:
+        1. Training subprocess creates Lightning checkpoint at checkpoints/last.ckpt
+        2. Inference subprocess loads checkpoint and generates reconstructions
+        3. Output images created in inference output directory
+        4. Assertions verify artifact existence and non-empty file sizes
+    
+        Implementation: _run_pytorch_workflow executes train/infer via subprocess
+        """
+        # Execute complete workflow via subprocess helper (Phase C2 implementation)
+>       result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_integration_workflow_torch.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-705/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
+        """
+        Execute PyTorch train→save→load→infer workflow via subprocess calls.
+    
+        Parameters:
+            tmp_path: pytest tmp_path fixture for output directories
+            data_file: Path to NPZ dataset
+            cuda_cpu_env: Environment dict with CUDA_VISIBLE_DEVICES=""
+    
+        Returns:
+            SimpleNamespace with:
+                - training_output_dir: Path to training outputs
+                - inference_output_dir: Path to inference outputs
+                - checkpoint_path: Path to Lightning checkpoint
+                - recon_amp_path: Path to amplitude reconstruction PNG
+                - recon_phase_path: Path to phase reconstruction PNG
+    
+        Raises:
+            RuntimeError: If training or inference subprocess fails
+    
+        Phase: C2 (GREEN)
+        Implementation: Ported from legacy unittest harness with subprocess commands
+        """
+        from types import SimpleNamespace
+    
+        # Define output paths
+        training_output_dir = tmp_path / "training_outputs"
+        inference_output_dir = tmp_path / "pytorch_output"
+    
+        # --- 1. Training Step (PyTorch) ---
+        # CLI parameters aligned with Phase B1 scope (fixture n_subset=64, deterministic config)
+        # Preserves CONFIG-001 ordering per docs/workflows/pytorch.md §12
+        train_command = [
+            sys.executable, "-m", "ptycho_torch.train",
+            "--train_data_file", str(data_file),
+            "--test_data_file", str(data_file),
+            "--output_dir", str(training_output_dir),
+            "--max_epochs", "2",  # Aligned with Phase B1 runtime budget (<45s)
+            "--n_images", "64",   # Matches fixture subset size
+            "--gridsize", "1",
+            "--batch_size", "4",
+            "--device", "cpu",    # Deterministic CPU-only execution per cuda_cpu_env fixture
+            "--disable_mlflow",
+        ]
+    
+        train_result = subprocess.run(
+            train_command,
+            capture_output=True,
+            text=True,
+            env=cuda_cpu_env,
+            check=False
+        )
+    
+        if train_result.returncode != 0:
+>           raise RuntimeError(
+                f"PyTorch training failed with return code {train_result.returncode}\n"
+                f"STDOUT:\n{train_result.stdout}\n"
+                f"STDERR:\n{train_result.stderr}"
+            )
+E           RuntimeError: PyTorch training failed with return code 1
+E           STDOUT:
+E           No GPU found, using CPU instead.
+E           Using new CLI interface with factory-based config (ADR-003)
+E           Creating configuration via factory (CONFIG-001 compliance)...
+E           ✓ Factory created configs: N=64, gridsize=(1, 1), epochs=2
+E           ✓ Execution config: accelerator=cpu, deterministic=True, learning_rate=0.001
+E           Starting training with 2 epochs...
+E           diff3d shape: (64, 64, 64)
+E           probeGuess shape: (64, 64)
+E           scan_index shape: (64,)
+E           objectGuess shape: (227, 226)
+E           xcoords shape: (64,)
+E           ycoords shape: (64,)
+E           xcoords_start shape: (64,)
+E           ycoords_start shape: (64,)
+E           diff3d shape: (64, 64, 64)
+E           probeGuess shape: (64, 64)
+E           scan_index shape: (64,)
+E           objectGuess shape: (227, 226)
+E           xcoords shape: (64,)
+E           ycoords shape: (64,)
+E           xcoords_start shape: (64,)
+E           ycoords_start shape: (64,)
+E           diff3d shape: (64, 64, 64)
+E           probeGuess shape: (64, 64)
+E           scan_index shape: (64,)
+E           objectGuess shape: (227, 226)
+E           xcoords shape: (64,)
+E           ycoords shape: (64,)
+E           xcoords_start shape: (64,)
+E           ycoords_start shape: (64,)
+E           DEBUG: nsamples: 64, gridsize: 1 (using efficient random sample-then-group strategy)
+E           INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+E           neighbor-sampled diffraction shape (64, 64, 64, 1)
+E           diff3d shape: (64, 64, 64)
+E           probeGuess shape: (64, 64)
+E           scan_index shape: (64,)
+E           objectGuess shape: (227, 226)
+E           xcoords shape: (64,)
+E           ycoords shape: (64,)
+E           xcoords_start shape: (64,)
+E           ycoords_start shape: (64,)
+E           DEBUG: nsamples: 64, gridsize: 1 (using efficient random sample-then-group strategy)
+E           INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+E           neighbor-sampled diffraction shape (64, 64, 64, 1)
+E           Decoder Block 1: No attention module added.
+E           Decoder Block 2: No attention module added.
+E           Decoder Block 1: No attention module added.
+E           Decoder Block 2: No attention module added.
+E           Training failed: Lightning training failed. See logs for details.
+E           
+E           STDERR:
+E           2025-10-19 23:20:45.874159: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+E           WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E           E0000 00:00:1760941245.885474 1466693 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E           E0000 00:00:1760941245.889208 1466693 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+E           W0000 00:00:1760941245.900212 1466693 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760941245.900223 1466693 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760941245.900225 1466693 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760941245.900226 1466693 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           2025-10-19 23:20:45.902925: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E           To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+E           2025-10-19 23:20:47.865003: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+E           2025-10-19 23:20:47.865026: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+E           2025-10-19 23:20:47.865031: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+E           2025-10-19 23:20:47.865034: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+E           2025-10-19 23:20:47.865037: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+E           2025-10-19 23:20:47.865039: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+E           2025-10-19 23:20:47.865062: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+E           2025-10-19 23:20:47.865077: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+E           2025-10-19 23:20:47.865078: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+E           /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+E             warnings.warn(
+E           WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E           I0000 00:00:1760941250.360773 1466693 service.cc:152] XLA service 0x39f64070 initialized for platform Host (this does not guarantee that XLA will be used). Devices:
+E           I0000 00:00:1760941250.360800 1466693 service.cc:160]   StreamExecutor device (0): Host, Default Version
+E           2025-10-19 23:20:50.375676: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+E           I0000 00:00:1760941250.475239 1466693 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+E           Seed set to 42
+E           INFO:pytorch_lightning.utilities.rank_zero:💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+E           INFO:pytorch_lightning.utilities.rank_zero:GPU available: False, used: False
+E           INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+E           INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+E           
+E             | Name  | Type        | Params | Mode 
+E           ----------------------------------------------
+E           0 | model | PtychoPINN  | 2.3 M  | train
+E           1 | Loss  | PoissonLoss | 0      | train
+E           ----------------------------------------------
+E           2.3 M     Trainable params
+E           0         Non-trainable params
+E           2.3 M     Total params
+E           9.345     Total estimated model params size (MB)
+E           73        Modules in train mode
+E           0         Modules in eval mode
+E           /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+E           /home/ollie/Documents/PtychoPINN2/ptycho_torch/model.py:1123: UserWarning: Using a non-tuple sequence for multidimensional indexing is deprecated and will be changed in pytorch 2.9; use x[tuple(seq)] instead of x[seq]. In pytorch 2.9 this will be interpreted as tensor index, x[torch.tensor(seq)], which will result either in an error or a different result (Triggered internally at /pytorch/torch/csrc/autograd/python_variable_indexing.cpp:306.)
+E             x = batch[0]['images']
+E           ERROR:ptycho_torch.workflows.components:Lightning training failed: too many indices for tensor of dimension 4
+E           Traceback (most recent call last):
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py", line 608, in _train_with_lightning
+E               trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 560, in fit
+E               call._call_and_handle_interrupt(
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 49, in _call_and_handle_interrupt
+E               return trainer_fn(*args, **kwargs)
+E                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 598, in _fit_impl
+E               self._run(model, ckpt_path=ckpt_path)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1011, in _run
+E               results = self._run_stage()
+E                         ^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1053, in _run_stage
+E               self._run_sanity_check()
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1082, in _run_sanity_check
+E               val_loop.run()
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/loops/utilities.py", line 179, in _decorator
+E               return loop_run(self, *args, **kwargs)
+E                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 145, in run
+E               self._evaluation_step(batch, batch_idx, dataloader_idx, dataloader_iter)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 437, in _evaluation_step
+E               output = call._call_strategy_hook(trainer, hook_name, *step_args)
+E                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 329, in _call_strategy_hook
+E               output = fn(*args, **kwargs)
+E                        ^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 412, in validation_step
+E               return self.lightning_module.validation_step(*args, **kwargs)
+E                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/model.py", line 1223, in validation_step
+E               val_loss = self.compute_loss(batch)
+E                          ^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/model.py", line 1123, in compute_loss
+E               x = batch[0]['images']
+E                   ~~~~~~~~^^^^^^^^^^
+E           IndexError: too many indices for tensor of dimension 4
+E           
+E           The above exception was the direct cause of the following exception:
+E           
+E           Traceback (most recent call last):
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 642, in cli_main
+E               amplitude, phase, results = run_cdi_example_torch(
+E                                           ^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py", line 155, in run_cdi_example_torch
+E               train_results = train_cdi_model_torch(train_data, test_data, config)
+E                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py", line 858, in train_cdi_model_torch
+E               results = _train_with_lightning(train_container, test_container, config)
+E                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py", line 611, in _train_with_lightning
+E               raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+E           RuntimeError: Lightning training failed. See logs for details.
+
+tests/torch/test_integration_workflow_torch.py:120: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer - RuntimeError: PyTorch training failed with return code 1
+STDOUT:
+No GPU found, using CPU instead.
+Using new CLI interface with factory-based config (ADR-003)
+Creating configuration via factory (CONFIG-001 compliance)...
+✓ Factory created configs: N=64, gridsize=(1, 1), epochs=2
+✓ Execution config: accelerator=cpu, deterministic=True, learning_rate=0.001
+Starting training with 2 epochs...
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+DEBUG: nsamples: 64, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (64, 64, 64, 1)
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+DEBUG: nsamples: 64, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (64, 64, 64, 1)
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Training failed: Lightning training failed. See logs for details.
+
+STDERR:
+2025-10-19 23:20:45.874159: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760941245.885474 1466693 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760941245.889208 1466693 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760941245.900212 1466693 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941245.900223 1466693 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941245.900225 1466693 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941245.900226 1466693 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 23:20:45.902925: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 23:20:47.865003: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 23:20:47.865026: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 23:20:47.865031: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 23:20:47.865034: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 23:20:47.865037: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 23:20:47.865039: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 23:20:47.865062: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 23:20:47.865077: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 23:20:47.865078: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+/home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1760941250.360773 1466693 service.cc:152] XLA service 0x39f64070 initialized for platform Host (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1760941250.360800 1466693 service.cc:160]   StreamExecutor device (0): Host, Default Version
+2025-10-19 23:20:50.375676: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1760941250.475239 1466693 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: False, used: False
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.345     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/Documents/PtychoPINN2/ptycho_torch/model.py:1123: UserWarning: Using a non-tuple sequence for multidimensional indexing is deprecated and will be changed in pytorch 2.9; use x[tuple(seq)] instead of x[seq]. In pytorch 2.9 this will be interpreted as tensor index, x[torch.tensor(seq)], which will result either in an error or a different result (Triggered internally at /pytorch/torch/csrc/autograd/python_variable_indexing.cpp:306.)
+  x = batch[0]['images']
+ERROR:ptycho_torch.workflows.components:Lightning training failed: too many indices for tensor of dimension 4
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py", line 608, in _train_with_lightning
+    trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 560, in fit
+    call._call_and_handle_interrupt(
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 49, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 598, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1011, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1053, in _run_stage
+    self._run_sanity_check()
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1082, in _run_sanity_check
+    val_loop.run()
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/loops/utilities.py", line 179, in _decorator
+    return loop_run(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 145, in run
+    self._evaluation_step(batch, batch_idx, dataloader_idx, dataloader_iter)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 437, in _evaluation_step
+    output = call._call_strategy_hook(trainer, hook_name, *step_args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 329, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 412, in validation_step
+    return self.lightning_module.validation_step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/model.py", line 1223, in validation_step
+    val_loss = self.compute_loss(batch)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/model.py", line 1123, in compute_loss
+    x = batch[0]['images']
+        ~~~~~~~~^^^^^^^^^^
+IndexError: too many indices for tensor of dimension 4
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 642, in cli_main
+    amplitude, phase, results = run_cdi_example_torch(
+                                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py", line 155, in run_cdi_example_torch
+    train_results = train_cdi_model_torch(train_data, test_data, config)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py", line 858, in train_cdi_model_torch
+    results = _train_with_lightning(train_container, test_container, config)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/workflows/components.py", line 611, in _train_with_lightning
+    raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+RuntimeError: Lightning training failed. See logs for details.
+============================== 1 failed in 8.26s ===============================

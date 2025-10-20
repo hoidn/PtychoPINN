@@ -1,0 +1,241 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence FAILED [100%]
+
+=================================== FAILURES ===================================
+________________ TestExecutionConfigCLI.test_bundle_persistence ________________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x72bc72145510>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-701/test_bundle_persistence0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-701/test_bundle_persistence0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x72bc72262d10>
+
+    def test_bundle_persistence(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: Training CLI invokes save_torch_bundle with dual-model dict.
+    
+        This test validates the Phase C4.D3 requirement that training CLI must emit
+        the spec-required wts.h5.zip bundle containing both 'autoencoder' and
+        'diffraction_to_obj' model keys per specs/ptychodus_api_spec.md §4.6.
+    
+        Expected RED Failure:
+        - save_torch_bundle is never called (legacy training path doesn't persist bundles)
+        OR
+        - save_torch_bundle called with incorrect models_dict structure
+    
+        Success Criteria (GREEN):
+        - save_torch_bundle called exactly once
+        - models_dict contains 'autoencoder' key
+        - models_dict contains 'diffraction_to_obj' key
+        - base_path argument points to {output_dir}/wts.h5
+    
+        References:
+        - input.md C4.D3 bundle TDD requirement
+        - plans/.../phase_c4_cli_integration/plan.md §C4.D3
+        - specs/ptychodus_api_spec.md §4.6 (dual-model bundle contract)
+        """
+        # Mock both the training workflow and bundle save function
+        mock_workflow = MagicMock()
+        mock_save_bundle = MagicMock()
+    
+        # Simulate workflow returning dual-model dict (GREEN expectation)
+        mock_workflow.return_value = {
+            'autoencoder': MagicMock(),  # Mock nn.Module
+            'diffraction_to_obj': MagicMock(),  # Mock nn.Module
+        }
+    
+>       with patch('ptycho_torch.train.run_cdi_example_torch', mock_workflow), \
+             patch('ptycho_torch.train.save_torch_bundle', mock_save_bundle):
+
+tests/torch/test_cli_train_torch.py:297: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../miniconda3/envs/ptycho311/lib/python3.11/unittest/mock.py:1446: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <unittest.mock._patch object at 0x72bc72597950>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'ptycho_torch.train' from '/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py'> does not have the attribute 'run_cdi_example_torch'
+
+../../miniconda3/envs/ptycho311/lib/python3.11/unittest/mock.py:1419: AttributeError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-10-19 23:18:20.133336: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760941100.144639 1465564 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760941100.148459 1465564 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760941100.159293 1465564 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941100.159306 1465564 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941100.159309 1465564 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941100.159311 1465564 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 23:18:20.161983: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 23:18:22.246266: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 23:18:22.246303: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 23:18:22.246310: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 23:18:22.246313: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 23:18:22.246317: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 23:18:22.246320: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 23:18:22.246353: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 23:18:22.246370: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 23:18:22.246374: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+=========================== short test summary info ============================
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence - AttributeError: <module 'ptycho_torch.train' from '/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py'> does not have the attribute 'run_cdi_example_torch'
+============================== 1 failed in 5.09s ===============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence FAILED [100%]
+
+=================================== FAILURES ===================================
+________________ TestExecutionConfigCLI.test_bundle_persistence ________________
+
+self = <test_cli_train_torch.TestExecutionConfigCLI object at 0x7a4331d09710>
+minimal_train_args = ['--train_data_file', '/tmp/pytest-of-ollie/pytest-702/test_bundle_persistence0/train.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-702/test_bundle_persistence0/outputs', '--n_images', '64', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7a434af5f290>
+
+    def test_bundle_persistence(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: Training CLI invokes save_torch_bundle with dual-model dict.
+    
+        This test validates the Phase C4.D3 requirement that training CLI must emit
+        the spec-required wts.h5.zip bundle containing both 'autoencoder' and
+        'diffraction_to_obj' model keys per specs/ptychodus_api_spec.md §4.6.
+    
+        Expected RED Failure:
+        - save_torch_bundle is never called (legacy training path doesn't persist bundles)
+        OR
+        - save_torch_bundle called with incorrect models_dict structure
+    
+        Success Criteria (GREEN):
+        - save_torch_bundle called exactly once
+        - models_dict contains 'autoencoder' key
+        - models_dict contains 'diffraction_to_obj' key
+        - base_path argument points to {output_dir}/wts.h5
+    
+        References:
+        - input.md C4.D3 bundle TDD requirement
+        - plans/.../phase_c4_cli_integration/plan.md §C4.D3
+        - specs/ptychodus_api_spec.md §4.6 (dual-model bundle contract)
+        """
+        # Mock save_torch_bundle at the workflow level where it's actually called
+        mock_save_bundle = MagicMock()
+    
+        # Mock RawData.from_file to avoid file I/O
+        mock_raw_data = MagicMock()
+    
+        # Mock run_cdi_example_torch to simulate training completion with models
+        # The workflow should call save_torch_bundle internally
+        mock_run_cdi = MagicMock()
+        mock_run_cdi.return_value = (None, None, {
+            'models': {
+                'autoencoder': MagicMock(),
+                'diffraction_to_obj': MagicMock()
+            }
+        })
+    
+        with patch('ptycho_torch.workflows.components.save_torch_bundle', mock_save_bundle), \
+             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
+             patch('ptycho_torch.workflows.components.run_cdi_example_torch', mock_run_cdi):
+    
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + minimal_train_args)
+    
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+    
+        # Assert save_torch_bundle was called
+>       assert mock_save_bundle.called, \
+            "save_torch_bundle was not called (training CLI does not persist bundles)"
+E       AssertionError: save_torch_bundle was not called (training CLI does not persist bundles)
+E       assert False
+E        +  where False = <MagicMock id='134429017150416'>.called
+
+tests/torch/test_cli_train_torch.py:316: AssertionError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+Using new CLI interface with factory-based config (ADR-003)
+Creating configuration via factory (CONFIG-001 compliance)...
+✓ Factory created configs: N=64, gridsize=(2, 2), epochs=2
+✓ Execution config: accelerator=cpu, deterministic=True, learning_rate=0.001
+Starting training with 2 epochs...
+✓ Training completed successfully. Outputs saved to /tmp/pytest-of-ollie/pytest-702/test_bundle_persistence0/outputs
+✓ Model bundle saved to /tmp/pytest-of-ollie/pytest-702/test_bundle_persistence0/outputs/wts.h5.zip
+----------------------------- Captured stderr call -----------------------------
+2025-10-19 23:19:05.281771: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760941145.293004 1465880 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760941145.296860 1465880 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760941145.307754 1465880 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941145.307770 1465880 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941145.307773 1465880 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760941145.307775 1465880 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 23:19:05.310448: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 23:19:07.538528: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 23:19:07.538562: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 23:19:07.538567: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 23:19:07.538571: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 23:19:07.538575: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 23:19:07.538578: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 23:19:07.538606: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 23:19:07.538623: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 23:19:07.538627: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:547: UserWarning: Error reading probeGuess from /tmp/pytest-of-ollie/pytest-702/test_bundle_persistence0/train.npz: No data left in file. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence - AssertionError: save_torch_bundle was not called (training CLI does not persist bundles)
+assert False
+ +  where False = <MagicMock id='134429017150416'>.called
+======================== 1 failed, 3 warnings in 4.93s =========================
