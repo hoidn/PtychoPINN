@@ -304,7 +304,56 @@ The regression validates:
 
 **Reference:** See `plans/active/TEST-PYTORCH-001/implementation.md` for phased test development history and `plans/active/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md` for Phase B3 fixture integration details.
 
-## 12. Backend Selection in Ptychodus Integration
+## 12. CLI Execution Configuration Flags
+
+The PyTorch backend CLI exposes execution-level configuration knobs that control training and inference behavior through command-line flags. These flags complement the model/data configuration and provide fine-grained control over runtime execution.
+
+### Training Execution Flags
+
+The following execution config flags are available in `ptycho_torch/train.py`:
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--accelerator` | str | `'cpu'` | Hardware accelerator type (`'cpu'`, `'gpu'`, `'tpu'`) |
+| `--deterministic` / `--no-deterministic` | bool | `True` | Enable deterministic training (reproducibility) |
+| `--num-workers` | int | `0` | Number of DataLoader worker processes (0 = main thread) |
+| `--learning-rate` | float | `1e-3` | Optimizer learning rate |
+
+**Example CLI command with execution flags:**
+```bash
+python -m ptycho_torch.train \
+  --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
+  --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
+  --output_dir /tmp/cli_smoke \
+  --n_images 64 \
+  --gridsize 2 \
+  --batch_size 4 \
+  --max_epochs 1 \
+  --accelerator cpu \
+  --deterministic \
+  --num-workers 0 \
+  --learning-rate 1e-3
+```
+
+**Evidence:** Phase C4.D validation confirmed gridsize=2 training with execution config flags completes successfully. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log` for full smoke test output.
+
+### Inference Execution Flags
+
+The following execution config flags are available in `ptycho_torch/inference.py`:
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--accelerator` | str | `'cpu'` | Hardware accelerator type (`'cpu'`, `'gpu'`, `'tpu'`) |
+| `--num-workers` | int | `0` | Number of DataLoader worker processes |
+| `--inference-batch-size` | int | `1` | Batch size for inference (overrides training batch_size) |
+
+### CONFIG-001 Compliance
+
+**CRITICAL:** PyTorch workflows require the same CONFIG-001 initialization as TensorFlow. When using CLI scripts, this happens automatically during factory instantiation. When using programmatic entry points, you **MUST** call `update_legacy_dict(params.cfg, config)` before any data loading or model construction to ensure legacy modules observe synchronized parameters.
+
+**Reference:** For complete configuration bridge details, see `specs/ptychodus_api_spec.md` §4.8 and `ptycho_torch/config_factory.py` implementation.
+
+## 13. Backend Selection in Ptychodus Integration
 
 When PtychoPINN is integrated into Ptychodus, the backend (TensorFlow or PyTorch) can be selected via configuration. This section explains how backend selection works and what guarantees are provided.
 
@@ -412,7 +461,7 @@ update_legacy_dict(ptycho.params.cfg, config)
 
 **Reference Implementation:** See `ptycho/workflows/backend_selector.py:121-165` for dispatcher logic (if available in your codebase).
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 ### PyTorch Import Errors
 
@@ -439,7 +488,7 @@ See <doc-ref type="troubleshooting">docs/debugging/TROUBLESHOOTING.md#shape-mism
 
 **Solution:** Retrain with current codebase or use legacy load path (under development in Phase D4).
 
-## 14. Keeping Parity with TensorFlow
+## 15. Keeping Parity with TensorFlow
 
 When introducing new features to PyTorch workflows:
 

@@ -120,6 +120,25 @@ pip install -e .
 ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_groups 512 --output_dir verification_run
 ```
 
+### PyTorch Training
+```bash
+# Train with PyTorch backend (deterministic mode, CPU)
+python -m ptycho_torch.train \
+  --train_data_file datasets/my_train.npz \
+  --test_data_file datasets/my_test.npz \
+  --output_dir outputs/pytorch_run \
+  --n_images 512 \
+  --gridsize 2 \
+  --batch_size 4 \
+  --max_epochs 10 \
+  --accelerator cpu \
+  --deterministic \
+  --num-workers 0 \
+  --learning-rate 1e-3
+
+# Note: CONFIG-001 bridge (update_legacy_dict) is handled automatically by the CLI
+```
+
 ### Running Tests
 ```bash
 # Run all tests (preferred)

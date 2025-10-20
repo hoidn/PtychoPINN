@@ -311,13 +311,44 @@ The `KEY_MAPPINGS` dictionary in `config/config.py` defines the translation rule
 | `train_data_file`             | `train_data_file_path`      | The path to the training data file. `pathlib.Path` is automatically converted to `str`.                  |
 | `test_data_file`              | `test_data_file_path`       | The path to the test data file. `pathlib.Path` is automatically converted to `str`.                      |
 
-### 7. Usage Guidelines for Developers
+### 7. CLI Reference — Execution Configuration Flags
+
+The PyTorch backend (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) exposes execution-level configuration knobs through command-line flags. These flags control runtime behavior and complement the model/data configuration fields documented in §5.
+
+#### 7.1. Training CLI Execution Flags
+
+These flags map to `PyTorchExecutionConfig` fields via factory override precedence (see §4.8 for CONFIG-001 ordering).
+
+| CLI Flag | Type | Default | Config Field | Description |
+|----------|------|---------|--------------|-------------|
+| `--accelerator` | str | `'cpu'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator type: `'cpu'`, `'gpu'`, `'tpu'` |
+| `--deterministic` / `--no-deterministic` | bool | `True` | `PyTorchExecutionConfig.deterministic` | Enable reproducible training with fixed RNG seeds |
+| `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count (0 = main thread) |
+| `--learning-rate` | float | `1e-3` | `PyTorchExecutionConfig.learning_rate` | Optimizer learning rate |
+
+**Factory Integration:** CLI scripts call `create_training_payload()` with `overrides` dict containing CLI-specified values. The factory applies these overrides after loading defaults and before returning the `TrainingPayload` dataclass (which includes both canonical `TFTrainingConfig` and `PyTorchExecutionConfig`).
+
+**CONFIG-001 Compliance:** The factory ensures `update_legacy_dict(ptycho.params.cfg, tf_config)` is called before any data loading or model construction, guaranteeing legacy subsystems observe synchronized parameters regardless of execution config values.
+
+#### 7.2. Inference CLI Execution Flags
+
+| CLI Flag | Type | Default | Config Field | Description |
+|----------|------|---------|--------------|-------------|
+| `--accelerator` | str | `'cpu'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator type: `'cpu'`, `'gpu'`, `'tpu'` |
+| `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count |
+| `--inference-batch-size` | int | `1` | `PyTorchExecutionConfig.inference_batch_size` | Batch size for inference (overrides training batch_size) |
+
+**Reference Implementation:** See `ptycho_torch/train.py:381-452` (training flags), `ptycho_torch/inference.py:365-412` (inference flags), and `ptycho_torch/config_factory.py` for factory integration logic.
+
+**Validation Evidence:** Phase C4.D manual CLI smoke test with gridsize=2 confirmed all execution flags operate correctly. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log`.
+
+### 8. Usage Guidelines for Developers
 
 - **DO** instantiate `ModelConfig`, `TrainingConfig`, or `InferenceConfig` to define your parameters.
 - **DO** call `update_legacy_dict(ptycho.params.cfg, ...)` immediately after creating your configuration dataclass and before calling any other `ptychopinn` functions.
 - **DO NOT** modify `ptycho.params.cfg` directly (e.g., `ptycho.params.cfg['N'] = 128`). This breaks the one-way data flow and can lead to inconsistent state.
 - **DO NOT** create new dependencies on `ptycho.params.get()` in new code. Instead, pass configuration dataclasses as arguments.
 
-### 8. Architectural Rationale
+### 9. Architectural Rationale
 
 This hybrid system was intentionally designed to facilitate the modernization of a large, existing codebase. The legacy `params.cfg` dictionary allowed for rapid prototyping but created tight coupling and global state issues. The modern dataclass system introduces structure, type safety, and validation. The `update_legacy_dict` bridge allows legacy modules to continue functioning without immediate refactoring, while enabling new code and external systems like `ptychodus` to use a clean, modern API.

@@ -1,0 +1,5 @@
+ CLAUDE.md                                          | 19 ++++++++
+ docs/workflows/pytorch.md                          | 55 ++++++++++++++++++++--
+ plans/active/ADR-003-BACKEND-API/implementation.md |  2 +-
+ specs/ptychodus_api_spec.md                        | 35 +++++++++++++-
+ 4 files changed, 105 insertions(+), 6 deletions(-)
