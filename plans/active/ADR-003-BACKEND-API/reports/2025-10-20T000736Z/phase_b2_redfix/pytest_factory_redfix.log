@@ -1,0 +1,1794 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 19 items
+
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass FAILED [  5%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config FAILED [ 10%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs FAILED [ 15%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_overrides_dict FAILED [ 21%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_returns_dataclass FAILED [ 26%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_tf_config FAILED [ 31%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_pytorch_configs FAILED [ 36%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_grid_size_tuple_to_gridsize_int FAILED [ 42%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_epochs_to_nepochs_conversion FAILED [ 47%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_k_to_neighbor_count_conversion FAILED [ 52%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_factory_populates_params_cfg FAILED [ 57%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_populate_legacy_params_helper FAILED [ 63%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_override_dict_wins_over_defaults FAILED [ 68%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_probe_size_override_wins_over_inference FAILED [ 73%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_n_groups_raises_error FAILED [ 78%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_nonexistent_train_data_file_raises_error FAILED [ 84%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_checkpoint_raises_error FAILED [ 89%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_from_npz FAILED [ 94%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback FAILED [100%]
+
+=================================== FAILURES ===================================
+_____ TestTrainingPayloadStructure.test_training_payload_returns_dataclass _____
+
+self = <test_config_factory.TestTrainingPayloadStructure object at 0x79285fc5d990>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_training_payload_returns_0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_d_7hmq54')
+
+    def test_training_payload_returns_dataclass(self, mock_train_npz, temp_output_dir):
+        """Factory returns TrainingPayload dataclass instance."""
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'batch_size': 4},
+        )
+
+tests/torch/test_config_factory.py:156: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_training_payload_returns_0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_d_7hmq54')
+overrides = {'batch_size': 4, 'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+____ TestTrainingPayloadStructure.test_training_payload_contains_tf_config _____
+
+self = <test_config_factory.TestTrainingPayloadStructure object at 0x79285f235310>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_training_payload_contains0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_eyck2vje')
+
+    def test_training_payload_contains_tf_config(self, mock_train_npz, temp_output_dir):
+        """Payload contains TensorFlow TrainingConfig instance."""
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+
+tests/torch/test_config_factory.py:167: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_training_payload_contains0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_eyck2vje')
+overrides = {'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+_ TestTrainingPayloadStructure.test_training_payload_contains_pytorch_configs __
+
+self = <test_config_factory.TestTrainingPayloadStructure object at 0x79285f2657d0>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_training_payload_contains1/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_10x41t0b')
+
+    def test_training_payload_contains_pytorch_configs(self, mock_train_npz, temp_output_dir):
+        """Payload contains all three PyTorch singleton config instances."""
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+
+tests/torch/test_config_factory.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_training_payload_contains1/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_10x41t0b')
+overrides = {'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+__ TestTrainingPayloadStructure.test_training_payload_contains_overrides_dict __
+
+self = <test_config_factory.TestTrainingPayloadStructure object at 0x79285ed7ec50>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_training_payload_contains2/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_9pfffd3y')
+
+    def test_training_payload_contains_overrides_dict(self, mock_train_npz, temp_output_dir):
+        """Payload includes audit trail of applied overrides."""
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'batch_size': 8},
+        )
+
+tests/torch/test_config_factory.py:189: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_training_payload_contains2/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_9pfffd3y')
+overrides = {'batch_size': 8, 'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+____ TestInferencePayloadStructure.test_inference_payload_returns_dataclass ____
+
+self = <test_config_factory.TestInferencePayloadStructure object at 0x79285ed98390>
+mock_checkpoint_dir = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_returns0/mock_checkpoint')
+mock_test_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_returns0/mock_test.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_tnmi1wb_')
+
+    def test_inference_payload_returns_dataclass(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
+        """Factory returns InferencePayload dataclass instance."""
+>       payload = create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+
+tests/torch/test_config_factory.py:205: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+model_path = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_returns0/mock_checkpoint')
+test_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_returns0/mock_test.npz')
+output_dir = PosixPath('/tmp/factory_test_tnmi1wb_')
+overrides = {'n_groups': 128}, execution_config = None
+
+    def create_inference_payload(
+        model_path: Path,
+        test_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> InferencePayload:
+        """
+        Create complete inference configuration payload.
+    
+        Centralizes all config construction logic for PyTorch inference workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (model_path, test_data_file, output_dir, n_groups)
+        2. Loads checkpoint config from model_path (or infers from NPZ)
+        3. Constructs PyTorch singleton configs (DataConfig, InferenceConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns InferencePayload with all config objects + audit trail
+    
+        Args:
+            model_path: Path to trained model directory (must contain wts.h5.zip)
+            test_data_file: Path to test NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for reconstructions (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: gridsize, batch_size, middle_trim, pad_eval, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                inference_batch_size, etc.). If None, uses defaults.
+    
+        Returns:
+            InferencePayload containing:
+                - tf_inference_config: InferenceConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_inference_config: InferenceConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: model_path or test_data_file does not exist
+            ValueError: model_path missing wts.h5.zip
+            ValueError: n_groups missing in overrides (required field)
+    
+        Example:
+            >>> payload = create_inference_payload(
+            ...     model_path=Path('outputs/exp001'),
+            ...     test_data_file=Path('datasets/test.npz'),
+            ...     output_dir=Path('outputs/exp001/inference'),
+            ...     overrides={
+            ...         'n_groups': 128,
+            ...         'gridsize': 2,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         inference_batch_size=64,
+            ...     ),
+            ... )
+    
+        See also:
+            - Design: .../factory_design.md §3.3
+            - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
+        """
+>       raise NotImplementedError(
+            "create_inference_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_inference_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:247: NotImplementedError
+___ TestInferencePayloadStructure.test_inference_payload_contains_tf_config ____
+
+self = <test_config_factory.TestInferencePayloadStructure object at 0x79285ed989d0>
+mock_checkpoint_dir = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_contain0/mock_checkpoint')
+mock_test_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_contain0/mock_test.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_ol4w3bqe')
+
+    def test_inference_payload_contains_tf_config(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
+        """Payload contains TensorFlow InferenceConfig instance."""
+>       payload = create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+
+tests/torch/test_config_factory.py:216: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+model_path = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_contain0/mock_checkpoint')
+test_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_contain0/mock_test.npz')
+output_dir = PosixPath('/tmp/factory_test_ol4w3bqe')
+overrides = {'n_groups': 128}, execution_config = None
+
+    def create_inference_payload(
+        model_path: Path,
+        test_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> InferencePayload:
+        """
+        Create complete inference configuration payload.
+    
+        Centralizes all config construction logic for PyTorch inference workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (model_path, test_data_file, output_dir, n_groups)
+        2. Loads checkpoint config from model_path (or infers from NPZ)
+        3. Constructs PyTorch singleton configs (DataConfig, InferenceConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns InferencePayload with all config objects + audit trail
+    
+        Args:
+            model_path: Path to trained model directory (must contain wts.h5.zip)
+            test_data_file: Path to test NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for reconstructions (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: gridsize, batch_size, middle_trim, pad_eval, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                inference_batch_size, etc.). If None, uses defaults.
+    
+        Returns:
+            InferencePayload containing:
+                - tf_inference_config: InferenceConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_inference_config: InferenceConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: model_path or test_data_file does not exist
+            ValueError: model_path missing wts.h5.zip
+            ValueError: n_groups missing in overrides (required field)
+    
+        Example:
+            >>> payload = create_inference_payload(
+            ...     model_path=Path('outputs/exp001'),
+            ...     test_data_file=Path('datasets/test.npz'),
+            ...     output_dir=Path('outputs/exp001/inference'),
+            ...     overrides={
+            ...         'n_groups': 128,
+            ...         'gridsize': 2,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         inference_batch_size=64,
+            ...     ),
+            ... )
+    
+        See also:
+            - Design: .../factory_design.md §3.3
+            - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
+        """
+>       raise NotImplementedError(
+            "create_inference_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_inference_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:247: NotImplementedError
+_ TestInferencePayloadStructure.test_inference_payload_contains_pytorch_configs _
+
+self = <test_config_factory.TestInferencePayloadStructure object at 0x79285ed5ad90>
+mock_checkpoint_dir = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_contain1/mock_checkpoint')
+mock_test_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_contain1/mock_test.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_kzojyrah')
+
+    def test_inference_payload_contains_pytorch_configs(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
+        """Payload contains PyTorch inference config instances."""
+>       payload = create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+
+tests/torch/test_config_factory.py:227: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+model_path = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_contain1/mock_checkpoint')
+test_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_inference_payload_contain1/mock_test.npz')
+output_dir = PosixPath('/tmp/factory_test_kzojyrah')
+overrides = {'n_groups': 128}, execution_config = None
+
+    def create_inference_payload(
+        model_path: Path,
+        test_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> InferencePayload:
+        """
+        Create complete inference configuration payload.
+    
+        Centralizes all config construction logic for PyTorch inference workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (model_path, test_data_file, output_dir, n_groups)
+        2. Loads checkpoint config from model_path (or infers from NPZ)
+        3. Constructs PyTorch singleton configs (DataConfig, InferenceConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns InferencePayload with all config objects + audit trail
+    
+        Args:
+            model_path: Path to trained model directory (must contain wts.h5.zip)
+            test_data_file: Path to test NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for reconstructions (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: gridsize, batch_size, middle_trim, pad_eval, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                inference_batch_size, etc.). If None, uses defaults.
+    
+        Returns:
+            InferencePayload containing:
+                - tf_inference_config: InferenceConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_inference_config: InferenceConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: model_path or test_data_file does not exist
+            ValueError: model_path missing wts.h5.zip
+            ValueError: n_groups missing in overrides (required field)
+    
+        Example:
+            >>> payload = create_inference_payload(
+            ...     model_path=Path('outputs/exp001'),
+            ...     test_data_file=Path('datasets/test.npz'),
+            ...     output_dir=Path('outputs/exp001/inference'),
+            ...     overrides={
+            ...         'n_groups': 128,
+            ...         'gridsize': 2,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         inference_batch_size=64,
+            ...     ),
+            ... )
+    
+        See also:
+            - Design: .../factory_design.md §3.3
+            - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
+        """
+>       raise NotImplementedError(
+            "create_inference_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_inference_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:247: NotImplementedError
+_______ TestConfigBridgeTranslation.test_grid_size_tuple_to_gridsize_int _______
+
+self = <test_config_factory.TestConfigBridgeTranslation object at 0x79285ed98fd0>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_grid_size_tuple_to_gridsi0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_25i54vio')
+
+    def test_grid_size_tuple_to_gridsize_int(self, mock_train_npz, temp_output_dir):
+        """Factory converts grid_size (2, 2) → gridsize 2 via bridge."""
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'gridsize': 2},
+        )
+
+tests/torch/test_config_factory.py:256: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_grid_size_tuple_to_gridsi0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_25i54vio')
+overrides = {'gridsize': 2, 'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+________ TestConfigBridgeTranslation.test_epochs_to_nepochs_conversion _________
+
+self = <test_config_factory.TestConfigBridgeTranslation object at 0x79285ed99390>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_epochs_to_nepochs_convers0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_au12xgci')
+
+    def test_epochs_to_nepochs_conversion(self, mock_train_npz, temp_output_dir):
+        """Factory maps epochs → nepochs via bridge."""
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'max_epochs': 20},
+        )
+
+tests/torch/test_config_factory.py:267: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_epochs_to_nepochs_convers0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_au12xgci')
+overrides = {'max_epochs': 20, 'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+_______ TestConfigBridgeTranslation.test_k_to_neighbor_count_conversion ________
+
+self = <test_config_factory.TestConfigBridgeTranslation object at 0x79285ed99950>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_k_to_neighbor_count_conve0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_omzff23r')
+
+    def test_k_to_neighbor_count_conversion(self, mock_train_npz, temp_output_dir):
+        """Factory maps K → neighbor_count via bridge."""
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'neighbor_count': 7},
+        )
+
+tests/torch/test_config_factory.py:278: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_k_to_neighbor_count_conve0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_omzff23r')
+overrides = {'n_groups': 512, 'neighbor_count': 7}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+_________ TestLegacyParamsPopulation.test_factory_populates_params_cfg _________
+
+self = <test_config_factory.TestLegacyParamsPopulation object at 0x79285ed9a0d0>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_factory_populates_params_0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_ovawe4ik')
+
+    def test_factory_populates_params_cfg(self, mock_train_npz, temp_output_dir):
+        """Factory updates ptycho.params.cfg with config values."""
+        # Clear params.cfg before test
+        ptycho.params.cfg.clear()
+    
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'gridsize': 2},
+        )
+
+tests/torch/test_config_factory.py:306: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_factory_populates_params_0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_ovawe4ik')
+overrides = {'gridsize': 2, 'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+________ TestLegacyParamsPopulation.test_populate_legacy_params_helper _________
+
+self = <test_config_factory.TestLegacyParamsPopulation object at 0x79285ed9a750>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_populate_legacy_params_he0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_no7gn5b4')
+
+    def test_populate_legacy_params_helper(self, mock_train_npz, temp_output_dir):
+        """populate_legacy_params() wrapper calls update_legacy_dict."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+    
+        # Construct minimal TF config
+        tf_config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            train_data_file=mock_train_npz,
+            n_groups=512,
+        )
+    
+        # Clear params.cfg
+        ptycho.params.cfg.clear()
+    
+        # Call factory helper
+>       populate_legacy_params(tf_config)
+
+tests/torch/test_config_factory.py:332: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tf_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+force = False
+
+    def populate_legacy_params(
+        tf_config: Union[TFTrainingConfig, TFInferenceConfig],
+        force: bool = False,
+    ) -> None:
+        """
+        Wrapper around update_legacy_dict with validation and logging.
+    
+        Ensures CONFIG-001 compliance checkpoint is explicit in factory workflows.
+        Provides audit trail of params.cfg population for debugging and governance.
+    
+        This function is the critical compatibility bridge that enables legacy modules
+        (over 20 files dependent on params.cfg) to consume modern dataclass configs.
+        It MUST be called before any data loading or model construction operations.
+    
+        Args:
+            tf_config: TrainingConfig or InferenceConfig (canonical TensorFlow format)
+            force: If True, overwrites existing params.cfg values without warning.
+                If False (default), logs warning if params.cfg already populated.
+    
+        Side Effects:
+            - Updates ptycho.params.cfg dictionary via update_legacy_dict()
+            - Logs params.cfg snapshot for audit trail (if logging enabled)
+    
+        Raises:
+            ValueError: tf_config validation failed (missing required fields)
+            TypeError: tf_config is not TrainingConfig or InferenceConfig instance
+    
+        Example:
+            >>> from ptycho.config.config import TrainingConfig, ModelConfig
+            >>> config = TrainingConfig(
+            ...     model=ModelConfig(N=64, gridsize=2),
+            ...     train_data_file=Path('data.npz'),
+            ...     n_groups=512,
+            ... )
+            >>> populate_legacy_params(config)
+            # params.cfg now contains: {'N': 64, 'gridsize': 2, 'n_groups': 512, ...}
+    
+        See also:
+            - Bridge function: ptycho/config/config.py update_legacy_dict()
+            - CONFIG-001: docs/findings.md CONFIG-001 (initialization order requirement)
+            - Key mappings: ptycho/config/config.py KEY_MAPPINGS
+        """
+>       raise NotImplementedError(
+            "populate_legacy_params() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: populate_legacy_params() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:337: NotImplementedError
+_________ TestOverridePrecedence.test_override_dict_wins_over_defaults _________
+
+self = <test_config_factory.TestOverridePrecedence object at 0x79285ed9add0>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_override_dict_wins_over_d0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_bcdlqtu3')
+
+    def test_override_dict_wins_over_defaults(self, mock_train_npz, temp_output_dir):
+        """Overrides dict has highest precedence."""
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 1024, 'batch_size': 16},
+        )
+
+tests/torch/test_config_factory.py:356: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_override_dict_wins_over_d0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_bcdlqtu3')
+overrides = {'batch_size': 16, 'n_groups': 1024}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+_____ TestOverridePrecedence.test_probe_size_override_wins_over_inference ______
+
+self = <test_config_factory.TestOverridePrecedence object at 0x79285ed9b450>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_probe_size_override_wins_0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_rqkqaxia')
+
+    def test_probe_size_override_wins_over_inference(self, mock_train_npz, temp_output_dir):
+        """Explicit N override takes precedence over inferred probe size."""
+        # NPZ has N=64 probe, but override specifies N=128
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512, 'N': 128},
+        )
+
+tests/torch/test_config_factory.py:368: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_probe_size_override_wins_0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_rqkqaxia')
+overrides = {'N': 128, 'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+___________ TestFactoryValidation.test_missing_n_groups_raises_error ___________
+
+self = <test_config_factory.TestFactoryValidation object at 0x79285ed9bbd0>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_missing_n_groups_raises_e0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_x1re4d2a')
+
+    def test_missing_n_groups_raises_error(self, mock_train_npz, temp_output_dir):
+        """Factory raises ValueError if n_groups missing from overrides."""
+        # Omit n_groups (required field)
+>       payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={},  # Missing n_groups!
+        )
+
+tests/torch/test_config_factory.py:395: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_missing_n_groups_raises_e0/mock_train.npz')
+output_dir = PosixPath('/tmp/factory_test_x1re4d2a'), overrides = {}
+execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+_____ TestFactoryValidation.test_nonexistent_train_data_file_raises_error ______
+
+self = <test_config_factory.TestFactoryValidation object at 0x79285eda0250>
+temp_output_dir = PosixPath('/tmp/factory_test_76sche8x')
+
+    def test_nonexistent_train_data_file_raises_error(self, temp_output_dir):
+        """Factory raises FileNotFoundError for missing train_data_file."""
+>       payload = create_training_payload(
+            train_data_file=Path("/nonexistent/train.npz"),
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+        )
+
+tests/torch/test_config_factory.py:404: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/nonexistent/train.npz')
+output_dir = PosixPath('/tmp/factory_test_76sche8x')
+overrides = {'n_groups': 512}, execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+>       raise NotImplementedError(
+            "create_training_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:177: NotImplementedError
+__________ TestFactoryValidation.test_missing_checkpoint_raises_error __________
+
+self = <test_config_factory.TestFactoryValidation object at 0x79285eda08d0>
+mock_test_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_missing_checkpoint_raises0/mock_test.npz')
+temp_output_dir = PosixPath('/tmp/factory_test_jd2yz9fn')
+
+    def test_missing_checkpoint_raises_error(self, mock_test_npz, temp_output_dir):
+        """Factory raises ValueError if model_path missing wts.h5.zip."""
+        bad_checkpoint_dir = temp_output_dir / "no_checkpoint"
+        bad_checkpoint_dir.mkdir()
+    
+>       payload = create_inference_payload(
+            model_path=bad_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 128},
+        )
+
+tests/torch/test_config_factory.py:416: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+model_path = PosixPath('/tmp/factory_test_jd2yz9fn/no_checkpoint')
+test_data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_missing_checkpoint_raises0/mock_test.npz')
+output_dir = PosixPath('/tmp/factory_test_jd2yz9fn')
+overrides = {'n_groups': 128}, execution_config = None
+
+    def create_inference_payload(
+        model_path: Path,
+        test_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[Any] = None,  # PyTorchExecutionConfig
+    ) -> InferencePayload:
+        """
+        Create complete inference configuration payload.
+    
+        Centralizes all config construction logic for PyTorch inference workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (model_path, test_data_file, output_dir, n_groups)
+        2. Loads checkpoint config from model_path (or infers from NPZ)
+        3. Constructs PyTorch singleton configs (DataConfig, InferenceConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns InferencePayload with all config objects + audit trail
+    
+        Args:
+            model_path: Path to trained model directory (must contain wts.h5.zip)
+            test_data_file: Path to test NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for reconstructions (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: gridsize, batch_size, middle_trim, pad_eval, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                inference_batch_size, etc.). If None, uses defaults.
+    
+        Returns:
+            InferencePayload containing:
+                - tf_inference_config: InferenceConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_inference_config: InferenceConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: model_path or test_data_file does not exist
+            ValueError: model_path missing wts.h5.zip
+            ValueError: n_groups missing in overrides (required field)
+    
+        Example:
+            >>> payload = create_inference_payload(
+            ...     model_path=Path('outputs/exp001'),
+            ...     test_data_file=Path('datasets/test.npz'),
+            ...     output_dir=Path('outputs/exp001/inference'),
+            ...     overrides={
+            ...         'n_groups': 128,
+            ...         'gridsize': 2,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         inference_batch_size=64,
+            ...     ),
+            ... )
+    
+        See also:
+            - Design: .../factory_design.md §3.3
+            - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
+        """
+>       raise NotImplementedError(
+            "create_inference_payload() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: create_inference_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:247: NotImplementedError
+____________ TestProbeSizeInference.test_infer_probe_size_from_npz _____________
+
+self = <test_config_factory.TestProbeSizeInference object at 0x79285eda1010>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_infer_probe_size_from_npz0/mock_train.npz')
+
+    def test_infer_probe_size_from_npz(self, mock_train_npz):
+        """Helper extracts probe size from NPZ metadata."""
+>       N = infer_probe_size(mock_train_npz)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_config_factory.py:434: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_file = PosixPath('/tmp/pytest-of-ollie/pytest-654/test_infer_probe_size_from_npz0/mock_train.npz')
+
+    def infer_probe_size(data_file: Path) -> int:
+        """
+        Extract probe size (N) from NPZ metadata.
+    
+        Factored out from ptycho_torch/train.py:96-140 for reusability across
+        training and inference factories. Loads probeGuess array from NPZ dataset
+        and extracts first dimension (assumes square probe).
+    
+        Args:
+            data_file: Path to NPZ dataset file
+    
+        Returns:
+            int: Probe size (N value), typically 64, 128, or 256
+    
+        Raises:
+            FileNotFoundError: data_file does not exist
+            KeyError: probeGuess key missing from NPZ
+            ValueError: probeGuess shape invalid (non-square or wrong dimensions)
+    
+        Fallback Behavior:
+            On any error (missing file, invalid NPZ, non-square probe), logs warning
+            and returns fallback N=64. Design decision documented in
+            .../open_questions.md §5 (hard error vs warning + fallback).
+    
+        Example:
+            >>> from pathlib import Path
+            >>> N = infer_probe_size(Path('datasets/train.npz'))
+            >>> assert N in [64, 128, 256]  # Common probe sizes
+    
+        See also:
+            - Original implementation: ptycho_torch/train.py:96-140
+            - Override precedence: .../override_matrix.md row "N"
+            - NPZ data contract: specs/data_contracts.md §1
+        """
+>       raise NotImplementedError(
+            "infer_probe_size() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: infer_probe_size() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:288: NotImplementedError
+______ TestProbeSizeInference.test_infer_probe_size_missing_file_fallback ______
+
+self = <test_config_factory.TestProbeSizeInference object at 0x79285eda1610>
+
+    def test_infer_probe_size_missing_file_fallback(self):
+        """Helper returns fallback N=64 for missing NPZ file."""
+>       N = infer_probe_size(Path("/nonexistent/data.npz"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_config_factory.py:440: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_file = PosixPath('/nonexistent/data.npz')
+
+    def infer_probe_size(data_file: Path) -> int:
+        """
+        Extract probe size (N) from NPZ metadata.
+    
+        Factored out from ptycho_torch/train.py:96-140 for reusability across
+        training and inference factories. Loads probeGuess array from NPZ dataset
+        and extracts first dimension (assumes square probe).
+    
+        Args:
+            data_file: Path to NPZ dataset file
+    
+        Returns:
+            int: Probe size (N value), typically 64, 128, or 256
+    
+        Raises:
+            FileNotFoundError: data_file does not exist
+            KeyError: probeGuess key missing from NPZ
+            ValueError: probeGuess shape invalid (non-square or wrong dimensions)
+    
+        Fallback Behavior:
+            On any error (missing file, invalid NPZ, non-square probe), logs warning
+            and returns fallback N=64. Design decision documented in
+            .../open_questions.md §5 (hard error vs warning + fallback).
+    
+        Example:
+            >>> from pathlib import Path
+            >>> N = infer_probe_size(Path('datasets/train.npz'))
+            >>> assert N in [64, 128, 256]  # Common probe sizes
+    
+        See also:
+            - Original implementation: ptycho_torch/train.py:96-140
+            - Override precedence: .../override_matrix.md row "N"
+            - NPZ data contract: specs/data_contracts.md §1
+        """
+>       raise NotImplementedError(
+            "infer_probe_size() is a Phase B2 RED scaffold. "
+            "Implementation pending in Phase B3.a per "
+            "plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md"
+        )
+E       NotImplementedError: infer_probe_size() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+
+ptycho_torch/config_factory.py:288: NotImplementedError
+=========================== short test summary info ============================
+FAILED tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_overrides_dict - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_returns_dataclass - NotImplementedError: create_inference_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_tf_config - NotImplementedError: create_inference_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_pytorch_configs - NotImplementedError: create_inference_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_grid_size_tuple_to_gridsize_int - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_epochs_to_nepochs_conversion - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_k_to_neighbor_count_conversion - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_factory_populates_params_cfg - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_populate_legacy_params_helper - NotImplementedError: populate_legacy_params() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestOverridePrecedence::test_override_dict_wins_over_defaults - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestOverridePrecedence::test_probe_size_override_wins_over_inference - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_n_groups_raises_error - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestFactoryValidation::test_nonexistent_train_data_file_raises_error - NotImplementedError: create_training_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_checkpoint_raises_error - NotImplementedError: create_inference_payload() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_from_npz - NotImplementedError: infer_probe_size() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+FAILED tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback - NotImplementedError: infer_probe_size() is a Phase B2 RED scaffold. Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
+============================== 19 failed in 3.92s ==============================
