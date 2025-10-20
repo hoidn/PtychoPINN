@@ -1643,3 +1643,16 @@
   - Skimmed CLI implementations (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) and PyTorch workflow guide §§11–13 to ensure commands/flag defaults align with spec §4.8 and findings CONFIG-001/POLICY-001.
   - Rewrote `input.md` directing Ralph to gather training/inference smoke logs, sync plan + ledger, and author hygiene/hand-off notes under `reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T133000Z: Phase D close-out & Phase E planning kickoff
+- Focus issue: ADR-003-BACKEND-API — Phase D close-out / Phase E governance plan
+- Action type: Planning
+- Mode: Docs
+- Findings referenced: CONFIG-001, POLICY-001, FORMAT-001 (docs/findings.md); spec §4.8; docs/workflows/pytorch.md §§11–13.
+- Key actions:
+  - Reviewed Ralph’s smoke evidence (`reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/`) and confirmed D1–D3 exit criteria.
+  - Marked `phase_d_cli_wrappers/plan.md` D2 `[x]`, updated `implementation.md` Phase D rows, and logged Attempt #54 in `docs/fix_plan.md`.
+  - Authored Phase E governance roadmap at `reports/2025-10-20T133500Z/phase_e_governance/{plan.md,summary.md}` with checklists E.A–E.C.
+  - Rewrote `input.md` to launch E.A1 (ADR addendum) with new artifact hub `reports/2025-10-20T134500Z/phase_e_governance_adr_addendum/`.
+- Follow-up for Ralph: Execute plan row E.A1 (ADR addendum), update plan + ledger, archive artifacts under the new timestamped directory.
+- <Action State>: [ready_for_implementation]

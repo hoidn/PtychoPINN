@@ -1,52 +1,46 @@
-Summary: Capture Phase D CLI smoke evidence and sync plan/ledger for ADR-003 thin wrappers.
-Mode: Parity
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D (CLI thin wrappers, D1–D3)
+Summary: Author the ADR-003 governance addendum so Phase E can proceed with clear acceptance criteria.
+Mode: Docs
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase E (Governance dossier E.A1)
 Branch: feature/torchapi
-Mapped tests: none — smoke evidence
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/{train_cli_smoke.log,infer_cli_smoke.log,train_cli_tree.txt,infer_cli_tree.txt,smoke_summary.md,handoff_summary.md}
+Mapped tests: none — docs-only
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T134500Z/phase_e_governance_adr_addendum/{adr_addendum.md,summary.md}
 
 Do Now:
-1. ADR-003-BACKEND-API D1 (training CLI smoke) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:58 — run the documented training command, capture `/usr/bin/time` output with `tee`, and stage logs under the new artifact hub; tests: none.
-2. ADR-003-BACKEND-API D1 (inference CLI smoke) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:58 — run the documented inference command against the smoke model, archive outputs (PNG + stdout) in the same artifact hub; tests: none.
-3. ADR-003-BACKEND-API D2 (plan + ledger sync) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:59 — update plan row statuses, add C/D checkpoint notes, and append docs/fix_plan Attempt #53 with artifact references; tests: none.
-4. ADR-003-BACKEND-API D3 (hygiene + handoff summary) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:60 — write `handoff_summary.md` (hygiene + next-phase inputs), record cleanup commands, and ensure tmp outputs removed after copying artifacts; tests: none.
+1. ADR-003-BACKEND-API E.A1 (ADR addendum) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md:E.A1 — draft `adr_addendum.md` capturing Phases A–D evidence, open issues, and acceptance rationale; tests: none.
 
-If Blocked: Capture the failing command output in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/blocker.md`, keep plan row state `[P]`, and log the blocker (with command + exit code) in docs/fix_plan.md before stopping.
+If Blocked: Capture the blocker details in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T134500Z/phase_e_governance_adr_addendum/blocker.md`, keep E.A1 `[P]`, and log the issue in docs/fix_plan before stopping.
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:55 — Phase D requires smoke evidence before moving to governance.
-- specs/ptychodus_api_spec.md:312 — CLI workflows must honour CONFIG-001 and emit actionable errors; smoke run verifies behaviour on minimal dataset.
-- docs/workflows/pytorch.md:332 — Inference CLI section documents expected flags and outputs; smoke evidence proves docs match reality.
-- docs/fix_plan.md:121 — Active initiative gates on completing Phase D rows (D1–D3) with artifacts logged.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/summary.md — Previous loop confirmed GREEN tests; now need runtime evidence to close the loop.
+- plans/active/ADR-003-BACKEND-API/implementation.md: Phase E hinges on governance dossier before any code edits.
+- specs/ptychodus_api_spec.md §4.8: Acceptance doc must codify backend routing + execution config commitments.
+- docs/workflows/pytorch.md §§11–13: Provide runtime + helper context cited in the addendum.
+- docs/findings.md#POLICY-001 & #CONFIG-001: Addendum must reaffirm mandatory torch dependency and params bridge ordering.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/handoff_summary.md: Use Phase D evidence to justify acceptance.
 
 How-To Map:
-- Prep: `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke`; `rm -rf tmp/cli_train_smoke tmp/cli_infer_smoke`.
-- Training command (CPU-only): `CUDA_VISIBLE_DEVICES="" /usr/bin/time -p python -m ptycho_torch.train --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir tmp/cli_train_smoke --max_epochs 1 --n_images 16 --accelerator cpu --deterministic --num-workers 0 --learning-rate 5e-4 --disable_mlflow 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/train_cli_smoke.log`.
-- Capture training artifacts: `ls -R tmp/cli_train_smoke > plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/train_cli_tree.txt`; copy key outputs (e.g., `cp tmp/cli_train_smoke/train_debug.log plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/train_debug.log` if present).
-- Inference command: `CUDA_VISIBLE_DEVICES="" /usr/bin/time -p python -m ptycho_torch.inference --model_path tmp/cli_train_smoke --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir tmp/cli_infer_smoke --n_images 16 --accelerator cpu --quiet 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/infer_cli_smoke.log`.
-- Archive inference outputs: `ls -R tmp/cli_infer_smoke > plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/infer_cli_tree.txt`; copy amplitude/phase PNGs into the artifact hub (e.g., `cp tmp/cli_infer_smoke/reconstructed_*.png plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/`).
-- Summaries: author `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/smoke_summary.md` covering commands, runtimes, warnings, outputs, and CLI flag observations.
-- Plan & ledger: mark D1–D3 rows `[x]` with notes + artifact pointer, update `summary.md` with Phase D checkpoint, append Attempt #53 to `docs/fix_plan.md` referencing the smoke artifacts and noting Mode (Parity) / tests (none).
-- Handoff: create `handoff_summary.md` noting hygiene commands (git status, tmp cleanup), residual knobs deferred to Phase E, and confirm removal of `tmp/cli_*` directories (document commands used). After copying artifacts, run `rm -rf tmp/cli_train_smoke tmp/cli_infer_smoke`.
+- Prep: `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T134500Z/phase_e_governance_adr_addendum`.
+- Source material: `phase_e_governance/plan.md` (checklist), `phase_d_cli_wrappers_smoke/{smoke_summary.md,handoff_summary.md}`, `factory_design.md`, `override_matrix.md`, `phase_c4_cli_integration/` closings.
+- Deliverables: `adr_addendum.md` (context, decision, evidence, outstanding work), `summary.md` (1–2 paragraph synopsis + next steps), both saved under the new artifact hub.
+- Update plan: mark E.A1 `[x]` in `phase_e_governance/plan.md` with artifact links once docs are written; leave E.A2+ untouched.
+- Ledger: Append docs/fix_plan Attempt entry summarising E.A1 completion after writing docs; note Mode Docs, tests none.
 
 Pitfalls To Avoid:
-- Don’t leave `tmp/cli_*` directories or `train_debug.log` at repo root—copy artifacts first, then clean.
-- Keep commands CPU-only (`CUDA_VISIBLE_DEVICES=""`) to avoid GPU variance.
-- Ensure artifact files stay under the timestamped reports directory; no logs at repository root.
-- Do not modify production code or tests—this loop is evidence + documentation only.
-- Maintain CONFIG-001 order by letting CLI run naturally; avoid manual params.cfg tweaks.
-- Capture full stdout/stderr via `tee`; don’t truncate logs.
-- Confirm inference command uses the freshly trained bundle (`tmp/cli_train_smoke`) before cleanup.
-- When editing docs/fix_plan/plan files, preserve checklist tables and formatting.
-- Avoid running full pytest—smoke commands only.
-- Include runtime metrics from `/usr/bin/time` in summaries; don’t omit them.
+- Don’t mix new implementation ideas into addendum—focus on documenting decisions/evidence.
+- Keep artifact paths under the timestamped directory; no files at repo root.
+- Reference authoritative docs (specs, workflow guide) with accurate section cites.
+- Maintain factual parity; avoid promising execution knobs until tracked in E.B tasks.
+- Do not edit production code or tests in this loop.
+- Ensure addendum records outstanding backlog (execution knobs, tests) rather than resolving them.
+- Preserve plan table formatting when flipping E.A1 `[x]`.
+- Keep summary concise (<=1 page) but link to supporting docs.
+- Use ISO timestamps in new artifacts if additional files created inside the hub.
+- Commit artifacts and plan/ledger updates together after review.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:55
-- docs/workflows/pytorch.md:330
-- specs/ptychodus_api_spec.md:304
-- docs/fix_plan.md:118
-- tests/torch/test_cli_inference_torch.py:250
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/handoff_summary.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/factory_design.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/override_matrix.md
+- specs/ptychodus_api_spec.md:312
 
-Next Up: Phase E governance prep (ADR acceptance + legacy API deprecation) once Phase D smoke + handoff close out.
+Next Up: If time remains after E.A1, queue E.A2 (spec redline) for the following loop.

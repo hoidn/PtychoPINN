@@ -47,8 +47,8 @@ Exit Criteria: CLI scripts delegate entirely to workflows; backwards-compat CLI 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | D1 | Update training CLI | [x] | ✅ 2025-10-20 — Training CLI thin wrapper complete. Phase B.B3 implementation (helpers, validation, refactor) landed with GREEN logs in `reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`. Phase B.B4 documentation refresh + hygiene complete: `docs/workflows/pytorch.md` updated with `--quiet`, `--device` deprecation, helper-based flow; `tests/torch/test_cli_shared.py` docstring revised to GREEN status; `train_debug.log` relocated to artifact hub. Summary: `reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/summary.md`. |
-| D2 | Update inference CLI | [ ] | Execute `phase_d_cli_wrappers/plan.md` Phase C (C1–C4): inference blueprint, RED coverage, refactor, documentation alignment. Verify bundle loading + integration selector. |
-| D3 | Smoke tests & docs | [ ] | Complete `phase_d_cli_wrappers/plan.md` Phase D (D1–D3): smoke commands, ledger updates, hygiene + handoff summary. Reference TEST-PYTORCH-001 runtime guardrails. |
+| D2 | Update inference CLI | [x] | ✅ 2025-10-20 — `phase_d_cli_wrappers/plan.md` C1–C4 finished: blueprint, RED tests, refactor, doc refresh. Evidence: `reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/summary.md`, CLI inference selector GREEN, integration selector GREEN, doc updates captured. |
+| D3 | Smoke tests & docs | [x] | ✅ 2025-10-20 — Deterministic smoke runs captured (`reports/2025-10-20T125500Z/phase_d_cli_wrappers_smoke/`), handoff summary authored, hygiene verified, plan + ledger now updated via supervisor Attempt #54. Phase D COMPLETE. |
 
 ### Phase E — Legacy API Deprecation & Governance
 Goal: Retire or wrap `ptycho_torch/api/`, update documentation, and capture governance sign-off.
@@ -57,9 +57,9 @@ Exit Criteria: `api/` surface deprecated, ADR status set to Accepted, ledger upd
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E1 | Deprecate `ptycho_torch/api/` | [ ] | Add deprecation notice or refactor to delegate to new workflows; log decision. |
-| E2 | Update documentation & ADR | [ ] | Publish ADR acceptance summary, update `docs/workflows/pytorch.md`, `specs/ptychodus_api_spec.md` if needed. |
-| E3 | Final ledger & plan updates | [ ] | Mark plan complete, update docs/fix_plan attempts, ensure governance artefacts stored. |
+| E1 | Governance dossier | [ ] | Follow `reports/2025-10-20T133500Z/phase_e_governance/plan.md` Phase E.A checklist (ADR addendum, spec redline, workflow guide updates). |
+| E2 | Execution knobs hardening | [ ] | Execute Phase E.B checklist from `phase_e_governance/plan.md` (checkpoint/early-stop flags, scheduler + gradient controls, logger decision, extended smoke coverage). |
+| E3 | Deprecation & closure | [ ] | Complete Phase E.C checklist (legacy API deprecation, ledger/plan closure, archive summary). |
 
 ## Reporting Discipline
 - All artefacts stored under `plans/active/ADR-003-BACKEND-API/reports/<ISO8601>/` with descriptive filenames.
