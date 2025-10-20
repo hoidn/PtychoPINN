@@ -1420,3 +1420,13 @@
 - Plan updates: C4.D3 row in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md` now calls for TDD regression + refactor to reuse `TensorDictDataLoader`/`Collate_Lightning`. Logged Attempt #26 in docs/fix_plan.md.
 - Next loop guidance: add pytest regression in `TestWorkflowsComponentsTraining`, rework `_build_lightning_dataloaders`, rerun integration selector, then close out C4.D3.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T071142Z: C4.D3 Poisson failure evidence
+- Focus issue: ADR-003-BACKEND-API Phase C4.D3 Lightning integration
+- Action type: Evidence collection; Mode: Parity
+- Reviewed existing artefacts (C4 plan, dataloader_summary) and re-read POLICY-001 / loader normalization notes for context.
+- Generated temporary minimal fixture (`tmp/minimal_dataset_v1.npz`) and reran `ptycho_torch.train` via CLI, capturing full stack trace in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T070610Z/phase_c4_cli_integration_debug/manual_train_cli.log`.
+- Identified new blocker: `torch.distributions.Poisson.log_prob` rejects float amplitudes (`ValueError: Expected value argument … within the support … of the distribution Poisson`). Summarised in `poisson_failure_summary.md` and updated C4.D3 plan row with Poisson scaling next steps.
+- Updated docs/fix_plan.md Attempt #27 referencing the 2025-10-20T070610Z report hub.
+- Reissued input.md directing TDD test + Poisson loss parity, integration rerun, and ledger wrap-up.
+- <Action State>: [ready_for_implementation]
