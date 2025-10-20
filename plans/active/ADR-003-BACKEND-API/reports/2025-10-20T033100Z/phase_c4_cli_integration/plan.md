@@ -95,8 +95,8 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 |----|------|-------|-------------------|
 | C4.D1 | Run targeted CLI tests | [x] | ✅ 2025-10-20 — `pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv` and `pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv` both GREEN. Logs: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/{pytest_cli_train_green.log,pytest_cli_inference_green.log}`. |
 | C4.D2 | Factory integration smoke | [x] | ✅ 2025-10-20 — Replayed factory selector (`pytest tests/torch/test_config_factory.py -k ExecutionConfig -vv`) with GREEN output. Log: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T044500Z/phase_c4_cli_integration/pytest_factory_smoke.log`. |
-| C4.D3 | Full regression suite | [P] | 2025-10-20 — Poisson support parity restored by commit `e10395e7` (RED/GREEN logs under `reports/2025-10-20T070610Z/phase_c4_cli_integration_debug/`). Full-suite rerun captured in `pytest_full_suite.log` (same hub) now fails solely on the expected `load_torch_bundle` `NotImplementedError` (Phase D3 dependency). Need a dedicated targeted log (`pytest_integration.log`) and to decide whether to gate C4 completion on Phase D3 or formally defer in summary; see supervisor review `reports/2025-10-20T074135Z/phase_c4_cli_integration_review/summary.md`. |
-| C4.D4 | Manual CLI smoke test | [ ] | Execute training with new flags: `python -m ptycho_torch.train --train_data_file <path> --output_dir /tmp/cli_smoke --n_images 64 --max_epochs 1 --accelerator cpu --deterministic --num-workers 0 --learning-rate 1e-4`. Verify: (a) flags accepted, (b) no argparse errors, (c) checkpoint created, (d) logs show correct execution config values. Capture stdout to `manual_cli_smoke.log`. |
+| C4.D3 | Full regression suite | [P] | 2025-10-20 — Targeted selector captured at `reports/2025-10-20T081500Z/phase_c4_cli_integration_debug/pytest_integration.log` (16.52 s). Training completes, inference aborts with `NotImplementedError: load_torch_bundle model reconstruction not yet implemented` (`model_manager.py:267`). Blocked on Phase D3.C (`load_torch_bundle`) — coordinate with new plan `reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md`. |
+| C4.D4 | Manual CLI smoke test | [P] | 2025-10-20 — CLI run recorded at `reports/2025-10-20T081500Z/phase_c4_cli_integration_debug/manual_cli_smoke.log`. Flags parse correctly, but Lightning fails on first batch: `RuntimeError: weight of size [64, 1, 3, 3] expected input[4, 4, 64, 64]` (channel mismatch for `gridsize=(2,2)`). Follow-up captured in new plan Phase B (`phase_c4d_blockers/plan.md`) to realign model/config gridsize handling. |
 
 **Exit Criteria:** All CLI tests GREEN, factory smoke GREEN, full suite passed, manual smoke successful with artifacts.
 
@@ -161,7 +161,7 @@ Per C3 summary and `override_matrix.md` analysis, the following knobs are **inte
 - [x] **C4.A:** Four design docs authored (flag inventory, selection rationale, naming decisions, argparse schema)
 - [x] **C4.B:** CLI test scaffolds authored with 6+ RED tests, logs captured
 - [x] **C4.C:** Training + inference CLI refactored to use factories, hardcoded values eliminated
-- [ ] **C4.D:** CLI tests + factory smoke GREEN; full regression remains blocked on `load_torch_bundle` `NotImplementedError` (Phase D3). Capture targeted integration log + disposition before closing.
+- [ ] **C4.D:** CLI tests + factory smoke GREEN; integration remains blocked on `load_torch_bundle` `NotImplementedError` and Lightning channel mismatch. Coordinate fixes via `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md` before marking C4 complete.
 - [ ] **C4.E:** Four docs updated (workflow guide §13, spec CLI tables, CLAUDE.md examples, implementation plan)
 - [ ] **C4.F:** Summary authored, fix_plan Attempt logged, Phase D prep notes captured, hygiene verified
 

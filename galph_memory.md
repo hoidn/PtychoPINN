@@ -1440,3 +1440,13 @@
   - Updated C4.D3 plan row to record the remaining `load_torch_bundle` dependency and created supervisor summary at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T074135Z/phase_c4_cli_integration_review/summary.md`.
   - New Do Now directs Ralph to capture `pytest_integration.log`, run manual CLI smoke (C4.D4), and clean up hygiene before C4.E.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T083500Z: C4.D blockers planning kickoff
+- Focus issue: ADR-003-BACKEND-API Phase C4.D blockers (load_torch_bundle + gridsize mismatch)
+- Action type: Planning
+- Mode: TDD
+- Notes:
+  - Reviewed Ralph’s evidence hub (`reports/2025-10-20T081500Z/phase_c4_cli_integration_debug/`) and logged Attempt #29 in fix_plan.
+  - Authored follow-on execution plan at `reports/2025-10-20T083500Z/phase_c4d_blockers/{plan.md,summary.md}` covering bundle loader TDD (Phase A) and gridsize parity (Phase B).
+  - Updated existing C4 plan rows + implementation ledger to reference the new blocker plan.
+- <Action State>: [ready_for_implementation]
