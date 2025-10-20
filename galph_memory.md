@@ -92,7 +92,7 @@
 - Updated input.md to point Ralph at `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T032218Z/` for `config_schema_map.md` + `scope_notes.md`; clarified use of KEY_MAPPINGS and params.cfg dotted keys.
 - Logged Attempt #4 in docs/fix_plan.md noting this evidence prep and artifact expectations.
 - Next supervisor check: confirm artifacts exist, review MVP vs parity decisions, then green-light Phase B.B2 failing test authoring.
-- <Action State>: [gathering_evidence]
+- <Action State>: [ready_for_implementation]
 
 
 ## 2025-10-17T033138Z: Pre-loop Focus Declaration
@@ -1683,3 +1683,12 @@
   - Updated implementation plan row E2 to cite the new blueprint; appended Attempt #57 in `docs/fix_plan.md`.
 - Guidance for next loop (Ralph): Focus on EB1.A–EB1.E per blueprint (schema audit through Lightning callbacks/tests) storing evidence under `.../phase_e_execution_knobs/<TS>/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T160045Z: EB1 checkpoint review setup
+- Focus issue: ADR-003-BACKEND-API — Phase E.B1 (checkpoint & early-stop controls).
+- Action type: Review or housekeeping
+- Mode: TDD
+- Notes: Logged selection prior to doc updates. Dependencies satisfied (Phase E.A done; EB1 depends only on blueprint in plan). No findings entries referencing checkpoint knobs (`rg "checkpoint" docs/findings.md` returned none).
+- Observations so far: Commit 496a8ce3 added CLI flags + execution config fields; targeted CLI/config factory tests pass, but workflow callback tests fail because they patch `lightning.Trainer` instead of `lightning.pytorch.Trainer`. Spec/workflow docs and fix_plan attempts were not updated; plan checklist still shows EB1 rows `[ ]`.
+- Intent this loop: capture failing selectors, mark plan rows to `[P]/[x]` as appropriate, document Attempt #58 with partial progress, and steer engineer toward fixing mocking path + completing docs.
+- <Action State>: [gathering_evidence]
