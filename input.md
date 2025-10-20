@@ -1,50 +1,49 @@
-Summary: Fix the coords_relative shape mismatch so the PyTorch integration workflow passes C4.D3.
-Mode: TDD
+Summary: Sync PyTorch factory channel counts with gridsize so the integration workflow goes green.
+Mode: Parity
 Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4 CLI integration
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/phase_c4_cli_integration_debug/{analysis.md,pytest_integration_red.log,pytest_integration_green.log,pytest_cli_train_green.log,pytest_cli_inference_green.log}
+Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T070500Z/phase_c4_cli_integration_debug/{analysis.md,pytest_config_factory.log,pytest_integration.log,pytest_cli_train.log,pytest_cli_inference.log}
 
 Do Now:
-1. ADR-003-BACKEND-API C4.D3 diagnostics @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — rerun the PyTorch integration selector, capture the failing log, and record observed tensor shapes in `analysis.md`; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv (expect FAIL).
-2. ADR-003-BACKEND-API C4.D3 fix @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — modify the PyTorch dataloader so `coords_relative` written to the mmap matches the target shape contract; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv (expect PASS).
-3. ADR-003-BACKEND-API C4.D3 regression @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — rerun the targeted CLI selectors to confirm no regressions in execution-config wiring; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv.
-4. ADR-003-BACKEND-API C4.F1+C4.F2 wrap-up @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — update summary.md, plan.md statuses, and docs/fix_plan.md with Attempt #22 including new artifact links; tests: none.
+1. ADR-003-BACKEND-API C4.D3 factory channel sync @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — extend `create_training_payload()` so `PTModelConfig.C_forward` and `C_model` match `pt_data_config.C`, then add pytest `test_gridsize_sets_channel_count` under `TestTrainingPayloadStructure`; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count -vv.
+2. ADR-003-BACKEND-API C4.D3 integration rerun @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — rerun the PyTorch integration selector and capture fresh log after the fix; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv.
+3. ADR-003-BACKEND-API C4.D3 CLI guardrail sweep @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — confirm training/inference CLI tests stay green; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv.
+4. ADR-003-BACKEND-API C4.F ledger wrap-up @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — update `summary.md`, plan row C4.D3, and docs/fix_plan Attempt #22 with artifacts; tests: none.
 
-If Blocked: Capture the failing stack trace to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/phase_c4_cli_integration_debug/blocker.log`, mark C4.D3 `[P]` with notes in plan.md, append a blocker note to docs/fix_plan.md, and stop.
+If Blocked: dump failing selector output to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T070500Z/phase_c4_cli_integration_debug/blocker.log`, note whether `payload.pt_model_config.C_forward` still diverges from `pt_data_config.C`, flag C4.D3 `[P]`, append blocker note to docs/fix_plan.md, and stop.
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:98 — C4.D3 cannot close while the integration workflow fails.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/summary.md — documents the coords_relative mismatch surfaced during full-suite run.
-- specs/data_contracts.md:28 — contraction demands grouped coordinate tensors obey the `(nsamples, 1, 2, gridsize²)` shape.
-- tests/torch/test_integration_workflow_torch.py:45 — orchestrates the failing workflow; use it to confirm behaviour after the fix.
-- ptycho_torch/dataloader.py:500 — mmap population path currently writing coords_relative with an extra dimension.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/phase_c4_cli_integration_debug/coords_relative_investigation.md — documents confirmed C_forward mismatch, provides replication steps.
+- ptycho_torch/config_factory.py:200 — factory currently omits channel sync; needs update for CONFIG-001 parity.
+- ptycho_torch/helper.py:66 — reassembly helper uses `model_config.C_forward`; mismatch here causes runtime error.
+- tests/torch/test_integration_workflow_torch.py:101 — authoritative regression selector that must pass before C4.D3 can close.
+- specs/data_contracts.md:28 — reaffirms grouped coordinate contract; parity requires consistent channel counts.
 
 How-To Map:
-- Capture RED evidence: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/phase_c4_cli_integration_debug/pytest_integration_red.log`.
-- While the test runs, add temporary shape logging via `analysis.md` (summaries only) — remove any inline print/debug code before yielding.
-- Compare PyTorch coords pipeline to TensorFlow reference: inspect `ptycho/raw_data.py` and `pytests` expecting `(nsamples, 1, 2, gridsize**2)`; adjust PyTorch path accordingly (likely reshape or transpose before writing to mmap).
-- After implementing the fix, rerun the selector and store success log: `.../pytest_integration_green.log`.
-- Re-run CLI guards, teeing outputs to `pytest_cli_train_green.log` and `pytest_cli_inference_green.log`.
-- Summarise findings, decisions, and directory contents in `analysis.md`; update plan statuses and docs/fix_plan.md once tests are green.
+- Author test then code: add `test_gridsize_sets_channel_count` ensuring `create_training_payload()` returns `pt_model_config.C_forward == gridsize**2` and `pt_model_config.C_model == gridsize**2`; run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count -vv 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T070500Z/phase_c4_cli_integration_debug/pytest_config_factory.log`.
+- After implementation, rerun integration selector and tee output to `pytest_integration.log` in the same report directory.
+- Re-run CLI guards with the provided selectors, tee to `pytest_cli_train.log` and `pytest_cli_inference.log`.
+- Record observations + config dumps in `analysis.md` inside the new report directory; include `payload.pt_data_config.C` vs `payload.pt_model_config.C_forward` printout.
+- When updating plan/ledger, reference both the new report directory and the supervisor investigation note.
 
 Pitfalls To Avoid:
-- Do not mask the integration failure by altering or skipping the test; the fix must address the mmap shape bug.
-- Avoid editing protected cores (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`); keep changes scoped to PyTorch dataloader/workflow code.
-- Ensure CONFIG-001 sequencing remains intact; do not bypass `update_legacy_dict`.
-- Preserve dtype contracts (coords tensors should stay float32/int64 as documented).
-- Keep temporary debug statements out of the final diff; use `analysis.md` for notes.
-- Do not delete or move existing artifacts from prior loops; add new logs under the fresh timestamp only.
-- Run only the mapped selectors; no full-suite reruns unless the plan explicitly requests it.
-- Confirm regenerated artifacts (if any) remain DATA-001 compliant before writing to repo.
-- Maintain ASCII-only edits; follow existing formatting in dataloader and plan files.
-- Remember to add docs/fix_plan Attempt #22 with artifact paths once work completes.
+- Do not patch `helper.py` or reassembly logic; fix the factory so configs agree instead.
+- Keep `params.cfg` population order unchanged; avoid introducing second calls to `update_legacy_dict`.
+- Do not skip adding the regression test before implementation—TDD parity requires the failing test first.
+- Avoid guessing pytest selectors; use the ones listed to keep logs aligned with documentation.
+- Do not delete or overwrite existing artifacts in `2025-10-20T061500Z`; add new evidence under `2025-10-20T070500Z` only.
+- Preserve ASCII formatting in config_factory and tests; follow existing import order.
+- No bulk `pytest tests/` reruns—stick to the mapped selectors for this loop.
+- Ensure newly added test uses pytest style (no unittest mix-ins) and cleans up temporary files.
+- Don’t change default gridsize overrides for other code paths; only synchronize derived channel counts.
+- Remember to drop temporary debugging prints before finalizing the diff.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:90
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/summary.md:34
-- specs/data_contracts.md:28
-- tests/torch/test_integration_workflow_torch.py:45
-- ptycho_torch/dataloader.py:500
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md:98
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/phase_c4_cli_integration_debug/coords_relative_investigation.md
+- ptycho_torch/config_factory.py:170
+- ptycho_torch/config_params.py:30
+- tests/torch/test_config_factory.py:70
 
-Next Up: 1) Once C4.D3 is green, close C4.D4 manual smoke and progress to C4.E documentation updates.
+Next Up: 1) C4.D4 manual CLI smoke once integration is green; 2) Begin C4.E documentation updates (workflow guide + spec tables).

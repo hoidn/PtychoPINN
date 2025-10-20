@@ -1391,3 +1391,11 @@
 - Actions: Verified commit 7aa3f736 — inference CLI now loads `wts.h5.zip`; CLI selectors green while integration workflow still fails on dataloader coords_relative mismatch. Updated C4 plan: marked C4.C6/C4.C7 and D1/D2 `[x]`, left C4.D3 `[P]` with log pointer. Added `plan_updates.md` under 2025-10-20T050500Z and logged docs/fix_plan Attempt #21 capturing new evidence + outstanding failure. Replaced input.md with dataloader-debug directive (new artifact hub 2025-10-20T061500Z). No new plan required.
 - Outstanding: Need dataloader shape fix before C4.D3 can close; documentation (C4.E) and ledger wrap-up (C4.F) still pending after integration passes.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T065200Z: C4.D3 parity triage
+- Focus issue: ADR-003-BACKEND-API Phase C4.D3 integration failure
+- Action type: Debug (hypothesis triage)
+- Mode: Parity
+- Findings: Factory leaves `ModelConfig.C_forward` at default 4 even when `grid_size=1`; helper assumes four channels and trips reshape in `Translation`. Verified via `create_training_payload()` probe (DataConfig.C==1, C_forward==4) and updated `phase_c4_cli_integration/plan.md` + new write-up `coords_relative_investigation.md` (2025-10-20T061500Z hub).
+- Steering: Rewrote input.md directing Ralph to add a TDD test for channel sync, patch the factory, then rerun integration + CLI selectors. New artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T070500Z/phase_c4_cli_integration_debug/` scaffolded with analysis checklist.
+- <Action State>: [ready_for_implementation]
