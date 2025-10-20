@@ -1301,3 +1301,11 @@
   - Authored new input.md directing TDD wiring of execution config through factories (C2.B1–C2.B4) with artifact hub `reports/2025-10-20T010900Z/phase_c2_factory_wiring/`.
 - Open questions: monitor execution override precedence decisions during C2; ensure overrides_applied captures accelerator/deterministic/num_workers.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T025910Z: Phase C3 workflow planning package
+- Selections logged for this loop: focus = ADR-003-BACKEND-API Phase C3 (workflow integration), action type = Planning, mode = TDD.
+- Coin flip (heads) review: inspected commits `447cecf8`, `e650e48f`, `8159dcf1`. Findings — C2 implementation largely sound but `ptycho/config/config.py` lost the `__all__` export, and `train_debug.log` reappeared at repo root. No regressions observed in tests, but hygiene issues flagged for follow-up.
+- Authored detailed Phase C3 plan at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T025643Z/phase_c3_workflow_integration/{plan.md,summary.md}` with checklists covering trainer/inference wiring, test sequencing, and hygiene tasks. Updated Phase C execution plan and summary to mark C1–C2 complete, reference the new plan, note the export regression, and remind engineers to relocate logs.
+- Refresh to implementation plan C3 row now points at new artifacts; fix_plan Attempt #13 records planning outcome + outstanding issues. Input.md rewritten for RED→GREEN workflow TDD loop with explicit commands and artifact paths.
+- Outstanding items for engineer: restore `__all__`, write workflow-level RED tests, thread execution config through `_train_with_lightning`/inference helpers, capture RED/GREEN logs, relocate `train_debug.log`, and log Attempt #14 after documentation updates.
+- <Action State>: [planning]

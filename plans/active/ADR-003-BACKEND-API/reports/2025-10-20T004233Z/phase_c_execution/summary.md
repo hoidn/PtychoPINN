@@ -31,8 +31,9 @@
 ## Next Supervisor Checkpoints
 1. Coordinate C2 RED run: factories should fail while returning placeholder execution_config until wiring lands; capture selector `pytest tests/torch/test_config_factory.py -k ExecutionConfig`.
 2. Review C2 GREEN evidence confirming payloads emit real dataclasses and override precedence is documented in `phase_c_execution/summary.md`.
-3. For C3, ensure workflow tests assert Trainer kwargs (accelerator, deterministic) on CPU-only runs before approving CLI work.
-4. Maintain artifact hygiene — relocate any Lightning logs into `phase_c_execution/` timestamped directories.
+3. For C3, ensure workflow tests assert Trainer kwargs (accelerator, deterministic) on CPU-only runs before approving CLI work; follow checklist in `reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md`.
+4. Maintain artifact hygiene — relocate any Lightning logs into phase directories; root-level `train_debug.log` reappeared during C2 and must be moved/deleted per C3.D tasks.
+5. Restore `__all__` exports in `ptycho/config/config.py` prior to wiring workflows (regression tracked as task C3.A1).
 
 ## Open Questions To Track
 - Do we expose MLflow/Logger control in Phase C or defer to Phase D/ADR governance? (Flag in `design_delta.md` during C1.)
@@ -40,4 +41,4 @@
 - Confirm whether existing CLI smoke tests cover inference-only scenarios; if not, add new test case in Phase C4.D3.
 
 ## Action State
-- <Action State>: [ready_for_implementation]
+- <Action State>: [planning]

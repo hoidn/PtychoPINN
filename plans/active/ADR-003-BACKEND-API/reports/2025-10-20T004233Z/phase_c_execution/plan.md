@@ -23,11 +23,11 @@ Exit Criteria: Dataclass defined with full field set + docstrings, exported via 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1.A1 | Reconcile field list + defaults | [ ] | Compare `factory_design.md` §2.2 with `override_matrix.md` §2. Document any deltas in `design_delta.md` under `.../phase_c_execution/` (include rationale for added/removed fields). |
-| C1.A2 | Implement dataclass + exports | [ ] | Add `PyTorchExecutionConfig` to `ptycho/config/config.py` (respect ASCII ordering, add to `__all__`). Include docstring referencing POLICY-001 + CONFIG-001. Leave TODO for MLflow knobs if deferred. |
-| C1.A3 | Author RED tests | [ ] | Add pytest module `tests/torch/test_execution_config.py` (native pytest) or extend `test_config_factory.py` with `TestExecutionConfigDefaults`. Encode default expectations + optional field types. Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_execution_config.py -vv` expecting failure (log to `pytest_execution_config_red.log`). |
-| C1.A4 | GREEN the tests + update specs/docs | [ ] | After implementation, rerun selector (expect pass, capture `pytest_execution_config_green.log`). Update `specs/ptychodus_api_spec.md` §4.8 + §6 to describe execution config handshake and mention new dataclass. Refresh `docs/workflows/pytorch.md` §12 with usage snippet. |
-| C1.A5 | Ledger & summary updates | [ ] | Update `phase_c_execution/summary.md` with C1 exit evidence + GUID refs. Append Attempt entry in `docs/fix_plan.md` (include RED + GREEN log paths) and relocate any fresh logs (e.g., `train_debug.log`) into the Phase C reports directory. |
+| C1.A1 | Reconcile field list + defaults | [x] | ✅ Recorded in `phase_c_execution/design_delta.md` (2025-10-20T004233Z) with rationales for 22 execution fields sourced from `override_matrix.md` §5. |
+| C1.A2 | Implement dataclass + exports | [x] | ✅ `PyTorchExecutionConfig` lives in `ptycho/config/config.py` with docstring + POLICY-001/CONFIG-001 references (commit 8159dcf1). |
+| C1.A3 | Author RED tests | [x] | ✅ `tests/torch/test_execution_config.py` captured RED log `pytest_execution_config_red.log` before implementation (stored under `phase_c_execution/`). |
+| C1.A4 | GREEN the tests + update specs/docs | [x] | ✅ Selector `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_execution_config.py -vv` GREEN (log: `pytest_execution_config_green.log`); spec §4.8/§6 and workflow guide §12 updated. |
+| C1.A5 | Ledger & summary updates | [x] | ✅ `phase_c_execution/summary.md` documents C1 completion; fix ledger Attempt #11 references artefacts. |
 
 ### Phase C2 — Wire Execution Config Through Factories
 Goal: Replace placeholder `Any` annotations with the new dataclass, ensure payloads materialise execution config objects, and extend tests for override precedence.
@@ -36,10 +36,10 @@ Exit Criteria: Factory payloads emit `PyTorchExecutionConfig` instances, overrid
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C2.B1 | Update payload dataclasses | [ ] | Change `TrainingPayload`/`InferencePayload` `execution_config` type to `PyTorchExecutionConfig`. Ensure default path (`execution_config=None`) instantiates dataclass. Maintain CONFIG-001 ordering (bridge before dataclass use). |
-| C2.B2 | Merge overrides into execution config | [ ] | Implement helper in factories that merges explicit overrides dict (priority 1) with dataclass defaults (priority 5). Persist applied knobs in `overrides_applied` (include accelerator/deterministic/num_workers). |
-| C2.B3 | Extend factory tests | [ ] | Add cases to `tests/torch/test_config_factory.py` verifying execution knobs propagate (`TestExecutionConfigOverrides`). Use TDD: author failing tests first (`pytest ... -k ExecutionConfig`) → GREEN once factory updates land. Capture logs (`pytest_factory_execution_red.log`, `..._green.log`). |
-| C2.B4 | Document audit trail | [ ] | Update `phase_c_execution/summary.md` with override precedence decisions. Note any fields deferred to CLI (n_devices, scheduler). |
+| C2.B1 | Update payload dataclasses | [x] | ✅ `TrainingPayload`/`InferencePayload` now type-hint `PyTorchExecutionConfig`; default instantiation path implemented (commit 447cecf8). |
+| C2.B2 | Merge overrides into execution config | [x] | ✅ Factories merge execution knobs into `overrides_applied`; precedence documented in `phase_c2_factory_wiring/summary.md`. |
+| C2.B3 | Extend factory tests | [x] | ✅ `TestExecutionConfigOverrides` added to `tests/torch/test_config_factory.py`; RED/GREEN logs stored under `phase_c2_factory_wiring/`. |
+| C2.B4 | Document audit trail | [x] | ✅ `phase_c_execution/summary.md` updated with override precedence; fix ledger Attempt #12 references evidence. |
 
 ### Phase C3 — Workflow Integration (components.py)
 Goal: Inject execution config into Lightning workflow helpers and ensure runtime knobs influence Trainer instantiation + dataloaders.
@@ -48,10 +48,10 @@ Exit Criteria: `_train_with_lightning` accepts execution config, passes knobs to
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C3.C1 | Update `_train_with_lightning` signature | [ ] | Add `execution_config: PyTorchExecutionConfig` parameter and thread fields into Lightning `Trainer` (accelerator, strategy, deterministic, gradient_clip_val). Ensure existing call sites updated. |
-| C3.C2 | Integrate execution config in inference helpers | [ ] | Propagate execution config to dataloaders + evaluation routines (num_workers, pin_memory, inference_batch_size). Document TODOs where Lightning limitations apply. |
-| C3.C3 | Extend workflow tests | [ ] | Augment `tests/torch/test_workflows_components.py::TestTrainWithLightningGreen` with assertions on trainer kwargs and deterministic flag. Add new test for inference path if needed. Capture RED (`pytest_workflows_execution_red.log`) then GREEN logs. |
-| C3.C4 | Update plan + summary | [ ] | Record runtime evidence + any remaining integration gaps (`phase_c_execution/summary.md`). |
+| C3.C1 | Update `_train_with_lightning` signature | [ ] | Follow `reports/2025-10-20T025643Z/phase_c3_workflow_integration/plan.md` §C3.A (tasks C3.A1–C3.A3) to restore exports and add execution_config parameter; capture RED log before wiring. |
+| C3.C2 | Integrate execution config in inference helpers | [ ] | Execute plan §C3.B (tasks C3.B1–C3.B2) to propagate dataloader knobs and inference batch size, documenting CPU-only constraints. |
+| C3.C3 | Extend workflow tests | [ ] | Implement plan §C3.C (tasks C3.C1–C3.C3) — create failing tests in `tests/torch/test_workflows_components.py`, capture `pytest_workflows_execution_red.log`, then GREEN evidence. |
+| C3.C4 | Update plan + summary | [ ] | Complete plan §C3.D and update `phase_c_execution/summary.md` + fix ledger. Ensure logs stored under `phase_c3_workflow_integration/`. |
 
 ### Phase C4 — CLI + Documentation Finalisation
 Goal: Collapse CLI wrappers onto factories with execution config exposure and align documentation.
