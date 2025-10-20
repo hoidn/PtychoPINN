@@ -1,0 +1,207 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_reconstructs_models_from_bundle FAILED [100%]
+
+=================================== FAILURES ===================================
+___________ TestLoadTorchBundle.test_reconstructs_models_from_bundle ___________
+
+self = <test_model_manager.TestLoadTorchBundle object at 0x7a2c41c05790>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-741/test_reconstructs_models_from_0')
+params_cfg_snapshot = {'N': 64, '_version': '2.0-pytorch', 'amp_activation': 'sigmoid', 'backend': 'tensorflow', ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=1.0, model_type='pinn', amp_activation='sigmoid', o...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_torch_models = {'autoencoder': DummyModel(
+  (conv): Conv2d(1, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (fc): Linear(...6, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (fc): Linear(in_features=65536, out_features=128, bias=True)
+)}
+
+    def test_reconstructs_models_from_bundle(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_torch_models
+    ):
+        """
+        Phase C4.D A1 TDD RED test: load_torch_bundle must reconstruct both models from wts.h5.zip.
+    
+        Requirement: ADR-003-BACKEND-API Phase C4.D — unblock integration workflow by
+        implementing bundle loader that returns {'diffraction_to_obj', 'autoencoder'}
+        model dict + hydrated config per spec §4.6–§4.8 and CONFIG-001.
+    
+        This test establishes the acceptance criteria for load_torch_bundle completion:
+        - Function MUST accept bundle base_path and return models dict + config
+        - Models dict MUST contain both 'diffraction_to_obj' and 'autoencoder' keys
+        - Each value MUST be a loaded nn.Module (or sentinel dict during torch-optional)
+        - Config MUST be reconstructed from serialized metadata (params.dill)
+        - params.cfg MUST be populated via CONFIG-001 bridge before model loading
+    
+        Red-phase expectation (Phase A1):
+        - Currently RAISES NotImplementedError at ptycho_torch/model_manager.py:267
+        - Capturing RED log to pytest_load_bundle_red.log per plan guidance
+    
+        Green-phase expectation (Phase A2/A3):
+        - RETURNS (models_dict, config) where models_dict has both model keys
+        - Each model is reconstructed via create_torch_model_with_gridsize helper
+        - Integration test passes bundle to workflows without NotImplementedError
+    
+        Test mechanism (mirroring TensorFlow analogue):
+        - Generate temporary bundle via save_torch_bundle with minimal dual models
+        - Call load_torch_bundle expecting models dict return (not single model tuple)
+        - Validate returned structure matches TensorFlow ModelManager.load_multiple_models
+        - Assert both model names present in returned dict keys
+        """
+        pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
+    
+        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+    
+        # Save lightweight bundle with dual models (Phase A1 guidance: reuse minimal config)
+        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
+        base_path = tmp_path / "c4d_bundle_loader_test"
+    
+        save_torch_bundle(
+            models_dict=dummy_torch_models,
+            base_path=str(base_path),
+            config=minimal_training_config
+        )
+    
+        # Clear params.cfg to simulate fresh inference process (CONFIG-001 requirement)
+        params.cfg.clear()
+        assert params.cfg.get('N') is None, "Sanity check: params.cfg should be empty before load"
+    
+        # Phase A2/A3: load_torch_bundle should return models dict + config
+        # (Currently raises NotImplementedError — RED baseline for Phase A1)
+>       models_dict, loaded_config = load_torch_bundle(str(base_path))
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_model_manager.py:710: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+base_path = '/tmp/pytest-of-ollie/pytest-741/test_reconstructs_models_from_0/c4d_bundle_loader_test'
+model_name = 'diffraction_to_obj'
+
+    def load_torch_bundle(
+        base_path: str,
+        model_name: str = 'diffraction_to_obj'
+    ) -> Tuple[Any, dict]:
+        """
+        Load PyTorch model bundle with CONFIG-001-compliant params restoration.
+    
+        Extracts wts.h5.zip archive, restores params.cfg state via update_legacy_dict,
+        reconstructs model architecture, and loads weights. Critical for preventing
+        shape mismatch errors during inference (CONFIG-001 finding).
+    
+        Args:
+            base_path: Base path of archive (reads {base_path}.zip).
+            model_name: Name of model to load from bundle. Defaults to 'diffraction_to_obj'
+                       (inference model per spec §4.5).
+    
+        Returns:
+            Tuple of (loaded_model, params_dict) where:
+            - loaded_model: nn.Module with restored weights
+            - params_dict: Dictionary containing training-time params.cfg snapshot
+    
+        Raises:
+            FileNotFoundError: If archive does not exist.
+            ValueError: If requested model not found in manifest or params missing required fields.
+            RuntimeError: If PyTorch unavailable or model reconstruction fails.
+    
+        Example:
+            >>> model, params = load_torch_bundle('output/wts.h5')
+            >>> # params.cfg automatically updated via CONFIG-001 gate
+            >>> recon = model([X, local_offsets])
+        """
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+    
+        # PyTorch is now mandatory (no availability check needed)
+    
+        # Validate archive exists
+        zip_path = f"{base_path}.zip"
+        if not os.path.exists(zip_path):
+            raise FileNotFoundError(f"Model archive not found: {zip_path}")
+    
+        # Extract archive
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(temp_dir)
+    
+            # Load manifest
+            manifest_path = os.path.join(temp_dir, 'manifest.dill')
+            with open(manifest_path, 'rb') as f:
+                manifest = dill.load(f)
+    
+            # Validate requested model exists
+            available_models = manifest['models']
+            if model_name not in available_models:
+                raise ValueError(
+                    f"Model '{model_name}' not found in archive. "
+                    f"Available models: {available_models}"
+                )
+    
+            # Load params snapshot (CONFIG-001 gate)
+            model_dir = os.path.join(temp_dir, model_name)
+            params_path = os.path.join(model_dir, 'params.dill')
+            with open(params_path, 'rb') as f:
+                params_dict = dill.load(f)
+    
+            # Validate required fields
+            required_fields = ['N', 'gridsize']
+            missing = [f for f in required_fields if f not in params_dict]
+            if missing:
+                raise ValueError(
+                    f"params.dill missing required fields: {missing}. "
+                    "Cannot reconstruct model architecture."
+                )
+    
+            # Restore params.cfg (CONFIG-001 critical side effect)
+            params.cfg.update(params_dict)
+    
+            # Reconstruct model architecture
+            # NOTE: This requires create_torch_model_with_gridsize helper from Phase D2.B
+            # For now, raise NotImplementedError as Phase D3.C scope
+>           raise NotImplementedError(
+                "load_torch_bundle model reconstruction not yet implemented. "
+                "Requires create_torch_model_with_gridsize helper from Phase D3.C. "
+                f"params.cfg successfully restored: N={params_dict['N']}, "
+                f"gridsize={params_dict['gridsize']}"
+            )
+E           NotImplementedError: load_torch_bundle model reconstruction not yet implemented. Requires create_torch_model_with_gridsize helper from Phase D3.C. params.cfg successfully restored: N=64, gridsize=2
+
+ptycho_torch/model_manager.py:267: NotImplementedError
+---------------------------- Captured stderr setup -----------------------------
+2025-10-20 01:02:36.940815: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760947356.952049 1540137 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760947356.955765 1540137 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760947356.966585 1540137 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760947356.966600 1540137 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760947356.966602 1540137 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760947356.966604 1540137 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-20 01:02:36.969420: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-10-20 01:02:39.274588: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-20 01:02:39.274626: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-20 01:02:39.274632: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-20 01:02:39.274636: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-20 01:02:39.274640: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-20 01:02:39.274643: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-20 01:02:39.274669: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-20 01:02:39.274685: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-20 01:02:39.274688: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+=========================== short test summary info ============================
+FAILED tests/torch/test_model_manager.py::TestLoadTorchBundle::test_reconstructs_models_from_bundle - NotImplementedError: load_torch_bundle model reconstruction not yet implemented. Requires create_torch_model_with_gridsize helper from Phase D3.C. params.cfg successfully restored: N=64, gridsize=2
+============================== 1 failed in 6.08s ===============================

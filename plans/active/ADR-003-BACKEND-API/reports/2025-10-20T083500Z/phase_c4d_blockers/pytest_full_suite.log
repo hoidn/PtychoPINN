@@ -1,0 +1,143 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collected 302 items / 2 skipped
+
+tests/image/test_cropping.py .....                                       [  1%]
+tests/image/test_registration.py ...............                         [  6%]
+tests/test_baselines.py .                                                [  6%]
+tests/test_cli_args.py .......                                           [  9%]
+tests/test_coordinate_grouping.py ...............                        [ 14%]
+tests/test_generic_loader.py s.                                          [ 14%]
+tests/test_integration_baseline_gs2.py s                                 [ 15%]
+tests/test_integration_workflow.py .                                     [ 15%]
+tests/test_log_config.py .........                                       [ 18%]
+tests/test_misc.py s                                                     [ 18%]
+tests/test_nphotons_metadata_integration.py ......                       [ 20%]
+tests/test_oversampling.py .....                                         [ 22%]
+tests/test_projective_warp_xla.py ............                           [ 26%]
+tests/test_raw_data_grouping.py .........                                [ 29%]
+tests/test_scaling_regression.py .......                                 [ 31%]
+tests/test_sequential_sampling.py ..........                             [ 35%]
+tests/test_subsampling.py ...........                                    [ 38%]
+tests/test_tf_helper.py .........s.                                      [ 42%]
+tests/test_tf_helper_edge_aware.py .ssssss                               [ 44%]
+tests/test_workflow_components.py .......                                [ 47%]
+tests/tools/test_generate_test_index.py ...                              [ 48%]
+tests/tools/test_update_tool.py ..                                       [ 48%]
+tests/torch/test_backend_selection.py ......                             [ 50%]
+tests/torch/test_cli_inference_torch.py ....                             [ 51%]
+tests/torch/test_cli_train_torch.py .......                              [ 54%]
+tests/torch/test_config_bridge.py ...................................... [ 66%]
+........                                                                 [ 69%]
+tests/torch/test_config_factory.py ..........................            [ 78%]
+tests/torch/test_data_pipeline.py .....                                  [ 79%]
+tests/torch/test_dataloader.py .........                                 [ 82%]
+tests/torch/test_fixture_pytorch_integration.py .......                  [ 85%]
+tests/torch/test_integration_workflow_torch.py Fss                       [ 86%]
+tests/torch/test_lightning_checkpoint.py ...                             [ 87%]
+tests/torch/test_model_manager.py ......                                 [ 89%]
+tests/torch/test_tf_helper.py sss                                        [ 90%]
+tests/torch/test_train_probe_size.py .....                               [ 91%]
+tests/torch/test_workflows_components.py .........................       [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py:569: UserWarning: num_workers > 0 with deterministic mode enabled. This may introduce non-determinism on some platforms. Consider using --num-workers 0 for strict reproducibility.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:547: UserWarning: Error reading probeGuess from /tmp/pytest-of-ollie/pytest-748/test_bundle_persistence0/train.npz: No data left in file. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py: 1 warning
+tests/torch/test_config_factory.py: 16 warnings
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_cli_train_torch.py: 1 warning
+tests/torch/test_config_factory.py: 19 warnings
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeMVP::test_mvp_config_bridge_populates_params_cfg
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:100: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    spec_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:235: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:298: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:366: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:493: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:575: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:666: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:707: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:742: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:541: UserWarning: Data file /nonexistent/data.npz not found. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_poisson_count_contract
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/core/module.py:449: You are trying to `self.log()` but the `self.trainer` reference is not registered on the model yet. This is most likely because the model hasn't been passed to the `Trainer`
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory training_outputs/checkpoints exists and is not empty.
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_benchmark_throughput.py:11: scripts/benchmark_inference_throughput.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_run_baseline.py:4: tests/test_utilities.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_generic_loader.py:46: Data loading failed:
+SKIPPED [1] tests/test_integration_baseline_gs2.py:27: Test data not found at /home/ollie/Documents/PtychoPINN2/datasets/fly/fly001_transposed.npz
+SKIPPED [1] ../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/unittest.py:385: Deprecated: generate_simulated_data API changed from (obj,probe,nimages) to (config,obj,probe) and memoization disabled
+SKIPPED [1] tests/test_tf_helper.py:199: TensorFlow Addons removed in TF 2.19 migration
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:47: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:86: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:198: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:169: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:257: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:227: tensorflow_addons not available
+SKIPPED [2] tests/torch/test_integration_workflow_torch.py: Migrated to pytest-native test_run_pytorch_train_save_load_infer
+SKIPPED [1] tests/torch/test_tf_helper.py:64: torch tf_helper module not available
+SKIPPED [1] tests/torch/test_tf_helper.py:57: torch tf_helper module not available
+SKIPPED [1] tests/torch/test_tf_helper.py:74: torch tf_helper module not available - tests would fail
+FAILED tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer
+====== 1 failed, 286 passed, 17 skipped, 60 warnings in 195.36s (0:03:15) ======
