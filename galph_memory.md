@@ -1692,3 +1692,13 @@
 - Observations so far: Commit 496a8ce3 added CLI flags + execution config fields; targeted CLI/config factory tests pass, but workflow callback tests fail because they patch `lightning.Trainer` instead of `lightning.pytorch.Trainer`. Spec/workflow docs and fix_plan attempts were not updated; plan checklist still shows EB1 rows `[ ]`.
 - Intent this loop: capture failing selectors, mark plan rows to `[P]/[x]` as appropriate, document Attempt #58 with partial progress, and steer engineer toward fixing mocking path + completing docs.
 - <Action State>: [gathering_evidence]
+
+## 2025-10-20T162736Z: EB1 documentation sync prep
+- Focus issue: ADR-003-BACKEND-API — Phase E.B1 checkpoint controls close-out
+- Action type: Review or housekeeping
+- Mode: Docs
+- Review notes: Verified Ralph’s commit 4fe5b647 and evidence logs (`.../2025-10-20T160900Z/green/`) — checkpoint callback tests now GREEN, no production changes needed.
+- Findings: Documentation still references checkpoint knobs as “CLI backlog”; plan row EB1.F open, ledger lacks post-GREEN attempt.
+- Updates made: Marked EB1.D/E `[x]`, set EB1.F guidance to new timestamp `2025-10-20T163500Z`; closed blocker file; logged Attempt #59 (Mode: TDD) in fix_plan.md; refreshed input.md with Docs-mode checklist for spec/workflow updates.
+- Next loop focus: Execute EB1.A/F doc refresh, capture summary + spec/workflow diffs, then advance to EB2.
+- <Action State>: [ready_for_implementation]
