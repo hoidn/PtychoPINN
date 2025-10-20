@@ -22,9 +22,8 @@
 - **Integration runtime:** Smoke commands in Phase D must reuse the minimal dataset fixture to stay within CI budgets documented in TEST-PYTORCH-001 reports.
 
 ## Next steps for Ralph
-1. Execute Phase A checklist to lock the baseline and design decisions.
-2. Proceed through Phase B using TDD; expect to touch both CLI tests and `ptycho_torch/train.py`.
-3. Update `docs/fix_plan.md` Attempts after each completed phase; supervisor will verify plan tables stay authoritative.
+1. Drive Phase D.B implementation by executing B3.a–B3.d (helpers → validation → CLI refactor → GREEN selectors) and capture artifacts in a new `phase_d_cli_wrappers_training_impl/` hub.
+2. Once B3 passes, advance to documentation tidy-up (B4) or begin Phase C blueprinting as capacity allows, keeping plan checklists and `docs/fix_plan.md` in sync after each loop.
 
 **Artifacts Created:**  
 - `plan.md` — phased implementation roadmap with checklist IDs and guidance  

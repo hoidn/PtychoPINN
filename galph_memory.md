@@ -1551,3 +1551,13 @@
   - Rewrote `input.md` to direct `training_refactor.md` blueprint + RED pytest coverage with artefacts under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/`.
 - Follow-up for Ralph: produce the blueprint, add RED tests/log, update plan states, and log the attempt per Do Now.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T110838Z: Phase D.B B3 planning setup
+- Focus issue: ADR-003-BACKEND-API Phase D — Training CLI thin wrapper implementation (Plan B3)
+- Action type: Planning
+- Mode: TDD
+- Coin flip: tails (skipped retrospective per instructions)
+- Findings consulted: docs/findings.md (POLICY-001)
+- Notes: Expanded Phase D plan with B3.a–B3.e checklist + helper/test guidance, refreshed summary next-steps, logged Attempt #42 in fix ledger, and issued new input.md steering implementation with artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`.
+- Follow-up for Ralph: implement helpers + CLI refactor per B3 checklist, capture GREEN logs, update plan + ledger.
+- <Action State>: [ready_for_implementation]
