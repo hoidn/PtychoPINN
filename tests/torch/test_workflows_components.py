@@ -210,7 +210,7 @@ class TestWorkflowsComponentsTraining:
 
         model_config = ModelConfig(
             N=64,
-            gridsize=2,
+            gridsize=1,  # No neighbor sampling for simpler test
             model_type='pinn',
         )
 
@@ -219,7 +219,7 @@ class TestWorkflowsComponentsTraining:
             train_data_file=Path("/tmp/dummy_train.npz"),
             test_data_file=Path("/tmp/dummy_test.npz"),
             n_groups=10,
-            neighbor_count=4,
+            neighbor_count=1,  # No neighbors
             nphotons=1e9,
             nepochs=2,  # Small number for testing
         )
@@ -442,6 +442,128 @@ class TestWorkflowsComponentsTraining:
         assert images.ndim == 4, (
             f"batch[0]['images'] must be 4D (batch, channels, H, W), got shape {images.shape}"
         )
+
+    def test_lightning_poisson_count_contract(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+        tmp_path
+    ):
+        """
+        CRITICAL PARITY TEST: Poisson loss must accept photon counts, not raw amplitudes.
+
+        Requirement: ADR-003-BACKEND-API Phase C4.D3 — PyTorch Poisson loss path must
+        replicate TensorFlow behavior: square amplitudes and apply nphotons scaling
+        before computing log-likelihood. Current implementation passes normalized
+        amplitude floats directly to torch.distributions.Poisson, violating the
+        integer support constraint.
+
+        TensorFlow behavior (ptycho/model.py:541-561):
+        - Squares amplitudes: pred², raw²
+        - Applies intensity_scale rescaling
+        - Passes squared values to tf.nn.log_poisson_loss
+
+        PyTorch current behavior (ptycho_torch/model.py:714-720):
+        - PoissonIntensityLayer squares predictions: Lambda = amplitudes²
+        - forward() receives raw amplitudes (float32, 0.0-0.07 range)
+        - Poisson.log_prob(raw) raises ValueError: "expected within support IntegerGreaterThan(0)"
+
+        Red-phase contract:
+        - Test constructs minimal Lightning module + dataloader
+        - Executes one forward + compute_loss pass
+        - Current implementation MUST fail with Poisson support violation
+        - Captures the exact error message for documentation
+
+        Fix requirement:
+        - PoissonIntensityLayer.forward() must convert both pred and raw to counts
+        - Apply nphotons scaling via rms_scaling_constant (available in batch dict)
+        - Square amplitudes before Poisson.log_prob()
+        - Reference: ptycho/loader.py:355-363 (TF normalization pattern)
+
+        Test mechanism:
+        - Initialize params.cfg via CONFIG-001
+        - Build minimal container + Lightning module
+        - Call compute_loss with one batch (no full trainer needed)
+        - Assert ValueError is raised with "support" in message (RED phase)
+        - After fix: Assert loss is finite scalar (GREEN phase)
+        """
+        # Import required modules
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho_torch.model import PtychoPINN_Lightning
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        import torch
+
+        # CONFIG-001: Initialize params.cfg before data operations
+        update_legacy_dict(params.cfg, minimal_training_config)
+
+        # Set output_dir for checkpoint path resolution
+        minimal_training_config.output_dir = tmp_path / "lightning_poisson_test"
+        minimal_training_config.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Build minimal container (uses _ensure_container internally)
+        train_container = torch_components._ensure_container(
+            dummy_raw_data,
+            minimal_training_config
+        )
+
+        # Build Lightning dataloaders
+        train_loader, _ = torch_components._build_lightning_dataloaders(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+        # Instantiate Lightning module with PyTorch config objects
+        from ptycho_torch.config_params import DataConfig, ModelConfig as PTModelConfig, TrainingConfig as PTTrainingConfig, InferenceConfig
+
+        # Create PyTorch config objects matching the TensorFlow configuration
+        pt_data_config = DataConfig(
+            N=minimal_training_config.model.N,
+            grid_size=(minimal_training_config.model.gridsize, minimal_training_config.model.gridsize),
+        )
+
+        pt_model_config = PTModelConfig(
+            mode='Unsupervised',  # 'pinn' in TF maps to 'Unsupervised' in PyTorch
+            n_filters_scale=minimal_training_config.model.n_filters_scale,
+        )
+
+        pt_training_config = PTTrainingConfig(
+            epochs=minimal_training_config.nepochs,
+            batch_size=minimal_training_config.batch_size,
+            learning_rate=1e-4,
+            nll=True,  # Enable Poisson loss (this is the key test requirement)
+        )
+
+        pt_inference_config = InferenceConfig()
+
+        lightning_module = PtychoPINN_Lightning(
+            model_config=pt_model_config,
+            data_config=pt_data_config,
+            training_config=pt_training_config,
+            inference_config=pt_inference_config
+        )
+
+        # Extract one batch from dataloader
+        batch_iter = iter(train_loader)
+        batch = next(batch_iter)
+
+        # GREEN PHASE: After fixing PoissonIntensityLayer to convert amplitudes→intensities,
+        # this test should pass without raising ValueError
+        total_loss = lightning_module.compute_loss(batch)
+
+        # Validate loss computation succeeded (returns scalar Tensor, not dict)
+        assert isinstance(total_loss, torch.Tensor), \
+            f"compute_loss must return Tensor, got {type(total_loss)}"
+
+        assert torch.isfinite(total_loss), \
+            f"Poisson loss must be finite after amplitude→intensity conversion, " \
+            f"got: {total_loss}"
+
+        # Validate loss is a positive scalar (negative log-likelihood should be positive)
+        assert total_loss > 0, \
+            f"Negative log-likelihood should be positive, got: {total_loss}"
 
 
 class TestWorkflowsComponentsRun:

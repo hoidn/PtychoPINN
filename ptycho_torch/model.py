@@ -604,19 +604,45 @@ class PoissonIntensityLayer(nn.Module):
     '''
     Applies poisson intensity scaling using torch.distributions
     Calculates the negative log likelihood of observing the raw data given the predicted intensities
+
+    CRITICAL: Both predictions and observations must be converted from amplitudes to
+    intensities (squared) before computing Poisson log-likelihood, to match TensorFlow
+    behavior (ptycho/model.py:497-511) and satisfy Poisson distribution support constraints.
     '''
     def __init__(self, amplitudes):
 
         super(PoissonIntensityLayer, self).__init__()
-        #Poisson rate parameter (lambda)
+        # Poisson rate parameter (lambda) - square predicted amplitudes to get intensities
         Lambda = amplitudes ** 2
-        #Create Poisson distribution
-        #Second parameter (batch size) controls how many dimensions are summed over starting from the last
-        self.poisson_dist = dist.Independent(dist.Poisson(Lambda), 3)
+        # Create Poisson distribution with validate_args=False to accept float observations
+        # (TensorFlow's tf.nn.log_poisson_loss also accepts floats, not just integers)
+        # Second parameter (batch size) controls how many dimensions are summed over starting from the last
+        self.poisson_dist = dist.Independent(dist.Poisson(Lambda, validate_args=False), 3)
 
     def forward(self, x):
-        #Apply poisson distribution
-        return -self.poisson_dist.log_prob(x)
+        '''
+        Compute Poisson negative log-likelihood.
+
+        Args:
+            x: Observed diffraction amplitudes (NOT intensities)
+
+        Returns:
+            Negative log-likelihood
+
+        CRITICAL FIX (ADR-003-BACKEND-API Phase C4.D3):
+        The input x contains amplitude values (sqrt of intensity), but Poisson
+        distribution expects photon counts (intensities). We must square x before
+        computing log_prob to match TensorFlow behavior and satisfy the Poisson
+        distribution's IntegerGreaterThan(0) support constraint.
+
+        TensorFlow reference: ptycho/model.py:506-511 (negloglik function)
+        - Both y_true and y_pred are squared before Poisson loss computation
+        '''
+        # Convert observed amplitudes to intensities (photon counts)
+        x_intensity = x ** 2
+
+        # Apply poisson distribution to intensities
+        return -self.poisson_dist.log_prob(x_intensity)
     
 class ForwardModel(nn.Module):
     '''
