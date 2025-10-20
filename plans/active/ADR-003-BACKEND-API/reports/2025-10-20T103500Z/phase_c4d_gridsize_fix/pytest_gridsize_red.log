@@ -1,0 +1,236 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize FAILED [100%]
+
+=================================== FAILURES ===================================
+__ TestWorkflowsComponentsTraining.test_lightning_training_respects_gridsize ___
+
+self = <test_workflows_components.TestWorkflowsComponentsTraining object at 0x7ebfd33bfed0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ebfec78f150>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7ebf198c0d50>
+
+    def test_lightning_training_respects_gridsize(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        dummy_raw_data
+    ):
+        """
+        Gridsize Channel Parity Test — _train_with_lightning MUST propagate gridsize to model channels.
+    
+        Requirement: docs/findings.md#BUG-TF-001 — gridsize > 1 yields channel mismatches
+        unless params.cfg['gridsize'] AND PyTorch model configs synchronize C = gridsize**2.
+    
+        Design contract (phase_c4d_blockers/plan.md §B1-B2):
+        - When config.model.gridsize=2, PyTorch DataConfig MUST set C=4 (2×2)
+        - ModelConfig MUST set C_model=4 and C_forward=4 to match grouping
+        - PtychoPINN_Lightning first conv layer MUST expect 4 input channels (not 1)
+    
+        Test mechanism:
+        - Create TrainingConfig with gridsize=2
+        - Monkeypatch PtychoPINN_Lightning to inspect first conv layer input channels
+        - Invoke _train_with_lightning
+        - Assert first conv layer has in_channels == gridsize**2 == 4
+    
+        Expected failure mode (RED phase):
+        - _train_with_lightning manually builds PTDataConfig with default C=1
+        - Lightning module created with C_model=1 → first conv expects 1 channel
+        - Assertion fails: in_channels=1 != expected 4
+    
+        GREEN phase fix:
+        - Refactor _train_with_lightning to reuse config_factory.create_training_payload
+        - Factory propagates gridsize → C via grid_size tuple → C = grid_size[0]*grid_size[1]
+        - ModelConfig receives C_model=4, Lightning module conv layers match
+        """
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho_torch.workflows import components as torch_components
+    
+        # Spy to track Lightning module instantiation and inspect model structure
+        lightning_init_spy = {"called": False, "first_conv_in_channels": None}
+    
+        # Store original PtychoPINN_Lightning before patching
+        from ptycho_torch.model import PtychoPINN_Lightning as OriginalLightningModule
+    
+        def mock_lightning_init(model_config, data_config, training_config, inference_config):
+            """Spy that captures PtychoPINN_Lightning model structure."""
+            import torch
+            import lightning.pytorch as L
+    
+            # Record that init was called
+            lightning_init_spy["called"] = True
+    
+            # Use the ORIGINAL Lightning module (not the patched version) to inspect architecture
+            module = OriginalLightningModule(
+                model_config=model_config,
+                data_config=data_config,
+                training_config=training_config,
+                inference_config=inference_config
+            )
+    
+            # Extract first conv layer input channels from the model
+            # The PtychoPINN architecture: model.autoencoder.encoder contains Conv2d layers
+            # Find the first Conv2d layer and record its in_channels
+            for layer in module.model.autoencoder.encoder.modules():
+                if isinstance(layer, torch.nn.Conv2d):
+                    lightning_init_spy["first_conv_in_channels"] = layer.in_channels
+                    break
+    
+            # Return a stub module to avoid full training execution
+            class StubLightningModule(L.LightningModule):
+                def __init__(self):
+                    super().__init__()
+                    self.dummy_param = torch.nn.Parameter(torch.zeros(1))
+    
+                def training_step(self, batch, batch_idx):
+                    return torch.tensor(0.0, requires_grad=True)
+    
+                def configure_optimizers(self):
+                    return torch.optim.Adam(self.parameters(), lr=1e-3)
+    
+            return StubLightningModule()
+    
+        # Monkeypatch Lightning module constructor
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            mock_lightning_init
+        )
+    
+        # Create TrainingConfig with gridsize=2 (requires 4 input channels)
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,  # CRITICAL: 2×2 grouping → 4 channels expected
+            model_type='pinn',
+        )
+    
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=2,
+        )
+    
+        # Create minimal train_container
+        train_container = {
+            "X": np.ones((10, 64, 64)),
+            "Y": np.ones((10, 64, 64), dtype=np.complex64),
+        }
+    
+        # Call _train_with_lightning with gridsize=2 config
+        results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=training_config
+        )
+    
+        # Assert Lightning module was instantiated
+        assert lightning_init_spy["called"], \
+            "_train_with_lightning must instantiate PtychoPINN_Lightning module"
+    
+        # RED PHASE ASSERTION: Channel count must match gridsize**2
+        expected_channels = training_config.model.gridsize ** 2
+        actual_channels = lightning_init_spy["first_conv_in_channels"]
+    
+>       assert actual_channels == expected_channels, (
+            f"Lightning model first conv layer MUST have in_channels={expected_channels} "
+            f"when gridsize={training_config.model.gridsize}, but got in_channels={actual_channels}. "
+            f"This indicates _train_with_lightning is not propagating gridsize to PyTorch configs. "
+            f"See docs/findings.md#BUG-TF-001 for channel mismatch pattern."
+        )
+E       AssertionError: Lightning model first conv layer MUST have in_channels=4 when gridsize=2, but got in_channels=1. This indicates _train_with_lightning is not propagating gridsize to PyTorch configs. See docs/findings.md#BUG-TF-001 for channel mismatch pattern.
+E       assert 1 == 4
+
+tests/torch/test_workflows_components.py:692: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+No GPU found, using CPU instead.
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+---------------------------- Captured stderr setup -----------------------------
+2025-10-20 01:55:31.656613: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760950531.668308 1583874 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760950531.672250 1583874 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760950531.683514 1583874 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760950531.683531 1583874 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760950531.683534 1583874 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760950531.683537 1583874 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-20 01:55:31.686703: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-20 01:55:33.856946: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-20 01:55:33.856979: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-20 01:55:33.856985: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-20 01:55:33.856988: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-20 01:55:33.856992: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-20 01:55:33.856995: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-20 01:55:33.857019: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-20 01:55:33.857035: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-20 01:55:33.857039: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+----------------------------- Captured stdout call -----------------------------
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+----------------------------- Captured stderr call -----------------------------
+INFO: Seed set to 42
+INFO: 💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+INFO: GPU available: False, used: False
+INFO: TPU available: False, using: 0 TPU cores
+INFO: HPU available: False, using: 0 HPUs
+INFO: 
+  | Name         | Type | Params | Mode
+---------------------------------------------
+  | other params | n/a  | 1      | n/a 
+---------------------------------------------
+1         Trainable params
+0         Non-trainable params
+1         Total params
+0.000     Total estimated model params size (MB)
+0         Modules in train mode
+0         Modules in eval mode
+INFO: `Trainer.fit` stopped: `max_epochs=2` reached.
+------------------------------ Captured log call -------------------------------
+INFO     lightning.fabric.utilities.seed:seed.py:57 Seed set to 42
+INFO     lightning.pytorch.utilities.rank_zero:callback_connector.py:108 💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+INFO     lightning.pytorch.utilities.rank_zero:setup.py:156 GPU available: False, used: False
+INFO     lightning.pytorch.utilities.rank_zero:setup.py:159 TPU available: False, using: 0 TPU cores
+INFO     lightning.pytorch.utilities.rank_zero:setup.py:169 HPU available: False, using: 0 HPUs
+INFO     lightning.pytorch.callbacks.model_summary:model_summary.py:104 
+  | Name         | Type | Params | Mode
+---------------------------------------------
+  | other params | n/a  | 1      | n/a 
+---------------------------------------------
+1         Trainable params
+0         Non-trainable params
+1         Total params
+0.000     Total estimated model params size (MB)
+0         Modules in train mode
+0         Modules in eval mode
+INFO     lightning.pytorch.utilities.rank_zero:fit_loop.py:191 `Trainer.fit` stopped: `max_epochs=2` reached.
+=============================== warnings summary ===============================
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory training_outputs/checkpoints exists and is not empty.
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize - AssertionError: Lightning model first conv layer MUST have in_channels=4 when gridsize=2, but got in_channels=1. This indicates _train_with_lightning is not propagating gridsize to PyTorch configs. See docs/findings.md#BUG-TF-001 for channel mismatch pattern.
+assert 1 == 4
+======================== 1 failed, 2 warnings in 5.19s =========================
