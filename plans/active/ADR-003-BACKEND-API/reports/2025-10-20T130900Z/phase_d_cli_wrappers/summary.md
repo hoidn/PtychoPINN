@@ -26,10 +26,12 @@
 - B3.e complete: plan checklist updated, this summary refreshed, and docs/fix_plan Attempt #43 logged for traceability.
 - B4 complete: documentation refresh, test docstring update, and artifact hygiene captured under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/`. Implementation plan D1 now `[x]`; docs/fix_plan Attempt #44 documents deliverables.
 
+## C1 status checkpoint (2025-10-20)
+- C1 complete: inference blueprint authored (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md`, 51 KB comprehensive spec). Captured helper reuse strategy, RawData ownership decision (Option A), inference orchestration extraction (Option 2), and RED test plan (5 delegation tests + 3 inference-mode shared helper tests). Design mirrors training CLI refactor for consistency.
+
 ## Next steps for Ralph
-1. Phase D.C C1 — draft `inference_refactor.md` blueprint outlining helper layout, RawData ownership, deprecation messaging, and CONFIG-001 enforcement for inference CLI. Store under `plans/active/ADR-003-BACKEND-API/reports/<TS>/phase_d_cli_wrappers_inference/`.
-2. Phase D.C C2 — stage RED coverage in `tests/torch/test_cli_inference_torch.py` (or companion module) capturing expected helper delegation failures before implementation; archive RED log alongside the blueprint.
-3. Prepare for Phase D.C C3 by enumerating required refactors in the blueprint (delegation flow, helper reuse, warning semantics) so implementation can follow the same helper pattern as training CLI.
+1. Phase D.C C2 — stage RED coverage in `tests/torch/test_cli_inference_torch.py` (or companion module) capturing expected helper delegation failures before implementation; archive RED log alongside the blueprint.
+2. Prepare for Phase D.C C3 by enumerating required refactors in the blueprint (delegation flow, helper reuse, warning semantics) so implementation can follow the same helper pattern as training CLI.
 
 **Artifacts Created:**  
 - `plan.md` — phased implementation roadmap with checklist IDs and guidance  
