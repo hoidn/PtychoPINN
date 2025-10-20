@@ -1,0 +1,31 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 19 items
+
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass PASSED [  5%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config PASSED [ 10%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs PASSED [ 15%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_overrides_dict PASSED [ 21%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_returns_dataclass PASSED [ 26%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_tf_config PASSED [ 31%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_pytorch_configs PASSED [ 36%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_grid_size_tuple_to_gridsize_int PASSED [ 42%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_epochs_to_nepochs_conversion PASSED [ 47%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_k_to_neighbor_count_conversion PASSED [ 52%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_factory_populates_params_cfg PASSED [ 57%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_populate_legacy_params_helper PASSED [ 63%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_override_dict_wins_over_defaults PASSED [ 68%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_probe_size_override_wins_over_inference PASSED [ 73%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_n_groups_raises_error PASSED [ 78%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_nonexistent_train_data_file_raises_error PASSED [ 84%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_checkpoint_raises_error PASSED [ 89%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_from_npz PASSED [ 94%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback PASSED [100%]
+
+============================== 19 passed in 3.64s ==============================
