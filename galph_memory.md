@@ -1664,3 +1664,11 @@
 - Notes: Coin flip → tails (skipped retrospective audit). Dependencies satisfied (Phase E.A1 complete). Reviewed `specs/ptychodus_api_spec.md` §§4.7–4.9 & §7, `ptycho/config/config.py` (PyTorchExecutionConfig), and CLI entry points to map PyTorch execution contract gaps. Authored scope doc `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T150020Z/phase_e_governance_spec_redline/spec_delta_notes.md` capturing required edits (new PyTorch runtime subsection, execution-config table, CLI default corrections). Updated governance plan row E.A2 to reference the notes and logged Attempt #56 in docs/fix_plan.md. Reissued `input.md` instructing Ralph to perform the spec redline and generate `spec_redline.md`. 
 - Next supervisor pass: verify spec diff + plan/fix_plan updates, then advance to E.A3 workflow guide refresh.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T151703Z: Phase E.A3 doc alignment setup
+- Focus issue: ADR-003-BACKEND-API — Phase E.A3 (docs/workflow & findings alignment)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Key checks: Confirmed spec redline landed (commit 893a9f86) and plan row E.A2 marked `[x]`; inspected `docs/workflows/pytorch.md` training flag table still listing `--accelerator` default `'cpu'` (mismatch with CLI/parser default `'auto'`). Noted absence of execution-config summary in `docs/findings.md`.
+- Outputs: Updated `phase_e_governance/plan.md` E.A3 guidance, created new artifact hub timestamp (2025-10-20T151734Z), and rewrote `input.md` with concrete Doc-mode steps (workflow table fix, CONFIG-002 finding, ledger sync). Engineer now has clear deliverables and storage paths.
+- <Action State>: [ready_for_implementation]
