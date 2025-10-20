@@ -1,51 +1,49 @@
-Summary: Align inference CLI thin-wrapper tests with the new delegation flow and restage GREEN evidence.
-Mode: TDD
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D.C (Inference CLI thin wrapper, C3)
+Summary: Ship Phase D.C C4 docs by aligning the workflow guide with the inference thin-wrapper behaviour and closing out plan/ledger bookkeeping.
+Mode: Docs
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D.C (Inference CLI thin wrapper, C4)
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/{summary.md,pytest_cli_inference_green.log,pytest_cli_integration_green.log}
+Mapped tests: none — evidence-only
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123820Z/phase_d_cli_wrappers_inference_docs/{docs_gap_analysis.md,docs_update_summary.md}
 
 Do Now:
-1. ADR-003-BACKEND-API C3 (fix thin-wrapper tests) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — Update `tests/torch/test_cli_inference_torch.py` delegation cases so they inspect `mock_validate_paths.call_args.kwargs` and seed the mocked bundle loader with `{'diffraction_to_obj': MagicMock()}`; keep assertions on call ordering/intents. tests: none.
-2. ADR-003-BACKEND-API C3 (CLI selector GREEN) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv` and tee output to `pytest_cli_inference_green.log` inside the artifact hub.
-3. ADR-003-BACKEND-API C3 (integration guard) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv` and capture the log as `pytest_cli_integration_green.log` in the same artifact directory.
-4. ADR-003-BACKEND-API C3 (plan + ledger sync) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — Move `train_debug.log` into the artifact hub, refresh `phase_d_cli_wrappers/plan.md` C3 to `[x]`, append summary + Attempt entry, and record outcomes in `docs/fix_plan.md`. tests: none.
+1. ADR-003-BACKEND-API C4 (workflow guide update) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — edit `docs/workflows/pytorch.md` §§12–13 to reflect the inference thin wrapper (flag defaults, helper delegation, artifact outputs, example command); tests: none.
+2. ADR-003-BACKEND-API C4 (artifact + plan sync) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — document the doc edits in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123820Z/phase_d_cli_wrappers_inference_docs/docs_update_summary.md`, then mark plan row C4 `[x]` and refresh `summary.md` with completion notes; tests: none.
+3. ADR-003-BACKEND-API C4 (ledger update) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — append docs/fix_plan.md Attempt #52 capturing the doc changes, artifact path, and confirmation that C4 exit criteria are satisfied; tests: none.
 
-If Blocked: Capture failing selector output and a short blocker note to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/blocker.md`, leave plan C3 at `[P]`, and document the stall in `docs/fix_plan.md` before stopping.
+If Blocked: Capture the issue and current diff in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123820Z/phase_d_cli_wrappers_inference_docs/blocker.md`, leave plan row C4 at `[P]`, and log the blocker in docs/fix_plan.md before stopping.
 
 Priorities & Rationale:
-- tests/torch/test_cli_inference_torch.py:262 — Delegation tests encode thin-wrapper contract; they must reflect keyword invocation + bundle contract for CONFIG-001 compliance.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — C3 exit criteria demand GREEN selectors and artifact hygiene before advancing to C4.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/pytest_cli_inference_green.log — Existing log shows two failures; new run should supersede it in the follow-up hub.
-- specs/ptychodus_api_spec.md:170 — CONFIG-001 ordering (validate_paths → factory → bundle → data load) informs the assertions you are adjusting.
-- docs/workflows/pytorch.md:318 — CLI documentation commits to shared helper delegation (`build_execution_config_from_args`, `resolve_accelerator`).
+- docs/workflows/pytorch.md:360 — inference flag defaults must match the thin wrapper (`default='auto'`, `None` batch size) to prevent user misconfiguration.
+- docs/workflows/pytorch.md:344 — add helper delegation narrative so training/inference guidance stays symmetrical per Phase D blueprint.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123820Z/phase_d_cli_wrappers_inference_docs/docs_gap_analysis.md — gap analysis lists required edits; follow it to avoid missing exit-criteria items.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — plan requires doc refresh + ledger sync before Phase D handoff.
+- docs/fix_plan.md:159 — Attempt #51 recorded the outstanding doc work; the next entry must close C4 with artifact references.
 
 How-To Map:
-- mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup
-- After editing tests: git diff tests/torch/test_cli_inference_torch.py
-- CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/pytest_cli_inference_green.log
-- CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/pytest_cli_integration_green.log
-- mv train_debug.log plans/active/ADR-003-BACKEND-API/reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/train_debug.log
-- Update `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md` and `summary.md` with GREEN status + log references, then append Attempt #50 in docs/fix_plan.md referencing the new artifact paths.
-- Commit message suggestion: `ADR-003 Phase D.C C3: align inference thin-wrapper tests` (include tests run).
+- Review `docs_gap_analysis.md` for the bullet list of required updates and keep it open while editing.
+- Update `docs/workflows/pytorch.md` inference table defaults, add a "Helper Delegation" paragraph referencing `ptycho_torch/cli/shared.py` + `_run_inference_and_reconstruct`, and include an inference CLI example using the minimal dataset fixture with expected amplitude/phase outputs.
+- Mention the `--device` deprecation timeline (Phase E removal) in the same way as the training section.
+- Record the completed changes plus cross-links (spec section, tests touched) in `docs_update_summary.md` inside the artifact hub; note there that no tests were run.
+- Set plan row C4 to `[x]`, add completion notes + artifact pointer in `plan.md` and `summary.md`, then append Attempt #52 in docs/fix_plan.md referencing the same artifact directory.
+- Verify cleanliness with `git status` before committing.
 
 Pitfalls To Avoid:
-- Do not revert earlier Phase D rows or reintroduce inline validation in `ptycho_torch/inference.py`.
-- Keep new tests strictly pytest-style; avoid unittest.TestCase patterns.
-- Preserve CONFIG-001 ordering inside assertions; don’t mock out factory invocation order.
-- Ensure the mocked bundle still surfaces `'diffraction_to_obj'` so helper path executes before you assert call order.
-- Store all logs under the timestamped artifact directory; leave no outputs at repo root.
-- Keep accelerator mapping assertions consistent with docs/workflows/pytorch.md §12; no new device strings.
-- Skip unrelated test suites; only run the mapped selectors.
-- After moving `train_debug.log`, confirm repo root is clean via `ls` before committing.
-- Don’t edit production helper signatures; adjust tests to the existing keyword pattern instead.
-- Capture stderr/stdout in logs; avoid redirecting to /dev/null.
+- Do not edit production Python modules—this loop is docs-only.
+- Keep Markdown anchors (`<doc-ref>` tags) intact; add new ones only if you have authoritative targets.
+- Ensure table formatting in `docs/workflows/pytorch.md` remains aligned (pipe-separated, consistent spacing).
+- Don’t remove the training CLI guidance; mirror structure without duplicating content verbatim.
+- Avoid mixing deprecated flag recommendations—make deprecation messaging consistent across training and inference.
+- Store every new doc artifact under the timestamped reports directory; nothing belongs at repo root.
+- Reference only evidence-backed defaults; do not invent new CLI behaviour.
+- Update docs/fix_plan.md once, with a precise artifact link and Mode, to prevent ledger churn.
+- Keep summary language concise; no placeholder text in plan or summary files.
+- Run no tests and avoid invoking CLI commands—documentation only.
 
 Pointers:
-- ptycho_torch/inference.py:510
-- tests/torch/test_cli_inference_torch.py:262
+- docs/workflows/pytorch.md:344
+- docs/workflows/pytorch.md:360
+- ptycho_torch/inference.py:520
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123820Z/phase_d_cli_wrappers_inference_docs/docs_gap_analysis.md
 - plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/summary.md:37
-- specs/ptychodus_api_spec.md:170
 
-Next Up: Phase D.C C4 (docs + hygiene) once C3 is GREEN.
+Next Up: Phase D.D (smoke evidence + hygiene) once C4 documentation lands.

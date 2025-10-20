@@ -1619,5 +1619,17 @@
 - Actions:
   - Reopened `phase_d_cli_wrappers/plan.md` row C3 to `[P]` and updated summary next steps.
   - Logged Attempt #49 in docs/fix_plan.md referencing failing selectors and follow-up requirements.
-  - Issued new `input.md` guiding test updates, reruns, log relocation, and ledger sync using artifact hub `reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/`.
+- Issued new `input.md` guiding test updates, reruns, log relocation, and ledger sync using artifact hub `reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/`.
+- <Action State>: [ready_for_implementation]
+
+## 2025-10-20T123615Z: Phase D.C C4 docs sweep
+- Focus issue: ADR-003-BACKEND-API Phase D.C — inference CLI thin wrapper C4 (docs + plan updates)
+- Action type: Evidence collection
+- Mode: Docs
+- Actions:
+  - Audited `docs/workflows/pytorch.md` §§12–13 against post-C3 inference thin wrapper to spot doc drift (flag defaults, helper delegation, artifact expectations).
+  - Cross-checked implementation (`ptycho_torch/inference.py:365-640`) and blueprint (`phase_d_cli_wrappers_inference/inference_refactor.md`) to confirm helper flow + outputs to highlight in docs.
+  - Logged findings in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T123820Z/phase_d_cli_wrappers_inference_docs/docs_gap_analysis.md` and rewrote `input.md` directing Ralph to execute C4 doc updates + ledger sync.
+- Key gaps: doc still claims `--accelerator` default `'cpu'`, omits `_run_inference_and_reconstruct` helper narrative, lacks inference CLI example/outputs, and needs Phase E deprecation pointer.
+- Next steps for engineer: follow gap analysis to update workflow guide, produce docs_update_summary.md, flip plan row C4 to `[x]`, and log Attempt #52.
 - <Action State>: [ready_for_implementation]
