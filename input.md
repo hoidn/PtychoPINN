@@ -1,50 +1,48 @@
-Summary: Validate Phase C4.D.B3 parity by rerunning gridsize regression and executing a gridsize=2 CLI smoke to capture fresh GREEN evidence.
-Mode: Parity
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4.D (bundle loader unblock)
+Summary: Update PyTorch CLI documentation (Phase C4.E) so the new execution-config flags and validation evidence are captured across spec, workflow guide, and plan.
+Mode: Docs
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase C4.E (documentation updates)
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_bundle_loader_returns_modules -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/{pytest_gridsize_green.log,pytest_bundle_loader_green.log,pytest_integration_green.log,manual_cli_smoke_gs2.log,summary.md}
+Mapped tests: none — docs-only
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/{summary.md,docs_diff.txt}
 
 Do Now:
-1. ADR-003-BACKEND-API C4.D.B3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md — Rerun the targeted regression `TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize` to confirm the axis fix still holds; store the GREEN log as `pytest_gridsize_green.log` under the new artifact hub. tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize -vv
-2. ADR-003-BACKEND-API C4.D.B3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md — Execute the PyTorch bundle + workflow selectors and capture logs (`pytest_bundle_loader_green.log`, `pytest_integration_green.log`) to ensure no regressions before the CLI smoke. tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_bundle_loader_returns_modules -vv
-3. ADR-003-BACKEND-API C4.D.B3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md — Run the CPU CLI smoke with gridsize=2 and log output as `manual_cli_smoke_gs2.log`; reuse the minimal fixture and pass `--n_images 64`, `--batch_size 4`, `--max_epochs 1`, `--disable_mlflow`, `--device cpu`, `--accelerator cpu`. tests: none
-4. ADR-003-BACKEND-API C4.D.B3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md — Summarize outcomes in `summary.md`, mark plan row B3 `[x]`, and add a new docs/fix_plan.md attempt referencing the fresh logs. tests: none
+1. ADR-003-BACKEND-API C4.E1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — Revise docs/workflows/pytorch.md §12–§13 to document the new CLI execution config flags (accelerator, deterministic, num-workers, learning-rate, inference-batch-size) with UPDATED examples reflecting the gridsize=2 smoke; include link to phase_c4d_at_parallel/summary.md; tests: none
+2. ADR-003-BACKEND-API C4.E2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — Extend specs/ptychodus_api_spec.md (CLI tables) to add training/inference execution-config flag mappings, citing PyTorchExecutionConfig fields and CONFIG-001 ordering; tests: none
+3. ADR-003-BACKEND-API C4.E3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — Refresh CLAUDE.md “Key Commands”/PyTorch sections with a concise CLI example that shows deterministic + accelerator usage and points to the new docs; tests: none
+4. ADR-003-BACKEND-API C4.E4 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md — Update implementation.md (Phase C4 rows) to reference the new documentation artifacts and log a short summary in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/summary.md; tests: none
 
-If Blocked: Capture the failing selector or CLI output into `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/blocker.log`, revert plan row B3 to `[P]`, and describe the blocker in docs/fix_plan.md Attempts History before stopping.
+If Blocked: Capture the blocker in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/blocker.md, note which document could not be updated, revert plan rows C4.E* to [P], and record the reason in docs/fix_plan.md before stopping.
 
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md §4.6–§4.8 demand bundle + CLI parity; B3 evidence closes the outstanding Phase C4.D gate.
-- docs/workflows/pytorch.md §§5–7 document persistence and CLI usage; gridsize=2 smoke ensures guidance reflects reality.
-- findings CONFIG-001 / BUG-TF-001 require verifying params.cfg + gridsize alignment after the coords permute fix.
-- phase_c4d_blockers/plan.md tracks the remaining checklist; closing B3 unblocks Phase C close-out rows (C1–C3).
+- specs/ptychodus_api_spec.md §4.8 and plan C4.E mandate documenting the CLI knobs for governance.
+- docs/workflows/pytorch.md needs parity evidence so users can run gridsize=2 confidently.
+- CLAUDE.md quick commands are authoritative for agents; they must reflect the new flag vocabulary.
+- implementation.md Phase C4 checklist must stay authoritative for downstream planning.
 
 How-To Map:
-- `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel`
-- `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/pytest_gridsize_green.log`
-- `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_bundle_loader_returns_modules -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/pytest_bundle_loader_green.log`
-- `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/pytest_integration_green.log`
-- `CUDA_VISIBLE_DEVICES="" python -m ptycho_torch.train --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir /tmp/cli_smoke --n_images 64 --gridsize 2 --batch_size 4 --max_epochs 1 --disable_mlflow --device cpu --accelerator cpu --learning-rate 1e-3 --num-workers 0 --deterministic | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log`
-- Update `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md` row B3, draft `summary.md` (runtime, tensor shapes, remaining risks), and append Attempt #35 in docs/fix_plan.md with artifact links.
+- Edit docs/workflows/pytorch.md to add a subsection summarizing the five execution-config flags, include the exact CLI command from manual_cli_smoke_gs2.log, and reference summary.md in the new artifact directory.
+- Update specs/ptychodus_api_spec.md by inserting a table under §4 or new §7 mapping each flag → dataclass field → factory override precedence.
+- In CLAUDE.md, refresh the PyTorch command snippet (Section 5) to show `--accelerator cpu --deterministic --num-workers 0 --learning-rate 1e-3 --gridsize 2` and mention CONFIG-001 bridge.
+- After documentation edits, append a new paragraph in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120500Z/phase_c4_docs_update/summary.md capturing what changed, with bullet links to each file and spec references.
 
 Pitfalls To Avoid:
-- Keep `CUDA_VISIBLE_DEVICES=""` set for every command to avoid GPU variance.
-- Use the timestamped artifact directory only—no logs at repository root.
-- If the gridsize=2 CLI fails due to insufficient groups, document it and back out plan state instead of hacking the dataset.
-- Do not modify production code; this loop is evidence-only.
-- Ensure pytest selectors remain in native pytest style (no unittest harness).
-- Run integration selectors after the unit regression so failures stay localized.
-- Leave existing TensorFlow core modules untouched per CLAUDE.md protected assets rule.
-- After CLI run, clean `/tmp/cli_smoke` if rerunning to avoid checkpoint reuse confusion.
-- Double-check plan/fix_plan updates before committing to avoid ledger drift.
-- Capture summary.md with key runtimes and dataset notes; omit raw logs from docs.
+- Do not modify production code or tests; this loop is documentation-only.
+- Keep all new artifacts inside the timestamped reports/2025-10-20T120500Z directory.
+- Maintain CONFIG-001 language consistency (bridge before data/model construction).
+- Preserve existing Markdown cross-reference tags (<doc-ref>, etc.).
+- Avoid removing historical context from docs; append or clearly replace outdated snippets.
+- Double-check spelling of flags (`--num-workers`, not `--num_workers`).
+- Reference artifact paths relative to repo root (no absolute paths).
+- Do not delete prior logs or summaries when updating plan/summary files—append updates.
+- Ensure summary.md lists pending Phase C4.F tasks to avoid premature closure.
+- Run spellcheck or read-through manually—no automated tooling required.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md#phase-b
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T104500Z/phase_c4d_coords_fix/pytest_gridsize_regression.log
-- specs/ptychodus_api_spec.md#46-configuration-handshake-and-bundle-lifecycle
-- docs/workflows/pytorch.md#5-running-complete-training-workflow
-- docs/findings.md#CONFIG-001
+- docs/workflows/pytorch.md
+- specs/ptychodus_api_spec.md
+- CLAUDE.md
+- plans/active/ADR-003-BACKEND-API/implementation.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/summary.md
 
 Next Up:
-- Phase C4 documentation updates (plan rows C1–C3) once B3 evidence is captured.
+- Phase C4.F close-out (comprehensive summary + fix_plan handoff) once documentation is refreshed.

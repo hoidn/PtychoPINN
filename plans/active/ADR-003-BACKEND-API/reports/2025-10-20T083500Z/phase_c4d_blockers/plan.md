@@ -33,9 +33,9 @@ Exit Criteria: Plan tables updated, summary written, fix_plan attempt logged.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| C1 | Update phase C4 plan entries | [ ] | Mark C4.D3/C4.D4 rows in `reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md` according to outcomes; reference new artifact paths under 2025-10-20T083500Z hub. |
-| C2 | Append supervisor/engineer summaries | [ ] | Author `summary.md` in this directory capturing decisions, metrics (runtime, channel counts), and remaining follow-ups (e.g., docs updates for `docs/workflows/pytorch.md` §12). |
-| C3 | Update docs/fix_plan.md attempts | [ ] | Log Attempt #29+ with links to new logs/tests, note whether C4 transitions to `[x]` or remains `[P]`. |
+| C1 | Update phase C4 plan entries | [x] | ✅ 2025-10-20 — Marked `phase_c4_cli_integration/plan.md` rows C4.D3/C4.D4 `[x]` with evidence from `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/`. Verification checklist now reflects C4.D complete. |
+| C2 | Append supervisor/engineer summaries | [x] | ✅ 2025-10-20 — Refreshed `phase_c4d_blockers/summary.md` to capture GREEN results (gridsize regression, bundle loader, integration, CLI smoke) and deferred documentation tasks. Linked to `phase_c4d_at_parallel/summary.md` for detailed metrics. |
+| C3 | Update docs/fix_plan.md attempts | [x] | ✅ 2025-10-20 — Logged Attempt #35 in `docs/fix_plan.md` with artifact links to `phase_c4d_at_parallel/` evidence and noted remaining Phase C4.E/F documentation follow-ups. |
 
 ## Reporting Discipline
 - Store all new artefacts under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/`.

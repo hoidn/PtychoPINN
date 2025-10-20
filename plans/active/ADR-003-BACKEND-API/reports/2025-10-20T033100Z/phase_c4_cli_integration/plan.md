@@ -95,8 +95,8 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 |----|------|-------|-------------------|
 | C4.D1 | Run targeted CLI tests | [x] | ✅ 2025-10-20 — `pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI -vv` and `pytest tests/torch/test_cli_inference_torch.py::TestInferenceCLI -vv` both GREEN. Logs: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T050500Z/phase_c4_cli_integration/{pytest_cli_train_green.log,pytest_cli_inference_green.log}`. |
 | C4.D2 | Factory integration smoke | [x] | ✅ 2025-10-20 — Replayed factory selector (`pytest tests/torch/test_config_factory.py -k ExecutionConfig -vv`) with GREEN output. Log: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T044500Z/phase_c4_cli_integration/pytest_factory_smoke.log`. |
-| C4.D3 | Full regression suite | [P] | 2025-10-20 — Targeted selector captured at `reports/2025-10-20T081500Z/phase_c4_cli_integration_debug/pytest_integration.log` (16.52 s). Training completes, inference aborts with `NotImplementedError: load_torch_bundle model reconstruction not yet implemented` (`model_manager.py:267`). Blocked on Phase D3.C (`load_torch_bundle`) — coordinate with new plan `reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md`. |
-| C4.D4 | Manual CLI smoke test | [P] | 2025-10-20 — CLI run recorded at `reports/2025-10-20T081500Z/phase_c4_cli_integration_debug/manual_cli_smoke.log`. Flags parse correctly, but Lightning fails on first batch: `RuntimeError: weight of size [64, 1, 3, 3] expected input[4, 4, 64, 64]` (channel mismatch for `gridsize=(2,2)`). Follow-up captured in new plan Phase B (`phase_c4d_blockers/plan.md`) to realign model/config gridsize handling. |
+| C4.D3 | Full regression suite | [x] | ✅ 2025-10-20 — `CUDA_VISIBLE_DEVICES=\"\" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv` GREEN (16.77 s). Log stored at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/pytest_integration_green.log`; leverages new bundle loader + gridsize fixes. |
+| C4.D4 | Manual CLI smoke test | [x] | ✅ 2025-10-20 — CPU CLI smoke with `--gridsize 2` completed 1 epoch and saved `wts.h5.zip`. Command/output captured in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log`. Confirms deterministic + execution config flags operate end-to-end. |
 
 **Exit Criteria:** All CLI tests GREEN, factory smoke GREEN, full suite passed, manual smoke successful with artifacts.
 
@@ -161,7 +161,7 @@ Per C3 summary and `override_matrix.md` analysis, the following knobs are **inte
 - [x] **C4.A:** Four design docs authored (flag inventory, selection rationale, naming decisions, argparse schema)
 - [x] **C4.B:** CLI test scaffolds authored with 6+ RED tests, logs captured
 - [x] **C4.C:** Training + inference CLI refactored to use factories, hardcoded values eliminated
-- [ ] **C4.D:** CLI tests + factory smoke GREEN; integration remains blocked on `load_torch_bundle` `NotImplementedError` and Lightning channel mismatch. Coordinate fixes via `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T083500Z/phase_c4d_blockers/plan.md` before marking C4 complete.
+- [x] **C4.D:** Targeted CLI tests, factory smoke, full integration selector, and manual CLI smoke all GREEN. Evidence stored at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/`.
 - [ ] **C4.E:** Four docs updated (workflow guide §13, spec CLI tables, CLAUDE.md examples, implementation plan)
 - [ ] **C4.F:** Summary authored, fix_plan Attempt logged, Phase D prep notes captured, hygiene verified
 
@@ -185,8 +185,8 @@ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integra
 ├── pytest_cli_train_green.log       # Training CLI GREEN log (C4.D1)
 ├── pytest_cli_inference_green.log   # Inference CLI GREEN log (C4.D1)
 ├── pytest_factory_smoke.log         # Factory integration smoke (C4.D2)
-├── pytest_full_suite_c4.log         # Full regression suite (C4.D3)
-├── manual_cli_smoke.log             # Manual CLI smoke test output (C4.D4)
+├── pytest_full_suite_c4.log         # Full regression suite (C4.D3 baseline — see 2025-10-20T111500Z for latest)
+├── manual_cli_smoke.log             # Manual CLI smoke (gridsize=1 baseline — latest GS2 run under 2025-10-20T111500Z)
 ├── refactor_notes.md                # Hardcode elimination documentation (C4.C4)
 ```
 

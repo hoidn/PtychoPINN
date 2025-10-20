@@ -1507,3 +1507,14 @@
 - Mode: Parity
 - Notes: Continuing same initiative; refreshed `phase_c4d_blockers/plan.md` (B2→[x], B3 guidance updated for new ISO hub). Authored input.md directing Ralph to collect GREEN evidence under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/` (rerun gridsize regression, run bundle/integration selectors, execute CLI smoke with `--gridsize 2`, then update plan + fix_plan attempts).
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T114500Z: Phase C4.D close-out prep
+- Reviewed latest `input.md` artifacts hub (2025-10-20T111500Z) and confirmed Ralph captured GREEN logs + summary for C4.D.B3.
+- Focus issue: ADR-003-BACKEND-API — Phase C4.D close-out tasks (plan rows C1–C3, ledger updates).
+- Action type: Review or housekeeping
+- Mode: Docs
+- Findings consulted: `docs/findings.md` (CONFIG-001, POLICY-001, BUG-TF-001) — no conflicts with new evidence.
+- Coin flip → tails, skipped multi-commit retrospective per instructions.
+- Plan status: `phase_c4d_blockers/plan.md` shows C tasks `[ ]`; `phase_c4d_at_parallel/summary.md` indicates exit criteria met. Need to mark plan rows `[x]`, update parent plan summary, and log fix_plan Attempt #35.
+- Actions taken: marked `phase_c4d_blockers/plan.md` C1–C3 `[x]`, refreshed its summary, updated `phase_c4_cli_integration/plan.md` (C4.D3/C4.D4 + verification checklist), appended Attempt #35 in `docs/fix_plan.md`, and issued new input.md targeting Phase C4.E documentation updates with artifact hub `2025-10-20T120500Z/phase_c4_docs_update/`.
+- <Action State>: [ready_for_implementation]
