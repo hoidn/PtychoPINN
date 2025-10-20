@@ -1,0 +1,468 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 27 items
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accelerator_flag_roundtrip PASSED [  3%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_deterministic_flag_roundtrip PASSED [  7%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_no_deterministic_flag_roundtrip PASSED [ 11%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip PASSED [ 14%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_learning_rate_flag_roundtrip PASSED [ 18%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_multiple_execution_config_flags PASSED [ 22%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence PASSED [ 25%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_default_no_device FAILED [ 29%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_legacy_device_cpu FAILED [ 33%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_legacy_device_cuda_maps_to_gpu FAILED [ 37%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_conflict_accelerator_wins FAILED [ 40%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_all_accelerator_values_passthrough FAILED [ 44%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_training_mode_defaults FAILED [ 48%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_training_mode_custom_values FAILED [ 51%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_inference_mode FAILED [ 55%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_emits_deterministic_warning FAILED [ 59%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_quiet_flag FAILED [ 62%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_disable_mlflow_flag FAILED [ 66%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_quiet_or_disable_mlflow_both_true FAILED [ 70%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_invalid_mode_raises_value_error FAILED [ 74%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_resolves_accelerator_from_device_flag FAILED [ 77%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_creates_output_dir FAILED [ 81%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_raises_if_train_file_missing FAILED [ 85%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_raises_if_test_file_missing FAILED [ 88%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_test_file FAILED [ 92%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_works_with_pathlib_path_objects FAILED [ 96%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_train_file_for_inference_mode FAILED [100%]
+
+=================================== FAILURES ===================================
+________________ TestResolveAccelerator.test_default_no_device _________________
+
+self = <test_cli_shared.TestResolveAccelerator object at 0x71aa73b53b10>
+
+    def test_default_no_device(self):
+        """
+        RED Test: resolve_accelerator('cpu', None) → 'cpu'.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'resolve_accelerator'
+    
+        Success Criteria (GREEN):
+        - Returns 'cpu' unchanged
+        - No warnings emitted
+        """
+>       from ptycho_torch.cli.shared import resolve_accelerator
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:59: ModuleNotFoundError
+________________ TestResolveAccelerator.test_legacy_device_cpu _________________
+
+self = <test_cli_shared.TestResolveAccelerator object at 0x71aa73b53210>
+
+    def test_legacy_device_cpu(self):
+        """
+        RED Test: resolve_accelerator('auto', 'cpu') → 'cpu' + DeprecationWarning.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'resolve_accelerator'
+    
+        Success Criteria (GREEN):
+        - Returns 'cpu' (mapped from legacy --device)
+        - Emits DeprecationWarning with message containing "--device is deprecated"
+        """
+>       from ptycho_torch.cli.shared import resolve_accelerator
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:75: ModuleNotFoundError
+__________ TestResolveAccelerator.test_legacy_device_cuda_maps_to_gpu __________
+
+self = <test_cli_shared.TestResolveAccelerator object at 0x71aa73b53090>
+
+    def test_legacy_device_cuda_maps_to_gpu(self):
+        """
+        RED Test: resolve_accelerator('auto', 'cuda') → 'gpu' + DeprecationWarning.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'resolve_accelerator'
+    
+        Success Criteria (GREEN):
+        - Returns 'gpu' (NOT 'cuda' — Lightning convention)
+        - Emits DeprecationWarning
+        """
+>       from ptycho_torch.cli.shared import resolve_accelerator
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:93: ModuleNotFoundError
+____________ TestResolveAccelerator.test_conflict_accelerator_wins _____________
+
+self = <test_cli_shared.TestResolveAccelerator object at 0x71aa73b53d10>
+
+    def test_conflict_accelerator_wins(self):
+        """
+        RED Test: resolve_accelerator('cpu', 'cuda') → 'cpu' + DeprecationWarning.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'resolve_accelerator'
+    
+        Success Criteria (GREEN):
+        - Returns 'cpu' (--accelerator takes precedence)
+        - Emits DeprecationWarning with message containing "Ignoring --device value"
+        """
+>       from ptycho_torch.cli.shared import resolve_accelerator
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:112: ModuleNotFoundError
+________ TestResolveAccelerator.test_all_accelerator_values_passthrough ________
+
+self = <test_cli_shared.TestResolveAccelerator object at 0x71aa73b536d0>
+
+    def test_all_accelerator_values_passthrough(self):
+        """
+        RED Test: All valid accelerator values pass through unchanged when device=None.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'resolve_accelerator'
+    
+        Success Criteria (GREEN):
+        - Each accelerator value returns unchanged
+        - No warnings emitted
+        """
+>       from ptycho_torch.cli.shared import resolve_accelerator
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:131: ModuleNotFoundError
+_____________ TestBuildExecutionConfig.test_training_mode_defaults _____________
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73b52510>
+
+    def test_training_mode_defaults(self):
+        """
+        RED Test: build_execution_config_from_args() with training defaults.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - Returns PyTorchExecutionConfig with expected default values
+        - accelerator='cpu', deterministic=True, num_workers=0, learning_rate=1e-3
+        - enable_progress_bar=True (quiet=False, disable_mlflow=False)
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:166: ModuleNotFoundError
+__________ TestBuildExecutionConfig.test_training_mode_custom_values ___________
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73b51f50>
+
+    def test_training_mode_custom_values(self):
+        """
+        RED Test: build_execution_config_from_args() with custom training values.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - Returns PyTorchExecutionConfig with custom values
+        - accelerator='gpu', deterministic=False, num_workers=4, learning_rate=5e-4
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:197: ModuleNotFoundError
+_________________ TestBuildExecutionConfig.test_inference_mode _________________
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73b52310>
+
+    def test_inference_mode(self):
+        """
+        RED Test: build_execution_config_from_args() with inference mode.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - Returns PyTorchExecutionConfig for inference mode
+        - accelerator, num_workers, inference_batch_size fields present
+        - No learning_rate or deterministic fields (mode-specific)
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:228: ModuleNotFoundError
+__________ TestBuildExecutionConfig.test_emits_deterministic_warning ___________
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73b52a90>
+
+    def test_emits_deterministic_warning(self):
+        """
+        RED Test: Emits UserWarning when deterministic=True and num_workers>0 (training).
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - UserWarning emitted with message containing "performance degradation"
+        - Config still created successfully
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:256: ModuleNotFoundError
+_______________ TestBuildExecutionConfig.test_handles_quiet_flag _______________
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73b50ad0>
+
+    def test_handles_quiet_flag(self):
+        """
+        RED Test: --quiet flag maps to enable_progress_bar=False.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - enable_progress_bar=False when args.quiet=True
+        - enable_progress_bar=True when args.quiet=False
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:286: ModuleNotFoundError
+__________ TestBuildExecutionConfig.test_handles_disable_mlflow_flag ___________
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73b50290>
+
+    def test_handles_disable_mlflow_flag(self):
+        """
+        RED Test: --disable_mlflow flag maps to enable_progress_bar=False.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - enable_progress_bar=False when args.disable_mlflow=True
+        - Behavior identical to --quiet flag (backward compatibility)
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:327: ModuleNotFoundError
+_______ TestBuildExecutionConfig.test_quiet_or_disable_mlflow_both_true ________
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73b51210>
+
+    def test_quiet_or_disable_mlflow_both_true(self):
+        """
+        RED Test: Both --quiet and --disable_mlflow → enable_progress_bar=False.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - enable_progress_bar=False when either flag is True
+        - Logical OR behavior (quiet_mode = quiet OR disable_mlflow)
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:353: ModuleNotFoundError
+________ TestBuildExecutionConfig.test_invalid_mode_raises_value_error _________
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73dee710>
+
+    def test_invalid_mode_raises_value_error(self):
+        """
+        RED Test: Invalid mode raises ValueError with clear message.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - ValueError raised when mode not in {'training', 'inference'}
+        - Error message includes mode value and expected values
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:379: ModuleNotFoundError
+_____ TestBuildExecutionConfig.test_resolves_accelerator_from_device_flag ______
+
+self = <test_cli_shared.TestBuildExecutionConfig object at 0x71aa73c34690>
+
+    def test_resolves_accelerator_from_device_flag(self):
+        """
+        RED Test: build_execution_config_from_args() calls resolve_accelerator() internally.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'build_execution_config_from_args'
+    
+        Success Criteria (GREEN):
+        - Legacy --device flag is handled via resolve_accelerator()
+        - args.device='cuda' + args.accelerator='auto' → config.accelerator='gpu'
+        - DeprecationWarning emitted
+        """
+>       from ptycho_torch.cli.shared import build_execution_config_from_args
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:402: ModuleNotFoundError
+__________________ TestValidatePaths.test_creates_output_dir ___________________
+
+self = <test_cli_shared.TestValidatePaths object at 0x71aa73b35010>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-767/test_creates_output_dir0')
+
+    def test_creates_output_dir(self, tmp_path):
+        """
+        RED Test: validate_paths() creates output_dir if it doesn't exist.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'validate_paths'
+    
+        Success Criteria (GREEN):
+        - output_dir created with parents (mkdir -p behavior)
+        - Function returns None (no error raised)
+        """
+>       from ptycho_torch.cli.shared import validate_paths
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:444: ModuleNotFoundError
+_____________ TestValidatePaths.test_raises_if_train_file_missing ______________
+
+self = <test_cli_shared.TestValidatePaths object at 0x71aa73b34190>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-767/test_raises_if_train_file_miss0')
+
+    def test_raises_if_train_file_missing(self, tmp_path):
+        """
+        RED Test: validate_paths() raises FileNotFoundError if train_file missing.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'validate_paths'
+    
+        Success Criteria (GREEN):
+        - FileNotFoundError raised with clear message
+        - Error message includes train_file path
+        """
+>       from ptycho_torch.cli.shared import validate_paths
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:470: ModuleNotFoundError
+______________ TestValidatePaths.test_raises_if_test_file_missing ______________
+
+self = <test_cli_shared.TestValidatePaths object at 0x71aa73b34710>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-767/test_raises_if_test_file_missi0')
+
+    def test_raises_if_test_file_missing(self, tmp_path):
+        """
+        RED Test: validate_paths() raises FileNotFoundError if test_file missing.
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'validate_paths'
+    
+        Success Criteria (GREEN):
+        - FileNotFoundError raised with clear message
+        - Error message includes test_file path
+        """
+>       from ptycho_torch.cli.shared import validate_paths
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:489: ModuleNotFoundError
+________________ TestValidatePaths.test_accepts_none_test_file _________________
+
+self = <test_cli_shared.TestValidatePaths object at 0x71aa73b35e50>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-767/test_accepts_none_test_file0')
+
+    def test_accepts_none_test_file(self, tmp_path):
+        """
+        RED Test: validate_paths() accepts None for test_file (optional parameter).
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'validate_paths'
+    
+        Success Criteria (GREEN):
+        - No error raised when test_file=None
+        - output_dir still created
+        """
+>       from ptycho_torch.cli.shared import validate_paths
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:510: ModuleNotFoundError
+____________ TestValidatePaths.test_works_with_pathlib_path_objects ____________
+
+self = <test_cli_shared.TestValidatePaths object at 0x71aa73b35c90>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-767/test_works_with_pathlib_path_o0')
+
+    def test_works_with_pathlib_path_objects(self, tmp_path):
+        """
+        RED Test: validate_paths() works with pathlib.Path objects (not just strings).
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'validate_paths'
+    
+        Success Criteria (GREEN):
+        - Accepts Path objects for all parameters
+        - Creates output_dir successfully
+        """
+>       from ptycho_torch.cli.shared import validate_paths
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:532: ModuleNotFoundError
+______ TestValidatePaths.test_accepts_none_train_file_for_inference_mode _______
+
+self = <test_cli_shared.TestValidatePaths object at 0x71aa73b364d0>
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-767/test_accepts_none_train_file_f0')
+
+    def test_accepts_none_train_file_for_inference_mode(self, tmp_path):
+        """
+        RED Test: validate_paths() accepts None for train_file (inference mode).
+    
+        Expected RED Failure:
+        - ImportError: cannot import name 'validate_paths'
+    
+        Success Criteria (GREEN):
+        - No error raised when train_file=None (inference CLI context)
+        - output_dir still created
+        """
+>       from ptycho_torch.cli.shared import validate_paths
+E       ModuleNotFoundError: No module named 'ptycho_torch.cli'
+
+tests/torch/test_cli_shared.py:556: ModuleNotFoundError
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py:569: UserWarning: num_workers > 0 with deterministic mode enabled. This may introduce non-determinism on some platforms. Consider using --num-workers 0 for strict reproducibility.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:547: UserWarning: Error reading probeGuess from /tmp/pytest-of-ollie/pytest-767/test_bundle_persistence0/train.npz: No data left in file. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_cli_shared.py::TestResolveAccelerator::test_default_no_device - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestResolveAccelerator::test_legacy_device_cpu - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestResolveAccelerator::test_legacy_device_cuda_maps_to_gpu - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestResolveAccelerator::test_conflict_accelerator_wins - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestResolveAccelerator::test_all_accelerator_values_passthrough - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_training_mode_defaults - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_training_mode_custom_values - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_inference_mode - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_emits_deterministic_warning - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_quiet_flag - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_disable_mlflow_flag - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_quiet_or_disable_mlflow_both_true - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_invalid_mode_raises_value_error - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_resolves_accelerator_from_device_flag - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestValidatePaths::test_creates_output_dir - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestValidatePaths::test_raises_if_train_file_missing - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestValidatePaths::test_raises_if_test_file_missing - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_test_file - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestValidatePaths::test_works_with_pathlib_path_objects - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+FAILED tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_train_file_for_inference_mode - ModuleNotFoundError: No module named 'ptycho_torch.cli'
+=================== 20 failed, 7 passed, 4 warnings in 4.97s ===================
