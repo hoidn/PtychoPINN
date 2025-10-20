@@ -1,0 +1,186 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_coords_relative_layout FAILED [100%]
+
+=================================== FAILURES ===================================
+_________ TestWorkflowsComponentsTraining.test_coords_relative_layout __________
+
+self = <test_workflows_components.TestWorkflowsComponentsTraining object at 0x7eead44b4110>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7eead44b4710>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'backend': 'tensorflow', 'batch_size': 4, ...}
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7eea19db6350>
+
+    def test_coords_relative_layout(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        dummy_raw_data
+    ):
+        """
+        Coords Relative Tensor Layout Test — dataloader MUST provide (batch, C, 1, 2) shaped coords_relative.
+    
+        Requirement: input.md Do Now #1 (2025-10-20 Phase C4.D.B2) — The current axis ordering bug
+        causes coords_relative to arrive as (batch, 1, 2, C) which triggers Translation reshape crash
+        when reassemble_patches_position_real broadcasts with norm_factor.
+    
+        Design contract (phase_c4d_coords_debug/summary.md):
+        - _build_lightning_dataloaders MUST permute coords_relative from raw (batch, 1, 2, C)
+          to expected (batch, C, 1, 2) before batching
+        - Tensors MUST be .contiguous() before .view() operations
+        - This layout matches the TensorFlow tf_helper contract for Translation inputs
+    
+        Test mechanism:
+        - Create TrainingConfig with gridsize=2 (C=4)
+        - Build Lightning dataloaders via _build_lightning_dataloaders
+        - Extract a batch from train_loader
+        - Assert batch['coords_relative'].shape == (batch_size, 4, 1, 2)
+    
+        Expected failure mode (RED phase):
+        - Current implementation hands coords_relative shaped (batch, 1, 2, 4)
+        - Assertion fails: shape[-3:] == (1, 2, 4) != expected (4, 1, 2)
+    
+        GREEN phase fix:
+        - Refactor _build_lightning_dataloaders to permute coords_relative axes
+        - Apply .contiguous() before batching to keep view() happy
+        - Rerun test → assertion passes with (batch, 4, 1, 2) shape
+        """
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        import torch
+    
+        # Create TrainingConfig with gridsize=2 (C = 2×2 = 4)
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,  # C = 4 channels
+            model_type='pinn',
+        )
+    
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+            nepochs=2,
+            batch_size=4,  # Explicit batch size for shape check
+        )
+    
+        # Populate params.cfg (CONFIG-001 requirement)
+        update_legacy_dict(params.cfg, training_config)
+    
+        # Convert RawData to PtychoDataContainerTorch via _ensure_container
+        # This will call generate_grouped_data internally
+        train_container = torch_components._ensure_container(
+            data=dummy_raw_data,
+            config=training_config
+        )
+    
+        # Build Lightning dataloaders (the function under test)
+        train_loader, _ = torch_components._build_lightning_dataloaders(
+            train_container=train_container,
+            test_container=None,
+            config=training_config
+        )
+    
+        # Extract one batch from the dataloader
+        # Batch structure: (tensor_dict, probe, scaling) per Phase D2.C contract
+        batch = next(iter(train_loader))
+        tensor_dict = batch[0]  # Extract the first element (dict with coords_relative, etc.)
+    
+        # RED PHASE ASSERTION: coords_relative must be shaped (batch, C, 1, 2)
+        expected_C = training_config.model.gridsize ** 2  # 2×2 = 4
+        expected_shape_suffix = (expected_C, 1, 2)
+    
+        actual_shape = tensor_dict['coords_relative'].shape
+        actual_shape_suffix = actual_shape[-3:]  # Extract last 3 dims (C, 1, 2)
+    
+>       assert actual_shape_suffix == expected_shape_suffix, (
+            f"coords_relative tensor MUST have shape suffix (C, 1, 2) where C={expected_C}, "
+            f"but got shape={actual_shape} with suffix={actual_shape_suffix}. "
+            f"Current axis order causes Translation.view() to fail in reassemble_patches_position_real. "
+            f"See plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103200Z/phase_c4d_coords_debug/summary.md"
+        )
+E       AssertionError: coords_relative tensor MUST have shape suffix (C, 1, 2) where C=4, but got shape=torch.Size([4, 1, 2, 4]) with suffix=torch.Size([1, 2, 4]). Current axis order causes Translation.view() to fail in reassemble_patches_position_real. See plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103200Z/phase_c4d_coords_debug/summary.md
+E       assert torch.Size([1, 2, 4]) == (4, 1, 2)
+E         
+E         At index 0 diff: 1 != 4
+E         
+E         Full diff:
+E         + torch.Size([1, 2, 4])
+E         - (
+E         -     4,
+E         -     1,
+E         -     2,
+E         - )
+
+tests/torch/test_workflows_components.py:801: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+No GPU found, using CPU instead.
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+---------------------------- Captured stderr setup -----------------------------
+2025-10-20 02:41:30.293233: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760953290.304538 1617055 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760953290.308280 1617055 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760953290.319264 1617055 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760953290.319282 1617055 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760953290.319284 1617055 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760953290.319286 1617055 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-20 02:41:30.321993: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-20 02:41:32.482727: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-20 02:41:32.482756: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-20 02:41:32.482762: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-20 02:41:32.482765: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-20 02:41:32.482769: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-20 02:41:32.482772: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-20 02:41:32.482799: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-20 02:41:32.482814: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-20 02:41:32.482818: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+DEBUG: nsamples: 10, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: No ground truth data ('Y' array or 'objectGuess') found.
+INFO: This is expected for PINN training which doesn't require ground truth.
+neighbor-sampled diffraction shape (10, 64, 64, 4)
+PtychoDataContainerTorch: setting dummy Y ground truth with correct channel shape.
+----------------------------- Captured stderr call -----------------------------
+INFO: Seed set to 42
+------------------------------ Captured log call -------------------------------
+INFO     lightning.fabric.utilities.seed:seed.py:57 Seed set to 42
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_coords_relative_layout - AssertionError: coords_relative tensor MUST have shape suffix (C, 1, 2) where C=4, but got shape=torch.Size([4, 1, 2, 4]) with suffix=torch.Size([1, 2, 4]). Current axis order causes Translation.view() to fail in reassemble_patches_position_real. See plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103200Z/phase_c4d_coords_debug/summary.md
+assert torch.Size([1, 2, 4]) == (4, 1, 2)
+  
+  At index 0 diff: 1 != 4
+  
+  Full diff:
+  + torch.Size([1, 2, 4])
+  - (
+  -     4,
+  -     1,
+  -     2,
+  - )
+============================== 1 failed in 4.51s ===============================

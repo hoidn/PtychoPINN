@@ -1,0 +1,1325 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 305 items / 2 skipped
+
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_bounding_box PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_coordinates_format PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_shapes PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_with_squeeze PASSED [  1%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_center_crop_exact_size PASSED [  1%]
+tests/image/test_registration.py::TestRegistration::test_apply_shift_and_crop_basic PASSED [  1%]
+tests/image/test_registration.py::TestRegistration::test_apply_shift_and_crop_zero_offset PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_different_image_content PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_edge_case_maximum_shift PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_edge_case_single_pixel_shift PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_find_offset_known_shift_complex PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_find_offset_known_shift_real PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_2d_requirement PASSED [  4%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_excessive_offset PASSED [  4%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_shape_matching PASSED [  4%]
+tests/image/test_registration.py::TestRegistration::test_noise_robustness PASSED [  5%]
+tests/image/test_registration.py::TestRegistration::test_register_and_align_convenience PASSED [  5%]
+tests/image/test_registration.py::TestRegistration::test_registration_sign_verification PASSED [  5%]
+tests/image/test_registration.py::TestRegistration::test_round_trip_registration PASSED [  6%]
+tests/image/test_registration.py::TestRegistration::test_shift_and_crop_preserves_data_type PASSED [  6%]
+tests/test_baselines.py::TestBaselines::test_build_model_always_creates_single_channel_output PASSED [  6%]
+tests/test_cli_args.py::TestCliArgs::test_add_logging_arguments PASSED   [  7%]
+tests/test_cli_args.py::TestCliArgs::test_console_level_choices PASSED   [  7%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_custom_level PASSED [  7%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_defaults PASSED [  8%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_quiet PASSED [  8%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_verbose PASSED [  8%]
+tests/test_cli_args.py::TestCliArgs::test_quiet_verbose_mutually_exclusive PASSED [  9%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_backward_compatibility PASSED [  9%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_different_seeds_produce_different_results PASSED [  9%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_k_less_than_c PASSED [ 10%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_more_samples_than_points PASSED [ 10%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_small_dataset PASSED [ 10%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_output_shape PASSED [ 11%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_spatial_coherence PASSED [ 11%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_valid_indices PASSED [ 11%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_generate_grouped_data_gridsize_1 PASSED [ 12%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_generate_grouped_data_integration PASSED [ 12%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_memory_efficiency PASSED [ 12%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_no_cache_files_created PASSED [ 13%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_performance_improvement PASSED [ 13%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_reproducibility_with_seed PASSED [ 13%]
+tests/test_coordinate_grouping.py::TestIntegrationWithExistingCode::test_existing_tests_still_pass PASSED [ 14%]
+tests/test_generic_loader.py::TestGenericLoader::test_generic_loader_roundtrip SKIPPED [ 14%]
+tests/test_generic_loader.py::test_generic_loader PASSED                 [ 14%]
+tests/test_integration_baseline_gs2.py::TestBaselineGridsize2Integration::test_baseline_gridsize2_end_to_end SKIPPED [ 15%]
+tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle PASSED [ 15%]
+tests/test_log_config.py::TestLogConfig::test_backward_compatibility PASSED [ 15%]
+tests/test_log_config.py::TestLogConfig::test_conflicting_flags_verbose_overrides PASSED [ 16%]
+tests/test_log_config.py::TestLogConfig::test_custom_console_level PASSED [ 16%]
+tests/test_log_config.py::TestLogConfig::test_default_setup_logging_creates_log_directory_and_file PASSED [ 16%]
+tests/test_log_config.py::TestLogConfig::test_quiet_flag_overrides_console_level PASSED [ 17%]
+tests/test_log_config.py::TestLogConfig::test_quiet_mode_disables_console PASSED [ 17%]
+tests/test_log_config.py::TestLogConfig::test_setup_logging_clears_existing_handlers PASSED [ 17%]
+tests/test_log_config.py::TestLogConfig::test_string_path_support PASSED [ 18%]
+tests/test_log_config.py::TestLogConfig::test_verbose_mode_enables_debug_console PASSED [ 18%]
+tests/test_misc.py::test_memoize_simulated_data SKIPPED (Deprecated:...) [ 18%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_configuration_mismatch_warnings PASSED [ 19%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_end_to_end_workflow_consistency PASSED [ 19%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_backward_compatibility PASSED [ 19%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_persistence_single_nphotons PASSED [ 20%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_multiple_nphotons_metadata_consistency PASSED [ 20%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_training_with_mismatched_config_warns_but_continues PASSED [ 20%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_automatic_oversampling_triggers PASSED [ 20%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_gridsize_1_no_oversampling PASSED [ 21%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_oversampling_with_different_k_values PASSED [ 21%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_reproducibility_with_seed PASSED [ 21%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_standard_sampling_no_oversampling PASSED [ 22%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_batch_processing PASSED [ 22%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_complex128_dtype PASSED [ 22%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_complex64_dtype PASSED [ 23%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_fill_modes PASSED [ 23%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float32_dtype PASSED [ 23%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float64_dtype PASSED [ 24%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float64_with_translation PASSED [ 24%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_interpolation_modes PASSED [ 24%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_jit_compilation_float32 PASSED [ 25%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_jit_compilation_float64 PASSED [ 25%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_mixed_precision_translation PASSED [ 25%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_tfa_params_conversion PASSED [ 26%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_content_validity PASSED [ 26%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_k_less_than_c PASSED [ 26%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_more_samples_than_points PASSED [ 27%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_small_dataset PASSED [ 27%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_memory_efficiency PASSED [ 27%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_output_shape PASSED [ 28%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_performance_improvement PASSED [ 28%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_reproducibility PASSED [ 28%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_uniform_sampling PASSED [ 29%]
+tests/test_scaling_regression.py::TestScalingRegression::test_both_arrays_scaled_identically PASSED [ 29%]
+tests/test_scaling_regression.py::TestScalingRegression::test_different_nphotons_produce_proportional_scaling PASSED [ 29%]
+tests/test_scaling_regression.py::TestScalingRegression::test_intensity_scale_is_valid PASSED [ 30%]
+tests/test_scaling_regression.py::TestScalingRegression::test_phase_is_not_scaled PASSED [ 30%]
+tests/test_scaling_regression.py::TestScalingRegression::test_scaling_is_reversible PASSED [ 30%]
+tests/test_scaling_regression.py::TestScalingRegression::test_scaling_preserves_physics PASSED [ 31%]
+tests/test_scaling_regression.py::TestScalingAssertions::test_assertions_catch_invalid_intensity_scale PASSED [ 31%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_default_behavior_is_random PASSED [ 31%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_handles_edge_cases PASSED [ 32%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_is_deterministic PASSED [ 32%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_order PASSED [ 32%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_uses_first_n_points PASSED [ 33%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_with_gridsize_greater_than_1 PASSED [ 33%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_with_seed_parameter PASSED [ 33%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_vs_random_coverage PASSED [ 34%]
+tests/test_sequential_sampling.py::TestIntegrationWithWorkflow::test_cli_argument_parsing PASSED [ 34%]
+tests/test_sequential_sampling.py::TestIntegrationWithWorkflow::test_config_flag_exists PASSED [ 34%]
+tests/test_subsampling.py::TestSubsampling::test_different_seeds_produce_different_results PASSED [ 35%]
+tests/test_subsampling.py::TestSubsampling::test_interaction_with_config_dataclass PASSED [ 35%]
+tests/test_subsampling.py::TestSubsampling::test_legacy_n_images_behavior PASSED [ 35%]
+tests/test_subsampling.py::TestSubsampling::test_n_subsample_overrides_n_images PASSED [ 36%]
+tests/test_subsampling.py::TestSubsampling::test_no_subsample_uses_full_dataset PASSED [ 36%]
+tests/test_subsampling.py::TestSubsampling::test_reproducible_subsampling_with_seed PASSED [ 36%]
+tests/test_subsampling.py::TestSubsampling::test_sorted_indices_for_consistency PASSED [ 37%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_larger_than_dataset PASSED [ 37%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_with_n_subsample PASSED [ 37%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_zero_edge_case PASSED [ 38%]
+tests/test_subsampling.py::TestSubsampling::test_y_patches_subsampled_consistently PASSED [ 38%]
+tests/test_tf_helper.py::TestReassemblePosition::test_basic_functionality PASSED [ 38%]
+tests/test_tf_helper.py::TestReassemblePosition::test_different_patch_values_blend PASSED [ 39%]
+tests/test_tf_helper.py::TestReassemblePosition::test_identical_patches_single_vs_double PASSED [ 39%]
+tests/test_tf_helper.py::TestReassemblePosition::test_perfect_overlap_averages_to_identity PASSED [ 39%]
+tests/test_tf_helper.py::TestTranslateFunction::test_batch_translation PASSED [ 40%]
+tests/test_tf_helper.py::TestTranslateFunction::test_complex_tensor_translation PASSED [ 40%]
+tests/test_tf_helper.py::TestTranslateFunction::test_edge_cases PASSED   [ 40%]
+tests/test_tf_helper.py::TestTranslateFunction::test_integer_translation PASSED [ 40%]
+tests/test_tf_helper.py::TestTranslateFunction::test_subpixel_translation PASSED [ 41%]
+tests/test_tf_helper.py::TestTranslateFunction::test_translate_core_matches_addons SKIPPED [ 41%]
+tests/test_tf_helper.py::TestTranslateFunction::test_zero_translation PASSED [ 41%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_complex_smooth_translation PASSED [ 42%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_gaussian_probe_translation SKIPPED [ 42%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_smooth_object_translation SKIPPED [ 42%]
+tests/test_tf_helper_edge_aware.py::TestTranslateEdgeCases::test_boundary_behavior SKIPPED [ 43%]
+tests/test_tf_helper_edge_aware.py::TestTranslateEdgeCases::test_document_edge_differences SKIPPED [ 43%]
+tests/test_tf_helper_edge_aware.py::TestPtychoPINNRelevantCases::test_batch_smooth_patterns SKIPPED [ 43%]
+tests/test_tf_helper_edge_aware.py::TestPtychoPINNRelevantCases::test_typical_probe_sizes SKIPPED [ 44%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_exception_propagation PASSED [ 44%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_load_valid_model_directory PASSED [ 44%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_missing_diffraction_model PASSED [ 45%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_missing_model_archive PASSED [ 45%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_nonexistent_directory PASSED [ 45%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_not_a_directory PASSED [ 46%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_path_conversion PASSED [ 46%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_module_docstring_handles_missing_docstring PASSED [ 46%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_module_docstring_reads_existing_docstring PASSED [ 47%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_test_functions_lists_key_tests PASSED [ 47%]
+tests/tools/test_update_tool.py::TestUpdateTool::test_update_function PASSED [ 47%]
+tests/tools/test_update_tool.py::test_update_function PASSED             [ 48%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_defaults_to_tensorflow_backend PASSED [ 48%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_selects_pytorch_backend PASSED [ 48%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_backend_calls_update_legacy_dict PASSED [ 49%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_unavailable_raises_error PASSED [ 49%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_inference_config_supports_backend_selection PASSED [ 49%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_backend_selection_preserves_api_parity PASSED [ 50%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip PASSED [ 50%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_num_workers_flag_roundtrip PASSED [ 50%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_inference_batch_size_flag_roundtrip PASSED [ 51%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_multiple_execution_config_flags PASSED [ 51%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accelerator_flag_roundtrip PASSED [ 51%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_deterministic_flag_roundtrip PASSED [ 52%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_no_deterministic_flag_roundtrip PASSED [ 52%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip PASSED [ 52%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_learning_rate_flag_roundtrip PASSED [ 53%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_multiple_execution_config_flags PASSED [ 53%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence PASSED [ 53%]
+tests/torch/test_config_bridge.py::TestConfigBridgeMVP::test_mvp_config_bridge_populates_params_cfg PASSED [ 54%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[N-direct] PASSED [ 54%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[n_filters_scale-direct] PASSED [ 54%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[object_big-direct] PASSED [ 55%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[probe_big-direct] PASSED [ 55%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct] PASSED [ 55%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[gridsize-tuple-to-int] PASSED [ 56%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-unsupervised] PASSED [ 56%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-supervised] PASSED [ 56%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-silu] PASSED [ 57%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-SiLU] PASSED [ 57%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-passthrough] PASSED [ 57%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename] PASSED [ 58%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true] PASSED [ 58%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false] PASSED [ 58%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-default] PASSED [ 59%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-override] PASSED [ 59%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-default] PASSED [ 59%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-override] PASSED [ 60%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default] PASSED [ 60%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override] PASSED [ 60%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default] PASSED [ 60%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default] PASSED [ 61%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default] PASSED [ 61%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default] PASSED [ 61%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default] PASSED [ 62%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-default] PASSED [ 62%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-override] PASSED [ 62%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_translation[probe_mask-default] PASSED [ 63%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_override PASSED [ 63%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence] PASSED [ 63%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[probe_scale-divergence] PASSED [ 64%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_gridsize_error_handling[gridsize-non-square] PASSED [ 64%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_type_error_handling[model_type-invalid-enum] PASSED [ 64%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_activation_error_handling[amp_activation-unknown] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_path_required_error PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_default_divergence_error PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_missing_override_uses_none PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_explicit_override PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_params_cfg_matches_baseline PASSED [ 68%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass PASSED [ 69%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config PASSED [ 69%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs PASSED [ 69%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_overrides_dict PASSED [ 70%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count PASSED [ 70%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_returns_dataclass PASSED [ 70%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_tf_config PASSED [ 71%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_pytorch_configs PASSED [ 71%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_grid_size_tuple_to_gridsize_int PASSED [ 71%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_epochs_to_nepochs_conversion PASSED [ 72%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_k_to_neighbor_count_conversion PASSED [ 72%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_factory_populates_params_cfg PASSED [ 72%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_populate_legacy_params_helper PASSED [ 73%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_override_dict_wins_over_defaults PASSED [ 73%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_probe_size_override_wins_over_inference PASSED [ 73%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_n_groups_raises_error PASSED [ 74%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_nonexistent_train_data_file_raises_error PASSED [ 74%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_checkpoint_raises_error PASSED [ 74%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_training_payload_execution_config_not_none PASSED [ 75%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_inference_payload_execution_config_not_none PASSED [ 75%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_defaults_applied PASSED [ 75%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_explicit_instance_propagates PASSED [ 76%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible PASSED [ 76%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_overrides_applied_records_execution_knobs PASSED [ 76%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_from_npz PASSED [ 77%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback PASSED [ 77%]
+tests/torch/test_data_pipeline.py::TestRawDataTorchAdapter::test_raw_data_torch_matches_tensorflow PASSED [ 77%]
+tests/torch/test_data_pipeline.py::TestDataContainerParity::test_data_container_shapes_and_dtypes PASSED [ 78%]
+tests/torch/test_data_pipeline.py::TestGroundTruthLoading::test_y_patches_are_complex64 PASSED [ 78%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_memmap_loader_matches_raw_data_torch PASSED [ 78%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_deterministic_generation_validation PASSED [ 79%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_backward_compat_legacy_diff3d PASSED [ 79%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_error_when_no_diffraction_key PASSED [ 79%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_loads_canonical_diffraction PASSED [ 80%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_auto_transposes_legacy_hwn_format PASSED [ 80%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_handles_edge_case_square_dataset PASSED [ 80%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_npz_headers_also_transposes_shape PASSED [ 80%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_preserves_canonical_nwh_format PASSED [ 81%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_real_dataset_dimensions PASSED [ 81%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_works_with_diff3d_legacy_key PASSED [ 81%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_file_exists PASSED [ 82%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_outputs_match_contract PASSED [ 82%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_sidecar_exists PASSED [ 82%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_content_valid PASSED [ 83%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_coordinate_coverage PASSED [ 83%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_loads_with_rawdata PASSED [ 83%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_compatible_with_pytorch_dataloader PASSED [ 84%]
+tests/torch/test_integration_workflow_torch.py::test_bundle_loader_returns_modules PASSED [ 84%]
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer PASSED [ 84%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle_legacy SKIPPED [ 85%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_tf_output_parity SKIPPED [ 85%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters PASSED [ 85%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs PASSED [ 86%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable PASSED [ 86%]
+tests/torch/test_model_manager.py::TestSaveTorchBundle::test_archive_structure PASSED [ 86%]
+tests/torch/test_model_manager.py::TestSaveTorchBundle::test_params_snapshot PASSED [ 87%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_updates_params_cfg PASSED [ 87%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_missing_params_raises_value_error PASSED [ 87%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_returns_model_stub PASSED [ 88%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_reconstructs_models_from_bundle PASSED [ 88%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_combine_complex SKIPPED [ 88%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_get_mask SKIPPED  [ 89%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_placeholder_torch_functions SKIPPED [ 89%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_128 PASSED [ 89%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_from_npz PASSED [ 90%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_missing_probe PASSED [ 90%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_real_dataset PASSED [ 90%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_rectangular PASSED [ 91%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict PASSED [ 91%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_cdi_model_torch_invokes_lightning PASSED [ 91%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_dataloader_tensor_dict_structure PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_poisson_count_contract PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_coords_relative_layout PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_invokes_training PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_load_inference_bundle_handles_bundle PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module FAILED [ 94%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_runs_trainer_fit FAILED [ 94%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_returns_models_dict FAILED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_guard_without_train_results PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_return_contract PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_batches_remain_float32 PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_dataloader_casts_float64_to_float32 PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_shape_alignment PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_false_no_mismatch PASSED [ 99%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer FAILED [ 99%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism FAILED [ 99%]
+tests/torch/test_workflows_components.py::TestInferenceExecutionConfig::test_inference_uses_execution_batch_size PASSED [100%]
+
+=================================== FAILURES ===================================
+___ TestTrainWithLightningRed.test_train_with_lightning_instantiates_module ____
+
+self = <test_workflows_components.TestTrainWithLightningRed object at 0x7ef96e0fe9d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ef9644e5a10>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'backend': 'tensorflow', 'batch_size': 16, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7ef92c1951d0>
+
+    def test_train_with_lightning_instantiates_module(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 1: _train_with_lightning MUST instantiate PtychoPINN_Lightning with four configs.
+    
+        Requirement: specs/ptychodus_api_spec.md:187 reconstructor lifecycle requires
+        trained module handles with serialized config for checkpoint reload.
+    
+        Design contract (phase_b_test_design.md §1):
+        - _train_with_lightning receives (train_container, test_container, config)
+        - MUST construct ptycho_torch.model.PtychoPINN_Lightning(__init__)
+        - Constructor MUST receive exactly (model_config, data_config, training_config, inference_config)
+        - This ensures checkpoint.load can reconstruct module without external state
+    
+        Test mechanism:
+        - Monkeypatch PtychoPINN_Lightning to spy on __init__ args
+        - Create minimal containers (dicts acceptable for red phase)
+        - Invoke _train_with_lightning
+        - Assert spy recorded all four config objects
+    
+        Expected red-phase failure:
+        - Stub never instantiates Lightning module
+        - Spy not called → assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+    
+        # Spy to track Lightning module instantiation
+        lightning_init_called = {"called": False, "args": None}
+    
+        def mock_lightning_init(model_config, data_config, training_config, inference_config):
+            """Spy that records PtychoPINN_Lightning.__init__ args."""
+            import torch
+            import lightning.pytorch as L
+    
+            lightning_init_called["called"] = True
+            lightning_init_called["args"] = (model_config, data_config, training_config, inference_config)
+    
+            # Return minimal stub module inheriting from LightningModule
+            # to satisfy Lightning's isinstance check during trainer.fit
+            class StubLightningModule(L.LightningModule):
+                def __init__(self):
+                    super().__init__()
+                    # Minimal parameter to satisfy Lightning requirements
+                    self.dummy_param = torch.nn.Parameter(torch.zeros(1))
+    
+                def training_step(self, batch, batch_idx):
+                    """Minimal training step required by Lightning."""
+                    # Return deterministic zero loss to make Trainer complete immediately
+                    return torch.tensor(0.0, requires_grad=True)
+    
+                def configure_optimizers(self):
+                    """Minimal optimizer required by Lightning."""
+                    return torch.optim.Adam(self.parameters(), lr=1e-3)
+    
+            return StubLightningModule()
+    
+        # Monkeypatch Lightning module constructor
+        # Note: actual import path will be ptycho_torch.model.PtychoPINN_Lightning
+        # but we monkeypatch at the call site within _train_with_lightning
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            mock_lightning_init
+        )
+    
+        # Create minimal train_container (dict placeholder for red phase)
+        # Phase C adapters will produce actual PtychoDataContainerTorch
+        train_container = {
+            "X": np.ones((10, 64, 64)),
+            "Y": np.ones((10, 64, 64), dtype=np.complex64),
+        }
+    
+        # Call _train_with_lightning
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+tests/torch/test_workflows_components.py:1332: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:649: in _train_with_lightning
+    payload = create_training_payload(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/dummy_train.npz')
+output_dir = PosixPath('training_outputs')
+overrides = {'amp_activation': 'sigmoid', 'batch_size': 16, 'gridsize': 2, 'max_epochs': 2, ...}
+execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[PyTorchExecutionConfig] = None,
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+        from ptycho_torch.config_bridge import to_model_config, to_training_config
+    
+        # Defensive copy of overrides
+        overrides = overrides or {}
+        overrides_applied = dict(overrides)  # Audit trail
+    
+        # Step 1: Validate required arguments
+        if not train_data_file.exists():
+>           raise FileNotFoundError(f"Training data file not found: {train_data_file}")
+E           FileNotFoundError: Training data file not found: /tmp/dummy_train.npz
+
+ptycho_torch/config_factory.py:180: FileNotFoundError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+_____ TestTrainWithLightningRed.test_train_with_lightning_runs_trainer_fit _____
+
+self = <test_workflows_components.TestTrainWithLightningRed object at 0x7ef96e0ff0d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ef96413c6d0>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'backend': 'tensorflow', 'batch_size': 16, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7ef96dfb8450>
+
+    def test_train_with_lightning_runs_trainer_fit(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 2: _train_with_lightning MUST invoke Trainer.fit with dataloaders.
+    
+        Requirement: docs/workflows/pytorch.md §5 Lightning trainer expectations
+        require Trainer.fit orchestration with train/val dataloaders.
+    
+        Design contract (phase_b_test_design.md §2):
+        - _train_with_lightning MUST construct lightning.pytorch.Trainer
+        - MUST invoke trainer.fit(module, train_dataloader, val_dataloader)
+        - Dataloaders MUST be derived from provided train/test containers
+        - Validation dataloader is None when test_container is None
+    
+        Test mechanism:
+        - Monkeypatch Trainer constructor to return stub exposing fit_called flag
+        - Monkeypatch dataloader builders (future helpers) with sentinels
+        - Invoke _train_with_lightning
+        - Assert Trainer.fit was called with correct dataloaders
+    
+        Expected red-phase failure:
+        - Stub never constructs Trainer or calls fit
+        - fit_called flag remains False → assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+    
+        # Spy to track Trainer.fit invocation
+        trainer_fit_called = {"called": False, "args": None, "kwargs": None}
+    
+        class MockTrainer:
+            """Stub Trainer that records fit() calls."""
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                trainer_fit_called["called"] = True
+                trainer_fit_called["args"] = (module, train_dataloaders, val_dataloaders)
+                trainer_fit_called["kwargs"] = kwargs
+    
+        # Monkeypatch Lightning Trainer
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            lambda **kwargs: MockTrainer()
+        )
+    
+        # Monkeypatch Lightning module to prevent import errors
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+    
+        # Create sentinel dataloaders (Phase B2 will wire real loader builders)
+        sentinel_train_loader = {"_sentinel": "train_dataloader"}
+        sentinel_val_loader = None  # test_container is None
+    
+        # Monkeypatch future dataloader builder helper
+        # (Phase B2 will add _build_lightning_dataloaders or similar)
+        def mock_build_dataloaders(container, config, shuffle=True):
+            """Sentinel that returns mock dataloader."""
+            if container is not None:
+                return sentinel_train_loader
+            return None
+    
+        # For red phase, assume _train_with_lightning will eventually call helper
+        # For now, test just validates fit() invocation pattern
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+tests/torch/test_workflows_components.py:1433: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:649: in _train_with_lightning
+    payload = create_training_payload(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/dummy_train.npz')
+output_dir = PosixPath('training_outputs')
+overrides = {'amp_activation': 'sigmoid', 'batch_size': 16, 'gridsize': 2, 'max_epochs': 2, ...}
+execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[PyTorchExecutionConfig] = None,
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+        from ptycho_torch.config_bridge import to_model_config, to_training_config
+    
+        # Defensive copy of overrides
+        overrides = overrides or {}
+        overrides_applied = dict(overrides)  # Audit trail
+    
+        # Step 1: Validate required arguments
+        if not train_data_file.exists():
+>           raise FileNotFoundError(f"Training data file not found: {train_data_file}")
+E           FileNotFoundError: Training data file not found: /tmp/dummy_train.npz
+
+ptycho_torch/config_factory.py:180: FileNotFoundError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+___ TestTrainWithLightningRed.test_train_with_lightning_returns_models_dict ____
+
+self = <test_workflows_components.TestTrainWithLightningRed object at 0x7ef96e0ff790>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ef96413f150>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'backend': 'tensorflow', 'batch_size': 16, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7ef9670650d0>
+
+    def test_train_with_lightning_returns_models_dict(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST 3: _train_with_lightning MUST return results dict with 'models' key.
+    
+        Requirement: Phase D4 persistence tests require trained module handles
+        for save_torch_bundle orchestration (mirrors TensorFlow train_cdi_model).
+    
+        Design contract (phase_b_test_design.md §3):
+        - _train_with_lightning returns Dict[str, Any]
+        - Results dict MUST contain 'models' key
+        - models['lightning_module'] (or models['diffraction_to_obj']) MUST point to trained module
+        - This enables downstream save_torch_bundle to persist checkpoint
+    
+        Test mechanism:
+        - Monkeypatch Lightning components to return stub module
+        - Invoke _train_with_lightning
+        - Assert results dict contains 'models' key with module handle
+    
+        Expected red-phase failure:
+        - Stub returns only history/containers → missing 'models' key
+        - Assertion fails
+        """
+        from ptycho_torch.workflows import components as torch_components
+    
+        # Stub Lightning module with sentinel identity
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+            _sentinel = "trained_lightning_module"
+    
+        stub_module = StubLightningModule()
+    
+        # Monkeypatch Lightning module constructor
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: stub_module
+        )
+    
+        # Monkeypatch Trainer to skip actual training
+        class MockTrainer:
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+    
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            lambda **kwargs: MockTrainer()
+        )
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+tests/torch/test_workflows_components.py:1513: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:649: in _train_with_lightning
+    payload = create_training_payload(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/dummy_train.npz')
+output_dir = PosixPath('training_outputs')
+overrides = {'amp_activation': 'sigmoid', 'batch_size': 16, 'gridsize': 2, 'max_epochs': 2, ...}
+execution_config = None
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[PyTorchExecutionConfig] = None,
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+        from ptycho_torch.config_bridge import to_model_config, to_training_config
+    
+        # Defensive copy of overrides
+        overrides = overrides or {}
+        overrides_applied = dict(overrides)  # Audit trail
+    
+        # Step 1: Validate required arguments
+        if not train_data_file.exists():
+>           raise FileNotFoundError(f"Training data file not found: {train_data_file}")
+E           FileNotFoundError: Training data file not found: /tmp/dummy_train.npz
+
+ptycho_torch/config_factory.py:180: FileNotFoundError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+_____ TestTrainWithLightningGreen.test_execution_config_overrides_trainer ______
+
+self = <test_workflows_components.TestTrainWithLightningGreen object at 0x7ef96df04490>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ef90c463e90>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'backend': 'tensorflow', 'batch_size': 16, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7ef9644cec10>
+
+    def test_execution_config_overrides_trainer(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST: _train_with_lightning MUST pass execution config knobs to Trainer.
+    
+        Requirement: ADR-003 Phase C3.A3 — thread trainer kwargs from execution config.
+    
+        Expected behavior (after wiring):
+        - When execution_config supplied, Trainer receives accelerator/deterministic/gradient_clip_val
+        - Values override defaults (e.g., accelerator='gpu', deterministic=False, gradient_clip_val=1.0)
+        - When execution_config=None, Trainer uses CPU-safe defaults
+    
+        Test mechanism:
+        - Spy on Trainer.__init__ to capture kwargs
+        - Supply non-default PyTorchExecutionConfig (accelerator='gpu', deterministic=False)
+        - Assert Trainer received those exact values
+        - Expect FAILURE because _train_with_lightning currently ignores execution_config
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Spy to track Trainer.__init__ kwargs
+        trainer_init_kwargs = {"called": False, "kwargs": None}
+    
+        class MockTrainer:
+            """Stub Trainer that records __init__ kwargs."""
+            def __init__(self, **kwargs):
+                trainer_init_kwargs["called"] = True
+                trainer_init_kwargs["kwargs"] = kwargs
+    
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+    
+        # Monkeypatch Lightning Trainer
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            MockTrainer
+        )
+    
+        # Monkeypatch Lightning module to prevent errors
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+    
+        # Create execution config with non-default values
+        exec_config = PyTorchExecutionConfig(
+            accelerator='gpu',  # Override default 'cpu'
+            deterministic=False,  # Override default True
+            gradient_clip_val=1.0,  # Override default None
+            num_workers=4,  # Override default 0
+        )
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning with execution_config
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            execution_config=exec_config  # CRITICAL: new parameter
+        )
+
+tests/torch/test_workflows_components.py:2535: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:649: in _train_with_lightning
+    payload = create_training_payload(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/dummy_train.npz')
+output_dir = PosixPath('training_outputs')
+overrides = {'amp_activation': 'sigmoid', 'batch_size': 16, 'gridsize': 2, 'max_epochs': 2, ...}
+execution_config = PyTorchExecutionConfig(accelerator='gpu', strategy='auto', deterministic=False, gradient_clip_val=1.0, accum_steps=1, ...ric='val_loss', early_stop_patience=100, logger_backend=None, inference_batch_size=None, middle_trim=0, pad_eval=False)
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[PyTorchExecutionConfig] = None,
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+        from ptycho_torch.config_bridge import to_model_config, to_training_config
+    
+        # Defensive copy of overrides
+        overrides = overrides or {}
+        overrides_applied = dict(overrides)  # Audit trail
+    
+        # Step 1: Validate required arguments
+        if not train_data_file.exists():
+>           raise FileNotFoundError(f"Training data file not found: {train_data_file}")
+E           FileNotFoundError: Training data file not found: /tmp/dummy_train.npz
+
+ptycho_torch/config_factory.py:180: FileNotFoundError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+____ TestTrainWithLightningGreen.test_execution_config_controls_determinism ____
+
+self = <test_workflows_components.TestTrainWithLightningGreen object at 0x7ef96df04a90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ef90c4624d0>
+params_cfg_snapshot = {'N': 64, 'amp_activation': 'sigmoid', 'backend': 'tensorflow', 'batch_size': 16, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7ef90c4632d0>
+
+    def test_execution_config_controls_determinism(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST: execution_config.deterministic MUST trigger Lightning deterministic mode.
+    
+        Requirement: ADR-003 Phase C3.C2 — validate deterministic behaviour.
+    
+        Expected behavior:
+        - When deterministic=True (default), Trainer receives deterministic=True
+        - This triggers torch.use_deterministic_algorithms(True) and seeds
+        - When deterministic=False, Trainer allows non-deterministic ops
+    
+        Test mechanism:
+        - Supply execution_config with deterministic=True
+        - Assert Trainer.__init__ received deterministic=True kwarg
+        - Expect FAILURE because current stub doesn't wire deterministic flag
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Spy to track Trainer.__init__ kwargs
+        trainer_init_kwargs = {"called": False, "kwargs": None}
+    
+        class MockTrainer:
+            def __init__(self, **kwargs):
+                trainer_init_kwargs["called"] = True
+                trainer_init_kwargs["kwargs"] = kwargs
+    
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+    
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            MockTrainer
+        )
+    
+        # Monkeypatch Lightning module
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+    
+        # Create execution config with deterministic=True (default)
+        exec_config = PyTorchExecutionConfig(
+            deterministic=True,
+            accelerator='cpu'
+        )
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            execution_config=exec_config
+        )
+
+tests/torch/test_workflows_components.py:2629: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+ptycho_torch/workflows/components.py:649: in _train_with_lightning
+    payload = create_training_payload(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_data_file = PosixPath('/tmp/dummy_train.npz')
+output_dir = PosixPath('training_outputs')
+overrides = {'amp_activation': 'sigmoid', 'batch_size': 16, 'gridsize': 2, 'max_epochs': 2, ...}
+execution_config = PyTorchExecutionConfig(accelerator='cpu', strategy='auto', deterministic=True, gradient_clip_val=None, accum_steps=1, ...ric='val_loss', early_stop_patience=100, logger_backend=None, inference_batch_size=None, middle_trim=0, pad_eval=False)
+
+    def create_training_payload(
+        train_data_file: Path,
+        output_dir: Path,
+        overrides: Optional[Dict[str, Any]] = None,
+        execution_config: Optional[PyTorchExecutionConfig] = None,
+    ) -> TrainingPayload:
+        """
+        Create complete training configuration payload.
+    
+        Centralizes all config construction logic for PyTorch training workflows.
+        Eliminates duplicated wiring in CLI and workflow entry points by providing
+        a single factory function that:
+        1. Validates required arguments (train_data_file, output_dir, n_groups)
+        2. Infers probe size from NPZ metadata (or uses override)
+        3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig)
+        4. Applies CLI overrides with precedence rules
+        5. Translates to TensorFlow canonical configs via config_bridge
+        6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+        7. Constructs PyTorchExecutionConfig for runtime knobs
+        8. Returns TrainingPayload with all config objects + audit trail
+    
+        Args:
+            train_data_file: Path to training NPZ dataset (must exist per DATA-001)
+            output_dir: Path to output directory for checkpoints/logs (created if missing)
+            overrides: Dict of field overrides (highest precedence). Required keys:
+                - n_groups: Number of grouped samples (no default, raises error if missing)
+                Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
+            execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
+                deterministic, num_workers, etc.). If None, uses defaults.
+    
+        Returns:
+            TrainingPayload containing:
+                - tf_training_config: TrainingConfig (canonical TensorFlow format)
+                - pt_data_config: DataConfig (PyTorch singleton)
+                - pt_model_config: ModelConfig (PyTorch singleton)
+                - pt_training_config: TrainingConfig (PyTorch singleton)
+                - execution_config: PyTorchExecutionConfig (runtime knobs)
+                - overrides_applied: Dict[str, Any] (audit trail)
+    
+        Raises:
+            FileNotFoundError: train_data_file does not exist
+            ValueError: n_groups missing in overrides (required field)
+            ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
+    
+        Example:
+            >>> from pathlib import Path
+            >>> payload = create_training_payload(
+            ...     train_data_file=Path('datasets/train.npz'),
+            ...     output_dir=Path('outputs/exp001'),
+            ...     overrides={
+            ...         'n_groups': 512,
+            ...         'batch_size': 4,
+            ...         'gridsize': 2,
+            ...         'max_epochs': 10,
+            ...     },
+            ...     execution_config=PyTorchExecutionConfig(
+            ...         accelerator='cpu',
+            ...         enable_progress_bar=True,
+            ...     ),
+            ... )
+            >>> assert isinstance(payload.tf_training_config, TrainingConfig)
+            >>> assert payload.tf_training_config.n_groups == 512
+    
+        See also:
+            - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+            - Override precedence: .../override_matrix.md §6
+            - Integration: .../factory_design.md §3 (CLI/workflow call sites)
+        """
+        from ptycho_torch.config_bridge import to_model_config, to_training_config
+    
+        # Defensive copy of overrides
+        overrides = overrides or {}
+        overrides_applied = dict(overrides)  # Audit trail
+    
+        # Step 1: Validate required arguments
+        if not train_data_file.exists():
+>           raise FileNotFoundError(f"Training data file not found: {train_data_file}")
+E           FileNotFoundError: Training data file not found: /tmp/dummy_train.npz
+
+ptycho_torch/config_factory.py:180: FileNotFoundError
+---------------------------- Captured stdout setup -----------------------------
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py:569: UserWarning: num_workers > 0 with deterministic mode enabled. This may introduce non-determinism on some platforms. Consider using --num-workers 0 for strict reproducibility.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:547: UserWarning: Error reading probeGuess from /tmp/pytest-of-ollie/pytest-762/test_bundle_persistence0/train.npz: No data left in file. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py: 1 warning
+tests/torch/test_config_factory.py: 16 warnings
+tests/torch/test_workflows_components.py: 1 warning
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_cli_train_torch.py: 1 warning
+tests/torch/test_config_factory.py: 19 warnings
+tests/torch/test_workflows_components.py: 1 warning
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:608: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeMVP::test_mvp_config_bridge_populates_params_cfg
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:100: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    spec_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:235: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:298: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:366: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:493: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:575: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:666: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:707: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:742: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:541: UserWarning: Data file /nonexistent/data.npz not found. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_poisson_count_contract
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/core/module.py:449: You are trying to `self.log()` but the `self.trainer` reference is not registered on the model yet. This is most likely because the model hasn't been passed to the `Trainer`
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory training_outputs/checkpoints exists and is not empty.
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_benchmark_throughput.py:11: scripts/benchmark_inference_throughput.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_run_baseline.py:4: tests/test_utilities.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_generic_loader.py:46: Data loading failed:
+SKIPPED [1] tests/test_integration_baseline_gs2.py:27: Test data not found at /home/ollie/Documents/PtychoPINN2/datasets/fly/fly001_transposed.npz
+SKIPPED [1] ../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/unittest.py:385: Deprecated: generate_simulated_data API changed from (obj,probe,nimages) to (config,obj,probe) and memoization disabled
+SKIPPED [1] tests/test_tf_helper.py:199: TensorFlow Addons removed in TF 2.19 migration
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:47: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:86: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:198: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:169: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:257: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:227: tensorflow_addons not available
+SKIPPED [2] tests/torch/test_integration_workflow_torch.py: Migrated to pytest-native test_run_pytorch_train_save_load_infer
+SKIPPED [1] tests/torch/test_tf_helper.py:64: torch tf_helper module not available
+SKIPPED [1] tests/torch/test_tf_helper.py:57: torch tf_helper module not available
+SKIPPED [1] tests/torch/test_tf_helper.py:74: torch tf_helper module not available - tests would fail
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_runs_trainer_fit
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_returns_models_dict
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism
+====== 5 failed, 285 passed, 17 skipped, 62 warnings in 202.75s (0:03:22) ======
