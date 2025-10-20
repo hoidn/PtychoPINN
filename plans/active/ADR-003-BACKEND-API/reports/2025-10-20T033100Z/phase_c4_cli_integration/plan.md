@@ -73,15 +73,15 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 | C4.C1 | Add execution config argparse flags | [x] | ✅ 2025-10-20 — `ptycho_torch/train.py:381-452` now defines `--accelerator/--device`, `--deterministic/--no-deterministic`, `--num-workers`, and `--learning-rate` with help text lifted from `argparse_schema.md`. |
 | C4.C2 | Replace ad-hoc config construction with factory | [x] | ✅ 2025-10-20 — Manual config assembly removed; CLI now calls `create_training_payload()` with overrides dict (`train.py:513-560`) and relies on payload dataclasses for CONFIG-001 bridging. |
 | C4.C3 | Thread execution config to workflows | [x] | ✅ 2025-10-20 — CLI instantiates `PyTorchExecutionConfig` and passes it through to `main(..., execution_config=execution_config)` (`train.py:493-508, 567-587`), satisfying C3 wiring. |
-| C4.C4 | Remove hardcoded overrides | [P] | Code path no longer injects `nphotons`, `K`, or `experiment_name`, but required artefact `refactor_notes.md` is still missing. Author doc summarising removed constants before marking complete. |
+| C4.C4 | Remove hardcoded overrides | [x] | ✅ 2025-10-20 — `refactor_notes.md` (reports/2025-10-20T044500Z/phase_c4_cli_integration/) documents elimination of `nphotons`, `K`, and `experiment_name` hardcodes plus factory sourcing. |
 
 #### Inference CLI Updates (`ptycho_torch/inference.py`)
 
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
 | C4.C5 | Add inference execution config flags | [x] | ✅ 2025-10-20 — `ptycho_torch/inference.py:365-412` exposes `--accelerator`, `--num-workers`, and `--inference-batch-size` per schema doc. |
-| C4.C6 | Replace ad-hoc config with factory call | [ ] | CLI still constructs configs manually and never calls `create_inference_payload()`, causing patched tests to attempt real checkpoint loading (`pytest_cli_inference_green.log`, FileNotFoundError). |
-| C4.C7 | Maintain CONFIG-001 ordering | [ ] | Pending factory adoption. Current path loads NPZ/checkpoints before params.cfg bridge, violating plan guidance. |
+| C4.C6 | Replace ad-hoc config with factory call | [ ] | CLI now invokes `create_inference_payload()` but immediately falls back to legacy checkpoint discovery (`last.ckpt`/`wts.pt`) and RawData loading, so unit tests still hit real IO. `pytest_cli_inference_green.log` shows FileNotFoundError because `wts.h5.zip` (spec file) is ignored and the CLI never exits after factory call. Refactor to consume payload outputs (or injected runner) instead of manual Lightning/RawData wiring. |
+| C4.C7 | Maintain CONFIG-001 ordering | [ ] | Factory populates params.cfg, but subsequent RawData.from_file execution (against empty tmp fixtures) breaks test isolation and obscures CONFIG-001 guarantees. Need to restructure CLI so the factory bridge remains the first IO touchpoint and downstream logic respects spec-compliant artefacts. |
 
 **Exit Criteria:** Both CLI scripts refactored to use factories, execution config flags accepted and forwarded, hardcoded values eliminated, CONFIG-001 compliance maintained.
 

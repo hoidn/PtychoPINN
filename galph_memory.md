@@ -1373,3 +1373,13 @@
 - Next steps for Ralph: implement C4.C6/C4.C7 via factory, author refactor_notes.md, restore memmap metadata, rerun targeted selectors, update plan + ledger.
 - <Action State>: [ready_for_implementation]
 
+## 2025-10-20T044344Z: C4 inference CLI triage kickoff
+- Focus issue: ADR-003-BACKEND-API Phase C4 (C4.C6/C4.C7 inference CLI factory integration)
+- Action type: Debug
+- Mode: TDD
+- Notes:
+  - Reproduced current RED evidence (`pytest_cli_inference_failure.log`, `pytest_integration_failure.log`) under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T044344Z/phase_c4_cli_integration_debug/`.
+  - Confirmed CLI now calls `create_inference_payload()` but still searches only `last.ckpt`/`wts.pt`/`model.pt` and immediately drops into the legacy Lightning/RawData pipeline, which fails because the spec archive `wts.h5.zip` and stub NPZ aren’t consumed. Logged root-cause narrative in `summary.md`.
+  - Integration workflow fails even earlier: fixture NPZ missing (tests reference `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`). Highlighted need to regenerate fixture per TEST-PYTORCH-001 plan before C4.D can close; memmap drift will reappear once NPZ restored.
+  - Updated `phase_c4_cli_integration/plan.md` (C4.C4 now `[x]`; C4.C6/C4.C7 guidance rewritten) and `docs/fix_plan.md` Attempt #5 describing next steps.
+- <Action State>: [ready_for_implementation]
