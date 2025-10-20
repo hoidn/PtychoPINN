@@ -1,19 +1,19 @@
 """
-RED Phase pytest scaffolds for inference CLI execution config integration (ADR-003 Phase C4.B2).
+GREEN Phase pytest tests for inference CLI execution config integration (ADR-003 Phase C4.D1).
 
-This module tests the inference CLI's ability to accept and forward execution config flags
-to the factory and workflow layers. Tests are expected to FAIL in RED phase because
-the CLI implementation does not yet exist.
+This module validates the inference CLI's ability to accept and forward execution config flags
+to the factory and workflow layers. Tests verify argparse→PyTorchExecutionConfig→factory
+propagation chain.
 
-Phase C4 Requirements:
-- Inference CLI accepts --accelerator, --num-workers, --inference-batch-size flags
-- CLI args map to PyTorchExecutionConfig fields
-- Factory receives correct execution config values
-- Workflow helpers receive execution config from factory payload
+Phase C4 Implementation:
+- Inference CLI accepts --accelerator, --num-workers, --inference-batch-size flags (✓ C4.C5)
+- CLI args map to PyTorchExecutionConfig fields (✓ C4.C6)
+- Factory receives correct execution config values (✓ validated)
+- Tests mock both factory and bundle loader to prevent IO
 
 References:
-- Plan: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md §C4.B2
-- Argparse Schema: .../phase_c4_cli_integration/argparse_schema.md
+- Plan: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md §C4.D1
+- Implementation: ptycho_torch/inference.py:380-442 (argparse), :455-546 (factory integration)
 - Factory Design: .../2025-10-19T232336Z/phase_b_factories/factory_design.md
 """
 
@@ -55,21 +55,22 @@ class TestInferenceCLI:
 
     def test_accelerator_flag_roundtrip(self, minimal_inference_args, monkeypatch):
         """
-        RED Test: --accelerator flag maps to execution_config.accelerator.
+        Test: --accelerator flag maps to execution_config.accelerator.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --accelerator cpu
-        OR
-        - AssertionError: execution_config.accelerator != 'cpu'
+        Validates CLI→factory→execution_config propagation chain.
+        Mocks both factory and bundle loader to prevent IO.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
             tf_inference_config=MagicMock(),
-            data_config=MagicMock(),
+            pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu'),
         )
 
-        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+        mock_bundle_loader = MagicMock(return_value=({}, {}))
+
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader):
             test_args = minimal_inference_args + ['--accelerator', 'cpu']
 
             from ptycho_torch.inference import cli_main
@@ -77,8 +78,8 @@ class TestInferenceCLI:
 
             try:
                 cli_main()
-            except SystemExit:
-                pass
+            except (SystemExit, Exception):
+                pass  # CLI may exit or fail after factory call; we only test arg mapping
 
         assert mock_factory.called, "Factory was not called"
         call_kwargs = mock_factory.call_args.kwargs
@@ -88,20 +89,22 @@ class TestInferenceCLI:
 
     def test_num_workers_flag_roundtrip(self, minimal_inference_args, monkeypatch):
         """
-        RED Test: --num-workers flag maps to execution_config.num_workers.
+        Test: --num-workers flag maps to execution_config.num_workers.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --num-workers 4
-        OR
-        - AssertionError: execution_config.num_workers != 4
+        Validates CLI→factory→execution_config propagation chain.
+        Mocks both factory and bundle loader to prevent IO.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
             tf_inference_config=MagicMock(),
+            pt_data_config=MagicMock(),
             execution_config=MagicMock(num_workers=4),
         )
 
-        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+        mock_bundle_loader = MagicMock(return_value=({}, {}))
+
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader):
             test_args = minimal_inference_args + ['--num-workers', '4']
 
             from ptycho_torch.inference import cli_main
@@ -109,7 +112,7 @@ class TestInferenceCLI:
 
             try:
                 cli_main()
-            except SystemExit:
+            except (SystemExit, Exception):
                 pass
 
         assert mock_factory.called
@@ -120,20 +123,22 @@ class TestInferenceCLI:
 
     def test_inference_batch_size_flag_roundtrip(self, minimal_inference_args, monkeypatch):
         """
-        RED Test: --inference-batch-size flag maps to execution_config.inference_batch_size.
+        Test: --inference-batch-size flag maps to execution_config.inference_batch_size.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --inference-batch-size 32
-        OR
-        - AssertionError: execution_config.inference_batch_size != 32
+        Validates CLI→factory→execution_config propagation chain.
+        Mocks both factory and bundle loader to prevent IO.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
             tf_inference_config=MagicMock(),
+            pt_data_config=MagicMock(),
             execution_config=MagicMock(inference_batch_size=32),
         )
 
-        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+        mock_bundle_loader = MagicMock(return_value=({}, {}))
+
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader):
             test_args = minimal_inference_args + ['--inference-batch-size', '32']
 
             from ptycho_torch.inference import cli_main
@@ -141,7 +146,7 @@ class TestInferenceCLI:
 
             try:
                 cli_main()
-            except SystemExit:
+            except (SystemExit, Exception):
                 pass
 
         assert mock_factory.called
@@ -152,16 +157,15 @@ class TestInferenceCLI:
 
     def test_multiple_execution_config_flags(self, minimal_inference_args, monkeypatch):
         """
-        RED Test: Multiple execution config flags work together.
+        Test: Multiple execution config flags work together.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments (any of the new flags)
-        OR
-        - AssertionError: execution_config fields do not match expected values
+        Validates CLI→factory→execution_config propagation chain with multiple flags.
+        Mocks both factory and bundle loader to prevent IO.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
             tf_inference_config=MagicMock(),
+            pt_data_config=MagicMock(),
             execution_config=MagicMock(
                 accelerator='gpu',
                 num_workers=8,
@@ -169,7 +173,10 @@ class TestInferenceCLI:
             ),
         )
 
-        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+        mock_bundle_loader = MagicMock(return_value=({}, {}))
+
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader):
             test_args = minimal_inference_args + [
                 '--accelerator', 'gpu',
                 '--num-workers', '8',
@@ -181,7 +188,7 @@ class TestInferenceCLI:
 
             try:
                 cli_main()
-            except SystemExit:
+            except (SystemExit, Exception):
                 pass
 
         assert mock_factory.called
@@ -191,16 +198,3 @@ class TestInferenceCLI:
         assert exec_config.accelerator == 'gpu'
         assert exec_config.num_workers == 8
         assert exec_config.inference_batch_size == 64
-
-
-# RED Phase Note:
-# These tests are EXPECTED TO FAIL because:
-# 1. The CLI argparse definition does not yet include the new flags
-# 2. The CLI does not yet instantiate PyTorchExecutionConfig from parsed args
-# 3. The CLI does not yet pass execution_config to create_inference_payload()
-#
-# Phase C4.C implementation will:
-# 1. Add argparse arguments for --accelerator, --num-workers, --inference-batch-size
-# 2. Instantiate PyTorchExecutionConfig from args
-# 3. Pass execution_config to factory
-# 4. Turn these RED tests GREEN

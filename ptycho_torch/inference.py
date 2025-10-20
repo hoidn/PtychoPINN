@@ -503,35 +503,22 @@ Examples:
             "Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001."
         )
 
-    # Load checkpoint via Lightning (factory validated path exists)
-    checkpoint_candidates = [
-        model_path / "checkpoints" / "last.ckpt",  # Lightning default
-        model_path / "wts.pt",                      # Custom bundle format
-        model_path / "model.pt",                    # Alternative naming
-    ]
-
-    checkpoint_path = None
-    for candidate in checkpoint_candidates:
-        if candidate.exists():
-            checkpoint_path = candidate
-            break
-
-    if checkpoint_path is None:
-        raise FileNotFoundError(
-            f"No Lightning checkpoint found in {model_path}.\n"
-            f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
-            "Factory validated model directory, but checkpoint file missing."
-        )
-
-    # Load Lightning module from checkpoint
+    # Load checkpoint via spec-compliant bundle loader (Phase C4.C6/C4.C7 - ADR-003)
+    # Replaces manual checkpoint search with factory-validated wts.h5.zip loading
     try:
         import torch
-        from ptycho_torch.model import PtychoPINN_Lightning
+        from ptycho_torch.workflows.components import load_inference_bundle_torch
 
-        model = PtychoPINN_Lightning.load_from_checkpoint(
-            str(checkpoint_path),
-            map_location='cpu',  # Use execution_config.accelerator for device placement
+        # load_inference_bundle_torch expects bundle_dir containing wts.h5.zip
+        # It handles CONFIG-001 (restores params.cfg from archive) and returns
+        # (models_dict, params_dict) matching TensorFlow baseline API
+        models_dict, params_dict = load_inference_bundle_torch(
+            bundle_dir=model_path,
+            model_name='diffraction_to_obj'
         )
+
+        # Extract Lightning module from models dict
+        model = models_dict['diffraction_to_obj']
         model.eval()
 
         # Resolve device from execution config
@@ -546,14 +533,16 @@ Examples:
         model.to(device)
 
         if not args.quiet:
-            print(f"Loaded Lightning checkpoint from: {checkpoint_path}")
+            print(f"Loaded model bundle from: {model_path / 'wts.h5.zip'}")
             print(f"Model device: {device}")
+            print(f"Restored params.cfg from bundle (N={params_dict.get('N', 'N/A')}, "
+                  f"gridsize={params_dict.get('gridsize', 'N/A')})")
 
     except Exception as e:
         raise RuntimeError(
-            f"Failed to load Lightning checkpoint from {checkpoint_path}.\n"
+            f"Failed to load inference bundle from {model_path}.\n"
             f"Error: {e}\n"
-            "Ensure checkpoint is compatible with current code version."
+            "Ensure model_path contains wts.h5.zip archive (spec-compliant format)."
         )
 
     # Load test data via RawData (factory already validated path)
