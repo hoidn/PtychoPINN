@@ -341,6 +341,108 @@ class TestWorkflowsComponentsTraining:
         assert "train_container" in results
         assert "test_container" in results
 
+    def test_lightning_dataloader_tensor_dict_structure(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        CRITICAL PARITY TEST: Lightning dataloaders must yield TensorDict-style batches.
+
+        Requirement: ADR-003-BACKEND-API Phase C4.D3 — _build_lightning_dataloaders must
+        produce batches matching the contract expected by PtychoPINN_Lightning.compute_loss
+        (ptycho_torch/model.py:1118-1128).
+
+        Expected batch structure:
+        - batch[0]: dict-like with keys ['images', 'coords_relative',
+                    'rms_scaling_constant', 'physics_scaling_constant']
+        - batch[1]: probe tensor
+        - batch[2]: scaling constant tensor
+
+        Red-phase contract:
+        - _build_lightning_dataloaders currently wraps tensors in TensorDataset
+        - This yields (Tensor, Tensor) tuples, causing IndexError in compute_loss
+        - Must refactor to use TensorDictDataLoader + Collate_Lightning pattern
+        - Reference: ptycho_torch/dataloader.py:771-856 (TensorDictDataLoader + Collate_Lightning)
+
+        Test mechanism:
+        - Call _build_lightning_dataloaders with minimal container fixture
+        - Extract first batch from train_loader
+        - Assert batch structure matches compute_loss expectations
+        - Validate presence of required keys in batch[0] dict
+        """
+        # Import the module under test
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        import torch
+
+        # Initialize params.cfg via CONFIG-001
+        update_legacy_dict(params.cfg, minimal_training_config)
+
+        # Create minimal container fixture matching _ensure_container output
+        # (duck-typed dict for testing; production uses PtychoDataContainerTorch)
+        N = minimal_training_config.model.N
+        gridsize = minimal_training_config.model.gridsize
+        n_samples = 8  # Small batch for testing
+        n_channels = gridsize * gridsize
+
+        train_container = {
+            "X": torch.randn(n_samples, n_channels, N, N, dtype=torch.float32),
+            "coords_nominal": torch.randn(n_samples, n_channels, 1, 2, dtype=torch.float32),
+            "coords_relative": torch.randn(n_samples, n_channels, 1, 2, dtype=torch.float32),
+            "rms_scaling_constant": torch.ones(n_samples, 1, 1, 1, dtype=torch.float32),
+            "physics_scaling_constant": torch.ones(n_samples, 1, 1, 1, dtype=torch.float32),
+            "probe": torch.randn(N, N, dtype=torch.complex64),
+            "scaling_constant": torch.ones(1, dtype=torch.float32),
+        }
+
+        # Call _build_lightning_dataloaders
+        train_loader, _ = torch_components._build_lightning_dataloaders(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config
+        )
+
+        # Extract first batch
+        batch = next(iter(train_loader))
+
+        # Validate batch is a tuple with 3 elements
+        assert isinstance(batch, (tuple, list)), (
+            f"Batch must be tuple/list, got {type(batch)}"
+        )
+        assert len(batch) == 3, (
+            f"Batch must have 3 elements (tensor_dict, probe, scaling), got {len(batch)}"
+        )
+
+        # Validate batch[0] is dict-like with required keys
+        tensor_dict = batch[0]
+        assert hasattr(tensor_dict, '__getitem__'), (
+            "batch[0] must support dict-like indexing (TensorDict or dict)"
+        )
+
+        required_keys = ['images', 'coords_relative', 'rms_scaling_constant', 'physics_scaling_constant']
+        for key in required_keys:
+            assert key in tensor_dict or hasattr(tensor_dict, key), (
+                f"batch[0] must contain key '{key}' for compute_loss compatibility. "
+                f"Available keys: {list(tensor_dict.keys()) if hasattr(tensor_dict, 'keys') else 'N/A'}"
+            )
+
+        # Validate batch[1] and batch[2] are tensors
+        assert isinstance(batch[1], torch.Tensor), (
+            f"batch[1] (probe) must be torch.Tensor, got {type(batch[1])}"
+        )
+        assert isinstance(batch[2], torch.Tensor), (
+            f"batch[2] (scaling) must be torch.Tensor, got {type(batch[2])}"
+        )
+
+        # Validate tensor shapes are reasonable
+        images = tensor_dict['images']
+        assert images.ndim == 4, (
+            f"batch[0]['images'] must be 4D (batch, channels, H, W), got shape {images.shape}"
+        )
+
 
 class TestWorkflowsComponentsRun:
     """

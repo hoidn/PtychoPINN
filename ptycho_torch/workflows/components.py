@@ -271,8 +271,8 @@ def _build_lightning_dataloaders(
     """
     Build PyTorch DataLoader instances from container data for Lightning training.
 
-    This helper wraps the container tensors/arrays into simple DataLoader instances
-    that Lightning can consume. It handles batch sizing, shuffling, and seed management.
+    This helper wraps the container data into DataLoaders that yield TensorDict-style
+    batches matching the structure expected by PtychoPINN_Lightning.compute_loss.
 
     Args:
         train_container: Training data container (PtychoDataContainerTorch or dict)
@@ -282,17 +282,23 @@ def _build_lightning_dataloaders(
     Returns:
         Tuple[DataLoader, Optional[DataLoader]]: (train_loader, val_loader)
 
+    Batch Structure:
+        Each batch is a tuple (tensor_dict, probe, scaling) where:
+        - tensor_dict: dict with keys ['images', 'coords_relative',
+                       'rms_scaling_constant', 'physics_scaling_constant']
+        - probe: complex probe tensor
+        - scaling: scaling constant tensor
+
     Notes:
         - Uses duck-typing to support both real containers and dict-based fixtures
         - Respects config.sequential_sampling to control shuffle behavior
         - Seeds RNG via lightning.pytorch.seed_everything before construction
-        - For simplicity, this MVP wraps tensors in a TensorDataset; future
-          enhancements may integrate TensorDict loaders for memory efficiency
+        - Follows the batch contract from ptycho_torch/model.py:1118-1128
     """
     # torch-optional import guarded here
     try:
         import torch
-        from torch.utils.data import DataLoader, TensorDataset
+        from torch.utils.data import DataLoader, Dataset
         import lightning.pytorch as L
     except ImportError as e:
         raise RuntimeError(
@@ -322,19 +328,105 @@ def _build_lightning_dataloaders(
                 val = torch.from_numpy(val)
         return val
 
-    # Build training dataset from container tensors
-    train_X = _get_tensor(train_container, 'X')
-    train_coords = _get_tensor(train_container, 'coords_nominal')
+    # Custom Dataset class that yields (tensor_dict, probe, scaling) tuples
+    class PtychoLightningDataset(Dataset):
+        """
+        Dataset wrapper that yields TensorDict-style batches for Lightning.
 
-    # Handle None cases: create fallback tensors
-    if train_X is None:
-        train_X = torch.randn(10, 64, 64)
-    if train_coords is None:
-        # Create dummy coords matching batch size from train_X
-        batch_size = train_X.size(0) if isinstance(train_X, torch.Tensor) else 10
-        train_coords = torch.randn(batch_size, 2)
+        Mimics the structure from ptycho_torch/dataloader.py PtychoDataset.__getitem__
+        to maintain compatibility with PtychoPINN_Lightning.compute_loss.
+        """
+        def __init__(self, container):
+            self.container = container
+            # Extract all tensors at init
+            self.images = _get_tensor(container, 'X')
+            # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
+            self.coords_relative = _get_tensor(container, 'coords_relative')
+            if self.coords_relative is None:
+                self.coords_relative = _get_tensor(container, 'coords_nominal')
+            self.rms_scaling_constant = _get_tensor(container, 'rms_scaling_constant')
+            self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
+            self.probe = _get_tensor(container, 'probe')
+            self.scaling_constant = _get_tensor(container, 'scaling_constant')
 
-    train_dataset = TensorDataset(train_X, train_coords)
+            # Validate required tensors
+            if self.images is None:
+                raise ValueError("Container must contain 'X' (images) tensor")
+
+            self.length = self.images.size(0)
+
+
+        def __len__(self):
+            return self.length
+
+        def __getitem__(self, idx):
+            """
+            Return (tensor_dict, probe, scaling) tuple matching compute_loss expectations.
+
+            Args:
+                idx: int or tensor of indices
+
+            Returns:
+                tuple: (tensor_dict, probe, scaling) where:
+                    - tensor_dict: dict with keys matching batch[0] access in compute_loss
+                    - probe: probe tensor (broadcast if needed)
+                    - scaling: scaling constant tensor
+            """
+            # Extract indexed data
+            images_indexed = self.images[idx]
+
+            # CRITICAL: Convert from TensorFlow channel-last to PyTorch channel-first format
+            # TensorFlow RawData.generate_grouped_data returns X_full with shape (nsamples, H, W, C)
+            # where C = gridsize². PyTorch conv2d requires (batch, C, H, W) format.
+            # See: docs/findings.md for channel ordering conventions
+            if images_indexed.ndim == 4:
+                # DataLoader batched case: (batch, H, W, C) → (batch, C, H, W)
+                images_indexed = images_indexed.permute(0, 3, 1, 2)
+            elif images_indexed.ndim == 3:
+                # Single sample case: (H, W, C) → (C, H, W)
+                images_indexed = images_indexed.permute(2, 0, 1)
+
+            # Build tensor dict with required keys for compute_loss
+            coords_rel = self.coords_relative[idx] if self.coords_relative is not None else torch.zeros(1, 2)
+            rms_scale = self.rms_scaling_constant[idx] if self.rms_scaling_constant is not None else torch.ones(1, 1, 1, 1)
+            phys_scale = self.physics_scaling_constant[idx] if self.physics_scaling_constant is not None else torch.ones(1, 1, 1, 1)
+
+            # Reshape scaling constants for proper broadcasting with 4D image tensors
+            # Container stores scaling with shape (nsamples, 1, 1, 1, 1), indexing gives (1, 1, 1, 1)
+            # For single sample: want scalar (will become (batch,) after collation, then reshape to (batch, 1, 1, 1))
+            # But DataLoader's default_collate expects same-rank tensors, so we keep as scalar here
+            # and let compute_loss or model reshape for broadcasting
+            # Actually, let's flatten to scalar so collation gives (batch,), then model can reshape
+            if rms_scale is not None:
+                rms_scale = rms_scale.flatten()[0] if rms_scale.numel() == 1 else rms_scale.squeeze()
+            if phys_scale is not None:
+                phys_scale = phys_scale.flatten()[0] if phys_scale.numel() == 1 else phys_scale.squeeze()
+
+            tensor_dict = {
+                'images': images_indexed,
+                'coords_relative': coords_rel,
+                'rms_scaling_constant': rms_scale,
+                'physics_scaling_constant': phys_scale,
+            }
+
+            # Broadcast probe for batch (single probe applies to all samples)
+            if self.probe is not None:
+                probe = self.probe
+            else:
+                # Fallback: create dummy probe matching image size
+                N = self.images.size(-1)
+                probe = torch.ones(N, N, dtype=torch.complex64)
+
+            # Broadcast scaling constant
+            if self.scaling_constant is not None:
+                scaling = self.scaling_constant
+            else:
+                scaling = torch.ones(1, dtype=torch.float32)
+
+            return tensor_dict, probe, scaling
+
+    # Build training dataset
+    train_dataset = PtychoLightningDataset(train_container)
 
     # Configure shuffle based on sequential_sampling flag
     shuffle = not getattr(config, 'sequential_sampling', False)
@@ -351,17 +443,7 @@ def _build_lightning_dataloaders(
     # Build validation loader if test container provided
     val_loader = None
     if test_container is not None:
-        test_X = _get_tensor(test_container, 'X')
-        test_coords = _get_tensor(test_container, 'coords_nominal')
-
-        # Handle None cases
-        if test_X is None:
-            test_X = torch.randn(5, 64, 64)
-        if test_coords is None:
-            batch_size = test_X.size(0) if isinstance(test_X, torch.Tensor) else 5
-            test_coords = torch.randn(batch_size, 2)
-
-        test_dataset = TensorDataset(test_X, test_coords)
+        test_dataset = PtychoLightningDataset(test_container)
         val_loader = DataLoader(
             test_dataset,
             batch_size=getattr(config, 'batch_size', 4),

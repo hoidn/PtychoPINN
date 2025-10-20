@@ -854,8 +854,16 @@ class PtychoPINN(nn.Module):
 
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor):
 
+        # Reshape scale factors for broadcasting with 4D tensors (batch, C, H, W)
+        # DataLoader collates scalars into (batch,), need (batch, 1, 1, 1) for element-wise multiply
+        if input_scale_factor.ndim == 1:
+            input_scale_factor = input_scale_factor.view(-1, 1, 1, 1)
+        if output_scale_factor.ndim == 1:
+            output_scale_factor = output_scale_factor.view(-1, 1, 1, 1)
+
         #Scaling down (normalizing to 1)
         x = self.scaler.scale(x, input_scale_factor)
+
         #Autoencoder result
         x_amp, x_phase = self.autoencoder(x)
         #Combine amp and phase
