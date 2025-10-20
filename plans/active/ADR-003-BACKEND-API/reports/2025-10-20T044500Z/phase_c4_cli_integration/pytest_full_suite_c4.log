@@ -1,0 +1,1689 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 297 items / 2 skipped
+
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_bounding_box PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_coordinates_format PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_shapes PASSED [  1%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_with_squeeze PASSED [  1%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_center_crop_exact_size PASSED [  1%]
+tests/image/test_registration.py::TestRegistration::test_apply_shift_and_crop_basic PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_apply_shift_and_crop_zero_offset PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_different_image_content PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_edge_case_maximum_shift PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_edge_case_single_pixel_shift PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_find_offset_known_shift_complex PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_find_offset_known_shift_real PASSED [  4%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_2d_requirement PASSED [  4%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_excessive_offset PASSED [  4%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_shape_matching PASSED [  5%]
+tests/image/test_registration.py::TestRegistration::test_noise_robustness PASSED [  5%]
+tests/image/test_registration.py::TestRegistration::test_register_and_align_convenience PASSED [  5%]
+tests/image/test_registration.py::TestRegistration::test_registration_sign_verification PASSED [  6%]
+tests/image/test_registration.py::TestRegistration::test_round_trip_registration PASSED [  6%]
+tests/image/test_registration.py::TestRegistration::test_shift_and_crop_preserves_data_type PASSED [  6%]
+tests/test_baselines.py::TestBaselines::test_build_model_always_creates_single_channel_output PASSED [  7%]
+tests/test_cli_args.py::TestCliArgs::test_add_logging_arguments PASSED   [  7%]
+tests/test_cli_args.py::TestCliArgs::test_console_level_choices PASSED   [  7%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_custom_level PASSED [  8%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_defaults PASSED [  8%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_quiet PASSED [  8%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_verbose PASSED [  9%]
+tests/test_cli_args.py::TestCliArgs::test_quiet_verbose_mutually_exclusive PASSED [  9%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_backward_compatibility PASSED [  9%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_different_seeds_produce_different_results PASSED [ 10%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_k_less_than_c PASSED [ 10%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_more_samples_than_points PASSED [ 10%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_small_dataset PASSED [ 11%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_output_shape PASSED [ 11%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_spatial_coherence PASSED [ 11%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_valid_indices PASSED [ 12%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_generate_grouped_data_gridsize_1 PASSED [ 12%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_generate_grouped_data_integration PASSED [ 12%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_memory_efficiency PASSED [ 13%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_no_cache_files_created PASSED [ 13%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_performance_improvement PASSED [ 13%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_reproducibility_with_seed PASSED [ 14%]
+tests/test_coordinate_grouping.py::TestIntegrationWithExistingCode::test_existing_tests_still_pass PASSED [ 14%]
+tests/test_generic_loader.py::TestGenericLoader::test_generic_loader_roundtrip SKIPPED [ 14%]
+tests/test_generic_loader.py::test_generic_loader PASSED                 [ 15%]
+tests/test_integration_baseline_gs2.py::TestBaselineGridsize2Integration::test_baseline_gridsize2_end_to_end SKIPPED [ 15%]
+tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle PASSED [ 15%]
+tests/test_log_config.py::TestLogConfig::test_backward_compatibility PASSED [ 16%]
+tests/test_log_config.py::TestLogConfig::test_conflicting_flags_verbose_overrides PASSED [ 16%]
+tests/test_log_config.py::TestLogConfig::test_custom_console_level PASSED [ 16%]
+tests/test_log_config.py::TestLogConfig::test_default_setup_logging_creates_log_directory_and_file PASSED [ 17%]
+tests/test_log_config.py::TestLogConfig::test_quiet_flag_overrides_console_level PASSED [ 17%]
+tests/test_log_config.py::TestLogConfig::test_quiet_mode_disables_console PASSED [ 17%]
+tests/test_log_config.py::TestLogConfig::test_setup_logging_clears_existing_handlers PASSED [ 18%]
+tests/test_log_config.py::TestLogConfig::test_string_path_support PASSED [ 18%]
+tests/test_log_config.py::TestLogConfig::test_verbose_mode_enables_debug_console PASSED [ 18%]
+tests/test_misc.py::test_memoize_simulated_data SKIPPED (Deprecated:...) [ 19%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_configuration_mismatch_warnings PASSED [ 19%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_end_to_end_workflow_consistency PASSED [ 19%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_backward_compatibility PASSED [ 20%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_persistence_single_nphotons PASSED [ 20%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_multiple_nphotons_metadata_consistency PASSED [ 20%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_training_with_mismatched_config_warns_but_continues PASSED [ 21%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_automatic_oversampling_triggers PASSED [ 21%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_gridsize_1_no_oversampling PASSED [ 21%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_oversampling_with_different_k_values PASSED [ 22%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_reproducibility_with_seed PASSED [ 22%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_standard_sampling_no_oversampling PASSED [ 22%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_batch_processing PASSED [ 23%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_complex128_dtype PASSED [ 23%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_complex64_dtype PASSED [ 23%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_fill_modes PASSED [ 24%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float32_dtype PASSED [ 24%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float64_dtype PASSED [ 24%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float64_with_translation PASSED [ 25%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_interpolation_modes PASSED [ 25%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_jit_compilation_float32 PASSED [ 25%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_jit_compilation_float64 PASSED [ 26%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_mixed_precision_translation PASSED [ 26%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_tfa_params_conversion PASSED [ 26%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_content_validity PASSED [ 27%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_k_less_than_c PASSED [ 27%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_more_samples_than_points PASSED [ 27%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_small_dataset PASSED [ 28%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_memory_efficiency PASSED [ 28%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_output_shape PASSED [ 28%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_performance_improvement PASSED [ 29%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_reproducibility PASSED [ 29%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_uniform_sampling PASSED [ 29%]
+tests/test_scaling_regression.py::TestScalingRegression::test_both_arrays_scaled_identically PASSED [ 30%]
+tests/test_scaling_regression.py::TestScalingRegression::test_different_nphotons_produce_proportional_scaling PASSED [ 30%]
+tests/test_scaling_regression.py::TestScalingRegression::test_intensity_scale_is_valid PASSED [ 30%]
+tests/test_scaling_regression.py::TestScalingRegression::test_phase_is_not_scaled PASSED [ 31%]
+tests/test_scaling_regression.py::TestScalingRegression::test_scaling_is_reversible PASSED [ 31%]
+tests/test_scaling_regression.py::TestScalingRegression::test_scaling_preserves_physics PASSED [ 31%]
+tests/test_scaling_regression.py::TestScalingAssertions::test_assertions_catch_invalid_intensity_scale PASSED [ 32%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_default_behavior_is_random PASSED [ 32%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_handles_edge_cases PASSED [ 32%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_is_deterministic PASSED [ 33%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_order PASSED [ 33%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_uses_first_n_points PASSED [ 34%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_with_gridsize_greater_than_1 PASSED [ 34%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_with_seed_parameter PASSED [ 34%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_vs_random_coverage PASSED [ 35%]
+tests/test_sequential_sampling.py::TestIntegrationWithWorkflow::test_cli_argument_parsing PASSED [ 35%]
+tests/test_sequential_sampling.py::TestIntegrationWithWorkflow::test_config_flag_exists PASSED [ 35%]
+tests/test_subsampling.py::TestSubsampling::test_different_seeds_produce_different_results PASSED [ 36%]
+tests/test_subsampling.py::TestSubsampling::test_interaction_with_config_dataclass PASSED [ 36%]
+tests/test_subsampling.py::TestSubsampling::test_legacy_n_images_behavior PASSED [ 36%]
+tests/test_subsampling.py::TestSubsampling::test_n_subsample_overrides_n_images PASSED [ 37%]
+tests/test_subsampling.py::TestSubsampling::test_no_subsample_uses_full_dataset PASSED [ 37%]
+tests/test_subsampling.py::TestSubsampling::test_reproducible_subsampling_with_seed PASSED [ 37%]
+tests/test_subsampling.py::TestSubsampling::test_sorted_indices_for_consistency PASSED [ 38%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_larger_than_dataset PASSED [ 38%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_with_n_subsample PASSED [ 38%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_zero_edge_case PASSED [ 39%]
+tests/test_subsampling.py::TestSubsampling::test_y_patches_subsampled_consistently PASSED [ 39%]
+tests/test_tf_helper.py::TestReassemblePosition::test_basic_functionality PASSED [ 39%]
+tests/test_tf_helper.py::TestReassemblePosition::test_different_patch_values_blend PASSED [ 40%]
+tests/test_tf_helper.py::TestReassemblePosition::test_identical_patches_single_vs_double PASSED [ 40%]
+tests/test_tf_helper.py::TestReassemblePosition::test_perfect_overlap_averages_to_identity PASSED [ 40%]
+tests/test_tf_helper.py::TestTranslateFunction::test_batch_translation PASSED [ 41%]
+tests/test_tf_helper.py::TestTranslateFunction::test_complex_tensor_translation PASSED [ 41%]
+tests/test_tf_helper.py::TestTranslateFunction::test_edge_cases PASSED   [ 41%]
+tests/test_tf_helper.py::TestTranslateFunction::test_integer_translation PASSED [ 42%]
+tests/test_tf_helper.py::TestTranslateFunction::test_subpixel_translation PASSED [ 42%]
+tests/test_tf_helper.py::TestTranslateFunction::test_translate_core_matches_addons SKIPPED [ 42%]
+tests/test_tf_helper.py::TestTranslateFunction::test_zero_translation PASSED [ 43%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_complex_smooth_translation PASSED [ 43%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_gaussian_probe_translation SKIPPED [ 43%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_smooth_object_translation SKIPPED [ 44%]
+tests/test_tf_helper_edge_aware.py::TestTranslateEdgeCases::test_boundary_behavior SKIPPED [ 44%]
+tests/test_tf_helper_edge_aware.py::TestTranslateEdgeCases::test_document_edge_differences SKIPPED [ 44%]
+tests/test_tf_helper_edge_aware.py::TestPtychoPINNRelevantCases::test_batch_smooth_patterns SKIPPED [ 45%]
+tests/test_tf_helper_edge_aware.py::TestPtychoPINNRelevantCases::test_typical_probe_sizes SKIPPED [ 45%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_exception_propagation PASSED [ 45%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_load_valid_model_directory PASSED [ 46%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_missing_diffraction_model PASSED [ 46%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_missing_model_archive PASSED [ 46%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_nonexistent_directory PASSED [ 47%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_not_a_directory PASSED [ 47%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_path_conversion PASSED [ 47%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_module_docstring_handles_missing_docstring PASSED [ 48%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_module_docstring_reads_existing_docstring PASSED [ 48%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_test_functions_lists_key_tests PASSED [ 48%]
+tests/tools/test_update_tool.py::TestUpdateTool::test_update_function PASSED [ 49%]
+tests/tools/test_update_tool.py::test_update_function PASSED             [ 49%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_defaults_to_tensorflow_backend PASSED [ 49%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_selects_pytorch_backend PASSED [ 50%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_backend_calls_update_legacy_dict PASSED [ 50%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_unavailable_raises_error PASSED [ 50%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_inference_config_supports_backend_selection PASSED [ 51%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_backend_selection_preserves_api_parity PASSED [ 51%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip FAILED [ 51%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_num_workers_flag_roundtrip FAILED [ 52%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_inference_batch_size_flag_roundtrip FAILED [ 52%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_multiple_execution_config_flags FAILED [ 52%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accelerator_flag_roundtrip PASSED [ 53%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_deterministic_flag_roundtrip PASSED [ 53%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_no_deterministic_flag_roundtrip PASSED [ 53%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip PASSED [ 54%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_learning_rate_flag_roundtrip PASSED [ 54%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_multiple_execution_config_flags PASSED [ 54%]
+tests/torch/test_config_bridge.py::TestConfigBridgeMVP::test_mvp_config_bridge_populates_params_cfg PASSED [ 55%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[N-direct] PASSED [ 55%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[n_filters_scale-direct] PASSED [ 55%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[object_big-direct] PASSED [ 56%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[probe_big-direct] PASSED [ 56%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct] PASSED [ 56%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[gridsize-tuple-to-int] PASSED [ 57%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-unsupervised] PASSED [ 57%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-supervised] PASSED [ 57%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-silu] PASSED [ 58%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-SiLU] PASSED [ 58%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-passthrough] PASSED [ 58%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename] PASSED [ 59%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true] PASSED [ 59%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false] PASSED [ 59%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-default] PASSED [ 60%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-override] PASSED [ 60%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-default] PASSED [ 60%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-override] PASSED [ 61%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default] PASSED [ 61%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override] PASSED [ 61%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default] PASSED [ 62%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default] PASSED [ 62%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default] PASSED [ 62%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default] PASSED [ 63%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default] PASSED [ 63%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-default] PASSED [ 63%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-override] PASSED [ 64%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_translation[probe_mask-default] PASSED [ 64%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_override PASSED [ 64%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[probe_scale-divergence] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_gridsize_error_handling[gridsize-non-square] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_type_error_handling[model_type-invalid-enum] PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_activation_error_handling[amp_activation-unknown] PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_path_required_error PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_default_divergence_error PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_missing_override_uses_none PASSED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_explicit_override PASSED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning PASSED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning PASSED [ 70%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_params_cfg_matches_baseline PASSED [ 70%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass PASSED [ 70%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config PASSED [ 71%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs PASSED [ 71%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_overrides_dict PASSED [ 71%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_returns_dataclass PASSED [ 72%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_tf_config PASSED [ 72%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_pytorch_configs PASSED [ 72%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_grid_size_tuple_to_gridsize_int PASSED [ 73%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_epochs_to_nepochs_conversion PASSED [ 73%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_k_to_neighbor_count_conversion PASSED [ 73%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_factory_populates_params_cfg PASSED [ 74%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_populate_legacy_params_helper PASSED [ 74%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_override_dict_wins_over_defaults PASSED [ 74%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_probe_size_override_wins_over_inference PASSED [ 75%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_n_groups_raises_error PASSED [ 75%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_nonexistent_train_data_file_raises_error PASSED [ 75%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_checkpoint_raises_error PASSED [ 76%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_training_payload_execution_config_not_none PASSED [ 76%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_inference_payload_execution_config_not_none PASSED [ 76%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_defaults_applied PASSED [ 77%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_explicit_instance_propagates PASSED [ 77%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible PASSED [ 77%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_overrides_applied_records_execution_knobs PASSED [ 78%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_from_npz PASSED [ 78%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback PASSED [ 78%]
+tests/torch/test_data_pipeline.py::TestRawDataTorchAdapter::test_raw_data_torch_matches_tensorflow PASSED [ 79%]
+tests/torch/test_data_pipeline.py::TestDataContainerParity::test_data_container_shapes_and_dtypes PASSED [ 79%]
+tests/torch/test_data_pipeline.py::TestGroundTruthLoading::test_y_patches_are_complex64 PASSED [ 79%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_memmap_loader_matches_raw_data_torch PASSED [ 80%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_deterministic_generation_validation PASSED [ 80%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_backward_compat_legacy_diff3d PASSED [ 80%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_error_when_no_diffraction_key PASSED [ 81%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_loads_canonical_diffraction PASSED [ 81%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_auto_transposes_legacy_hwn_format PASSED [ 81%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_handles_edge_case_square_dataset PASSED [ 82%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_npz_headers_also_transposes_shape PASSED [ 82%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_preserves_canonical_nwh_format PASSED [ 82%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_real_dataset_dimensions PASSED [ 83%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_works_with_diff3d_legacy_key PASSED [ 83%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_file_exists PASSED [ 83%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_outputs_match_contract PASSED [ 84%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_sidecar_exists PASSED [ 84%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_content_valid PASSED [ 84%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_coordinate_coverage PASSED [ 85%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_loads_with_rawdata PASSED [ 85%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_compatible_with_pytorch_dataloader PASSED [ 85%]
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer FAILED [ 86%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle_legacy SKIPPED [ 86%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_tf_output_parity SKIPPED [ 86%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters PASSED [ 87%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs PASSED [ 87%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable PASSED [ 87%]
+tests/torch/test_model_manager.py::TestSaveTorchBundle::test_archive_structure PASSED [ 88%]
+tests/torch/test_model_manager.py::TestSaveTorchBundle::test_params_snapshot PASSED [ 88%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_updates_params_cfg PASSED [ 88%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_missing_params_raises_value_error PASSED [ 89%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_returns_model_stub XFAIL [ 89%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_combine_complex SKIPPED [ 89%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_get_mask SKIPPED  [ 90%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_placeholder_torch_functions SKIPPED [ 90%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_128 PASSED [ 90%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_from_npz PASSED [ 91%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_missing_probe PASSED [ 91%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_real_dataset PASSED [ 91%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_rectangular PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_cdi_model_torch_invokes_lightning PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_invokes_training PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_load_inference_bundle_handles_bundle PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_runs_trainer_fit PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_returns_models_dict PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_guard_without_train_results PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_return_contract PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_batches_remain_float32 PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_dataloader_casts_float64_to_float32 PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_shape_alignment PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_false_no_mismatch PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer PASSED [ 99%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism PASSED [ 99%]
+tests/torch/test_workflows_components.py::TestInferenceExecutionConfig::test_inference_uses_execution_batch_size PASSED [100%]
+
+=================================== FAILURES ===================================
+_______________ TestInferenceCLI.test_accelerator_flag_roundtrip _______________
+
+self = <test_cli_inference_torch.TestInferenceCLI object at 0x743b6ad84d90>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-677/test_accelerator_flag_roundtri0/model', '--test_data', '/tmp/pytest-...i0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-677/test_accelerator_flag_roundtri0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x743b44381c50>
+
+    def test_accelerator_flag_roundtrip(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: --accelerator flag maps to execution_config.accelerator.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --accelerator cpu
+        OR
+        - AssertionError: execution_config.accelerator != 'cpu'
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(),
+            data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+            test_args = minimal_inference_args + ['--accelerator', 'cpu']
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + test_args)
+    
+            try:
+>               cli_main()
+
+tests/torch/test_cli_inference_torch.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cli_main():
+        """
+        CLI entrypoint for PyTorch Lightning checkpoint inference.
+    
+        This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
+        a command-line interface for loading trained PyTorch models and generating
+        reconstructions from test data.
+    
+        Usage:
+            python -m ptycho_torch.inference \\
+                --model_path <training_output_dir> \\
+                --test_data <npz_file> \\
+                --output_dir <inference_output_dir> \\
+                --n_images 32 \\
+                --device cpu \\
+                [--quiet]
+    
+        Expected Output Artifacts:
+            - <output_dir>/reconstructed_amplitude.png
+            - <output_dir>/reconstructed_phase.png
+    
+        References:
+            - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+            - Test contract: tests/torch/test_integration_workflow_torch.py
+            - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        """
+        parser = argparse.ArgumentParser(
+            description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+    Examples:
+      # Run inference on trained model
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
+          --output_dir inference_outputs \\
+          --n_images 32 \\
+          --device cpu
+    
+      # Run with quiet output
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data test.npz \\
+          --output_dir outputs \\
+          --n_images 64 \\
+          --device cuda \\
+          --quiet
+            """
+        )
+    
+        parser.add_argument(
+            '--model_path',
+            type=str,
+            required=True,
+            help='Path to training output directory containing Lightning checkpoint (expects checkpoints/last.ckpt or wts.pt)'
+        )
+        parser.add_argument(
+            '--test_data',
+            type=str,
+            required=True,
+            help='Path to test data NPZ file (must conform to specs/data_contracts.md)'
+        )
+        parser.add_argument(
+            '--output_dir',
+            type=str,
+            required=True,
+            help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
+        )
+        parser.add_argument(
+            '--n_images',
+            type=int,
+            default=32,
+            help='Number of images to use for reconstruction (default: 32)'
+        )
+        parser.add_argument(
+            '--device',
+            type=str,
+            choices=['cpu', 'cuda'],
+            default='cpu',
+            help='Device to run inference on (cpu or cuda, default: cpu)'
+        )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Suppress progress output'
+        )
+    
+        # Execution config flags (Phase C4.C5 - ADR-003)
+        parser.add_argument(
+            '--accelerator',
+            type=str,
+            default='auto',
+            choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+            help=(
+                'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+                'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+            )
+        )
+        parser.add_argument(
+            '--num-workers',
+            type=int,
+            default=0,
+            dest='num_workers',
+            help=(
+                'Number of DataLoader worker processes (default: 0 = synchronous). '
+                'Typical values: 2-8 for multi-core systems.'
+            )
+        )
+        parser.add_argument(
+            '--inference-batch-size',
+            type=int,
+            default=None,
+            dest='inference_batch_size',
+            help=(
+                'Batch size for inference DataLoader (default: None = use training batch_size). '
+                'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+            )
+        )
+    
+        args = parser.parse_args()
+    
+        # Phase C4.C6: Create execution config from CLI args (ADR-003)
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
+            )
+    
+        # Validate execution config args
+        if args.num_workers < 0:
+            raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+        if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+            raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+    
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=args.inference_batch_size,
+            enable_progress_bar=(not args.quiet),
+        )
+    
+        # Fail-fast: Check Lightning availability
+        try:
+            import lightning as L
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch Lightning backend requires 'lightning' and 'torch' packages. "
+                "Install via: pip install -e .[torch]\n"
+                f"Import error: {e}"
+            )
+    
+        # Phase C4.C6+C4.C7: Delegate to factory for CONFIG-001 compliance (ADR-003)
+        # Replaces manual checkpoint loading and config construction with centralized
+        # factory pattern. The factory handles:
+        # 1. Path validation and checkpoint discovery
+        # 2. CONFIG-001 bridging (update_legacy_dict before any IO)
+        # 3. Config translation (PyTorch → TensorFlow canonical dataclasses)
+        # 4. Execution config merging with override precedence
+    
+        from ptycho_torch.config_factory import create_inference_payload
+        from ptycho.raw_data import RawData
+    
+        # Convert paths to Path objects
+        model_path = Path(args.model_path)
+        test_data_path = Path(args.test_data)
+        output_dir = Path(args.output_dir)
+    
+        # Build overrides dict for factory
+        overrides = {
+            'n_groups': args.n_images,  # Map CLI arg to config field
+        }
+    
+        # Call factory to construct all configs and populate params.cfg
+        try:
+            payload = create_inference_payload(
+                model_path=model_path,
+                test_data_file=test_data_path,
+                output_dir=output_dir,
+                overrides=overrides,
+                execution_config=execution_config,
+            )
+    
+            # Extract configs from payload (factory already populated params.cfg)
+            pt_data_config = payload.pt_data_config
+            tf_inference_config = payload.tf_inference_config
+            execution_config = payload.execution_config
+    
+            if not args.quiet:
+                print(f"Loaded configuration from model checkpoint")
+                print(f"Test data: {test_data_path}")
+                print(f"Output directory: {output_dir}")
+                print(f"N groups: {tf_inference_config.n_groups}")
+                print(f"Execution config: accelerator={execution_config.accelerator}, "
+                      f"num_workers={execution_config.num_workers}")
+    
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create inference payload.\n"
+                f"Error: {e}\n"
+                "Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001."
+            )
+    
+        # Load checkpoint via Lightning (factory validated path exists)
+        checkpoint_candidates = [
+            model_path / "checkpoints" / "last.ckpt",  # Lightning default
+            model_path / "wts.pt",                      # Custom bundle format
+            model_path / "model.pt",                    # Alternative naming
+        ]
+    
+        checkpoint_path = None
+        for candidate in checkpoint_candidates:
+            if candidate.exists():
+                checkpoint_path = candidate
+                break
+    
+        if checkpoint_path is None:
+>           raise FileNotFoundError(
+                f"No Lightning checkpoint found in {model_path}.\n"
+                f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
+                "Factory validated model directory, but checkpoint file missing."
+            )
+E           FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-677/test_accelerator_flag_roundtri0/model.
+E           Searched for: ['/tmp/pytest-of-ollie/pytest-677/test_accelerator_flag_roundtri0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-677/test_accelerator_flag_roundtri0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-677/test_accelerator_flag_roundtri0/model/model.pt']
+E           Factory validated model directory, but checkpoint file missing.
+
+ptycho_torch/inference.py:520: FileNotFoundError
+----------------------------- Captured stdout call -----------------------------
+Loaded configuration from model checkpoint
+Test data: /tmp/pytest-of-ollie/pytest-677/test_accelerator_flag_roundtri0/test.npz
+Output directory: /tmp/pytest-of-ollie/pytest-677/test_accelerator_flag_roundtri0/inference_outputs
+N groups: <MagicMock name='mock().tf_inference_config.n_groups' id='127798543772112'>
+Execution config: accelerator=cpu, num_workers=<MagicMock name='mock().execution_config.num_workers' id='127797898784528'>
+_______________ TestInferenceCLI.test_num_workers_flag_roundtrip _______________
+
+self = <test_cli_inference_torch.TestInferenceCLI object at 0x743b6ad85510>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-677/test_num_workers_flag_roundtri0/model', '--test_data', '/tmp/pytest-...i0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-677/test_num_workers_flag_roundtri0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x743b54145050>
+
+    def test_num_workers_flag_roundtrip(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: --num-workers flag maps to execution_config.num_workers.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --num-workers 4
+        OR
+        - AssertionError: execution_config.num_workers != 4
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(),
+            execution_config=MagicMock(num_workers=4),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+            test_args = minimal_inference_args + ['--num-workers', '4']
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + test_args)
+    
+            try:
+>               cli_main()
+
+tests/torch/test_cli_inference_torch.py:111: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cli_main():
+        """
+        CLI entrypoint for PyTorch Lightning checkpoint inference.
+    
+        This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
+        a command-line interface for loading trained PyTorch models and generating
+        reconstructions from test data.
+    
+        Usage:
+            python -m ptycho_torch.inference \\
+                --model_path <training_output_dir> \\
+                --test_data <npz_file> \\
+                --output_dir <inference_output_dir> \\
+                --n_images 32 \\
+                --device cpu \\
+                [--quiet]
+    
+        Expected Output Artifacts:
+            - <output_dir>/reconstructed_amplitude.png
+            - <output_dir>/reconstructed_phase.png
+    
+        References:
+            - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+            - Test contract: tests/torch/test_integration_workflow_torch.py
+            - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        """
+        parser = argparse.ArgumentParser(
+            description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+    Examples:
+      # Run inference on trained model
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
+          --output_dir inference_outputs \\
+          --n_images 32 \\
+          --device cpu
+    
+      # Run with quiet output
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data test.npz \\
+          --output_dir outputs \\
+          --n_images 64 \\
+          --device cuda \\
+          --quiet
+            """
+        )
+    
+        parser.add_argument(
+            '--model_path',
+            type=str,
+            required=True,
+            help='Path to training output directory containing Lightning checkpoint (expects checkpoints/last.ckpt or wts.pt)'
+        )
+        parser.add_argument(
+            '--test_data',
+            type=str,
+            required=True,
+            help='Path to test data NPZ file (must conform to specs/data_contracts.md)'
+        )
+        parser.add_argument(
+            '--output_dir',
+            type=str,
+            required=True,
+            help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
+        )
+        parser.add_argument(
+            '--n_images',
+            type=int,
+            default=32,
+            help='Number of images to use for reconstruction (default: 32)'
+        )
+        parser.add_argument(
+            '--device',
+            type=str,
+            choices=['cpu', 'cuda'],
+            default='cpu',
+            help='Device to run inference on (cpu or cuda, default: cpu)'
+        )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Suppress progress output'
+        )
+    
+        # Execution config flags (Phase C4.C5 - ADR-003)
+        parser.add_argument(
+            '--accelerator',
+            type=str,
+            default='auto',
+            choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+            help=(
+                'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+                'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+            )
+        )
+        parser.add_argument(
+            '--num-workers',
+            type=int,
+            default=0,
+            dest='num_workers',
+            help=(
+                'Number of DataLoader worker processes (default: 0 = synchronous). '
+                'Typical values: 2-8 for multi-core systems.'
+            )
+        )
+        parser.add_argument(
+            '--inference-batch-size',
+            type=int,
+            default=None,
+            dest='inference_batch_size',
+            help=(
+                'Batch size for inference DataLoader (default: None = use training batch_size). '
+                'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+            )
+        )
+    
+        args = parser.parse_args()
+    
+        # Phase C4.C6: Create execution config from CLI args (ADR-003)
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
+            )
+    
+        # Validate execution config args
+        if args.num_workers < 0:
+            raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+        if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+            raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+    
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=args.inference_batch_size,
+            enable_progress_bar=(not args.quiet),
+        )
+    
+        # Fail-fast: Check Lightning availability
+        try:
+            import lightning as L
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch Lightning backend requires 'lightning' and 'torch' packages. "
+                "Install via: pip install -e .[torch]\n"
+                f"Import error: {e}"
+            )
+    
+        # Phase C4.C6+C4.C7: Delegate to factory for CONFIG-001 compliance (ADR-003)
+        # Replaces manual checkpoint loading and config construction with centralized
+        # factory pattern. The factory handles:
+        # 1. Path validation and checkpoint discovery
+        # 2. CONFIG-001 bridging (update_legacy_dict before any IO)
+        # 3. Config translation (PyTorch → TensorFlow canonical dataclasses)
+        # 4. Execution config merging with override precedence
+    
+        from ptycho_torch.config_factory import create_inference_payload
+        from ptycho.raw_data import RawData
+    
+        # Convert paths to Path objects
+        model_path = Path(args.model_path)
+        test_data_path = Path(args.test_data)
+        output_dir = Path(args.output_dir)
+    
+        # Build overrides dict for factory
+        overrides = {
+            'n_groups': args.n_images,  # Map CLI arg to config field
+        }
+    
+        # Call factory to construct all configs and populate params.cfg
+        try:
+            payload = create_inference_payload(
+                model_path=model_path,
+                test_data_file=test_data_path,
+                output_dir=output_dir,
+                overrides=overrides,
+                execution_config=execution_config,
+            )
+    
+            # Extract configs from payload (factory already populated params.cfg)
+            pt_data_config = payload.pt_data_config
+            tf_inference_config = payload.tf_inference_config
+            execution_config = payload.execution_config
+    
+            if not args.quiet:
+                print(f"Loaded configuration from model checkpoint")
+                print(f"Test data: {test_data_path}")
+                print(f"Output directory: {output_dir}")
+                print(f"N groups: {tf_inference_config.n_groups}")
+                print(f"Execution config: accelerator={execution_config.accelerator}, "
+                      f"num_workers={execution_config.num_workers}")
+    
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create inference payload.\n"
+                f"Error: {e}\n"
+                "Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001."
+            )
+    
+        # Load checkpoint via Lightning (factory validated path exists)
+        checkpoint_candidates = [
+            model_path / "checkpoints" / "last.ckpt",  # Lightning default
+            model_path / "wts.pt",                      # Custom bundle format
+            model_path / "model.pt",                    # Alternative naming
+        ]
+    
+        checkpoint_path = None
+        for candidate in checkpoint_candidates:
+            if candidate.exists():
+                checkpoint_path = candidate
+                break
+    
+        if checkpoint_path is None:
+>           raise FileNotFoundError(
+                f"No Lightning checkpoint found in {model_path}.\n"
+                f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
+                "Factory validated model directory, but checkpoint file missing."
+            )
+E           FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-677/test_num_workers_flag_roundtri0/model.
+E           Searched for: ['/tmp/pytest-of-ollie/pytest-677/test_num_workers_flag_roundtri0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-677/test_num_workers_flag_roundtri0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-677/test_num_workers_flag_roundtri0/model/model.pt']
+E           Factory validated model directory, but checkpoint file missing.
+
+ptycho_torch/inference.py:520: FileNotFoundError
+----------------------------- Captured stdout call -----------------------------
+Loaded configuration from model checkpoint
+Test data: /tmp/pytest-of-ollie/pytest-677/test_num_workers_flag_roundtri0/test.npz
+Output directory: /tmp/pytest-of-ollie/pytest-677/test_num_workers_flag_roundtri0/inference_outputs
+N groups: <MagicMock name='mock().tf_inference_config.n_groups' id='127798027796944'>
+Execution config: accelerator=<MagicMock name='mock().execution_config.accelerator' id='127798027800080'>, num_workers=4
+__________ TestInferenceCLI.test_inference_batch_size_flag_roundtrip ___________
+
+self = <test_cli_inference_torch.TestInferenceCLI object at 0x743b6ad85c50>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-677/test_inference_batch_size_flag0/model', '--test_data', '/tmp/pytest-...g0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-677/test_inference_batch_size_flag0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x743c2a8fd890>
+
+    def test_inference_batch_size_flag_roundtrip(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: --inference-batch-size flag maps to execution_config.inference_batch_size.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --inference-batch-size 32
+        OR
+        - AssertionError: execution_config.inference_batch_size != 32
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(),
+            execution_config=MagicMock(inference_batch_size=32),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+            test_args = minimal_inference_args + ['--inference-batch-size', '32']
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + test_args)
+    
+            try:
+>               cli_main()
+
+tests/torch/test_cli_inference_torch.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cli_main():
+        """
+        CLI entrypoint for PyTorch Lightning checkpoint inference.
+    
+        This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
+        a command-line interface for loading trained PyTorch models and generating
+        reconstructions from test data.
+    
+        Usage:
+            python -m ptycho_torch.inference \\
+                --model_path <training_output_dir> \\
+                --test_data <npz_file> \\
+                --output_dir <inference_output_dir> \\
+                --n_images 32 \\
+                --device cpu \\
+                [--quiet]
+    
+        Expected Output Artifacts:
+            - <output_dir>/reconstructed_amplitude.png
+            - <output_dir>/reconstructed_phase.png
+    
+        References:
+            - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+            - Test contract: tests/torch/test_integration_workflow_torch.py
+            - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        """
+        parser = argparse.ArgumentParser(
+            description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+    Examples:
+      # Run inference on trained model
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
+          --output_dir inference_outputs \\
+          --n_images 32 \\
+          --device cpu
+    
+      # Run with quiet output
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data test.npz \\
+          --output_dir outputs \\
+          --n_images 64 \\
+          --device cuda \\
+          --quiet
+            """
+        )
+    
+        parser.add_argument(
+            '--model_path',
+            type=str,
+            required=True,
+            help='Path to training output directory containing Lightning checkpoint (expects checkpoints/last.ckpt or wts.pt)'
+        )
+        parser.add_argument(
+            '--test_data',
+            type=str,
+            required=True,
+            help='Path to test data NPZ file (must conform to specs/data_contracts.md)'
+        )
+        parser.add_argument(
+            '--output_dir',
+            type=str,
+            required=True,
+            help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
+        )
+        parser.add_argument(
+            '--n_images',
+            type=int,
+            default=32,
+            help='Number of images to use for reconstruction (default: 32)'
+        )
+        parser.add_argument(
+            '--device',
+            type=str,
+            choices=['cpu', 'cuda'],
+            default='cpu',
+            help='Device to run inference on (cpu or cuda, default: cpu)'
+        )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Suppress progress output'
+        )
+    
+        # Execution config flags (Phase C4.C5 - ADR-003)
+        parser.add_argument(
+            '--accelerator',
+            type=str,
+            default='auto',
+            choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+            help=(
+                'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+                'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+            )
+        )
+        parser.add_argument(
+            '--num-workers',
+            type=int,
+            default=0,
+            dest='num_workers',
+            help=(
+                'Number of DataLoader worker processes (default: 0 = synchronous). '
+                'Typical values: 2-8 for multi-core systems.'
+            )
+        )
+        parser.add_argument(
+            '--inference-batch-size',
+            type=int,
+            default=None,
+            dest='inference_batch_size',
+            help=(
+                'Batch size for inference DataLoader (default: None = use training batch_size). '
+                'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+            )
+        )
+    
+        args = parser.parse_args()
+    
+        # Phase C4.C6: Create execution config from CLI args (ADR-003)
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
+            )
+    
+        # Validate execution config args
+        if args.num_workers < 0:
+            raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+        if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+            raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+    
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=args.inference_batch_size,
+            enable_progress_bar=(not args.quiet),
+        )
+    
+        # Fail-fast: Check Lightning availability
+        try:
+            import lightning as L
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch Lightning backend requires 'lightning' and 'torch' packages. "
+                "Install via: pip install -e .[torch]\n"
+                f"Import error: {e}"
+            )
+    
+        # Phase C4.C6+C4.C7: Delegate to factory for CONFIG-001 compliance (ADR-003)
+        # Replaces manual checkpoint loading and config construction with centralized
+        # factory pattern. The factory handles:
+        # 1. Path validation and checkpoint discovery
+        # 2. CONFIG-001 bridging (update_legacy_dict before any IO)
+        # 3. Config translation (PyTorch → TensorFlow canonical dataclasses)
+        # 4. Execution config merging with override precedence
+    
+        from ptycho_torch.config_factory import create_inference_payload
+        from ptycho.raw_data import RawData
+    
+        # Convert paths to Path objects
+        model_path = Path(args.model_path)
+        test_data_path = Path(args.test_data)
+        output_dir = Path(args.output_dir)
+    
+        # Build overrides dict for factory
+        overrides = {
+            'n_groups': args.n_images,  # Map CLI arg to config field
+        }
+    
+        # Call factory to construct all configs and populate params.cfg
+        try:
+            payload = create_inference_payload(
+                model_path=model_path,
+                test_data_file=test_data_path,
+                output_dir=output_dir,
+                overrides=overrides,
+                execution_config=execution_config,
+            )
+    
+            # Extract configs from payload (factory already populated params.cfg)
+            pt_data_config = payload.pt_data_config
+            tf_inference_config = payload.tf_inference_config
+            execution_config = payload.execution_config
+    
+            if not args.quiet:
+                print(f"Loaded configuration from model checkpoint")
+                print(f"Test data: {test_data_path}")
+                print(f"Output directory: {output_dir}")
+                print(f"N groups: {tf_inference_config.n_groups}")
+                print(f"Execution config: accelerator={execution_config.accelerator}, "
+                      f"num_workers={execution_config.num_workers}")
+    
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create inference payload.\n"
+                f"Error: {e}\n"
+                "Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001."
+            )
+    
+        # Load checkpoint via Lightning (factory validated path exists)
+        checkpoint_candidates = [
+            model_path / "checkpoints" / "last.ckpt",  # Lightning default
+            model_path / "wts.pt",                      # Custom bundle format
+            model_path / "model.pt",                    # Alternative naming
+        ]
+    
+        checkpoint_path = None
+        for candidate in checkpoint_candidates:
+            if candidate.exists():
+                checkpoint_path = candidate
+                break
+    
+        if checkpoint_path is None:
+>           raise FileNotFoundError(
+                f"No Lightning checkpoint found in {model_path}.\n"
+                f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
+                "Factory validated model directory, but checkpoint file missing."
+            )
+E           FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-677/test_inference_batch_size_flag0/model.
+E           Searched for: ['/tmp/pytest-of-ollie/pytest-677/test_inference_batch_size_flag0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-677/test_inference_batch_size_flag0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-677/test_inference_batch_size_flag0/model/model.pt']
+E           Factory validated model directory, but checkpoint file missing.
+
+ptycho_torch/inference.py:520: FileNotFoundError
+----------------------------- Captured stdout call -----------------------------
+Loaded configuration from model checkpoint
+Test data: /tmp/pytest-of-ollie/pytest-677/test_inference_batch_size_flag0/test.npz
+Output directory: /tmp/pytest-of-ollie/pytest-677/test_inference_batch_size_flag0/inference_outputs
+N groups: <MagicMock name='mock().tf_inference_config.n_groups' id='127797898776464'>
+Execution config: accelerator=<MagicMock name='mock().execution_config.accelerator' id='127798228696784'>, num_workers=<MagicMock name='mock().execution_config.num_workers' id='127798027719888'>
+____________ TestInferenceCLI.test_multiple_execution_config_flags _____________
+
+self = <test_cli_inference_torch.TestInferenceCLI object at 0x743b6ad85d50>
+minimal_inference_args = ['--model_path', '/tmp/pytest-of-ollie/pytest-677/test_multiple_execution_config0/model', '--test_data', '/tmp/pytest-...g0/test.npz', '--output_dir', '/tmp/pytest-of-ollie/pytest-677/test_multiple_execution_config0/inference_outputs', ...]
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x743b44318210>
+
+    def test_multiple_execution_config_flags(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: Multiple execution config flags work together.
+    
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments (any of the new flags)
+        OR
+        - AssertionError: execution_config fields do not match expected values
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(),
+            execution_config=MagicMock(
+                accelerator='gpu',
+                num_workers=8,
+                inference_batch_size=64,
+            ),
+        )
+    
+        with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory):
+            test_args = minimal_inference_args + [
+                '--accelerator', 'gpu',
+                '--num-workers', '8',
+                '--inference-batch-size', '64',
+            ]
+    
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + test_args)
+    
+            try:
+>               cli_main()
+
+tests/torch/test_cli_inference_torch.py:183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cli_main():
+        """
+        CLI entrypoint for PyTorch Lightning checkpoint inference.
+    
+        This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
+        a command-line interface for loading trained PyTorch models and generating
+        reconstructions from test data.
+    
+        Usage:
+            python -m ptycho_torch.inference \\
+                --model_path <training_output_dir> \\
+                --test_data <npz_file> \\
+                --output_dir <inference_output_dir> \\
+                --n_images 32 \\
+                --device cpu \\
+                [--quiet]
+    
+        Expected Output Artifacts:
+            - <output_dir>/reconstructed_amplitude.png
+            - <output_dir>/reconstructed_phase.png
+    
+        References:
+            - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+            - Test contract: tests/torch/test_integration_workflow_torch.py
+            - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        """
+        parser = argparse.ArgumentParser(
+            description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
+    Examples:
+      # Run inference on trained model
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
+          --output_dir inference_outputs \\
+          --n_images 32 \\
+          --device cpu
+    
+      # Run with quiet output
+      python -m ptycho_torch.inference \\
+          --model_path training_outputs \\
+          --test_data test.npz \\
+          --output_dir outputs \\
+          --n_images 64 \\
+          --device cuda \\
+          --quiet
+            """
+        )
+    
+        parser.add_argument(
+            '--model_path',
+            type=str,
+            required=True,
+            help='Path to training output directory containing Lightning checkpoint (expects checkpoints/last.ckpt or wts.pt)'
+        )
+        parser.add_argument(
+            '--test_data',
+            type=str,
+            required=True,
+            help='Path to test data NPZ file (must conform to specs/data_contracts.md)'
+        )
+        parser.add_argument(
+            '--output_dir',
+            type=str,
+            required=True,
+            help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
+        )
+        parser.add_argument(
+            '--n_images',
+            type=int,
+            default=32,
+            help='Number of images to use for reconstruction (default: 32)'
+        )
+        parser.add_argument(
+            '--device',
+            type=str,
+            choices=['cpu', 'cuda'],
+            default='cpu',
+            help='Device to run inference on (cpu or cuda, default: cpu)'
+        )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Suppress progress output'
+        )
+    
+        # Execution config flags (Phase C4.C5 - ADR-003)
+        parser.add_argument(
+            '--accelerator',
+            type=str,
+            default='auto',
+            choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+            help=(
+                'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+                'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+            )
+        )
+        parser.add_argument(
+            '--num-workers',
+            type=int,
+            default=0,
+            dest='num_workers',
+            help=(
+                'Number of DataLoader worker processes (default: 0 = synchronous). '
+                'Typical values: 2-8 for multi-core systems.'
+            )
+        )
+        parser.add_argument(
+            '--inference-batch-size',
+            type=int,
+            default=None,
+            dest='inference_batch_size',
+            help=(
+                'Batch size for inference DataLoader (default: None = use training batch_size). '
+                'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+            )
+        )
+    
+        args = parser.parse_args()
+    
+        # Phase C4.C6: Create execution config from CLI args (ADR-003)
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
+            )
+    
+        # Validate execution config args
+        if args.num_workers < 0:
+            raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+        if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+            raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+    
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=args.inference_batch_size,
+            enable_progress_bar=(not args.quiet),
+        )
+    
+        # Fail-fast: Check Lightning availability
+        try:
+            import lightning as L
+            import torch
+        except ImportError as e:
+            raise RuntimeError(
+                "PyTorch Lightning backend requires 'lightning' and 'torch' packages. "
+                "Install via: pip install -e .[torch]\n"
+                f"Import error: {e}"
+            )
+    
+        # Phase C4.C6+C4.C7: Delegate to factory for CONFIG-001 compliance (ADR-003)
+        # Replaces manual checkpoint loading and config construction with centralized
+        # factory pattern. The factory handles:
+        # 1. Path validation and checkpoint discovery
+        # 2. CONFIG-001 bridging (update_legacy_dict before any IO)
+        # 3. Config translation (PyTorch → TensorFlow canonical dataclasses)
+        # 4. Execution config merging with override precedence
+    
+        from ptycho_torch.config_factory import create_inference_payload
+        from ptycho.raw_data import RawData
+    
+        # Convert paths to Path objects
+        model_path = Path(args.model_path)
+        test_data_path = Path(args.test_data)
+        output_dir = Path(args.output_dir)
+    
+        # Build overrides dict for factory
+        overrides = {
+            'n_groups': args.n_images,  # Map CLI arg to config field
+        }
+    
+        # Call factory to construct all configs and populate params.cfg
+        try:
+            payload = create_inference_payload(
+                model_path=model_path,
+                test_data_file=test_data_path,
+                output_dir=output_dir,
+                overrides=overrides,
+                execution_config=execution_config,
+            )
+    
+            # Extract configs from payload (factory already populated params.cfg)
+            pt_data_config = payload.pt_data_config
+            tf_inference_config = payload.tf_inference_config
+            execution_config = payload.execution_config
+    
+            if not args.quiet:
+                print(f"Loaded configuration from model checkpoint")
+                print(f"Test data: {test_data_path}")
+                print(f"Output directory: {output_dir}")
+                print(f"N groups: {tf_inference_config.n_groups}")
+                print(f"Execution config: accelerator={execution_config.accelerator}, "
+                      f"num_workers={execution_config.num_workers}")
+    
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create inference payload.\n"
+                f"Error: {e}\n"
+                "Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001."
+            )
+    
+        # Load checkpoint via Lightning (factory validated path exists)
+        checkpoint_candidates = [
+            model_path / "checkpoints" / "last.ckpt",  # Lightning default
+            model_path / "wts.pt",                      # Custom bundle format
+            model_path / "model.pt",                    # Alternative naming
+        ]
+    
+        checkpoint_path = None
+        for candidate in checkpoint_candidates:
+            if candidate.exists():
+                checkpoint_path = candidate
+                break
+    
+        if checkpoint_path is None:
+>           raise FileNotFoundError(
+                f"No Lightning checkpoint found in {model_path}.\n"
+                f"Searched for: {[str(p) for p in checkpoint_candidates]}\n"
+                "Factory validated model directory, but checkpoint file missing."
+            )
+E           FileNotFoundError: No Lightning checkpoint found in /tmp/pytest-of-ollie/pytest-677/test_multiple_execution_config0/model.
+E           Searched for: ['/tmp/pytest-of-ollie/pytest-677/test_multiple_execution_config0/model/checkpoints/last.ckpt', '/tmp/pytest-of-ollie/pytest-677/test_multiple_execution_config0/model/wts.pt', '/tmp/pytest-of-ollie/pytest-677/test_multiple_execution_config0/model/model.pt']
+E           Factory validated model directory, but checkpoint file missing.
+
+ptycho_torch/inference.py:520: FileNotFoundError
+----------------------------- Captured stdout call -----------------------------
+Loaded configuration from model checkpoint
+Test data: /tmp/pytest-of-ollie/pytest-677/test_multiple_execution_config0/test.npz
+Output directory: /tmp/pytest-of-ollie/pytest-677/test_multiple_execution_config0/inference_outputs
+N groups: <MagicMock name='mock().tf_inference_config.n_groups' id='127797896288592'>
+Execution config: accelerator=gpu, num_workers=8
+____________________ test_run_pytorch_train_save_load_infer ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-677/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
+        """
+        Tests the complete PyTorch train → save → load → infer workflow.
+    
+        This validates the PyTorch model persistence layer by simulating a real
+        user workflow across separate processes, mirroring the TensorFlow integration test.
+    
+        Phase: C2 (GREEN)
+        Behavior:
+        1. Training subprocess creates Lightning checkpoint at checkpoints/last.ckpt
+        2. Inference subprocess loads checkpoint and generates reconstructions
+        3. Output images created in inference output directory
+        4. Assertions verify artifact existence and non-empty file sizes
+    
+        Implementation: _run_pytorch_workflow executes train/infer via subprocess
+        """
+        # Execute complete workflow via subprocess helper (Phase C2 implementation)
+>       result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_integration_workflow_torch.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-677/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
+        """
+        Execute PyTorch train→save→load→infer workflow via subprocess calls.
+    
+        Parameters:
+            tmp_path: pytest tmp_path fixture for output directories
+            data_file: Path to NPZ dataset
+            cuda_cpu_env: Environment dict with CUDA_VISIBLE_DEVICES=""
+    
+        Returns:
+            SimpleNamespace with:
+                - training_output_dir: Path to training outputs
+                - inference_output_dir: Path to inference outputs
+                - checkpoint_path: Path to Lightning checkpoint
+                - recon_amp_path: Path to amplitude reconstruction PNG
+                - recon_phase_path: Path to phase reconstruction PNG
+    
+        Raises:
+            RuntimeError: If training or inference subprocess fails
+    
+        Phase: C2 (GREEN)
+        Implementation: Ported from legacy unittest harness with subprocess commands
+        """
+        from types import SimpleNamespace
+    
+        # Define output paths
+        training_output_dir = tmp_path / "training_outputs"
+        inference_output_dir = tmp_path / "pytorch_output"
+    
+        # --- 1. Training Step (PyTorch) ---
+        # CLI parameters aligned with Phase B1 scope (fixture n_subset=64, deterministic config)
+        # Preserves CONFIG-001 ordering per docs/workflows/pytorch.md §12
+        train_command = [
+            sys.executable, "-m", "ptycho_torch.train",
+            "--train_data_file", str(data_file),
+            "--test_data_file", str(data_file),
+            "--output_dir", str(training_output_dir),
+            "--max_epochs", "2",  # Aligned with Phase B1 runtime budget (<45s)
+            "--n_images", "64",   # Matches fixture subset size
+            "--gridsize", "1",
+            "--batch_size", "4",
+            "--device", "cpu",    # Deterministic CPU-only execution per cuda_cpu_env fixture
+            "--disable_mlflow",
+        ]
+    
+        train_result = subprocess.run(
+            train_command,
+            capture_output=True,
+            text=True,
+            env=cuda_cpu_env,
+            check=False
+        )
+    
+        if train_result.returncode != 0:
+>           raise RuntimeError(
+                f"PyTorch training failed with return code {train_result.returncode}\n"
+                f"STDOUT:\n{train_result.stdout}\n"
+                f"STDERR:\n{train_result.stderr}"
+            )
+E           RuntimeError: PyTorch training failed with return code 1
+E           STDOUT:
+E           No GPU found, using CPU instead.
+E           Using new CLI interface with factory-based config (ADR-003)
+E           Creating configuration via factory (CONFIG-001 compliance)...
+E           ✓ Factory created configs: N=64, gridsize=(1, 1), epochs=2
+E           ✓ Execution config: accelerator=cpu, deterministic=True, learning_rate=0.001
+E           Starting training with 2 epochs...
+E           Starting training loop. Loading configs...
+E           Creating data module
+E           Creating model...
+E           Decoder Block 1: No attention module added.
+E           Decoder Block 2: No attention module added.
+E           Decoder Block 1: No attention module added.
+E           Decoder Block 2: No attention module added.
+E           training_config name: Synthetic_Runs
+E           [Rank 0] Beginning model training/final data prep... (MLflow disabled)
+E           [DataModule prepare_data] Global Rank: 0. Creating/Verifying map.
+E           [DataModule setup] Stage: TrainerFn.FITTING, Global Rank: 0. Loading map.
+E           [DataModule setup] remake = True
+E           Creating dataset...
+E           Calculating dataset length with coordinate bounds...
+E           For file /home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz, maximum x_range is (np.float64(35.28876207528512), np.float64(77.82671324125869)), yrange is (np.float64(36.08723987167515), np.float64(78.038355606719))
+E           Creating memory mapped tensor dictionary...
+E           Memory map length: 238
+E           Memory map creation time: 0.001024007797241211
+E           Populating memory map for dataset 0
+E           Start - end = 238
+E           begin nn_indices
+E           nn_indices_bounded_shape (34, 7)
+E           [Rank 0] FATAL ERROR during map creation/saving: The expanded size of the tensor (1) must match the existing size (4) at non-singleton dimension 1.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [238, 4, 1, 2]
+E           Training failed: The expanded size of the tensor (1) must match the existing size (4) at non-singleton dimension 1.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [238, 4, 1, 2]
+E           
+E           STDERR:
+E           2025-10-19 21:31:11.719934: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+E           WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E           E0000 00:00:1760934671.730924 1408678 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E           E0000 00:00:1760934671.734574 1408678 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+E           W0000 00:00:1760934671.744928 1408678 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760934671.744939 1408678 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760934671.744941 1408678 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760934671.744942 1408678 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           2025-10-19 21:31:13.721803: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+E           /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:590: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+E             warnings.warn(
+E           INFO:pytorch_lightning.utilities.rank_zero:GPU available: False, used: False
+E           INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+E           INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+E           Traceback (most recent call last):
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 634, in cli_main
+E               main(
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py", line 338, in main
+E               trainer.fit(model, datamodule = data_module)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 560, in fit
+E               call._call_and_handle_interrupt(
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 49, in _call_and_handle_interrupt
+E               return trainer_fn(*args, **kwargs)
+E                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 598, in _fit_impl
+E               self._run(model, ckpt_path=ckpt_path)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 973, in _run
+E               call._call_setup_hook(self)  # allow user to set up LightningModule in accelerator environment
+E               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 108, in _call_setup_hook
+E               _call_lightning_datamodule_hook(trainer, "setup", stage=fn)
+E             File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 199, in _call_lightning_datamodule_hook
+E               return fn(*args, **kwargs)
+E                      ^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/train_utils.py", line 257, in setup
+E               full_dataset = PtychoDataset(
+E                              ^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 252, in __init__
+E               self.memory_map_data(self.file_list)
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/dataloader.py", line 534, in memory_map_data
+E               mmap_ptycho["coords_relative"][start:end] = torch.from_numpy(coords_relative)
+E               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+E           RuntimeError: The expanded size of the tensor (1) must match the existing size (4) at non-singleton dimension 1.  Target sizes: [238, 1, 1, 2].  Tensor sizes: [238, 4, 1, 2]
+
+tests/torch/test_integration_workflow_torch.py:120: RuntimeError
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py:569: UserWarning: num_workers > 0 with deterministic mode enabled. This may introduce non-determinism on some platforms. Consider using --num-workers 0 for strict reproducibility.
+    warnings.warn(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeMVP::test_mvp_config_bridge_populates_params_cfg
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:100: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    spec_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:235: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:298: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:366: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:493: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:575: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:666: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:707: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:742: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_factory.py: 15 warnings
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:247: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_config_factory.py: 18 warnings
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:590: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:523: UserWarning: Data file /nonexistent/data.npz not found. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory training_outputs/checkpoints exists and is not empty.
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/model_manager.py:115: UserWarning: Incomplete dual-model bundle: found {'lightning_module'}, expected {'autoencoder', 'diffraction_to_obj'}. Reconstructor may fail to load archive.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_benchmark_throughput.py:11: scripts/benchmark_inference_throughput.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_run_baseline.py:4: tests/test_utilities.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_generic_loader.py:46: Data loading failed:
+SKIPPED [1] tests/test_integration_baseline_gs2.py:27: Test data not found at /home/ollie/Documents/PtychoPINN2/datasets/fly/fly001_transposed.npz
+SKIPPED [1] ../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/unittest.py:385: Deprecated: generate_simulated_data API changed from (obj,probe,nimages) to (config,obj,probe) and memoization disabled
+SKIPPED [1] tests/test_tf_helper.py:199: TensorFlow Addons removed in TF 2.19 migration
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:47: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:86: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:198: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:169: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:257: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:227: tensorflow_addons not available
+SKIPPED [2] tests/torch/test_integration_workflow_torch.py: Migrated to pytest-native test_run_pytorch_train_save_load_infer
+SKIPPED [1] tests/torch/test_tf_helper.py:64: torch tf_helper module not available
+SKIPPED [1] tests/torch/test_tf_helper.py:57: torch tf_helper module not available
+SKIPPED [1] tests/torch/test_tf_helper.py:74: torch tf_helper module not available - tests would fail
+XFAIL tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_returns_model_stub - Phase D4.B1 red phase: load_torch_bundle model reconstruction pending. Expected NotImplementedError raised. This test will pass once Phase D3.C implements model reconstruction logic.
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_num_workers_flag_roundtrip
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_inference_batch_size_flag_roundtrip
+FAILED tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_multiple_execution_config_flags
+FAILED tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer
+= 5 failed, 276 passed, 17 skipped, 1 xfailed, 55 warnings in 182.42s (0:03:02) =

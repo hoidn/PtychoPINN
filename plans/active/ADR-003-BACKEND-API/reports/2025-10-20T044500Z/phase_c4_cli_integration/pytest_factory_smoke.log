@@ -1,0 +1,37 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 25 items / 19 deselected / 6 selected
+
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_training_payload_execution_config_not_none PASSED [ 16%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_inference_payload_execution_config_not_none PASSED [ 33%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_defaults_applied PASSED [ 50%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_explicit_instance_propagates PASSED [ 66%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible PASSED [ 83%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_overrides_applied_records_execution_knobs PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_training_payload_execution_config_not_none
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_defaults_applied
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_explicit_instance_propagates
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_overrides_applied_records_execution_knobs
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:247: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_training_payload_execution_config_not_none
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_inference_payload_execution_config_not_none
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_defaults_applied
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_explicit_instance_propagates
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_overrides_applied_records_execution_knobs
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:590: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================ 6 passed, 19 deselected, 11 warnings in 3.63s =================
