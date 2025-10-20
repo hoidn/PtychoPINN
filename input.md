@@ -1,55 +1,52 @@
-Summary: Stage RED tests for the inference CLI thin-wrapper refactor (Phase D.C C2).
+Summary: Refactor the inference CLI into a thin wrapper and drive Phase D.C C3 tests to GREEN.
 Mode: TDD
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D.C (Inference CLI thin wrapper, C2)
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase D.C (Inference CLI thin wrapper, C3)
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv (expected RED); CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_shared.py -k inference_mode -vv (expected RED)
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/{pytest_cli_inference_thin_red.log,pytest_cli_shared_inference_red.log}
+Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/{summary.md,pytest_cli_inference_green.log,pytest_cli_integration_green.log}
 
 Do Now:
-1. ADR-003-BACKEND-API C2 (thin-wrapper CLI tests) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:47 — Add `TestInferenceCLIThinWrapper` RED cases in `tests/torch/test_cli_inference_torch.py` covering helper delegation (`validate_paths`, factory call, `RawData.from_file`, `_run_inference_and_reconstruct`) plus quiet-flag behaviour; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv (expect FAIL, capture log to artifact hub).
-2. ADR-003-BACKEND-API C2 (shared helper inference coverage) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:47 — Extend `tests/torch/test_cli_shared.py` with inference-mode cases (`test_build_execution_config_inference_mode_defaults`, `test_build_execution_config_inference_mode_custom_batch_size`, `test_build_execution_config_inference_mode_respects_quiet`) referencing blueprint §Test Strategy; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_shared.py -k "inference_mode or quiet" -vv (expect FAIL, capture log).
-3. ADR-003-BACKEND-API C2 (plan + ledger sync) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:47 — Update plan row C2 to `[x]` with artifact links and note RED selectors; append Attempt entry in `docs/fix_plan.md` and drop summary stub in the new artifact directory; tests: none.
+1. ADR-003-BACKEND-API C3 (implement thin wrapper) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — Extract `_run_inference_and_reconstruct()` from the existing inline logic, update `cli_main()` to call shared helpers (`validate_paths`, `build_execution_config_from_args(mode='inference')`, `resolve_accelerator`), and delegate RawData loading plus helper invocation before saving reconstructions; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv (expect GREEN, capture log to artifact hub).
+2. ADR-003-BACKEND-API C3 (integration guard) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — Run the PyTorch integration workflow to confirm CLI changes preserve end-to-end behaviour; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv (capture log).
+3. ADR-003-BACKEND-API C3 (plan + ledger sync) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — Mark plan row C3 `[x]`, drop `summary.md` with test outcomes, and append Attempt entry in `docs/fix_plan.md` referencing the GREEN logs; tests: none.
 
-If Blocked: Record details in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/blocker.md`, keep plan row C2 at `[ ]`, and log the stall in `docs/fix_plan.md` Attempts History before stopping.
+If Blocked: Capture failure details (stack trace, command, inputs) in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/blocker.md`, keep plan C3 at `[ ]`, and document the stall in `docs/fix_plan.md` Attempts History before stopping.
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:47 — Phase D.C C2 exit criteria require RED selectors before refactor begins.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md#test-strategy — Blueprint enumerates the exact helper delegation tests to author.
-- specs/ptychodus_api_spec.md:180 — CLI contract mandates CONFIG-001 ordering; RED tests need to assert validate_paths/factory call sequence.
-- docs/workflows/pytorch.md:344 — Execution-config helper behaviour must stay aligned; inference-mode tests safeguard quiet flag + accelerator routing.
-- tests/torch/test_cli_inference_torch.py:1 — Existing GREEN coverage documents current behaviour; new tests should wrap mocks without breaking baseline cases.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:48 — C3 exit criteria require helper extraction, shared helper delegation, and targeted pytest validation.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md#inference-orchestration-refactor — Blueprint spells out the helper structure and delegation order for C3.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/summary.md — RED logs document the current failure signatures each refactor step must resolve.
+- specs/ptychodus_api_spec.md:170 — CONFIG-001 ordering and bundle loading contract must remain intact after the refactor.
+- docs/workflows/pytorch.md:318 — CLI documentation describes expected flags and quiet-mode semantics that shared helpers enforce.
 
 How-To Map:
-- Create artifact hub via `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red`.
-- In `tests/torch/test_cli_inference_torch.py`, add a new `TestInferenceCLIThinWrapper` class that:
-  - patches `ptycho_torch.cli.shared.validate_paths`, `ptycho_torch.config_factory.create_inference_payload`, `ptycho_torch.workflows.components.load_inference_bundle_torch`, `ptycho_torch.inference.RawData.from_file`, and the future `_run_inference_and_reconstruct`.
-  - asserts the CLI calls helpers in the expected order by inspecting mock call arguments, raising `AssertionError` if `_run_inference_and_reconstruct` is missing (expected RED).
-  - includes a quiet-mode test that confirms `enable_progress_bar` maps to quiet flag (mock print/log).
-- Capture RED evidence: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/pytest_cli_inference_thin_red.log` (failure expected on missing helper/validate_paths wiring).
-- Update `tests/torch/test_cli_shared.py` with inference-mode helper tests per blueprint §Test Strategy (defaults vs custom batch size vs quiet). Ensure tests assert `enable_progress_bar` toggles and that `inference_batch_size` defaults to `None`.
-- Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_shared.py -k "inference_mode or quiet" -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/pytest_cli_shared_inference_red.log` (expect new tests to FAIL until helpers updated).
-- After logs captured, mark plan C2 row `[x]`, embed artifact file list, and add a short summary (`summary.md`) to the artifact hub referencing both failing logs and key assertions.
-- Update `docs/fix_plan.md` Attempts History with the new RED evidence pointer, noting selectors and failure signatures.
+- Create artifact hub: `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl`.
+- In `ptycho_torch/inference.py`, move the inference loop (current lines ~520-660) into a private helper `_run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False)` that returns `(amplitude, phase)`; ensure helper lives alongside `save_individual_reconstructions`.
+- Replace inline validation in `cli_main()` with calls to `validate_paths(train_file=None, test_file=..., output_dir=...)` and `build_execution_config_from_args(args, mode='inference')`; use `resolve_accelerator()` for `--device` compatibility and pass `quiet` flag through.
+- After factory payload + bundle loader complete, delegate to the new helper and capture its return values before calling `save_individual_reconstructions`.
+- Preserve legacy MLflow path (`if __name__ == '__main__'` guard) untouched.
+- Run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_inference_torch.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/pytest_cli_inference_green.log`.
+- Follow with `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/pytest_cli_integration_green.log`.
+- Summarize outcomes (helper extractions, test results, any follow-up) in `summary.md` within the artifact hub before updating plan/ledger rows.
 
 Pitfalls To Avoid:
-- Do not modify `ptycho_torch/inference.py` or production helpers this loop.
-- Keep mocks focused—avoid patching modules that would hide missing helper calls.
-- Maintain pytest-native style; no unittest.TestCase usage.
-- Ensure RED logs capture the failure stack traces (no `-q` / `--maxfail` that truncates output).
-- Do not delete or overwrite prior artifact directories; add new evidence only to the timestamped hub.
-- Preserve CONFIG-001 references in assertions; do not skip validate_paths() ordering checks.
-- Avoid editing existing passing tests except for necessary fixture reuse.
-- Keep environment CPU-only (set `CUDA_VISIBLE_DEVICES=""`) to avoid accidental GPU dependence.
-- Remember to restore any `sys.argv` monkeypatching within tests to prevent bleed-over.
-- Update plan/ledger after logs are saved to keep traceability intact.
+- Do not drop quiet-mode behaviour; shared helpers must remain the single source of progress-bar toggling.
+- Keep `_run_inference_and_reconstruct` importable from `ptycho_torch.inference` so tests can patch it.
+- Ensure helper returns numpy arrays, not torch tensors, so `save_individual_reconstructions` keeps working.
+- Maintain CONFIG-001 ordering: `validate_paths` → factory → bundle loader → RawData load → helper.
+- Retain legacy MLflow CLI path logic and argument parsing untouched.
+- Avoid introducing GPU-only defaults; continue honouring CPU fallback when accelerator is unavailable.
+- Do not run full pytest suites—stick to mapped selectors.
+- Stop if integration test fails: capture log, do not iterate blindly.
+- Leave artifact logs in the timestamped directory; no output at repo root.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md#test-strategy
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md:44
 - ptycho_torch/inference.py:293
-- tests/torch/test_cli_inference_torch.py:1
-- tests/torch/test_cli_shared.py:1
-- specs/ptychodus_api_spec.md:180
-- docs/workflows/pytorch.md:344
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T130900Z/phase_d_cli_wrappers/plan.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/summary.md
+- tests/torch/test_cli_inference_torch.py:203
+- tests/torch/test_integration_workflow_torch.py:1
+- specs/ptychodus_api_spec.md:170
 
-Next Up: Consider ADR-003-BACKEND-API C3 (implement inference thin wrapper) once RED tests land.
+Next Up: If C3 lands early, stage Phase D.C C4 (docs updates) per plan once Do Now is complete.

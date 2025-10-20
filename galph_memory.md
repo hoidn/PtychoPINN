@@ -1596,3 +1596,14 @@
 - Notes: Validated inference blueprint test strategy, confirmed existing CLI test scaffolds, and rewrote `input.md` directing RED test authoring with artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/`. Logged Attempt #47 in fix ledger.
 - Follow-up for Ralph: Add thin-wrapper delegation tests + inference helper coverage, capture failing selectors, update plan row C2 and artifact summary per Do Now.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T120716Z: Phase D.C C3 evidence setup
+- Focus issue: ADR-003-BACKEND-API Phase D.C — inference CLI thin wrapper implementation (C3)
+- Action type: Evidence collection
+- Mode: TDD
+- Notes:
+  - Reviewed RED evidence (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T115252Z/phase_d_cli_wrappers_inference_red/summary.md`) and current CLI inline logic (`ptycho_torch/inference.py:293-660`) to confirm helper extraction + delegation gaps.
+  - Cross-checked blueprint directives (`.../phase_d_cli_wrappers_inference/inference_refactor.md#inference-orchestration-refactor`) with tests/torch/test_cli_inference_torch.py:203 to map exact expectations for `_run_inference_and_reconstruct` and shared helper usage.
+  - Updated `phase_d_cli_wrappers/plan.md` C3 guidance with explicit helper, pytest, and artifact requirements and logged Attempt #48 in `docs/fix_plan.md`.
+  - Rewrote `input.md` launching implementation loop with artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/` and mapped selectors.
+- <Action State>: [ready_for_implementation]
