@@ -245,6 +245,70 @@ class PyTorchExecutionConfig:
     middle_trim: int = 0  # Inference trimming parameter (not yet implemented)
     pad_eval: bool = False  # Padding for evaluation (not yet implemented)
 
+    def __post_init__(self):
+        """
+        Validate PyTorchExecutionConfig fields (ADR-003 Phase D.B).
+
+        Raises:
+            ValueError: If validation fails with descriptive message
+
+        Validation Rules (from training_refactor.md §Component 2):
+            1. accelerator must be in whitelist {'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}
+            2. num_workers must be non-negative
+            3. learning_rate must be positive
+            4. inference_batch_size (if provided) must be positive
+            5. accum_steps must be positive
+            6. checkpoint_save_top_k must be non-negative
+            7. early_stop_patience must be positive
+
+        Notes:
+            - Warnings for deterministic+num_workers handled in CLI helper (build_execution_config_from_args)
+            - Field defaults are safe; validation catches programmatic misuse
+        """
+        # Accelerator whitelist (Lightning supported values)
+        valid_accelerators = {'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}
+        if self.accelerator not in valid_accelerators:
+            raise ValueError(
+                f"Invalid accelerator: '{self.accelerator}'. "
+                f"Expected one of {sorted(valid_accelerators)}."
+            )
+
+        # Non-negative workers
+        if self.num_workers < 0:
+            raise ValueError(
+                f"num_workers must be non-negative, got {self.num_workers}"
+            )
+
+        # Positive learning rate
+        if self.learning_rate <= 0:
+            raise ValueError(
+                f"learning_rate must be positive, got {self.learning_rate}"
+            )
+
+        # Positive inference batch size (if provided)
+        if self.inference_batch_size is not None and self.inference_batch_size <= 0:
+            raise ValueError(
+                f"inference_batch_size must be positive, got {self.inference_batch_size}"
+            )
+
+        # Positive accumulation steps
+        if self.accum_steps <= 0:
+            raise ValueError(
+                f"accum_steps must be positive, got {self.accum_steps}"
+            )
+
+        # Non-negative checkpoint save count
+        if self.checkpoint_save_top_k < 0:
+            raise ValueError(
+                f"checkpoint_save_top_k must be non-negative, got {self.checkpoint_save_top_k}"
+            )
+
+        # Positive early stopping patience
+        if self.early_stop_patience <= 0:
+            raise ValueError(
+                f"early_stop_patience must be positive, got {self.early_stop_patience}"
+            )
+
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""

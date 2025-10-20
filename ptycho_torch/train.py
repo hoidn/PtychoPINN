@@ -416,9 +416,11 @@ Examples:
     parser.add_argument('--batch_size', type=int, default=4,
                        help='Training batch size (default: 4)')
     parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu',
-                       help='Compute device: cpu or cuda (default: cpu)')
+                       help='[DEPRECATED] Use --accelerator instead. Compute device: cpu or cuda (default: cpu)')
     parser.add_argument('--disable_mlflow', action='store_true',
-                       help='Disable MLflow experiment tracking (useful for CI)')
+                       help='[DEPRECATED] Use --quiet instead. Disable MLflow experiment tracking (useful for CI)')
+    parser.add_argument('--quiet', action='store_true',
+                       help='Suppress progress bars and verbose output')
 
     # Execution config flags (Phase C4.C1 - ADR-003)
     parser.add_argument(
@@ -523,62 +525,25 @@ Examples:
         test_data_file = Path(args.test_data_file) if args.test_data_file else None
         output_dir = Path(args.output_dir)
 
-        # Validate input files exist
-        if not train_data_file.exists():
-            print(f"ERROR: Training data file not found: {train_data_file}")
+        # Validate paths using shared helper (Phase D.B - ADR-003)
+        from ptycho_torch.cli.shared import validate_paths
+        try:
+            validate_paths(train_data_file, test_data_file, output_dir)
+        except FileNotFoundError as e:
+            print(f"ERROR: {e}")
             sys.exit(1)
-        if test_data_file and not test_data_file.exists():
-            print(f"ERROR: Test data file not found: {test_data_file}")
-            sys.exit(1)
-
-        # Create output directory
-        output_dir.mkdir(parents=True, exist_ok=True)
 
         # Extract ptycho_dir from train_data_file parent directory
         # The existing main() expects a directory containing NPZ files
         ptycho_dir = train_data_file.parent
 
-        # Phase C4.C1: Create execution config from CLI args
-        from ptycho.config.config import PyTorchExecutionConfig
-
-        # Resolve accelerator (handle --device backward compatibility)
-        resolved_accelerator = args.accelerator
-        if args.device and args.accelerator == 'auto':
-            # Map legacy --device to --accelerator if accelerator not explicitly set
-            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
-        elif args.device and args.accelerator != 'auto':
-            # Warn if both specified
-            import warnings
-            warnings.warn(
-                "--device is deprecated and will be removed in Phase D. "
-                "Use --accelerator instead. Ignoring --device value.",
-                DeprecationWarning
-            )
-
-        # Validate execution config args
-        if args.num_workers < 0:
-            print(f"ERROR: --num-workers must be >= 0, got {args.num_workers}")
+        # Phase D.B: Build execution config using shared helper (ADR-003)
+        from ptycho_torch.cli.shared import build_execution_config_from_args
+        try:
+            execution_config = build_execution_config_from_args(args, mode='training')
+        except ValueError as e:
+            print(f"ERROR: Invalid execution config: {e}")
             sys.exit(1)
-        if args.learning_rate <= 0:
-            print(f"ERROR: --learning-rate must be > 0, got {args.learning_rate}")
-            sys.exit(1)
-
-        # Warn about num_workers + deterministic combination
-        if args.num_workers > 0 and args.deterministic:
-            import warnings
-            warnings.warn(
-                "num_workers > 0 with deterministic mode enabled. "
-                "This may introduce non-determinism on some platforms. "
-                "Consider using --num-workers 0 for strict reproducibility."
-            )
-
-        execution_config = PyTorchExecutionConfig(
-            accelerator=resolved_accelerator,
-            deterministic=args.deterministic,
-            num_workers=args.num_workers,
-            learning_rate=args.learning_rate,
-            enable_progress_bar=(not args.disable_mlflow),  # Reuse mlflow flag for progress bar control
-        )
 
         # Phase C4.C2: Use config factory instead of manual config construction
         print("Creating configuration via factory (CONFIG-001 compliance)...")

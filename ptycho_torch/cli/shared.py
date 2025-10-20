@@ -1,0 +1,184 @@
+"""
+Shared CLI helper functions for PyTorch backend (ADR-003 Phase D.B).
+
+This module centralizes common CLI functionality extracted from training and
+inference CLI scripts during the thin wrapper refactor. Functions are designed
+to be stateless with clear contracts, raising exceptions for validation errors
+rather than exiting directly (allowing callers to format user-friendly messages).
+
+Component Responsibilities:
+- resolve_accelerator(): Handle --device → --accelerator backward compatibility
+- build_execution_config_from_args(): Construct PyTorchExecutionConfig with validation
+- validate_paths(): Check file existence and create output directory
+
+References:
+- Blueprint: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/training_refactor.md
+- Design Decisions: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/design_notes.md
+- Spec: specs/ptychodus_api_spec.md §7 (CLI execution config flags)
+"""
+
+import warnings
+import argparse
+from pathlib import Path
+from typing import Optional
+
+
+def resolve_accelerator(accelerator: str = 'auto', device: Optional[str] = None) -> str:
+    """
+    Resolve accelerator from CLI args, handling --device deprecation.
+
+    Args:
+        accelerator: Value from --accelerator flag (default: 'auto')
+        device: Value from --device flag (deprecated, optional)
+
+    Returns:
+        Resolved accelerator string ('cpu', 'gpu', 'cuda', 'tpu', 'mps', 'auto')
+
+    Emits:
+        DeprecationWarning if device is specified
+
+    Examples:
+        >>> resolve_accelerator('cpu', None)
+        'cpu'
+        >>> resolve_accelerator('auto', 'cuda')  # Legacy --device usage
+        'gpu'
+        >>> resolve_accelerator('cpu', 'cuda')  # Conflict: accelerator wins
+        'cpu'
+
+    Notes:
+        - Legacy --device='cuda' maps to accelerator='gpu' (Lightning convention)
+        - If both flags specified, --accelerator takes precedence
+        - Emits DeprecationWarning in both cases for migration guidance
+    """
+    resolved = accelerator
+
+    if device and accelerator == 'auto':
+        # Map legacy --device to --accelerator
+        warnings.warn(
+            "--device is deprecated. Use --accelerator instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        resolved = 'cpu' if device == 'cpu' else 'gpu'
+
+    elif device and accelerator != 'auto':
+        # Conflict: accelerator takes precedence
+        warnings.warn(
+            "--device is deprecated. Use --accelerator instead. Ignoring --device value.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # resolved = accelerator (no change)
+
+    return resolved
+
+
+def build_execution_config_from_args(
+    args: argparse.Namespace,
+    mode: str = 'training'
+):
+    """
+    Build PyTorchExecutionConfig from CLI args with validation and warnings.
+
+    Args:
+        args: Parsed argparse.Namespace containing execution config flags
+        mode: 'training' or 'inference' (controls field availability)
+
+    Returns:
+        PyTorchExecutionConfig instance
+
+    Raises:
+        ValueError: If mode is invalid or validation fails (caught in dataclass __post_init__)
+
+    Emits:
+        UserWarning if deterministic=True and num_workers > 0 (training mode only)
+
+    Examples:
+        >>> args = argparse.Namespace(accelerator='cpu', deterministic=True, num_workers=0, learning_rate=1e-3, disable_mlflow=False, quiet=False)
+        >>> config = build_execution_config_from_args(args, mode='training')
+        >>> config.accelerator
+        'cpu'
+
+    Notes:
+        - Calls resolve_accelerator() to handle --device deprecation
+        - Maps --quiet OR --disable_mlflow to enable_progress_bar field
+        - Emits UserWarning for deterministic+num_workers performance caveat
+        - Validation (accelerator whitelist, non-negative workers, etc.) handled in PyTorchExecutionConfig.__post_init__()
+    """
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    # Resolve accelerator (handles --device deprecation)
+    resolved_accelerator = resolve_accelerator(
+        args.accelerator,
+        getattr(args, 'device', None)
+    )
+
+    # Map disable_mlflow/quiet to enable_progress_bar
+    quiet_mode = getattr(args, 'quiet', False) or getattr(args, 'disable_mlflow', False)
+    enable_progress_bar = not quiet_mode
+
+    # Emit deterministic+num_workers warning (training only)
+    if mode == 'training' and args.deterministic and args.num_workers > 0:
+        warnings.warn(
+            f"Deterministic mode with num_workers={args.num_workers} may cause performance degradation. "
+            f"Consider setting --num-workers 0 for reproducibility.",
+            UserWarning,
+            stacklevel=2
+        )
+
+    # Construct config (validation happens in __post_init__)
+    if mode == 'training':
+        return PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            deterministic=args.deterministic,
+            num_workers=args.num_workers,
+            learning_rate=args.learning_rate,
+            enable_progress_bar=enable_progress_bar,
+        )
+    elif mode == 'inference':
+        return PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            num_workers=args.num_workers,
+            inference_batch_size=getattr(args, 'inference_batch_size', None),
+            enable_progress_bar=enable_progress_bar,
+        )
+    else:
+        raise ValueError(f"Invalid mode: {mode}. Expected 'training' or 'inference'.")
+
+
+def validate_paths(
+    train_file: Optional[Path],
+    test_file: Optional[Path],
+    output_dir: Path,
+) -> None:
+    """
+    Validate input NPZ files exist and create output directory.
+
+    Args:
+        train_file: Path to training NPZ file (required for training CLI, optional for inference)
+        test_file: Path to test NPZ file (optional)
+        output_dir: Directory for outputs (will be created if missing)
+
+    Raises:
+        FileNotFoundError: If train_file or test_file does not exist
+
+    Side Effects:
+        Creates output_dir and any parent directories (mkdir -p behavior)
+
+    Examples:
+        >>> validate_paths(Path('data/train.npz'), None, Path('outputs/'))
+        # Creates outputs/ if missing, raises if data/train.npz missing
+
+    Notes:
+        - Accepts None for train_file (inference mode) or test_file (optional validation data)
+        - Uses Path.mkdir(parents=True, exist_ok=True) for directory creation
+        - Raises descriptive FileNotFoundError with path included in message
+    """
+    if train_file and not train_file.exists():
+        raise FileNotFoundError(f"Training data file not found: {train_file}")
+
+    if test_file and not test_file.exists():
+        raise FileNotFoundError(f"Test data file not found: {test_file}")
+
+    # Create output directory (mkdir -p)
+    output_dir.mkdir(parents=True, exist_ok=True)
