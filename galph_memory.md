@@ -1656,3 +1656,11 @@
   - Rewrote `input.md` to launch E.A1 (ADR addendum) with new artifact hub `reports/2025-10-20T134500Z/phase_e_governance_adr_addendum/`.
 - Follow-up for Ralph: Execute plan row E.A1 (ADR addendum), update plan + ledger, archive artifacts under the new timestamped directory.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T150000Z: Phase E.A2 spec redline prep
+- Focus issue: ADR-003-BACKEND-API — Phase E.A2 (spec redline)
+- Action type: Evidence collection
+- Mode: Docs
+- Notes: Coin flip → tails (skipped retrospective audit). Dependencies satisfied (Phase E.A1 complete). Reviewed `specs/ptychodus_api_spec.md` §§4.7–4.9 & §7, `ptycho/config/config.py` (PyTorchExecutionConfig), and CLI entry points to map PyTorch execution contract gaps. Authored scope doc `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T150020Z/phase_e_governance_spec_redline/spec_delta_notes.md` capturing required edits (new PyTorch runtime subsection, execution-config table, CLI default corrections). Updated governance plan row E.A2 to reference the notes and logged Attempt #56 in docs/fix_plan.md. Reissued `input.md` instructing Ralph to perform the spec redline and generate `spec_redline.md`. 
+- Next supervisor pass: verify spec diff + plan/fix_plan updates, then advance to E.A3 workflow guide refresh.
+- <Action State>: [ready_for_implementation]
