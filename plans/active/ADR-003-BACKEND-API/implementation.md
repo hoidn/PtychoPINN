@@ -46,7 +46,7 @@ Exit Criteria: CLI scripts delegate entirely to workflows; backwards-compat CLI 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| D1 | Update training CLI | [ ] | Phase B blueprint + RED scaffolding complete; B3 implementation (helpers, validation, CLI refactor) landed with GREEN logs in `reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`. Remaining work: Phase B.B4 documentation refresh + artifact hygiene (move stray CLI logs) before flipping D1 to `[x]`. |
+| D1 | Update training CLI | [x] | ✅ 2025-10-20 — Training CLI thin wrapper complete. Phase B.B3 implementation (helpers, validation, refactor) landed with GREEN logs in `reports/2025-10-20T111500Z/phase_d_cli_wrappers_training_impl/`. Phase B.B4 documentation refresh + hygiene complete: `docs/workflows/pytorch.md` updated with `--quiet`, `--device` deprecation, helper-based flow; `tests/torch/test_cli_shared.py` docstring revised to GREEN status; `train_debug.log` relocated to artifact hub. Summary: `reports/2025-10-20T112811Z/phase_d_cli_wrappers_training_docs/summary.md`. |
 | D2 | Update inference CLI | [ ] | Execute `phase_d_cli_wrappers/plan.md` Phase C (C1–C4): inference blueprint, RED coverage, refactor, documentation alignment. Verify bundle loading + integration selector. |
 | D3 | Smoke tests & docs | [ ] | Complete `phase_d_cli_wrappers/plan.md` Phase D (D1–D3): smoke commands, ledger updates, hygiene + handoff summary. Reference TEST-PYTORCH-001 runtime guardrails. |
 

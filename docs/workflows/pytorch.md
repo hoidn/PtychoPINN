@@ -318,6 +318,11 @@ The following execution config flags are available in `ptycho_torch/train.py`:
 | `--deterministic` / `--no-deterministic` | bool | `True` | Enable deterministic training (reproducibility) |
 | `--num-workers` | int | `0` | Number of DataLoader worker processes (0 = main thread) |
 | `--learning-rate` | float | `1e-3` | Optimizer learning rate |
+| `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
+
+**Deprecated Flags:**
+- `--device`: Superseded by `--accelerator`. Using `--device` will emit a deprecation warning and map to `--accelerator` automatically. Remove from scripts; this flag will be dropped in a future release.
+- `--disable_mlflow`: MLflow integration is not yet implemented; this flag is accepted but has no effect. Use `--quiet` to suppress progress output instead.
 
 **Example CLI command with execution flags:**
 ```bash
@@ -332,8 +337,17 @@ python -m ptycho_torch.train \
   --accelerator cpu \
   --deterministic \
   --num-workers 0 \
-  --learning-rate 1e-3
+  --learning-rate 1e-3 \
+  --quiet
 ```
+
+**Helper-Based Configuration Flow (Phase D.B3, 2025-10-20):**
+The training CLI delegates to shared helper functions in `ptycho_torch/cli/shared.py`:
+- `resolve_accelerator()`: Handles `--device` → `--accelerator` backward compatibility with deprecation warnings
+- `build_execution_config_from_args()`: Constructs `PyTorchExecutionConfig` with validation
+- `validate_paths()`: Checks file existence and creates output directories
+
+These helpers enforce CONFIG-001 compliance by calling factory functions that populate `params.cfg` via `update_legacy_dict()` before data loading or model construction. See `ptycho_torch/config_factory.py` for factory implementation details.
 
 **Evidence:** Phase C4.D validation confirmed gridsize=2 training with execution config flags completes successfully. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log` for full smoke test output.
 
@@ -346,12 +360,18 @@ The following execution config flags are available in `ptycho_torch/inference.py
 | `--accelerator` | str | `'cpu'` | Hardware accelerator type (`'cpu'`, `'gpu'`, `'tpu'`) |
 | `--num-workers` | int | `0` | Number of DataLoader worker processes |
 | `--inference-batch-size` | int | `1` | Batch size for inference (overrides training batch_size) |
+| `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
+
+**Deprecated Flags:**
+- `--device`: Superseded by `--accelerator` (same deprecation policy as training CLI).
 
 ### CONFIG-001 Compliance
 
-**CRITICAL:** PyTorch workflows require the same CONFIG-001 initialization as TensorFlow. When using CLI scripts, this happens automatically during factory instantiation. When using programmatic entry points, you **MUST** call `update_legacy_dict(params.cfg, config)` before any data loading or model construction to ensure legacy modules observe synchronized parameters.
+**CRITICAL:** PyTorch workflows require the same CONFIG-001 initialization as TensorFlow. When using CLI scripts, this happens automatically during factory instantiation via the shared helper functions in `ptycho_torch/cli/shared.py`. The helper-based flow ensures `update_legacy_dict(params.cfg, config)` is called before data loading or model construction.
 
-**Reference:** For complete configuration bridge details, see `specs/ptychodus_api_spec.md` §4.8 and `ptycho_torch/config_factory.py` implementation.
+When using **programmatic entry points** (not CLI), you **MUST** manually call `update_legacy_dict(params.cfg, config)` before any data loading or model construction to ensure legacy modules observe synchronized parameters.
+
+**Reference:** For complete configuration bridge details, see `specs/ptychodus_api_spec.md` §4.8 and `ptycho_torch/config_factory.py` implementation. For CLI helper implementation, see `ptycho_torch/cli/shared.py`.
 
 ## 13. Backend Selection in Ptychodus Integration
 

@@ -1,31 +1,32 @@
 """
-RED Phase pytest scaffolds for CLI shared helpers (ADR-003 Phase D.B2).
+Unit tests for CLI shared helper functions (ADR-003 Phase D.B3, GREEN as of 2025-10-20).
 
-This module tests the shared helper functions that will be extracted to
-`ptycho_torch/cli/shared.py` as part of the training CLI thin-wrapper refactor.
-Tests are expected to FAIL in RED phase because the helper module does not yet exist.
+This module tests the shared helper functions in `ptycho_torch/cli/shared.py` that
+support the training and inference CLI thin-wrapper refactor. These helpers were
+introduced in Phase D.B3 and are now fully implemented and GREEN.
 
-Phase D.B Requirements (from training_refactor.md):
+Helper Functions Under Test:
 - resolve_accelerator(): Handle --device → --accelerator backward compatibility
 - build_execution_config_from_args(): Construct PyTorchExecutionConfig with validation
 - validate_paths(): Check file existence and create output directory
 
-Test Strategy:
+Test Coverage:
 - Unit tests for each helper function in isolation
 - Verify deprecation warnings are emitted correctly
 - Verify validation errors are raised with clear messages
 - Use tmp_path fixtures for file I/O tests
 
-Expected RED Behavior:
-- ImportError: cannot import name 'resolve_accelerator' from 'ptycho_torch.cli.shared'
-- ImportError: cannot import name 'build_execution_config_from_args'
-- ImportError: cannot import name 'validate_paths'
-- ModuleNotFoundError: No module named 'ptycho_torch.cli.shared'
+GREEN Status (Phase D.B3, 2025-10-20):
+- All 20 tests PASSING (helpers implemented per training_refactor.md blueprint)
+- Deprecation semantics verified (--device → --accelerator mapping with warnings)
+- Validation logic tested (path checks, execution config field constraints)
+- Evidence: plans/.../phase_d_cli_wrappers_training_impl/pytest_cli_shared_green.log
 
 References:
 - Blueprint: plans/.../phase_d_cli_wrappers_training/training_refactor.md §Component 1
 - Design Notes: plans/.../phase_d_cli_wrappers_baseline/design_notes.md §D1-D8
 - Spec: specs/ptychodus_api_spec.md §7 (CLI execution config flags)
+- Implementation: ptycho_torch/cli/shared.py (3 helper functions, ~150 lines)
 """
 
 import pytest
