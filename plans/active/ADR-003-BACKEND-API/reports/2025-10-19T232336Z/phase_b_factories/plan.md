@@ -16,9 +16,9 @@ Exit Criteria:
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B1.a | Author high-level architecture narrative | [ ] | Summarise desired module layout (`ptycho_torch/config_factory.py`), exported helpers (`create_training_payload`, `create_inference_payload`, etc.), and integration call sites (CLI + workflows). Reference TensorFlow factory precedent if applicable. Output: `factory_design.md`. |
-| B1.b | Build override matrix | [ ] | Tabulate every field impacted by the factories. Columns: `Field`, `Source` (TF dataclass vs execution override vs CLI flag), `Default`, `Notes`. Use CLI + knob inventories; cite file:line anchors. Output: `override_matrix.md`. |
-| B1.c | Capture open questions & spec deltas | [ ] | List outstanding decisions (e.g., placement of `PyTorchExecutionConfig`, MLflow toggles, DDP defaults) and proposed owners/timelines. Note whether `specs/ptychodus_api_spec.md` requires new subsection. Append to `factory_design.md` or create `open_questions.md`. |
+| B1.a | Author high-level architecture narrative | [x] | ✅ `factory_design.md` (420L) describes module layout, exported helpers, CLI/workflow call sites, CONFIG-001 checkpoints, and TDD strategy. Stored under `reports/2025-10-19T232336Z/phase_b_factories/`. |
+| B1.b | Build override matrix | [x] | ✅ `override_matrix.md` (584L) maps 80+ fields across canonical + execution configs with precedence notes and file:line citations. Same artifact hub as B1.a. |
+| B1.c | Capture open questions & spec deltas | [x] | ✅ `open_questions.md` documents decisions (Q1 Option A resolved 2025-10-19T234458Z), spec updates, and governance follow-ups. Summary captured in `reports/2025-10-19T232336Z/phase_b_factories/summary.md`. |
 
 ### Phase B2 — Factory Module & TDD Scaffold
 Goal: Establish the factory module skeleton and RED tests encoding the desired behaviour before implementation.
@@ -30,9 +30,9 @@ Exit Criteria:
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| B2.a | Create factory module skeleton | [ ] | Add `ptycho_torch/config_factory.py` with docstring referencing `factory_design.md`. Define function signatures (e.g., `build_training_artifacts(config, execution, overrides)`), but raise `NotImplementedError` to keep RED state. Import `PyTorchExecutionConfig` from `ptycho.config.config` (Option A) even if it is still a placeholder to cement dependency direction. |
-| B2.b | Author failing pytest coverage | [ ] | Extend `tests/torch/test_config_bridge.py` or create `tests/torch/test_config_factory.py` to encode expected factory behaviour: (1) factories return dataclasses + overrides dict, (2) bridge consumption populates `params.cfg`, (3) execution overrides applied deterministically. Capture RED run via `CUDA_VISIBLE_DEVICES=\"\" pytest tests/torch/test_config_factory.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/pytest_factory_red.log`. |
-| B2.c | Update implementation plan & ledger | [ ] | Mark `plans/active/ADR-003-BACKEND-API/implementation.md` B1 rows `[x]`, B2 rows `[P]` with references to RED artefacts in `.../phase_b2_skeleton/`. Append docs/fix_plan Attempt summarising RED phase. |
+| B2.a | Create factory module skeleton | [x] | ✅ `ptycho_torch/config_factory.py` skeleton (367L) committed; NotImplementedError stubs document Phase B3 follow-ups. See `reports/2025-10-19T234600Z/phase_b2_skeleton/`. |
+| B2.b | Author failing pytest coverage | [x] | ✅ `tests/torch/test_config_factory.py` (463L) encodes 19 RED cases. Guards removed 2025-10-20 so selector now fails on NotImplementedError; logs at `reports/2025-10-20T000736Z/phase_b2_redfix/pytest_factory_redfix.log`. |
+| B2.c | Update implementation plan & ledger | [x] | ✅ Implementation plan + docs/fix_plan updated through Attempt #7; RED evidence summarised in `reports/2025-10-20T000736Z/phase_b2_redfix/summary.md`. |
 
 ### Phase B3 — Factory Implementation & Bridge Integration
 Goal: Implement factories, wire workflows/CLI to use them, and update config bridge tests to assert new behaviour.
@@ -55,8 +55,8 @@ Exit Criteria:
 - Notify specs team when PyTorchExecutionConfig schema stabilizes (update ADR + spec per B1.c outcomes).
 
 ## Verification Checklist (Supervisor)
-- [ ] `factory_design.md`, `override_matrix.md`, and (if needed) `open_questions.md` exist with citations.
-- [ ] RED pytest log stored under timestamped phase directory.
-- [ ] Implementation + fix plan updated in same loop as status transitions.
+- [x] `factory_design.md`, `override_matrix.md`, and (if needed) `open_questions.md` exist with citations.
+- [x] RED pytest log stored under timestamped phase directory.
+- [x] Implementation + fix plan updated in same loop as status transitions.
 - [ ] GREEN pytest log demonstrates factories + workflows functioning within runtime guardrails.
 - [ ] Summary notes document compliance with POLICY-001, CONFIG-001, and DATA-001.

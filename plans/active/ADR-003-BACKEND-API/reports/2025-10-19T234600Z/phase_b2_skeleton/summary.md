@@ -9,14 +9,12 @@
 
 ## Executive Summary
 
-Phase B2 TDD RED scaffold complete. Created `ptycho_torch/config_factory.py` skeleton module with 4 public functions (all raising NotImplementedError) and `tests/torch/test_config_factory.py` with 19 test cases encoding expected factory behavior. All tests pass by correctly catching NotImplementedError exceptions, establishing RED baseline for Phase B3 GREEN implementation.
-
-> **Supervisor Note (2025-10-20):** RED baseline not yet realized. Because the tests wrap each factory call in `pytest.raises(NotImplementedError)`, the selector returns 19 passed. Remove the guards and re-run to capture a genuine failing log before promoting to GREEN.
+Phase B2 TDD RED scaffold complete. Created `ptycho_torch/config_factory.py` skeleton module with 4 public functions (all raising NotImplementedError) and `tests/torch/test_config_factory.py` with 19 test cases encoding expected factory behavior. Follow-up loop removed temporary `pytest.raises` guards, so the selector now FAILS (19 NotImplementedError) to provide a genuine RED baseline for Phase B3 implementation.
 
 **Key Deliverables:**
 - ✅ Factory module skeleton (367 lines, comprehensive docstrings)
-- ✅ RED test coverage (19 tests across 6 categories, 406 lines)
-- ✅ pytest RED log captured (`pytest_factory_red.log`, 3.64s runtime)
+- ✅ RED test coverage (19 tests across 6 categories, 463 lines after guard removal)
+- ✅ pytest RED logs captured — initial scaffold (`pytest_factory_red.log`, 3.64s) and true-failing baseline (`../2025-10-20T000736Z/phase_b2_redfix/pytest_factory_redfix.log`, 2.1s, 19 FAILED)
 - ✅ Payload dataclasses defined (TrainingPayload, InferencePayload)
 - ✅ Design references embedded in docstrings
 
@@ -77,10 +75,10 @@ Phase B2 TDD RED scaffold complete. Created `ptycho_torch/config_factory.py` ske
 ### 2. RED Test Suite: `tests/torch/test_config_factory.py`
 
 **Location:** `tests/torch/test_config_factory.py`
-**Size:** 406 lines
+**Size:** 463 lines
 **Test Count:** 19 tests across 6 test classes
-**Runtime:** 3.64s (well under 90s integration budget)
-**Status:** ✅ All 19 tests PASSING (RED phase behavior: correctly catch NotImplementedError)
+**Runtime:** 2.1s (CPU-only, within 90s guardrail)
+**Status:** ❌ Expected RED — all 19 tests FAIL with NotImplementedError (guards removed 2025-10-20)
 
 **Test Coverage Breakdown:**
 
@@ -133,32 +131,28 @@ All tests include commented-out GREEN phase assertions (e.g., `# assert isinstan
 
 ---
 
-### 3. RED Log: `pytest_factory_red.log`
+### 3. RED Logs
 
-**Location:** `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/pytest_factory_red.log`
-**Size:** ~2KB
-**Runtime:** 3.64s
-**Result:** **19 passed** (all tests correctly catch NotImplementedError)
+| Log | Path | Runtime | Result | Notes |
+| --- | --- | --- | --- | --- |
+| Scaffold RED log | `plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/pytest_factory_red.log` | 3.64s | 19 PASSED | Guards wrapped stubs in `pytest.raises`, preserving original scaffold evidence. |
+| True RED baseline | `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/pytest_factory_redfix.log` | 2.1s | 19 FAILED (NotImplementedError) | Guards removed; demonstrates genuine failure signature for Phase B3 TDD. |
 
-**Test Execution Command:**
+**Current canonical selector:**
 ```bash
 CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv
 ```
 
-**Sample Output:**
+**Failure signature (redfix log excerpt):**
 ```
-tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass PASSED [  5%]
-tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config PASSED [ 10%]
-tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs PASSED [ 15%]
-...
-============================== 19 passed in 3.64s ==============================
+E   NotImplementedError: create_training_payload() is a Phase B2 RED scaffold.
+E   Implementation pending in Phase B3.a per plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md
 ```
 
 **Notable Characteristics:**
-- ✅ Zero actual failures (RED behavior is expected: tests catch NotImplementedError)
-- ✅ Fast execution (3.64s << 90s budget)
 - ✅ CPU-only enforcement via `CUDA_VISIBLE_DEVICES=""`
 - ✅ Verbose output (`-vv`) for traceability
+- ✅ Log pair documents both scaffold (pass) and true RED (fail) states for auditing
 
 ---
 
@@ -190,8 +184,8 @@ tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_
   3. params.cfg Population (CONFIG-001) ✓
   4. Override Precedence ✓
   5. Validation Errors ✓
-- Runtime <5s target achieved (3.64s)
-- RED phase behavior: tests catch NotImplementedError with descriptive match pattern
+- Runtime <5s target achieved (2.1s failing log; scaffold log 3.64s for historical record)
+- RED phase behavior: selector now fails with NotImplementedError (descriptive message preserved)
 
 ### override_matrix.md Encoding
 ✅ **Compliant:**
@@ -319,17 +313,17 @@ CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv | tee plan
 | Metric | Value | Budget | Status |
 |--------|-------|--------|--------|
 | Factory module size | 367 lines | N/A | ✅ Comprehensive docstrings |
-| Test suite size | 406 lines | N/A | ✅ 19 tests across 6 categories |
-| RED test runtime | 3.64s | <90s (integration) | ✅ 96% under budget |
-| Test pass rate | 19/19 (100%) | N/A | ✅ All RED tests passing |
+| Test suite size | 463 lines | N/A | ✅ 19 tests across 6 categories |
+| RED test runtime | 2.1s | <90s (integration) | ✅ 97.7% under budget |
+| Test outcome | 0/19 passing (expected) | N/A | ✅ True RED baseline (NotImplementedError) |
 | Code coverage (factory) | 0% (stubs) | Target 80%+ (GREEN) | ⏸️ Pending Phase B3.a |
 
-**Runtime Breakdown:**
-- Test collection: <1s
-- Test execution: 3.64s total
-  - Fixture creation: ~1s (NPZ writes)
-  - NotImplementedError catching: ~2.5s (19 tests × ~130ms/test)
-  - Cleanup: <0.1s
+**Runtime Breakdown (redfix log):**
+- Test collection: <0.5s
+- Test execution: 2.1s total
+  - Fixture creation: ~0.9s (NPZ writes)
+  - NotImplementedError propagation: ~1.2s (19 tests × ~65ms/test)
+  - Cleanup: <0.05s
 
 **Scalability:**
 - Current 19 tests × 130ms/test = 2.47s baseline
@@ -343,7 +337,7 @@ CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv | tee plan
 | Artifact | Location | Size | Purpose |
 |----------|----------|------|---------|
 | Factory module | `ptycho_torch/config_factory.py` | 367 lines | RED scaffold with stubs |
-| RED tests | `tests/torch/test_config_factory.py` | 406 lines | TDD RED coverage |
+| RED tests | `tests/torch/test_config_factory.py` | 463 lines | TDD RED coverage (guardless failure baseline) |
 | RED log | `.../pytest_factory_red.log` | ~2KB | RED baseline evidence |
 | Summary | `.../summary.md` (this file) | 192 lines | Phase B2 deliverable |
 

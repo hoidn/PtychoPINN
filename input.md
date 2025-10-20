@@ -1,48 +1,52 @@
-Summary: Re-establish a genuine RED baseline for the config factory tests
+Summary: Implement PyTorch config factories and turn the RED test suite green
 Mode: TDD
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase B2 factory skeleton
+Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase B3 factory implementation
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv (expected RED)
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/{summary.md,pytest_factory_redfix.log}
+Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/{summary.md,pytest_factory_training_green.log,pytest_factory_green.log}
 
 Do Now:
-1. ADR-003-BACKEND-API B2.a+B2.b @ plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md — remove the `pytest.raises(NotImplementedError)` guards in `tests/torch/test_config_factory.py`, restore the commented assertions, keep the factory stubs raising `NotImplementedError`, then capture the RED failure via CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/pytest_factory_redfix.log.
-2. ADR-003-BACKEND-API B2.c @ plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md — update `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/summary.md` with the failing selector output and note that Phase B2 remains RED; refresh `plans/active/ADR-003-BACKEND-API/implementation.md` B2 guidance if additional clarifications are needed (state stays [P]). tests: none.
-3. ADR-003-BACKEND-API ledger @ docs/fix_plan.md — append Attempt #7 documenting the RED failure, new artifact paths, and outstanding work before GREEN. tests: none.
+1. ADR-003-BACKEND-API B3.A1+B3.A2+B3.A3+B3.A4 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/plan.md — implement `create_training_payload()` override precedence + PyTorch dataclass instantiation and `populate_legacy_params()` helper per design docs; tests: none (code changes prepare for targeted run).
+2. ADR-003-BACKEND-API B3.A5 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/plan.md — capture targeted training subset run via CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -k "TrainingPayloadStructure or ConfigBridgeTranslation or LegacyParamsPopulation or OverridePrecedence" -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/pytest_factory_training_green.log.
+3. ADR-003-BACKEND-API B3.B1+B3.B2+B3.B3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/plan.md — implement `infer_probe_size()` legacy handling and `create_inference_payload()` validations (n_groups required, checkpoint existence, overrides audit trail); tests: none.
+4. ADR-003-BACKEND-API B3.B4+B3.C1+B3.C2+B3.C3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/plan.md — run full suite CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/pytest_factory_green.log, update summary.md with runtime + CONFIG-001 evidence, flip implementation plan B3 row to [x], and append docs/fix_plan Attempt #9.
 
-If Blocked: Document the blocker (e.g., unexpected GREEN pass, import errors) in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/summary.md`, keep B2 rows at [P], and add the blocker details to docs/fix_plan.md instead of proceeding.
+If Blocked: Document the blocker in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/summary.md, keep B3 rows at [ ]/[P], and note the issue plus log path in docs/fix_plan.md Attempt history.
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md §B2 — mandates a failing pytest baseline before GREEN work starts.
-- plans/active/ADR-003-BACKEND-API/implementation.md:24 — supervisor note flags that the current selector reports 19 passed and must be converted to a true RED state.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/summary.md — now carries supervisor warning to re-run without `pytest.raises` guards.
-- docs/findings.md#POLICY-001 — PyTorch backend remains mandatory; ensure tests continue to honour torch availability checks during RED run.
-- docs/TESTING_GUIDE.md — reinforces TDD requirement that failing tests precede implementation.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/plan.md — authoritative checklist for progressing RED→GREEN.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/summary.md — current failure signature to retire via implementation.
+- specs/ptychodus_api_spec.md §4 — mandates CONFIG-001 legacy bridge population the factory must enforce.
+- docs/workflows/pytorch.md §§5–7 — ensures factory output aligns with workflow expectations (training/inference/stitching).
+- override_matrix.md §4 — override precedence rules to codify in implementation.
 
 How-To Map:
-- export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md for logging.
-- In `tests/torch/test_config_factory.py`, delete the `with pytest.raises(NotImplementedError, ...)` wrappers and uncomment/assert the expectations already sketched in comments; leave the factory stubs untouched so the selector fails on NotImplementedError.
-- Capture the failing run with CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/pytest_factory_redfix.log (expect non-zero exit and NotImplementedError trace).
-- Summarise failure signature, key stack trace lines, and next GREEN objectives in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/summary.md`; reference plan §B2 and POLICY-001 in the narrative.
-- Update docs/fix_plan.md Attempts History for ADR-003-BACKEND-API with the new log path and state that B2 remains RED pending implementation; keep Implementation Plan B2 row at [P].
+- Export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md for logging consistency.
+- When implementing training payload, call update_legacy_dict(params.cfg, tf_config) before touching RawData/bridge helpers; preserve CONFIG-001 order to keep tests deterministic.
+- Use helpers in ptycho_torch.config_bridge (e.g., create_training_configs/create_inference_configs) rather than duplicating CLI glue; consult factory_design.md §3 for sequence.
+- For `infer_probe_size()`, load NPZ with numpy.load(..., allow_pickle=False); handle missing files with fallback N=64 and document TODO for legacy FORMAT-001 paths.
+- Log outputs via tee into the plan directory; do not store artifacts at repo root. After final run, summarise runtime delta (RED 2.1s → GREEN Xs) and key assertions in summary.md.
+- Update docs/fix_plan.md with Attempt #9 citing both training and full GREEN logs, and mark implementation plan B3 row `[x]`.
 
 Pitfalls To Avoid:
-- Do not implement factory logic yet—this loop ends with failing tests.
-- Keep runtime artefacts in the 2025-10-20T000736Z directory; do not reintroduce `train_debug.log` at repo root.
-- Ensure pytest uses native style only; no unittest.TestCase reintroductions.
-- Maintain CONFIG-001 ordering when the tests eventually go GREEN (document reminder in summary, no code changes now).
-- Avoid mutating PyTorchExecutionConfig imports; Option A decision stands.
-- Do not edit protected core files (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
-- Confirm the failing log captures the NotImplementedError message verbatim for traceability.
-- Leave commented guidance in tests terse; rely on plan docs for extended rationale.
-- Keep commit scope limited to tests/plan/ledger updates for this RED loop.
-- Verify Git status is clean after updates; no stray binaries or caches.
+- Do not bypass CONFIG-001 — update_legacy_dict must run before any loader/raw_data use.
+- Leave PyTorchExecutionConfig handling optional (`None`) until Phase C1; add TODOs instead of ad-hoc dataclasses.
+- Keep error messages aligned with tests (ValueError for missing n_groups, FileNotFoundError for NPZ path, ValueError for absent wts.h5.zip).
+- Avoid reusing global params.cfg without clearing in tests; rely on fixtures that already clear state.
+- No direct modifications to protected core modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
+- Maintain CPU execution by exporting CUDA_VISIBLE_DEVICES="" on every pytest invocation.
+- Ensure override precedence honors explicit overrides before execution/default configs; reference override_matrix for ordering.
+- Capture logs exactly where specified; no stray files under repo root.
+- Adhere to native pytest style; do not reintroduce unittest.TestCase constructs.
+- After implementation, re-run full suite only once; rely on targeted selectors during development.
 
 Pointers:
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/plan.md:1
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T234600Z/phase_b2_skeleton/summary.md:1
 - tests/torch/test_config_factory.py:1
 - ptycho_torch/config_factory.py:1
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/plan.md:47
-- docs/TESTING_GUIDE.md:1
+- specs/ptychodus_api_spec.md:40
 
-Next Up: 1. Once RED log captured, implement factory logic per plan B3.a and drive tests to GREEN. 2. After GREEN, refit config bridge tests (B3.b/B3.c) before touching CLI wiring.
+Next Up:
+- Integrate factories into workflows (`ptycho_torch/workflows/components.py`) and CLI wrappers per Phase C once B3 is green.
+- Evaluate config bridge tests (`tests/torch/test_config_bridge.py`) to ensure factories provide parity coverage.

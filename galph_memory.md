@@ -1259,3 +1259,15 @@
   - Logged Attempt #6 in docs/fix_plan.md with follow-up tasks.
 - Next directives: engineer to strip `pytest.raises` guards, capture failing selector log, and record Attempt #7.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T002513Z: Phase B3 planning package
+- Focus issue: ADR-003-BACKEND-API Phase B3 (factory implementation)
+- Action type: Planning
+- Mode: TDD
+- Notes:
+  - Coin flip (heads) → audited recent Ralph commits (151565a4 skeleton, 3420a3d4 RED baseline). No regressions; verified RED log captured under `phase_b2_redfix/`.
+  - Refreshed Phase B artefacts: `phase_b_factories/plan.md` and `phase_b2_skeleton/summary.md` now reflect guard removal + failing selector; implementation plan B2 row marked `[x]`.
+  - Authored B3 execution blueprint at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T002041Z/phase_b3_implementation/{plan.md,summary.md}` with phased checklist (training payload, inference payload, parity handoff), command map, and artifact expectations (`pytest_factory_green.log`).
+  - docs/fix_plan.md updated (Attempt #8) capturing planning outcomes; new plan cross-referenced for Ralph.
+- Next steps for Ralph: Follow `phase_b3_implementation/plan.md` Phase B3.A tasks — implement training payload + params bridge, capture targeted GREEN log, then proceed to inference helpers per plan.
+- <Action State>: [ready_for_implementation]
