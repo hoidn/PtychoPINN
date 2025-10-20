@@ -1,0 +1,430 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer FAILED [100%]
+
+=================================== FAILURES ===================================
+_____ TestTrainWithLightningGreen.test_execution_config_overrides_trainer ______
+
+self = <test_workflows_components.TestTrainWithLightningGreen object at 0x7fcfc60ee5d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fcfd4d676d0>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x7fcf0782c1d0>
+
+    def test_execution_config_overrides_trainer(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST: _train_with_lightning MUST pass execution config knobs to Trainer.
+    
+        Requirement: ADR-003 Phase C3.A3 — thread trainer kwargs from execution config.
+    
+        Expected behavior (after wiring):
+        - When execution_config supplied, Trainer receives accelerator/deterministic/gradient_clip_val
+        - Values override defaults (e.g., accelerator='gpu', deterministic=False, gradient_clip_val=1.0)
+        - When execution_config=None, Trainer uses CPU-safe defaults
+    
+        Test mechanism:
+        - Spy on Trainer.__init__ to capture kwargs
+        - Supply non-default PyTorchExecutionConfig (accelerator='gpu', deterministic=False)
+        - Assert Trainer received those exact values
+        - Expect FAILURE because _train_with_lightning currently ignores execution_config
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Spy to track Trainer.__init__ kwargs
+        trainer_init_kwargs = {"called": False, "kwargs": None}
+    
+        class MockTrainer:
+            """Stub Trainer that records __init__ kwargs."""
+            def __init__(self, **kwargs):
+                trainer_init_kwargs["called"] = True
+                trainer_init_kwargs["kwargs"] = kwargs
+    
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+    
+        # Monkeypatch Lightning Trainer
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            MockTrainer
+        )
+    
+        # Monkeypatch Lightning module to prevent errors
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+    
+        # Create execution config with non-default values
+        exec_config = PyTorchExecutionConfig(
+            accelerator='gpu',  # Override default 'cpu'
+            deterministic=False,  # Override default True
+            gradient_clip_val=1.0,  # Override default None
+            num_workers=4,  # Override default 0
+        )
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning with execution_config
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            execution_config=exec_config  # CRITICAL: new parameter
+        )
+E       TypeError: _train_with_lightning() got an unexpected keyword argument 'execution_config'
+
+tests/torch/test_workflows_components.py:2070: TypeError
+---------------------------- Captured stdout setup -----------------------------
+No GPU found, using CPU instead.
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+---------------------------- Captured stderr setup -----------------------------
+2025-10-19 20:05:00.230074: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760929500.241534 1355084 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760929500.245334 1355084 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760929500.256416 1355084 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929500.256432 1355084 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929500.256435 1355084 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929500.256437 1355084 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 20:05:00.259134: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 20:05:02.451880: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 20:05:02.451913: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 20:05:02.451919: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 20:05:02.451922: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 20:05:02.451926: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 20:05:02.451929: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 20:05:02.451953: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 20:05:02.451970: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 20:05:02.451973: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer - TypeError: _train_with_lightning() got an unexpected keyword argument 'execution_config'
+============================== 1 failed in 5.13s ===============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism FAILED [100%]
+
+=================================== FAILURES ===================================
+____ TestTrainWithLightningGreen.test_execution_config_controls_determinism ____
+
+self = <test_workflows_components.TestTrainWithLightningGreen object at 0x704ce9e5c810>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x704ce9f6d110>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+dummy_raw_data = <ptycho.raw_data.RawData object at 0x704c2a8f9850>
+
+    def test_execution_config_controls_determinism(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data
+    ):
+        """
+        RED TEST: execution_config.deterministic MUST trigger Lightning deterministic mode.
+    
+        Requirement: ADR-003 Phase C3.C2 — validate deterministic behaviour.
+    
+        Expected behavior:
+        - When deterministic=True (default), Trainer receives deterministic=True
+        - This triggers torch.use_deterministic_algorithms(True) and seeds
+        - When deterministic=False, Trainer allows non-deterministic ops
+    
+        Test mechanism:
+        - Supply execution_config with deterministic=True
+        - Assert Trainer.__init__ received deterministic=True kwarg
+        - Expect FAILURE because current stub doesn't wire deterministic flag
+        """
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        # Spy to track Trainer.__init__ kwargs
+        trainer_init_kwargs = {"called": False, "kwargs": None}
+    
+        class MockTrainer:
+            def __init__(self, **kwargs):
+                trainer_init_kwargs["called"] = True
+                trainer_init_kwargs["kwargs"] = kwargs
+    
+            def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                pass
+    
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            MockTrainer
+        )
+    
+        # Monkeypatch Lightning module
+        class StubLightningModule:
+            def save_hyperparameters(self):
+                pass
+    
+        monkeypatch.setattr(
+            "ptycho_torch.model.PtychoPINN_Lightning",
+            lambda *args, **kwargs: StubLightningModule()
+        )
+    
+        # Create execution config with deterministic=True (default)
+        exec_config = PyTorchExecutionConfig(
+            deterministic=True,
+            accelerator='cpu'
+        )
+    
+        # Create minimal containers
+        train_container = {"X": np.ones((10, 64, 64))}
+    
+        # Call _train_with_lightning
+>       results = torch_components._train_with_lightning(
+            train_container=train_container,
+            test_container=None,
+            config=minimal_training_config,
+            execution_config=exec_config
+        )
+E       TypeError: _train_with_lightning() got an unexpected keyword argument 'execution_config'
+
+tests/torch/test_workflows_components.py:2164: TypeError
+---------------------------- Captured stdout setup -----------------------------
+No GPU found, using CPU instead.
+diff3d shape: (10, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (10,)
+xcoords shape: (10,)
+ycoords shape: (10,)
+xcoords_start shape: (10,)
+ycoords_start shape: (10,)
+---------------------------- Captured stderr setup -----------------------------
+2025-10-19 20:05:24.448799: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760929524.460036 1355317 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760929524.463774 1355317 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760929524.474682 1355317 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929524.474697 1355317 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929524.474700 1355317 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929524.474702 1355317 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 20:05:24.477502: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 20:05:26.536697: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 20:05:26.536731: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 20:05:26.536737: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 20:05:26.536741: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 20:05:26.536745: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 20:05:26.536748: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 20:05:26.536774: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 20:05:26.536790: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 20:05:26.536793: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism - TypeError: _train_with_lightning() got an unexpected keyword argument 'execution_config'
+============================== 1 failed in 4.90s ===============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestInferenceExecutionConfig::test_inference_uses_execution_batch_size FAILED [100%]
+
+=================================== FAILURES ===================================
+____ TestInferenceExecutionConfig.test_inference_uses_execution_batch_size _____
+
+self = <test_workflows_components.TestInferenceExecutionConfig object at 0x730a33dfded0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x73094357a990>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+
+    def test_inference_uses_execution_batch_size(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config
+    ):
+        """
+        RED TEST: _build_inference_dataloader MUST respect execution_config.inference_batch_size.
+    
+        Requirement: ADR-003 Phase C3.B2 — support inference batch size override.
+    
+        Expected behavior:
+        - When execution_config.inference_batch_size is set, dataloader uses that batch size
+        - When None, dataloader falls back to config.batch_size
+        - This enables CPU-safe inference with smaller batches
+    
+        Test mechanism:
+        - Create mock container
+        - Supply execution_config with inference_batch_size=2 (override default 4)
+        - Build inference dataloader
+        - Assert dataloader.batch_size == 2
+        - Expect FAILURE because _build_inference_dataloader currently ignores execution_config
+        """
+        from ptycho_torch.workflows.components import _build_inference_dataloader
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        try:
+            import torch
+        except ImportError:
+            pytest.skip("PyTorch not available")
+    
+        # Create mock container
+        container = {
+            'X': torch.randn(20, 64, 64, dtype=torch.float32),
+            'coords_nominal': torch.randn(20, 2, dtype=torch.float32),
+        }
+    
+        # Create execution config with inference batch size override
+        exec_config = PyTorchExecutionConfig(
+            inference_batch_size=2,  # Override config.batch_size (4)
+            num_workers=0,
+            accelerator='cpu'
+        )
+    
+        # Build inference dataloader (RED phase: execution_config not yet accepted)
+        # Need to update signature to accept execution_config parameter
+        try:
+>           infer_loader = _build_inference_dataloader(
+                container,
+                minimal_training_config,
+                execution_config=exec_config  # CRITICAL: new parameter
+            )
+E           TypeError: _build_inference_dataloader() got an unexpected keyword argument 'execution_config'
+
+tests/torch/test_workflows_components.py:2266: TypeError
+
+During handling of the above exception, another exception occurred:
+
+self = <test_workflows_components.TestInferenceExecutionConfig object at 0x730a33dfded0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x73094357a990>
+params_cfg_snapshot = {'N': 128, 'amp_activation': 'sigmoid', 'batch_size': 16, 'big_gridsize': 10, ...}
+minimal_training_config = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='sigmoid', obj...ensity_scale_trainable=True, output_dir=PosixPath('training_outputs'), sequential_sampling=False, backend='tensorflow')
+
+    def test_inference_uses_execution_batch_size(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config
+    ):
+        """
+        RED TEST: _build_inference_dataloader MUST respect execution_config.inference_batch_size.
+    
+        Requirement: ADR-003 Phase C3.B2 — support inference batch size override.
+    
+        Expected behavior:
+        - When execution_config.inference_batch_size is set, dataloader uses that batch size
+        - When None, dataloader falls back to config.batch_size
+        - This enables CPU-safe inference with smaller batches
+    
+        Test mechanism:
+        - Create mock container
+        - Supply execution_config with inference_batch_size=2 (override default 4)
+        - Build inference dataloader
+        - Assert dataloader.batch_size == 2
+        - Expect FAILURE because _build_inference_dataloader currently ignores execution_config
+        """
+        from ptycho_torch.workflows.components import _build_inference_dataloader
+        from ptycho.config.config import PyTorchExecutionConfig
+    
+        try:
+            import torch
+        except ImportError:
+            pytest.skip("PyTorch not available")
+    
+        # Create mock container
+        container = {
+            'X': torch.randn(20, 64, 64, dtype=torch.float32),
+            'coords_nominal': torch.randn(20, 2, dtype=torch.float32),
+        }
+    
+        # Create execution config with inference batch size override
+        exec_config = PyTorchExecutionConfig(
+            inference_batch_size=2,  # Override config.batch_size (4)
+            num_workers=0,
+            accelerator='cpu'
+        )
+    
+        # Build inference dataloader (RED phase: execution_config not yet accepted)
+        # Need to update signature to accept execution_config parameter
+        try:
+            infer_loader = _build_inference_dataloader(
+                container,
+                minimal_training_config,
+                execution_config=exec_config  # CRITICAL: new parameter
+            )
+    
+            # RED PHASE ASSERTION (will fail until C3.B2 implements)
+            assert infer_loader.batch_size == 2, (
+                "_build_inference_dataloader MUST respect execution_config.inference_batch_size. "
+                f"Expected batch_size=2, got {infer_loader.batch_size}. "
+                "Phase C3.B2 RED: inference batch size override not yet implemented."
+            )
+    
+        except TypeError as e:
+            # Expected during RED phase: function doesn't accept execution_config yet
+            if 'execution_config' in str(e):
+>               pytest.fail(
+                    "_build_inference_dataloader signature must be updated to accept "
+                    "execution_config parameter. Phase C3.B1 RED: parameter not yet added."
+                )
+E               Failed: _build_inference_dataloader signature must be updated to accept execution_config parameter. Phase C3.B1 RED: parameter not yet added.
+
+tests/torch/test_workflows_components.py:2282: Failed
+---------------------------- Captured stderr setup -----------------------------
+2025-10-19 20:05:32.371381: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760929532.382606 1355426 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760929532.386320 1355426 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760929532.397426 1355426 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929532.397443 1355426 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929532.397445 1355426 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760929532.397448 1355426 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 20:05:32.400237: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-10-19 20:05:34.451739: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 20:05:34.451776: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 20:05:34.451782: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 20:05:34.451786: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 20:05:34.451790: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 20:05:34.451793: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 20:05:34.451816: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 20:05:34.451832: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 20:05:34.451835: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestInferenceExecutionConfig::test_inference_uses_execution_batch_size - Failed: _build_inference_dataloader signature must be updated to accept execution_config parameter. Phase C3.B1 RED: parameter not yet added.
+============================== 1 failed in 3.74s ===============================
