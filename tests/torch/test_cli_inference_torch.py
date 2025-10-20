@@ -254,7 +254,7 @@ class TestInferenceCLIThinWrapper:
             pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu'),
         )
-        mock_bundle_loader = MagicMock(return_value=({}, {}))
+        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
         mock_raw_data = MagicMock()
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
@@ -274,11 +274,11 @@ class TestInferenceCLIThinWrapper:
         assert mock_validate_paths.called, \
             "validate_paths() was not called - CLI still using inline validation"
 
-        # Assert called with correct arguments
-        call_args = mock_validate_paths.call_args
-        assert call_args[0][0] is None, "train_file should be None for inference mode"
-        assert str(call_args[0][1]).endswith('test.npz'), "test_file path incorrect"
-        assert 'inference_outputs' in str(call_args[0][2]), "output_dir path incorrect"
+        # Assert called with correct arguments (inspect kwargs for keyword invocation)
+        call_kwargs = mock_validate_paths.call_args.kwargs
+        assert call_kwargs.get('train_file') is None, "train_file should be None for inference mode"
+        assert str(call_kwargs.get('test_file', '')).endswith('test.npz'), "test_file path incorrect"
+        assert 'inference_outputs' in str(call_kwargs.get('output_dir', '')), "output_dir path incorrect"
 
     def test_cli_delegates_to_helper_for_data_loading(self, minimal_inference_args, monkeypatch):
         """
@@ -301,7 +301,7 @@ class TestInferenceCLIThinWrapper:
             pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu'),
         )
-        mock_bundle_loader = MagicMock(return_value=({}, {}))
+        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
         mock_raw_data_from_file = MagicMock(return_value=MagicMock())
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
