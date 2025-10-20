@@ -1,0 +1,55 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_run_pytorch_train_save_load_infer ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
+        """
+        Tests the complete PyTorch train → save → load → infer workflow.
+    
+        This validates the PyTorch model persistence layer by simulating a real
+        user workflow across separate processes, mirroring the TensorFlow integration test.
+    
+        Phase: C2 (GREEN)
+        Behavior:
+        1. Training subprocess creates Lightning checkpoint at checkpoints/last.ckpt
+        2. Inference subprocess loads checkpoint and generates reconstructions
+        3. Output images created in inference output directory
+        4. Assertions verify artifact existence and non-empty file sizes
+    
+        Implementation: _run_pytorch_workflow executes train/infer via subprocess
+        """
+        # Execute complete workflow via subprocess helper (Phase C2 implementation)
+        result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
+    
+        # Assertions (will execute once helper is implemented in Phase C2)
+        assert result.training_output_dir.exists(), "Training output directory not created"
+>       assert result.checkpoint_path.exists(), f"Checkpoint not found at {result.checkpoint_path}"
+E       AssertionError: Checkpoint not found at /tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs/checkpoints/last.ckpt
+E       assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs/checkpoints/last.ckpt').exists
+E        +      where PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs/checkpoints/last.ckpt') = namespace(training_output_dir=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs'), inference_output_dir=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/pytorch_output'), checkpoint_path=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs/checkpoints/last.ckpt'), recon_amp_path=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/pytorch_output/reconstructed_amplitude.png'), recon_phase_path=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/pytorch_output/reconstructed_phase.png')).checkpoint_path
+
+tests/torch/test_integration_workflow_torch.py:266: AssertionError
+=========================== short test summary info ============================
+FAILED tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer - AssertionError: Checkpoint not found at /tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs/checkpoints/last.ckpt
+assert False
+ +  where False = exists()
+ +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs/checkpoints/last.ckpt').exists
+ +      where PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs/checkpoints/last.ckpt') = namespace(training_output_dir=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs'), inference_output_dir=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/pytorch_output'), checkpoint_path=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/training_outputs/checkpoints/last.ckpt'), recon_amp_path=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/pytorch_output/reconstructed_amplitude.png'), recon_phase_path=PosixPath('/tmp/pytest-of-ollie/pytest-750/test_run_pytorch_train_save_lo0/pytorch_output/reconstructed_phase.png')).checkpoint_path
+============================== 1 failed in 17.34s ==============================
