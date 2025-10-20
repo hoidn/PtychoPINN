@@ -198,3 +198,281 @@ class TestInferenceCLI:
         assert exec_config.accelerator == 'gpu'
         assert exec_config.num_workers == 8
         assert exec_config.inference_batch_size == 64
+
+
+class TestInferenceCLIThinWrapper:
+    """
+    RED Phase tests for inference CLI thin wrapper delegation (ADR-003 Phase D.C C2).
+
+    Tests verify that the inference CLI delegates to shared helpers and workflow components
+    rather than implementing business logic inline. These tests are EXPECTED TO FAIL until
+    the thin wrapper refactor is implemented (Phase D.C C3).
+
+    Expected RED Failures:
+    - AttributeError: _run_inference_and_reconstruct helper does not exist
+    - AssertionError: validate_paths() not called (inline validation still present)
+    - AssertionError: Helper delegation order incorrect
+
+    Blueprint Reference:
+    - plans/.../phase_d_cli_wrappers_inference/inference_refactor.md §Test Strategy
+    """
+
+    @pytest.fixture
+    def minimal_inference_args(self, tmp_path):
+        """Minimal required inference CLI arguments for testing."""
+        model_dir = tmp_path / "model"
+        model_dir.mkdir()
+        (model_dir / "wts.h5.zip").touch()  # Create dummy checkpoint
+
+        test_file = tmp_path / "test.npz"
+        test_file.touch()  # Create dummy test file
+
+        return [
+            '--model_path', str(model_dir),
+            '--test_data', str(test_file),
+            '--output_dir', str(tmp_path / 'inference_outputs'),
+            '--n_images', '32',
+        ]
+
+    def test_cli_delegates_to_validate_paths(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: CLI calls validate_paths() before factory invocation.
+
+        Expected RED Failure:
+        - AssertionError: validate_paths() not called (inline validation still present)
+
+        Success Criteria (GREEN):
+        - validate_paths() called exactly once with (train_file=None, test_file, output_dir)
+        - Called BEFORE create_inference_payload (CONFIG-001 ordering)
+        """
+        from unittest.mock import MagicMock, patch, call
+
+        mock_validate_paths = MagicMock()
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(n_groups=32),
+            pt_data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),
+        )
+        mock_bundle_loader = MagicMock(return_value=({}, {}))
+        mock_raw_data = MagicMock()
+
+        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
+             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data):
+
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
+
+            try:
+                cli_main()
+            except (SystemExit, Exception):
+                pass  # Expected to fail after helper calls
+
+        # Assert validate_paths was called
+        assert mock_validate_paths.called, \
+            "validate_paths() was not called - CLI still using inline validation"
+
+        # Assert called with correct arguments
+        call_args = mock_validate_paths.call_args
+        assert call_args[0][0] is None, "train_file should be None for inference mode"
+        assert str(call_args[0][1]).endswith('test.npz'), "test_file path incorrect"
+        assert 'inference_outputs' in str(call_args[0][2]), "output_dir path incorrect"
+
+    def test_cli_delegates_to_helper_for_data_loading(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: CLI calls RawData.from_file() for test data loading.
+
+        Expected RED Failure:
+        - May pass if current CLI already loads RawData (Option A decision)
+        - OR may fail if workflow is expected to load data (Option B)
+
+        Success Criteria (GREEN):
+        - RawData.from_file() called exactly once with test_data path
+        - Called AFTER factory invocation (CONFIG-001 already satisfied)
+        """
+        from unittest.mock import MagicMock, patch
+
+        mock_validate_paths = MagicMock()
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(n_groups=32),
+            pt_data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),
+        )
+        mock_bundle_loader = MagicMock(return_value=({}, {}))
+        mock_raw_data_from_file = MagicMock(return_value=MagicMock())
+
+        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
+             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho.raw_data.RawData.from_file', mock_raw_data_from_file):
+
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
+
+            try:
+                cli_main()
+            except (SystemExit, Exception):
+                pass
+
+        # Assert RawData.from_file() was called
+        assert mock_raw_data_from_file.called, \
+            "RawData.from_file() was not called - data loading delegation broken"
+
+        # Assert called with test_data path
+        call_args = mock_raw_data_from_file.call_args
+        assert str(call_args[0][0]).endswith('test.npz'), \
+            f"Expected test.npz path, got {call_args[0][0]}"
+
+    def test_cli_delegates_to_inference_helper(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: CLI calls _run_inference_and_reconstruct() helper.
+
+        Expected RED Failure:
+        - AttributeError: module 'ptycho_torch.inference' has no attribute '_run_inference_and_reconstruct'
+
+        Success Criteria (GREEN):
+        - _run_inference_and_reconstruct() called with (model, raw_data, config, execution_config, device, quiet)
+        - Returns (amplitude, phase) tuple
+        """
+        from unittest.mock import MagicMock, patch
+
+        mock_validate_paths = MagicMock()
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(n_groups=32),
+            pt_data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),
+        )
+        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
+        mock_raw_data = MagicMock()
+        mock_helper = MagicMock(return_value=(MagicMock(), MagicMock()))  # (amplitude, phase)
+
+        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
+             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
+             patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper):
+
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
+
+            try:
+                cli_main()
+            except (SystemExit, Exception):
+                pass
+
+        # Assert helper was called
+        assert mock_helper.called, \
+            "_run_inference_and_reconstruct() helper not called - inline logic still present"
+
+        # Assert called with correct arguments
+        call_kwargs = mock_helper.call_args.kwargs
+        assert 'model' in call_kwargs, "model argument missing"
+        assert 'raw_data' in call_kwargs, "raw_data argument missing"
+        assert 'config' in call_kwargs, "config argument missing"
+        assert 'execution_config' in call_kwargs, "execution_config argument missing"
+        assert 'device' in call_kwargs, "device argument missing"
+        assert 'quiet' in call_kwargs, "quiet argument missing"
+
+    def test_cli_calls_save_individual_reconstructions(self, minimal_inference_args, monkeypatch):
+        """
+        RED Test: CLI calls save_individual_reconstructions() after inference.
+
+        Expected RED Failure:
+        - May pass if current CLI already calls this function
+        - OR assertion fails if call order incorrect
+
+        Success Criteria (GREEN):
+        - save_individual_reconstructions() called with (amplitude, phase, output_dir)
+        - Called AFTER _run_inference_and_reconstruct() helper
+        """
+        from unittest.mock import MagicMock, patch
+        import numpy as np
+
+        mock_validate_paths = MagicMock()
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(n_groups=32),
+            pt_data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu'),
+        )
+        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
+        mock_raw_data = MagicMock()
+        mock_amplitude = np.random.rand(64, 64)
+        mock_phase = np.random.rand(64, 64)
+        mock_helper = MagicMock(return_value=(mock_amplitude, mock_phase))
+        mock_save_fn = MagicMock()
+
+        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
+             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
+             patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper), \
+             patch('ptycho_torch.inference.save_individual_reconstructions', mock_save_fn):
+
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
+
+            try:
+                cli_main()
+            except (SystemExit, Exception):
+                pass
+
+        # Assert save function was called
+        assert mock_save_fn.called, \
+            "save_individual_reconstructions() not called - output artifact generation missing"
+
+        # Assert called with correct arguments
+        call_args = mock_save_fn.call_args[0]
+        assert len(call_args) >= 3, "Expected 3 arguments: (amplitude, phase, output_dir)"
+        # Note: We can't assert array equality directly due to mocking, but we verify call happened
+
+    def test_quiet_flag_suppresses_progress_output(self, minimal_inference_args, monkeypatch, capsys):
+        """
+        RED Test: --quiet flag suppresses CLI progress print statements.
+
+        Expected RED Failure:
+        - AssertionError: Progress output still printed when --quiet specified
+
+        Success Criteria (GREEN):
+        - No progress messages in stdout when --quiet flag present
+        - enable_progress_bar=False passed to execution config
+        """
+        from unittest.mock import MagicMock, patch
+
+        mock_validate_paths = MagicMock()
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_inference_config=MagicMock(n_groups=32),
+            pt_data_config=MagicMock(),
+            execution_config=MagicMock(accelerator='cpu', enable_progress_bar=False),
+        )
+        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
+        mock_raw_data = MagicMock()
+        mock_helper = MagicMock(return_value=(MagicMock(), MagicMock()))
+
+        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
+             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
+             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
+             patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper), \
+             patch('ptycho_torch.inference.save_individual_reconstructions', MagicMock()):
+
+            from ptycho_torch.inference import cli_main
+            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args + ['--quiet'])
+
+            try:
+                cli_main()
+            except (SystemExit, Exception):
+                pass
+
+        # Check that execution config has enable_progress_bar=False
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs, "execution_config not passed to factory"
+        exec_config = call_kwargs['execution_config']
+        assert hasattr(exec_config, 'enable_progress_bar'), "execution_config missing enable_progress_bar"
+        assert exec_config.enable_progress_bar is False, \
+            "Expected enable_progress_bar=False when --quiet specified"

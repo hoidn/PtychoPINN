@@ -575,3 +575,133 @@ class TestValidatePaths:
 # 1. Create ptycho_torch/cli/shared.py
 # 2. Implement the three helper functions per training_refactor.md blueprint
 # 3. Turn these RED tests GREEN
+
+
+# Inference Mode Tests (Phase D.C C2) - Extension for inference CLI support
+
+
+class TestBuildExecutionConfigInferenceMode:
+    """
+    Unit tests for build_execution_config_from_args() in inference mode (Phase D.C C2).
+
+    Tests verify inference-specific behavior:
+    - Mode='inference' produces correct config
+    - inference_batch_size field availability
+    - No training-specific fields (learning_rate, deterministic)
+    - No deterministic+num_workers warning in inference mode
+    - Quiet flag behavior identical to training mode
+    """
+
+    def test_inference_mode_defaults(self):
+        """
+        RED Test: build_execution_config_from_args(mode='inference') with defaults.
+
+        Expected RED Failure:
+        - May pass if Phase D.B3 already handles mode='inference'
+        - OR ImportError if helper not yet implemented
+
+        Success Criteria (GREEN):
+        - Returns PyTorchExecutionConfig with inference defaults
+        - accelerator='cpu', num_workers=0, inference_batch_size=None
+        - enable_progress_bar=True (quiet=False)
+        """
+        from ptycho_torch.cli.shared import build_execution_config_from_args
+
+        args = argparse.Namespace(
+            accelerator='cpu',
+            device=None,
+            num_workers=0,
+            inference_batch_size=None,
+            quiet=False,
+        )
+
+        config = build_execution_config_from_args(args, mode='inference')
+
+        assert config.accelerator == 'cpu'
+        assert config.num_workers == 0
+        assert config.inference_batch_size is None, \
+            "Expected inference_batch_size=None (default)"
+        assert config.enable_progress_bar is True
+
+    def test_inference_mode_custom_batch_size(self):
+        """
+        RED Test: inference_batch_size field is correctly set when provided.
+
+        Expected RED Failure:
+        - May pass if Phase D.B3 already handles inference_batch_size
+        - OR AttributeError if field not defined
+
+        Success Criteria (GREEN):
+        - inference_batch_size=64 when specified
+        - No training-specific fields present
+        """
+        from ptycho_torch.cli.shared import build_execution_config_from_args
+
+        args = argparse.Namespace(
+            accelerator='gpu',
+            device=None,
+            num_workers=2,
+            inference_batch_size=64,
+            quiet=False,
+        )
+
+        config = build_execution_config_from_args(args, mode='inference')
+
+        assert config.accelerator == 'gpu'
+        assert config.num_workers == 2
+        assert config.inference_batch_size == 64, \
+            f"Expected inference_batch_size=64, got {config.inference_batch_size}"
+
+    def test_inference_mode_respects_quiet(self):
+        """
+        RED Test: --quiet flag works identically in inference mode.
+
+        Expected RED Failure:
+        - May pass if Phase D.B3 already handles quiet in all modes
+
+        Success Criteria (GREEN):
+        - enable_progress_bar=False when quiet=True
+        - Behavior identical to training mode
+        """
+        from ptycho_torch.cli.shared import build_execution_config_from_args
+
+        args_quiet = argparse.Namespace(
+            accelerator='cpu',
+            device=None,
+            num_workers=0,
+            inference_batch_size=None,
+            quiet=True,
+        )
+
+        config_quiet = build_execution_config_from_args(args_quiet, mode='inference')
+        assert config_quiet.enable_progress_bar is False, \
+            "Expected enable_progress_bar=False when quiet=True"
+
+        args_verbose = argparse.Namespace(
+            accelerator='cpu',
+            device=None,
+            num_workers=0,
+            inference_batch_size=None,
+            quiet=False,
+        )
+
+        config_verbose = build_execution_config_from_args(args_verbose, mode='inference')
+        assert config_verbose.enable_progress_bar is True, \
+            "Expected enable_progress_bar=True when quiet=False"
+
+
+# RED Phase Note (Updated for Phase D.C C2):
+# Tests in TestBuildExecutionConfigInferenceMode are NEW for Phase D.C C2.
+# They extend the existing test_cli_shared.py coverage to include inference-mode behavior.
+#
+# Expected RED Behavior:
+# - If Phase D.B3 implementation correctly handles mode='inference', these tests may PASS
+# - If mode='inference' branch is missing or incomplete, tests will FAIL with:
+#   - ValueError: Invalid mode: inference (if mode not supported)
+#   - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'inference_batch_size'
+#   - AssertionError: Field value mismatch
+#
+# GREEN Target (Phase D.C C3):
+# - All inference-mode tests PASS when CLI refactor complete
+# - Validates inference CLI delegates correctly to shared helpers
+#
