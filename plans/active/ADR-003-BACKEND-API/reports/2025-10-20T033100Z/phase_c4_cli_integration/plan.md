@@ -38,10 +38,10 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
-| C4.A1 | Flag inventory consolidation | [ ] | Consolidate Explore agent outputs into `cli_flag_inventory.md` with columns: Flag, Default, Type, Destination (TrainingPayload/InferencePayload field), TF-equivalent (if any), Notes. Include both training (12 flags) and inference (10 flags) current states. |
-| C4.A2 | Execution knob selection | [ ] | From `override_matrix.md` §5, identify **high-priority execution knobs** for CLI exposure: `--accelerator`, `--deterministic`, `--num-workers`, `--learning-rate`, `--inference-batch-size`. Defer checkpoint/logger/scheduler knobs to Phase D. Document rationale in `flag_selection_rationale.md`. |
-| C4.A3 | Naming harmonization | [ ] | Cross-reference TensorFlow CLI naming (`ptycho/cli_args.py` if it exists, else training scripts). Ensure flags use `--snake-case` convention. Record naming decisions in `flag_naming_decisions.md` with TF precedents. |
-| C4.A4 | argparse schema design | [ ] | Author `argparse_schema.md` documenting each new flag: name, type, default, help text, mutual exclusivity rules (if any), and example usage. Include validation logic (e.g., `--num-workers >= 0`). |
+| C4.A1 | Flag inventory consolidation | [x] | ✅ 2025-10-20 — `cli_flag_inventory.md` (410 lines) records 30 flags with defaults/destinations; cites `ptycho_torch/train.py`, `ptycho_torch/inference.py`, and `override_matrix.md` refs. |
+| C4.A2 | Execution knob selection | [x] | ✅ 2025-10-20 — `flag_selection_rationale.md` (425 lines) justifies 5 execution config flags (`accelerator`, `deterministic`, `num-workers`, `learning-rate`, `inference-batch-size`) and defers others per plan scope. |
+| C4.A3 | Naming harmonization | [x] | ✅ 2025-10-20 — `flag_naming_decisions.md` aligns CLI naming with TF precedents, documents dual-form boolean pattern (`--deterministic`/`--no-deterministic`). |
+| C4.A4 | argparse schema design | [x] | ✅ 2025-10-20 — `argparse_schema.md` details option strings, types, defaults, help text TODOs, and validation for all 5 flags with spec citations. |
 
 **Exit Criteria:** Four design docs authored, consensus on 5 high-priority flags, argparse schema ready for RED implementation.
 
@@ -53,10 +53,10 @@ CUDA_VISIBLE_DEVICES="" pytest tests/ -v
 
 | ID | Task | State | How/Why & Guidance |
 |----|------|-------|-------------------|
-| C4.B1 | Author training CLI test scaffold | [ ] | Create `tests/torch/test_cli_train_torch.py` (if missing) or extend existing. Write test class `TestExecutionConfigCLI` with methods: `test_accelerator_flag_roundtrip`, `test_deterministic_flag_roundtrip`, `test_num_workers_flag_roundtrip`, `test_learning_rate_flag_roundtrip`. Each test should: (a) mock subprocess call to `ptycho_torch.train` CLI with flag, (b) assert factory receives correct execution config value. Use `pytest.raises(NotImplementedError)` or similar to force RED. |
-| C4.B2 | Author inference CLI test scaffold | [ ] | Create `tests/torch/test_cli_inference_torch.py`. Write test class `TestInferenceCLI` with methods: `test_inference_batch_size_flag_roundtrip`, `test_num_workers_flag_roundtrip`. Tests should verify CLI flag → `InferencePayload.execution_config` field mapping. |
-| C4.B3 | Capture RED logs | [ ] | Run both test modules: `pytest tests/torch/test_cli_train_torch.py -vv 2>&1 \| tee pytest_cli_train_red.log` and `pytest tests/torch/test_cli_inference_torch.py -vv 2>&1 \| tee pytest_cli_inference_red.log`. Store logs under this phase's artifact directory. |
-| C4.B4 | Document RED baseline | [ ] | Author `red_baseline.md` summarizing: (a) test count (expected ~6 RED), (b) failure signatures (NotImplementedError vs argparse.ArgumentError), (c) exit criteria for GREEN (all flags accepted by argparse, factory payloads populated correctly). |
+| C4.B1 | Author training CLI test scaffold | [x] | ✅ 2025-10-20 — `tests/torch/test_cli_train_torch.py` (6 RED tests) patches `create_training_payload`, asserts execution config propagation; expected failure recorded in RED log. |
+| C4.B2 | Author inference CLI test scaffold | [x] | ✅ 2025-10-20 — `tests/torch/test_cli_inference_torch.py` (4 RED tests) validates CLI → `InferencePayload.execution_config` mapping via patched factory. |
+| C4.B3 | Capture RED logs | [x] | ✅ 2025-10-20 — Stored `pytest_cli_train_red.log` and `pytest_cli_inference_red.log` under report directory; failures are argparse `unrecognized arguments` + mock assertions (expected). |
+| C4.B4 | Document RED baseline | [x] | ✅ 2025-10-20 — `red_baseline.md` summarises 10 failing tests, failure signatures, and GREEN exit criteria for C4.C/D. |
 
 **Exit Criteria:** CLI test scaffolds authored with 6+ failing tests, RED logs captured, baseline documented.
 
@@ -158,8 +158,8 @@ Per C3 summary and `override_matrix.md` analysis, the following knobs are **inte
 
 ## Verification Checklist (Phase C4 Complete)
 
-- [ ] **C4.A:** Four design docs authored (flag inventory, selection rationale, naming decisions, argparse schema)
-- [ ] **C4.B:** CLI test scaffolds authored with 6+ RED tests, logs captured
+- [x] **C4.A:** Four design docs authored (flag inventory, selection rationale, naming decisions, argparse schema)
+- [x] **C4.B:** CLI test scaffolds authored with 6+ RED tests, logs captured
 - [ ] **C4.C:** Training + inference CLI refactored to use factories, hardcoded values eliminated
 - [ ] **C4.D:** All CLI tests GREEN, factory smoke GREEN, full suite passed (271 passed, 0 new failures)
 - [ ] **C4.E:** Four docs updated (workflow guide §13, spec CLI tables, CLAUDE.md examples, implementation plan)

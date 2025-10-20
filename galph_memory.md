@@ -1345,3 +1345,21 @@
   - Add `tests/torch/test_cli_train_torch.py` and `tests/torch/test_cli_inference_torch.py`, run RED selectors with logs, draft `red_baseline.md`.
   - Update `phase_c_execution/plan.md` (mark C4.A/C4.B `[x]`), refresh summary, and append docs/fix_plan Attempt entry referencing new artifacts.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T035313Z: Phase C4 implementation prep selections
+- Focus issue: ADR-003-BACKEND-API — Phase C4 CLI integration (post-RED implementation)
+- Action type: Review or housekeeping
+- Mode: TDD
+- Findings ledger check: `rg "PyTorch" docs/findings.md` → POLICY-001, FORMAT-001 reaffirm accelerator/dtype requirements for upcoming CLI work.
+- Document set relied on:
+  - `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/{plan.md,summary.md}` — verified C4.A/C4.B artefacts, updated plan rows to `[x]`.
+  - `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T004233Z/phase_c_execution/{plan.md,summary.md}` — captured new status block noting design/RED completion, adjusted checkpoints toward implementation.
+  - `ptycho_torch/{train.py,inference.py}` — confirmed legacy config construction blocks targeted for replacement.
+  - `ptycho_torch/config_factory.py`, `ptycho/config/config.py` — reviewed factory expectations + PyTorchExecutionConfig fields for upcoming guidance.
+- Audit of Ralph’s latest loop: design docs + RED tests present; pytest logs confirm six training and four inference failures on argparse `unrecognized arguments`, matching expected RED baseline.
+- Updates this loop:
+  - Marked C4.A1–C4.A4 and C4.B1–C4.B4 as `[x]` in `phase_c4_cli_integration/plan.md` with artifact citations; verification checklist now shows C4.A/C4.B complete.
+  - Added C4 design/RED status block + implementation readiness bullets to Phase C execution summary; amended execution plan descriptor to “DESIGN + RED COMPLETE”.
+  - Rewrote `input.md` directing engineer to execute C4.C implementation + C4.D validation (argparse flags, factory delegation, CLI pytest selectors, manual smoke) and capture GREEN logs under the existing report directory.
+  - Logged Attempt #19 in `docs/fix_plan.md` documenting plan sync + new steering instructions.
+- <Action State>: [ready_for_implementation]

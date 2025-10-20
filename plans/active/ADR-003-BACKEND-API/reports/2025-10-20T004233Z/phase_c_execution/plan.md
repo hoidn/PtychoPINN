@@ -58,7 +58,7 @@ Goal: Collapse CLI wrappers onto factories with execution config exposure and al
 Prereqs: Phases C1–C3 GREEN.
 Exit Criteria: `ptycho_torch/train.py` / `inference.py` delegate to factories, expose execution knobs via CLI flags, CLI tests/dcos updated.
 
-**PLANNING COMPLETE (2025-10-20T033100Z):** Detailed Phase C4 execution plan authored at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md` with 24 checklist items across 6 phases (A-F). Summary available at same directory. See plan for detailed task breakdown, test selectors, and artifact manifest.
+**DESIGN + RED COMPLETE (2025-10-20T033100Z):** Detailed Phase C4 execution plan authored at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md` with 24 checklist items across 6 phases (A-F). Summary available at the same directory. C4.A (design docs) and C4.B (RED tests + logs) are now `[x]`; implementation (C4.C), GREEN tests (C4.D), docs (C4.E), and ledger close-out (C4.F) remain pending. See plan for task breakdown, selectors, and artifact manifest.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |

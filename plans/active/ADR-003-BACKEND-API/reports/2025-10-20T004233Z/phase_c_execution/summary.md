@@ -28,6 +28,11 @@
 - **Hygiene:** Root-level `train_debug.log` relocated to the C3 report directory; plan/ledger entries updated (docs/fix_plan.md Attempt #95).
 - **C4 ENTRY CONDITIONS:** CLI wrappers still build configs manually; execution config knobs (scheduler, logger_backend, checkpoint callbacks) remain deferred. C4 can proceed once CLI flag surface + test plan are finalised.
 
+## Status Update (2025-10-20T033100Z)
+- **C4.A–C4.B COMPLETE (RED):** Design artefacts (`cli_flag_inventory.md`, `flag_selection_rationale.md`, `flag_naming_decisions.md`, `argparse_schema.md`) authored under `reports/2025-10-20T033100Z/phase_c4_cli_integration/`. RED pytest scaffolds (`tests/torch/test_cli_train_torch.py`, `tests/torch/test_cli_inference_torch.py`) landed with logs `pytest_cli_{train,inference}_red.log`; `red_baseline.md` documents failure signatures (argparse `unrecognized arguments`, mock-call assertions) and GREEN criteria.
+- **Plan Sync:** Phase C4 checklist rows marked `[x]` for design + RED tasks; `docs/fix_plan.md` Attempt #18 records deliverables and artefact paths.
+- **Implementation Ready:** Remaining work is C4.C/D/E/F — refactor CLI argparse + factory wiring, GREEN the new tests, update documentation, and close ledger entries. No code changes yet; current CLI still manual.
+
 ## Risks & Mitigations
 - **Field Drift:** If Lightning knobs diverge from dataclass defaults, document delta in `design_delta.md` and update override matrix at the same time.
 - **Trainer Signature Changes:** Wrap Lightning Trainer invocation in helper to minimise blast radius; tests in `tests/torch/test_workflows_components.py` will catch regressions.
@@ -35,10 +40,10 @@
 - **Artifact Discipline:** CLI runs may emit `train_debug.log`; mandate relocation to this plan directory at the end of each loop.
 
 ## Next Supervisor Checkpoints
-1. Author Phase C4 detailed plan (CLI surfaces + documentation) or refine existing checklist with flag mapping + command selectors.
-2. Direct engineer to expose execution config knobs via `ptycho_torch/train.py` / `inference.py`, keeping CONFIG-001 sequencing intact.
-3. Ensure CLI regression tests and documentation updates are scoped (tests/torch CLI modules + docs/workflows/pytorch.md §13).
-4. Continue enforcing artifact hygiene — CLI runs must store logs under Phase C directories; no root-level leftovers.
+1. Execute Phase C4.C implementation: update argparse surfaces, call factories, and pass execution config through to workflows while honouring CONFIG-001 ordering.
+2. GREEN the new CLI pytest modules (`tests/torch/test_cli_train_torch.py`, `tests/torch/test_cli_inference_torch.py`) and capture logs (`pytest_cli_{train,inference}_green.log`), plus smoke factory selector reused from C2.
+3. Refresh documentation (`docs/workflows/pytorch.md` §13, `specs/ptychodus_api_spec.md` CLI tables) and summarise C4 close-out once implementation/test cycle completes.
+4. Maintain artifact hygiene — relocate CLI-generated logs under `phase_c4_cli_integration/` and update ledger immediately after execution.
 
 ## Open Questions To Track
 - Do we expose MLflow/Logger control in Phase C or defer to Phase D/ADR governance? (Flag in `design_delta.md` during C1.)
