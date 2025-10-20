@@ -1,0 +1,66 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count FAILED [100%]
+
+=================================== FAILURES ===================================
+________ TestTrainingPayloadStructure.test_gridsize_sets_channel_count _________
+
+self = <test_config_factory.TestTrainingPayloadStructure object at 0x747fb51dc4d0>
+mock_train_npz = PosixPath('/tmp/pytest-of-ollie/pytest-695/test_gridsize_sets_channel_cou0/mock_train.npz')
+temp_output_dir = PosixPath('/tmp/factory_test__st3own3')
+
+    def test_gridsize_sets_channel_count(self, mock_train_npz, temp_output_dir):
+        """
+        Gridsize override synchronizes C_forward and C_model with data channel count.
+    
+        Regression test for ADR-003 C4.D3: create_training_payload() must set
+        pt_model_config.C_forward and C_model to match pt_data_config.C when
+        gridsize is specified. This ensures PyTorch helpers (reassemble_patches_position_real)
+        receive tensor shapes consistent with the grouping strategy.
+    
+        Expected behavior:
+            - gridsize=1 → C=1, C_forward=1, C_model=1
+            - gridsize=2 → C=4, C_forward=4, C_model=4
+            - Default (no gridsize override) → C=4, C_forward=4, C_model=4
+    
+        Reference: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/
+                   phase_c4_cli_integration_debug/coords_relative_investigation.md
+        """
+        # Case 1: gridsize=1 (single-position groups)
+        payload_gs1 = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'gridsize': 1, 'n_groups': 512},
+        )
+        assert payload_gs1.pt_data_config.C == 1, "DataConfig.C should match gridsize**2 (1)"
+>       assert payload_gs1.pt_model_config.C_forward == 1, "ModelConfig.C_forward should match DataConfig.C"
+E       AssertionError: ModelConfig.C_forward should match DataConfig.C
+E       assert 4 == 1
+E        +  where 4 = ModelConfig(mode='Unsupervised', intensity_scale_trainable=False, intensity_scale=10000.0, max_position_jitter=10, C_model=1, n_filters_scale=2, amp_activation='silu', batch_norm=False, probe_mask=None, edge_pad=10, decoder_last_c_outer_fraction=0.125, decoder_last_amp_channels=1, eca_encoder=False, cbam_encoder=False, cbam_bottleneck=False, cbam_decoder=False, eca_decoder=False, spatial_decoder=False, decoder_spatial_kernel=7, object_big=True, probe_big=False, offset=6, C_forward=4, loss_function='Poisson', amp_loss=None, phase_loss=None, amp_loss_coeff=1.0, phase_loss_coeff=1.0).C_forward
+E        +    where ModelConfig(mode='Unsupervised', intensity_scale_trainable=False, intensity_scale=10000.0, max_position_jitter=10, C_model=1, n_filters_scale=2, amp_activation='silu', batch_norm=False, probe_mask=None, edge_pad=10, decoder_last_c_outer_fraction=0.125, decoder_last_amp_channels=1, eca_encoder=False, cbam_encoder=False, cbam_bottleneck=False, cbam_decoder=False, eca_decoder=False, spatial_decoder=False, decoder_spatial_kernel=7, object_big=True, probe_big=False, offset=6, C_forward=4, loss_function='Poisson', amp_loss=None, phase_loss=None, amp_loss_coeff=1.0, phase_loss_coeff=1.0) = TrainingPayload(tf_training_config=TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='swish', object_big=True, probe_big=False, probe_mask=False, pad_object=True, probe_scale=1.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/tmp/pytest-of-ollie/pytest-695/test_gridsize_sets_channel_cou0/mock_train.npz'), test_data_file=None, batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=100000.0, n_groups=512, n_images=None, n_subsample=None, subsample_seed=None, neighbor_count=6, positions_provided=True, probe_trainable=False, intensity_scale_trainable=False, output_dir=PosixPath('/tmp/factory_test__st3own3'), sequential_sampling=False, backend='pytorch'), pt_data_config=DataConfig(nphotons=100000.0, N=64, C=1, K=6, K_quadrant=30, n_subsample=7, grid_size=(1, 1), neighbor_function='Nearest', min_neighbor_distance=0.0, max_neighbor_distance=3.0, scan_pattern='Isotropic', normalize='Batch', probe_scale=1.0, probe_normalize=True, data_scaling='Parseval', phase_subtraction=True, x_bounds=(0.1, 0.9), y_bounds=(0.1, 0.9)), pt_model_config=ModelConfig(mode='Unsupervised', intensity_scale_trainable=False, intensity_scale=10000.0, max_position_jitter=10, C_model=1, n_filters_scale=2, amp_activation='silu', batch_norm=False, probe_mask=None, edge_pad=10, decoder_last_c_outer_fraction=0.125, decoder_last_amp_channels=1, eca_encoder=False, cbam_encoder=False, cbam_bottleneck=False, cbam_decoder=False, eca_decoder=False, spatial_decoder=False, decoder_spatial_kernel=7, object_big=True, probe_big=False, offset=6, C_forward=4, loss_function='Poisson', amp_loss=None, phase_loss=None, amp_loss_coeff=1.0, phase_loss_coeff=1.0), pt_training_config=TrainingConfig(training_directories=[], nll=True, device='cuda', strategy='ddp', n_devices=1, learning_rate=0.001, epochs=50, batch_size=16, epochs_fine_tune=0, fine_tune_gamma=0.1, scheduler='Default', num_workers=4, accum_steps=1, gradient_clip_val=None, stage_1_epochs=0, stage_2_epochs=0, stage_3_epochs=0, physics_weight_schedule='cosine', stage_3_lr_factor=0.1, experiment_name='Synthetic_Runs', notes='', model_name='PtychoPINNv2'), execution_config=PyTorchExecutionConfig(accelerator='cpu', strategy='auto', deterministic=True, gradient_clip_val=None, accum_steps=1, num_workers=0, pin_memory=False, persistent_workers=False, prefetch_factor=None, learning_rate=0.001, scheduler='Default', enable_progress_bar=False, enable_checkpointing=True, checkpoint_save_top_k=1, checkpoint_monitor_metric='val_loss', early_stop_patience=100, logger_backend=None, inference_batch_size=None, middle_trim=0, pad_eval=False), overrides_applied={'gridsize': 1, 'n_groups': 512, 'N': 64, 'accelerator': 'cpu', 'deterministic': True, 'num_workers': 0, 'enable_progress_bar': False, 'learning_rate': 0.001}).pt_model_config
+
+tests/torch/test_config_factory.py:223: AssertionError
+=============================== warnings summary ===============================
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:252: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:600: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count - AssertionError: ModelConfig.C_forward should match DataConfig.C
+assert 4 == 1
+ +  where 4 = ModelConfig(mode='Unsupervised', intensity_scale_trainable=False, intensity_scale=10000.0, max_position_jitter=10, C_model=1, n_filters_scale=2, amp_activation='silu', batch_norm=False, probe_mask=None, edge_pad=10, decoder_last_c_outer_fraction=0.125, decoder_last_amp_channels=1, eca_encoder=False, cbam_encoder=False, cbam_bottleneck=False, cbam_decoder=False, eca_decoder=False, spatial_decoder=False, decoder_spatial_kernel=7, object_big=True, probe_big=False, offset=6, C_forward=4, loss_function='Poisson', amp_loss=None, phase_loss=None, amp_loss_coeff=1.0, phase_loss_coeff=1.0).C_forward
+ +    where ModelConfig(mode='Unsupervised', intensity_scale_trainable=False, intensity_scale=10000.0, max_position_jitter=10, C_model=1, n_filters_scale=2, amp_activation='silu', batch_norm=False, probe_mask=None, edge_pad=10, decoder_last_c_outer_fraction=0.125, decoder_last_amp_channels=1, eca_encoder=False, cbam_encoder=False, cbam_bottleneck=False, cbam_decoder=False, eca_decoder=False, spatial_decoder=False, decoder_spatial_kernel=7, object_big=True, probe_big=False, offset=6, C_forward=4, loss_function='Poisson', amp_loss=None, phase_loss=None, amp_loss_coeff=1.0, phase_loss_coeff=1.0) = TrainingPayload(tf_training_config=TrainingConfig(model=ModelConfig(N=64, gridsize=1, n_filters_scale=2, model_type='pinn', amp_activation='swish', object_big=True, probe_big=False, probe_mask=False, pad_object=True, probe_scale=1.0, gaussian_smoothing_sigma=0.0), train_data_file=PosixPath('/tmp/pytest-of-ollie/pytest-695/test_gridsize_sets_channel_cou0/mock_train.npz'), test_data_file=None, batch_size=16, nepochs=50, mae_weight=0.0, nll_weight=1.0, realspace_mae_weight=0.0, realspace_weight=0.0, nphotons=100000.0, n_groups=512, n_images=None, n_subsample=None, subsample_seed=None, neighbor_count=6, positions_provided=True, probe_trainable=False, intensity_scale_trainable=False, output_dir=PosixPath('/tmp/factory_test__st3own3'), sequential_sampling=False, backend='pytorch'), pt_data_config=DataConfig(nphotons=100000.0, N=64, C=1, K=6, K_quadrant=30, n_subsample=7, grid_size=(1, 1), neighbor_function='Nearest', min_neighbor_distance=0.0, max_neighbor_distance=3.0, scan_pattern='Isotropic', normalize='Batch', probe_scale=1.0, probe_normalize=True, data_scaling='Parseval', phase_subtraction=True, x_bounds=(0.1, 0.9), y_bounds=(0.1, 0.9)), pt_model_config=ModelConfig(mode='Unsupervised', intensity_scale_trainable=False, intensity_scale=10000.0, max_position_jitter=10, C_model=1, n_filters_scale=2, amp_activation='silu', batch_norm=False, probe_mask=None, edge_pad=10, decoder_last_c_outer_fraction=0.125, decoder_last_amp_channels=1, eca_encoder=False, cbam_encoder=False, cbam_bottleneck=False, cbam_decoder=False, eca_decoder=False, spatial_decoder=False, decoder_spatial_kernel=7, object_big=True, probe_big=False, offset=6, C_forward=4, loss_function='Poisson', amp_loss=None, phase_loss=None, amp_loss_coeff=1.0, phase_loss_coeff=1.0), pt_training_config=TrainingConfig(training_directories=[], nll=True, device='cuda', strategy='ddp', n_devices=1, learning_rate=0.001, epochs=50, batch_size=16, epochs_fine_tune=0, fine_tune_gamma=0.1, scheduler='Default', num_workers=4, accum_steps=1, gradient_clip_val=None, stage_1_epochs=0, stage_2_epochs=0, stage_3_epochs=0, physics_weight_schedule='cosine', stage_3_lr_factor=0.1, experiment_name='Synthetic_Runs', notes='', model_name='PtychoPINNv2'), execution_config=PyTorchExecutionConfig(accelerator='cpu', strategy='auto', deterministic=True, gradient_clip_val=None, accum_steps=1, num_workers=0, pin_memory=False, persistent_workers=False, prefetch_factor=None, learning_rate=0.001, scheduler='Default', enable_progress_bar=False, enable_checkpointing=True, checkpoint_save_top_k=1, checkpoint_monitor_metric='val_loss', early_stop_patience=100, logger_backend=None, inference_batch_size=None, middle_trim=0, pad_eval=False), overrides_applied={'gridsize': 1, 'n_groups': 512, 'N': 64, 'accelerator': 'cpu', 'deterministic': True, 'num_workers': 0, 'enable_progress_bar': False, 'learning_rate': 0.001}).pt_model_config
+======================== 1 failed, 2 warnings in 3.82s =========================

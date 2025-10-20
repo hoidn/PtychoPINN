@@ -1,0 +1,228 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_run_pytorch_train_save_load_infer ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-697/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
+        """
+        Tests the complete PyTorch train → save → load → infer workflow.
+    
+        This validates the PyTorch model persistence layer by simulating a real
+        user workflow across separate processes, mirroring the TensorFlow integration test.
+    
+        Phase: C2 (GREEN)
+        Behavior:
+        1. Training subprocess creates Lightning checkpoint at checkpoints/last.ckpt
+        2. Inference subprocess loads checkpoint and generates reconstructions
+        3. Output images created in inference output directory
+        4. Assertions verify artifact existence and non-empty file sizes
+    
+        Implementation: _run_pytorch_workflow executes train/infer via subprocess
+        """
+        # Execute complete workflow via subprocess helper (Phase C2 implementation)
+>       result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/torch/test_integration_workflow_torch.py:193: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-697/test_run_pytorch_train_save_lo0')
+data_file = PosixPath('/home/ollie/Documents/PtychoPINN2/tests/fixtures/pytorch_integration/minimal_dataset_v1.npz')
+cuda_cpu_env = {'CLAUDECODE': '1', 'CLAUDE_CODE_ENTRYPOINT': 'sdk-cli', 'CONDA_DEFAULT_ENV': 'ptycho311', 'CONDA_EXE': '/home/ollie/miniconda3/bin/conda', ...}
+
+    def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
+        """
+        Execute PyTorch train→save→load→infer workflow via subprocess calls.
+    
+        Parameters:
+            tmp_path: pytest tmp_path fixture for output directories
+            data_file: Path to NPZ dataset
+            cuda_cpu_env: Environment dict with CUDA_VISIBLE_DEVICES=""
+    
+        Returns:
+            SimpleNamespace with:
+                - training_output_dir: Path to training outputs
+                - inference_output_dir: Path to inference outputs
+                - checkpoint_path: Path to Lightning checkpoint
+                - recon_amp_path: Path to amplitude reconstruction PNG
+                - recon_phase_path: Path to phase reconstruction PNG
+    
+        Raises:
+            RuntimeError: If training or inference subprocess fails
+    
+        Phase: C2 (GREEN)
+        Implementation: Ported from legacy unittest harness with subprocess commands
+        """
+        from types import SimpleNamespace
+    
+        # Define output paths
+        training_output_dir = tmp_path / "training_outputs"
+        inference_output_dir = tmp_path / "pytorch_output"
+    
+        # --- 1. Training Step (PyTorch) ---
+        # CLI parameters aligned with Phase B1 scope (fixture n_subset=64, deterministic config)
+        # Preserves CONFIG-001 ordering per docs/workflows/pytorch.md §12
+        train_command = [
+            sys.executable, "-m", "ptycho_torch.train",
+            "--train_data_file", str(data_file),
+            "--test_data_file", str(data_file),
+            "--output_dir", str(training_output_dir),
+            "--max_epochs", "2",  # Aligned with Phase B1 runtime budget (<45s)
+            "--n_images", "64",   # Matches fixture subset size
+            "--gridsize", "1",
+            "--batch_size", "4",
+            "--device", "cpu",    # Deterministic CPU-only execution per cuda_cpu_env fixture
+            "--disable_mlflow",
+        ]
+    
+        train_result = subprocess.run(
+            train_command,
+            capture_output=True,
+            text=True,
+            env=cuda_cpu_env,
+            check=False
+        )
+    
+        if train_result.returncode != 0:
+            raise RuntimeError(
+                f"PyTorch training failed with return code {train_result.returncode}\n"
+                f"STDOUT:\n{train_result.stdout}\n"
+                f"STDERR:\n{train_result.stderr}"
+            )
+    
+        # Find checkpoint path (Lightning default location)
+        checkpoint_path = training_output_dir / "checkpoints" / "last.ckpt"
+    
+        # --- 2. Inference Step (PyTorch) ---
+        # Inference parameters aligned with Phase B1 scope (subset inference on minimal fixture)
+        inference_command = [
+            sys.executable, "-m", "ptycho_torch.inference",
+            "--model_path", str(training_output_dir),
+            "--test_data", str(data_file),
+            "--output_dir", str(inference_output_dir),
+            "--n_images", "32",  # Half of fixture size for faster inference validation
+            "--device", "cpu",
+        ]
+    
+        infer_result = subprocess.run(
+            inference_command,
+            capture_output=True,
+            text=True,
+            env=cuda_cpu_env,
+            check=False
+        )
+    
+        if infer_result.returncode != 0:
+>           raise RuntimeError(
+                f"PyTorch inference failed with return code {infer_result.returncode}\n"
+                f"STDOUT:\n{infer_result.stdout}\n"
+                f"STDERR:\n{infer_result.stderr}"
+            )
+E           RuntimeError: PyTorch inference failed with return code 1
+E           STDOUT:
+E           No GPU found, using CPU instead.
+E           
+E           STDERR:
+E           2025-10-19 22:59:31.604963: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+E           WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E           E0000 00:00:1760939971.616627 1457658 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E           E0000 00:00:1760939971.620466 1457658 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+E           W0000 00:00:1760939971.631804 1457658 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760939971.631820 1457658 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760939971.631822 1457658 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           W0000 00:00:1760939971.631824 1457658 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+E           2025-10-19 22:59:31.634570: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E           To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+E           2025-10-19 22:59:33.611716: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+E           2025-10-19 22:59:33.611738: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+E           2025-10-19 22:59:33.611744: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+E           2025-10-19 22:59:33.611747: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+E           2025-10-19 22:59:33.611750: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+E           2025-10-19 22:59:33.611752: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+E           2025-10-19 22:59:33.611773: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+E           2025-10-19 22:59:33.611787: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+E           2025-10-19 22:59:33.611789: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+E           Traceback (most recent call last):
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/inference.py", line 478, in cli_main
+E               payload = create_inference_payload(
+E                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py", line 368, in create_inference_payload
+E               raise ValueError(
+E           ValueError: Model archive not found: /tmp/pytest-of-ollie/pytest-697/test_run_pytorch_train_save_lo0/training_outputs/wts.h5.zip. Expected wts.h5.zip in model_path directory.
+E           
+E           During handling of the above exception, another exception occurred:
+E           
+E           Traceback (most recent call last):
+E             File "<frozen runpy>", line 198, in _run_module_as_main
+E             File "<frozen runpy>", line 88, in _run_code
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/inference.py", line 648, in <module>
+E               sys.exit(cli_main())
+E                        ^^^^^^^^^^
+E             File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/inference.py", line 500, in cli_main
+E               raise RuntimeError(
+E           RuntimeError: Failed to create inference payload.
+E           Error: Model archive not found: /tmp/pytest-of-ollie/pytest-697/test_run_pytorch_train_save_lo0/training_outputs/wts.h5.zip. Expected wts.h5.zip in model_path directory.
+E           Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001.
+
+tests/torch/test_integration_workflow_torch.py:149: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer - RuntimeError: PyTorch inference failed with return code 1
+STDOUT:
+No GPU found, using CPU instead.
+
+STDERR:
+2025-10-19 22:59:31.604963: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1760939971.616627 1457658 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1760939971.620466 1457658 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1760939971.631804 1457658 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760939971.631820 1457658 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760939971.631822 1457658 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1760939971.631824 1457658 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-19 22:59:31.634570: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-19 22:59:33.611716: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-19 22:59:33.611738: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-19 22:59:33.611744: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-19 22:59:33.611747: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-19 22:59:33.611750: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-19 22:59:33.611752: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-19 22:59:33.611773: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.172.8
+2025-10-19 22:59:33.611787: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-19 22:59:33.611789: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.172.8
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/inference.py", line 478, in cli_main
+    payload = create_inference_payload(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py", line 368, in create_inference_payload
+    raise ValueError(
+ValueError: Model archive not found: /tmp/pytest-of-ollie/pytest-697/test_run_pytorch_train_save_lo0/training_outputs/wts.h5.zip. Expected wts.h5.zip in model_path directory.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/inference.py", line 648, in <module>
+    sys.exit(cli_main())
+             ^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho_torch/inference.py", line 500, in cli_main
+    raise RuntimeError(
+RuntimeError: Failed to create inference payload.
+Error: Model archive not found: /tmp/pytest-of-ollie/pytest-697/test_run_pytorch_train_save_lo0/training_outputs/wts.h5.zip. Expected wts.h5.zip in model_path directory.
+Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001.
+============================== 1 failed in 17.34s ==============================
