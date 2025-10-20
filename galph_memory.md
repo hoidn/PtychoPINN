@@ -1242,3 +1242,20 @@
   - Added fix_plan Attempt #5 capturing the decision loop; created new report directory for B2 RED work and rewrote `input.md` (Mode=TDD) to drive skeleton + failing tests.
 - Next Supervisor Notes: Monitor B2 RED artifacts (`pytest_factory_red.log`, summary) and ensure dataclass definition work moves to Phase C1.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T000736Z: B2 RED review & hygiene follow-up
+- Focus issue: ADR-003-BACKEND-API Phase B2 (factory RED scaffold)
+- Action type: Review or housekeeping
+- Mode: none
+- Findings:
+  - Commit 151565a4 introduced `ptycho_torch/config_factory.py` and `tests/torch/test_config_factory.py`; pytest log shows 19 passed because each test wraps factory calls in `pytest.raises(NotImplementedError)`.
+  - RED expectation from `plan.md` §B2 unmet; summary.md updated with supervisor note to rerun without guards.
+  - Root-level `train_debug.log` duplicated the timestamped copy; removed to enforce artifact discipline.
+  - docs/fix_plan.md now carries Attempt #6 capturing the review outcome; implementation plan B2 row revised to flag the missing RED baseline.
+- Actions this loop:
+  - Updated `plans/active/ADR-003-BACKEND-API/implementation.md` B2 description and injected supervisor warning into `.../phase_b2_skeleton/summary.md`.
+  - Removed stray `train_debug.log`.
+  - Rewrote `input.md` directing Ralph to re-establish a failing RED run and log it under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T000736Z/phase_b2_redfix/`.
+  - Logged Attempt #6 in docs/fix_plan.md with follow-up tasks.
+- Next directives: engineer to strip `pytest.raises` guards, capture failing selector log, and record Attempt #7.
+- <Action State>: [ready_for_implementation]

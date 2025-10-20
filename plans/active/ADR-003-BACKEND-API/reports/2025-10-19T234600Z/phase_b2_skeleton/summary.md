@@ -11,6 +11,8 @@
 
 Phase B2 TDD RED scaffold complete. Created `ptycho_torch/config_factory.py` skeleton module with 4 public functions (all raising NotImplementedError) and `tests/torch/test_config_factory.py` with 19 test cases encoding expected factory behavior. All tests pass by correctly catching NotImplementedError exceptions, establishing RED baseline for Phase B3 GREEN implementation.
 
+> **Supervisor Note (2025-10-20):** RED baseline not yet realized. Because the tests wrap each factory call in `pytest.raises(NotImplementedError)`, the selector returns 19 passed. Remove the guards and re-run to capture a genuine failing log before promoting to GREEN.
+
 **Key Deliverables:**
 - ✅ Factory module skeleton (367 lines, comprehensive docstrings)
 - ✅ RED test coverage (19 tests across 6 categories, 406 lines)
