@@ -30,8 +30,9 @@
 - C1 complete: inference blueprint authored (`plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md`, 51 KB comprehensive spec). Captured helper reuse strategy, RawData ownership decision (Option A), inference orchestration extraction (Option 2), and RED test plan (5 delegation tests + 3 inference-mode shared helper tests). Design mirrors training CLI refactor for consistency.
 
 ## Next steps for Ralph
-1. Phase D.C C2 — stage RED coverage in `tests/torch/test_cli_inference_torch.py` (or companion module) capturing expected helper delegation failures before implementation; archive RED log alongside the blueprint.
-2. Prepare for Phase D.C C3 by enumerating required refactors in the blueprint (delegation flow, helper reuse, warning semantics) so implementation can follow the same helper pattern as training CLI.
+1. Phase D.C C3 fallout — update the two remaining thin-wrapper tests to reflect keyword invocation (`validate_paths(train_file=None, ...)`) and bundle loader contract (`{'diffraction_to_obj': mock_model}`), then restage targeted selector to GREEN under `reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/`.
+2. Relocate `train_debug.log` into the same artifact directory (or regenerate evidence) so repo root stays clean; document move in summary + ledger.
+3. Once selectors are GREEN, refresh `phase_d_cli_wrappers/plan.md` row C3 to `[x]`, drop updated summary snippets, and append docs/fix_plan Attempt entry with log references.
 
 **Artifacts Created:**  
 - `plan.md` — phased implementation roadmap with checklist IDs and guidance  

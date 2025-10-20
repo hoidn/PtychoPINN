@@ -1607,3 +1607,17 @@
   - Updated `phase_d_cli_wrappers/plan.md` C3 guidance with explicit helper, pytest, and artifact requirements and logged Attempt #48 in `docs/fix_plan.md`.
   - Rewrote `input.md` launching implementation loop with artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T120825Z/phase_d_cli_wrappers_inference_impl/` and mapped selectors.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T122227Z: Phase D.C C3 test fallout triage
+- Focus issue: ADR-003-BACKEND-API Phase D.C — thin wrapper implementation (C3 follow-up)
+- Action type: Debug (Triage)
+- Mode: TDD
+- Findings:
+  - Hypothesis H1 (confirmed): `cli_main()` now calls `validate_paths(train_file=None, ...)` with keyword args, so RED test `test_cli_delegates_to_validate_paths` indexing `call_args[0]` fails (tuple empty). Updated plan to direct test to inspect `call_args.kwargs` (file: tests/torch/test_cli_inference_torch.py:262).
+  - Hypothesis H2 (confirmed): Mocked `load_inference_bundle_torch` returns `{}`, causing KeyError before `RawData.from_file` executes; adjust RED harness to provide `'diffraction_to_obj': MagicMock()` so CLI reaches data load assertion.
+  - Artifact hygiene: integration run left `train_debug.log` at repo root; must move under C3 artifact hub with new GREEN logs.
+- Actions:
+  - Reopened `phase_d_cli_wrappers/plan.md` row C3 to `[P]` and updated summary next steps.
+  - Logged Attempt #49 in docs/fix_plan.md referencing failing selectors and follow-up requirements.
+  - Issued new `input.md` guiding test updates, reruns, log relocation, and ledger sync using artifact hub `reports/2025-10-20T122425Z/phase_d_cli_wrappers_inference_followup/`.
+- <Action State>: [ready_for_implementation]
