@@ -1,0 +1,41 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 19 items / 8 deselected / 11 selected
+
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass PASSED [  9%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config PASSED [ 18%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs PASSED [ 27%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_overrides_dict PASSED [ 36%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_grid_size_tuple_to_gridsize_int PASSED [ 45%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_epochs_to_nepochs_conversion PASSED [ 54%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_k_to_neighbor_count_conversion PASSED [ 63%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_factory_populates_params_cfg PASSED [ 72%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_populate_legacy_params_helper PASSED [ 81%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_override_dict_wins_over_defaults PASSED [ 90%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_probe_size_override_wins_over_inference PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_config_factory.py: 10 warnings
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:252: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_overrides_dict
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_grid_size_tuple_to_gridsize_int
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_epochs_to_nepochs_conversion
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_k_to_neighbor_count_conversion
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_override_dict_wins_over_defaults
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_probe_size_override_wins_over_inference
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:571: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================ 11 passed, 8 deselected, 19 warnings in 3.60s =================
