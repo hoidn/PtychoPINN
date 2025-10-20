@@ -290,13 +290,101 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
     print(f"Saved phase reconstruction to: {phase_path}")
 
 
+def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False):
+    """
+    Extract inference logic into testable helper function (Phase D.C C3).
+
+    Args:
+        model: Loaded Lightning module (eval mode)
+        raw_data: RawData instance with test data
+        config: TFInferenceConfig with n_groups, etc.
+        execution_config: PyTorchExecutionConfig with device, batch size, etc.
+        device: Torch device string ('cpu', 'cuda', 'mps')
+        quiet: Suppress progress output (default: False)
+
+    Returns:
+        Tuple of (amplitude, phase) numpy arrays
+
+    Notes:
+        - Wraps existing simplified inference logic (lines 563-641)
+        - Enforces DTYPE-001 (float32 for diffraction, complex64 for probe)
+        - Handles shape permutations (H,W,N → N,H,W)
+        - Averages across batch for single reconstruction
+    """
+    import torch
+    import numpy as np
+
+    # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 per DATA-001
+    diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
+    probe = torch.from_numpy(raw_data.probeGuess).to(device, dtype=torch.complex64)
+
+    # Handle different diffraction shapes (H, W, n) vs (n, H, W)
+    if diffraction.ndim == 3 and diffraction.shape[-1] < diffraction.shape[0]:
+        # Transpose from (H, W, n) to (n, H, W)
+        diffraction = diffraction.permute(2, 0, 1)
+
+    # Limit to n_groups
+    diffraction = diffraction[:config.n_groups]
+
+    # Add channel dimension if needed: (n, H, W) -> (n, 1, H, W)
+    if diffraction.ndim == 3:
+        diffraction = diffraction.unsqueeze(1)
+
+    # Ensure probe is complex64
+    if not torch.is_complex(probe):
+        probe = probe.to(torch.complex64)
+
+    # Add batch dimension to probe if needed
+    if probe.ndim == 2:
+        probe = probe.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, H, W)
+
+    # Prepare dummy positions (needed for forward pass signature)
+    batch_size = diffraction.shape[0]
+    positions = torch.zeros((batch_size, 1, 1, 2), device=device)
+
+    # Prepare scaling factors (simplified for Phase E2.C2)
+    input_scale_factor = torch.ones((batch_size, 1, 1, 1), device=device)
+
+    if not quiet:
+        print(f"Running inference on {batch_size} images...")
+
+    # Forward pass through model
+    with torch.no_grad():
+        reconstruction = model.forward_predict(
+            diffraction,
+            positions,
+            probe,
+            input_scale_factor
+        )
+
+    # Extract amplitude and phase
+    reconstruction_cpu = reconstruction.cpu().numpy()
+
+    # Average across batch for single reconstruction
+    reconstruction_avg = np.mean(reconstruction_cpu, axis=0)
+
+    # Remove channel dimension if present
+    if reconstruction_avg.ndim == 3:
+        reconstruction_avg = reconstruction_avg[0]
+
+    result_amp = np.abs(reconstruction_avg)
+    result_phase = np.angle(reconstruction_avg)
+
+    if not quiet:
+        print(f"Reconstruction shape: {reconstruction_avg.shape}")
+        print(f"Amplitude range: [{result_amp.min():.4f}, {result_amp.max():.4f}]")
+        print(f"Phase range: [{result_phase.min():.4f}, {result_phase.max():.4f}]")
+
+    return result_amp, result_phase
+
+
 def cli_main():
     """
-    CLI entrypoint for PyTorch Lightning checkpoint inference.
+    CLI entrypoint for PyTorch Lightning checkpoint inference (ADR-003 Phase D.C thin wrapper).
 
-    This function implements Phase E2.C2 of INTEGRATE-PYTORCH-001, providing
-    a command-line interface for loading trained PyTorch models and generating
-    reconstructions from test data.
+    Thin wrapper that delegates to shared helpers (ptycho_torch.cli.shared) for validation,
+    execution config construction, and device resolution. Inference orchestration extracted
+    to _run_inference_and_reconstruct() helper for testability.
 
     Usage:
         python -m ptycho_torch.inference \\
@@ -304,7 +392,7 @@ def cli_main():
             --test_data <npz_file> \\
             --output_dir <inference_output_dir> \\
             --n_images 32 \\
-            --device cpu \\
+            --accelerator cpu \\
             [--quiet]
 
     Expected Output Artifacts:
@@ -312,9 +400,9 @@ def cli_main():
         - <output_dir>/reconstructed_phase.png
 
     References:
-        - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
-        - Test contract: tests/torch/test_integration_workflow_torch.py
-        - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+        - Blueprint: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md
+        - Test contract: tests/torch/test_cli_inference_torch.py
+        - Shared helpers: ptycho_torch/cli/shared.py
     """
     parser = argparse.ArgumentParser(
         description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
@@ -411,35 +499,25 @@ Examples:
 
     args = parser.parse_args()
 
-    # Phase C4.C6: Create execution config from CLI args (ADR-003)
-    from ptycho.config.config import PyTorchExecutionConfig
-
-    # Resolve accelerator (handle --device backward compatibility)
-    resolved_accelerator = args.accelerator
-    if args.device and args.accelerator == 'auto':
-        # Map legacy --device to --accelerator if accelerator not explicitly set
-        resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
-    elif args.device and args.accelerator != 'auto':
-        # Warn if both specified
-        import warnings
-        warnings.warn(
-            "--device is deprecated and will be removed in Phase D. "
-            "Use --accelerator instead. Ignoring --device value.",
-            DeprecationWarning
+    # --- Phase D.C C3: Validate paths using shared helper ---
+    from ptycho_torch.cli.shared import validate_paths
+    try:
+        validate_paths(
+            train_file=None,  # Inference mode: no training file
+            test_file=Path(args.test_data),
+            output_dir=Path(args.output_dir),
         )
+    except FileNotFoundError as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
 
-    # Validate execution config args
-    if args.num_workers < 0:
-        raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
-    if args.inference_batch_size is not None and args.inference_batch_size <= 0:
-        raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
-
-    execution_config = PyTorchExecutionConfig(
-        accelerator=resolved_accelerator,
-        num_workers=args.num_workers,
-        inference_batch_size=args.inference_batch_size,
-        enable_progress_bar=(not args.quiet),
-    )
+    # --- Phase D.C C3: Build execution config using shared helper ---
+    from ptycho_torch.cli.shared import build_execution_config_from_args
+    try:
+        execution_config = build_execution_config_from_args(args, mode='inference')
+    except ValueError as e:
+        print(f"ERROR: Invalid execution config: {e}")
+        sys.exit(1)
 
     # Fail-fast: Check Lightning availability
     try:
@@ -560,73 +638,19 @@ Examples:
             "Ensure NPZ conforms to specs/data_contracts.md"
         )
 
-    # Run simplified inference (Phase E2.C2 path, not full reassembly workflow)
-    # Full production inference via _reassemble_cdi_image_torch in workflows/components.py
+    # --- Phase D.C C3: Delegate to inference helper ---
     try:
-        # Extract data from RawData
-        # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 per DATA-001
-        diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
-        probe = torch.from_numpy(raw_data.probeGuess).to(device, dtype=torch.complex64)
+        amplitude, phase = _run_inference_and_reconstruct(
+            model=model,
+            raw_data=raw_data,
+            config=tf_inference_config,
+            execution_config=execution_config,
+            device=device,
+            quiet=args.quiet,
+        )
 
-        # Handle different diffraction shapes (H, W, n) vs (n, H, W)
-        if diffraction.ndim == 3 and diffraction.shape[-1] < diffraction.shape[0]:
-            # Transpose from (H, W, n) to (n, H, W)
-            diffraction = diffraction.permute(2, 0, 1)
-
-        # Limit to n_groups
-        diffraction = diffraction[:tf_inference_config.n_groups]
-
-        # Add channel dimension if needed: (n, H, W) -> (n, 1, H, W)
-        if diffraction.ndim == 3:
-            diffraction = diffraction.unsqueeze(1)
-
-        # Ensure probe is complex64
-        if not torch.is_complex(probe):
-            probe = probe.to(torch.complex64)
-
-        # Add batch dimension to probe if needed
-        if probe.ndim == 2:
-            probe = probe.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, H, W)
-
-        # Prepare dummy positions (needed for forward pass signature)
-        batch_size = diffraction.shape[0]
-        positions = torch.zeros((batch_size, 1, 1, 2), device=device)
-
-        # Prepare scaling factors (simplified for Phase E2.C2)
-        input_scale_factor = torch.ones((batch_size, 1, 1, 1), device=device)
-
-        if not args.quiet:
-            print(f"Running inference on {batch_size} images...")
-
-        # Forward pass through model
-        with torch.no_grad():
-            reconstruction = model.forward_predict(
-                diffraction,
-                positions,
-                probe,
-                input_scale_factor
-            )
-
-        # Extract amplitude and phase
-        reconstruction_cpu = reconstruction.cpu().numpy()
-
-        # Average across batch for single reconstruction
-        reconstruction_avg = np.mean(reconstruction_cpu, axis=0)
-
-        # Remove channel dimension if present
-        if reconstruction_avg.ndim == 3:
-            reconstruction_avg = reconstruction_avg[0]
-
-        result_amp = np.abs(reconstruction_avg)
-        result_phase = np.angle(reconstruction_avg)
-
-        if not args.quiet:
-            print(f"Reconstruction shape: {reconstruction_avg.shape}")
-            print(f"Amplitude range: [{result_amp.min():.4f}, {result_amp.max():.4f}]")
-            print(f"Phase range: [{result_phase.min():.4f}, {result_phase.max():.4f}]")
-
-        # Save individual reconstructions (required by test)
-        save_individual_reconstructions(result_amp, result_phase, output_dir)
+        # Save individual reconstructions (required by test contract)
+        save_individual_reconstructions(amplitude, phase, output_dir)
 
         if not args.quiet:
             print(f"\nInference completed successfully!")
