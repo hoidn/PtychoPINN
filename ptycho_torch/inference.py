@@ -377,7 +377,69 @@ Examples:
         help='Suppress progress output'
     )
 
+    # Execution config flags (Phase C4.C5 - ADR-003)
+    parser.add_argument(
+        '--accelerator',
+        type=str,
+        default='auto',
+        choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+        help=(
+            'Hardware accelerator: auto (auto-detect, default), cpu (CPU-only), '
+            'gpu (NVIDIA GPU), cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon).'
+        )
+    )
+    parser.add_argument(
+        '--num-workers',
+        type=int,
+        default=0,
+        dest='num_workers',
+        help=(
+            'Number of DataLoader worker processes (default: 0 = synchronous). '
+            'Typical values: 2-8 for multi-core systems.'
+        )
+    )
+    parser.add_argument(
+        '--inference-batch-size',
+        type=int,
+        default=None,
+        dest='inference_batch_size',
+        help=(
+            'Batch size for inference DataLoader (default: None = use training batch_size). '
+            'Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU.'
+        )
+    )
+
     args = parser.parse_args()
+
+    # Phase C4.C6: Create execution config from CLI args (ADR-003)
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    # Resolve accelerator (handle --device backward compatibility)
+    resolved_accelerator = args.accelerator
+    if args.device and args.accelerator == 'auto':
+        # Map legacy --device to --accelerator if accelerator not explicitly set
+        resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+    elif args.device and args.accelerator != 'auto':
+        # Warn if both specified
+        import warnings
+        warnings.warn(
+            "--device is deprecated and will be removed in Phase D. "
+            "Use --accelerator instead. Ignoring --device value.",
+            DeprecationWarning
+        )
+
+    # Validate execution config args
+    if args.num_workers < 0:
+        raise ValueError(f"--num-workers must be >= 0, got {args.num_workers}")
+    if args.inference_batch_size is not None and args.inference_batch_size <= 0:
+        raise ValueError(f"--inference-batch-size must be > 0, got {args.inference_batch_size}")
+
+    execution_config = PyTorchExecutionConfig(
+        accelerator=resolved_accelerator,
+        num_workers=args.num_workers,
+        inference_batch_size=args.inference_batch_size,
+        enable_progress_bar=(not args.quiet),
+    )
 
     # Fail-fast: Check Lightning availability
     try:

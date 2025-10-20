@@ -145,7 +145,8 @@ def main(ptycho_dir,
          config_path = None,
          existing_config = None,
          disable_mlflow = False,
-         output_dir = None):
+         output_dir = None,
+         execution_config = None):
     '''
     Main training script. Can provide dictionary of modified configs based off of dataclass attributes to overwrite
 
@@ -158,6 +159,8 @@ def main(ptycho_dir,
     disable_mlflow: If True, suppresses all MLflow tracking (autologging, experiment tracking, run creation).
                    Useful for CI environments without MLflow server. Default: False.
     output_dir: Optional override for checkpoint output directory. If provided, configures Lightning's default_root_dir.
+    execution_config: Optional PyTorchExecutionConfig for runtime knobs (Phase C4.C3 - ADR-003).
+                     If None, uses default execution config with CPU accelerator.
 
     Outputs
     --------
@@ -216,8 +219,9 @@ def main(ptycho_dir,
     model = PtychoPINN_Lightning(model_config, data_config, training_config, inference_config)
     model.training = True
 
-    #Update LR
-    updated_lr = find_learning_rate(training_config.learning_rate,
+    #Update LR (Phase C4.C3: Use execution_config if available, else training_config)
+    base_lr = execution_config.learning_rate if execution_config else training_config.learning_rate
+    updated_lr = find_learning_rate(base_lr,
                                     training_config.n_devices, training_config.batch_size)
     model.lr = updated_lr
 
@@ -260,19 +264,39 @@ def main(ptycho_dir,
     else:
         total_training_epochs = training_config.epochs
 
-    # Create trainer
+    # Phase C4.C3: Apply execution config to Trainer (ADR-003)
+    # Use execution_config if provided, otherwise create default
+    if execution_config is None:
+        from ptycho.config.config import PyTorchExecutionConfig
+        execution_config = PyTorchExecutionConfig(
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+
+    # Resolve accelerator (prefer execution_config, fallback to training_config logic)
+    if execution_config.accelerator == 'auto':
+        resolved_accelerator = 'gpu' if training_config.n_devices > 0 and torch.cuda.is_available() else 'cpu'
+    else:
+        resolved_accelerator = execution_config.accelerator
+        # Map 'cuda' alias to 'gpu' for Lightning compatibility
+        if resolved_accelerator == 'cuda':
+            resolved_accelerator = 'gpu'
+
+    # Create trainer with execution config knobs
     trainer = L.Trainer(
         max_epochs = total_training_epochs,
         default_root_dir = str(checkpoint_root),
         devices = training_config.n_devices,
-        accelerator = 'gpu' if training_config.n_devices > 0 and torch.cuda.is_available() else 'cpu',
+        accelerator = resolved_accelerator,
         callbacks = callbacks,
         # accumulate_grad_batches=training_config.accum_steps,  # Lightning handles this
         # gradient_clip_val=training_config.gradient_clip_val,   # Lightning handles this
         strategy=get_training_strategy(training_config.n_devices),
         check_val_every_n_epoch=1,  # Validate every epoch
         enable_checkpointing=True,  # Enable checkpointing for early stopping
-        enable_progress_bar=True,
+        enable_progress_bar=execution_config.enable_progress_bar,  # Controlled by execution config
+        deterministic=execution_config.deterministic,  # Reproducibility control
     )
 
     #Mlflow setup
@@ -396,6 +420,59 @@ Examples:
     parser.add_argument('--disable_mlflow', action='store_true',
                        help='Disable MLflow experiment tracking (useful for CI)')
 
+    # Execution config flags (Phase C4.C1 - ADR-003)
+    parser.add_argument(
+        '--accelerator',
+        type=str,
+        default='auto',
+        choices=['auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'],
+        help=(
+            'Hardware accelerator for training: '
+            'auto (auto-detect, default), cpu (CPU-only), gpu (NVIDIA GPU), '
+            'cuda (alias for gpu), tpu (Google TPU), mps (Apple Silicon). '
+            'Default: auto.'
+        )
+    )
+    parser.add_argument(
+        '--deterministic',
+        dest='deterministic',
+        action='store_true',
+        default=True,
+        help=(
+            'Enable deterministic training for reproducibility (default: enabled). '
+            'Sets torch.use_deterministic_algorithms(True) and Lightning deterministic=True. '
+            'Use --no-deterministic to disable for potential performance gains.'
+        )
+    )
+    parser.add_argument(
+        '--no-deterministic',
+        dest='deterministic',
+        action='store_false',
+        help='Disable deterministic training. May improve performance but results are non-reproducible.'
+    )
+    parser.add_argument(
+        '--num-workers',
+        type=int,
+        default=0,
+        dest='num_workers',
+        help=(
+            'Number of DataLoader worker processes for parallel data loading (default: 0 = synchronous). '
+            'Typical values: 2-8 for multi-core systems. Higher values increase data loading throughput '
+            'but consume more memory. Set to 0 for single-threaded loading (safest for CI).'
+        )
+    )
+    parser.add_argument(
+        '--learning-rate',
+        type=float,
+        default=1e-3,
+        dest='learning_rate',
+        help=(
+            'Learning rate for Adam optimizer (default: 1e-3). '
+            'Typical range: 1e-5 (slow, stable) to 1e-2 (fast, may diverge). '
+            'Adjust based on convergence behavior during training.'
+        )
+    )
+
     # Legacy interface flags (backward compatibility)
     parser.add_argument('--ptycho_dir', type=str,
                        help='Path to ptycho directory (legacy interface)')
@@ -430,8 +507,8 @@ Examples:
             sys.exit(1)
 
     elif new_interface:
-        # New CLI interface: --train_data_file --output_dir ...
-        print("Using new CLI interface (Phase E2.C1)")
+        # New CLI interface: --train_data_file --output_dir ... (Phase C4.C2 - ADR-003)
+        print("Using new CLI interface with factory-based config (ADR-003)")
 
         # Validate required arguments
         if not args.train_data_file:
@@ -461,97 +538,106 @@ Examples:
         # The existing main() expects a directory containing NPZ files
         ptycho_dir = train_data_file.parent
 
-        # Create PyTorch config singletons
-        print("Creating PyTorch configuration objects...")
+        # Phase C4.C1: Create execution config from CLI args
+        from ptycho.config.config import PyTorchExecutionConfig
 
-        # Infer probe size from training NPZ metadata (INTEGRATE-PYTORCH-001-PROBE-SIZE)
-        inferred_N = _infer_probe_size(train_data_file)
-        if inferred_N is None:
-            print(f"WARNING: Could not infer probe size from {train_data_file}, using default N=64")
-            inferred_N = 64  # Use default from ModelConfig spec
-        else:
-            print(f"✓ Inferred probe size from NPZ: N={inferred_N}")
-
-        # DataConfig: Configure data pipeline parameters
-        data_config = DataConfig(
-            N=inferred_N,  # Derived from probeGuess.shape[0] in NPZ
-            grid_size=(args.gridsize, args.gridsize),
-            K=7,  # Default neighbor count
-            nphotons=1e9,  # Use TensorFlow default to avoid divergence
-        )
-
-        # ModelConfig: Configure model architecture
-        model_config = ModelConfig(
-            mode='Unsupervised',  # PINN mode
-            amp_activation='silu',
-        )
-
-        # TrainingConfig: Configure training hyperparameters
-        training_config = TrainingConfig(
-            epochs=args.max_epochs,
-            batch_size=args.batch_size,
-            n_devices=1 if args.device == 'cpu' else (torch.cuda.device_count() if torch.cuda.is_available() else 1),
-            experiment_name='ptychopinn_pytorch',
-        )
-
-        # InferenceConfig: Create for completeness (required by main())
-        inference_config = InferenceConfig()
-
-        # DatagenConfig: Create for completeness (required by main())
-        datagen_config = DatagenConfig()
-
-        # Bundle configs for main()
-        existing_config = (data_config, model_config, training_config, inference_config, datagen_config)
-
-        # CRITICAL: CONFIG-001 Compliance
-        # Bridge PyTorch configs → TensorFlow dataclasses → params.cfg
-        # This MUST happen before calling main() to ensure legacy modules see correct values
-        print("Bridging PyTorch configs to TensorFlow dataclasses (CONFIG-001 compliance)...")
-
-        from ptycho_torch.config_bridge import to_model_config, to_training_config
-        from ptycho.config.config import update_legacy_dict
-        import ptycho.params as params
-
-        try:
-            # Convert to TensorFlow ModelConfig
-            tf_model_config = to_model_config(data_config, model_config)
-
-            # Convert to TensorFlow TrainingConfig with required overrides
-            tf_training_config = to_training_config(
-                tf_model_config,
-                data_config,
-                model_config,
-                training_config,
-                overrides=dict(
-                    train_data_file=train_data_file,
-                    test_data_file=test_data_file,
-                    output_dir=output_dir,
-                    n_groups=args.n_images,
-                    nphotons=1e9,  # Explicit override to match TensorFlow default
-                )
+        # Resolve accelerator (handle --device backward compatibility)
+        resolved_accelerator = args.accelerator
+        if args.device and args.accelerator == 'auto':
+            # Map legacy --device to --accelerator if accelerator not explicitly set
+            resolved_accelerator = 'cpu' if args.device == 'cpu' else 'gpu'
+        elif args.device and args.accelerator != 'auto':
+            # Warn if both specified
+            import warnings
+            warnings.warn(
+                "--device is deprecated and will be removed in Phase D. "
+                "Use --accelerator instead. Ignoring --device value.",
+                DeprecationWarning
             )
 
-            # Populate params.cfg BEFORE any workflow dispatch
-            update_legacy_dict(params.cfg, tf_training_config)
+        # Validate execution config args
+        if args.num_workers < 0:
+            print(f"ERROR: --num-workers must be >= 0, got {args.num_workers}")
+            sys.exit(1)
+        if args.learning_rate <= 0:
+            print(f"ERROR: --learning-rate must be > 0, got {args.learning_rate}")
+            sys.exit(1)
 
-            print(f"✓ params.cfg populated: N={params.cfg.get('N')}, gridsize={params.cfg.get('gridsize')}, n_groups={params.cfg.get('n_groups')}")
+        # Warn about num_workers + deterministic combination
+        if args.num_workers > 0 and args.deterministic:
+            import warnings
+            warnings.warn(
+                "num_workers > 0 with deterministic mode enabled. "
+                "This may introduce non-determinism on some platforms. "
+                "Consider using --num-workers 0 for strict reproducibility."
+            )
+
+        execution_config = PyTorchExecutionConfig(
+            accelerator=resolved_accelerator,
+            deterministic=args.deterministic,
+            num_workers=args.num_workers,
+            learning_rate=args.learning_rate,
+            enable_progress_bar=(not args.disable_mlflow),  # Reuse mlflow flag for progress bar control
+        )
+
+        # Phase C4.C2: Use config factory instead of manual config construction
+        print("Creating configuration via factory (CONFIG-001 compliance)...")
+        from ptycho_torch.config_factory import create_training_payload
+
+        # Build overrides dict from CLI arguments
+        overrides = {
+            'n_groups': args.n_images,
+            'batch_size': args.batch_size,
+            'gridsize': args.gridsize,
+            'max_epochs': args.max_epochs,
+        }
+        if test_data_file:
+            overrides['test_data_file'] = test_data_file
+
+        try:
+            # Call factory to create all configs and populate params.cfg
+            payload = create_training_payload(
+                train_data_file=train_data_file,
+                output_dir=output_dir,
+                overrides=overrides,
+                execution_config=execution_config,
+            )
+
+            print(f"✓ Factory created configs: N={payload.pt_data_config.N}, "
+                  f"gridsize={payload.pt_data_config.grid_size}, "
+                  f"epochs={payload.pt_training_config.epochs}")
+            print(f"✓ Execution config: accelerator={execution_config.accelerator}, "
+                  f"deterministic={execution_config.deterministic}, "
+                  f"learning_rate={execution_config.learning_rate}")
+
+            # Extract configs for main()
+            # Note: Factory only creates training-relevant configs; create InferenceConfig/DatagenConfig defaults
+            from ptycho_torch.config_params import InferenceConfig, DatagenConfig
+            existing_config = (
+                payload.pt_data_config,
+                payload.pt_model_config,
+                payload.pt_training_config,
+                InferenceConfig(),  # Not in payload, use default
+                DatagenConfig(),  # Not in payload, use default
+            )
 
         except Exception as e:
-            print(f"ERROR: Configuration bridge failed: {e}")
-            print("This is a CONFIG-001 violation - cannot proceed without valid params.cfg")
+            print(f"ERROR: Configuration factory failed: {e}")
+            print("Cannot proceed - factory responsible for CONFIG-001 compliance")
             import traceback
             traceback.print_exc()
             sys.exit(1)
 
-        # Call main() with bridged configs
+        # Call main() with bridged configs and execution config (Phase C4.C3)
         try:
-            print(f"Starting training with {args.max_epochs} epochs on {args.device}...")
+            print(f"Starting training with {args.max_epochs} epochs...")
             main(
                 str(ptycho_dir),
                 config_path=None,
                 existing_config=existing_config,
                 disable_mlflow=args.disable_mlflow,
-                output_dir=str(output_dir)
+                output_dir=str(output_dir),
+                execution_config=execution_config  # Thread execution config to main()
             )
             print(f"✓ Training completed successfully. Outputs saved to {output_dir}")
 
