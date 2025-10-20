@@ -1480,3 +1480,13 @@
   - Logged Attempt #31 in `docs/fix_plan.md` documenting diagnosis and plan adjustments.
 - Hygiene note: `train_debug.log` resurfaced at repo root from earlier evidence; reminded Ralph via How-To Map/Pitfalls to keep artifacts under timestamped directories.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-20T091341Z: C4.D neighbor_count regression triage
+- Focus issue: ADR-003-BACKEND-API Phase C4.D (Lightning training parity)
+- Action type: Debug
+- Mode: Parity
+- Reviewed latest `input.md` and confirmed Do Now incomplete: integration log + CLI smoke artifacts missing, bundle/integration selectors still RED.
+- Generated fixture (`tests/fixtures/pytorch_integration/minimal_dataset_v1.npz`) and reproduced failure: Lightning aborts during validation with `RuntimeError: shape '[4, 2, 1]' is invalid for input of size 16`. Evidence stored under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T091341Z/phase_c4d_gridsize_debug/{summary.md,pytest_bundle_loader_failure.log}`.
+- Diagnosis: when CLI builds configs via `create_training_payload`, `neighbor_count` is omitted so factory falls back to 6; `_train_with_lightning` reuses that value and `_build_lightning_dataloaders` emits six offsets (wrong shape) even for `gridsize=1`. Need to wire canonical default (4) through CLI/factory overrides before rerunning selectors.
+- Updated `phase_c4d_blockers/plan.md` (B1→[x], B2→[P] with new guidance, B3 blocked) and logged Attempt #32 in `docs/fix_plan.md`.
+- <Action State>: [ready_for_implementation]
