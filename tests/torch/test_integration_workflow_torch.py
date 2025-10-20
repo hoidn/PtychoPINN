@@ -173,6 +173,75 @@ def _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env):
 # Pytest-Native Integration Tests
 # ============================================================================
 
+def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_cpu_env):
+    """
+    Regression test: bundle loader must return Lightning modules, not dicts.
+
+    Phase C4.D.B4: This test validates that load_inference_bundle_torch returns
+    nn.Module instances that support .eval(), not sentinel dicts. The bug was
+    discovered during integration testing when inference.py raised AttributeError
+    on models_dict['diffraction_to_obj'].eval().
+
+    Test Strategy (TDD RED phase):
+    1. Train a minimal model and save bundle
+    2. Load bundle via load_inference_bundle_torch
+    3. Assert both models in dict are torch.nn.Module instances
+    4. Assert models support .eval() without AttributeError
+
+    Expected Failure: Currently returns sentinel dict for autoencoder.
+    """
+    import torch.nn as nn
+    from ptycho_torch.workflows.components import load_inference_bundle_torch
+
+    # Setup: Train and save a bundle (reuse training command from integration test)
+    training_output_dir = tmp_path / "training_outputs"
+    train_command = [
+        sys.executable, "-m", "ptycho_torch.train",
+        "--train_data_file", str(data_file),
+        "--test_data_file", str(data_file),
+        "--output_dir", str(training_output_dir),
+        "--max_epochs", "1",  # Minimal training for faster test
+        "--n_images", "32",
+        "--gridsize", "1",
+        "--batch_size", "4",
+        "--device", "cpu",
+        "--disable_mlflow",
+    ]
+
+    train_result = subprocess.run(
+        train_command, capture_output=True, text=True, env=cuda_cpu_env, check=False
+    )
+
+    if train_result.returncode != 0:
+        pytest.fail(f"Training failed:\n{train_result.stderr}")
+
+    # Test: Load bundle and verify module types
+    models_dict, params_dict = load_inference_bundle_torch(
+        bundle_dir=training_output_dir,
+        model_name='diffraction_to_obj'
+    )
+
+    # Assertions: Both models MUST be nn.Module instances
+    assert 'diffraction_to_obj' in models_dict, "Bundle missing diffraction_to_obj model"
+    assert 'autoencoder' in models_dict, "Bundle missing autoencoder model"
+
+    diffraction_model = models_dict['diffraction_to_obj']
+    autoencoder_model = models_dict['autoencoder']
+
+    # CRITICAL: Models must be nn.Module, not dicts
+    assert isinstance(diffraction_model, nn.Module), \
+        f"diffraction_to_obj is {type(diffraction_model)}, expected nn.Module"
+    assert isinstance(autoencoder_model, nn.Module), \
+        f"autoencoder is {type(autoencoder_model)}, expected nn.Module"
+
+    # CRITICAL: Models must support .eval() (AttributeError was the bug symptom)
+    try:
+        diffraction_model.eval()
+        autoencoder_model.eval()
+    except AttributeError as e:
+        pytest.fail(f"Model does not support .eval(): {e}")
+
+
 def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
     """
     Tests the complete PyTorch train → save → load → infer workflow.
@@ -192,9 +261,15 @@ def test_run_pytorch_train_save_load_infer(tmp_path, data_file, cuda_cpu_env):
     # Execute complete workflow via subprocess helper (Phase C2 implementation)
     result = _run_pytorch_workflow(tmp_path, data_file, cuda_cpu_env)
 
-    # Assertions (will execute once helper is implemented in Phase C2)
+    # Assertions
     assert result.training_output_dir.exists(), "Training output directory not created"
-    assert result.checkpoint_path.exists(), f"Checkpoint not found at {result.checkpoint_path}"
+
+    # Verify wts.h5.zip bundle exists (used by inference, not Lightning checkpoint)
+    bundle_path = result.training_output_dir / "wts.h5.zip"
+    assert bundle_path.exists(), f"Model bundle not found at {bundle_path}"
+    assert bundle_path.stat().st_size > 100000, "Bundle too small or corrupted"
+
+    # Verify inference outputs
     assert result.recon_amp_path.exists(), "Amplitude reconstruction image not created"
     assert result.recon_phase_path.exists(), "Phase reconstruction image not created"
 
