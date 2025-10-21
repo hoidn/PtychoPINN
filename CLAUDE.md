@@ -62,6 +62,44 @@ This file provides the core instructions for the Claude AI agent working on the 
   When using the PyTorch backend through Ptychodus integration, configure the backend field in `TrainingConfig` or `InferenceConfig` with the literal `'pytorch'` (default is `'tensorflow'` for backward compatibility). **CRITICAL:** PyTorch workflows require the same CONFIG-001 initialization as TensorFlow—you MUST call `update_legacy_dict(params.cfg, config)` before any data loading or model construction to ensure legacy modules observe synchronized parameters. Backend selection routing and fail-fast behavior are specified in <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.8. For complete configuration steps, see <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref> §12. Runtime parity evidence is documented at `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
 </directive>
 
+<directive level="critical" purpose="Design test infrastructure before implementation">
+  Before Phase B (implementation) of any initiative involving tests, you **MUST**
+  complete a test infrastructure design review documented in
+  `plans/active/<initiative>/test_strategy.md`.
+
+  Required coverage:
+  - Framework selection and compatibility (pytest vs unittest, parametrization)
+  - CI/CD constraints and optional dependency handling
+  - Test tier definitions (unit/integration/smoke)
+  - Execution proof requirements (PASSED vs SKIPPED criteria)
+  - Mock/stub strategy for unavailable dependencies
+
+  Use the template at `plans/templates/test_strategy_template.md`.
+
+  Reference this design in Phase B planning and validate before writing first test.
+</directive>
+
+<directive level="critical" purpose="Require test execution proof">
+  A task involving tests is **NOT** complete unless tests show PASSED status
+  (not SKIPPED) with execution proof in artifacts.
+
+  Required evidence:
+  - pytest execution log at `plans/active/<initiative>/reports/<timestamp>/pytest.log`
+  - Test summary in `summary.md` with pass/fail/skip counts
+  - Explicit justification for any SKIPPED tests (hardware, long-running, etc.)
+  - Proof tests executed assertions (not just imports)
+
+  Acceptable SKIP reasons:
+  - Hardware unavailable (GPU tests on CPU-only CI) - mark @pytest.mark.gpu
+  - External service unavailable (integration tests) - document in summary
+  - Long-running tests (>5 min benchmarks) - mark @pytest.mark.slow
+
+  UNACCEPTABLE:
+  - Missing optional dependency (use torch-optional pattern instead)
+  - Framework incompatibility (design error, must fix)
+  - "Tests don't work in CI" (fix CI or test design, not acceptable)
+</directive>
+
 ---
 
 ## 3. 📚 Authoritative Document Pointers
