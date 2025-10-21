@@ -6,18 +6,40 @@ import re
 import sys
 from pathlib import Path
 from subprocess import run, PIPE
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Pattern, NamedTuple, Sequence
 
 LOG_NAME_RE = re.compile(r"^iter-(\d+)_.*\.log$")
+SUMMARY_NAME_RE = re.compile(r"^iter-(\d+)_.*-summary\.md$")
 
 
-def find_logs(root: Path) -> Dict[int, Path]:
-    """Scan a role directory for iter-*.log files and return {iter: path}."""
+class RoleSchema(NamedTuple):
+    actor: str
+    subdir: str
+    glob: str
+    pattern: Pattern[str]
+    content_format: str
+    source_label: str
+
+
+ROLE_SCHEMAS: Dict[str, Tuple[RoleSchema, ...]] = {
+    "logs": (
+        RoleSchema("galph", "galph", "iter-*.log", LOG_NAME_RE, "text", "log"),
+        RoleSchema("ralph", "ralph", "iter-*.log", LOG_NAME_RE, "text", "log"),
+    ),
+    "summaries": (
+        RoleSchema("galph", "galph-summaries", "iter-*-summary.md", SUMMARY_NAME_RE, "markdown", "summary"),
+        RoleSchema("ralph", "ralph-summaries", "iter-*-summary.md", SUMMARY_NAME_RE, "markdown", "summary"),
+    ),
+}
+
+
+def find_logs(root: Path, schema: RoleSchema) -> Dict[int, Path]:
+    """Scan a role directory for iter-* files and return {iter: path}."""
     found: Dict[int, Path] = {}
     if not root.exists():
         return found
-    for p in sorted(root.glob("iter-*.log")):
-        m = LOG_NAME_RE.match(p.name)
+    for p in sorted(root.glob(schema.glob)):
+        m = schema.pattern.match(p.name)
         if not m:
             continue
         try:
@@ -36,17 +58,44 @@ def interleave_last(
     ls_roots: List[str] | None = None,
     min_iter: int | None = None,
     max_iter: int | None = None,
+    roles: Sequence[str] | None = None,
+    source: str = "logs",
 ) -> int:
     """Print last N interleaved galph & ralph logs under logs/<prefix>/*.
 
     Output uses XML-like tags per log with CDATA wrapping.
     Returns 0 on success, non-zero otherwise.
     """
-    galph_dir = Path("logs") / prefix / "galph"
-    ralph_dir = Path("logs") / prefix / "ralph"
+    try:
+        role_schemas: Tuple[RoleSchema, ...] = ROLE_SCHEMAS[source]
+    except KeyError:
+        print(f"Unknown source '{source}'. Valid sources: {', '.join(ROLE_SCHEMAS)}", file=sys.stderr)
+        return 5
 
-    galph_logs = find_logs(galph_dir)
-    ralph_logs = find_logs(ralph_dir)
+    if roles:
+        requested = {role.strip() for role in roles if role.strip()}
+        valid_actors = {schema.actor for schema in role_schemas}
+        invalid = requested - valid_actors
+        if invalid:
+            print(
+                f"Unknown roles for source '{source}': {', '.join(sorted(invalid))}. "
+                f"Valid roles: {', '.join(sorted(valid_actors))}",
+                file=sys.stderr,
+            )
+            return 6
+        role_schemas = tuple(schema for schema in role_schemas if schema.actor in requested)
+
+    role_logs: Dict[str, Dict[int, Path]] = {}
+    schema_by_actor: Dict[str, RoleSchema] = {}
+    for schema in role_schemas:
+        role_dir = Path("logs") / prefix / schema.subdir
+        role_logs[schema.actor] = find_logs(role_dir, schema)
+        schema_by_actor[schema.actor] = schema
+
+    if not any(role_logs.values()):
+        expected_dirs = ", ".join(str(Path("logs") / prefix / schema.subdir) for schema in role_schemas)
+        print(f"No logs found under {expected_dirs}", file=sys.stderr)
+        return 2
 
     # Load recent SYNC commits to annotate post-state commits
     post_commit = load_post_state_commits()
@@ -54,14 +103,10 @@ def interleave_last(
     if ls_roots is None:
         ls_roots = ["docs", "plans", "reports"]
 
-    if not galph_logs and not ralph_logs:
-        print(f"No logs found under {galph_dir} or {ralph_dir}", file=sys.stderr)
-        return 2
-
     # Build union of iterations and take last N by numeric iteration
-    all_iters = sorted(set(galph_logs.keys()) | set(ralph_logs.keys()))
+    all_iters = sorted({it for logs in role_logs.values() for it in logs})
     if not all_iters:
-        print(f"No iter-*.log files found under {prefix}", file=sys.stderr)
+        print(f"No iteration files found under {prefix}", file=sys.stderr)
         return 3
     # Apply optional min/max iteration filtering
     if min_iter is not None or max_iter is not None:
@@ -80,48 +125,24 @@ def interleave_last(
     tail_iters = all_iters[-count:] if count and count > 0 else all_iters
 
     # Emit a header for clarity
-    out.write(f"<logs prefix=\"{prefix}\" count=\"{count}\">\n")
+    out.write(f"<logs prefix=\"{prefix}\" count=\"{count}\" source=\"{source}\">\n")
 
     for it in tail_iters:
-        # Supervisor first, then Loop for each iteration
-        if it in galph_logs:
-            p = galph_logs[it]
+        for actor in (schema.actor for schema in role_schemas):
+            logs_for_actor = role_logs.get(actor, {})
+            if it not in logs_for_actor:
+                continue
+            schema = schema_by_actor[actor]
+            p = logs_for_actor[it]
             try:
                 content = p.read_text(encoding="utf-8", errors="replace")
             except Exception as e:
                 content = f"<error reading {p}: {e}>\n"
-            csha, csubj = resolve_post_commit("galph", it, post_commit)
+            csha, csubj = resolve_post_commit(actor, it, post_commit)
             commit_attr = f" commit=\"{csha}\" commit_subject=\"{xml_attr_escape(csubj)}\"" if csha else ""
-            out.write(f"  <log role=\"galph\" iter=\"{it}\" path=\"{p}\"{commit_attr}>\n")
-            out.write("    <![CDATA[\n")
-            out.write(content)
-            if not content.endswith("\n"):
-                out.write("\n")
-            out.write("    ]]>\n")
-            if include_ls and csha:
-                ls_map = ls_cache.get(csha)
-                if ls_map is None:
-                    ls_map = ls_tree_at(csha, ls_roots)
-                    ls_cache[csha] = ls_map
-                for root in ls_roots:
-                    files = ls_map.get(root, [])
-                    out.write(f"    <ls path=\"{root}\" commit=\"{csha}\">\n")
-                    out.write("      <![CDATA[\n")
-                    for f in files:
-                        out.write(f"{f}\n")
-                    out.write("      ]]>\n")
-                    out.write("    </ls>\n")
-            out.write("  </log>\n")
-
-        if it in ralph_logs:
-            p = ralph_logs[it]
-            try:
-                content = p.read_text(encoding="utf-8", errors="replace")
-            except Exception as e:
-                content = f"<error reading {p}: {e}>\n"
-            csha, csubj = resolve_post_commit("ralph", it, post_commit)
-            commit_attr = f" commit=\"{csha}\" commit_subject=\"{xml_attr_escape(csubj)}\"" if csha else ""
-            out.write(f"  <log role=\"ralph\" iter=\"{it}\" path=\"{p}\"{commit_attr}>\n")
+            source_attr = f' source="{schema.source_label}"'
+            format_attr = f' format="{schema.content_format}"' if schema.content_format else ""
+            out.write(f"  <log role=\"{actor}\" iter=\"{it}\" path=\"{p}\"{source_attr}{format_attr}{commit_attr}>\n")
             out.write("    <![CDATA[\n")
             out.write(content)
             if not content.endswith("\n"):
@@ -229,6 +250,18 @@ def main() -> int:
     ap.add_argument("--ls-paths", type=str, default="docs,plans,reports", help="Comma-separated roots to ls-tree (default: docs,plans,reports)")
     ap.add_argument("--min-iter", type=int, default=None, help="Minimum iteration to include (inclusive)")
     ap.add_argument("--max-iter", type=int, default=None, help="Maximum iteration to include (inclusive)")
+    ap.add_argument(
+        "--source",
+        choices=tuple(ROLE_SCHEMAS.keys()),
+        default="logs",
+        help="Select whether to interleave raw logs or markdown summaries (default: logs).",
+    )
+    ap.add_argument(
+        "--roles",
+        type=str,
+        default="galph,ralph",
+        help="Comma separated list of roles to include (default: galph,ralph).",
+    )
     args = ap.parse_args()
 
     prefix = Path(args.prefix)
@@ -237,6 +270,9 @@ def main() -> int:
         prefix = Path(*prefix.parts[1:])
 
     ls_roots = [p.strip() for p in args.ls_paths.split(',') if p.strip()]
+    roles = [r.strip() for r in args.roles.split(',') if r.strip()]
+    if not roles:
+        roles = None
     return interleave_last(
         prefix,
         args.count,
@@ -245,6 +281,8 @@ def main() -> int:
         ls_roots=ls_roots,
         min_iter=args.min_iter,
         max_iter=args.max_iter,
+        roles=roles,
+        source=args.source,
     )
 
 

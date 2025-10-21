@@ -61,6 +61,10 @@ This README documents the cross‑machine orchestration for the supervisor (galp
   - Supervisor: `logs/<branch>/galph/iter-00017_YYYYMMDD_HHMMSS.log`
   - Loop: `logs/<branch>/ralph/iter-00017_YYYYMMDD_HHMMSS_<prompt>.log`
 - Configure base directory with `--logdir PATH` (default `logs/`).
+- Markdown summaries accompany the raw logs:
+  - Supervisor summaries: `logs/<branch>/galph-summaries/iter-00017_YYYYMMDD_HHMMSS-summary.md`
+  - Loop summaries: `logs/<branch>/ralph-summaries/iter-00017_YYYYMMDD_HHMMSS-summary.md`
+  - See `docs/logging/log_summary_conventions.md` for the naming contract used by automation.
 - Supervisor console options:
   - `--verbose`: print state changes to console and log
   - `--heartbeat-secs N`: periodic heartbeat lines while polling
@@ -68,17 +72,19 @@ This README documents the cross‑machine orchestration for the supervisor (galp
 
 ### Viewing recent interleaved logs
 
-Use the helper script to interleave the last N galph/ralph logs for a branch prefix (matching on iteration numbers) and wrap each log in an XML-like tag with CDATA. The tool annotates each log with the post-state commit that stamped the handoff and can optionally snapshot selected directories from that commit:
+Use the helper script to interleave the last N galph/ralph logs (or markdown summaries) for a branch prefix. Entries are matched on iteration number and wrapped in an XML-like tag with CDATA. The tool annotates each log with the post-state commit that stamped the handoff and can optionally snapshot selected directories from that commit:
 
 ```bash
 python -m scripts.orchestration.tail_interleave_logs feature-spec-based-2 -n 3
+# Summaries instead of raw logs:
+python -m scripts.orchestration.tail_interleave_logs feature-spec-based-2 -n 3 --source summaries
 ```
 
 Output structure:
 
 ```xml
-<logs prefix="feature-spec-based-2" count="3">
-  <log role="galph" iter="141" path="logs/feature-spec-based-2/galph/iter-00141_....log" commit="abc1234" commit_subject="[SYNC i=141] actor=galph → next=ralph status=ok ...">
+<logs prefix="feature-spec-based-2" count="3" source="logs">
+  <log role="galph" iter="141" path="logs/feature-spec-based-2/galph/iter-00141_....log" source="log" format="text" commit="abc1234" commit_subject="[SYNC i=141] actor=galph → next=ralph status=ok ...">
     <![CDATA[
     ...
     ]]>
@@ -89,7 +95,7 @@ Output structure:
       ]]>
     </ls>
   </log>
-  <log role="ralph" iter="141" path="logs/feature-spec-based-2/ralph/iter-00141_....log" commit="def5678" commit_subject="[SYNC i=142] actor=ralph → next=galph status=ok ...">
+  <log role="ralph" iter="141" path="logs/feature-spec-based-2/ralph/iter-00141_....log" source="log" format="text" commit="def5678" commit_subject="[SYNC i=142] actor=ralph → next=galph status=ok ...">
     <![CDATA[
     ...
     ]]>
@@ -105,6 +111,8 @@ Flags of note:
 - `--min-iter/--max-iter` numeric bounds on iteration selection
 - `--no-ls` disables the commit `ls-tree` snapshots
 - `--ls-paths docs,plans,reports` overrides which repository roots are listed when `ls` output is enabled
+- `--source {logs,summaries}` switches between raw log files and markdown summaries
+- `--roles galph,ralph` narrows the interleaved output to a subset of actors (order preserved)
 
 ### Manual state handoff (without running a loop)
 
