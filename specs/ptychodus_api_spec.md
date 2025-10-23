@@ -272,10 +272,11 @@ The PyTorch backend exposes a dedicated execution configuration dataclass (`PyTo
 
 4. **Checkpoint/Logging Knobs:**
    - `enable_progress_bar` (bool, default `False`): Show training progress. Derived from `--quiet` flag inversion.
-   - `enable_checkpointing` (bool, default `True`): Lightning automatic checkpointing. CLI exposure planned (Phase E.B1).
-   - `checkpoint_save_top_k` (int, default `1`): Number of best checkpoints to retain. MUST be ≥ 0. CLI backlog (Phase E.B1).
-   - `checkpoint_monitor_metric` (str, default `'val_loss'`): Metric for best checkpoint selection. CLI backlog (Phase E.B1).
-   - `early_stop_patience` (int, default `100`): Early stopping patience epochs. MUST be > 0. CLI backlog (Phase E.B1).
+   - `enable_checkpointing` (bool, default `True`): Enable Lightning automatic checkpointing during training. Exposed via `--enable-checkpointing` / `--disable-checkpointing`.
+   - `checkpoint_save_top_k` (int, default `1`): Number of best checkpoints to retain. MUST be ≥ 0. Set to -1 to save all checkpoints, 0 to disable saving. Exposed via `--checkpoint-save-top-k`.
+   - `checkpoint_monitor_metric` (str, default `'val_loss'`): Metric for best checkpoint selection. Uses validation loss by default; falls back to training loss when validation data unavailable. Exposed via `--checkpoint-monitor`.
+   - `checkpoint_mode` (str, default `'min'`): Mode for checkpoint metric optimization. MUST be `'min'` (lower metric is better) or `'max'` (higher metric is better). Exposed via `--checkpoint-mode`.
+   - `early_stop_patience` (int, default `100`): Early stopping patience epochs. MUST be > 0. Training stops if monitored metric doesn't improve for this many epochs. Exposed via `--early-stop-patience`.
    - `logger_backend` (str|None, default `None`): Experiment tracking backend. Pending governance decision (Phase E.B3).
 
 5. **Inference Knobs:**
@@ -382,6 +383,11 @@ These flags map to `PyTorchExecutionConfig` fields via factory override preceden
 | `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count (0 = main thread only, CPU-safe). Typical values: 2-8 for multi-core systems. |
 | `--learning-rate` | float | `1e-3` | `PyTorchExecutionConfig.learning_rate` | Optimizer learning rate. Must be > 0. |
 | `--quiet` | flag | `False` | `PyTorchExecutionConfig.enable_progress_bar` | Suppress progress bars and reduce console logging. Inverted to populate `enable_progress_bar` (`--quiet` → `False`). |
+| `--enable-checkpointing` / `--disable-checkpointing` | bool | `True` | `PyTorchExecutionConfig.enable_checkpointing` | Enable automatic model checkpointing during training (default: enabled). Checkpoints are saved based on monitored metric performance. Use `--disable-checkpointing` to turn off. |
+| `--checkpoint-save-top-k` | int | `1` | `PyTorchExecutionConfig.checkpoint_save_top_k` | Number of best checkpoints to keep (default: 1). Set to -1 to save all checkpoints, 0 to disable saving. Best checkpoints are determined by `--checkpoint-monitor` metric. |
+| `--checkpoint-monitor` | str | `'val_loss'` | `PyTorchExecutionConfig.checkpoint_monitor_metric` | Metric to monitor for checkpoint selection (default: val_loss). Falls back to train_loss when validation data unavailable. Common choices: val_loss, train_loss, val_accuracy. |
+| `--checkpoint-mode` | str | `'min'` | `PyTorchExecutionConfig.checkpoint_mode` | Mode for checkpoint metric optimization (default: min). Use 'min' when lower metric values are better (e.g., loss), 'max' when higher values are better (e.g., accuracy). |
+| `--early-stop-patience` | int | `100` | `PyTorchExecutionConfig.early_stop_patience` | Early stopping patience in epochs (default: 100). Training stops if monitored metric doesn't improve for this many consecutive epochs. Set to large value (e.g., 1000) to effectively disable early stopping. |
 
 **Deprecated Flags:**
 - `--device` (str): Superseded by `--accelerator`. Using `--device` emits a deprecation warning and maps to `--accelerator`. Will be removed in Phase E post-ADR acceptance. Use `--accelerator` instead.
@@ -393,7 +399,6 @@ These flags map to `PyTorchExecutionConfig` fields via factory override preceden
 
 **Planned Exposure (Phase E.B Backlog):**
 The following `PyTorchExecutionConfig` fields are not yet exposed via CLI but are accessible programmatically:
-- Checkpoint controls: `--checkpoint-save-top-k`, `--checkpoint-monitor`, `--checkpoint-mode`, `--early-stop-patience` (Phase E.B1)
 - Scheduler / accumulation: `--scheduler`, `--accumulate-grad-batches` (Phase E.B2)
 - Logger backend: Decision pending governance (Phase E.B3)
 

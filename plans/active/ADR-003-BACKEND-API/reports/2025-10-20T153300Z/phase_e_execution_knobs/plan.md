@@ -24,12 +24,12 @@ Exit Criteria: CLI accepts flags, factories merge overrides, Lightning trainer a
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| EB1.A | Schema + spec audit | [P] | `checkpoint_mode` landed in `ptycho/config/config.py` but spec §4.9/§7 tables still missing the field; workflow guide also not refreshed. Complete doc updates and capture delta summary under the next reports timestamp. |
+| EB1.A | Schema + spec audit | [x] | ✅ 2025-10-23 — Updated spec §4.9 (added checkpoint_mode, removed "CLI backlog" wording, documented validation/fallback behavior) + §7.1 (added 5 checkpoint CLI flags to training table, removed from "Planned Exposure" note). Updated workflow docs §12 training table. Artifacts: `reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T163500Z/{summary.md,spec_updates.md}`. |
 | EB1.B | CLI flag parsing | [x] | `ptycho_torch/train.py` now exposes all checkpoint flags (commit 496a8ce3). Confirm defaults stay backward compatible before closing out. |
 | EB1.C | Shared helper + factory wiring | [x] | `build_execution_config_from_args` + config factory propagate checkpoint knobs; overrides appear in `TestExecutionConfigOverrides` (GREEN). No further action unless follow-up tests demand adjustments. |
 | EB1.D | Lightning callback integration | [x] | ✅ 2025-10-20 — Updated test scaffolding to patch `lightning.pytorch.Trainer`, create temporary NPZ fixtures, and assert callbacks are injected. Evidence: `reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-20T160900Z/green/pytest_workflows_checkpoint_final.log`. |
 | EB1.E | TDD coverage & runs | [x] | ✅ 2025-10-20 — All mapped selectors GREEN (`pytest_cli_checkpoint_green.log`, `pytest_factory_checkpoint_green.log`, `pytest_workflows_checkpoint_final.log`) captured under `.../2025-10-20T160900Z/green/`; RED baseline stored in `.../red/`. |
-| EB1.F | Documentation & ledger sync | [ ] | Pending: update spec §4.9/§7 tables + workflow CLI table for new checkpoint flags, record Attempt #59 in `docs/fix_plan.md`, flip plan/ledger rows, and author `summary.md` under the next timestamped directory (`reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-20T163500Z/`). |
+| EB1.F | Documentation & ledger sync | [x] | ✅ 2025-10-23 — Completed all documentation updates per EB1.A. Authored `summary.md` + `spec_updates.md` documenting changes. Updated `docs/fix_plan.md` with Attempt #60 (ADR-003-BACKEND-API). Marked EB1.A/F rows `[x]` in plan.md. Artifacts: `reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T163500Z/`. |
 
 ### Phase EB2 — Scheduler & Gradient Accumulation
 Goal: Expose `scheduler` and `accum_steps` knobs end-to-end.

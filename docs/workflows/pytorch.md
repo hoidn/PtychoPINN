@@ -319,6 +319,11 @@ The following execution config flags are available in `ptycho_torch/train.py`:
 | `--num-workers` | int | `0` | Number of DataLoader worker processes (0 = main thread) |
 | `--learning-rate` | float | `1e-3` | Optimizer learning rate |
 | `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
+| `--enable-checkpointing` / `--disable-checkpointing` | bool | `True` | Enable automatic model checkpointing (default: enabled). Use `--disable-checkpointing` to turn off checkpoint saving. |
+| `--checkpoint-save-top-k` | int | `1` | Number of best checkpoints to keep (1 = save only best, -1 = save all, 0 = disable) |
+| `--checkpoint-monitor` | str | `'val_loss'` | Metric to monitor for checkpoint selection (e.g., val_loss, train_loss). Falls back to train_loss when validation data unavailable. |
+| `--checkpoint-mode` | str | `'min'` | Checkpoint metric optimization mode ('min' for loss metrics, 'max' for accuracy metrics) |
+| `--early-stop-patience` | int | `100` | Early stopping patience in epochs. Training stops if monitored metric doesn't improve for this many consecutive epochs. |
 
 **Deprecated Flags:**
 - `--device`: Superseded by `--accelerator`. Using `--device` will emit a deprecation warning and map to `--accelerator` automatically. Remove from scripts; this flag will be dropped in a future release.
@@ -349,7 +354,7 @@ The training CLI delegates to shared helper functions in `ptycho_torch/cli/share
 
 These helpers enforce CONFIG-001 compliance by calling factory functions that populate `params.cfg` via `update_legacy_dict()` before data loading or model construction. See `ptycho_torch/config_factory.py` for factory implementation details.
 
-**PyTorch Execution Configuration:** For the complete catalog of execution configuration fields (17 total, including programmatic-only parameters like checkpoint controls, scheduler, and logger backend), see <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.9 "PyTorch Execution Configuration Contract". The spec documents validation rules, priority levels, and CONFIG-001 isolation guarantees.
+**PyTorch Execution Configuration:** For the complete catalog of execution configuration fields (17 total, including programmatic-only parameters like scheduler and logger backend), see <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.9 "PyTorch Execution Configuration Contract". The spec documents validation rules, priority levels, and CONFIG-001 isolation guarantees.
 
 **Evidence:** Phase C4.D validation confirmed gridsize=2 training with execution config flags completes successfully. See `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log` for full smoke test output.
 
