@@ -1,0 +1,23 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:611: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 2 warnings in 4.97s =========================

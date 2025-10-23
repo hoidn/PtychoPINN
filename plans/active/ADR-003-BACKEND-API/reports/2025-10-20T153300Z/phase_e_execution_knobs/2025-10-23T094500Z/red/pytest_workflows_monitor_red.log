@@ -1,0 +1,149 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name FAILED [100%]
+
+=================================== FAILURES ===================================
+_________ TestLightningExecutionConfig.test_monitor_uses_val_loss_name _________
+
+self = <test_workflows_components.TestLightningExecutionConfig object at 0x772cd2d57450>
+minimal_training_config_with_val = TrainingConfig(model=ModelConfig(N=64, gridsize=2, n_filters_scale=2, model_type='pinn', amp_activation='silu', object.../pytest-of-ollie/pytest-802/test_monitor_uses_val_loss_nam0/outputs'), sequential_sampling=False, backend='tensorflow')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x772df65549d0>
+
+    def test_monitor_uses_val_loss_name(self, minimal_training_config_with_val, monkeypatch):
+        """
+        RED Test: Verify ModelCheckpoint and EarlyStopping derive monitor from model.val_loss_name.
+    
+        Expected RED Failure:
+        - Callbacks use hardcoded 'val_loss' instead of model.val_loss_name
+        OR
+        - Checkpoint filename uses hardcoded 'val_loss' string
+    
+        Resolution (GREEN):
+        - _train_with_lightning should read model.val_loss_name after instantiation
+        - Pass dynamic monitor string to ModelCheckpoint(monitor=...) and EarlyStopping(monitor=...)
+        - Use dynamic metric name in checkpoint filename template
+    
+        Spec Reference:
+        - ptycho_torch/model.py:1048-1086 — val_loss_name derivation logic
+        - input.md EB2.B3 guidance — "trainer should watch model.val_loss_name"
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+    
+        try:
+            from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+        except ImportError:
+            pytest.skip("Lightning not available")
+    
+        # Create execution config with checkpointing enabled
+        exec_config = PyTorchExecutionConfig(
+            enable_checkpointing=True,
+            checkpoint_monitor_metric='val_loss',  # User provides generic name
+            checkpoint_mode='min',
+            early_stop_patience=10,
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+    
+        # Mock callbacks to spy on instantiation args
+        mock_checkpoint_cls = MagicMock(spec=ModelCheckpoint)
+        mock_checkpoint_instance = MagicMock()
+        mock_checkpoint_cls.return_value = mock_checkpoint_instance
+    
+        mock_early_stop_cls = MagicMock(spec=EarlyStopping)
+        mock_early_stop_instance = MagicMock()
+        mock_early_stop_cls.return_value = mock_early_stop_instance
+    
+        # Mock Trainer
+        mock_trainer_cls = MagicMock()
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+    
+        # Mock data containers
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()  # Validation data present
+    
+        from ptycho_torch.workflows.components import _train_with_lightning
+    
+        # Patch at import sites
+        with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
+             patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
+             patch('lightning.pytorch.Trainer', mock_trainer_cls):
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config_with_val,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about callback setup
+    
+        # GREEN Phase Assertions:
+        # 1. ModelCheckpoint should use model.val_loss_name for monitor
+        assert mock_checkpoint_cls.called, "ModelCheckpoint not instantiated"
+        checkpoint_kwargs = mock_checkpoint_cls.call_args.kwargs
+        monitor_metric = checkpoint_kwargs.get('monitor')
+    
+        # The monitor should match the model's val_loss_name, not the hardcoded 'val_loss'
+        # For PINN model_type with validation, val_loss_name = 'poisson_val_Amp_loss' or similar
+        # We expect it to NOT be the raw 'val_loss' string
+        assert monitor_metric is not None, "ModelCheckpoint monitor not set"
+>       assert 'poisson_val' in monitor_metric or 'mae_val' in monitor_metric, \
+            f"Expected monitor to contain model-specific val_loss_name, got '{monitor_metric}'"
+E       AssertionError: Expected monitor to contain model-specific val_loss_name, got 'val_loss'
+E       assert ('poisson_val' in 'val_loss' or 'mae_val' in 'val_loss')
+
+tests/torch/test_workflows_components.py:3221: AssertionError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+----------------------------- Captured stderr call -----------------------------
+2025-10-23 01:43:08.218853: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1761208988.230010 2452030 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1761208988.233741 2452030 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1761208988.244484 2452030 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1761208988.244501 2452030 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1761208988.244504 2452030 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1761208988.244506 2452030 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-23 01:43:08.247173: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-23 01:43:09.896726: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-23 01:43:09.896763: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-23 01:43:09.896769: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-23 01:43:09.896772: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-23 01:43:09.896777: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-23 01:43:09.896779: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-23 01:43:09.896808: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.195.3
+2025-10-23 01:43:09.896824: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-23 01:43:09.896828: E external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:294] kernel version 570.172.8 does not match DSO version 570.195.3 -- cannot find working devices in this configuration
+INFO: Seed set to 42
+------------------------------ Captured log call -------------------------------
+INFO     lightning.fabric.utilities.seed:seed.py:57 Seed set to 42
+=============================== warnings summary ===============================
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:611: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name - AssertionError: Expected monitor to contain model-specific val_loss_name, got 'val_loss'
+assert ('poisson_val' in 'val_loss' or 'mae_val' in 'val_loss')
+======================== 1 failed, 2 warnings in 4.97s =========================
