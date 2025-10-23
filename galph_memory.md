@@ -1725,3 +1725,13 @@
   - New input (TDD mode) directs Ralph to (1) write failing workflow tests for accumulation + dynamic monitor, (2) fix `_train_with_lightning` to source `monitor_metric`/filenames from `model.val_loss_name`, (3) rerun targeted selectors + integration test, (4) close out EB2.C once GREEN.
 - Artifacts created: `plans/active/ADR-003-BACKEND-API/reports/2025-10-23T091500Z/summary.md`.
 - <Action State>: [gathering_evidence]
+
+## 2025-10-23T085518Z: EB2 documentation alignment setup
+- Focus issue: ADR-003-BACKEND-API — Phase EB2 scheduler & accumulation follow-up
+- Action type: Review or housekeeping
+- Mode: Docs
+- Findings: Ralph’s Attempt #63 (commit ebe15f37) fixed dynamic monitor wiring, added workflow tests, and produced full-suite GREEN evidence under `reports/2025-10-23T094500Z/`. Spec/workflow docs still describe monitor default as literal `'val_loss'`.
+- Actions: Verified artifacts, marked `phase_e_execution_knobs/plan.md` EB2.A/B `[x]` and EB2.C `[P]`, updated EB2 blueprint rows (A1–B3 `[x]`, C3 `[P]`), refreshed `plans/.../implementation.md` (E2 → `[P]`), recorded Attempt #63 in docs/fix_plan.md, and rewrote `input.md` directing Docs-mode loop for EB2.C1–C3. Established new artifact hub `.../2025-10-23T103000Z/` for doc updates.
+- Outstanding: EB2.C1/EB2.C2 doc edits (spec + workflow) and emission of `spec_redline.md`; EB2.C3/EB2 aggregated row to flip `[x]` post-docs; prepare Attempt #64 ledger entry once docs land.
+- Guidance for Ralph: follow `input.md` (Docs mode) to update spec/workflow tables, capture diff to `spec_redline.md`, and close EB2.C tasks before moving to EB3.
+- <Action State>: [ready_for_implementation]

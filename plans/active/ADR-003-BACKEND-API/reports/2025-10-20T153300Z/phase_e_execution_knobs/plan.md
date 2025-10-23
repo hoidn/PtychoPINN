@@ -38,9 +38,9 @@ Exit Criteria: CLI flags wired, trainer applies scheduler/accumulation, tests co
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| EB2.A | CLI + helper extension | [P] | CLI/helper flags landed in commit 6de34107, but Do Now RED logs captured without accompanying workflow selector. Track regression analysis in `reports/2025-10-23T091500Z/summary.md`; retain `[P]` until integration tests green. |
-| EB2.B | Factory + trainer wiring | [P] | Factory audit trail updated, yet Lightning still monitors `val_loss` (fails integration). Fix monitor wiring to use `model.val_loss_name`, add workflow accumulation test, and store GREEN logs under next timestamp per `eb2_plan.md` §EB2.B. |
-| EB2.C | TDD & docs | [ ] | Blocked on EB2.A/B. Defer spec/workflow redline + ledger close-out until integration + workflow selectors succeed (see `reports/2025-10-23T091500Z/summary.md`). |
+| EB2.A | CLI + helper extension | [x] | ✅ 2025-10-23 (Attempt #63) — CLI + helper overrides complete; see `.../2025-10-23T081500Z/{summary.md,green/pytest_cli_*_green.log}` for evidence. |
+| EB2.B | Factory + trainer wiring | [x] | ✅ 2025-10-23 — Factory + Lightning wiring green; dynamic monitor fix + workflow tests logged under `.../2025-10-23T094500Z/{red,green}/`. Integration selector now PASSED. |
+| EB2.C | TDD & docs | [P] | Plan/ledger sync captured via Attempt #63 + supervisor notes; remaining work: spec §4.9/§7.1 + workflows §12 redlines (EB2.C1/C2) and documentation of dynamic monitor aliasing. |
 
 ### Phase EB3 — Logger Backend Decision
 Goal: Resolve MLflow/TensorBoard governance and implement or deprecate flag.

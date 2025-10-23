@@ -1,36 +1,39 @@
-Summary: Fix EB2 regression by aligning Lightning monitor callbacks with model.val_loss_name and proving scheduler/accum coverage end-to-end.
-Mode: TDD
+Summary: Sync EB2 documentation—spec and workflow tables must describe dynamic monitor aliasing and scheduler/accum knobs.
+Mode: Docs
 Focus: [ADR-003-BACKEND-API] Phase EB2 — Scheduler & Gradient Accumulation
 Branch: feature/torchapi
-Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_accumulation -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/{summary.md,red/,green/,pytest_full_suite.log}
+Mapped tests: none — docs-only
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T103000Z/{summary.md,spec_redline.md}
 Do Now:
-- EB2.B3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-23T081500Z/eb2_plan.md — add workflow-level RED tests covering accumulate_grad_batches + dynamic monitor (trainer should watch model.val_loss_name); run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_accumulation -vv` and `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name -vv` expecting failure; capture logs under plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/red/. tests: targeted.
-- EB2.B @ plans/active/ADR-003-BACKEND-API/reports/2025-10-23T081500Z/eb2_plan.md — update `_train_with_lightning` to derive monitor/checkpoint strings from `model.val_loss_name`, ensure callbacks respect accumulation override, then rerun mapped selectors to GREEN and `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv`; archive outputs under plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/green/ plus refreshed `pytest_full_suite.log` if executed. tests: mapped.
-- EB2.C1-C3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-23T081500Z/eb2_plan.md — once tests pass, refresh spec/workflow note if wording changes, mark plan rows `[x]`, append Attempt #63 in docs/fix_plan.md, and author loop summary in the new timestamp directory. tests: none.
-If Blocked: Capture failing selector logs in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/blockers.md, note hypothesis plus stack trace, and set EB2 rows `[P]` in plan + ledger with explanation.
+- EB2.C1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-23T081500Z/eb2_plan.md — revise specs/ptychodus_api_spec.md §§4.9 & 7.1 so default `checkpoint_monitor_metric='val_loss'` explicitly maps to `model.val_loss_name` and note scheduler/accum defaults; tests: none.
+- EB2.C2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-23T081500Z/eb2_plan.md — update docs/workflows/pytorch.md §12 training flag table + narrative with the same monitor alias guidance and accumulation cautions; tests: none.
+- EB2.C3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-23T081500Z/eb2_plan.md — capture spec/workflow diffs into spec_redline.md + loop summary, set EB2.C rows to [x], and add Attempt #64 in docs/fix_plan.md referencing the new artifact hub; tests: none.
+If Blocked: Document unresolved questions + exact doc passages in plans/.../2025-10-23T103000Z/summary.md and leave EB2.C rows [P]; note blockers in docs/fix_plan.md.
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md §4.9: execution knobs must honour Lightning parity, including dynamic metrics.
-- docs/workflows/pytorch.md §12: documentation already advertises scheduler/accum flags—behaviour must match.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md EB2 rows `[P]`: unblock checklist by finishing wiring + tests.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-23T091500Z/summary.md: supervisor triage describing monitor mismatch and missing workflow coverage.
-- tests/torch/test_integration_workflow_torch.py: integration regression is the acceptance bar; must return to PASS.
+- specs/ptychodus_api_spec.md:270-283 — normative execution-config contract must match monitor/scheduler semantics after Attempt #63.
+- docs/workflows/pytorch.md:302-330 — public CLI guide needs to describe new flags and dynamic monitor alias so users can reproduce GREEN evidence.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-23T081500Z/eb2_plan.md — EB2.C1–C3 remain open; closing them unblocks Phase EB3.
+- docs/fix_plan.md:18-80 — Attempt log requires #64 entry summarizing documentation sync to keep ledger authoritative.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md — EB2.C currently [P]; needs to move to [x] once docs captured.
 How-To Map:
-- RED phase commands: store `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_accumulation -vv` and `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name -vv` outputs in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/red/pytest_workflows_accum_red.log` and `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/red/pytest_workflows_monitor_red.log`.
-- Implementation: update `ptycho_torch/workflows/components.py` to read `model.val_loss_name` when validation present; adjust checkpoint filename template and EarlyStopping monitor accordingly; if helpful, add helper to fetch metric for reuse.
-- GREEN phase commands: rerun both workflow selectors plus integration selector, saving to `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/green/pytest_workflows_accum_green.log`, `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/green/pytest_workflows_monitor_green.log`, and `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T094500Z/green/pytest_integration_green.log`. If full suite executed, emit consolidated `pytest_full_suite.log` at root of timestamp.
-- Documentation/ledger: append concise summary + test matrix to `.../summary.md`, update `phase_e_execution_knobs/plan.md` EB2 rows to `[x]`, add Attempt #63 entry in `docs/fix_plan.md` referencing new artifacts.
+- Update spec §4.9 bullet for `checkpoint_monitor_metric` and CLI table row (line ~278 and ~391) to state `'val_loss'` becomes `model.val_loss_name` when validation is present, including fallback to train metrics; mention scheduler/accum defaults referencing `PyTorchExecutionConfig` definitions.
+- Refresh docs/workflows/pytorch.md training flag table row texts for `--checkpoint-monitor`, `--scheduler`, and `--accumulate-grad-batches`; add short paragraph explaining effective batch size and monitor aliasing, linking back to the spec.
+- From repo root, run `git diff specs/ptychodus_api_spec.md docs/workflows/pytorch.md > plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T103000Z/spec_redline.md` after edits, and capture narrative summary in the same directory.
+- Mark EB2.C1–C3 `[x]` in plans/.../eb2_plan.md and set EB2.C `[x]` in phase_e_execution_knobs/plan.md once docs/logs saved.
+- Append Attempt #64 (Mode: Docs) to docs/fix_plan.md citing new artifact paths and reiterating that EB3 now next.
 Pitfalls To Avoid:
-- Do not leave failing integration tests undocumented; capture exact stderr in blockers if unresolved.
-- Maintain CONFIG-001 ordering—no edits that bypass `create_training_payload()` when touching workflows.
-- Keep monitor default fallback behaviour (train_loss) for runs without validation; add regression test for this path if touched.
-- Avoid mutating physics modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
-- Ensure new tests stay pytest-native (no unittest mixins) and name fixtures clearly.
-- Reuse existing helper warnings; do not duplicate logger logic while editing callbacks.
+- Do not touch production Python files; this loop is documentation-only.
+- Keep spec/workflow tables column-aligned and ASCII; avoid smart quotes.
+- Ensure spec/workflow wording stays in sync (no conflicting defaults or terminology).
+- Include artifact paths in the new summary and ledger entry; missing paths break traceability.
+- Do not delete prior timestamp directories (`2025-10-23T081500Z`, `2025-10-23T094500Z`).
+- Avoid inventing new flag names—reuse existing CLI spelling exactly.
+- When generating spec_redline.md, overwrite the file (no append of prior diffs) so the diff reflects this loop only.
+- Double-check that Attempt numbering increments (use #64) to keep history ordered.
 Pointers:
-- ptycho_torch/workflows/components.py:700 — Lightning callback wiring.
-- ptycho_torch/model.py:1048 — val_loss_name derivation.
-- tests/torch/test_workflows_components.py — add workflow selectors.
-- tests/torch/test_integration_workflow_torch.py:200 — integration workflow harness.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-23T091500Z/summary.md — regression context.
-Next Up: EB2.C documentation polish (if small follow-ups remain) or EB3 logger decision once scheduler/accum path is green.
+- specs/ptychodus_api_spec.md:270-283,391-400
+- docs/workflows/pytorch.md:302-334
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-23T081500Z/eb2_plan.md
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md
+- docs/fix_plan.md:18-80
+Next Up: EB3 logger governance blueprint @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md once EB2 docs land.
