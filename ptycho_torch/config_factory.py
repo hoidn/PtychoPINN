@@ -277,6 +277,9 @@ def create_training_payload(
     overrides_applied['num_workers'] = execution_config.num_workers
     overrides_applied['enable_progress_bar'] = execution_config.enable_progress_bar
     overrides_applied['learning_rate'] = execution_config.learning_rate
+    # Optimization knobs (Phase EB2.B1 - ADR-003)
+    overrides_applied['scheduler'] = execution_config.scheduler
+    overrides_applied['accum_steps'] = execution_config.accum_steps
 
     # Step 7: Return TrainingPayload with all config objects + audit trail
     return TrainingPayload(

@@ -140,6 +140,9 @@ def build_execution_config_from_args(
             checkpoint_monitor_metric=getattr(args, 'checkpoint_monitor_metric', 'val_loss'),
             checkpoint_mode=getattr(args, 'checkpoint_mode', 'min'),
             early_stop_patience=getattr(args, 'early_stop_patience', 100),
+            # Optimization knobs (Phase EB2.A2 - ADR-003)
+            scheduler=getattr(args, 'scheduler', 'Default'),
+            accum_steps=getattr(args, 'accumulate_grad_batches', 1),
         )
     elif mode == 'inference':
         return PyTorchExecutionConfig(

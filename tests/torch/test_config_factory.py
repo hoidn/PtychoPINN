@@ -658,6 +658,72 @@ class TestExecutionConfigOverrides:
         assert exec_cfg.checkpoint_mode == 'min'  # Expected default for loss metrics
         assert exec_cfg.early_stop_patience == 100  # Default per dataclass
 
+    def test_scheduler_override_applied(self, mock_train_npz, temp_output_dir):
+        """
+        Test: --scheduler override propagates to execution_config and overrides_applied.
+
+        Expected Behavior:
+        - execution_config.scheduler matches provided value
+        - overrides_applied['scheduler'] records the applied value
+
+        References:
+        - input.md EB2.B2 (factory override tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.B (factory wiring)
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        custom_exec_cfg = PyTorchExecutionConfig(
+            scheduler='Exponential',
+        )
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+            execution_config=custom_exec_cfg,
+        )
+
+        # GREEN phase assertions:
+        assert payload.execution_config.scheduler == 'Exponential', \
+            f"Expected scheduler='Exponential', got {payload.execution_config.scheduler}"
+        assert 'scheduler' in payload.overrides_applied, \
+            "scheduler must appear in overrides_applied audit trail"
+        assert payload.overrides_applied['scheduler'] == 'Exponential', \
+            f"Expected overrides_applied['scheduler']='Exponential', got {payload.overrides_applied['scheduler']}"
+
+    def test_accum_steps_override_applied(self, mock_train_npz, temp_output_dir):
+        """
+        Test: --accumulate-grad-batches override propagates to execution_config and overrides_applied.
+
+        Expected Behavior:
+        - execution_config.accum_steps matches provided value
+        - overrides_applied['accum_steps'] records the applied value
+
+        References:
+        - input.md EB2.B2 (factory override tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.B (factory wiring)
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        custom_exec_cfg = PyTorchExecutionConfig(
+            accum_steps=4,
+        )
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+            execution_config=custom_exec_cfg,
+        )
+
+        # GREEN phase assertions:
+        assert payload.execution_config.accum_steps == 4, \
+            f"Expected accum_steps=4, got {payload.execution_config.accum_steps}"
+        assert 'accum_steps' in payload.overrides_applied, \
+            "accum_steps must appear in overrides_applied audit trail"
+        assert payload.overrides_applied['accum_steps'] == 4, \
+            f"Expected overrides_applied['accum_steps']=4, got {payload.overrides_applied['accum_steps']}"
+
 
 # ============================================================================
 # Test Category 7: Probe Size Inference Helper

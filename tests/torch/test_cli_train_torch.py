@@ -546,6 +546,78 @@ class TestExecutionConfigCLI:
         assert call_kwargs['execution_config'].early_stop_patience == 10, \
             f"Expected early_stop_patience=10, got {call_kwargs['execution_config'].early_stop_patience}"
 
+    def test_scheduler_flag_roundtrip(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --scheduler flag maps to execution_config.scheduler.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --scheduler Exponential
+        OR
+        - AssertionError: execution_config.scheduler != 'Exponential'
+
+        References:
+        - input.md EB2.A3 (scheduler/accumulation RED tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.A (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(scheduler='Exponential'),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--scheduler', 'Exponential']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].scheduler == 'Exponential', \
+            f"Expected scheduler='Exponential', got {call_kwargs['execution_config'].scheduler}"
+
+    def test_accumulate_grad_batches_roundtrip(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --accumulate-grad-batches flag maps to execution_config.accum_steps.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --accumulate-grad-batches 4
+        OR
+        - AssertionError: execution_config.accum_steps != 4
+
+        References:
+        - input.md EB2.A3 (scheduler/accumulation RED tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.A (CLI flag parsing)
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(accum_steps=4),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--accumulate-grad-batches', '4']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].accum_steps == 4, \
+            f"Expected accum_steps=4, got {call_kwargs['execution_config'].accum_steps}"
+
 
 # RED Phase Note:
 # These tests are EXPECTED TO FAIL because:

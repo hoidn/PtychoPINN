@@ -539,6 +539,35 @@ Examples:
         )
     )
 
+    # Optimization knobs (Phase EB2 - ADR-003)
+    parser.add_argument(
+        '--scheduler',
+        type=str,
+        default='Default',
+        choices=['Default', 'Exponential', 'MultiStage', 'Adaptive'],
+        dest='scheduler',
+        help=(
+            'Learning rate scheduler type (default: Default). '
+            'Choices: Default (no scheduler), Exponential (exponential decay), '
+            'MultiStage (step-wise decay), Adaptive (plateau-based reduction). '
+            'Scheduler configuration must match Lightning module expectations.'
+        )
+    )
+    parser.add_argument(
+        '--accumulate-grad-batches',
+        type=int,
+        default=1,
+        dest='accumulate_grad_batches',
+        help=(
+            'Number of gradient accumulation steps (default: 1 = no accumulation). '
+            'Accumulation simulates larger effective batch sizes by accumulating gradients '
+            'over multiple forward/backward passes before updating weights. '
+            'Effective batch size = batch_size * accumulate_grad_batches. '
+            'WARNING: Values >1 increase memory efficiency but may affect training dynamics. '
+            'Typical values: 1-8 depending on GPU memory and batch size constraints.'
+        )
+    )
+
     # Legacy interface flags (backward compatibility)
     parser.add_argument('--ptycho_dir', type=str,
                        help='Path to ptycho directory (legacy interface)')

@@ -268,7 +268,8 @@ The PyTorch backend exposes a dedicated execution configuration dataclass (`PyTo
 
 3. **Optimization Knobs:**
    - `learning_rate` (float, default `1e-3`): Optimizer learning rate. MUST be > 0. Exposed via `--learning-rate`.
-   - `scheduler` (str, default `'Default'`): LR scheduler type. CLI exposure planned (Phase E.B2).
+   - `scheduler` (str, default `'Default'`): LR scheduler type. MUST be one of `['Default', 'Exponential', 'MultiStage', 'Adaptive']`. Exposed via `--scheduler`. Maps to Lightning module `configure_optimizers()` scheduler selection.
+   - `accum_steps` (int, default `1`): Gradient accumulation steps. MUST be ≥ 1. Simulates larger effective batch sizes by accumulating gradients over multiple forward/backward passes before updating weights. Effective batch size = `batch_size × accum_steps`. Exposed via `--accumulate-grad-batches`.
 
 4. **Checkpoint/Logging Knobs:**
    - `enable_progress_bar` (bool, default `False`): Show training progress. Derived from `--quiet` flag inversion.
@@ -382,6 +383,8 @@ These flags map to `PyTorchExecutionConfig` fields via factory override preceden
 | `--deterministic` / `--no-deterministic` | bool | `True` | `PyTorchExecutionConfig.deterministic` | Enable reproducible training with fixed RNG seeds. Use `--no-deterministic` to disable for potential performance gains (results become non-reproducible). |
 | `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count (0 = main thread only, CPU-safe). Typical values: 2-8 for multi-core systems. |
 | `--learning-rate` | float | `1e-3` | `PyTorchExecutionConfig.learning_rate` | Optimizer learning rate. Must be > 0. |
+| `--scheduler` | str | `'Default'` | `PyTorchExecutionConfig.scheduler` | Learning rate scheduler type. Choices: `'Default'` (no scheduler), `'Exponential'` (exponential decay), `'MultiStage'` (step-wise decay), `'Adaptive'` (plateau-based reduction). Scheduler configuration must match Lightning module expectations. |
+| `--accumulate-grad-batches` | int | `1` | `PyTorchExecutionConfig.accum_steps` | Number of gradient accumulation steps (default: 1 = no accumulation). Accumulation simulates larger effective batch sizes by accumulating gradients over multiple forward/backward passes before updating weights. Effective batch size = batch_size × accumulate_grad_batches. WARNING: Values >1 increase memory efficiency but may affect training dynamics. |
 | `--quiet` | flag | `False` | `PyTorchExecutionConfig.enable_progress_bar` | Suppress progress bars and reduce console logging. Inverted to populate `enable_progress_bar` (`--quiet` → `False`). |
 | `--enable-checkpointing` / `--disable-checkpointing` | bool | `True` | `PyTorchExecutionConfig.enable_checkpointing` | Enable automatic model checkpointing during training (default: enabled). Checkpoints are saved based on monitored metric performance. Use `--disable-checkpointing` to turn off. |
 | `--checkpoint-save-top-k` | int | `1` | `PyTorchExecutionConfig.checkpoint_save_top_k` | Number of best checkpoints to keep (default: 1). Set to -1 to save all checkpoints, 0 to disable saving. Best checkpoints are determined by `--checkpoint-monitor` metric. |
