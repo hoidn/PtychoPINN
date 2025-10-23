@@ -23,7 +23,7 @@ Exit Criteria: CLI exposes agreed knobs, validation + tests cover new flags, and
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E.B1 | Expose checkpoint & early-stop controls | [ ] | Follow handoff §3 backlog: add CLI flags for `--checkpoint-save-top-k`, `--checkpoint-monitor`, `--checkpoint-mode`, `--early-stop-patience`. Update `ptycho_torch/workflows/components.py` and factories to consume overrides. Add RED test in `tests/torch/test_config_factory.py::TestExecutionConfigOverrides` then GREEN. |
+| E.B1 | Expose checkpoint & early-stop controls | [x] | ✅ 2025-10-23 — Completed per `phase_e_execution_knobs/plan.md` EB1 rows. CLI flags + helper/factory wiring shipped in commit 496a8ce3, tests GREEN (`.../2025-10-20T160900Z/green/`), documentation synced (`.../2025-10-23T163500Z/`). |
 | E.B2 | Wire scheduler / gradient accumulation knobs | [ ] | Add CLI + config support for `--scheduler` (enum) and `--accumulate-grad-batches`. Update Lightning module initialization. Tests: extend `tests/torch/test_cli_train_torch.py` to assert parsed overrides propagate to `PyTorchExecutionConfig`. |
 | E.B3 | Logger backend / MLflow handling | [ ] | Decide whether to implement MLflow logger or formally deprecate flag. Capture decision in `reports/<TS>/phase_e_governance/logger_decision.md`. Add tests to confirm CLI warns or delegates correctly. |
 | E.B4 | Runtime smoke extensions | [ ] | Add deterministic smoke covering `gridsize=3` and `--accelerator auto`. Store logs under `reports/<TS>/phase_e_governance/runtime_smoke/`. Update plan checklist once selectors executed. |

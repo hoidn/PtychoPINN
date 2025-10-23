@@ -38,9 +38,9 @@ Exit Criteria: CLI flags wired, trainer applies scheduler/accumulation, tests co
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| EB2.A | CLI + helper extension | [ ] | Add `--scheduler` (choices: Default/Exponential/MultiStage) and `--accumulate-grad-batches` flags; map via `build_execution_config_from_args`. |
-| EB2.B | Factory + trainer wiring | [ ] | Thread new fields through `config_factory` + `_train_with_lightning`, integrating scheduler instantiation (reuse `ptycho_torch/schedulers.py`). |
-| EB2.C | TDD & docs | [ ] | Extend CLI/config_factory/workflow tests; update spec/workflow docs. |
+| EB2.A | CLI + helper extension | [ ] | Follow detailed checklist in `reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md` §EB2.A (add flags, helper wiring, RED tests). Capture CLI RED log at `.../red/pytest_cli_scheduler_red.log`. |
+| EB2.B | Factory + trainer wiring | [ ] | Execute `eb2_plan.md` §EB2.B (factory overrides, trainer kwargs, Lightning module sync). Store GREEN evidence under `.../green/{pytest_factory_scheduler_green.log,pytest_workflows_accum_green.log}`. |
+| EB2.C | TDD & docs | [ ] | Complete documentation + ledger tasks per `eb2_plan.md` §EB2.C once tests pass (spec/workflow redline, plan updates, summary.md). |
 
 ### Phase EB3 — Logger Backend Decision
 Goal: Resolve MLflow/TensorBoard governance and implement or deprecate flag.

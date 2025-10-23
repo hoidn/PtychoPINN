@@ -1702,3 +1702,14 @@
 - Updates made: Marked EB1.D/E `[x]`, set EB1.F guidance to new timestamp `2025-10-20T163500Z`; closed blocker file; logged Attempt #59 (Mode: TDD) in fix_plan.md; refreshed input.md with Docs-mode checklist for spec/workflow updates.
 - Next loop focus: Execute EB1.A/F doc refresh, capture summary + spec/workflow diffs, then advance to EB2.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-23T080000Z: EB2 scheduler/accum plan kickoff
+- Focus issue: ADR-003-BACKEND-API — Phase E.B2 scheduler & gradient accumulation knobs
+- Action type: Planning
+- Mode: Docs
+- Coin flip result: heads — reviewed latest engineer work (commit cb92ef6c) and confirmed EB1 documentation sync landed cleanly; spotted `phase_e_governance/plan.md` still listing E.B1 `[ ]`, corrected to `[x]`.
+- Key findings: CLI still lacks scheduler/accum flags, `build_execution_config_from_args` ignores corresponding dataclass fields, factory audit trail omits them, and tests offer no coverage. `PyTorchExecutionConfig` + Lightning trainer already support accum_steps, so plan can focus on wiring rather than new physics.
+- Plan artifacts: Authored EB2 blueprint at `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md` with summary + test selectors; updated `phase_e_execution_knobs/plan.md` EB2 rows to point at the new plan and refreshed governance plan row E.B1 to `[x]`.
+- Ledger updates: Added Attempt #61 (planning) to `docs/fix_plan.md`; rewrote `input.md` with TDD-mode instructions (RED tests first, mapped selectors, artifact routing).
+- Next supervisor focus: Ensure EB2 implementation evidence lands under new timestamp; prepare to advance to EB3 once scheduler/accum wiring is green.
+- <Action State>: [ready_for_implementation]

@@ -1,42 +1,40 @@
-Summary: Document the new checkpoint CLI knobs and sync EB1 planning artifacts.
-Mode: Docs
-Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003 — Phase E.B1 (checkpoint controls)
+Summary: Drive EB2 scheduler/accumulation wiring from CLI to Lightning with full TDD artifacts.
+Mode: TDD
+Focus: [ADR-003-BACKEND-API] Phase EB2 — Scheduler & Gradient Accumulation
 Branch: feature/torchapi
-Mapped tests: none — docs-only
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-20T163500Z/{summary.md,spec_updates.md,workflow_table_diff.md}
-
+Mapped tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_scheduler_flag_roundtrip -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accumulate_grad_batches_roundtrip -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_scheduler_override_applied -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_accum_steps_override_applied -vv; CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_accumulation -vv
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/{eb2_plan.md,summary.md,red/,green/}
 Do Now:
-1. EB1.A (spec refresh) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md — update `specs/ptychodus_api_spec.md` §4.9 + §7 training CLI table for the checkpoint flags (`checkpoint_mode`, enable/disable checkpointing, save-top-k, monitor, early-stop patience); document deltas under `spec_updates.md`; tests: none.
-2. EB1.F (workflow+ledger sync) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md — extend `docs/workflows/pytorch.md` §12 training table with the checkpoint knobs, mark EB1.A/F rows `[x]`, add Attempt #60 in `docs/fix_plan.md`, and capture a loop `summary.md`; tests: none.
-
-If Blocked: Capture the issue + context in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-20T163500Z/blockers.md`, leave EB1.F `[P]`, and log the blocker in docs/fix_plan.md.
-
+1. EB2.A1-EB2.A3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md — extend TestExecutionConfigCLI with scheduler/accumulation RED cases, run `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_scheduler_flag_roundtrip -vv` and `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accumulate_grad_batches_roundtrip -vv` expecting failure, archive logs to red/; tests: targeted.
+2. EB2.A+EB2.B (wiring) @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md — implement CLI/helper/factory/trainer overrides and rerun all mapped selectors to GREEN, storing outputs in green/; tests: mapped.
+3. EB2.C1-C3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md — redline spec/workflow tables, update plan states + docs/fix_plan.md with Attempt #61 follow-up, produce summary/spec_redline artifacts; tests: none.
+If Blocked: Log blocker + evidence in plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/blockers.md and leave EB2 rows `[P]`.
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md:270 — checkpoint knobs still tagged “CLI backlog”; must reflect shipped flags.
-- docs/workflows/pytorch.md:322 — training CLI table omits new checkpoint flags added in commit 496a8ce3.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md:27 — EB1.A/F remain open; plan needs closing evidence.
-- docs/fix_plan.md:168 — ledger needs Attempt #60 to document doc updates and evidence location.
-
+- specs/ptychodus_api_spec.md:272 — Optimization knobs section still treats scheduler/accum as pending exposure.
+- ptycho_torch/train.py:404 — CLI missing scheduler/accum flags keeps Lightning cadence hard-coded.
+- ptycho_torch/config_factory.py:200 — Factory audit trail ignores scheduler/accum overrides today.
+- ptycho_torch/workflows/components.py:720 — Trainer already consumes accum_steps; need provenance via CLI overrides for parity.
+- tests/torch/test_cli_train_torch.py — TDD harness must expand before implementation to guard regressions.
 How-To Map:
-- Edit `specs/ptychodus_api_spec.md` §4.9 “Checkpoint/Logging Knobs” list: add `checkpoint_mode`, remove “CLI backlog” wording, note defaults/validation, and reference Lightning callbacks; update §7.1 training CLI table to include `--enable-checkpointing/--disable-checkpointing`, `--checkpoint-save-top-k`, `--checkpoint-monitor`, `--checkpoint-mode`, `--early-stop-patience` with default values and config links.
-- Update `docs/workflows/pytorch.md` §12 training flags table to mirror the new spec entries; add short guidance on when to disable checkpointing and how monitor/mode interact with validation data.
-- After docs edits, set EB1.A/EB1.F rows to `[x]` in `phase_e_execution_knobs/plan.md`, append Attempt #60 (Mode: Docs) to the fix-plan entry summarizing doc changes + evidence paths, and note “tests: not run”.
-- Store a concise `summary.md` and supporting `spec_updates.md` / `workflow_table_diff.md` under the `2025-10-20T163500Z` directory describing edits and linking to doc sections.
-
+- RED phase: `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_scheduler_flag_roundtrip -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/red/pytest_cli_scheduler_red.log` (expect fail) then `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accumulate_grad_batches_roundtrip -vv | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/red/pytest_cli_accum_red.log`.
+- After wiring, rerun all mapped selectors with `CUDA_VISIBLE_DEVICES=""` and store outputs under `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/green/pytest_*_green.log` (keep filenames consistent with eb2_plan.md guidance).
+- For factory coverage include `pytest tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_scheduler_override_applied -vv` and accum variant; for workflow include `pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_accumulation -vv`.
+- Post-tests, update `specs/ptychodus_api_spec.md` (§4.9, §7.1) and `docs/workflows/pytorch.md` §12; capture deltas in `spec_redline.md` and final narrative in `summary.md` within the timestamped directory.
+- Finish by marking EB2 rows `[x]` in `phase_e_execution_knobs/plan.md`, updating `docs/fix_plan.md`, and confirming artifacts logged.
 Pitfalls To Avoid:
-- Don’t alter production Python code—this loop is documentation only.
-- Preserve Markdown tables’ alignment and ASCII characters.
-- Keep terminology consistent with spec (e.g., `enable_checkpointing`, `checkpoint_mode`).
-- Ensure CLI defaults in docs mirror actual argparse defaults (`'auto'`, `True`, `1`, etc.).
-- Note when monitor defaults require validation data; avoid promising behaviour not implemented.
-- Update plan and ledger in the same loop; no deferred bookkeeping.
-- Keep evidence, logs, and summaries inside the timestamped reports directory.
-- Mention “tests: not run” explicitly in Attempt #60.
-
+- Skipping RED evidence before implementation.
+- Changing default scheduler/accum semantics (must remain `'Default'` / `1`).
+- Breaking `--device` backward-compat warnings while touching CLI.
+- Touching physics core modules (`ptycho/model.py`) beyond wiring validation.
+- Leaving logs or scratch files outside the timestamped reports directory.
+- Forgetting to refresh `override_matrix.md` if precedence logic changes.
+- Mixing unittest style in new pytest tests.
 Pointers:
-- specs/ptychodus_api_spec.md:268
+- ptycho_torch/train.py:404
+- ptycho_torch/cli/shared.py:60
+- ptycho_torch/config_factory.py:248
+- ptycho_torch/workflows/components.py:720
+- ptycho_torch/model.py:1270
+- specs/ptychodus_api_spec.md:272
 - docs/workflows/pytorch.md:320
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md:27
-- docs/fix_plan.md:168
-
-Next Up: EB2 scheduler + accumulation knobs once EB1 documentation closes.
+Next Up: EB2 follow-through documentation polish or EB3 logger decision prep once scheduler/accumulation paths are green.
