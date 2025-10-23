@@ -323,9 +323,15 @@ The following execution config flags are available in `ptycho_torch/train.py`:
 | `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
 | `--enable-checkpointing` / `--disable-checkpointing` | bool | `True` | Enable automatic model checkpointing (default: enabled). Use `--disable-checkpointing` to turn off checkpoint saving. |
 | `--checkpoint-save-top-k` | int | `1` | Number of best checkpoints to keep (1 = save only best, -1 = save all, 0 = disable) |
-| `--checkpoint-monitor` | str | `'val_loss'` | Metric to monitor for checkpoint selection (e.g., val_loss, train_loss). Falls back to train_loss when validation data unavailable. |
+| `--checkpoint-monitor` | str | `'val_loss'` | Metric to monitor for checkpoint selection (default: `'val_loss'`). The literal `'val_loss'` is dynamically aliased to `model.val_loss_name` (e.g., `'poisson_val_loss'` for PINN models) during Lightning configuration. Falls back to `model.train_loss_name` when validation data is unavailable. |
 | `--checkpoint-mode` | str | `'min'` | Checkpoint metric optimization mode ('min' for loss metrics, 'max' for accuracy metrics) |
 | `--early-stop-patience` | int | `100` | Early stopping patience in epochs. Training stops if monitored metric doesn't improve for this many consecutive epochs. |
+
+**Monitor Metric Aliasing:**
+The checkpoint monitor metric (`--checkpoint-monitor`) uses dynamic aliasing to handle backend-specific metric naming conventions. When you specify `--checkpoint-monitor val_loss` (the default), the training workflow automatically resolves this to the model's actual validation loss metric name (e.g., `poisson_val_loss` for PINN models). This aliasing ensures compatibility across different loss formulations without requiring users to know internal metric names. When validation data is unavailable, the system automatically falls back to the corresponding training metric (`model.train_loss_name`).
+
+**Gradient Accumulation Considerations:**
+Gradient accumulation (`--accumulate-grad-batches`) simulates larger effective batch sizes by accumulating gradients over multiple forward/backward passes before updating model weights. The effective batch size equals `batch_size × accumulate_grad_batches`. While this technique improves memory efficiency (allowing larger effective batches on memory-constrained hardware), values >1 may affect training dynamics, convergence rates, and Poisson loss stability. For PINN models with physics-informed losses, start with the default (`1`) and increase conservatively only when memory constraints require it. Monitor training curves when changing accumulation settings, as the optimizer sees fewer but larger gradient updates per epoch.
 
 **Deprecated Flags:**
 - `--device`: Superseded by `--accelerator`. Using `--device` will emit a deprecation warning and map to `--accelerator` automatically. Remove from scripts; this flag will be dropped in a future release.

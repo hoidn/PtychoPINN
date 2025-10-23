@@ -46,9 +46,9 @@ Exit Criteria: Spec + workflow guide tables document new flags, plan + ledger up
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| EB2.C1 | Update `specs/ptychodus_api_spec.md` §4.9 optimization section + §7.1 CLI table with scheduler/accum rows (include defaults, validation, interactions). | [ ] | Mirror CLI help text; note scheduler choices map to Lightning helpers. Mention that accumulation multiplies effective batch size and interacts with Poisson loss stability. |
-| EB2.C2 | Update `docs/workflows/pytorch.md` §12 training table + narrative (link to spec, caution on accumulation vs GPU memory). | [ ] | Ensure doc table order matches spec to avoid drift. |
-| EB2.C3 | Mark EB2 rows complete in `phase_e_execution_knobs/plan.md`, append Attempt entry to `docs/fix_plan.md`, and capture `summary.md` + `spec_redline.md` under this timestamp directory. | [P] | Plan + ledger sync complete (Attempt #63 entry, aggregated plan rows updated). Await `spec_redline.md` emission alongside EB2.C1/C2 doc updates before marking `[x]`. |
+| EB2.C1 | Update `specs/ptychodus_api_spec.md` §4.9 optimization section + §7.1 CLI table with scheduler/accum rows (include defaults, validation, interactions). | [x] | ✅ 2025-10-23 — Monitor aliasing documented (§4.9:278 + §7.1:391); backlog updated to remove shipped flags. See `.../2025-10-23T103000Z/summary.md`. |
+| EB2.C2 | Update `docs/workflows/pytorch.md` §12 training table + narrative (link to spec, caution on accumulation vs GPU memory). | [x] | ✅ 2025-10-23 — Table row synced (line 326); Monitor Aliasing + Gradient Accumulation Considerations narratives added (lines 330-334). See summary.md. |
+| EB2.C3 | Mark EB2 rows complete in `phase_e_execution_knobs/plan.md`, append Attempt entry to `docs/fix_plan.md`, and capture `summary.md` + `spec_redline.md` under this timestamp directory. | [x] | ✅ 2025-10-23 — Artifacts generated: `spec_redline.md` (git diff), `summary.md` (comprehensive). Attempt #64 appended to fix_plan.md. EB2 COMPLETE. |
 
 ## Artifact Routing
 - RED evidence → `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/red/`
