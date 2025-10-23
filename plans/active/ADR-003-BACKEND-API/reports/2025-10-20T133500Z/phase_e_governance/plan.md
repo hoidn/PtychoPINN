@@ -24,8 +24,8 @@ Exit Criteria: CLI exposes agreed knobs, validation + tests cover new flags, and
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | E.B1 | Expose checkpoint & early-stop controls | [x] | ✅ 2025-10-23 — Completed per `phase_e_execution_knobs/plan.md` EB1 rows. CLI flags + helper/factory wiring shipped in commit 496a8ce3, tests GREEN (`.../2025-10-20T160900Z/green/`), documentation synced (`.../2025-10-23T163500Z/`). |
-| E.B2 | Wire scheduler / gradient accumulation knobs | [ ] | Add CLI + config support for `--scheduler` (enum) and `--accumulate-grad-batches`. Update Lightning module initialization. Tests: extend `tests/torch/test_cli_train_torch.py` to assert parsed overrides propagate to `PyTorchExecutionConfig`. |
-| E.B3 | Logger backend / MLflow handling | [ ] | Decide whether to implement MLflow logger or formally deprecate flag. Capture decision in `reports/<TS>/phase_e_governance/logger_decision.md`. Add tests to confirm CLI warns or delegates correctly. |
+| E.B2 | Wire scheduler / gradient accumulation knobs | [x] | ✅ 2025-10-23 — CLI/helper/factory/workflow wiring plus dynamic monitor fix complete (Attempts #63–64). Evidence under `phase_e_execution_knobs/{2025-10-23T081500Z,2025-10-23T094500Z,2025-10-23T103000Z}`. |
+| E.B3 | Logger backend / MLflow handling | [ ] | Use EB3 blueprint at `phase_e_execution_knobs/2025-10-23T110500Z/plan.md` to drive decision, implementation, and documentation tasks. |
 | E.B4 | Runtime smoke extensions | [ ] | Add deterministic smoke covering `gridsize=3` and `--accelerator auto`. Store logs under `reports/<TS>/phase_e_governance/runtime_smoke/`. Update plan checklist once selectors executed. |
 
 ### Phase E.C — Deprecation & Closure

@@ -40,7 +40,7 @@ Exit Criteria: CLI flags wired, trainer applies scheduler/accumulation, tests co
 | --- | --- | --- | --- |
 | EB2.A | CLI + helper extension | [x] | ✅ 2025-10-23 (Attempt #63) — CLI + helper overrides complete; see `.../2025-10-23T081500Z/{summary.md,green/pytest_cli_*_green.log}` for evidence. |
 | EB2.B | Factory + trainer wiring | [x] | ✅ 2025-10-23 — Factory + Lightning wiring green; dynamic monitor fix + workflow tests logged under `.../2025-10-23T094500Z/{red,green}/`. Integration selector now PASSED. |
-| EB2.C | TDD & docs | [P] | Plan/ledger sync captured via Attempt #63 + supervisor notes; remaining work: spec §4.9/§7.1 + workflows §12 redlines (EB2.C1/C2) and documentation of dynamic monitor aliasing. |
+| EB2.C | TDD & docs | [x] | ✅ 2025-10-23 — Spec/workflow doc sync complete (Attempt #64). Artifacts: `reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T103000Z/{summary.md,spec_redline.md}`. |
 
 ### Phase EB3 — Logger Backend Decision
 Goal: Resolve MLflow/TensorBoard governance and implement or deprecate flag.
@@ -49,9 +49,9 @@ Exit Criteria: Decision log + implementation/tests capturing logger behaviour.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| EB3.A | Decision record | [ ] | Draft `logger_decision.md` summarising options (MLflow autolog vs TensorBoard vs disable). |
-| EB3.B | Implementation & tests | [ ] | Implement chosen logger wiring or deprecation warnings; add tests covering CLI messaging. |
-| EB3.C | Docs update | [ ] | Update workflow guide/logger documentation + findings if policy-level change. |
+| EB3.A | Decision record | [ ] | Follow Phase EB3 plan (`reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md`). Execute Phase A tasks (current-state inventory, options matrix, decision proposal) and store artifacts under `analysis/` + `decision/`. |
+| EB3.B | Implementation & tests | [ ] | After decision approval, implement logger behaviour per plan Phase B (TDD: CLI/helper/factory workflow tests). Use `impl/<TS>/{red,green}/` for evidence. |
+| EB3.C | Docs update | [ ] | Align spec/workflow/fix_plan per plan Phase C; generate `docs/spec_redline.md` and update findings if a new policy is introduced. |
 
 ### Phase EB4 — Runtime Smoke Extensions
 Goal: Capture deterministic smoke logs for expanded knob combinations.
