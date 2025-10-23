@@ -1713,3 +1713,15 @@
 - Ledger updates: Added Attempt #61 (planning) to `docs/fix_plan.md`; rewrote `input.md` with TDD-mode instructions (RED tests first, mapped selectors, artifact routing).
 - Next supervisor focus: Ensure EB2 implementation evidence lands under new timestamp; prepare to advance to EB3 once scheduler/accum wiring is green.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-23T090500Z: EB2 regression triage (loop 151)
+- Focus issue: ADR-003-BACKEND-API — Phase EB2 scheduler/accum knobs (regression triage)
+- Action type: Debug
+- Mode: TDD
+- Findings:
+  - Ralph’s Attempt #62 (commit 6de34107 + evidence commit 6765d545) added scheduler/accum CLI wiring but integration suite now fails: `tests/torch/test_bundle_loader_returns_modules` and `...test_run_pytorch_train_save_load_infer` crash because `_train_with_lightning` monitors literal `'val_loss'` while Lightning logs `model.val_loss_name` (`poisson_val_loss`). Source: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/green/pytest_full_suite.log`.
+  - EB2 workflow selector from eb2_plan (`TestLightningExecutionConfig::test_trainer_receives_accumulation`) never authored; no RED/GREEN logs in the timestamped hub.
+  - Plan + ledger drift corrected: marked EB2 rows `[P]` in `phase_e_execution_knobs/plan.md`, rewrote docs/fix_plan Attempt #62 as INCOMPLETE with regression details, and logged supervisor triage at `plans/active/ADR-003-BACKEND-API/reports/2025-10-23T091500Z/summary.md`.
+  - New input (TDD mode) directs Ralph to (1) write failing workflow tests for accumulation + dynamic monitor, (2) fix `_train_with_lightning` to source `monitor_metric`/filenames from `model.val_loss_name`, (3) rerun targeted selectors + integration test, (4) close out EB2.C once GREEN.
+- Artifacts created: `plans/active/ADR-003-BACKEND-API/reports/2025-10-23T091500Z/summary.md`.
+- <Action State>: [gathering_evidence]

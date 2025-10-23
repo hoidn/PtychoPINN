@@ -38,9 +38,9 @@ Exit Criteria: CLI flags wired, trainer applies scheduler/accumulation, tests co
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| EB2.A | CLI + helper extension | [ ] | Follow detailed checklist in `reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md` §EB2.A (add flags, helper wiring, RED tests). Capture CLI RED log at `.../red/pytest_cli_scheduler_red.log`. |
-| EB2.B | Factory + trainer wiring | [ ] | Execute `eb2_plan.md` §EB2.B (factory overrides, trainer kwargs, Lightning module sync). Store GREEN evidence under `.../green/{pytest_factory_scheduler_green.log,pytest_workflows_accum_green.log}`. |
-| EB2.C | TDD & docs | [ ] | Complete documentation + ledger tasks per `eb2_plan.md` §EB2.C once tests pass (spec/workflow redline, plan updates, summary.md). |
+| EB2.A | CLI + helper extension | [P] | CLI/helper flags landed in commit 6de34107, but Do Now RED logs captured without accompanying workflow selector. Track regression analysis in `reports/2025-10-23T091500Z/summary.md`; retain `[P]` until integration tests green. |
+| EB2.B | Factory + trainer wiring | [P] | Factory audit trail updated, yet Lightning still monitors `val_loss` (fails integration). Fix monitor wiring to use `model.val_loss_name`, add workflow accumulation test, and store GREEN logs under next timestamp per `eb2_plan.md` §EB2.B. |
+| EB2.C | TDD & docs | [ ] | Blocked on EB2.A/B. Defer spec/workflow redline + ledger close-out until integration + workflow selectors succeed (see `reports/2025-10-23T091500Z/summary.md`). |
 
 ### Phase EB3 — Logger Backend Decision
 Goal: Resolve MLflow/TensorBoard governance and implement or deprecate flag.
