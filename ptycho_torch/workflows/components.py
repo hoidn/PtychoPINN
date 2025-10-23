@@ -695,16 +695,32 @@ def _train_with_lightning(
         # Determine if we have validation data to use val metrics
         has_validation = test_container is not None
 
-        # ModelCheckpoint callback (ADR-003 Phase EB1.D)
-        # Only use val_loss monitoring if validation data is available
-        monitor_metric = execution_config.checkpoint_monitor_metric
-        if 'val_' in monitor_metric and not has_validation:
-            # Fall back to train_loss if val metric requested but no validation data
-            monitor_metric = monitor_metric.replace('val_', 'train_')
+        # EB2.B: Derive monitor metric from model.val_loss_name (ADR-003 Phase EB2)
+        # The model's val_loss_name is dynamically constructed based on model_type and loss configuration
+        # (e.g., 'poisson_val_Amp_loss' for PINN with amplitude loss, 'mae_val_Phase_loss' for supervised)
+        # This ensures checkpoint/early-stop callbacks watch the correct logged metric
+        if has_validation and hasattr(model, 'val_loss_name'):
+            # Use the model's dynamic validation loss name
+            monitor_metric = model.val_loss_name
+        else:
+            # Fall back to execution config default or train loss
+            monitor_metric = execution_config.checkpoint_monitor_metric
+            if 'val_' in monitor_metric and not has_validation:
+                # Fall back to train_loss if val metric requested but no validation data
+                monitor_metric = monitor_metric.replace('val_', 'train_')
+
+        # Build checkpoint filename template using dynamic metric name
+        # Format: epoch={epoch:02d}-<metric_short_name>={<full_metric_name>:.4f}
+        if has_validation:
+            # Extract short name for filename (remove '_loss' suffix if present)
+            metric_short_name = monitor_metric.replace('_loss', '')
+            filename_template = f'epoch={{epoch:02d}}-{metric_short_name}={{{monitor_metric}:.4f}}'
+        else:
+            filename_template = 'epoch={epoch:02d}'
 
         checkpoint_callback = ModelCheckpoint(
             dirpath=str(output_dir / "checkpoints"),
-            filename='epoch={epoch:02d}-val_loss={val_loss:.4f}' if has_validation else 'epoch={epoch:02d}',
+            filename=filename_template,
             monitor=monitor_metric,
             mode=execution_config.checkpoint_mode,
             save_top_k=execution_config.checkpoint_save_top_k,

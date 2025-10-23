@@ -2957,8 +2957,12 @@ class TestLightningCheckpointCallbacks:
         call_kwargs = mock_early_stop_cls.call_args.kwargs
         assert call_kwargs.get('patience') == 5, \
             f"Expected patience=5, got {call_kwargs.get('patience')}"
-        assert call_kwargs.get('monitor') == 'val_loss', \
-            f"Expected monitor='val_loss', got {call_kwargs.get('monitor')}"
+        # EB2: Monitor now derives from model.val_loss_name (e.g., 'poisson_val_loss')
+        # instead of hardcoded 'val_loss'
+        monitor_metric = call_kwargs.get('monitor')
+        assert monitor_metric is not None, "EarlyStopping monitor not set"
+        assert 'val' in monitor_metric, \
+            f"Expected monitor to contain 'val', got '{monitor_metric}'"
         assert call_kwargs.get('mode') == 'min', \
             f"Expected mode='min', got {call_kwargs.get('mode')}"
 
@@ -3028,3 +3032,209 @@ class TestLightningCheckpointCallbacks:
             "ModelCheckpoint instantiated despite enable_checkpointing=False"
         assert not mock_early_stop_cls.called, \
             "EarlyStopping instantiated despite enable_checkpointing=False"
+
+
+class TestLightningExecutionConfig:
+    """
+    Test Lightning Trainer execution knobs: scheduler, gradient accumulation, dynamic monitor.
+
+    Phase EB2: Validates that Lightning callbacks/trainer respect execution config overrides
+    and derive monitor metric names from model.val_loss_name (not hardcoded 'val_loss').
+    """
+
+    @pytest.fixture
+    def minimal_training_config_with_val(self, tmp_path):
+        """
+        Minimal TrainingConfig with validation data for dynamic monitor testing.
+        """
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        # Create dummy NPZ data
+        dummy_data = {
+            'xcoords': np.linspace(-5, 5, 64).astype(np.float64),
+            'ycoords': np.linspace(-5, 5, 64).astype(np.float64),
+            'diffraction': np.ones((64, 64, 64), dtype=np.float32),
+            'probeGuess': np.ones((64, 64), dtype=np.complex64),
+            'objectGuess': np.ones((128, 128), dtype=np.complex64),
+        }
+        train_file = tmp_path / "train.npz"
+        test_file = tmp_path / "test.npz"
+        np.savez(str(train_file), **dummy_data)
+        np.savez(str(test_file), **dummy_data)
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=2,
+            model_type='pinn',
+            amp_activation='silu',
+        )
+
+        config = TrainingConfig(
+            model=model_config,
+            train_data_file=train_file,
+            test_data_file=test_file,  # Validation data present
+            n_groups=64,
+            batch_size=4,
+            nepochs=2,
+            output_dir=tmp_path / "outputs",
+        )
+        return config
+
+    def test_trainer_receives_accumulation(self, minimal_training_config_with_val, monkeypatch):
+        """
+        RED Test: Verify Lightning Trainer receives accumulate_grad_batches from execution config.
+
+        Expected RED Failure:
+        - Trainer not receiving accum_steps from execution config
+        OR
+        - accumulate_grad_batches not passed to Trainer kwargs
+
+        Resolution (GREEN):
+        - _train_with_lightning should pass execution_config.accum_steps to Trainer(accumulate_grad_batches=...)
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+
+        try:
+            import lightning.pytorch as L
+        except ImportError:
+            pytest.skip("Lightning not available")
+
+        # Create execution config with custom accumulation
+        exec_config = PyTorchExecutionConfig(
+            accum_steps=4,  # Override default (1)
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+            enable_checkpointing=False,  # Disable callbacks for simpler mocking
+        )
+
+        # Mock Trainer to spy on kwargs
+        mock_trainer_cls = MagicMock(spec=L.Trainer)
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+
+        # Mock data containers
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()
+
+        from ptycho_torch.workflows.components import _train_with_lightning
+
+        # Patch Trainer at import site
+        with patch('lightning.pytorch.Trainer', mock_trainer_cls):
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config_with_val,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about Trainer instantiation
+
+        # GREEN Phase Assertion:
+        # Trainer should receive accumulate_grad_batches from execution_config.accum_steps
+        assert mock_trainer_cls.called, "Trainer not instantiated"
+        trainer_kwargs = mock_trainer_cls.call_args.kwargs
+        assert 'accumulate_grad_batches' in trainer_kwargs, \
+            "accumulate_grad_batches not passed to Trainer"
+        assert trainer_kwargs['accumulate_grad_batches'] == 4, \
+            f"Expected accumulate_grad_batches=4, got {trainer_kwargs['accumulate_grad_batches']}"
+
+    def test_monitor_uses_val_loss_name(self, minimal_training_config_with_val, monkeypatch):
+        """
+        RED Test: Verify ModelCheckpoint and EarlyStopping derive monitor from model.val_loss_name.
+
+        Expected RED Failure:
+        - Callbacks use hardcoded 'val_loss' instead of model.val_loss_name
+        OR
+        - Checkpoint filename uses hardcoded 'val_loss' string
+
+        Resolution (GREEN):
+        - _train_with_lightning should read model.val_loss_name after instantiation
+        - Pass dynamic monitor string to ModelCheckpoint(monitor=...) and EarlyStopping(monitor=...)
+        - Use dynamic metric name in checkpoint filename template
+
+        Spec Reference:
+        - ptycho_torch/model.py:1048-1086 — val_loss_name derivation logic
+        - input.md EB2.B3 guidance — "trainer should watch model.val_loss_name"
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock
+
+        try:
+            from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+        except ImportError:
+            pytest.skip("Lightning not available")
+
+        # Create execution config with checkpointing enabled
+        exec_config = PyTorchExecutionConfig(
+            enable_checkpointing=True,
+            checkpoint_monitor_metric='val_loss',  # User provides generic name
+            checkpoint_mode='min',
+            early_stop_patience=10,
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+
+        # Mock callbacks to spy on instantiation args
+        mock_checkpoint_cls = MagicMock(spec=ModelCheckpoint)
+        mock_checkpoint_instance = MagicMock()
+        mock_checkpoint_cls.return_value = mock_checkpoint_instance
+
+        mock_early_stop_cls = MagicMock(spec=EarlyStopping)
+        mock_early_stop_instance = MagicMock()
+        mock_early_stop_cls.return_value = mock_early_stop_instance
+
+        # Mock Trainer
+        mock_trainer_cls = MagicMock()
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+
+        # Mock data containers
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()  # Validation data present
+
+        from ptycho_torch.workflows.components import _train_with_lightning
+
+        # Patch at import sites
+        with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
+             patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
+             patch('lightning.pytorch.Trainer', mock_trainer_cls):
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config_with_val,
+                    execution_config=exec_config,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about callback setup
+
+        # GREEN Phase Assertions:
+        # 1. ModelCheckpoint should use model.val_loss_name for monitor
+        assert mock_checkpoint_cls.called, "ModelCheckpoint not instantiated"
+        checkpoint_kwargs = mock_checkpoint_cls.call_args.kwargs
+        monitor_metric = checkpoint_kwargs.get('monitor')
+
+        # The monitor should match the model's val_loss_name, not the hardcoded 'val_loss'
+        # For PINN model_type with validation, val_loss_name = 'poisson_val_Amp_loss' or similar
+        # We expect it to NOT be the raw 'val_loss' string
+        assert monitor_metric is not None, "ModelCheckpoint monitor not set"
+        assert 'poisson_val' in monitor_metric or 'mae_val' in monitor_metric, \
+            f"Expected monitor to contain model-specific val_loss_name, got '{monitor_metric}'"
+
+        # 2. EarlyStopping should use same dynamic monitor
+        assert mock_early_stop_cls.called, "EarlyStopping not instantiated"
+        early_stop_kwargs = mock_early_stop_cls.call_args.kwargs
+        early_monitor = early_stop_kwargs.get('monitor')
+        assert early_monitor == monitor_metric, \
+            f"EarlyStopping monitor '{early_monitor}' doesn't match ModelCheckpoint monitor '{monitor_metric}'"
+
+        # 3. Checkpoint filename template should use dynamic metric name
+        filename_template = checkpoint_kwargs.get('filename', '')
+        # Expected pattern: 'epoch={epoch:02d}-<val_loss_name>={<val_loss_name>:.4f}'
+        # Should NOT contain hardcoded 'val_loss='
+        assert monitor_metric.replace('_loss', '') in filename_template, \
+            f"Checkpoint filename '{filename_template}' should reference dynamic metric '{monitor_metric}'"
