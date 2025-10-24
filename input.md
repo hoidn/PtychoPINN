@@ -1,50 +1,42 @@
-Summary: Capture logger smoke evidence and publish CI usage notes before EB3 governance wrap-up.
+Summary: Capture EB4 runtime smoke evidence for PyTorch execution knobs (accelerator auto + checkpoint/early-stop settings).
 Mode: Perf
 Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003
 Branch: feature/torchapi
 Mapped tests: none — CLI smoke evidence
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/{train_cli_logger_csv.log,metrics.csv,logger_tree.txt,summary.md}
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/runtime_smoke/2025-10-24T061500Z/{train_cli_runtime_smoke.log,metrics.csv,lightning_tree.txt,checkpoints_ls.txt,summary.md}
 Do Now:
-- [ADR-003-BACKEND-API] EB3.D1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — run CSV logger smoke command, archive metrics/tree/summary under the new smoke/2025-10-24T050500Z/ hub; tests: none — CLI smoke.
-- [ADR-003-BACKEND-API] EB3.D2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — draft docs/ci_logger_notes.md with CI routing/cleanup guidance referencing fresh smoke artifacts; tests: none — docs.
-If Blocked: Capture stdout/stderr to the same smoke directory, note blocker + command + exit code in summary.md, and register the issue in docs/fix_plan.md Attempts History before stopping.
+- [ADR-003-BACKEND-API] EB4.A @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md — run the Phase EB4 runtime smoke command (gridsize=3, accelerator auto, checkpoint top-k=2, early stop patience=5), archive logs + metrics under 2025-10-24T061500Z, remove tmp/runtime_smoke when finished; tests: none — CLI smoke.
+- [ADR-003-BACKEND-API] EB4.B @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md — author summary.md capturing runtime, accelerator resolution, checkpoint file count, and callback wiring; update docs/fix_plan.md Attempts + mark plan rows `[x]`; tests: none — docs.
+If Blocked: Capture stdout/stderr to `runtime_smoke/2025-10-24T061500Z/blocker.log`, note command + exit code in summary.md, register the blocker in docs/fix_plan.md Attempts, then stop.
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md rows D1–D2 control EB3.D exit criteria; both must be `[x]` before Phase EB3 close-out.
-- specs/ptychodus_api_spec.md:281 documents logger_backend default `'csv'`; smoke evidence confirms spec reality.
-- docs/workflows/pytorch.md:329 lists `--logger` usage; CI note keeps guide + practice aligned.
-- docs/findings.md:12 (CONFIG-LOGGER-001) promises CSV metrics are persisted—smoke run validates the claim.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md expects CI guidance before governance sign-off.
+- specs/ptychodus_api_spec.md:274-286 requires checkpoint + early-stop knobs to behave per contract; smoke validates CLI wiring.
+- docs/workflows/pytorch.md:324-338 documents the user-facing flags we just exposed; evidence keeps guide trustworthy.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md rows EB4.A-B gate Phase E completion.
+- docs/findings.md:12 (CONFIG-LOGGER-001) promises CSV metrics persistence; smoke confirms it under accelerator auto.
 How-To Map:
-- Prep dirs: `mkdir -p plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z` and ensure `tmp/logger_smoke/` is clear (`rm -rf tmp/logger_smoke`).
-- Run smoke (CPU-only):
-  ```bash
-  CUDA_VISIBLE_DEVICES="" /usr/bin/time -p python -m ptycho_torch.train \
-    --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
-    --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
-    --output_dir tmp/logger_smoke \
-    --n_images 64 \
-    --max_epochs 1 \
-    --gridsize 2 \
-    --batch_size 4 \
-    --accelerator cpu \
-    --deterministic \
-    --num-workers 0 \
-    --logger csv \
-  | tee plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/train_cli_logger_csv.log
-  ```
-- Post-run packaging: copy `tmp/logger_smoke/lightning_logs/version_0/metrics.csv` to the smoke directory, run `tree tmp/logger_smoke/lightning_logs > plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/logger_tree.txt`, author `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/summary.md` (runtime, logger backend, warnings, follow-ups), then `rm -rf tmp/logger_smoke`.
-- CI note: create `docs/ci_logger_notes.md` describing CSV artifact handling, disabling logs (`--logger none --quiet`), cleanup expectations, optional TensorBoard/MLflow requirements, and link back to CONFIG-LOGGER-001 and the smoke evidence path.
+- `artifact_dir=plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/runtime_smoke/2025-10-24T061500Z`
+- `rm -rf tmp/runtime_smoke && mkdir -p "$artifact_dir"`
+- `CUDA_VISIBLE_DEVICES="" /usr/bin/time -p python -m ptycho_torch.train --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir tmp/runtime_smoke --n_images 64 --gridsize 3 --max_epochs 6 --batch_size 4 --accelerator auto --deterministic --num-workers 0 --logger csv --checkpoint-save-top-k 2 --early-stop-patience 5 | tee "$artifact_dir/train_cli_runtime_smoke.log"`
+- `cp tmp/runtime_smoke/lightning_logs/version_0/metrics.csv "$artifact_dir/metrics.csv"`
+- `tree tmp/runtime_smoke/lightning_logs > "$artifact_dir/lightning_tree.txt"`
+- `ls -l tmp/runtime_smoke/checkpoints > "$artifact_dir/checkpoints_ls.txt"`
+- `rm -rf tmp/runtime_smoke`
+- Draft `$artifact_dir/summary.md` noting runtime, GPU detection message (auto→cpu), checkpoint files present, early-stop settings (patience 5, not triggered over 6 epochs), and cross-links to spec/workflow/finding. Update docs/fix_plan.md with Attempt #71 and flip EB4 rows to `[x]`.
 Pitfalls To Avoid:
-- Do not leave `tmp/logger_smoke/` or `lightning_logs/` directories untracked—archive then delete.
-- Keep artifact paths relative; avoid absolute `/home/...` references in summary.md or ci_logger_notes.md.
-- Preserve DeprecationWarning wording for `--disable_mlflow`; mirror CLI output precisely.
-- No production code edits this loop—CLI command + docs only.
-- Avoid storing large binary checkpoints in the repository; reference their location via tree output instead.
-- Ensure summary.md includes command + runtime so future loops can spot regressions.
+- Do not change accelerator back to `cpu`; evidence must demonstrate `auto` fallback behaviour.
+- Keep `gridsize 3` and `--checkpoint-save-top-k 2`; other values undermine EB4 coverage.
+- Copy metrics.csv before deleting tmp/runtime_smoke; otherwise CSV evidence is lost.
+- Avoid leaving checkpoint artifacts in the repo root; ensure cleanup after packaging evidence.
+- Reference artifact paths relative to repo root (no absolute `/home/...`).
+- Summaries must cite spec/workflow lines and CONFIG-LOGGER-001; avoid vague prose.
+- Skip pytest and full-suite runs; this loop is evidence-only.
+- Capture tree/ls output after training, not before.
+- Watch for DeprecationWarnings (device/disable_mlflow) and record them in summary if they appear.
+- Ensure docs/fix_plan.md Attempts History reflects this smoke run with artifact links.
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md
-- specs/ptychodus_api_spec.md:281
-- docs/workflows/pytorch.md:329
+- specs/ptychodus_api_spec.md:274
+- docs/workflows/pytorch.md:324
 - docs/findings.md:12
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/docs/2025-10-24T041500Z/summary.md:1
-Next Up: Optional TensorBoard logger smoke or Phase EB3 governance dossier once CSV evidence + CI notes land.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md
+- docs/ci_logger_notes.md:1
+Next Up: Phase E.C deprecation tasks (template available in phase_e_governance/plan.md) once EB4 evidence lands.

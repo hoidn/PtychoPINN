@@ -49,9 +49,9 @@ Exit Criteria: Decision log + implementation/tests capturing logger behaviour.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| EB3.A | Decision record | [ ] | Follow Phase EB3 plan (`reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md`). Execute Phase A tasks (current-state inventory, options matrix, decision proposal) and store artifacts under `analysis/` + `decision/`. |
-| EB3.B | Implementation & tests | [ ] | After decision approval, implement logger behaviour per plan Phase B (TDD: CLI/helper/factory workflow tests). Use `impl/<TS>/{red,green}/` for evidence. |
-| EB3.C | Docs update | [ ] | Align spec/workflow/fix_plan per plan Phase C; generate `docs/spec_redline.md` and update findings if a new policy is introduced. |
+| EB3.A | Decision record | [x] | ✅ 2025-10-23 — Current-state inventory + options matrix captured at `analysis/{current_state.md,options_matrix.md}`; supervisor approved proposal in `decision/approved.md`. |
+| EB3.B | Implementation & tests | [x] | ✅ 2025-10-24 — Logger wiring shipped (commit 43ea2036) with RED/GREEN evidence under `impl/2025-10-24T025339Z/{red,green}/` (7 targeted selectors + integration log, 30.04s total). |
+| EB3.C | Docs update | [x] | ✅ 2025-10-24 — Spec/workflow/finding updates recorded in `docs/2025-10-24T041500Z/{spec_redline.md,summary.md}`, CONFIG-LOGGER-001 added to `docs/findings.md`, plan + ledger synced (Attempt #69). |
 
 ### Phase EB4 — Runtime Smoke Extensions
 Goal: Capture deterministic smoke logs for expanded knob combinations.
@@ -60,8 +60,8 @@ Exit Criteria: Smoke logs stored, plan checklist updated, delta documented.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| EB4.A | CLI smoke scripts | [ ] | Run training CLI with `--accelerator auto`, `--checkpoint-save-top-k 2`, `--early-stop-patience 5` on minimal dataset; store logs under `runtime_smoke/`. |
-| EB4.B | Ledger + plan updates | [ ] | Document smoke results in `summary.md`, update `docs/fix_plan.md` attempt and `implementation.md` Phase E.B states. |
+| EB4.A | CLI smoke scripts | [ ] | Execute deterministic CPU smoke validating new execution knobs: `CUDA_VISIBLE_DEVICES=\"\" /usr/bin/time -p python -m ptycho_torch.train --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir tmp/runtime_smoke --n_images 64 --gridsize 3 --max_epochs 6 --batch_size 4 --accelerator auto --deterministic --num-workers 0 --logger csv --checkpoint-save-top-k 2 --early-stop-patience 5`. Tee stdout/stderr to `runtime_smoke/<TS>/train_cli_runtime_smoke.log`, copy `lightning_logs/version_*/metrics.csv`, capture `tree` of `lightning_logs/` and `ls -l checkpoints/`, then remove `tmp/runtime_smoke`. |
+| EB4.B | Ledger + plan updates | [ ] | Author `runtime_smoke/<TS>/summary.md` covering runtime, accelerator resolution (auto→cpu), checkpoint file count (`top_k=2` + `last`), and early-stop configuration (patience 5, no trigger expected). Link evidence to spec §4.9/§7.1 + CONFIG-LOGGER-001, update `docs/fix_plan.md` Attempts and mark plan rows `[x]`. |
 
 ## Artifact Checklist
 - RED logs → `reports/2025-10-20T153300Z/phase_e_execution_knobs/<TS>/red/`

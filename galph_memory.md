@@ -1788,3 +1788,14 @@
   - Updated Phase EB3 plan rows D1–D2 with explicit CSV logger smoke command, artifact packaging steps, and CI doc expectations; established smoke artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/`.
   - Added Attempt #70 entry to docs/fix_plan.md capturing plan refresh + next steps; rewrote `input.md` to direct EB3.D1–D2 execution and creation of `docs/ci_logger_notes.md`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-24T040852Z: EB4 runtime smoke planning kickoff
+- Focus issue: ADR-003-BACKEND-API — Phase EB4 runtime smoke extensions
+- Action type: Review or housekeeping
+- Mode: Perf
+- Notes:
+  - Coin flip → heads; reviewed Ralph commit `0f63f207` (CSV logger smoke + ci_logger_notes) — artifacts complete, no regressions spotted.
+  - Confirmed EB3 work finished; marked Phase E.B3 `[x]` in `phase_e_governance/plan.md` and backfilled EB3 rows in `phase_e_execution_knobs/plan.md` with evidence references.
+  - Expanded EB4 guidance (command, artifacts, cleanup) inside `phase_e_execution_knobs/plan.md`; aligned runtime smoke storage under `.../runtime_smoke/<TS>/`.
+  - Rewrote `input.md` for EB4.A-B: command uses `gridsize=3`, `--accelerator auto`, `--checkpoint-save-top-k 2`, `--early-stop-patience 5`; artifacts to `runtime_smoke/2025-10-24T061500Z/`; summary instructions require checkpoint counts + auto→cpu note. No tests run (planning loop).
+- <Action State>: [ready_for_implementation]

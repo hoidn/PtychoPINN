@@ -25,8 +25,8 @@ Exit Criteria: CLI exposes agreed knobs, validation + tests cover new flags, and
 | --- | --- | --- | --- |
 | E.B1 | Expose checkpoint & early-stop controls | [x] | ✅ 2025-10-23 — Completed per `phase_e_execution_knobs/plan.md` EB1 rows. CLI flags + helper/factory wiring shipped in commit 496a8ce3, tests GREEN (`.../2025-10-20T160900Z/green/`), documentation synced (`.../2025-10-23T163500Z/`). |
 | E.B2 | Wire scheduler / gradient accumulation knobs | [x] | ✅ 2025-10-23 — CLI/helper/factory/workflow wiring plus dynamic monitor fix complete (Attempts #63–64). Evidence under `phase_e_execution_knobs/{2025-10-23T081500Z,2025-10-23T094500Z,2025-10-23T103000Z}`. |
-| E.B3 | Logger backend / MLflow handling | [ ] | Use EB3 blueprint at `phase_e_execution_knobs/2025-10-23T110500Z/plan.md` to drive decision, implementation, and documentation tasks. |
-| E.B4 | Runtime smoke extensions | [ ] | Add deterministic smoke covering `gridsize=3` and `--accelerator auto`. Store logs under `reports/<TS>/phase_e_governance/runtime_smoke/`. Update plan checklist once selectors executed. |
+| E.B3 | Logger backend / MLflow handling | [x] | ✅ 2025-10-24 — EB3 plan executed end-to-end (Attempts #68–70). Decision approved (`decision/approved.md`), implementation/tests archived under `phase_e_execution_knobs/2025-10-23T110500Z/impl/2025-10-24T025339Z/`, docs + findings synced via `.../docs/2025-10-24T041500Z/`, CSV logger smoke + CI notes stored in `.../smoke/2025-10-24T050500Z/`. |
+| E.B4 | Runtime smoke extensions | [ ] | Add deterministic smoke covering `gridsize=3`, `--accelerator auto`, and checkpoint knobs (`--checkpoint-save-top-k 2`, `--early-stop-patience 5`). Store evidence under `phase_e_execution_knobs/runtime_smoke/<TS>/` and update plan + ledger once selectors executed. |
 
 ### Phase E.C — Deprecation & Closure
 Goal: Finalise deprecation messaging, archive legacy API, and close out initiative bookkeeping.
