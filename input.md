@@ -1,38 +1,43 @@
-Summary: Capture EB3 logger options so we can choose a governance path before touching code.
-Mode: Docs
+Summary: Enable Lightning logger selection via CLI/factory/workflow so PyTorch training captures metrics (Phase EB3.B).
+Mode: TDD
 Focus: [ADR-003-BACKEND-API] Phase EB3 — Logger backend decision
 Branch: feature/torchapi
-Mapped tests: none — docs-only
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/{analysis/current_state.md,analysis/options_matrix.md,decision/proposal.md}
+Mapped tests: pytest tests/torch/test_cli_train_torch.py -k logger -vv; pytest tests/torch/test_config_factory.py -k logger -vv; pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_logger -vv; pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-23T110500Z/phase_b_logger_impl/2025-10-23T130000Z/{red/,green/,summary.md}
 Do Now:
-- EB3.A1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — audit existing logging hooks and legacy expectations; tests: none.
-- EB3.A2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — build logger options matrix with dependency analysis; tests: none.
-- EB3.A3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — draft decision proposal (pros/cons, acceptance criteria) for supervisor review; tests: none.
-If Blocked: Document open questions + blocker evidence in `decision/proposal.md`, leave plan rows `[P]`, and log blockers in docs/fix_plan.md before exiting.
+- [ADR-003-BACKEND-API] EB3.B1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — author logger RED tests (CLI helpers, factory overrides, trainer wiring) and capture failing selectors under red/; tests: see How-To Map (RED selectors).
+- [ADR-003-BACKEND-API] EB3.B2 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — implement CSV default + TensorBoard/MLflow options, deprecate --disable_mlflow, and thread logger through CLI/shared.py, config_factory, workflows/components; tests: none (implementation only).
+- [ADR-003-BACKEND-API] EB3.B3 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — rerun targeted selectors + integration workflow on CPU, archive GREEN logs plus summary.md; tests: CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_cli_train_torch.py -k logger -vv && CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_config_factory.py -k logger -vv && CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_logger -vv && CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv.
+If Blocked: Capture blockers in summary.md, leave plan rows `[P]`, and log evidence (stack traces, config notes) in the artifact hub before exiting.
 Priorities & Rationale:
-- spec/ptychodus_api_spec.md:281 — `logger_backend` remains TBD; need decision context before editing code.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/open_questions.md:60-104 — captures MLflow vs execution config split that Phase EB3 must resolve.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md — authoritative checklist for EB3 Phase A deliverables.
-- docs/workflows/pytorch.md:365 — current CLI guide references spec for execution config; logger decision will change this section.
-- docs/fix_plan.md:48-65 — latest attempts show EB2 completion and pending EB3 planning; keep ledger synced with new artifacts.
+- decision/approved.md — supervisor authorized CSV default, TensorBoard option, mlflow deprecation, and MLFlowLogger follow-up; implementation must reflect this contract.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-23T110500Z/plan.md (B1–B3) — authoritative checklist for Phase EB3.B.
+- specs/ptychodus_api_spec.md:275-320 — execution config fields and CLI mapping your changes must satisfy.
+- docs/workflows/pytorch.md:320-370 — workflow documentation requires logger guidance after implementation; keep behaviour aligned.
+- docs/findings.md#policy-001 — no new mandatory deps; ensure optional logger choices honour policy.
 How-To Map:
-- For EB3.A1 run `rg -n "mlflow" ptycho_torch` and `rg -n "logger" ptycho_torch`; inspect `ptycho_torch/workflows/components.py` + `ptycho_torch/api/` legacy scripts. Summarize findings in `analysis/current_state.md` (include file:line references and notes on TODOs).
-- For EB3.A2 consult Lightning logger docs and existing extras (setup.py). Create `analysis/options_matrix.md` with columns: Option, Dependencies, Pros, Cons, CI impact, User workflow impact. Use bullet list or table format.
-- For EB3.A3 write `decision/proposal.md` outlining recommended path (enable logger(s) or formal deprecation), success criteria, required code/test/doc work, and questions needing supervisor sign-off. Link back to A1/A2 artifacts and note any dependency installation implications.
+- RED phase: Write pytest cases in `tests/torch/test_cli_train_torch.py` (e.g., `TestExecutionConfigCLI` with default CSV + tensorboard/mlflow selections and `--disable_mlflow` DeprecationWarning), `tests/torch/test_config_factory.py` (`TestExecutionConfigLogger` verifying factory output / optional deps), and `tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_logger`. Run each with `CUDA_VISIBLE_DEVICES=""` and stash logs under `red/pytest_cli_logger_red.log`, `red/pytest_factory_logger_red.log`, `red/pytest_workflows_logger_red.log`.
+- Implementation: Update argparse in `ptycho_torch/train.py` to add `--logger`/`--logger-backend`, wire through `cli/shared.py` helper to populate execution config dict (deprecate `--disable_mlflow` via `warnings.warn`). Extend `ptycho_torch/config_factory.py` to build logger instances (CSV default, tensorboard optional, mlflow optional with ImportError guidance) and return them in payload. Replace `logger=False` in `_train_with_lightning` (workflows/components.py) with the constructed logger, keeping CONFIG-001 ordering.
+- GREEN validation: Re-run RED selectors after implementation (store outputs in `green/`). Finish with `CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv` and, if time allows, `pytest tests/torch/test_cli_shared.py -k logger -vv` to cover helper docstrings. Summarize results (pass/fail counts, warning expectations) in `summary.md`.
+- Artifacts: Place new or updated docs/tests references in summary, include explicit warning text for `--disable_mlflow`, and list generated files (e.g., CSV log path) if applicable.
 Pitfalls To Avoid:
-- Do not edit production code or tests in this loop.
-- Keep all notes under the timestamped artifact directory; no stray files at repo root.
-- Record exact file paths/line numbers when citing current behaviour.
-- Clearly flag assumptions about optional dependencies (MLflow, TensorBoard); avoid promising availability without evidence.
-- Maintain ASCII tables/markdown; no rich formatting or non-ASCII characters.
-- Leave plan checkboxes `[P]` until evidence completed; supervisor will flip later.
-- Ensure proposal distinguishes between canonical config and execution config responsibilities (per open_questions.md Q2).
-- Capture blocker list if decision cannot be reached; do not proceed to implementation steps.
-- Reference POLICY-001 (PyTorch required) if suggesting new install requirements.
-- Include citation to Lightning docs in proposal (URL already in plan.md context).
+- Do not instantiate Lightning loggers before calling `update_legacy_dict`; maintain CONFIG-001 ordering.
+- Avoid importing tensorboard/mlflow unconditionally—guard optional deps and raise actionable errors/warnings.
+- Keep TDD discipline: capture RED logs before implementing fixes.
+- Ensure warnings use `warnings.warn(..., DeprecationWarning)` so tests can assert behaviour.
+- No hard-coded filesystem paths; respect execution config `output_dir`.
+- Do not delete existing mlflow autologging yet—only deprecate flag per decision.
+- Keep pytest additions purely pytest-style (no unittest mixins).
+- Limit artifact size; don’t commit TensorBoard event files to repo (archive path only).
+- Maintain ASCII output in docs/logs; avoid non-ASCII characters in warnings/tests.
+- Capture RNG seeds/config overrides in summary if tests rely on randomness.
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/open_questions.md:60-104
-- specs/ptychodus_api_spec.md:260-320
-- docs/workflows/pytorch.md:320-370
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/plan.md
-Next Up: Phase EB3.B implementation once decision proposal approved.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-23T110500Z/plan.md (Phase B table)
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-23T110500Z/decision/approved.md
+- specs/ptychodus_api_spec.md:275
+- docs/workflows/pytorch.md:320
+- ptycho_torch/train.py:460
+- ptycho_torch/cli/shared.py:90
+- ptycho_torch/config_factory.py:210
+- ptycho_torch/workflows/components.py:730
+Next Up: Phase EB3.C documentation sync (`plan.md` C1–C4) once logger wiring and tests are green.

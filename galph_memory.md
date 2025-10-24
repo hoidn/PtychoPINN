@@ -1743,3 +1743,12 @@
 - Summary: Authored EB3 blueprint (`.../2025-10-23T110500Z/plan.md`) plus summary.md, updated execution-knob plans (implementation.md E2 → [x], `phase_e_execution_knobs/plan.md` EB2.C → [x], `phase_e_governance/plan.md` E.B2 → [x]), and queued Phase A tasks for engineer.
 - Next steps: Ralph to complete EB3.A1–A3 artifacts under the new timestamp; revisit after decision proposal for implementation handoff.
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-23T123000Z: EB3 decision review setup
+- Focus issue: ADR-003-BACKEND-API — Phase EB3 logger backend decision (Phase A close-out)
+- Action type: Review or housekeeping
+- Mode: Docs
+- Findings: Reviewed Attempt #66 artifacts (`analysis/current_state.md`, `analysis/options_matrix.md`, `decision/proposal.md`) and confirmed consistency with spec §4.9/§7.1 and workflow §12. Approved CSVLogger default, TensorBoard option, and `--disable_mlflow` deprecation; logged decisions in `decision/approved.md`. Added plan context update + new C4 checklist row to track Lightning MLFlowLogger follow-up; marked `summary.md` review status as approved.
+- Input refresh: Reissued `input.md` for Phase EB3.B (TDD) pointing to artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-23T110500Z/phase_b_logger_impl/2025-10-23T130000Z/` with RED/green selectors + CLI guidance.
+- Next steps for Ralph: Execute plan rows B1–B3 (tests, implementation, validation), capture documentation sync in Phase C including MLflow backlog note, then proceed toward Phase D optional smoke if time permits.
+- <Action State>: [ready_for_implementation]

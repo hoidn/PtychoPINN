@@ -9,6 +9,7 @@
   - `specs/ptychodus_api_spec.md` §4.9 (PyTorchExecutionConfig fields), §7.1 (training CLI table)
   - `docs/workflows/pytorch.md` §12 (training CLI guide)
   - Lightning logger reference: https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.loggers.html
+  - Decision record: `decision/approved.md` (2025-10-23) — CSV default + TensorBoard option approved; `--disable_mlflow` deprecation and MLflow refactor follow-up required.
 - Artifact Hub: `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/`
   - Store option analysis under `analysis/`
   - Decision record under `decision/`
@@ -50,6 +51,7 @@ Exit Criteria: Spec/workflow guide, findings ledger, and plan/ledger entries upd
 | C1 | Update `specs/ptychodus_api_spec.md` §4.9 and §7.1 to reflect logger behaviour (field default, allowed values, CLI exposure or deprecation warning). Generate `docs/` diff and store as `docs/spec_redline.md`. | [ ] | Mirror EB2 doc process: use `git diff` to populate `docs/spec_redline.md`. Reference Lightning logger semantics directly. |
 | C2 | Refresh `docs/workflows/pytorch.md` §12 with new flag description or warning banner. Include guidance for enabling/disabling logging and highlight dependency requirements. | [ ] | Keep table text ASCII, align with spec phrasing. |
 | C3 | Update `docs/findings.md` if policy-level decision (e.g., POLICY-LOGGING-001) and mark `plans/active/ADR-003-BACKEND-API/implementation.md` Phase E rows accordingly. Append fix_plan Attempt entry with artifact links and update plan checklists to `[x]`. | [ ] | Ensure Attempt includes artifact directory `2025-10-23T110500Z`. |
+| C4 | Record MLflow logger refactor backlog item and reference future fix_plan entry once created. | [ ] | During documentation sync, add a note in plan summary and fix_plan Attempts pointing to the follow-up (Lightning `MLFlowLogger` migration) approved in `decision/approved.md`. |
 
 ### Phase D — Optional Smoke & CI Prep (if logger enabled)
 Goal: Capture deterministic smoke run demonstrating logger output and define CI gating strategy.

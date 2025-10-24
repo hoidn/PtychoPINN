@@ -152,4 +152,4 @@ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_kn
 **Prepared by:** Ralph (Engineer Agent, Attempt #65)
 **Date:** 2025-10-23
 **Mode:** Docs (no production code changes, no tests run)
-**Review Status:** ☐ Pending Supervisor Approval
+**Review Status:** ✅ Approved by supervisor (see `decision/approved.md`)
