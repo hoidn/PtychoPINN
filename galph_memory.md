@@ -1774,7 +1774,17 @@
   - Updated Phase EB3 plan rows C1–C4 with explicit guidance (spec §4.9/§7.1 rewrite, workflow guide table row, new findings/backlog note).
 - Steering actions:
   - Established documentation artifact hub `.../docs/2025-10-24T041500Z/{spec_redline.md,summary.md}`.
-  - Rewrote `input.md` (Docs mode) instructing Ralph to execute EB3.C1–C4: spec overhaul, workflow doc sync, CONFIG-LOGGER-001 addition, MLflow backlog note.
-  - Logged Attempt #69 in docs/fix_plan.md to capture planning decisions; no tests run.
+- Rewrote `input.md` (Docs mode) instructing Ralph to execute EB3.C1–C4: spec overhaul, workflow doc sync, CONFIG-LOGGER-001 addition, MLflow backlog note.
+- Logged Attempt #69 in docs/fix_plan.md to capture planning decisions; no tests run.
 - Next supervisor check: confirm docs/spec/finding updates land, ensure spec redline + summary captured, then progress to EB3.D smoke guidance.
+- <Action State>: [ready_for_implementation]
+
+## 2025-10-24T045100Z: EB3.D smoke prep kickoff
+- Focus issue: ADR-003-BACKEND-API — Phase EB3.D optional smoke + CI guidance
+- Action type: Review or housekeeping
+- Mode: Perf
+- Notes:
+  - Coin flip → heads; reviewed recent Ralph commits (`da39ded8`, `3e009421`) — doc sync and evidence consolidation look sound, no regressions observed.
+  - Updated Phase EB3 plan rows D1–D2 with explicit CSV logger smoke command, artifact packaging steps, and CI doc expectations; established smoke artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/2025-10-23T110500Z/smoke/2025-10-24T050500Z/`.
+  - Added Attempt #70 entry to docs/fix_plan.md capturing plan refresh + next steps; rewrote `input.md` to direct EB3.D1–D2 execution and creation of `docs/ci_logger_notes.md`.
 - <Action State>: [ready_for_implementation]
