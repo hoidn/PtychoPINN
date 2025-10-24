@@ -1,0 +1,3 @@
+total 53M
+-rw-rw-r-- 1 ollie ollie 27M Oct 23 21:24 epoch=epoch=05-poisson_val=poisson_val_loss=17732.7363.ckpt
+-rw-rw-r-- 1 ollie ollie 27M Oct 23 21:24 last.ckpt

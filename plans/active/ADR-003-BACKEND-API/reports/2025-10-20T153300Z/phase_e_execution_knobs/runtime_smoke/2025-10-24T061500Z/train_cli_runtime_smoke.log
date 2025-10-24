@@ -1,0 +1,100 @@
+2025-10-23 21:24:12.977834: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1761279852.989162 2568638 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1761279852.992992 2568638 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1761279853.004055 2568638 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1761279853.004068 2568638 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1761279853.004070 2568638 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1761279853.004071 2568638 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-10-23 21:24:13.006805: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-23 21:24:14.988551: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-10-23 21:24:14.988576: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-10-23 21:24:14.988582: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-10-23 21:24:14.988586: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-10-23 21:24:14.988590: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-10-23 21:24:14.988592: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-10-23 21:24:14.988616: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.195.3
+2025-10-23 21:24:14.988635: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.172.8
+2025-10-23 21:24:14.988638: E external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:294] kernel version 570.172.8 does not match DSO version 570.195.3 -- cannot find working devices in this configuration
+/home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:613: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1761279857.452588 2568638 service.cc:152] XLA service 0x2564bd20 initialized for platform Host (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1761279857.452616 2568638 service.cc:160]   StreamExecutor device (0): Host, Default Version
+2025-10-23 21:24:17.467780: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1761279857.567648 2568638 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+/home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: False, used: False
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.365     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=6` reached.
+No GPU found, using CPU instead.
+Using new CLI interface with factory-based config (ADR-003)
+Creating configuration via factory (CONFIG-001 compliance)...
+✓ Factory created configs: N=64, gridsize=(2, 2), epochs=6
+✓ Execution config: accelerator=cpu, deterministic=True, learning_rate=0.001
+Starting training with 6 epochs...
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+DEBUG: nsamples: 64, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (64, 64, 64, 4)
+diff3d shape: (64, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (64,)
+objectGuess shape: (227, 226)
+xcoords shape: (64,)
+ycoords shape: (64,)
+xcoords_start shape: (64,)
+ycoords_start shape: (64,)
+DEBUG: nsamples: 64, gridsize: 2 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (64, 64, 64, 4)
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+✓ Training completed successfully. Outputs saved to tmp/runtime_smoke
+✓ Model bundle saved to tmp/runtime_smoke/wts.h5.zip
+real 14.75
+user 99.65
+sys 2.18
