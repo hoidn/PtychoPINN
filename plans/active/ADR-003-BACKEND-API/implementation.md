@@ -58,7 +58,7 @@ Exit Criteria: `api/` surface deprecated, ADR status set to Accepted, ledger upd
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
 | E1 | Governance dossier | [ ] | Follow `reports/2025-10-20T133500Z/phase_e_governance/plan.md` Phase E.A checklist (ADR addendum, spec redline, workflow guide updates). |
-| E2 | Execution knobs hardening | [x] | ✅ EB1–EB2 complete (Attempts #60–64). Docs sync artifacts at `phase_e_execution_knobs/2025-10-23T103000Z/`. EB3 logger work tracked via new plan `phase_e_execution_knobs/2025-10-23T110500Z/plan.md`; EB4 smoke pending. |
+| E2 | Execution knobs hardening | [x] | ✅ EB1–EB3.C complete (Attempts #60–69). Logger backend implemented (CSVLogger default, TensorBoard/MLflow optional, `--disable_mlflow` deprecated). Docs sync artifacts at `phase_e_execution_knobs/2025-10-23T110500Z/docs/2025-10-24T041500Z/` (spec §4.9/§7.1 + workflow guide §12 updated, CONFIG-LOGGER-001 added to findings). MLflow Logger migration tracked as Phase EB3.C4 backlog. EB4 smoke pending. |
 | E3 | Deprecation & closure | [ ] | Complete Phase E.C checklist (legacy API deprecation, ledger/plan closure, archive summary). |
 
 ## Reporting Discipline

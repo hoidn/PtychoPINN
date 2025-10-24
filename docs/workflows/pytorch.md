@@ -326,6 +326,7 @@ The following execution config flags are available in `ptycho_torch/train.py`:
 | `--checkpoint-monitor` | str | `'val_loss'` | Metric to monitor for checkpoint selection (default: `'val_loss'`). The literal `'val_loss'` is dynamically aliased to `model.val_loss_name` (e.g., `'poisson_val_loss'` for PINN models) during Lightning configuration. Falls back to `model.train_loss_name` when validation data is unavailable. |
 | `--checkpoint-mode` | str | `'min'` | Checkpoint metric optimization mode ('min' for loss metrics, 'max' for accuracy metrics) |
 | `--early-stop-patience` | int | `100` | Early stopping patience in epochs. Training stops if monitored metric doesn't improve for this many consecutive epochs. |
+| `--logger` | str | `'csv'` | Experiment tracking backend. Options: `'csv'` (CSVLogger, zero dependencies, CI-friendly, stores metrics in `{output_dir}/lightning_logs/version_N/metrics.csv`), `'tensorboard'` (TensorBoardLogger, enables rich visualization via `tensorboard --logdir {output_dir}/lightning_logs/`), `'mlflow'` (MLFlowLogger, requires mlflow package and server URI configuration), `'none'` (disable logging, discards all metrics from `self.log()` calls). Use `'none'` with `--quiet` to suppress all output. |
 
 **Monitor Metric Aliasing:**
 The checkpoint monitor metric (`--checkpoint-monitor`) uses dynamic aliasing to handle backend-specific metric naming conventions. When you specify `--checkpoint-monitor val_loss` (the default), the training workflow automatically resolves this to the model's actual validation loss metric name (e.g., `poisson_val_loss` for PINN models). This aliasing ensures compatibility across different loss formulations without requiring users to know internal metric names. When validation data is unavailable, the system automatically falls back to the corresponding training metric (`model.train_loss_name`).
@@ -333,9 +334,18 @@ The checkpoint monitor metric (`--checkpoint-monitor`) uses dynamic aliasing to 
 **Gradient Accumulation Considerations:**
 Gradient accumulation (`--accumulate-grad-batches`) simulates larger effective batch sizes by accumulating gradients over multiple forward/backward passes before updating model weights. The effective batch size equals `batch_size × accumulate_grad_batches`. While this technique improves memory efficiency (allowing larger effective batches on memory-constrained hardware), values >1 may affect training dynamics, convergence rates, and Poisson loss stability. For PINN models with physics-informed losses, start with the default (`1`) and increase conservatively only when memory constraints require it. Monitor training curves when changing accumulation settings, as the optimizer sees fewer but larger gradient updates per epoch.
 
+**Logger Backend Details:**
+The default CSV logger captures all metrics logged via `self.log()` calls in the Lightning module (train/validation losses, learning rates) without requiring additional dependencies. Metrics are saved as CSV files under `{output_dir}/lightning_logs/version_N/metrics.csv` for easy parsing and analysis. The TensorBoard backend enables interactive visualization (line plots, histograms) but requires the `tensorboard` package (auto-installed via TensorFlow dependency). The MLflow backend integrates with MLflow tracking servers for experiment management but requires manual server setup and the `mlflow` package. Use `--logger none` to completely disable metric capture (e.g., for quick smoke tests or when metrics are not needed).
+
+**DeprecationWarning for --disable_mlflow:**
+The legacy `--disable_mlflow` flag now emits a DeprecationWarning directing users to the modern alternatives:
+- To disable experiment tracking: use `--logger none`
+- To suppress progress bars: use `--quiet`
+This flag currently maps to `--logger none` internally for backward compatibility but will be removed in a future release. Update your scripts to use the explicit `--logger` flag instead.
+
 **Deprecated Flags:**
 - `--device`: Superseded by `--accelerator`. Using `--device` will emit a deprecation warning and map to `--accelerator` automatically. Remove from scripts; this flag will be dropped in a future release.
-- `--disable_mlflow`: MLflow integration is not yet implemented; this flag is accepted but has no effect. Use `--quiet` to suppress progress output instead.
+- `--disable_mlflow`: **DEPRECATED.** Use `--logger none` (disable tracking) + `--quiet` (suppress progress) instead. Emits DeprecationWarning; will be removed in future release.
 
 **Example CLI command with execution flags:**
 ```bash
