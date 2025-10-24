@@ -238,8 +238,8 @@ class PyTorchExecutionConfig:
     checkpoint_mode: str = 'min'  # Mode for checkpoint monitoring: 'min' (lower is better) or 'max' (higher is better)
     early_stop_patience: int = 100  # Early stopping patience epochs (hardcoded in legacy code)
 
-    # Logging knobs (MLflow deferred to Phase D per open_questions.md)
-    logger_backend: Optional[str] = None  # Experiment tracking backend: None, 'tensorboard', 'wandb', 'mlflow'
+    # Logging knobs (Phase EB3.B - ADR-003)
+    logger_backend: Optional[str] = 'csv'  # Experiment tracking backend: 'csv' (default), 'tensorboard', 'mlflow', or None
 
     # Inference-specific knobs
     inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)

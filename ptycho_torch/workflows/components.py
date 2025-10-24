@@ -740,6 +740,45 @@ def _train_with_lightning(
             )
             callbacks.append(early_stop_callback)
 
+    # Instantiate logger based on execution config (Phase EB3.B - ADR-003)
+    lightning_logger = False  # Default: no logger
+    if execution_config.logger_backend is not None:
+        try:
+            if execution_config.logger_backend == 'csv':
+                from lightning.pytorch.loggers import CSVLogger
+                lightning_logger = CSVLogger(
+                    save_dir=str(output_dir),
+                    name='lightning_logs',
+                )
+                logger.info(f"Enabled CSVLogger: metrics saved to {output_dir}/lightning_logs/")
+            elif execution_config.logger_backend == 'tensorboard':
+                from lightning.pytorch.loggers import TensorBoardLogger
+                lightning_logger = TensorBoardLogger(
+                    save_dir=str(output_dir),
+                    name='lightning_logs',
+                )
+                logger.info(f"Enabled TensorBoardLogger: run `tensorboard --logdir={output_dir}/lightning_logs/`")
+            elif execution_config.logger_backend == 'mlflow':
+                from lightning.pytorch.loggers import MLFlowLogger
+                lightning_logger = MLFlowLogger(
+                    experiment_name=getattr(config, 'experiment_name', 'PtychoPINN'),
+                    tracking_uri=str(output_dir / 'mlruns'),
+                )
+                logger.info(f"Enabled MLFlowLogger: tracking URI={output_dir}/mlruns")
+            else:
+                logger.warning(
+                    f"Unknown logger_backend '{execution_config.logger_backend}'. "
+                    f"Falling back to logger=False. Supported: 'csv', 'tensorboard', 'mlflow'."
+                )
+        except ImportError as e:
+            logger.warning(
+                f"Failed to import Lightning logger '{execution_config.logger_backend}': {e}. "
+                f"Metrics logging disabled. Install the required package to enable logging."
+            )
+            lightning_logger = False
+    else:
+        logger.info("Logger disabled (logger_backend=None). Loss metrics will not be saved to disk.")
+
     # Build Trainer kwargs from execution config (Phase C3.A3)
     trainer = L.Trainer(
         max_epochs=config.nepochs,
@@ -757,7 +796,7 @@ def _train_with_lightning(
         devices=1,  # Single device for MVP; multi-GPU later
         log_every_n_steps=1,
         default_root_dir=str(output_dir),
-        logger=False,  # Disable default logger for now; MLflow/TensorBoard added in Phase D
+        logger=lightning_logger,  # Phase EB3.B: Use configured logger (False if disabled)
     )
 
     # B2.6: Execute training cycle

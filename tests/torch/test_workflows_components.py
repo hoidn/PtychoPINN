@@ -3238,3 +3238,111 @@ class TestLightningExecutionConfig:
         # Should NOT contain hardcoded 'val_loss='
         assert monitor_metric.replace('_loss', '') in filename_template, \
             f"Checkpoint filename '{filename_template}' should reference dynamic metric '{monitor_metric}'"
+
+    def test_trainer_receives_logger(self, minimal_training_config_with_val, monkeypatch):
+        """
+        RED Test: Verify Lightning Trainer receives logger instance from execution config.
+
+        Expected RED Failure:
+        - Trainer receives logger=False (hardcoded) instead of configured logger
+        OR
+        - Logger not instantiated based on execution_config.logger_backend
+
+        Resolution (GREEN):
+        - _train_with_lightning should instantiate logger based on execution_config.logger_backend
+        - Pass logger instance to Trainer(logger=...)
+        - Support 'csv', 'tensorboard', 'mlflow', and None backends
+
+        References:
+        - input.md EB3.B1 (workflow logger tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+        from unittest.mock import patch, MagicMock, call
+
+        try:
+            import lightning.pytorch as L
+            from lightning.pytorch.loggers import CSVLogger
+        except ImportError:
+            pytest.skip("Lightning not available")
+
+        # Test Case 1: CSV Logger
+        exec_config_csv = PyTorchExecutionConfig(
+            logger_backend='csv',
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+            enable_checkpointing=False,
+        )
+
+        # Mock CSVLogger
+        mock_csv_logger_cls = MagicMock(spec=CSVLogger)
+        mock_csv_logger_instance = MagicMock()
+        mock_csv_logger_cls.return_value = mock_csv_logger_instance
+
+        # Mock Trainer
+        mock_trainer_cls = MagicMock(spec=L.Trainer)
+        mock_trainer_instance = MagicMock()
+        mock_trainer_cls.return_value = mock_trainer_instance
+
+        # Mock data containers
+        mock_train_container = MagicMock()
+        mock_test_container = MagicMock()
+
+        from ptycho_torch.workflows.components import _train_with_lightning
+
+        # Patch at import sites
+        with patch('lightning.pytorch.loggers.CSVLogger', mock_csv_logger_cls), \
+             patch('lightning.pytorch.Trainer', mock_trainer_cls):
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config_with_val,
+                    execution_config=exec_config_csv,
+                )
+            except Exception:
+                pass  # May fail during training; we only care about logger setup
+
+        # GREEN Phase Assertions for CSV logger:
+        assert mock_csv_logger_cls.called, "CSVLogger not instantiated for logger_backend='csv'"
+
+        # Trainer should receive the logger instance
+        assert mock_trainer_cls.called, "Trainer not instantiated"
+        trainer_kwargs = mock_trainer_cls.call_args.kwargs
+        assert 'logger' in trainer_kwargs, "logger not passed to Trainer"
+        # Verify logger is the CSVLogger instance, not False
+        assert trainer_kwargs['logger'] is mock_csv_logger_instance, \
+            f"Expected Trainer to receive CSVLogger instance, got {trainer_kwargs['logger']}"
+
+        # Test Case 2: logger_backend=None should pass logger=False
+        exec_config_none = PyTorchExecutionConfig(
+            logger_backend=None,
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+            enable_checkpointing=False,
+        )
+
+        mock_trainer_cls_2 = MagicMock(spec=L.Trainer)
+        mock_trainer_instance_2 = MagicMock()
+        mock_trainer_cls_2.return_value = mock_trainer_instance_2
+
+        with patch('lightning.pytorch.Trainer', mock_trainer_cls_2):
+            try:
+                _train_with_lightning(
+                    train_container=mock_train_container,
+                    test_container=mock_test_container,
+                    config=minimal_training_config_with_val,
+                    execution_config=exec_config_none,
+                )
+            except Exception:
+                pass
+
+        # GREEN Phase Assertion for None backend:
+        assert mock_trainer_cls_2.called, "Trainer not instantiated for logger_backend=None"
+        trainer_kwargs_none = mock_trainer_cls_2.call_args.kwargs
+        assert 'logger' in trainer_kwargs_none, "logger not passed to Trainer"
+        # Verify logger=False when backend is None
+        assert trainer_kwargs_none['logger'] is False, \
+            f"Expected Trainer to receive logger=False for logger_backend=None, got {trainer_kwargs_none['logger']}"

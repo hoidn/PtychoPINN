@@ -418,7 +418,7 @@ Examples:
     parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu',
                        help='[DEPRECATED] Use --accelerator instead. Compute device: cpu or cuda (default: cpu)')
     parser.add_argument('--disable_mlflow', action='store_true',
-                       help='[DEPRECATED] Use --quiet instead. Disable MLflow experiment tracking (useful for CI)')
+                       help='[DEPRECATED] Use --logger none instead. Disable all experiment tracking loggers.')
     parser.add_argument('--quiet', action='store_true',
                        help='Suppress progress bars and verbose output')
 
@@ -472,6 +472,22 @@ Examples:
             'Learning rate for Adam optimizer (default: 1e-3). '
             'Typical range: 1e-5 (slow, stable) to 1e-2 (fast, may diverge). '
             'Adjust based on convergence behavior during training.'
+        )
+    )
+
+    # Logger backend flags (Phase EB3.B - ADR-003)
+    parser.add_argument(
+        '--logger',
+        type=str,
+        default='csv',
+        choices=['none', 'csv', 'tensorboard', 'mlflow'],
+        dest='logger_backend',
+        help=(
+            'Experiment tracking logger backend (default: csv). '
+            'Options: none (no logging), csv (Lightning CSVLogger), '
+            'tensorboard (TensorBoard via Lightning), mlflow (MLflow via Lightning). '
+            'Loss metrics are logged to {output_dir}/lightning_logs/{version}/. '
+            'Use --logger none if you only need progress suppression (no metrics).'
         )
     )
 

@@ -618,6 +618,167 @@ class TestExecutionConfigCLI:
         assert call_kwargs['execution_config'].accum_steps == 4, \
             f"Expected accum_steps=4, got {call_kwargs['execution_config'].accum_steps}"
 
+    def test_logger_backend_csv_default(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --logger csv sets execution_config.logger_backend='csv'.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --logger csv
+        OR
+        - AssertionError: execution_config.logger_backend != 'csv'
+
+        References:
+        - input.md EB3.B1 (logger RED tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q1
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(logger_backend='csv'),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--logger', 'csv']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].logger_backend == 'csv', \
+            f"Expected logger_backend='csv', got {call_kwargs['execution_config'].logger_backend}"
+
+    def test_logger_backend_tensorboard(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --logger tensorboard sets execution_config.logger_backend='tensorboard'.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --logger tensorboard
+        OR
+        - AssertionError: execution_config.logger_backend != 'tensorboard'
+
+        References:
+        - input.md EB3.B1 (logger RED tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q2
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(logger_backend='tensorboard'),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--logger', 'tensorboard']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].logger_backend == 'tensorboard', \
+            f"Expected logger_backend='tensorboard', got {call_kwargs['execution_config'].logger_backend}"
+
+    def test_logger_backend_none(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --logger none sets execution_config.logger_backend=None.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --logger none
+        OR
+        - AssertionError: execution_config.logger_backend != None
+
+        References:
+        - input.md EB3.B1 (logger RED tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(logger_backend=None),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--logger', 'none']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            try:
+                cli_main()
+            except SystemExit:
+                pass
+
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].logger_backend is None, \
+            f"Expected logger_backend=None, got {call_kwargs['execution_config'].logger_backend}"
+
+    def test_disable_mlflow_deprecation_warning(self, minimal_train_args, monkeypatch):
+        """
+        RED Test: --disable_mlflow emits DeprecationWarning and maps to --logger none.
+
+        Expected RED Failure:
+        - argparse.ArgumentError: unrecognized arguments: --disable_mlflow
+        OR
+        - No DeprecationWarning emitted
+        OR
+        - AssertionError: execution_config.logger_backend != None
+
+        References:
+        - input.md EB3.B1 (logger RED tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q3
+        """
+        mock_factory = MagicMock()
+        mock_factory.return_value = MagicMock(
+            tf_training_config=MagicMock(),
+            execution_config=MagicMock(logger_backend=None),
+        )
+
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
+            test_args = minimal_train_args + ['--disable_mlflow']
+
+            from ptycho_torch.train import cli_main
+            monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
+
+            # Capture warnings
+            import warnings
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+
+                try:
+                    cli_main()
+                except SystemExit:
+                    pass
+
+                # Assert DeprecationWarning was emitted
+                assert len(w) > 0, "Expected DeprecationWarning for --disable_mlflow"
+                assert any(issubclass(warning.category, DeprecationWarning) for warning in w), \
+                    "Expected DeprecationWarning category"
+                # Check message content
+                deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
+                assert any('--disable_mlflow' in str(warning.message) for warning in deprecation_warnings), \
+                    "DeprecationWarning should mention --disable_mlflow"
+
+        # Verify logger_backend was set to None
+        assert mock_factory.called
+        call_kwargs = mock_factory.call_args.kwargs
+        assert 'execution_config' in call_kwargs
+        assert call_kwargs['execution_config'].logger_backend is None, \
+            f"Expected logger_backend=None with --disable_mlflow, got {call_kwargs['execution_config'].logger_backend}"
+
 
 # RED Phase Note:
 # These tests are EXPECTED TO FAIL because:

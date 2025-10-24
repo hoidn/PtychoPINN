@@ -280,6 +280,8 @@ def create_training_payload(
     # Optimization knobs (Phase EB2.B1 - ADR-003)
     overrides_applied['scheduler'] = execution_config.scheduler
     overrides_applied['accum_steps'] = execution_config.accum_steps
+    # Logger backend (Phase EB3.B - ADR-003)
+    overrides_applied['logger_backend'] = execution_config.logger_backend
 
     # Step 7: Return TrainingPayload with all config objects + audit trail
     return TrainingPayload(

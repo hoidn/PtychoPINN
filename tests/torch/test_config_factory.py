@@ -724,6 +724,77 @@ class TestExecutionConfigOverrides:
         assert payload.overrides_applied['accum_steps'] == 4, \
             f"Expected overrides_applied['accum_steps']=4, got {payload.overrides_applied['accum_steps']}"
 
+    def test_logger_backend_csv_default(self, mock_train_npz, temp_output_dir):
+        """
+        RED Test: Factory returns CSV logger instance when logger_backend='csv'.
+
+        Expected RED Failure:
+        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'logger_backend'
+        OR
+        - NotImplementedError from factory stub
+
+        Expected GREEN Behavior:
+        - execution_config.logger_backend == 'csv'
+        - Factory returns or prepares CSV logger configuration
+
+        References:
+        - input.md EB3.B1 (factory logger tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q1
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        custom_exec_cfg = PyTorchExecutionConfig(
+            logger_backend='csv',
+        )
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+            execution_config=custom_exec_cfg,
+        )
+
+        # GREEN phase assertions:
+        assert payload.execution_config.logger_backend == 'csv', \
+            f"Expected logger_backend='csv', got {payload.execution_config.logger_backend}"
+        # Verify override tracking
+        assert 'logger_backend' in payload.overrides_applied, \
+            "logger_backend must appear in overrides_applied audit trail"
+        assert payload.overrides_applied['logger_backend'] == 'csv'
+
+    def test_logger_backend_tensorboard(self, mock_train_npz, temp_output_dir):
+        """
+        RED Test: Factory handles TensorBoard logger backend configuration.
+
+        Expected RED Failure:
+        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'logger_backend'
+        OR
+        - NotImplementedError from factory stub
+
+        Expected GREEN Behavior:
+        - execution_config.logger_backend == 'tensorboard'
+
+        References:
+        - input.md EB3.B1 (factory logger tests)
+        - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q2
+        """
+        from ptycho.config.config import PyTorchExecutionConfig
+
+        custom_exec_cfg = PyTorchExecutionConfig(
+            logger_backend='tensorboard',
+        )
+
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={'n_groups': 512},
+            execution_config=custom_exec_cfg,
+        )
+
+        # GREEN phase assertions:
+        assert payload.execution_config.logger_backend == 'tensorboard', \
+            f"Expected logger_backend='tensorboard', got {payload.execution_config.logger_backend}"
+
 
 # ============================================================================
 # Test Category 7: Probe Size Inference Helper

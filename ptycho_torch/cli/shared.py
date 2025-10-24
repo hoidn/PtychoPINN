@@ -117,6 +117,22 @@ def build_execution_config_from_args(
     quiet_mode = getattr(args, 'quiet', False) or getattr(args, 'disable_mlflow', False)
     enable_progress_bar = not quiet_mode
 
+    # Handle logger backend with deprecation (Phase EB3.B - ADR-003)
+    logger_backend_raw = getattr(args, 'logger_backend', 'csv')  # default to CSV
+    if getattr(args, 'disable_mlflow', False):
+        # Emit deprecation warning for --disable_mlflow
+        warnings.warn(
+            "The --disable_mlflow flag is deprecated. "
+            "Use --logger none instead to disable all experiment loggers, "
+            "or --quiet to suppress progress bars without disabling metrics logging.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        logger_backend_raw = 'none'  # Override with none
+
+    # Map 'none' string to None type for PyTorchExecutionConfig
+    logger_backend = None if logger_backend_raw == 'none' else logger_backend_raw
+
     # Emit deterministic+num_workers warning (training only)
     if mode == 'training' and args.deterministic and args.num_workers > 0:
         warnings.warn(
@@ -143,6 +159,8 @@ def build_execution_config_from_args(
             # Optimization knobs (Phase EB2.A2 - ADR-003)
             scheduler=getattr(args, 'scheduler', 'Default'),
             accum_steps=getattr(args, 'accumulate_grad_batches', 1),
+            # Logger backend (Phase EB3.B - ADR-003)
+            logger_backend=logger_backend,
         )
     elif mode == 'inference':
         return PyTorchExecutionConfig(
