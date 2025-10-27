@@ -46,6 +46,16 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** ai-assisted-development, phase-based-workflow, planning, project-management, test-driven  
 **Use this when:** Starting any new development initiative or structuring complex work into manageable phases.
 
+### [Agent Git Setup (Runbook)](../prompts/git_setup_agent.md)
+**Description:** Step-by-step, idempotent setup for Git in supervisor/loop/orchestrator environments. Covers global config defaults, submodule hygiene for .claude/claude, .gitignore hardening for logs/outputs/data, safe pull wrappers, and recovery playbooks.  
+**Keywords:** git, automation, supervisor, loop, submodules, rebase, setup  
+**Use this when:** Bringing the orchestration stack to a new repo or stabilizing pull/rebase behavior.
+
+### [Git Hygiene Guidelines](../prompts/git_hygiene.md)
+**Description:** Reusable practices to keep automation-friendly repositories clean and conflict-free: submodule policy (ignore=dirty for tooling), ignore lists, safe pull patterns, CI guidance, and verification checklist.  
+**Keywords:** git-hygiene, submodules, ignore, CI, rerere, autosquash  
+**Use this when:** Maintaining multiple repos that run the same supervisor/loop and you want consistent, low-friction Git behavior.
+
 ## Architecture & Development
 
 ### Core Documentation

@@ -149,6 +149,18 @@ Do **not** mix `unittest.TestCase` classes with pytest parametrization. Write ne
 
 ## 5. Key Commands
 
+### Git Bootstrap
+```bash
+# One-time repo setup for supervisor/loop stability
+scripts/bootstrap_git.sh --update-gitignore
+
+# Options:
+#   --force             proceed if working tree is dirty
+#   --global            also set global git configs
+```
+- Read first: prompts/git_setup_agent.md (agent runbook with literal steps)
+- See also: prompts/git_hygiene.md (reusable guidelines across repos)
+
 ### Environment Verification
 ```bash
 # Install in editable mode
