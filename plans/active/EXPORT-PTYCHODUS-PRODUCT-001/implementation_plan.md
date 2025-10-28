@@ -9,7 +9,7 @@ Key constraints (per request):
 - Coordinates: NPZ coords are relative to object pixels; convert to meters using object pixel size
 - Pixel sizes and some physics fields may be unavailable; use dummy defaults when absent
 - Derive object center from metadata if available; otherwise default to (0.0, 0.0) meters
-- Loss history: do not include (skip losses entirely)
+ - Loss history: emit empty loss datasets per spec (write empty `loss_values` and optionally empty `loss_epochs` when no history is available)
 - Convert Run1084 only; do not convert fly64 datasets
 
 ### 2. Authoritative References
@@ -58,8 +58,10 @@ Key constraints (per request):
   - `name`, `comments`, `detector_object_distance_m`, `probe_energy_eV`, `exposure_time_s`, `probe_photon_count`, `mass_attenuation_m2_kg`, `tomography_angle_deg`
   - Use `ExportMeta` and fallback dummy values when not provided
 
-- Losses
-  - Not included (do not write `loss_values` / `loss_epochs`)
+ - Losses
+  - Emit empty datasets when losses are unavailable
+    - `loss_values`: write an empty float64 array (required by spec)
+    - `loss_epochs`: write an empty int array (optional; recommended for compatibility)
 
 ### 5. Data Mapping (Product → RawData)
 
@@ -147,4 +149,3 @@ Key constraints (per request):
 - Author `test_strategy.md` for this initiative
 - Implement exporter/importer skeletons with unit tests (RED)
 - Prepare CLI scaffold for Run1084 conversion
-

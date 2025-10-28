@@ -194,6 +194,9 @@ following behavioural contract in addition to the configuration bridge.
   `objectGuess`, and `scan_index` (`ptychodus/src/ptychodus/model/ptychopinn/reconstructor.py:200-224`). Any
   alternate implementation must emit the same schema so that `RawData.from_file` and downstream code can
   reload the data (`ptycho/raw_data.py`).
+- NPZ diffraction content MUST be amplitude (sqrt of intensity), not raw intensity, to avoid downstream
+  shape/scale mismatches (see docs/debugging/TROUBLESHOOTING.md and CLAUDE.md §4.2). Callers are responsible
+  for converting intensity to amplitude prior to packaging NPZ inputs.
 - `train()` expects a directory containing `train_data.npz` and `test_data.npz` with the same schema and runs the
   full TensorFlow pipeline via `run_cdi_example` (`ptychodus/src/ptychodus/model/ptychopinn/reconstructor.py:229-269`,
   `ptycho/workflows/components.py:676-732`). The backend must either call into those workflows or provide
@@ -212,6 +215,15 @@ following behavioural contract in addition to the configuration bridge.
 - `save_model()` calls `ptycho.model_manager.save`, which ultimately produces the same archive layout expected by
   `open_model()` (`ptychodus/src/ptychodus/model/ptychopinn/reconstructor.py:194-195`).
 
+Archive identification and backend tagging
+- File name: Model archives SHALL use the canonical base name `wts.h5` with a zip extension, i.e. `wts.h5.zip`.
+- Manifest: Archives SHALL include a `manifest.dill` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`.
+  PyTorch archives MUST additionally include `backend: 'pytorch'`; TensorFlow MAY omit this field and defaults to `'tensorflow'`.
+- Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain Lightning
+  `.ckpt` payload(s) and serialized hyperparameters required for state-free reload. The outer archive structure remains identical.
+- Cross-backend loading: Not required. When unsupported, loaders MUST raise a descriptive error stating the archived backend and
+  the active loader backend.
+
 #### 4.7. Backend-Specific Runtime Requirements
 
 **TensorFlow Path:**
@@ -228,6 +240,8 @@ following behavioural contract in addition to the configuration bridge.
 - CLI entrypoints (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) MUST delegate to shared helper functions (`ptycho_torch/cli/shared.py`) for path validation, accelerator resolution, and execution config construction. Helpers SHALL emit deprecation warnings for legacy flags (`--device`, `--disable_mlflow`) and map them to modern equivalents (`--accelerator`, `--quiet`).
 - Execution config objects (`PyTorchExecutionConfig`, see §4.9) MUST NOT populate `params.cfg` via `update_legacy_dict`; they control runtime behavior only. Canonical configs (`TrainingConfig`, `InferenceConfig`) continue to bridge via CONFIG-001.
 - Runtime failures SHALL raise actionable errors: `RuntimeError` if PyTorch >=2.2 unavailable (POLICY-001), `ValueError` for invalid execution config fields, `FileNotFoundError` for missing data/checkpoint paths (Phase C2 evidence: `ptycho_torch/cli/shared.py:validate_paths`).
+ - Experiment logging via MLflow is OPTIONAL. The default logger backend is `'csv'` (`logger_backend='csv'`), and `'none'` disables logging.
+   Implementations MUST NOT require MLflow in environments where it is not installed.
 
 #### 4.8. Backend Selection & Dispatch
 
@@ -242,6 +256,12 @@ following behavioural contract in addition to the configuration bridge.
 - **Persistence Parity**: Backends MUST persist archives in formats compatible with their load paths. Cross-backend artifact loading is OPTIONAL but, when unsupported, the dispatcher MUST raise a descriptive error (referenced in `tests/torch/test_model_manager.py:238-372`).
 - **Validation Errors**: Dispatcher MUST raise `ValueError` if `config.backend` is not one of the supported literals, guiding callers to correct usage. Factories MUST raise `ValueError` for invalid execution config fields and `FileNotFoundError` for missing paths (Phase C2 validation evidence).
 - **Inference Symmetry**: The same guarantees apply to `load_inference_bundle_with_backend()` to ensure train/save/load/infer workflows remain symmetric.
+
+Routing surface
+- Acceptable entrypoints for the PyTorch path include either `ptycho_torch.workflows.components` or the high-level API
+  in `ptycho_torch/api/base_api.py`, provided the exposed functions conform to the same signatures and return values as
+  the TensorFlow `ptycho.workflows.components` functions. The dispatcher MUST ensure signature parity and identical
+  result semantics regardless of the chosen surface.
 
 #### 4.9. PyTorch Execution Configuration Contract
 
@@ -438,3 +458,7 @@ The following `PyTorchExecutionConfig` fields are not yet exposed via CLI but ar
 ### 9. Architectural Rationale
 
 This hybrid system was intentionally designed to facilitate the modernization of a large, existing codebase. The legacy `params.cfg` dictionary allowed for rapid prototyping but created tight coupling and global state issues. The modern dataclass system introduces structure, type safety, and validation. The `update_legacy_dict` bridge allows legacy modules to continue functioning without immediate refactoring, while enabling new code and external systems like `ptychodus` to use a clean, modern API.
+
+Terminology note
+- “Model archive” refers to the training/inference weights bundle (`wts.h5.zip`).
+- “Product file” refers to the Ptychodus HDF5 product (`*.h5`, `*.hdf5`) defined in `specs/data_contracts.md`.
