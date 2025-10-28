@@ -63,6 +63,7 @@ def export_product_from_rawdata(
     raw: "RawData",
     out_path: Path,
     meta: Optional[ExportMeta] = None,
+    include_raw: bool = True,
 ) -> None:
     """Export a RawData instance to a Ptychodus HDF5 product file.
 
@@ -140,6 +141,38 @@ def export_product_from_rawdata(
         # Losses (write empty datasets for reader compatibility)
         f.create_dataset("loss_values", data=np.array([], dtype=np.float64))
         f.create_dataset("loss_epochs", data=np.array([], dtype=np.int64))
+
+        # Optional raw-data bundle (non-normative extension)
+        if include_raw:
+            f.attrs["bundle_version"] = "1.0"
+            f.attrs["contains_raw_data"] = 1
+            g = f.require_group("raw_data")
+
+            # Diffraction as-is if available on raw stub
+            diff = getattr(raw, "diff3d", None)
+            if diff is None:
+                # Some NPZs use 'diffraction' key naming; in CLI we map to diff3d
+                diff = getattr(raw, "diffraction", None)
+            if diff is not None:
+                # Use gzip compression for reasonable size reduction
+                g.create_dataset(
+                    "diffraction",
+                    data=np.asarray(diff),
+                    compression="gzip",
+                    compression_opts=4,
+                    shuffle=True,
+                )
+
+            # Coordinates and indices (store as pixels for fidelity with source NPZ)
+            g.create_dataset("xcoords", data=np.asarray(x_px, dtype=np.float64))
+            g.create_dataset("ycoords", data=np.asarray(y_px, dtype=np.float64))
+            g.create_dataset("scan_index", data=scan_index)
+
+            # Link guesses to root datasets to avoid duplication
+            if "probe" in f:
+                g["probeGuess"] = f["probe"]
+            if "object" in f:
+                g["objectGuess"] = f["object"]
 
 
 def import_product_to_rawdata(in_path: Path) -> "RawData":

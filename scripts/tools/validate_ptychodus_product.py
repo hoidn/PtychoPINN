@@ -116,6 +116,22 @@ def validate_file(path: Path, source_npz: Path | None = None) -> Result:
             if f["probe_position_x_m"].shape[0] != n or f["probe_position_y_m"].shape[0] != n:
                 errs.append("position arrays lengths mismatch")
 
+        # Optional raw_data bundle checks
+        if "raw_data" in f:
+            grp = f["raw_data"]
+            # Check diffraction present when declared as bundle
+            if "diffraction" not in grp:
+                # Not fatal: may be missing in some bundles
+                pass
+            else:
+                d = grp["diffraction"]
+                if d.ndim != 3:
+                    errs.append(f"raw_data/diffraction expected 3D, got {d.shape}")
+            for k in ["xcoords", "ycoords", "scan_index"]:
+                if k not in grp:
+                    errs.append(f"raw_data missing {k}")
+            # probeGuess/objectGuess may be hard links to root datasets; ok if absent
+
         # Cross-check against source NPZ (optional)
         if source_npz is not None and "object" in f:
             try:
@@ -166,4 +182,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -60,6 +60,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--object-center-x-m", type=float, default=0.0)
     parser.add_argument("--object-center-y-m", type=float, default=0.0)
 
+    # Bundle raw data by default; allow disabling with --no-include-diffraction
+    parser.add_argument(
+        "--include-diffraction",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Include raw diffraction + coords under /raw_data (default: true)",
+    )
+
     return parser.parse_args(argv)
 
 
@@ -79,7 +87,10 @@ def main(argv: list[str] | None = None) -> int:
         raw.probeGuess = data["probeGuess"]
         raw.objectGuess = data.get("objectGuess", np.ones((16, 16), dtype=np.complex64))
         raw.scan_index = data.get("scan_index", np.zeros_like(raw.xcoords, dtype=int))
-        raw.diff3d = None
+        # Diffraction key may be 'diff3d' or 'diffraction'
+        raw.diff3d = data.get("diff3d")
+        if raw.diff3d is None and "diffraction" in data:
+            raw.diff3d = data["diffraction"]
 
     # Build metadata (scaffold defaults fill in missing fields)
     meta = ExportMeta(
@@ -100,7 +111,12 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     try:
-        export_product_from_rawdata(raw, args.output_product, meta)
+        export_product_from_rawdata(
+            raw,
+            args.output_product,
+            meta,
+            include_raw=bool(args.include_diffraction),
+        )
     except NotImplementedError as e:
         print(f"Exporter not yet implemented: {e}", file=sys.stderr)
         return 2
