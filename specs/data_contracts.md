@@ -198,3 +198,20 @@ with h5py.File('product.h5', 'w') as f:
     f.create_dataset('loss_epochs', data=np.array([0, 1, 2], dtype=np.int32))
 ```
 
+### 12. Optional raw_data Bundle (Extension)
+
+Some workflows may embed the source dataset alongside the product in a single file. This extension preserves full compatibility with the product contract by writing raw data under a namespaced group.
+
+- **Group:** `/raw_data` (extension; optional)
+- **Required (if present):**
+  - `diffraction`: canonical NHW array, shape `[N, H, W]`, dtype float32/float64
+    - Attributes:
+      - `axis_canonical = 'NHW'`
+      - `original_axis_order` (optional): original axis tag (`'NHW'|'HNW'|'HWN'`)
+  - `xcoords`, `ycoords`: pixel coordinates (float), shape `[N]`
+  - `scan_index`: int32/int64, shape `[N]`
+- **Optional:**
+  - `probeGuess`, `objectGuess`: may be HDF5 hard links to root datasets `/probe` and `/object`
+  - `_metadata`: JSON string with source metadata (e.g., nphotons)
+
+Writers should canonicalize `diffraction` to NHW (first axis length equals `len(xcoords)`); readers must not assume presence of `/raw_data`.

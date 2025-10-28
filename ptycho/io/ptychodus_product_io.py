@@ -154,14 +154,37 @@ def export_product_from_rawdata(
                 # Some NPZs use 'diffraction' key naming; in CLI we map to diff3d
                 diff = getattr(raw, "diffraction", None)
             if diff is not None:
-                # Use gzip compression for reasonable size reduction
-                g.create_dataset(
+                diff = np.asarray(diff)
+                # Canonicalize axis order to (N, H, W): NHW
+                original_order = None
+                if diff.ndim == 3:
+                    n_images = x_px.shape[0]
+                    # Find axis whose length matches number of points
+                    try:
+                        axis = [i for i, d in enumerate(diff.shape) if d == n_images][0]
+                    except IndexError:
+                        axis = 0  # fallback, leave as-is
+                    if axis == 0:
+                        original_order = "NHW"
+                        diff_c = diff
+                    elif axis == 1:
+                        original_order = "HNW"
+                        diff_c = np.moveaxis(diff, 1, 0)
+                    else:  # axis == 2 or fallback
+                        original_order = "HWN"
+                        diff_c = np.moveaxis(diff, 2, 0)
+                else:
+                    diff_c = diff
+                dset = g.create_dataset(
                     "diffraction",
-                    data=np.asarray(diff),
+                    data=diff_c,
                     compression="gzip",
                     compression_opts=4,
                     shuffle=True,
                 )
+                dset.attrs["axis_canonical"] = "NHW"
+                if original_order is not None:
+                    dset.attrs["original_axis_order"] = original_order
 
             # Coordinates and indices (store as pixels for fidelity with source NPZ)
             g.create_dataset("xcoords", data=np.asarray(x_px, dtype=np.float64))

@@ -127,6 +127,13 @@ def validate_file(path: Path, source_npz: Path | None = None) -> Result:
                 d = grp["diffraction"]
                 if d.ndim != 3:
                     errs.append(f"raw_data/diffraction expected 3D, got {d.shape}")
+                # Enforce canonical NHW: first dim must match xcoords length
+                if "xcoords" in grp and d.ndim == 3:
+                    n = grp["xcoords"].shape[0]
+                    if d.shape[0] != n:
+                        errs.append(
+                            f"raw_data/diffraction first axis ({d.shape[0]}) != len(xcoords) ({n})"
+                        )
             for k in ["xcoords", "ycoords", "scan_index"]:
                 if k not in grp:
                     errs.append(f"raw_data missing {k}")
