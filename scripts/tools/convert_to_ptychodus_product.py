@@ -18,7 +18,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from ptycho.raw_data import RawData
+import numpy as np
+from pathlib import Path as _P
+import sys as _sys
+
+# Ensure project root is on sys.path so 'ptycho' can be imported when running from scripts/tools
+_sys.path.insert(0, str(_P(__file__).resolve().parents[2]))
+
 from ptycho.io.ptychodus_product_io import ExportMeta, export_product_from_rawdata
 
 
@@ -60,8 +66,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
-    # Load RawData from NPZ
-    raw = RawData.from_file(str(args.input_npz))
+    # Load NPZ directly to avoid tensorflow dependency in RawData
+    with np.load(str(args.input_npz), allow_pickle=True) as data:
+        class _RawStub:
+            pass
+
+        raw = _RawStub()
+        raw.xcoords = data["xcoords"]
+        raw.ycoords = data["ycoords"]
+        raw.xcoords_start = data.get("xcoords_start", raw.xcoords)
+        raw.ycoords_start = data.get("ycoords_start", raw.ycoords)
+        raw.probeGuess = data["probeGuess"]
+        raw.objectGuess = data.get("objectGuess", np.ones((16, 16), dtype=np.complex64))
+        raw.scan_index = data.get("scan_index", np.zeros_like(raw.xcoords, dtype=int))
+        raw.diff3d = None
 
     # Build metadata (scaffold defaults fill in missing fields)
     meta = ExportMeta(
@@ -86,6 +104,9 @@ def main(argv: list[str] | None = None) -> int:
     except NotImplementedError as e:
         print(f"Exporter not yet implemented: {e}", file=sys.stderr)
         return 2
+    except Exception as e:
+        print(f"Conversion failed: {e}", file=sys.stderr)
+        return 3
 
     print(f"Wrote Ptychodus product: {args.output_product}")
     return 0
@@ -93,4 +114,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
