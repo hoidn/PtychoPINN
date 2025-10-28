@@ -1,214 +1,200 @@
-# Data Contracts for the PtychoPINN Pipeline
+## Ptychodus Data Contracts
 
-This document defines the official format for key data artifacts used in this project. All tools that generate or consume these files MUST adhere to these contracts.
+### 1. Scope
 
----
+This document defines the normative on‑disk data format for Ptychodus product files written and read by `H5ProductFileIO` (file filter: "Ptychodus Product Files (*.h5 *.hdf5)"). The format is HDF5 with a fixed set of root attributes and datasets capturing metadata, scan geometry, probe(s), object, and training loss history.
 
-## 1. Canonical Ptychography Dataset (`.npz` format)
+The specification is derived from and authoritative over the reference I/O implementation (`H5ProductFileIO`). Readers and writers must follow the rules below for field names, units, shapes, and types. Implementations must ignore unknown attributes/datasets and must not rely on unspecified fields.
 
-This contract applies to any dataset that is considered "ready for training" or is the final output of a preparation pipeline (e.g., from `prepare.sh`).
+### 2. File Identification
 
-**File Naming Convention:** `*_train.npz`, `*_test.npz`, `*_prepared.npz`
+- Container: HDF5 (`.h5` or `.hdf5`).
+- Root object stores global metadata as attributes; data arrays are root datasets named below.
+- Optional but recommended root attribute: `format_id = 'ptychodus.product.hdf5'` and `format_version = '1.0'`. Readers must not require these for backward compatibility.
 
-| Key Name      | Shape                 | Data Type      | Description                                                              | Notes                                                              |
-| :------------ | :-------------------- | :------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------------- |
-| `diffraction` | `(n_images, H, W)`    | `float32`      | The stack of measured diffraction patterns (amplitude, not intensity). **MUST be normalized** - see normalization requirements below.   | **Required.** Formerly `diff3d`. Must be 3D.                       |
-| `Y`           | `(n_images, H, W)`    | `complex64`    | The stack of ground truth real-space object patches.                     | **Required for supervised training.** **MUST be 3D.** Squeeze any channel dimension. |
-| `objectGuess` | `(M, M)`              | `complex64`    | The full, un-patched ground truth object.                                | **Required.**                                                      |
-| `probeGuess`  | `(H, W)`              | `complex64`    | The ground truth probe.                                                  | **Required.**                                                      |
-| `xcoords`     | `(n_images,)`         | `float64`      | The x-coordinates of each scan position.                                 | **Required.**                                                      |
-| `ycoords`     | `(n_images,)`         | `float64`      | The y-coordinates of each scan position.                                 | **Required.**                                                      |
-| `scan_index`  | `(n_images,)`         | `int`          | The index of the scan point for each diffraction pattern.                | Optional, but recommended.                                         |
+### 3. Global Metadata (root attributes)
 
-### Normalization Requirements
+Required attributes
+- `name` (string): Human‑readable product name.
+- `comments` (string): Free‑form notes.
+- `detector_object_distance_m` (float64): Distance from detector to object in meters.
+- `probe_energy_eV` (float64): Probe photon energy in electron volts.
+- `exposure_time_s` (float64): Exposure time in seconds.
 
-**⚠️ CRITICAL:** PtychoPINN expects data in a specific normalization state. Incorrect normalization is a common source of errors.
+Optional attributes
+- `probe_photon_count` (float64): Expected photon count per exposure.
+- `mass_attenuation_m2_kg` (float64): Mass attenuation coefficient in m²/kg.
+- `tomography_angle_deg` (float64): Rotation angle in degrees for tomographic acquisition (default 0 if absent).
 
-#### Required Data State
+Encoding
+- Strings are UTF‑8 variable‑length. Numerics are IEEE‑754; writers should use `float64` for real values.
 
-1. **Diffraction patterns MUST be normalized**
-   - Data should be in a normalized range (typically with max values < 1.0)
-   - The `nphotons` parameter controls physics scaling during training, NOT data values
-   - Example: Even for nphotons=1e6, diffraction data remains normalized
+### 4. Scan Geometry (root datasets)
 
-2. **Intensity vs Amplitude**
-   - `diffraction` array MUST contain amplitude (square root of intensity)
-   - If you have intensity data: `diffraction = np.sqrt(intensity)`
-   - The model applies intensity scaling internally for physics calculations
+All arrays below have length `N_scan` and must be the same length.
 
-3. **DO NOT pre-apply photon scaling**
-   ```python
-   # WRONG - Don't scale by photon count in the data
-   diffraction = np.sqrt(intensity) * photon_scale
-   
-   # CORRECT - Keep data normalized
-   diffraction = np.sqrt(intensity)
-   # Set nphotons in config for physics modeling
-   ```
+- `probe_position_indexes` (int32 or int64) [N_scan]
+  - Zero‑based index selecting a probe entry (see §5.1) for each scan point.
+  - Values must be in `[0, K-1]`, where `K = len(probes)`.
 
-#### Validation
+- `probe_position_x_m` (float64) [N_scan]
+  - X positions in meters (object plane/world frame).
 
-To verify your data meets normalization requirements:
+- `probe_position_y_m` (float64) [N_scan]
+  - Y positions in meters (object plane/world frame).
+
+Coordinate conventions
+- Positions are in the same world coordinate system as the object center (§6). The mapping from world to object pixel indices follows `ObjectGeometry.map_scan_point_to_object_point()`.
+
+### 5. Probe
+
+Dataset
+- `probe` (complex64 or complex128)
+  - Shape options:
+    - 2D: `[H, W]` (single coherent, single incoherent mode)
+    - 3D: `[I, H, W]` (single coherent, `I` incoherent modes)
+    - 4D: `[C, I, H, W]` (`C` coherent modes, `I` incoherent modes) — canonical form used internally by `ProbeSequence`.
+  - Writers should prefer complex64 to reduce size; readers must accept complex64 or complex128.
+
+Attributes (required)
+- `pixel_width_m` (float64) > 0: Physical width of a pixel.
+- `pixel_height_m` (float64) > 0: Physical height of a pixel.
+
+Attributes (optional)
+- `opr_weights` (float32/float64) [K, C]
+  - Orthonormal probe reconstruction (OPR) weights; each row is a length‑`C` weight vector to combine `C` coherent modes into a single effective mode for that probe entry.
+  - `K` defines the number of probe entries addressable by `probe_position_indexes` (see §4). If absent, `len(probes) == 1` and no per‑scan OPR combining is applied.
+  - Each row should be non‑negative and L1‑normalized (recommended, not enforced).
+
+Note: The `opr_weights` location is normative as a probe dataset attribute. Implementations must not store it as a separate root dataset.
+
+### 6. Object
+
+Dataset
+- `object` (complex64 or complex128)
+  - Shape options:
+    - 2D: `[H, W]` for a single layer (reader promotes to `[1, H, W]`).
+    - 3D: `[L, H, W]` for `L` layers (canonical form used internally by `Object`).
+  - Writers should prefer complex64; readers must accept complex64 or complex128.
+
+Attributes (required)
+- `center_x_m` (float64): World X coordinate of the object center.
+- `center_y_m` (float64): World Y coordinate of the object center.
+- `pixel_width_m` (float64) > 0: Object pixel width in meters.
+- `pixel_height_m` (float64) > 0: Object pixel height in meters.
+
+Auxiliary dataset (required)
+- `object_layer_spacing_m` (float64)
+  - Shape: `[L-1]` for `L` object layers; empty (`[0]`) if `L == 1`.
+  - Each value is the axial spacing (meters) between adjacent layers along the beam direction.
+
+Coordinate conventions
+- Array indexing is row‑major: axis order `[layer, y, x]` where `y` is rows (height), `x` is columns (width).
+- The world position of pixel `(y, x)` is computed via `ObjectGeometry` using the object center and pixel sizes; array origin is not the world origin.
+
+### 7. Loss History
+
+Datasets
+- `loss_values` (float64) [E] (required)
+  - Scalar loss per epoch; monotonic decreasing is not required.
+
+- `loss_epochs` (int32 or int64) [E] (optional)
+  - Epoch indices corresponding to `loss_values`. If absent, assume `0..E-1`.
+
+Backward compatibility
+- Readers must accept `costs` (float array) as an alias for `loss_values` when `loss_values` is absent. Writers must emit `loss_values` and are encouraged to include `loss_epochs`.
+
+### 8. Types, Units, and Validation Rules
+
+- Complex arrays: complex64 preferred; complex128 allowed.
+- Real arrays/attributes: float64 preferred; float32 allowed for attributes if necessary (readers must upcast as needed).
+- Index arrays: int32 or int64. Use zero‑based indexing.
+- Units: meters (`*_m`), seconds (`*_s`), electron volts (`*_eV`), degrees (`*_deg`), square meters per kilogram (`*_m2_kg`).
+- Consistency checks (recommended):
+  - `len(probe_position_indexes) == len(probe_position_x_m) == len(probe_position_y_m)`.
+  - If `opr_weights` present with shape `[K, C]`, then `0 ≤ probe_position_indexes[i] < K` for all `i` and the probe array has `C` coherent modes (i.e., `probe.shape[0] == C` in the 4D case, or implied `C == 1` for 2D/3D arrays).
+  - `object_layer_spacing_m.shape[0] == (L - 1)` where `L` is the number of object layers after promoting 2D to 3D.
+
+### 9. Example Layout
+
+```
+/
+  @ name: "My Reconstruction"                  (string)
+  @ comments: "Phase retrieval run ..."         (string)
+  @ detector_object_distance_m: 0.750           (float64)
+  @ probe_energy_eV: 8000.0                     (float64)
+  @ probe_photon_count: 1.0e6                   (float64, optional)
+  @ exposure_time_s: 0.1                        (float64)
+  @ mass_attenuation_m2_kg: 0.0                 (float64, optional)
+  @ tomography_angle_deg: 0.0                   (float64, optional)
+
+  probe: complex64 [C, I, H, W]
+    @ pixel_width_m: 1.25e-7                    (float64)
+    @ pixel_height_m: 1.25e-7                   (float64)
+    @ opr_weights: float64 [K, C]               (optional)
+
+  object: complex64 [L, H, W]
+    @ center_x_m: 0.0                           (float64)
+    @ center_y_m: 0.0                           (float64)
+    @ pixel_width_m: 5.0e-8                     (float64)
+    @ pixel_height_m: 5.0e-8                    (float64)
+
+  object_layer_spacing_m: float64 [L-1]
+
+  probe_position_indexes: int32 [N_scan]
+  probe_position_x_m: float64 [N_scan]
+  probe_position_y_m: float64 [N_scan]
+
+  loss_epochs: int32 [E]                        (optional)
+  loss_values: float64 [E]
+```
+
+### 10. Compliance Notes for Implementers
+
+- Writers must attach `opr_weights` as an attribute of the `probe` dataset (not as a root dataset) to match reader expectations.
+- Writers should emit `loss_values`/`loss_epochs`; readers must accept `costs` in place of `loss_values` for backward compatibility.
+- Writers should prefer complex64 for arrays and float64 for real values to balance size and precision.
+- Readers should upcast real/complex types as needed for internal processing; do not assume exact storage dtypes.
+
+### 11. Non‑Normative Python Snippets
+
+Creating the minimal structure with `h5py`:
 
 ```python
-import numpy as np
+import h5py, numpy as np
 
-# Load your dataset
-data = np.load('your_dataset.npz')
+with h5py.File('product.h5', 'w') as f:
+    # Root attributes
+    f.attrs['name'] = 'Example'
+    f.attrs['comments'] = 'Demo reconstruction'
+    f.attrs['detector_object_distance_m'] = 0.75
+    f.attrs['probe_energy_eV'] = 8000.0
+    f.attrs['exposure_time_s'] = 0.1
 
-# Check normalization
-assert np.max(data['diffraction']) < 10.0, "Data appears unnormalized"
-assert np.min(data['diffraction']) >= 0.0, "Amplitude should be non-negative"
+    # Scan
+    N = 10
+    f.create_dataset('probe_position_indexes', data=np.zeros(N, dtype=np.int32))
+    f.create_dataset('probe_position_x_m', data=np.linspace(-1e-6, 1e-6, N))
+    f.create_dataset('probe_position_y_m', data=np.linspace(-1e-6, 1e-6, N))
 
-# Check data type
-assert data['diffraction'].dtype == np.float32, "Should be float32"
+    # Probe (single coherent & incoherent mode as 2D)
+    H, W = 64, 64
+    p = (np.random.randn(H, W) + 1j*np.random.randn(H, W)).astype(np.complex64)
+    dset_probe = f.create_dataset('probe', data=p)
+    dset_probe.attrs['pixel_width_m'] = 1.25e-7
+    dset_probe.attrs['pixel_height_m'] = 1.25e-7
 
-# Check for amplitude (not intensity)
-# Amplitude data typically has smaller dynamic range than intensity
-ratio = np.max(data['diffraction']) / np.mean(data['diffraction'])
-assert ratio < 100, "May be intensity instead of amplitude"
+    # Object (single layer)
+    obj = (np.random.randn(H, W) + 1j*np.random.randn(H, W)).astype(np.complex64)
+    dset_obj = f.create_dataset('object', data=obj)
+    dset_obj.attrs['center_x_m'] = 0.0
+    dset_obj.attrs['center_y_m'] = 0.0
+    dset_obj.attrs['pixel_width_m'] = 5.0e-8
+    dset_obj.attrs['pixel_height_m'] = 5.0e-8
+    f.create_dataset('object_layer_spacing_m', data=np.array([], dtype=np.float64))
+
+    # Losses
+    f.create_dataset('loss_values', data=np.array([1.0, 0.9, 0.85], dtype=np.float64))
+    f.create_dataset('loss_epochs', data=np.array([0, 1, 2], dtype=np.int32))
 ```
 
-**For detailed normalization information:** See <doc-ref type="guide">docs/DATA_NORMALIZATION_GUIDE.md</doc-ref>
-
----
-
-## 2. Experimental and Raw Dataset Formats
-
-Some datasets may not initially conform to the canonical format above and require preprocessing before use with PtychoPINN. These are typically raw experimental datasets or legacy formats.
-
-### Raw Dataset Format (requires preprocessing)
-
-Raw experimental datasets often use legacy naming conventions and data types that require conversion:
-
-| Key Name      | Shape                 | Data Type      | Description                                                              | Action Required                                                    |
-| :------------ | :-------------------- | :------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------------- |
-| `diff3d`      | `(n_images, H, W)`    | `uint16`       | Legacy diffraction patterns as intensity data.                          | **Convert to `diffraction` with float32 amplitude using <code-ref type="tool">scripts/tools/transpose_rename_convert_tool.py</code-ref>** |
-| Missing `Y`   | N/A                   | N/A            | Ground truth patches not pre-computed.                                  | **Generate using <code-ref type="tool">scripts/tools/generate_patches_tool.py</code-ref>** |
-
-### Preprocessing Requirements
-
-Raw datasets must undergo format conversion to ensure PtychoPINN compatibility:
-
-1. **Data Type Conversion:** `uint16` intensity → `float32` amplitude
-2. **Key Renaming:** `diff3d` → `diffraction`
-3. **Array Reshaping:** Ensure Y arrays are 3D (squeeze any singleton dimensions)
-
-**Essential preprocessing command:**
-```bash
-python scripts/tools/transpose_rename_convert_tool.py raw_dataset.npz converted_dataset.npz
-```
-
-### Experimental Dataset Documentation
-
-For detailed preprocessing workflows for specific experimental datasets, see:
-- <doc-ref type="guide">docs/FLY64_DATASET_GUIDE.md</doc-ref> - FLY64 experimental dataset guide
-
----
-
-## 3. AI Context Maskset (`.maskset` format)
-
-This contract applies to any file used to specify inclusion patterns for AI context-generation tools, particularly the `/generate-doc-context` command.
-
-**File Naming Convention:** `*.maskset`  
-**Purpose:** To define a subset of the codebase for specific analysis tasks, typically by creating a "documentation-only" view for AI context priming or focused analysis.
-
-### File Format
-
-- **Type:** Plain text
-- **Encoding:** UTF-8  
-- **Structure:** A list of glob patterns, one per line
-
-### Rules
-
-1. **One Pattern Per Line:** Each line in the file represents a single glob pattern that will be used to select files.
-2. **Recursive Globs:** The `**` pattern is supported for recursive directory matching (e.g., `ptycho/**/*.py`).
-3. **Comments:** Lines starting with a `#` character are treated as comments and are ignored by the parser.
-4. **Empty Lines:** Empty lines are ignored.
-5. **Inclusion Only:** The patterns are used for inclusion only. There is no syntax for exclusion within the maskset file itself; filtering should be done by crafting more specific inclusion patterns.
-6. **Order Matters:** Files are included in the order they match patterns, with earlier patterns taking precedence for organization.
-
-### Example Maskset File (`doc_context.maskset`)
-
-```
-# Maskset for generating high-level architectural context.
-# This focuses on the core library and workflow components.
-
-# Include all modules in the main ptycho library
-ptycho/**/*.py
-
-# Include key workflow scripts
-scripts/workflows/*.py
-scripts/studies/run_complete_generalization_study.sh
-
-# Include high-level documentation
-docs/DEVELOPER_GUIDE.md
-docs/architecture.md
-```
-
-### Common Usage Patterns
-
-#### Architecture Overview Maskset
-```
-# Core library architecture
-ptycho/config/*.py
-ptycho/model.py
-ptycho/diffsim.py
-ptycho/loader.py
-
-# High-level workflows
-scripts/workflows/*.py
-
-# Documentation
-docs/DEVELOPER_GUIDE.md
-specs/data_contracts.md
-```
-
-#### Data Pipeline Maskset
-```
-# Data loading and processing
-ptycho/loader.py
-ptycho/raw_data.py
-ptycho/image/**/*.py
-
-# Data preparation tools
-scripts/tools/*_tool.py
-
-# Data contracts
-specs/data_contracts.md
-```
-
-#### Study-Specific Maskset
-```
-# Study orchestration
-scripts/studies/run_*.sh
-scripts/studies/aggregate_*.py
-
-# Analysis workflows
-scripts/analysis/*.py
-
-# Study documentation
-docs/studies/*.md
-```
-
-### Integration with Commands
-
-The primary consumer of maskset files is the `/generate-doc-context` command:
-
-```bash
-# Generate context using a maskset file
-/generate-doc-context --maskset architecture.maskset
-
-# Generate context with output to file
-/generate-doc-context --maskset data_pipeline.maskset --output context.md
-```
-
-### Best Practices
-
-1. **Name Descriptively:** Use names that describe the focus area (e.g., `architecture.maskset`, `data_pipeline.maskset`)
-2. **Document Purpose:** Always include a comment header explaining the maskset's intended use
-3. **Start Broad, Then Narrow:** Begin with general patterns and add specific files as needed
-4. **Test Coverage:** Run the command with `--dry-run` to verify which files will be included
-5. **Version Control:** Commit useful masksets to the repository for team reuse
-
----
