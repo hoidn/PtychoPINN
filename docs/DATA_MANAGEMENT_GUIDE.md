@@ -239,6 +239,26 @@ See [data_contracts.md](data_contracts.md) for:
 - Coordinate system conventions
 - Metadata standards
 
+## Exporting to Ptychodus HDF5 Product
+
+Use the conversion CLI to export an NPZ dataset to the Ptychodus product format (HDF5).
+
+Example (Run1084 dataset):
+```bash
+python scripts/tools/convert_to_ptychodus_product.py \
+  --input-npz datasets/Run1084_recon3_postPC_shrunk_3.npz \
+  --output-product outputs/ptychodus_products/run1084_product.h5 \
+  --name Run1084 \
+  --comments "exported for Ptychodus" \
+  --object-pixel-size-m 5e-8 \
+  --probe-pixel-size-m 1.25e-7
+```
+
+Notes:
+- Coordinates in NPZ are treated as pixels relative to object pixels; the converter multiplies by object pixel size to store meters in the product file.
+- The product file includes metadata (root attributes), positions, probe (with pixel sizes), and object (with pixel sizes and center). Loss history is omitted.
+- See the normative spec for details: `../specs/data_contracts.md`.
+
 ## Troubleshooting
 
 ### "File too large" Git Error
