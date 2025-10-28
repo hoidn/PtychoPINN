@@ -227,6 +227,18 @@ This index provides a comprehensive overview of all available documentation with
 **Key Dependencies:** `params.cfg` for physics parameters (nphotons, N), `tf_helper` for differentiable operations  
 **Critical For:** Training data generation, physics loss constraints, synthetic dataset creation
 
+### Specifications
+
+#### [Ptychodus Integration API Spec](../specs/ptychodus_api_spec.md)
+**Description:** Normative API contract for integrating PtychoPINN with Ptychodus, covering configuration bridging, backend selection, data ingestion, lifecycle, and persistence expectations.  
+**Keywords:** spec, API, integration, config-bridge, backend  
+**Use this when:** Implementing or validating a backend used by Ptychodus, or wiring configs through `update_legacy_dict()` per the contract.
+
+#### [Ptychodus Data Contracts](../specs/data_contracts.md)
+**Description:** Normative HDF5 product format (metadata, positions, probe, object, loss history) used by Ptychodus product readers/writers; includes shapes, dtypes, and units.  
+**Keywords:** data-contracts, HDF5, product, metadata, probe, object  
+**Use this when:** Writing/reading product files or converting datasets to the Ptychodus product format.
+
 ### Configuration & Workflows
 
 #### `ptycho/config/` - Configuration System
