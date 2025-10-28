@@ -7,6 +7,16 @@
 
 > Archived items moved to `archive/2025-10-17_fix_plan_archive.md`, `archive/2025-10-20_fix_plan_archive.md` to keep this ledger concise. See that file for closed or dormant initiatives.
 
+## [EXPORT-PTYCHODUS-PRODUCT-001] TF-side Ptychodus product exporter/importer + Run1084 conversion
+- Depends on: None
+- Priority: Medium
+- Status: planning
+- Owner/Date: Codex Agent/2025-10-28
+- Working Plan: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/implementation_plan.md`
+- Test Strategy: `plans/active/EXPORT-PTYCHODUS-PRODUCT-001/test_strategy.md`
+- Attempts History:
+  * [2025-10-28] Attempt #0 — Authored implementation plan and test strategy. Scope: HDF5-only exporter/importer, coords treated as pixels→meters via object pixel size, dummy pixel sizes when metadata missing, no losses, convert Run1084 only. Next: TDD for exporter/importer skeletons and CLI for Run1084 conversion. Artifacts: plan files linked above.
+
 ## [INTEGRATE-PYTORCH-001-STUBS] Finish PyTorch workflow stubs deferred from Phase D2
 - Status: archived 2025-10-20 — see `archive/2025-10-20_fix_plan_archive.md#integrate-pytorch-001-stubs-finish-pytorch-workflow-stubs-deferred-from-phase-d2`.
 - Notes: Lightning orchestration, stitching, and parity tasks are complete with regression evidence; follow-on work continues under active Phase D/E items.
