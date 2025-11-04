@@ -2483,3 +2483,17 @@
   - AUTHORITATIVE_CMDS_DOC guard set to ./docs/TESTING_GUIDE.md in How-To Map.
 - Next actions for Ralph: implement bundle size propagation + test hardening, run deterministic dense/baseline jobs, archive via helper script with checksum/size proof, and refresh summary/ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T210500Z: Phase E6 dense/baseline deterministic evidence planning
+- dwell: 1 (planning loop immediately following 2025-11-06T190500Z+exec implementation; next turn must execute implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T210500Z/phase_e_training_bundle_real_runs_exec/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date); reviewed latest summary to confirm bundle size feature landed and CLI tests green.
+  - Consulted docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001) plus test_strategy §268 to anchor Phase E6 evidence requirements.
+  - Created new hub (plan + summary) at 2025-11-06T210500Z; scoped work to deterministic dense/baseline runs and archive helper size parity.
+  - Updated docs/fix_plan.md with planning attempt, reserved timestamped directories, and drafted input.md outline with AUTHORITATIVE_CMDS_DOC guard.
+- Next actions for Ralph: update archive helper for size parity, execute dense/gs2 and baseline/gs1 deterministic runs, archive bundles, and capture SHA+size proof with summary/ledger updates.
+- <Action State>: [ready_for_implementation]
