@@ -1162,11 +1162,26 @@ def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
     assert all(c in '0123456789abcdef' for c in sha256_value), \
         f"bundle_sha256 must be hexadecimal, got {sha256_value}"
 
+    # NEW: Verify on-disk SHA256 matches result['bundle_sha256'] (Phase E6 Do Now)
+    # Recompute SHA256 from the actual bundle file using the same algorithm as production
+    import hashlib
+    sha256_hash = hashlib.sha256()
+    with bundle_path.open('rb') as f:
+        # Read in 64KB chunks to match production pattern (training.py:514-517)
+        for chunk in iter(lambda: f.read(65536), b''):
+            sha256_hash.update(chunk)
+    on_disk_sha256 = sha256_hash.hexdigest()
+
+    assert on_disk_sha256 == result['bundle_sha256'], \
+        f"On-disk SHA256 ({on_disk_sha256}) must match result['bundle_sha256'] ({result['bundle_sha256']})"
+
     print(f"\n✓ execute_training_job bundle persistence validated:")
     print(f"  - save_torch_bundle called: {len(bundle_calls)} time(s)")
     print(f"  - Bundle path: {result['bundle_path']}")
     print(f"  - Bundle exists: {bundle_path.exists()}")
-    print(f"  - Bundle SHA256: {result['bundle_sha256']}")
+    print(f"  - Bundle SHA256 (result): {result['bundle_sha256']}")
+    print(f"  - Bundle SHA256 (on-disk): {on_disk_sha256}")
+    print(f"  - SHA256 match: {on_disk_sha256 == result['bundle_sha256']}")
     print(f"  - Models persisted: {list(call['models_dict'].keys())}")
 
 
