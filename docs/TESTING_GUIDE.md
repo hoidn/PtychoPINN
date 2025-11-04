@@ -89,6 +89,23 @@ To run a specific test method:
 python -m unittest tests.test_integration_workflow.TestFullWorkflow.test_train_save_load_infer_cycle
 ```
 
+### PyTorch Backend Tests
+
+PyTorch-specific tests are located in `tests/torch/` and use native pytest style. To run them:
+
+```bash
+# Run all PyTorch tests
+pytest tests/torch/ -vv
+
+# Run API deprecation tests (validates legacy API warning messaging)
+pytest tests/torch/test_api_deprecation.py -vv
+
+# Run specific test
+pytest tests/torch/test_api_deprecation.py::TestLegacyAPIDeprecation::test_example_train_import_emits_deprecation_warning -vv
+```
+
+**Note:** PyTorch tests require `torch>=2.2` installed. Tests are automatically skipped in TensorFlow-only CI environments via directory-based pytest collection rules.
+
 ## How to Add New Tests
 
 When contributing new tests to the project, follow these guidelines:

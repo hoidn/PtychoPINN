@@ -70,6 +70,7 @@ This document provides a comprehensive index of the automated tests in the `test
 | Test File | Purpose / Scope | Key Tests | Usage / Command | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 
+| `test_api_deprecation.py` | Test suite for ptycho_torch.api deprecation warnings per ADR-003 Phase E.C1. Validates that legacy API entry points emit DeprecationWarning with migration guidance steering users toward factory-driven workflows documented in docs/workflows/pytorch.md. | `test_example_train_import_emits_deprecation_warning`, `test_api_package_import_is_idempotent` | `pytest tests/torch/test_api_deprecation.py -vv` | Validates legacy API deprecation messaging. Uses native pytest style. |
 | `test_tf_helper.py` | No module docstring found. | `test_combine_complex`, `test_get_mask`, `test_placeholder_torch_functions` | `python -m unittest tests.torch.test_tf_helper` | — |
 
 ---
