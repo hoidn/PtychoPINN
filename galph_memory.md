@@ -2355,3 +2355,18 @@
   - Updated docs/fix_plan.md Attempt #96 with planning summary and new artifact path.
 - Next actions for Ralph: follow the Do Now — add checksum support + tests, record RED→GREEN logs, run real training CLI for dose=1000 dense/baseline with deterministic knobs, archive manifests/bundles & checksums, refresh docs/TESTING_GUIDE.md + TEST_SUITE_INDEX.md, then document results in fix_plan Attempt #96.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T030500Z: Phase E6 memmap fallback plan
+- dwell: 0 (reset after issuing implementation-focused Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T030500Z/phase_e_memmap_diffraction_fallback/
+- Notes:
+  - `timeout 30 git pull --rebase` returned "Already up to date"; reviewed Attempt #96 notes and the latest `phase_e_training_bundle_real_runs` manifest/summary confirming CLI jobs failed with `KeyError: 'diff3d'`.
+  - Re-read DATA-001 (specs/data_contracts.md:207), test_strategy §268, and findings POLICY-001 / CONFIG-001 / OVERSAMPLING-001 to validate a MemmapDatasetBridge fallback is required before reattempting Phase G.
+  - Reserved new artifact hub (`.../2025-11-06T030500Z/phase_e_memmap_diffraction_fallback/{plan,red,green,collect,cli,data,analysis,docs}`) to capture RED→GREEN pytest logs, CLI reruns, manifests, and doc sync evidence.
+  - Rewrote `input.md` directing a new RED test `test_memmap_bridge_accepts_diffraction_legacy`, implementing the legacy `diffraction`→`diff3d` fallback in `MemmapDatasetBridge`, rerunning training bundle selectors, executing deterministic dense/baseline CLI commands, archiving bundles + SHA256 proofs, and summarizing outcomes before documentation updates.
+  - Logged Doc Sync expectations (TESTING_GUIDE + TEST_SUITE_INDEX) and reinforced `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` guardrail for all CLI steps.
+- Next actions for Ralph: land the fallback TDD cycle, capture RED→GREEN + CLI evidence in the new hub, update analysis summary with bundle paths/checksums, and sync docs/registries prior to resuming Phase G comparisons.
+- <Action State>: [ready_for_implementation]
