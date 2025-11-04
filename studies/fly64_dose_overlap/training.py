@@ -25,6 +25,8 @@ from typing import List, Callable, Dict, Any
 from studies.fly64_dose_overlap.design import StudyDesign, get_study_design
 from ptycho.config.config import update_legacy_dict
 from ptycho import params as p
+from ptycho.workflows.components import load_data
+from ptycho_torch.workflows.components import train_cdi_model_torch
 
 
 @dataclass
@@ -332,6 +334,9 @@ def execute_training_job(*, config, job, log_path):
     import sys
     from pathlib import Path
 
+    # Step 0: Ensure log directory exists
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
     # Step 1: Write execution metadata to log
     with log_path.open('a') as f:
         f.write(f"\n{'=' * 80}\n")
@@ -352,44 +357,75 @@ def execute_training_job(*, config, job, log_path):
     if not test_path.exists():
         raise FileNotFoundError(f"Test dataset not found: {test_path}")
 
-    # Step 3: Delegate to backend trainer
-    # For Phase E5, we implement a minimal execution that demonstrates the wiring.
-    # Future phases can expand this to invoke the full PyTorch training pipeline.
-    #
-    # Options for backend delegation:
-    # A. Import and call ptycho_torch.train.train_cdi_model_torch directly
-    # B. Invoke CLI via subprocess: python -m ptycho_torch.train --config ...
-    # C. Use a lightweight stub that validates config and writes a success marker
-    #
-    # For E5, we use option C (stub with success marker) to prove the wiring works
-    # without running full training (which would be slow and require GPU resources).
-    # Tests will monkeypatch this function to spy on invocation.
-
+    # Step 3: Load datasets via load_data helper
+    # load_data() parses NPZ files and constructs RawData instances with proper fields.
+    # The PyTorch backend accepts RawData instances and bridges them internally
+    # via RawDataTorch adapters (Phase C design).
     try:
-        # Write a marker file indicating training would execute here
-        marker_path = Path(config.output_dir) / "training_execution_marker.txt"
-        with marker_path.open('w') as f:
-            f.write(f"Phase E5 training execution marker\n")
-            f.write(f"Job: {job.view} dose={job.dose} gridsize={job.gridsize}\n")
-            f.write(f"Config: train={config.train_data_file}\n")
-            f.write(f"Config: test={config.test_data_file}\n")
-            f.write(f"This marker proves execute_training_job was invoked successfully.\n")
-            f.write(f"Future phases will replace this stub with real backend training.\n")
+        with log_path.open('a') as f:
+            f.write(f"Loading training dataset from {train_path}...\n")
+        train_data = load_data(str(train_path))
 
-        # Simulate successful completion
+        with log_path.open('a') as f:
+            f.write(f"Loading test dataset from {test_path}...\n")
+        test_data = load_data(str(test_path))
+
+    except Exception as e:
+        with log_path.open('a') as f:
+            f.write(f"Failed to load datasets: {type(e).__name__}: {e}\n")
+        return {
+            'status': 'failed',
+            'error': f"Dataset loading failed: {type(e).__name__}: {e}",
+        }
+
+    # Step 4: Delegate to PyTorch backend trainer
+    # train_cdi_model_torch orchestrates data prep, probe setup, and Lightning training.
+    # It returns a dict with:
+    # - 'history': Training history (losses, metrics)
+    # - 'train_container': PtychoDataContainerTorch for training data
+    # - 'test_container': Optional PtychoDataContainerTorch for test data
+    try:
+        with log_path.open('a') as f:
+            f.write(f"Invoking train_cdi_model_torch with config...\n")
+
+        training_results = train_cdi_model_torch(
+            train_data=train_data,
+            test_data=test_data,
+            config=config,
+        )
+
+        # Extract final loss from history if available
+        final_loss = None
+        if 'history' in training_results and 'train_loss' in training_results['history']:
+            train_losses = training_results['history']['train_loss']
+            if len(train_losses) > 0:
+                final_loss = train_losses[-1]
+
+        # Determine checkpoint path if available
+        # (train_cdi_model_torch may save checkpoints to config.output_dir)
+        checkpoint_path = None
+        output_dir = Path(config.output_dir)
+        if output_dir.exists():
+            # Look for common checkpoint patterns
+            checkpoint_candidates = list(output_dir.glob("*.ckpt")) + list(output_dir.glob("*.pth"))
+            if checkpoint_candidates:
+                # Take the most recent checkpoint
+                checkpoint_path = str(sorted(checkpoint_candidates, key=lambda p: p.stat().st_mtime)[-1])
+
         result = {
             'status': 'success',
-            'final_loss': 0.001,  # Stub value for E5
-            'epochs_completed': 1,  # Stub value for E5
-            'checkpoint_path': None,  # No checkpoint for stub
-            'marker_path': str(marker_path),
+            'final_loss': final_loss,
+            'epochs_completed': len(training_results.get('history', {}).get('train_loss', [])),
+            'checkpoint_path': checkpoint_path,
+            'training_results': training_results,  # Include full results for downstream use
         }
 
         # Log completion
         with log_path.open('a') as f:
-            f.write(f"Training completed successfully (Phase E5 stub)\n")
-            f.write(f"Marker written to: {marker_path}\n")
-            f.write(f"Result: {result}\n")
+            f.write(f"Training completed successfully\n")
+            f.write(f"Final loss: {final_loss}\n")
+            f.write(f"Epochs completed: {result['epochs_completed']}\n")
+            f.write(f"Checkpoint path: {checkpoint_path}\n")
 
         return result
 
@@ -398,6 +434,8 @@ def execute_training_job(*, config, job, log_path):
         with log_path.open('a') as f:
             f.write(f"\nTraining failed with exception:\n")
             f.write(f"{type(e).__name__}: {e}\n")
+            import traceback
+            f.write(traceback.format_exc())
 
         return {
             'status': 'failed',

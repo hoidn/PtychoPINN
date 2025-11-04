@@ -693,6 +693,173 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     print(f"  - Each job entry has required metadata keys")
 
 
+def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch):
+    """
+    RED → GREEN TDD test for Phase E5 execute_training_job backend delegation.
+
+    Validates that execute_training_job():
+    - Loads NPZ datasets from job.train_data_path and job.test_data_path
+    - Uses the provided TrainingConfig (CONFIG-001 bridge already done by caller)
+    - Calls ptycho_torch.workflows.components.train_cdi_model_torch with:
+      - train_data: RawData or container loaded from job.train_data_path
+      - test_data: RawData or container loaded from job.test_data_path
+      - config: The TrainingConfig instance passed to execute_training_job
+    - Writes logs/artifacts to job.log_path and job.artifact_dir
+    - Returns training metrics (status, final_loss, epochs_completed, checkpoint_path)
+
+    Test strategy: Monkeypatch train_cdi_model_torch to spy on invocation.
+    Use minimal Phase C/D fixture NPZs (DATA-001 compliant) to avoid heavy I/O.
+    Validate that the spy receives correct data containers and config.
+
+    References:
+    - input.md:9 (Phase E5 RED test requirements)
+    - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163-166
+    - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 compliance assumed by caller)
+    - docs/workflows/pytorch.md §12 (train_cdi_model_torch signature)
+    """
+    from studies.fly64_dose_overlap.training import execute_training_job, TrainingJob
+    from ptycho.config.config import TrainingConfig, ModelConfig
+
+    # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
+    train_npz = tmp_path / "phase_c_train.npz"
+    test_npz = tmp_path / "phase_c_test.npz"
+
+    # Minimal DATA-001 compliant arrays plus xcoords_start/ycoords_start for load_data
+    minimal_data = {
+        'diffraction': np.random.rand(10, 64, 64).astype(np.float32),  # amplitude
+        'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
+        'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+        'Y': (np.random.rand(10, 128, 128) + 1j * np.random.rand(10, 128, 128)).astype(np.complex64),
+        'xcoords': np.random.rand(10).astype(np.float32),
+        'ycoords': np.random.rand(10).astype(np.float32),
+        'xcoords_start': np.random.rand(10).astype(np.float32),
+        'ycoords_start': np.random.rand(10).astype(np.float32),
+        'filenames': np.array([f'img_{i:04d}' for i in range(10)]),
+    }
+
+    np.savez_compressed(train_npz, **minimal_data)
+    np.savez_compressed(test_npz, **minimal_data)
+
+    # Setup: Create TrainingJob
+    artifact_dir = tmp_path / "artifacts" / "dose_1000" / "baseline" / "gs1"
+    log_path = artifact_dir / "train.log"
+
+    job = TrainingJob(
+        dose=1e3,
+        view='baseline',
+        gridsize=1,
+        train_data_path=str(train_npz),
+        test_data_path=str(test_npz),
+        artifact_dir=artifact_dir,
+        log_path=log_path,
+    )
+
+    # Setup: Create TrainingConfig (CONFIG-001 bridge assumed done by caller: run_training_job)
+    model_config = ModelConfig(gridsize=1)
+    config = TrainingConfig(
+        train_data_file=str(train_npz),
+        test_data_file=str(test_npz),
+        output_dir=str(artifact_dir),
+        model=model_config,
+        nphotons=1e3,
+    )
+
+    # Spy: record calls to train_cdi_model_torch
+    trainer_calls = []
+
+    def spy_train_cdi_model_torch(train_data, test_data, config):
+        """Spy that records invocation signature for validation."""
+        trainer_calls.append({
+            'train_data': train_data,
+            'test_data': test_data,
+            'config': config,
+        })
+        # Return minimal success result
+        return {
+            'history': {'train_loss': [0.5, 0.3, 0.1]},
+            'train_container': train_data,
+            'test_container': test_data,
+        }
+
+    # Monkeypatch load_data to return mock RawData objects
+    # This avoids needing to create perfectly formatted NPZ fixtures
+    from ptycho.raw_data import RawData
+
+    def mock_load_data(file_path):
+        """Return a minimal RawData instance for testing."""
+        return RawData(
+            xcoords=np.array([0.0]),
+            ycoords=np.array([0.0]),
+            xcoords_start=np.array([0.0]),
+            ycoords_start=np.array([0.0]),
+            diff3d=np.random.rand(1, 64, 64).astype(np.float32),
+            probeGuess=np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+            scan_index=np.array([0]),
+        )
+
+    # Monkeypatch the PyTorch trainer in the training module's namespace
+    # The training module imports it at module level: from ptycho_torch.workflows.components import train_cdi_model_torch
+    # So we need to patch the reference in studies.fly64_dose_overlap.training
+    from studies.fly64_dose_overlap import training as training_module
+    monkeypatch.setattr(training_module, 'load_data', mock_load_data)
+    monkeypatch.setattr(training_module, 'train_cdi_model_torch', spy_train_cdi_model_torch)
+
+    # Execute: call execute_training_job
+    result = execute_training_job(config=config, job=job, log_path=log_path)
+
+    # Debug: print result to see if there was an error
+    print(f"\nResult from execute_training_job: {result}")
+    if log_path.exists():
+        print(f"Log contents:\n{log_path.read_text()}")
+
+    # Assertions: train_cdi_model_torch was called
+    assert len(trainer_calls) == 1, \
+        f"train_cdi_model_torch should be called exactly once, got {len(trainer_calls)} calls"
+
+    call = trainer_calls[0]
+
+    # Assertions: train_data is not None (RawData or container)
+    assert call['train_data'] is not None, \
+        "train_cdi_model_torch must receive train_data"
+
+    # Assertions: test_data is not None (RawData or container)
+    assert call['test_data'] is not None, \
+        "train_cdi_model_torch must receive test_data"
+
+    # Assertions: config is the TrainingConfig instance
+    assert call['config'] is config, \
+        "train_cdi_model_torch must receive the same TrainingConfig instance"
+
+    # Assertions: config has correct fields
+    assert call['config'].train_data_file == str(train_npz), \
+        f"config.train_data_file mismatch: expected {train_npz}, got {call['config'].train_data_file}"
+    assert call['config'].test_data_file == str(test_npz), \
+        f"config.test_data_file mismatch: expected {test_npz}, got {call['config'].test_data_file}"
+    assert call['config'].model.gridsize == 1, \
+        f"config.model.gridsize must be 1, got {call['config'].model.gridsize}"
+
+    # Assertions: result contains expected keys
+    assert result is not None, \
+        "execute_training_job must return a result dict"
+    assert 'status' in result, \
+        "result must contain 'status' key"
+
+    # Assertions: log_path exists and contains execution metadata
+    assert log_path.exists(), \
+        f"log_path not written: {log_path}"
+    log_content = log_path.read_text()
+    assert 'Phase E5 Training Execution' in log_content, \
+        "log must contain Phase E5 execution marker"
+
+    print(f"\n✓ execute_training_job delegation validated:")
+    print(f"  - train_cdi_model_torch called: {len(trainer_calls)} time(s)")
+    print(f"  - Received train_data: {type(call['train_data'])}")
+    print(f"  - Received test_data: {type(call['test_data'])}")
+    print(f"  - Received config with gridsize={call['config'].model.gridsize}, nphotons={call['config'].nphotons}")
+    print(f"  - Result: {result}")
+    print(f"  - Log written: {log_path}")
+
+
 def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
     """
     RED → GREEN TDD test for Phase E5 real training runner integration.
