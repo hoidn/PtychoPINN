@@ -2439,3 +2439,18 @@
   - Updated docs/fix_plan.md Latest Attempt bullet to log planning handoff; ensured AUTHORITATIVE_CMDS_DOC guardrails noted in Do Now.
 - Next actions for Ralph: implement stdout normalization + regression test update, execute dense/baseline Phase E runs, archive manifests/bundles via new script, and capture SHA evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T150500Z: Phase E6 dense/baseline SHA parity directive
+- dwell: 0 (reset after drafting implementation-ready plan; two prior planning loops satisfied dwell guard)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T150500Z/phase_e_training_bundle_real_runs_exec/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date); reviewed Attempt #103 summary and latest hub to confirm dense/baseline CLI runs + checksum proofs still missing.
+  - Re-read findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001, implementation plan, and Phase G inventory to anchor requirements.
+  - Reserved new timestamped hub with {plan, red, green, collect, cli, data, analysis, docs}; captured loop plan (`plan/plan.md`) and refreshed `summary.md` to enumerate pending artifacts.
+  - Rewrote `input.md` (Mode: TDD) pointing to stdout/manifest SHA parity assertion, deterministic dense/baseline CLI runs, archive script usage, checksum verification, and summary refresh; updated docs/fix_plan.md with Attempt entry + findings applied.
+  - Guardrail: maintain `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` for all pytest/CLI commands; archive helper script remains canonical for checksum validation.
+- Next actions for Ralph: execute Do Now to land RED→GREEN for `test_training_cli_records_bundle_path`, run dense/baseline Phase E CLI jobs, archive bundles/manifests with checksum proof, update summary, and log Attempt outcome in ledger.
+- <Action State>: [ready_for_implementation]
