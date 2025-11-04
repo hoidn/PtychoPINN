@@ -43,7 +43,8 @@ def build_comparison_jobs(
     phase_c_root : Path
         Root directory containing Phase C datasets (dose_{dose}/patched_{split}.npz)
     phase_e_root : Path
-        Root directory containing Phase E checkpoints (pinn/baseline subdirs)
+        Root directory containing Phase E checkpoints (dose-specific structure:
+        dose_{dose}/baseline/gs1/wts.h5.zip and dose_{dose}/{view}/gs2/wts.h5.zip)
     phase_f_root : Path
         Root directory containing Phase F pty-chi manifests
     dose_filter : Optional[int]
@@ -91,9 +92,12 @@ def build_comparison_jobs(
                     # Sparse view uses overlap data
                     phase_c_npz = dose_dir / view / f'{view}_{split}.npz'
 
-                # Phase E checkpoints
-                pinn_checkpoint = phase_e_root / 'pinn' / 'checkpoint.h5'
-                baseline_checkpoint = phase_e_root / 'baseline' / 'checkpoint.h5'
+                # Phase E checkpoints (dose-specific structure per training.py:184,226)
+                # Baseline: dose_{dose}/baseline/gs1/wts.h5.zip
+                # View (dense/sparse): dose_{dose}/{view}/gs2/wts.h5.zip
+                dose_suffix = f'dose_{dose}'
+                pinn_checkpoint = phase_e_root / dose_suffix / view / 'gs2' / 'wts.h5.zip'
+                baseline_checkpoint = phase_e_root / dose_suffix / 'baseline' / 'gs1' / 'wts.h5.zip'
 
                 # Phase F manifest
                 phase_f_manifest = phase_f_root / f'dose_{dose}_{view}_{split}' / 'manifest.json'

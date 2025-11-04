@@ -38,13 +38,19 @@ def fake_phase_artifacts(tmp_path):
                 view_dir.mkdir(parents=True, exist_ok=True)
                 (view_dir / f'{view}_{split}.npz').touch()
 
-    # Phase E checkpoints
-    phase_e_pinn = artifacts['phase_e_root'] / 'pinn'
-    phase_e_baseline = artifacts['phase_e_root'] / 'baseline'
-    phase_e_pinn.mkdir(parents=True, exist_ok=True)
-    phase_e_baseline.mkdir(parents=True, exist_ok=True)
-    (phase_e_pinn / 'checkpoint.h5').touch()
-    (phase_e_baseline / 'checkpoint.h5').touch()
+    # Phase E checkpoints (dose-specific structure matching training.py:184,226)
+    # Structure: dose_{dose}/baseline/gs1/wts.h5.zip and dose_{dose}/{view}/gs2/wts.h5.zip
+    for dose in [500, 1000, 2000]:
+        dose_dir = artifacts['phase_e_root'] / f'dose_{dose}'
+        # Baseline checkpoint (gridsize=1)
+        baseline_dir = dose_dir / 'baseline' / 'gs1'
+        baseline_dir.mkdir(parents=True, exist_ok=True)
+        (baseline_dir / 'wts.h5.zip').touch()
+        # Dense and sparse overlap checkpoints (gridsize=2)
+        for view in ['dense', 'sparse']:
+            view_dir = dose_dir / view / 'gs2'
+            view_dir.mkdir(parents=True, exist_ok=True)
+            (view_dir / 'wts.h5.zip').touch()
 
     # Phase F manifests
     for dose in [500, 1000, 2000]:
@@ -249,3 +255,69 @@ def test_execute_comparison_jobs_records_summary(fake_phase_artifacts, tmp_path,
     # Verify n_success + n_failed == n_executed
     assert manifest['n_success'] + manifest['n_failed'] == manifest['n_executed'], \
         f"n_success({manifest['n_success']}) + n_failed({manifest['n_failed']}) != n_executed({manifest['n_executed']})"
+
+
+def test_build_comparison_jobs_uses_dose_specific_phase_e_paths(fake_phase_artifacts):
+    """
+    Test build_comparison_jobs uses dose/view-specific Phase E checkpoint paths.
+
+    Exit criteria (AT-G2.1):
+    - PINN checkpoint path follows training.py:226 structure: dose_{dose}/{view}/gs2/wts.h5.zip
+    - Baseline checkpoint path follows training.py:184 structure: dose_{dose}/baseline/gs1/wts.h5.zip
+    - Paths are dose-specific (not flat phase_e_root/pinn/, phase_e_root/baseline/)
+    - All checkpoint paths exist and point to the correct artifacts
+
+    Background:
+    Prior code at comparison.py:95-96 incorrectly used flat structure:
+        pinn_checkpoint = phase_e_root / 'pinn' / 'checkpoint.h5'
+        baseline_checkpoint = phase_e_root / 'baseline' / 'checkpoint.h5'
+
+    Correct structure (per training.py:184,226):
+        baseline: phase_e_root / f'dose_{dose}' / 'baseline' / 'gs1' / 'wts.h5.zip'
+        view (dense/sparse): phase_e_root / f'dose_{dose}' / view / 'gs2' / 'wts.h5.zip'
+    """
+    from studies.fly64_dose_overlap.comparison import build_comparison_jobs
+
+    # Build job for dose=1000, view=dense, split=train
+    jobs = build_comparison_jobs(
+        phase_c_root=fake_phase_artifacts['phase_c_root'],
+        phase_e_root=fake_phase_artifacts['phase_e_root'],
+        phase_f_root=fake_phase_artifacts['phase_f_root'],
+        dose_filter=1000,
+        view_filter='dense',
+        split_filter='train',
+    )
+
+    assert len(jobs) == 1, f"Expected 1 job, got {len(jobs)}"
+    job = jobs[0]
+
+    # Expected paths per training.py structure
+    phase_e_root = fake_phase_artifacts['phase_e_root']
+    expected_pinn_checkpoint = phase_e_root / 'dose_1000' / 'dense' / 'gs2' / 'wts.h5.zip'
+    expected_baseline_checkpoint = phase_e_root / 'dose_1000' / 'baseline' / 'gs1' / 'wts.h5.zip'
+
+    # Validate PINN checkpoint (dense/gs2)
+    assert job.pinn_checkpoint == expected_pinn_checkpoint, (
+        f"PINN checkpoint path mismatch:\n"
+        f"  Expected: {expected_pinn_checkpoint}\n"
+        f"  Got: {job.pinn_checkpoint}"
+    )
+    assert job.pinn_checkpoint.exists(), f"PINN checkpoint does not exist: {job.pinn_checkpoint}"
+
+    # Validate baseline checkpoint (baseline/gs1)
+    assert job.baseline_checkpoint == expected_baseline_checkpoint, (
+        f"Baseline checkpoint path mismatch:\n"
+        f"  Expected: {expected_baseline_checkpoint}\n"
+        f"  Got: {job.baseline_checkpoint}"
+    )
+    assert job.baseline_checkpoint.exists(), f"Baseline checkpoint does not exist: {job.baseline_checkpoint}"
+
+    # Validate dose-specific directory structure (not flat)
+    assert 'dose_1000' in str(job.pinn_checkpoint), \
+        f"PINN checkpoint path must include dose_1000: {job.pinn_checkpoint}"
+    assert 'dose_1000' in str(job.baseline_checkpoint), \
+        f"Baseline checkpoint path must include dose_1000: {job.baseline_checkpoint}"
+    assert 'dense' in str(job.pinn_checkpoint) and 'gs2' in str(job.pinn_checkpoint), \
+        f"PINN checkpoint must include view (dense) and gridsize (gs2): {job.pinn_checkpoint}"
+    assert 'baseline' in str(job.baseline_checkpoint) and 'gs1' in str(job.baseline_checkpoint), \
+        f"Baseline checkpoint must include baseline/gs1: {job.baseline_checkpoint}"
