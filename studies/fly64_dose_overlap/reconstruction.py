@@ -24,19 +24,74 @@ Phase D/E artifacts. No additional K≥C validation is needed in the builder.
 
 from pathlib import Path
 from typing import List
+from dataclasses import dataclass, field
+import subprocess
+from enum import Enum
+
+from studies.fly64_dose_overlap.design import get_study_design
+
+
+class ViewType(str, Enum):
+    """Overlap view types for reconstruction jobs."""
+    BASELINE = "baseline"
+    DENSE = "dense"
+    SPARSE = "sparse"
+
+
+@dataclass
+class ReconstructionJob:
+    """
+    Single pty-chi LSQML reconstruction job specification.
+
+    Attributes:
+        dose: Photon dose (photons per exposure)
+        view: View type ('baseline', 'dense', or 'sparse')
+        split: Data split ('train' or 'test')
+        input_npz: Path to input NPZ (Phase C baseline or Phase D overlap)
+        output_dir: Artifact directory for LSQML outputs
+        algorithm: Reconstruction algorithm ('LSQML')
+        num_epochs: Number of LSQML iterations
+        cli_args: Assembled arguments for scripts/reconstruction/ptychi_reconstruct_tike.py
+    """
+    dose: float
+    view: str
+    split: str
+    input_npz: Path
+    output_dir: Path
+    algorithm: str = "LSQML"
+    num_epochs: int = 100
+    cli_args: List[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate and assemble CLI arguments."""
+        # Ensure paths are Path objects
+        self.input_npz = Path(self.input_npz)
+        self.output_dir = Path(self.output_dir)
+
+        # Assemble CLI arguments if not provided
+        if not self.cli_args:
+            self.cli_args = [
+                "python",
+                "scripts/reconstruction/ptychi_reconstruct_tike.py",
+                "--algorithm", self.algorithm,
+                "--num-epochs", str(self.num_epochs),
+                "--input-npz", str(self.input_npz),
+                "--output-dir", str(self.output_dir),
+            ]
 
 
 def build_ptychi_jobs(
     phase_c_root: Path,
     phase_d_root: Path,
     artifact_root: Path,
-) -> List:
+    allow_missing: bool = False,
+) -> List[ReconstructionJob]:
     """
     Enumerate pty-chi LSQML reconstruction jobs for study doses and views.
 
     Expected manifest structure:
     - 3 doses × 2 views (dense, sparse) + 1 baseline per dose = 7 jobs per dose
-    - Total: 21 jobs for the full study
+    - Total: 21 jobs for the full study (3 doses × 7 jobs)
 
     Each job contains:
     - dose (float): photon dose from StudyDesign.dose_list
@@ -55,16 +110,99 @@ def build_ptychi_jobs(
                       (dose_{dose}/{view}/{view}_{split}.npz)
         artifact_root: Root directory for reconstruction outputs
                        (phase_f_reconstruction/dose_{dose}/{view}/{split}/)
+        allow_missing: If False, raise FileNotFoundError for missing NPZ files
 
     Returns:
-        List of ReconstructionJob dataclasses (to be defined in GREEN phase)
+        List of ReconstructionJob dataclasses
 
     Raises:
-        NotImplementedError: Until GREEN implementation (F1.1)
+        FileNotFoundError: If allow_missing=False and input NPZ does not exist
     """
-    raise NotImplementedError(
-        "build_ptychi_jobs() is a Phase F0 RED stub. "
-        "GREEN implementation tracked as F1.1 in "
-        "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/"
-        "2025-11-04T094500Z/phase_f_ptychi_baseline_plan/plan.md"
+    design = get_study_design()
+    jobs = []
+
+    # Deterministic ordering: doses ascending, views (baseline→dense→sparse), splits (train→test)
+    for dose in sorted(design.dose_list):
+        dose_int = int(dose)
+
+        # Process each split
+        for split in ["train", "test"]:
+            # Baseline jobs (Phase C patched datasets, gs=1)
+            phase_c_dose_dir = phase_c_root / f"dose_{dose_int}"
+            baseline_npz = phase_c_dose_dir / f"patched_{split}.npz"
+
+            if not allow_missing and not baseline_npz.exists():
+                raise FileNotFoundError(
+                    f"Phase C baseline NPZ not found: {baseline_npz}. "
+                    f"Expected from Phase C patching."
+                )
+
+            baseline_output = artifact_root / f"dose_{dose_int}" / "baseline" / split
+            jobs.append(ReconstructionJob(
+                dose=dose,
+                view=ViewType.BASELINE.value,
+                split=split,
+                input_npz=baseline_npz,
+                output_dir=baseline_output,
+            ))
+
+            # Overlap view jobs (Phase D datasets, gs=2)
+            phase_d_dose_dir = phase_d_root / f"dose_{dose_int}"
+            for view in ["dense", "sparse"]:
+                view_dir = phase_d_dose_dir / view
+                overlap_npz = view_dir / f"{view}_{split}.npz"
+
+                if not allow_missing and not overlap_npz.exists():
+                    raise FileNotFoundError(
+                        f"Phase D overlap NPZ not found: {overlap_npz}. "
+                        f"Expected from Phase D overlap filtering."
+                    )
+
+                overlap_output = artifact_root / f"dose_{dose_int}" / view / split
+                jobs.append(ReconstructionJob(
+                    dose=dose,
+                    view=view,
+                    split=split,
+                    input_npz=overlap_npz,
+                    output_dir=overlap_output,
+                ))
+
+    return jobs
+
+
+def run_ptychi_job(job: ReconstructionJob, dry_run: bool = True) -> subprocess.CompletedProcess:
+    """
+    Execute a single pty-chi LSQML reconstruction job.
+
+    Args:
+        job: ReconstructionJob to execute
+        dry_run: If True, skip actual execution and return mock result
+
+    Returns:
+        subprocess.CompletedProcess with execution results
+
+    Note:
+        CONFIG-001 bridge (update_legacy_dict) is handled by the reconstruction
+        script itself. This runner simply dispatches the subprocess.
+    """
+    if dry_run:
+        # Return mock result without executing
+        return subprocess.CompletedProcess(
+            args=job.cli_args,
+            returncode=0,
+            stdout=f"[DRY RUN] Would execute: {' '.join(job.cli_args)}",
+            stderr="",
+        )
+
+    # Ensure output directory exists
+    job.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Execute reconstruction script
+    result = subprocess.run(
+        job.cli_args,
+        capture_output=True,
+        text=True,
+        check=False,
     )
+
+    return result
