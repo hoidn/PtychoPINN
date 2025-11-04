@@ -1799,3 +1799,15 @@
   - Expanded EB4 guidance (command, artifacts, cleanup) inside `phase_e_execution_knobs/plan.md`; aligned runtime smoke storage under `.../runtime_smoke/<TS>/`.
   - Rewrote `input.md` for EB4.A-B: command uses `gridsize=3`, `--accelerator auto`, `--checkpoint-save-top-k 2`, `--early-stop-patience 5`; artifacts to `runtime_smoke/2025-10-24T061500Z/`; summary instructions require checkpoint counts + auto→cpu note. No tests run (planning loop).
 - <Action State>: [ready_for_implementation]
+
+## 2025-10-24T070500Z: EC1 deprecation warning plan
+- dwell: 0 (reset — prior entries for this focus lacked dwell counters)
+- Focus issue: ADR-003-BACKEND-API — Phase E.C1 legacy API deprecation
+- Action type: Planning
+- Mode: TDD
+- Key updates:
+  - Marked E.B4 runtime smoke row `[x]` in `plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md`, citing Attempt #71 artifacts and noting backlog to expose `--neighbor-count`.
+  - Rewrote `input.md` to drive Phase E.C1 via TDD: author RED test `tests/torch/test_api_deprecation.py::test_example_train_import_emits_deprecation_warning`, then implement centralized `warn_legacy_api_import()` invoked by `example_train.py`/`trainer_api.py` to emit DeprecationWarning pointing to factory-driven workflows.
+  - Established artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/` with red/green/collect logs + summary.md requirements; scheduled TESTING_GUIDE + TEST_SUITE_INDEX updates post-green.
+- Next actions for Ralph: execute RED/green test loop per Do Now, capture summary.md with warning text + MLflow backlog note, update plan row E.C1 guidance.
+- <Action State>: [ready_for_implementation]

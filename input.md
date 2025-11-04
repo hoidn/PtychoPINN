@@ -1,42 +1,45 @@
-Summary: Capture EB4 runtime smoke evidence for PyTorch execution knobs (accelerator auto + checkpoint/early-stop settings).
-Mode: Perf
+Summary: Deprecate legacy ptycho_torch.api entry points by emitting explicit warnings and steering users to the new factory-driven workflows.
+Mode: TDD
 Focus: [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003
 Branch: feature/torchapi
-Mapped tests: none — CLI smoke evidence
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/runtime_smoke/2025-10-24T061500Z/{train_cli_runtime_smoke.log,metrics.csv,lightning_tree.txt,checkpoints_ls.txt,summary.md}
+Mapped tests: pytest tests/torch/test_api_deprecation.py::test_example_train_import_emits_deprecation_warning -vv
+Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/{red/pytest_api_deprecation_red.log,green/pytest_api_deprecation_green.log,collect/pytest_api_deprecation_collect.log,summary.md}
 Do Now:
-- [ADR-003-BACKEND-API] EB4.A @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md — run the Phase EB4 runtime smoke command (gridsize=3, accelerator auto, checkpoint top-k=2, early stop patience=5), archive logs + metrics under 2025-10-24T061500Z, remove tmp/runtime_smoke when finished; tests: none — CLI smoke.
-- [ADR-003-BACKEND-API] EB4.B @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md — author summary.md capturing runtime, accelerator resolution, checkpoint file count, and callback wiring; update docs/fix_plan.md Attempts + mark plan rows `[x]`; tests: none — docs.
-If Blocked: Capture stdout/stderr to `runtime_smoke/2025-10-24T061500Z/blocker.log`, note command + exit code in summary.md, register the blocker in docs/fix_plan.md Attempts, then stop.
+- [ADR-003-BACKEND-API] E.C1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md — Implement: tests/torch/test_api_deprecation.py::test_example_train_import_emits_deprecation_warning (author RED test expecting DeprecationWarning on legacy API import); tests: pytest tests/torch/test_api_deprecation.py::test_example_train_import_emits_deprecation_warning -vv |& tee plans/active/ADR-003-BACKEND-API/reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/red/pytest_api_deprecation_red.log
+- [ADR-003-BACKEND-API] E.C1 @ plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md — Implement: ptycho_torch/api/__init__.py::warn_legacy_api_import (plus call sites in example_train.py and trainer_api.py to emit DeprecationWarning with migration guidance); tests: pytest tests/torch/test_api_deprecation.py::test_example_train_import_emits_deprecation_warning -vv |& tee plans/active/ADR-003-BACKEND-API/reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/green/pytest_api_deprecation_green.log
+If Blocked: Capture stderr/stdout to plans/active/ADR-003-BACKEND-API/reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/blockers.log, note failing command + stack trace in summary.md, and append blocker details to docs/fix_plan.md Attempt entry before stopping.
 Priorities & Rationale:
-- specs/ptychodus_api_spec.md:274-286 requires checkpoint + early-stop knobs to behave per contract; smoke validates CLI wiring.
-- docs/workflows/pytorch.md:324-338 documents the user-facing flags we just exposed; evidence keeps guide trustworthy.
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md rows EB4.A-B gate Phase E completion.
-- docs/findings.md:12 (CONFIG-LOGGER-001) promises CSV metrics persistence; smoke confirms it under accelerator auto.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md (E.C1) requires either thin wrappers or deprecation warnings before Phase E can close.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T134500Z/phase_e_governance_adr_addendum/adr_addendum.md:295-334 defers the legacy API decision to Phase E.C1 with preference for user-facing guidance.
+- docs/workflows/pytorch.md:188-196 flags ptycho_torch/api as deprecated surfaces needing migration instructions; this loop supplies actionable warnings.
+- specs/ptychodus_api_spec.md:300-307 documents CLI logger deprecation semantics; aligning package-level warnings keeps backwards compatibility expectations consistent.
 How-To Map:
-- `artifact_dir=plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/runtime_smoke/2025-10-24T061500Z`
-- `rm -rf tmp/runtime_smoke && mkdir -p "$artifact_dir"`
-- `CUDA_VISIBLE_DEVICES="" /usr/bin/time -p python -m ptycho_torch.train --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz --output_dir tmp/runtime_smoke --n_images 64 --gridsize 3 --max_epochs 6 --batch_size 4 --accelerator auto --deterministic --num-workers 0 --logger csv --checkpoint-save-top-k 2 --early-stop-patience 5 | tee "$artifact_dir/train_cli_runtime_smoke.log"`
-- `cp tmp/runtime_smoke/lightning_logs/version_0/metrics.csv "$artifact_dir/metrics.csv"`
-- `tree tmp/runtime_smoke/lightning_logs > "$artifact_dir/lightning_tree.txt"`
-- `ls -l tmp/runtime_smoke/checkpoints > "$artifact_dir/checkpoints_ls.txt"`
-- `rm -rf tmp/runtime_smoke`
-- Draft `$artifact_dir/summary.md` noting runtime, GPU detection message (auto→cpu), checkpoint files present, early-stop settings (patience 5, not triggered over 6 epochs), and cross-links to spec/workflow/finding. Update docs/fix_plan.md with Attempt #71 and flip EB4 rows to `[x]`.
+- export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+- ARTIFACT_ROOT=plans/active/ADR-003-BACKEND-API/reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z
+- mkdir -p "$ARTIFACT_ROOT/red" "$ARTIFACT_ROOT/green" "$ARTIFACT_ROOT/collect"
+- CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_api_deprecation.py::test_example_train_import_emits_deprecation_warning -vv | tee "$ARTIFACT_ROOT/red/pytest_api_deprecation_red.log"  # expect fail until warning implemented
+- After implementation, rerun the selector with same command teeing to "$ARTIFACT_ROOT/green/pytest_api_deprecation_green.log"
+- After GREEN, run CUDA_VISIBLE_DEVICES="" pytest tests/torch/test_api_deprecation.py::test_example_train_import_emits_deprecation_warning -vv --collect-only | tee "$ARTIFACT_ROOT/collect/pytest_api_deprecation_collect.log"
+- Draft "$ARTIFACT_ROOT/summary.md" with warning message text, files touched, pytest results, and follow-up actions; update docs/fix_plan.md Attempt entry and flip plan row E.C1 guidance accordingly.
 Pitfalls To Avoid:
-- Do not change accelerator back to `cpu`; evidence must demonstrate `auto` fallback behaviour.
-- Keep `gridsize 3` and `--checkpoint-save-top-k 2`; other values undermine EB4 coverage.
-- Copy metrics.csv before deleting tmp/runtime_smoke; otherwise CSV evidence is lost.
-- Avoid leaving checkpoint artifacts in the repo root; ensure cleanup after packaging evidence.
-- Reference artifact paths relative to repo root (no absolute `/home/...`).
-- Summaries must cite spec/workflow lines and CONFIG-LOGGER-001; avoid vague prose.
-- Skip pytest and full-suite runs; this loop is evidence-only.
-- Capture tree/ls output after training, not before.
-- Watch for DeprecationWarnings (device/disable_mlflow) and record them in summary if they appear.
-- Ensure docs/fix_plan.md Attempts History reflects this smoke run with artifact links.
+- Do not delete legacy API modules; emit warnings and leave behavior unchanged aside from messaging.
+- Use warnings.warn(..., DeprecationWarning, stacklevel=2) so callers see accurate stack origin.
+- Ensure tests clear sys.modules or rely on importlib.reload so warnings fire reliably across reruns.
+- Keep warning message consistent across modules; centralize text in ptycho_torch/api/__init__.py.
+- Avoid hardcoding filesystem paths in warnings—reference CLI entry points instead.
+- Do not run full pytest suite; stick to mapped selector to limit runtime.
+- Clean up new artifact directories only after summary captured; no tmp/ leftovers.
+- Leave MLflow behavior untouched; note any gaps in summary instead of patching here.
+- Maintain ASCII in new files; no Unicode characters.
+- Keep new tests pytest-native (no unittest mix-ins).
+Findings Applied (Mandatory):
+- CONFIG-002 — Maintain execution-config isolation; warning should not mutate params.cfg.
+- POLICY-001 — PyTorch dependency remains mandatory; no optional imports introduced.
 Pointers:
-- specs/ptychodus_api_spec.md:274
-- docs/workflows/pytorch.md:324
-- docs/findings.md:12
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T153300Z/phase_e_execution_knobs/plan.md
-- docs/ci_logger_notes.md:1
-Next Up: Phase E.C deprecation tasks (template available in phase_e_governance/plan.md) once EB4 evidence lands.
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md#L60
+- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T134500Z/phase_e_governance_adr_addendum/adr_addendum.md#L295
+- docs/workflows/pytorch.md:188
+- specs/ptychodus_api_spec.md:300
+Doc Sync Plan (Conditional): After GREEN, update docs/TESTING_GUIDE.md §2 selector table and docs/development/TEST_SUITE_INDEX.md (Torch unit tests) with the new api_deprecation selector; attach diff references in summary.md after verifying pytest --collect-only output stored at "$ARTIFACT_ROOT/collect/pytest_api_deprecation_collect.log".
+Mapped Tests Guardrail: Confirm pytest --collect-only tests/torch/test_api_deprecation.py::test_example_train_import_emits_deprecation_warning -vv collects ≥1 test case; if collection fails, pause implementation and repair the test module first.
+Next Up: E.C2 ledger + plan closure once deprecation warning lands.
