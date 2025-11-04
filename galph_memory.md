@@ -2381,3 +2381,17 @@
 - Directions: Rewrote `input.md` (Mode: TDD) to drive bundle_sha256 manifest assertion tightening, RED→GREEN pytest, deterministic dense/baseline CLI reruns, bundle+checksum archiving, and refreshed summary. Updated `docs/fix_plan.md` Attempt #99 with new scope + artifacts.
 - Next actions for Ralph: Execute Do Now to produce dense/baseline `wts.h5.zip` with SHA256 evidence, then update summary + ledger (Attempt #99 results).
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T070500Z: Phase E6 real bundle execution directive
+- dwell: 2 (third consecutive planning loop; implementation required next)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T050500Z/phase_e_training_bundle_real_runs_retry/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) and re-read Attempt #99 + Attempt #98 summaries, confirming Memmap fallback is live but real CLI bundles still missing; tmp/phase_c_f2_cli and tmp/phase_d_f2_cli no longer present.
+  - Re-surfaced findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 and specs §4.6 / DATA-001 to reinforce SHA256 + dataset obligations.
+  - Rewrote `input.md` to (a) tighten `test_execute_training_job_persists_bundle` with an explicit on-disk SHA256 comparison, (b) rerun targeted training_cli selectors, (c) regenerate Phase C/D dose=1000 datasets when absent, (d) execute dense gs2 + baseline gs1 training CLI runs with deterministic knobs, and (e) archive bundles, manifests, checksum logs, and verification output inside the reserved hub.
+  - Updated docs/fix_plan.md with Attempt #100 planning entry and logged dataset regeneration fallback plus manifest verification script expectations.
+- Next actions for Ralph: implement the SHA equality assertion, run mapped pytest selectors, rebuild Phase C/D data if needed, capture dense/baseline CLI outputs with SHA256 verification artifacts, update analysis/summary.md, and record Attempt results in docs/fix_plan.md.
+- <Action State>: [ready_for_implementation]
