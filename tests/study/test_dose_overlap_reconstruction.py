@@ -371,3 +371,146 @@ def test_cli_filters_dry_run(mock_phase_c_datasets, mock_phase_d_datasets, tmp_p
 
     # We expect 17 skipped jobs (18 total - 1 filtered = 17 skipped)
     assert skip_summary['skipped_count'] == 17, f"Expected 17 skipped jobs, got {skip_summary['skipped_count']}"
+
+
+def test_cli_executes_selected_jobs(mock_phase_c_datasets, mock_phase_d_datasets, tmp_path, monkeypatch):
+    """
+    RED→GREEN test: CLI executes jobs with per-job logging and return code handling.
+
+    Phase F2 requirements:
+    - Non-dry-run execution path writes stdout/stderr to per-job log files
+    - Log files follow pattern: artifact_root/dose_{dose}/{view}/{split}/ptychi.log
+    - Manifest includes execution telemetry (log paths, return codes)
+    - Skip summary remains stable when jobs are filtered
+    - Non-zero return codes are surfaced with actionable context
+
+    Test strategy:
+    - Patch subprocess.run to simulate success and failure scenarios
+    - Verify log file creation at expected paths
+    - Assert manifest includes execution metadata
+    - Validate skip summary is not mutated by execution results
+    """
+    import sys
+    import json
+    from unittest.mock import MagicMock
+    from studies.fly64_dose_overlap import reconstruction
+
+    artifact_root = tmp_path / "exec_artifacts"
+    artifact_root.mkdir()
+
+    # Mock subprocess.run to simulate job execution
+    mock_results = []
+
+    def mock_subprocess_run(args, **kwargs):
+        """
+        Simulate subprocess execution with deterministic outcomes.
+        - First job: success (returncode=0)
+        - Second job: failure (returncode=1) with stderr
+        """
+        job_index = len(mock_results)
+
+        if job_index == 0:
+            # Success case
+            result = MagicMock(
+                returncode=0,
+                stdout="LSQML reconstruction completed successfully\nFinal RMSE: 0.0123",
+                stderr="",
+            )
+        else:
+            # Failure case
+            result = MagicMock(
+                returncode=1,
+                stdout="LSQML reconstruction started",
+                stderr="ERROR: Invalid diffraction array shape",
+            )
+
+        result.args = args
+        mock_results.append(result)
+        return result
+
+    # Patch subprocess.run in the reconstruction module
+    monkeypatch.setattr("studies.fly64_dose_overlap.reconstruction.subprocess.run", mock_subprocess_run)
+
+    # Build CLI arguments: filter to 2 jobs (dose=1000, view=dense)
+    sys.argv = [
+        "reconstruction.py",
+        "--phase-c-root", str(mock_phase_c_datasets),
+        "--phase-d-root", str(mock_phase_d_datasets),
+        "--artifact-root", str(artifact_root),
+        "--dose", "1000",
+        "--view", "dense",
+        # Execute both train and test splits (2 jobs total)
+    ]
+
+    # Execute main() with mocked subprocess
+    exit_code = reconstruction.main()
+
+    # Assert CLI executed successfully (even though one job failed internally)
+    assert exit_code == 0, f"CLI should return 0 even with job failures, got {exit_code}"
+
+    # Verify manifest was written
+    manifest_path = artifact_root / "reconstruction_manifest.json"
+    assert manifest_path.exists(), f"Manifest not found: {manifest_path}"
+
+    with open(manifest_path, 'r') as f:
+        manifest = json.load(f)
+
+    # Assert manifest includes execution telemetry
+    assert 'jobs' in manifest, "Manifest missing 'jobs' key"
+    assert 'execution_results' in manifest, "Manifest missing 'execution_results' key for F2 telemetry"
+
+    # Verify execution results capture return codes and log paths
+    exec_results = manifest['execution_results']
+    assert len(exec_results) == 2, f"Expected 2 execution results, got {len(exec_results)}"
+
+    # First job: success
+    assert exec_results[0]['returncode'] == 0, "First job should succeed"
+    assert exec_results[0]['dose'] == 1000
+    assert exec_results[0]['view'] == 'dense'
+    assert exec_results[0]['split'] == 'train'
+    assert 'log_path' in exec_results[0], "Execution result missing log_path"
+
+    # Second job: failure
+    assert exec_results[1]['returncode'] == 1, "Second job should fail"
+    assert exec_results[1]['dose'] == 1000
+    assert exec_results[1]['view'] == 'dense'
+    assert exec_results[1]['split'] == 'test'
+    assert 'log_path' in exec_results[1], "Execution result missing log_path"
+
+    # Verify per-job log files were created
+    train_log = Path(exec_results[0]['log_path'])
+    test_log = Path(exec_results[1]['log_path'])
+
+    assert train_log.exists(), f"Train job log not found: {train_log}"
+    assert test_log.exists(), f"Test job log not found: {test_log}"
+
+    # Verify log paths follow expected pattern: artifact_root/dose_{dose}/{view}/{split}/ptychi.log
+    expected_train_log = artifact_root / "dose_1000" / "dense" / "train" / "ptychi.log"
+    expected_test_log = artifact_root / "dose_1000" / "dense" / "test" / "ptychi.log"
+
+    assert train_log == expected_train_log, f"Train log path mismatch: {train_log} != {expected_train_log}"
+    assert test_log == expected_test_log, f"Test log path mismatch: {test_log} != {expected_test_log}"
+
+    # Verify log content includes stdout/stderr from mocked subprocess
+    with open(train_log, 'r') as f:
+        train_log_content = f.read()
+
+    assert "LSQML reconstruction completed successfully" in train_log_content, \
+        "Train log missing expected stdout content"
+
+    with open(test_log, 'r') as f:
+        test_log_content = f.read()
+
+    assert "ERROR: Invalid diffraction array shape" in test_log_content, \
+        "Test log missing expected stderr content"
+
+    # Verify skip summary was not mutated by execution
+    skip_summary_path = artifact_root / "skip_summary.json"
+    assert skip_summary_path.exists(), f"Skip summary not found: {skip_summary_path}"
+
+    with open(skip_summary_path, 'r') as f:
+        skip_summary = json.load(f)
+
+    # With filters --dose 1000 --view dense, we expect 16 skipped jobs (18 total - 2 filtered)
+    assert skip_summary['skipped_count'] == 16, \
+        f"Expected 16 skipped jobs, got {skip_summary['skipped_count']}"

@@ -171,13 +171,19 @@ def build_ptychi_jobs(
     return jobs
 
 
-def run_ptychi_job(job: ReconstructionJob, dry_run: bool = True) -> subprocess.CompletedProcess:
+def run_ptychi_job(
+    job: ReconstructionJob,
+    dry_run: bool = True,
+    log_path: Path = None,
+) -> subprocess.CompletedProcess:
     """
-    Execute a single pty-chi LSQML reconstruction job.
+    Execute a single pty-chi LSQML reconstruction job with optional logging.
 
     Args:
         job: ReconstructionJob to execute
         dry_run: If True, skip actual execution and return mock result
+        log_path: Optional Path for per-job log file (stdout/stderr capture).
+                  If provided and dry_run=False, writes combined output to this file.
 
     Returns:
         subprocess.CompletedProcess with execution results
@@ -185,18 +191,29 @@ def run_ptychi_job(job: ReconstructionJob, dry_run: bool = True) -> subprocess.C
     Note:
         CONFIG-001 bridge (update_legacy_dict) is handled by the reconstruction
         script itself. This runner simply dispatches the subprocess.
+
+    Raises:
+        No exceptions raised on non-zero return codes; caller must inspect
+        result.returncode for failure handling.
     """
     if dry_run:
         # Return mock result without executing
+        mock_stdout = f"[DRY RUN] Would execute: {' '.join(job.cli_args)}"
+        if log_path:
+            mock_stdout += f"\n[DRY RUN] Would log to: {log_path}"
         return subprocess.CompletedProcess(
             args=job.cli_args,
             returncode=0,
-            stdout=f"[DRY RUN] Would execute: {' '.join(job.cli_args)}",
+            stdout=mock_stdout,
             stderr="",
         )
 
     # Ensure output directory exists
     job.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Ensure log directory exists if log_path provided
+    if log_path:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Execute reconstruction script
     result = subprocess.run(
@@ -205,6 +222,25 @@ def run_ptychi_job(job: ReconstructionJob, dry_run: bool = True) -> subprocess.C
         text=True,
         check=False,
     )
+
+    # Write combined stdout/stderr to log file if path provided
+    if log_path:
+        with open(log_path, 'w') as f:
+            f.write(f"# PtyChi LSQML Reconstruction Log\n")
+            f.write(f"# Job: dose={job.dose}, view={job.view}, split={job.split}\n")
+            f.write(f"# Command: {' '.join(job.cli_args)}\n")
+            f.write(f"# Return code: {result.returncode}\n")
+            f.write(f"#{'='*60}\n\n")
+
+            if result.stdout:
+                f.write("=== STDOUT ===\n")
+                f.write(result.stdout)
+                f.write("\n\n")
+
+            if result.stderr:
+                f.write("=== STDERR ===\n")
+                f.write(result.stderr)
+                f.write("\n")
 
     return result
 
@@ -376,17 +412,24 @@ def main():
 
     print(f"\nFiltered jobs: {len(filtered_jobs)} selected, {len(skipped_jobs)} skipped")
 
-    # Execute filtered jobs
+    # Execute filtered jobs with per-job logging
     execution_results = []
     for i, job in enumerate(filtered_jobs, 1):
         print(f"\n[{i}/{len(filtered_jobs)}] Job: dose={job.dose}, view={job.view}, split={job.split}")
-        result = run_ptychi_job(job, dry_run=args.dry_run)
 
+        # Compute log path: artifact_root/dose_{dose}/{view}/{split}/ptychi.log
+        job_log_path = args.artifact_root / f"dose_{int(job.dose)}" / job.view / job.split / "ptychi.log"
+
+        # Execute job with log capture
+        result = run_ptychi_job(job, dry_run=args.dry_run, log_path=job_log_path)
+
+        # Record execution telemetry
         execution_results.append({
             "dose": job.dose,
             "view": job.view,
             "split": job.split,
             "returncode": result.returncode,
+            "log_path": str(job_log_path),
             "stdout_preview": result.stdout[:200] if result.stdout else "",
         })
 
@@ -396,8 +439,9 @@ def main():
             print(f"  Return code: {result.returncode}")
             if result.returncode != 0:
                 print(f"  STDERR: {result.stderr}")
+            print(f"  Log: {job_log_path}")
 
-    # Emit manifest JSON
+    # Emit manifest JSON with execution telemetry
     manifest_path = args.artifact_root / "reconstruction_manifest.json"
     manifest = {
         "timestamp": datetime.now().isoformat(),
@@ -424,6 +468,7 @@ def main():
             }
             for job in filtered_jobs
         ],
+        "execution_results": execution_results,
     }
 
     with open(manifest_path, 'w') as f:
