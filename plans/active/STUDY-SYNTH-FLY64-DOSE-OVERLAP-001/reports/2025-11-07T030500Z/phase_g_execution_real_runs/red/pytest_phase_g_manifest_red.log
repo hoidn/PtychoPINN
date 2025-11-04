@@ -1,0 +1,144 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_appends_tike_recon_path FAILED [100%]
+
+=================================== FAILURES ===================================
+_____________ test_execute_comparison_jobs_appends_tike_recon_path _____________
+
+fake_phase_artifacts = {'phase_c_root': PosixPath('/tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_c'), 'phase_e_root':...obs_a0/phase_e'), 'phase_f_root': PosixPath('/tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_f')}
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x760e0dd4f290>
+
+    def test_execute_comparison_jobs_appends_tike_recon_path(fake_phase_artifacts, tmp_path, monkeypatch):
+        """
+        Test execute_comparison_jobs parses Phase F manifest and appends --tike_recon_path.
+    
+        Exit criteria (AT-G2.1):
+        - execute_comparison_jobs reads each job's phase_f_manifest JSON
+        - Locates 'output_dir' field from manifest job entry matching dose/view/split
+        - Constructs ptychi_reconstruction.npz path as Path(output_dir) / 'ptychi_reconstruction.npz'
+        - Asserts NPZ exists before appending --tike_recon_path
+        - Appends --tike_recon_path to compare_models command
+        - All paths remain as Path objects (TYPE-PATH-001)
+    
+        RED validation:
+        - Test fails when NPZ is missing (FileNotFoundError with actionable message)
+        - Command does not include --tike_recon_path if manifest parsing is missing
+    
+        GREEN validation:
+        - Command includes --tike_recon_path when NPZ exists
+        - Path value is correct (matches output_dir from manifest)
+        """
+        from studies.fly64_dose_overlap.comparison import build_comparison_jobs, execute_comparison_jobs
+        import json
+    
+        # Enhance fixture to emit Phase F manifest JSON with output_dir + dummy NPZ
+        phase_f_root = fake_phase_artifacts['phase_f_root']
+        for dose in [500, 1000, 2000]:
+            for view in ['dense', 'sparse']:
+                for split in ['train', 'test']:
+                    manifest_dir = phase_f_root / f'dose_{dose}_{view}_{split}'
+    
+                    # Create manifest JSON with output_dir field
+                    output_dir = manifest_dir / 'outputs'
+                    output_dir.mkdir(parents=True, exist_ok=True)
+    
+                    manifest_data = {
+                        'jobs': [{
+                            'dose': dose,
+                            'view': view,
+                            'split': split,
+                            'output_dir': str(output_dir),
+                            'algorithm': 'LSQML',
+                            'num_epochs': 100,
+                        }],
+                        'execution_results': [{
+                            'dose': dose,
+                            'view': view,
+                            'split': split,
+                            'returncode': 0,
+                        }],
+                    }
+    
+                    # Write manifest JSON
+                    manifest_path = manifest_dir / 'manifest.json'
+                    with open(manifest_path, 'w') as f:
+                        json.dump(manifest_data, f, indent=2)
+    
+                    # Create dummy ptychi_reconstruction.npz
+                    npz_path = output_dir / 'ptychi_reconstruction.npz'
+                    npz_path.touch()
+    
+        # Track subprocess calls
+        subprocess_calls = []
+    
+        def mock_subprocess_run(cmd, **kwargs):
+            subprocess_calls.append({
+                'cmd': cmd,
+                'kwargs': kwargs,
+            })
+            # Return mock CompletedProcess
+            from unittest.mock import Mock
+            result = Mock()
+            result.returncode = 0
+            result.stdout = "comparison complete"
+            result.stderr = ""
+            return result
+    
+        monkeypatch.setattr('subprocess.run', mock_subprocess_run)
+    
+        # Build jobs for dose=1000, view=dense, split=train
+        jobs = build_comparison_jobs(
+            phase_c_root=fake_phase_artifacts['phase_c_root'],
+            phase_e_root=fake_phase_artifacts['phase_e_root'],
+            phase_f_root=fake_phase_artifacts['phase_f_root'],
+            dose_filter=1000,
+            view_filter='dense',
+            split_filter='train',
+        )
+    
+        assert len(jobs) == 1, f"Expected 1 job for filtered query, got {len(jobs)}"
+    
+        # Execute comparisons
+        artifact_root = tmp_path / 'phase_g_manifest_test'
+        manifest = execute_comparison_jobs(
+            jobs=jobs,
+            artifact_root=artifact_root,
+        )
+    
+        # Verify subprocess was invoked once
+        assert len(subprocess_calls) == 1, f"Expected 1 subprocess call, got {len(subprocess_calls)}"
+    
+        # Verify command includes --tike_recon_path
+        call = subprocess_calls[0]
+        cmd = call['cmd']
+        cmd_str = ' '.join(str(arg) for arg in cmd)
+    
+>       assert '--tike_recon_path' in cmd_str, (
+            f"Expected --tike_recon_path in command but not found.\n"
+            f"Command: {cmd_str}"
+        )
+E       AssertionError: Expected --tike_recon_path in command but not found.
+E         Command: /home/ollie/miniconda3/envs/ptycho311/bin/python3.11 -m scripts.compare_models --pinn_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_e/dose_1000/dense/gs2 --baseline_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_e/dose_1000/baseline/gs1 --test_data /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_c/dose_1000/patched_train.npz --output_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_g_manifest_test/dose_1000/dense/train --ms-ssim-sigma 1.0 --register-ptychi-only
+E       assert '--tike_recon_path' in '/home/ollie/miniconda3/envs/ptycho311/bin/python3.11 -m scripts.compare_models --pinn_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_e/dose_1000/dense/gs2 --baseline_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_e/dose_1000/baseline/gs1 --test_data /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_c/dose_1000/patched_train.npz --output_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_g_manifest_test/dose_1000/dense/train --ms-ssim-sigma 1.0 --register-ptychi-only'
+
+tests/study/test_dose_overlap_comparison.py:431: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+Executing comparison for dose=1000, view=dense, split=train
+  Output: /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_g_manifest_test/dose_1000/dense/train
+  Log: /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_g_manifest_test/dose_1000/dense/train/comparison.log
+  SUCCESS (returncode=0)
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_appends_tike_recon_path - AssertionError: Expected --tike_recon_path in command but not found.
+  Command: /home/ollie/miniconda3/envs/ptycho311/bin/python3.11 -m scripts.compare_models --pinn_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_e/dose_1000/dense/gs2 --baseline_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_e/dose_1000/baseline/gs1 --test_data /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_c/dose_1000/patched_train.npz --output_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_g_manifest_test/dose_1000/dense/train --ms-ssim-sigma 1.0 --register-ptychi-only
+assert '--tike_recon_path' in '/home/ollie/miniconda3/envs/ptycho311/bin/python3.11 -m scripts.compare_models --pinn_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_e/dose_1000/dense/gs2 --baseline_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_e/dose_1000/baseline/gs1 --test_data /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_c/dose_1000/patched_train.npz --output_dir /tmp/pytest-of-ollie/pytest-252/test_execute_comparison_jobs_a0/phase_g_manifest_test/dose_1000/dense/train --ms-ssim-sigma 1.0 --register-ptychi-only'
+============================== 1 failed in 0.86s ===============================

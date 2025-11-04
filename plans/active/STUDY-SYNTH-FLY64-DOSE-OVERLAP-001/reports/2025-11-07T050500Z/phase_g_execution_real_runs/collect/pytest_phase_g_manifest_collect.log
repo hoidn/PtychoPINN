@@ -1,0 +1,39 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 5 items / 4 deselected / 1 selected
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_comparison.py>
+        Test Phase G comparison orchestration for STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.
+        
+        Validates build_comparison_jobs function produces deterministic jobs with pointers
+        to Phase C/E/F artifacts and metric configuration.
+        <Function test_execute_comparison_jobs_appends_tike_recon_path>
+          Test execute_comparison_jobs reads Phase F manifest and appends --tike_recon_path.
+          
+          Exit criteria (AT-G2.1):
+          - execute_comparison_jobs reads manifest.json from phase_f_manifest path
+          - Manifest must contain output_dir field (or similar reconstruction location pointer)
+          - Function constructs ptychi_reconstruction.npz path from manifest output_dir
+          - --tike_recon_path <path> is appended to subprocess command
+          - Path is normalized using Path objects (TYPE-PATH-001)
+          - Function fails fast with clear error if ptychi_reconstruction.npz missing
+          
+          Background:
+          Prior code at comparison.py:169-186 never passed Phase F reconstruction data to
+          scripts.compare_models, limiting comparisons to PINN vs baseline (two-way).
+          This test validates manifest-driven three-way comparison wiring.
+          
+          Test structure:
+          - RED: Assert execute_comparison_jobs currently lacks --tike_recon_path in command
+          - GREEN: After implementation, assert --tike_recon_path present with correct path
+
+================= 1/5 tests collected (4 deselected) in 1.60s ==================
