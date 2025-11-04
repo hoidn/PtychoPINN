@@ -1,0 +1,78 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_training.py>
+        Tests for Phase E training job matrix builder.
+        
+        Validates that build_training_jobs() correctly enumerates 9 jobs per dose
+        (3 doses × 3 variants: baseline gs1, dense gs2, sparse gs2) with proper
+        metadata and dataset path validation.
+        
+        Test tier: Unit
+        Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
+        <Function test_build_training_jobs_matrix>
+          RED → GREEN TDD test for Phase E job matrix enumeration.
+          
+          Validates that build_training_jobs() produces exactly 9 jobs per dose:
+          - 1 baseline job (gs1, Phase C patched_train.npz/patched_test.npz)
+          - 2 overlap jobs (gs2, Phase D dense/sparse NPZs)
+          
+          Each TrainingJob must contain:
+          - dose (float, from StudyDesign.dose_list)
+          - view (str, one of {"baseline", "dense", "sparse"})
+          - gridsize (int, 1 or 2)
+          - train_data_path (str, validated existence)
+          - test_data_path (str, validated existence)
+          - artifact_dir (Path, deterministic from dose/view/gridsize)
+          - log_path (Path, derived from artifact_dir)
+          
+          References:
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:133-144
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+          - specs/data_contracts.md:190-260 (DATA-001 keys)
+        <Function test_run_training_job_invokes_runner>
+          RED → GREEN TDD test for run_training_job runner invocation.
+          
+          Validates that run_training_job():
+          - Creates artifact and log directories before execution
+          - Calls update_legacy_dict(params.cfg, config) with the correct bridge config
+          - Invokes the injected runner callable with (config, job, log_path) kwargs
+          - Touches/writes to job.log_path to ensure logging infrastructure ready
+          - Returns useful metadata (e.g., runner result or summary dict)
+          
+          Test strategy: Use monkeypatch to spy on update_legacy_dict call and inject
+          a stub runner that records its invocation signature. Validate call ordering
+          (bridge before runner) and parameter passing.
+          
+          References:
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-123
+          - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 ordering)
+          - input.md:8-11 (task E3 requirements)
+        <Function test_run_training_job_dry_run>
+          RED → GREEN TDD test for run_training_job dry-run mode.
+          
+          Validates that run_training_job(dry_run=True):
+          - Creates artifact and log directories
+          - Calls update_legacy_dict to prepare params.cfg
+          - Does NOT invoke the runner callable
+          - Returns a summary dict describing what would have been executed
+          - Summary includes: dose, view, gridsize, dataset paths, log_path
+          
+          Test strategy: Inject a sentinel runner that raises AssertionError if called.
+          Validate that dry_run prevents execution while still returning useful metadata.
+          
+          References:
+          - input.md:10 (honor dry_run by summarizing without executing)
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-123
+
+========================== 3 tests collected in 3.02s ==========================

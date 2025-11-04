@@ -1,0 +1,3 @@
+RUN baseline dose=1000.0 gridsize=1 log=/tmp/tmp6d05v40j/artifacts/train.log
+Config keys: ['gridsize', 'output_dir', 'test_data_file', 'train_data_file']
+Result: {'status': 'stub_complete'}

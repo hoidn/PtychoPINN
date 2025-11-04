@@ -1,0 +1,42 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_run_training_job_dry_run FAILED [100%]
+
+=================================== FAILURES ===================================
+________________________ test_run_training_job_dry_run _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-53/test_run_training_job_dry_run0')
+
+    def test_run_training_job_dry_run(tmp_path):
+        """
+        RED → GREEN TDD test for run_training_job dry-run mode.
+    
+        Validates that run_training_job(dry_run=True):
+        - Creates artifact and log directories
+        - Calls update_legacy_dict to prepare params.cfg
+        - Does NOT invoke the runner callable
+        - Returns a summary dict describing what would have been executed
+        - Summary includes: dose, view, gridsize, dataset paths, log_path
+    
+        Test strategy: Inject a sentinel runner that raises AssertionError if called.
+        Validate that dry_run prevents execution while still returning useful metadata.
+    
+        References:
+        - input.md:10 (honor dry_run by summarizing without executing)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-123
+        """
+>       from studies.fly64_dose_overlap.training import run_training_job
+E       ImportError: cannot import name 'run_training_job' from 'studies.fly64_dose_overlap.training' (/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py)
+
+tests/study/test_dose_overlap_training.py:345: ImportError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_run_training_job_dry_run - ImportError: cannot import name 'run_training_job' from 'studies.fly64_dose_overlap.training' (/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py)
+============================== 1 failed in 0.84s ===============================
