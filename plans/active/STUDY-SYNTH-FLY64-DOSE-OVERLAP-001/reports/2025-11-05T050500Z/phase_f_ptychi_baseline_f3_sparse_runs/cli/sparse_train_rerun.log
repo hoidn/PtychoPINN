@@ -1,0 +1,86 @@
+<frozen runpy>:128: RuntimeWarning: 'studies.fly64_dose_overlap.reconstruction' found in sys.modules after import of package 'studies.fly64_dose_overlap', but prior to execution of 'studies.fly64_dose_overlap.reconstruction'; this may result in unpredictable behaviour
+Building job manifest from Phase C: tmp/phase_c_f2_cli
+                      and Phase D: tmp/phase_d_f2_cli
+Total jobs enumerated: 18
+Filter --dose=1000.0: 18 → 6 jobs
+Filter --view=sparse: 6 → 2 jobs
+Filter --split=train: 2 → 1 jobs
+
+Filtered jobs: 1 selected, 17 skipped
+
+[1/1] Job: dose=1000.0, view=sparse, split=train
+  Return code: 1
+  STDERR: `rescale_probe_intensity_in_first_epoch` and `ProbeOptions.power_constraint` are both enabled, which may lead to unexpected results.
+`ObjectOptions.remove_object_probe_ambiguity` and `ProbeOptions.power_constraint` are both enabled, which may lead to unexpected results.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/utils/_device.py:103: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+  return func(*args, **kwargs)
+
+  0%|          | 0/100 [00:00<?, ?it/s]
+  1%|          | 1/100 [00:00<00:16,  5.83it/s]Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/scripts/reconstruction/ptychi_reconstruct_tike.py", line 364, in main
+    task = run_reconstruction(options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/scripts/reconstruction/ptychi_reconstruct_tike.py", line 219, in run_reconstruction
+    task.run()
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/api/task.py", line 236, in run
+    self.reconstructor.run(n_epochs=n_epochs)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/base.py", line 555, in run
+    return super().run(n_epochs=n_epochs, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/base.py", line 319, in run
+    self.run_minibatch(input_data, y_true)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 1203, in run_minibatch
+    self.run_real_space_step(psi_opt, indices)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 186, in run_real_space_step
+    self.update_reconstruction_parameters(indices, chi, obj_patches, positions)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 256, in update_reconstruction_parameters
+    self.calculate_optimal_step_sizes(
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 447, in calculate_optimal_step_sizes
+    (alpha_o_i, alpha_p_i) = self.calculate_object_and_probe_update_step_sizes(
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 541, in calculate_object_and_probe_update_step_sizes
+    alpha_vec = torch.linalg.solve(a_mat, b_vec)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/utils/_device.py", line 103, in __torch_function__
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+torch._C._LinAlgError: torch.linalg.solve: (Batch element 0): The solver failed because the input matrix is singular.
+
+                                               
+
+  Log: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run/dose_1000/sparse/train/ptychi.log
+
+Manifest written to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run/reconstruction_manifest.json
+Skip summary written to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run/skip_summary.json
+
+============================================================
+Phase F Reconstruction Orchestrator Summary
+============================================================
+Total jobs:     18
+Filtered jobs:  1
+Skipped jobs:   17
+Dry run:        False
+Artifacts:      plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run
+============================================================

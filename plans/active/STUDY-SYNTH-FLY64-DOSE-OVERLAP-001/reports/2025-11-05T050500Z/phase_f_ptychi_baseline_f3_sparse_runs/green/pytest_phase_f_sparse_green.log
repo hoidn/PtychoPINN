@@ -1,0 +1,187 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs FAILED [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_cli_executes_selected_jobs ________________________
+
+mock_phase_c_datasets = PosixPath('/tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/phase_c')
+mock_phase_d_datasets = PosixPath('/tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/phase_d')
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x75bd0536b350>
+
+    def test_cli_executes_selected_jobs(mock_phase_c_datasets, mock_phase_d_datasets, tmp_path, monkeypatch):
+        """
+        RED→GREEN test: CLI executes jobs with per-job logging and return code handling.
+    
+        Phase F2 requirements:
+        - Non-dry-run execution path writes stdout/stderr to per-job log files
+        - Log files follow pattern: artifact_root/dose_{dose}/{view}/{split}/ptychi.log
+        - Manifest includes execution telemetry (log paths, return codes)
+        - Skip summary remains stable when jobs are filtered
+        - Non-zero return codes are surfaced with actionable context
+    
+        Test strategy:
+        - Patch subprocess.run to simulate success and failure scenarios
+        - Verify log file creation at expected paths
+        - Assert manifest includes execution metadata
+        - Validate skip summary is not mutated by execution results
+        """
+        import sys
+        import json
+        from unittest.mock import MagicMock
+        from studies.fly64_dose_overlap import reconstruction
+    
+        artifact_root = tmp_path / "exec_artifacts"
+        artifact_root.mkdir()
+    
+        # Mock subprocess.run to simulate job execution
+        mock_results = []
+    
+        def mock_subprocess_run(args, **kwargs):
+            """
+            Simulate subprocess execution with deterministic outcomes.
+            - First job: success (returncode=0)
+            - Second job: failure (returncode=1) with stderr
+            """
+            job_index = len(mock_results)
+    
+            if job_index == 0:
+                # Success case
+                result = MagicMock(
+                    returncode=0,
+                    stdout="LSQML reconstruction completed successfully\nFinal RMSE: 0.0123",
+                    stderr="",
+                )
+            else:
+                # Failure case
+                result = MagicMock(
+                    returncode=1,
+                    stdout="LSQML reconstruction started",
+                    stderr="ERROR: Invalid diffraction array shape",
+                )
+    
+            result.args = args
+            mock_results.append(result)
+            return result
+    
+        # Patch subprocess.run in the reconstruction module
+        monkeypatch.setattr("studies.fly64_dose_overlap.reconstruction.subprocess.run", mock_subprocess_run)
+    
+        # Build CLI arguments: filter to 2 jobs (dose=1000, view=dense)
+        sys.argv = [
+            "reconstruction.py",
+            "--phase-c-root", str(mock_phase_c_datasets),
+            "--phase-d-root", str(mock_phase_d_datasets),
+            "--artifact-root", str(artifact_root),
+            "--dose", "1000",
+            "--view", "dense",
+            # Execute both train and test splits (2 jobs total)
+        ]
+    
+        # Execute main() with mocked subprocess
+        exit_code = reconstruction.main()
+    
+        # Assert CLI executed successfully (even though one job failed internally)
+        assert exit_code == 0, f"CLI should return 0 even with job failures, got {exit_code}"
+    
+        # Verify manifest was written
+        manifest_path = artifact_root / "reconstruction_manifest.json"
+        assert manifest_path.exists(), f"Manifest not found: {manifest_path}"
+    
+        with open(manifest_path, 'r') as f:
+            manifest = json.load(f)
+    
+        # Assert manifest includes execution telemetry
+        assert 'jobs' in manifest, "Manifest missing 'jobs' key"
+        assert 'execution_results' in manifest, "Manifest missing 'execution_results' key for F2 telemetry"
+    
+        # Verify execution results capture return codes and log paths
+        exec_results = manifest['execution_results']
+        assert len(exec_results) == 2, f"Expected 2 execution results, got {len(exec_results)}"
+    
+        # First job: success
+        assert exec_results[0]['returncode'] == 0, "First job should succeed"
+        assert exec_results[0]['dose'] == 1000
+        assert exec_results[0]['view'] == 'dense'
+        assert exec_results[0]['split'] == 'train'
+        assert 'log_path' in exec_results[0], "Execution result missing log_path"
+    
+        # Second job: failure
+        assert exec_results[1]['returncode'] == 1, "Second job should fail"
+        assert exec_results[1]['dose'] == 1000
+        assert exec_results[1]['view'] == 'dense'
+        assert exec_results[1]['split'] == 'test'
+        assert 'log_path' in exec_results[1], "Execution result missing log_path"
+    
+        # Phase F3 requirement: Verify selection_strategy metadata surfaced from Phase D
+        # Schema: {
+        #   'selection_strategy': 'direct' | 'greedy',
+        #   'acceptance_rate': float (0.0-1.0),
+        #   'spacing_threshold': float (px),
+        #   'n_accepted': int,
+        #   'n_rejected': int
+        # }
+        # NOTE: dense views typically use 'direct' selection; sparse may use 'greedy' fallback
+        for exec_result in exec_results:
+>           assert 'selection_strategy' in exec_result, \
+                f"Execution result missing 'selection_strategy' for {exec_result['view']}/{exec_result['split']}"
+E           AssertionError: Execution result missing 'selection_strategy' for dense/train
+E           assert 'selection_strategy' in {'dose': 1000.0, 'view': 'dense', 'split': 'train', 'returncode': 0, 'log_path': '/tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/exec_artifacts/dose_1000/dense/train/ptychi.log', 'stdout_preview': 'LSQML reconstruction completed successfully\nFinal RMSE: 0.0123'}
+
+tests/study/test_dose_overlap_reconstruction.py:490: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Building job manifest from Phase C: /tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/phase_c
+                      and Phase D: /tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/phase_d
+Total jobs enumerated: 18
+Filter --dose=1000.0: 18 → 6 jobs
+Filter --view=dense: 6 → 2 jobs
+
+Filtered jobs: 2 selected, 16 skipped
+
+[1/2] Job: dose=1000.0, view=dense, split=train
+  Return code: 0
+  Log: /tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/exec_artifacts/dose_1000/dense/train/ptychi.log
+
+[2/2] Job: dose=1000.0, view=dense, split=test
+  Return code: 1
+  STDERR: ERROR: Invalid diffraction array shape
+  Log: /tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/exec_artifacts/dose_1000/dense/test/ptychi.log
+
+Manifest written to: /tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/exec_artifacts/reconstruction_manifest.json
+Skip summary written to: /tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/exec_artifacts/skip_summary.json
+
+============================================================
+Phase F Reconstruction Orchestrator Summary
+============================================================
+Total jobs:     18
+Filtered jobs:  2
+Skipped jobs:   16
+Dry run:        False
+Artifacts:      /tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/exec_artifacts
+============================================================
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs - AssertionError: Execution result missing 'selection_strategy' for dense/train
+assert 'selection_strategy' in {'dose': 1000.0, 'view': 'dense', 'split': 'train', 'returncode': 0, 'log_path': '/tmp/pytest-of-ollie/pytest-157/test_cli_executes_selected_job0/exec_artifacts/dose_1000/dense/train/ptychi.log', 'stdout_preview': 'LSQML reconstruction completed successfully\nFinal RMSE: 0.0123'}
+============================== 1 failed in 1.69s ===============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs PASSED [100%]
+
+============================== 1 passed in 1.72s ===============================

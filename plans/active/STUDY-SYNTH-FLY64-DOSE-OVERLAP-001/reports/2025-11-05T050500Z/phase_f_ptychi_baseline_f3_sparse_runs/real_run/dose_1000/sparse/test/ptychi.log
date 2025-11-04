@@ -1,0 +1,97 @@
+# PtyChi LSQML Reconstruction Log
+# Job: dose=1000.0, view=sparse, split=test
+# Command: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz tmp/phase_d_f2_cli/dose_1000/sparse/sparse_test.npz --output-dir plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run/dose_1000/sparse/test
+# Return code: 1
+#============================================================
+
+=== STDOUT ===
+=== PTY-CHI Reconstruction of TIKE Dataset ===
+Dataset: tmp/phase_d_f2_cli/dose_1000/sparse/sparse_test.npz
+Algorithm: LSQML
+Epochs: 100
+Images: 2000
+Loading TIKE dataset from: tmp/phase_d_f2_cli/dose_1000/sparse/sparse_test.npz
+Using first 1 images for testing
+
+Converting amplitude to intensity...
+  Original amplitude: min=0.000460, max=0.999948, mean=0.496532
+  Converted intensity: min=0.00000021, max=0.99989688, mean=0.33049348
+
+Positions shape: (1, 2) (n_images, 2)
+  Original X range: [0.78, 0.78]
+  Original Y range: [0.11, 0.11]
+  Centered X range: [0.00, 0.00]
+  Centered Y range: [0.00, 0.00]
+
+Configuring LSQML reconstruction...
+  Object size: (114, 114)
+  Probe power constraint: 1353.701294
+  Using GPU acceleration
+
+=== Starting Reconstruction ===
+Running 100 epochs...
+
+✗ Error during reconstruction: torch.linalg.solve: (Batch element 0): The solver failed because the input matrix is singular.
+
+
+=== STDERR ===
+`rescale_probe_intensity_in_first_epoch` and `ProbeOptions.power_constraint` are both enabled, which may lead to unexpected results.
+`ObjectOptions.remove_object_probe_ambiguity` and `ProbeOptions.power_constraint` are both enabled, which may lead to unexpected results.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/utils/_device.py:103: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+  return func(*args, **kwargs)
+
+  0%|          | 0/100 [00:00<?, ?it/s]
+  1%|          | 1/100 [00:00<00:16,  5.83it/s]Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/scripts/reconstruction/ptychi_reconstruct_tike.py", line 364, in main
+    task = run_reconstruction(options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/scripts/reconstruction/ptychi_reconstruct_tike.py", line 219, in run_reconstruction
+    task.run()
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/api/task.py", line 236, in run
+    self.reconstructor.run(n_epochs=n_epochs)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/base.py", line 555, in run
+    return super().run(n_epochs=n_epochs, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/base.py", line 319, in run
+    self.run_minibatch(input_data, y_true)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 1203, in run_minibatch
+    self.run_real_space_step(psi_opt, indices)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 186, in run_real_space_step
+    self.update_reconstruction_parameters(indices, chi, obj_patches, positions)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 256, in update_reconstruction_parameters
+    self.calculate_optimal_step_sizes(
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 447, in calculate_optimal_step_sizes
+    (alpha_o_i, alpha_p_i) = self.calculate_object_and_probe_update_step_sizes(
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/timing/timer_utils.py", line 119, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/ptychi/reconstructors/lsqml.py", line 541, in calculate_object_and_probe_update_step_sizes
+    alpha_vec = torch.linalg.solve(a_mat, b_vec)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/utils/_device.py", line 103, in __torch_function__
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+torch._C._LinAlgError: torch.linalg.solve: (Batch element 0): The solver failed because the input matrix is singular.
+
+                                               
+

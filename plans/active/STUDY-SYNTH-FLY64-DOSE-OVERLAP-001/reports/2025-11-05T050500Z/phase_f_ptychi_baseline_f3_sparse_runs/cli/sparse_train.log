@@ -1,0 +1,26 @@
+<frozen runpy>:128: RuntimeWarning: 'studies.fly64_dose_overlap.reconstruction' found in sys.modules after import of package 'studies.fly64_dose_overlap', but prior to execution of 'studies.fly64_dose_overlap.reconstruction'; this may result in unpredictable behaviour
+Building job manifest from Phase C: tmp/phase_c_f2_cli
+                      and Phase D: tmp/phase_d_f2_cli
+Total jobs enumerated: 18
+Filter --dose=1000.0: 18 → 6 jobs
+Filter --view=sparse: 6 → 2 jobs
+Filter --split=train: 2 → 1 jobs
+
+Filtered jobs: 1 selected, 17 skipped
+
+[1/1] Job: dose=1000.0, view=sparse, split=train
+  Return code: 0
+  Log: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run/dose_1000/sparse/train/ptychi.log
+
+Manifest written to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run/reconstruction_manifest.json
+Skip summary written to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run/skip_summary.json
+
+============================================================
+Phase F Reconstruction Orchestrator Summary
+============================================================
+Total jobs:     18
+Filtered jobs:  1
+Skipped jobs:   17
+Dry run:        False
+Artifacts:      plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run
+============================================================
