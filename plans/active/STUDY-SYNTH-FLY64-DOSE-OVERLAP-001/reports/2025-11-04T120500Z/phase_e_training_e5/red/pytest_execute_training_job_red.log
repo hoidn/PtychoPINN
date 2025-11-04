@@ -1,0 +1,140 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_execute_training_job_delegates_to_pytorch_trainer FAILED [100%]
+
+=================================== FAILURES ===================================
+____________ test_execute_training_job_delegates_to_pytorch_trainer ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-71/test_execute_training_job_dele0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x72eed7d96310>
+
+    def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for Phase E5 execute_training_job backend delegation.
+    
+        Validates that execute_training_job():
+        - Loads NPZ datasets from job.train_data_path and job.test_data_path
+        - Uses the provided TrainingConfig (CONFIG-001 bridge already done by caller)
+        - Calls ptycho_torch.workflows.components.train_cdi_model_torch with:
+          - train_data: RawData or container loaded from job.train_data_path
+          - test_data: RawData or container loaded from job.test_data_path
+          - config: The TrainingConfig instance passed to execute_training_job
+        - Writes logs/artifacts to job.log_path and job.artifact_dir
+        - Returns training metrics (status, final_loss, epochs_completed, checkpoint_path)
+    
+        Test strategy: Monkeypatch train_cdi_model_torch to spy on invocation.
+        Use minimal Phase C/D fixture NPZs (DATA-001 compliant) to avoid heavy I/O.
+        Validate that the spy receives correct data containers and config.
+    
+        References:
+        - input.md:9 (Phase E5 RED test requirements)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163-166
+        - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 compliance assumed by caller)
+        - docs/workflows/pytorch.md §12 (train_cdi_model_torch signature)
+        """
+        from studies.fly64_dose_overlap.training import execute_training_job, TrainingJob
+        from ptycho.config.config import TrainingConfig, ModelConfig
+    
+        # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
+        train_npz = tmp_path / "phase_c_train.npz"
+        test_npz = tmp_path / "phase_c_test.npz"
+    
+        # Minimal DATA-001 compliant arrays
+        minimal_data = {
+            'diffraction': np.random.rand(10, 64, 64).astype(np.float32),  # amplitude
+            'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
+            'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+            'Y': (np.random.rand(10, 128, 128) + 1j * np.random.rand(10, 128, 128)).astype(np.complex64),
+            'xcoords': np.random.rand(10).astype(np.float32),
+            'ycoords': np.random.rand(10).astype(np.float32),
+            'filenames': np.array([f'img_{i:04d}' for i in range(10)]),
+        }
+    
+        np.savez_compressed(train_npz, **minimal_data)
+        np.savez_compressed(test_npz, **minimal_data)
+    
+        # Setup: Create TrainingJob
+        artifact_dir = tmp_path / "artifacts" / "dose_1000" / "baseline" / "gs1"
+        log_path = artifact_dir / "train.log"
+    
+        job = TrainingJob(
+            dose=1e3,
+            view='baseline',
+            gridsize=1,
+            train_data_path=str(train_npz),
+            test_data_path=str(test_npz),
+            artifact_dir=artifact_dir,
+            log_path=log_path,
+        )
+    
+        # Setup: Create TrainingConfig (CONFIG-001 bridge assumed done by caller: run_training_job)
+        model_config = ModelConfig(gridsize=1)
+        config = TrainingConfig(
+            train_data_file=str(train_npz),
+            test_data_file=str(test_npz),
+            output_dir=str(artifact_dir),
+            model=model_config,
+            nphotons=1e3,
+        )
+    
+        # Spy: record calls to train_cdi_model_torch
+        trainer_calls = []
+    
+        def spy_train_cdi_model_torch(train_data, test_data, config):
+            """Spy that records invocation signature for validation."""
+            trainer_calls.append({
+                'train_data': train_data,
+                'test_data': test_data,
+                'config': config,
+            })
+            # Return minimal success result
+            return {
+                'history': {'train_loss': [0.5, 0.3, 0.1]},
+                'train_container': train_data,
+                'test_container': test_data,
+            }
+    
+        # Monkeypatch the PyTorch trainer
+        monkeypatch.setattr(
+            'ptycho_torch.workflows.components.train_cdi_model_torch',
+            spy_train_cdi_model_torch
+        )
+    
+        # Execute: call execute_training_job
+>       result = execute_training_job(config=config, job=job, log_path=log_path)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/study/test_dose_overlap_training.py:789: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+studies/fly64_dose_overlap/training.py:336: in execute_training_job
+    with log_path.open('a') as f:
+         ^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/tmp/pytest-of-ollie/pytest-71/test_execute_training_job_dele0/artifacts/dose_1000/baseline/gs1/train.log')
+mode = 'a', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-ollie/pytest-71/test_execute_training_job_dele0/artifacts/dose_1000/baseline/gs1/train.log'
+
+../../miniconda3/envs/ptycho311/lib/python3.11/pathlib.py:1044: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_execute_training_job_delegates_to_pytorch_trainer - FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-ollie/pytest-71/test_execute_training_job_dele0/artifacts/dose_1000/baseline/gs1/train.log'
+============================== 1 failed in 3.88s ===============================

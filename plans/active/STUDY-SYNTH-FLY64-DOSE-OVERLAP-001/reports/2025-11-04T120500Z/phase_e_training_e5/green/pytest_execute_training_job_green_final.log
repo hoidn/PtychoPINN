@@ -1,0 +1,68 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_execute_training_job_delegates_to_pytorch_trainer FAILED [100%]
+
+=================================== FAILURES ===================================
+____________ test_execute_training_job_delegates_to_pytorch_trainer ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-81/test_execute_training_job_dele0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x709bdcd45810>
+
+    def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for Phase E5 execute_training_job backend delegation.
+    
+        Validates that execute_training_job():
+        - Loads NPZ datasets from job.train_data_path and job.test_data_path
+        - Uses the provided TrainingConfig (CONFIG-001 bridge already done by caller)
+        - Calls ptycho_torch.workflows.components.train_cdi_model_torch with:
+          - train_data: RawData or container loaded from job.train_data_path
+          - test_data: RawData or container loaded from job.test_data_path
+          - config: The TrainingConfig instance passed to execute_training_job
+        - Writes logs/artifacts to job.log_path and job.artifact_dir
+        - Returns training metrics (status, final_loss, epochs_completed, checkpoint_path)
+    
+        Test strategy: Monkeypatch train_cdi_model_torch to spy on invocation.
+        Use minimal Phase C/D fixture NPZs (DATA-001 compliant) to avoid heavy I/O.
+        Validate that the spy receives correct data containers and config.
+    
+        References:
+        - input.md:9 (Phase E5 RED test requirements)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163-166
+        - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 compliance assumed by caller)
+        - docs/workflows/pytorch.md §12 (train_cdi_model_torch signature)
+        """
+        from studies.fly64_dose_overlap.training import execute_training_job, TrainingJob
+        from ptycho.config.config import TrainingConfig, ModelConfig
+    
+        # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
+        train_npz = tmp_path / "phase_c_train.npz"
+        test_npz = tmp_path / "phase_c_test.npz"
+    
+        # Minimal DATA-001 compliant arrays plus xcoords_start/ycoords_start for load_data
+        minimal_data = {
+>           'diffraction': np.random.rand(10, 64, 64).astype(np.float32),  # amplitude
+                           ^^
+            'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
+            'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+            'Y': (np.random.rand(10, 128, 128) + 1j * np.random.rand(10, 128, 128)).astype(np.complex64),
+            'xcoords': np.random.rand(10).astype(np.float32),
+            'ycoords': np.random.rand(10).astype(np.float32),
+            'xcoords_start': np.random.rand(10).astype(np.float32),
+            'ycoords_start': np.random.rand(10).astype(np.float32),
+            'filenames': np.array([f'img_{i:04d}' for i in range(10)]),
+        }
+E       UnboundLocalError: cannot access local variable 'np' where it is not associated with a value
+
+tests/study/test_dose_overlap_training.py:729: UnboundLocalError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_execute_training_job_delegates_to_pytorch_trainer - UnboundLocalError: cannot access local variable 'np' where it is not associated with a value
+============================== 1 failed in 3.74s ===============================
