@@ -77,3 +77,4 @@ datasets/Run1084_recon3_postPC_shrunk_2.npz
 datasets/Run1084_recon3_postPC_shrunk_lowpass.npz
 data/memmap/
 data/state_files.npz
+train_debug.log
