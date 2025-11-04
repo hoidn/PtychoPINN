@@ -12,19 +12,19 @@ Exit Criteria: Test strategy updated with Phase F sections; failing pytest selec
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F0.1 | Update `test_strategy.md` Phase F section with planned selectors, execution proof rules, and artifact expectations | [ ] | Reference template `plans/templates/test_strategy_template.md`; cite DATA-001 + CONFIG-001 guardrails; require RED/ GREEN logs and real-run manifest evidence in reports/<timestamp>/phase_f_ptychi_baseline/. |
-| F0.2 | Author minimal RED test `tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest` asserting new builder raises `NotImplementedError` until implementation | [ ] | Use Phase E manifest fixtures to derive expected CLI args (`scripts/reconstruction/ptychi_reconstruct_tike.py`, `--algorithm LSQML`, `--num-epochs 100`, dataset paths from Phase D/E). Capture RED log `red/pytest_phase_f_red.log`. |
+| F0.1 | Update `test_strategy.md` Phase F section with planned selectors, execution proof rules, and artifact expectations | [x] | Completed during Phase F0 setup — see `reports/2025-11-04T094500Z/phase_f_ptychi_baseline/{red,collect}/` and refreshed strategy §Phase F noting RED selector + artifact policy. |
+| F0.2 | Author minimal RED test `tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest` asserting new builder raises `NotImplementedError` until implementation | [x] | RED scaffold merged in Phase F0 with evidence at `reports/2025-11-04T094500Z/phase_f_ptychi_baseline/red/pytest_phase_f_red.log`. |
 
 ### F1 — PtyChi Job Orchestrator
-Goal: Expose programmatic API for enumerating and executing LSQML reconstruction jobs.
+Goal: Expose programmatic API for enumerating and executing LSQML reconstruction jobs (6 jobs per dose, 18 total).
 Prereqs: RED test from F0 failing, plan + fixtures ready.
 Exit Criteria: Builder + CLI helpers emit manifest with LSQML jobs per dose/view; GREEN tests and collection proof stored; CLI dry-run path validated.
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F1.1 | Implement `studies/fly64_dose_overlap/reconstruction.py::build_ptychi_jobs` returning dataclasses with CLI args + artifact destinations | [ ] | Translate Phase E training manifest into reconstruction inputs; enforce DATA-001 path validation; ensure CONFIG-001 bridge deferred until actual runner. |
-| F1.2 | Extend RED test to GREEN by asserting manifest structure (3 doses × {dense,sparse} GS2 + gs1 baseline) and CLI arg correctness; add `test_run_ptychi_job_invokes_script` using stub subprocess runner | [ ] | Use `unittest.mock` to simulate subprocess; require command includes `--algorithm LSQML` `--num-epochs 100` and Phase D/E artifact roots; log GREEN run `green/pytest_phase_f_green.log`. |
-| F1.3 | Add CLI entry `studies.fly64_dose_overlap.reconstruction:main` mirroring training CLI filters (`--dose`, `--view`, `--gridsize`, `--dry-run`) and emitting manifest/summary to artifact root | [ ] | Follow CLI patterns from `training.py::main`; ensure `AUTHORITATIVE_CMDS_DOC` instructions echoed in usage; capture CLI smoke log in `cli/`. |
+| F1.1 | Implement `studies/fly64_dose_overlap/reconstruction.py::build_ptychi_jobs` returning dataclasses with CLI args + artifact destinations | [x] | Completed in Attempt #F1 — manifest now emits 18 jobs (3 doses × 3 views × 2 splits) with DATA-001 validation; GREEN log in `reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/green/pytest_phase_f_green.log`. |
+| F1.2 | Extend RED test to GREEN by asserting manifest structure (3 doses × {dense,sparse} GS2 + gs1 baseline) and CLI arg correctness; add `test_run_ptychi_job_invokes_script` using stub subprocess runner | [x] | Tests updated in Attempt #F1 (`tests/study/test_dose_overlap_reconstruction.py`), subprocess runner covered via mocks; see `reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/{green,collect}/`. |
+| F1.3 | Add CLI entry `studies.fly64_dose_overlap.reconstruction:main` mirroring training CLI filters (`--dose`, `--view`, `--gridsize`, `--dry-run`) and emitting manifest/summary to artifact root | [ ] | Follow CLI patterns from `training.py::main`; ensure `AUTHORITATIVE_CMDS_DOC` instructions echoed in usage; capture CLI smoke + dry-run logs under `reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/{cli,docs}/`. |
 
 ### F2 — Deterministic Baseline Execution
 Goal: Run LSQML reconstructions (CPU mode by default) and archive outputs.

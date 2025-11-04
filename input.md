@@ -1,62 +1,66 @@
-Summary: Turn the Phase F pty-chi manifest red test green by implementing the reconstruction job builder and runner harness.
+Summary: Deliver Phase F1 CLI entry for pty-chi orchestrator with RED→GREEN TDD coverage and CLI dry-run evidence.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.F1 — Phase F pty-chi job orchestrator
 Branch: feature/torchapi-newprompt
-Mapped tests: pytest tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest -vv; pytest tests/study/test_dose_overlap_reconstruction.py::test_run_ptychi_job_invokes_script -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/
+Mapped tests: pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv; pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_filters_dry_run -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/
 
 Do Now — STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.F1:
-  - Implement: studies/fly64_dose_overlap/reconstruction.py::build_ptychi_jobs — replace the Phase F0 stub with a ReconstructionJob dataclass, manifest builder, and run_ptychi_job helper that enumerate 3 doses × (baseline, dense, sparse) × train/test (21 jobs total), validate DATA-001 NPZ paths, and assemble CLI args for scripts/reconstruction/ptychi_reconstruct_tike.py.
-  - Tests: tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest — rewrite to assert manifest length, per-dose view/split coverage, artifact_dir layout, and CLI argument payload; add test_run_ptychi_job_invokes_script using unittest.mock to confirm run_ptychi_job dispatches subprocess with CONFIG-001-safe environment; capture the pre-implementation RED failure via `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` & pytest `-k ptychi` to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/red/pytest_phase_f_red.log.
-  - Validate: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/green/pytest_phase_f_green.log
-  - Collect: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && pytest tests/study/test_dose_overlap_reconstruction.py --collect-only -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/collect/pytest_phase_f_collect.log
-  - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/{red/,green/,collect/,docs/summary.md,cli/}
+  - Implement: studies/fly64_dose_overlap/reconstruction.py::main — add a click-style CLI (argparse is fine) that wires `build_ptychi_jobs` + `run_ptychi_job`, supports `--dose`, `--view`, `--split`, `--gridsize`, `--dry-run`, and `--allow-missing-phase-d`, and emits manifest + skip summary JSON to the artifact root (default `reports/.../cli/`); ensure CLI always calls `build_ptychi_jobs(..., allow_missing=not strict)` and preserves deterministic ordering.
+  - Tests: tests/study/test_dose_overlap_reconstruction.py::test_cli_filters_dry_run — author RED test that constructs minimal Phase C/D fixtures, invokes CLI via `script_runner`/`subprocess` in `--dry-run` mode, asserts filtered manifest count (e.g., `--dose 1000 --view dense --split train` yields 1 job) and verifies output manifest + skip summary written beneath tmp artifact dir; add companion test ensuring CLI invokes `run_ptychi_job` once per selected job (mock subprocess + patch allow-missing) and logs skip metadata.
+  - RED: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/red/pytest_phase_f_cli_red.log
+  - Validate: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/green/pytest_phase_f_cli_green.log
+  - Collect: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && pytest tests/study/test_dose_overlap_reconstruction.py --collect-only -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/collect/pytest_phase_f_cli_collect.log
+  - CLI Evidence: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && python -m studies.fly64_dose_overlap.reconstruction --phase-c-root <tmp_phase_c> --phase-d-root <tmp_phase_d> --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/cli --dose 1000 --view dense --dry-run --allow-missing-phase-d 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/cli/dry_run.log
+  - Docs: Update plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/docs/summary.md with manifest counts, CLI command, skip metadata, and link to RED/GREEN logs; refresh `test_strategy.md` selectors (mark CLI tests active) and `docs/development/TEST_SUITE_INDEX.md` + `docs/TESTING_GUIDE.md` entries per Doc Sync Plan.
 
 Priorities & Rationale:
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline_plan/plan.md:18-27 mandates F1.1–F1.3 builder + CLI deliverables with GREEN pytest evidence.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:216-272 documents Phase F selectors, RED→GREEN expectations, and artifact requirements that must be satisfied before advancing to F2.
-- docs/TESTING_GUIDE.md:101-140 provides the authoritative pytest/CLI invocation pattern we must mirror and cite in commands.
-- specs/data_contracts.md:120-214 enumerates DATA-001 NPZ field/dtype requirements; builder assertions must respect these layouts.
-- docs/findings.md:8-17 (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001) remain active guardrails for reconstruction workflows.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline_plan/plan.md:18-27 mandates F1.3 CLI entry, including filters, dry-run, and artifact capture under the new hub.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:212-243 marks CLI selectors as planned and requires GREEN evidence + dry-run transcript before Phase F2.
+- docs/TESTING_GUIDE.md:101-140 prescribes PyTorch workflow CLI patterns and the `AUTHORITATIVE_CMDS_DOC` export we must honor for every invocation.
+- specs/data_contracts.md:120-214 defines the NPZ structure (`patched_{split}.npz`, `{view}_{split}.npz`) that the CLI must validate when enumerating jobs.
+- docs/findings.md:8-17 (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001) enforce dependency, bridge, and overlap spacing invariants the CLI must respect.
 
 How-To Map:
-- mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/{red,green,collect,cli,docs}
-- Edit studies/fly64_dose_overlap/reconstruction.py to add @dataclass ReconstructionJob, helper enums, build_ptychi_jobs manifest logic (Path.exists validation, deterministic artifact dirs), and run_ptychi_job that shells out via subprocess.run with dry-run toggle.
-- Update tests/study/test_dose_overlap_reconstruction.py fixtures to reuse Phase C/D builders, assert 21 ReconstructionJob entries, inspect CLI args (script path, --algorithm LSQML, --num-epochs 100, --input-npz/--output-dir), and mock subprocess for run_ptychi_job coverage.
-- Export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md before every pytest invocation per governance.
-- Capture RED failure (before implementation) and GREEN pass logs under the new artifact hub; regenerate collect-only proof post-implementation.
-- Summarize outcomes and lingering gaps in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/docs/summary.md.
+- mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/{red,green,collect,cli,docs}
+- Implement CLI in `studies/fly64_dose_overlap/reconstruction.py::main`: parse options, hydrate `phase_c_root`, `phase_d_root`, `artifact_root`, call `build_ptychi_jobs`, filter by dose/view/split/gridsize, log skip metadata, and loop over jobs via `run_ptychi_job(dry_run=flag)`.
+- Within tests, reuse Phase C/D fixtures to supply NPZs, invoke CLI via `subprocess.run([sys.executable, "-m", ...])` with temp artifact root, assert manifest JSON contents, skip summary, and `run_ptychi_job` call count using `patch`.
+- Before every pytest/CLI invocation, `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`.
+- Record failing RED run to red/pytest_phase_f_cli_red.log, then rerun after implementation for GREEN log.
+- Run CLI dry-run command to populate `cli/dry_run.log`, manifest JSON, and skip summary under artifact hub; include path references in summary.md.
+- Update `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md` Phase F section (mark CLI selectors active) and sync doc registries (Doc Sync Plan).
 
 Pitfalls To Avoid:
-- Do not mutate params.cfg or call update_legacy_dict inside the builder; CONFIG-001 bridge stays in the eventual CLI runner.
-- Keep ReconstructionJob fields serializable (Path/String) and avoid embedding numpy arrays in manifest entries.
-- Ensure artifact directories stay inside artifact_root; no absolute tmp paths or user home leakage.
-- Avoid importing heavyweight pty-chi dependencies in tests—use static CLI argument assertions instead.
-- Preserve deterministic ordering: iterate doses ascending, views baseline→dense→sparse, splits train then test.
-- Validate NPZ path existence using Path.exists; fail fast with clear FileNotFoundError when allow_missing is False.
-- Mock subprocess.run in tests to avoid executing the real reconstruction script.
-- Remember to seed numpy RNG in fixtures if randomness could make asserts unstable.
-- Keep new CLI helper dry-run friendly; do not actually execute LSQML during tests.
+- Do not mutate `params.cfg` inside CLI; keep CONFIG-001 bridge deferred to reconstruction script.
+- Ensure CLI gracefully handles missing Phase D datasets when `--allow-missing-phase-d` is set; fail fast otherwise.
+- Keep manifest outputs serializable (json) and avoid embedding numpy arrays.
+- Preserve deterministic ordering when filters applied (dose asc, view baseline→dense→sparse, split train→test).
+- Use tmp artifact directories inside the initiative hub—no stray files at repo root.
+- Mock `run_ptychi_job` in tests to prevent real subprocess execution; assert call args for correctness.
+- Respect Phase D sparse gaps by recording skip metadata instead of silently dropping jobs.
+- Ensure new tests are pytest-style (no unittest classes) and integrate with existing fixtures.
+- Avoid adding heavy optional dependencies; rely on existing numpy fixtures.
+- Capture CLI command + outputs under `cli/` for audit—no missing logs.
 
 If Blocked:
-- Capture failing pytest output to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/red/pytest_phase_f_red.log, document blocker + stack trace in docs/summary.md, and update docs/fix_plan.md Attempts History with the issue before pausing.
+- Capture failing pytest output to `.../red/pytest_phase_f_cli_red.log`, record CLI/traceback snippet in docs/summary.md, and log blocker + remediation plan in docs/fix_plan.md Attempts History before pausing.
 
 Findings Applied (Mandatory):
-- POLICY-001 — Document PyTorch dependency in summary.md and ensure CLI args respect torch>=2.2 expectation.
-- CONFIG-001 — Builder stays pure; run_ptychi_job defers bridge until actual execution layer.
-- DATA-001 — Validate NPZ layout/paths match Phase C `patched_*` and Phase D `{view}_{split}` outputs.
-- OVERSAMPLING-001 — Preserve gs2 jobs only for views with valid spacing; ensure manifest inherits neighbor_count assumptions.
+- POLICY-001 — CLI must assume torch>=2.2 availability; document in summary.md and avoid torch-optional branches.
+- CONFIG-001 — Builder/CLI remain pure; note in summary that legacy bridge occurs downstream.
+- DATA-001 — Validate NPZ path layout before invoking runner; reflect failed checks in skip summary.
+- OVERSAMPLING-001 — Maintain dense/sparse job coverage with neighbor_count=7; log if sparse view missing.
 
 Pointers:
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline_plan/plan.md:18
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:216
-- docs/findings.md:8
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline_plan/plan.md:25
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:212
 - docs/TESTING_GUIDE.md:101
 - specs/data_contracts.md:120
+- docs/findings.md:8
 
 Next Up (optional):
-- Implement Phase F1.3 CLI entrypoint and manifest emission once builder + runner tests pass.
+- Phase F2 dry-run + real LSQML execution once CLI is proven.
 
-Doc Sync Plan (Conditional):
-- After GREEN tests land, rerun `pytest tests/study/test_dose_overlap_reconstruction.py --collect-only -vv` (log to collect/).
-- Update docs/TESTING_GUIDE.md §2 with new `pytest ... -k ptychi` selector and add Phase F row to docs/development/TEST_SUITE_INDEX.md once evidence captured; archive diffs under docs/ subdir in this loop’s artifact hub.
+Doc Sync Plan:
+- After GREEN tests, rerun `pytest tests/study/test_dose_overlap_reconstruction.py --collect-only -vv` (log already captured).
+- Update docs/TESTING_GUIDE.md §2 with new Phase F CLI selector and add row under `docs/development/TEST_SUITE_INDEX.md` (Studies → fly64 overlap) pointing to CLI tests; archive diffs under `plans/.../docs/`.

@@ -2101,3 +2101,17 @@
 - Next actions for Ralph: Execute Do Now — convert `build_ptychi_jobs` to dataclass-driven manifest, add `run_ptychi_job` helper and unit tests, capture RED→GREEN (`pytest ... -k "ptychi"`) plus collect-only logs in the new hub, summarize results, then tackle CLI entry (F1.3) in the following loop.
 - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T130000Z: Phase F1 CLI staging
+- dwell: 2 (third consecutive supervisory pass; prepared implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi job orchestrator (F1.3 CLI)
+- Action type: Planning
+- Mode: TDD
+- Key actions:
+  - Reviewed Attempt #F1 artifacts (builder + runner GREEN) and flipped F0.1/F0.2/F1.1/F1.2 to `[x]` in `phase_f_ptychi_baseline_plan/plan.md:15-27`, corrected manifest job count, and tied F1.3 guidance to new CLI artifact hub `.../2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/`.
+  - Updated `test_strategy.md:212-243` to document GREEN selectors, planned CLI tests, and execution proof expectations; noted pending CLI dry-run evidence.
+  - Created `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/{red,green,collect,cli,docs}` to capture RED/GREEN logs and CLI transcripts.
+  - Rewrote `input.md` (Mode: TDD) directing RED CLI tests, `reconstruction.py::main` implementation, RED→GREEN pytest runs, CLI `--dry-run` command, and doc/test registry sync.
+- Next actions for Ralph: Execute CLI Do Now — author RED tests, implement CLI main, gather RED→GREEN evidence, run dry-run CLI, update docs/registries, then proceed toward Phase F2 dry-run preparation.
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/
+- <Action State>: [ready_for_implementation]
