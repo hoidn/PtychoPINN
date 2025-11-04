@@ -2326,3 +2326,18 @@
   - Findings reinforced: POLICY-001 (torch availability), CONFIG-001 (runner remains pure), DATA-001 / OVERSAMPLING-001 (input datasets unchanged).
 - Next actions for Ralph: land the new test + implementation, capture pytest logs and CLI evidence under the reserved hub, update analysis summary with real bundle paths, then retry Phase G comparisons once bundles exist.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T230500Z: Phase E6 bundle manifest normalization plan
+- dwell: 0 (reset; implementation ready after issuing code-focused Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E6 bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T230500Z/phase_e_training_bundle_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reused cached Phase E context but re-reviewed `phase_e_training_bundle/analysis/summary.md` + `phase_g_inventory/analysis/inventory.md` to confirm comparisons still blocked by absolute bundle paths and missing dense artifacts.
+  - Consulted specs §4.6 and findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001; confirmed `test_strategy.md:268` Phase E6 checklist requires aggregated gs2 evidence.
+  - Reserved new artifact hub (`.../2025-11-05T230500Z/phase_e_training_bundle_real_run/{red,green,collect,cli,analysis,docs}`) for upcoming RED/GREEN pytest logs, CLI runs, and summaries.
+  - Rewrote `input.md` (Mode: TDD) to add `test_training_cli_records_bundle_path`, normalize bundle_path serialization in `training.py::main`, rerun dense gs2 + baseline gs1 CLI jobs, copy `tmp/phase_e_training_gs2/{pinn,baseline}` into the hub, and summarize outcomes prior to doc/test registry sync.
+  - Set `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` guardrail; emphasized capturing RED→GREEN logs and maintaining artifact-relative paths.
+- Next actions for Ralph: execute the manifest normalization TDD cycle, capture pytest/CLI logs under the new hub, update analysis summary with real bundle paths + remaining gaps, and sync docs/registries when GREEN.
+- <Action State>: [ready_for_implementation]
