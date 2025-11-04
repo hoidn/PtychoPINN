@@ -606,12 +606,34 @@ def test_cli_skips_missing_phase_d(mock_phase_c_datasets, tmp_path):
     assert 'phase_d_missing' in manifest or 'skipped_phase_d' in manifest or 'missing_jobs' in manifest, \
         "Manifest missing skip metadata for Phase D missing files"
 
+    # STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.F2: Assert manifest['missing_jobs'] structure
+    # Schema: missing_jobs = List[{dose, view, split, reason}]
+    assert 'missing_jobs' in manifest, \
+        "Manifest must contain 'missing_jobs' field for Phase D skip tracking"
+
+    missing_jobs = manifest['missing_jobs']
+    assert len(missing_jobs) == 6, \
+        f"Expected 6 missing sparse jobs in manifest['missing_jobs'], got {len(missing_jobs)}"
+
+    # Verify all missing jobs are sparse views only
+    for job in missing_jobs:
+        assert job['view'] == 'sparse', \
+            f"Expected all missing jobs to be sparse view, got {job['view']}"
+
     # Load skip summary
     skip_summary_path = artifact_root / "skip_summary.json"
     assert skip_summary_path.exists(), f"Skip summary not found: {skip_summary_path}"
 
     with open(skip_summary_path, 'r') as f:
         skip_summary = json.load(f)
+
+    # STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.F2: Assert skip_summary['missing_phase_d_count']
+    # Schema: skip_summary = {timestamp: str, skipped_count: int, skipped_jobs: List[...], missing_phase_d_count: int}
+    assert 'missing_phase_d_count' in skip_summary, \
+        "Skip summary must contain 'missing_phase_d_count' field for Phase D tracking"
+
+    assert skip_summary['missing_phase_d_count'] == 6, \
+        f"Expected missing_phase_d_count=6, got {skip_summary['missing_phase_d_count']}"
 
     # Verify skip summary documents missing sparse views
     # Expected: 6 missing sparse jobs (3 doses × sparse view × 2 splits)

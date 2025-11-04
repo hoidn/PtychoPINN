@@ -1,0 +1,54 @@
+{
+  "timestamp": "2025-11-04T04:40:01.917854",
+  "phase_c_root": "tmp/phase_c_f2_cli",
+  "phase_d_root": "tmp/phase_d_sparse_missing",
+  "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T020500Z/phase_f_ptychi_baseline_f2_sparse_skip_assertions/cli",
+  "filters": {
+    "dose": null,
+    "view": "sparse",
+    "split": null,
+    "gridsize": null
+  },
+  "total_jobs": 12,
+  "filtered_jobs": 0,
+  "missing_jobs": [
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_1000/sparse/sparse_train.npz"
+    },
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "split": "test",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_1000/sparse/sparse_test.npz"
+    },
+    {
+      "dose": 10000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_10000/sparse/sparse_train.npz"
+    },
+    {
+      "dose": 10000.0,
+      "view": "sparse",
+      "split": "test",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_10000/sparse/sparse_test.npz"
+    },
+    {
+      "dose": 100000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_100000/sparse/sparse_train.npz"
+    },
+    {
+      "dose": 100000.0,
+      "view": "sparse",
+      "split": "test",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_100000/sparse/sparse_test.npz"
+    }
+  ],
+  "jobs": [],
+  "execution_results": []
+}

@@ -1,0 +1,115 @@
+{
+  "timestamp": "2025-11-04T04:40:01.917975",
+  "skipped_count": 18,
+  "skipped_jobs": [
+    {
+      "dose": 1000.0,
+      "view": "baseline",
+      "split": "train",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "train",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "baseline",
+      "split": "test",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "test",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "baseline",
+      "split": "train",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "dense",
+      "split": "train",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "baseline",
+      "split": "test",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "dense",
+      "split": "test",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "baseline",
+      "split": "train",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "dense",
+      "split": "train",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "baseline",
+      "split": "test",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "dense",
+      "split": "test",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_1000/sparse/sparse_train.npz"
+    },
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "split": "test",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_1000/sparse/sparse_test.npz"
+    },
+    {
+      "dose": 10000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_10000/sparse/sparse_train.npz"
+    },
+    {
+      "dose": 10000.0,
+      "view": "sparse",
+      "split": "test",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_10000/sparse/sparse_test.npz"
+    },
+    {
+      "dose": 100000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_100000/sparse/sparse_train.npz"
+    },
+    {
+      "dose": 100000.0,
+      "view": "sparse",
+      "split": "test",
+      "reason": "Phase D overlap NPZ not found: tmp/phase_d_sparse_missing/dose_100000/sparse/sparse_test.npz"
+    }
+  ],
+  "missing_phase_d_count": 6
+}
