@@ -1981,3 +1981,16 @@
   - Logged Attempt #17 in docs/fix_plan.md reflecting updated Do Now and evidence expectations; no production edits performed.
 - Next actions for Ralph: follow Do Now (author RED test, upgrade `execute_training_job` to call `train_cdi_model_torch`, capture GREEN pytest logs, rerun CLI real job with 1 epoch on CPU, and update docs/plan/ledger).
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T130600Z: Phase E5 real runner staging refresh
+- dwell: 2 (third consecutive non-implementation loop triggers implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training runner integration (E5)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T120500Z/phase_e_training_e5/ (reserved; still empty)
+- Notes:
+  - Confirmed prior artifact hub remains unused; re-read `docs/findings.md` (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001) plus `test_strategy.md:163-166` to enforce exit criteria.
+  - Updated `input.md` with Do Now requiring RED test for `execute_training_job`, wiring through `ptycho_torch.memmap_bridge.MemmapDatasetBridge` + `train_cdi_model_torch`, deterministic CLI run, and doc/registry sync.
+  - Logged Attempt #18 in docs/fix_plan.md capturing the refreshed instructions; no production edits.
+- Next actions for Ralph: execute RED→GREEN cycle per Do Now, populate artifact hub with pytest logs + CLI run, update plan/test_strategy/docs, then move E5 to `[x]`.
+- <Action State>: [ready_for_implementation]
