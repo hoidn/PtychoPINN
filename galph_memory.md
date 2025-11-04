@@ -2468,3 +2468,18 @@
   - Rewrote `input.md` with Mode TDD, explicit selectors, AUTHORITATIVE_CMDS_DOC guard, archive script usage, and artifact paths for RED/GREEN/cli/collect logs.
 - Next actions for Ralph: execute strengthened test RED→GREEN, run deterministic dense/baseline jobs, archive + checksum via helper script, update docs/findings.md with TYPE-PATH-001, and log results in ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T190500Z: Phase E6 bundle size + dense/baseline evidence staging
+- dwell: 0 (reset after confirming 2025-11-06T170500Z+exec implementation delivered; new planning turn opens fresh cycle)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T190500Z/phase_e_training_bundle_real_runs_exec/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; inspected 2025-11-06T170500Z summary/logs to confirm SHA parity test landed and TYPE-PATH-001 documented.
+  - Reviewed docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001) and test_strategy §268; verified manifest still lacks size metadata needed for long-term integrity comparisons.
+  - Per retrospective cadence, spot-checked prior hub execution logs to ensure last Do Now (test parity + doc update) completed; no regressions observed.
+  - Created new artifact hub (plan + summary) at 2025-11-06T190500Z, drafted bundle-size augmentation objectives, and rewrote input.md with Implementation + CLI/archive steps; updated docs/fix_plan.md Attempts accordingly.
+  - AUTHORITATIVE_CMDS_DOC guard set to ./docs/TESTING_GUIDE.md in How-To Map.
+- Next actions for Ralph: implement bundle size propagation + test hardening, run deterministic dense/baseline jobs, archive via helper script with checksum/size proof, and refresh summary/ledger.
+- <Action State>: [ready_for_implementation]
