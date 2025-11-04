@@ -1,0 +1,3 @@
+plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/real_run/dose_1000/dense/train/ptychi_reconstruction.npz
+plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/real_run/dose_1000/dense/test/ptychi_reconstruction.npz
+plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/real_run/dose_1000/sparse/train/ptychi_reconstruction.npz

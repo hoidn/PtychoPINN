@@ -1,0 +1,2 @@
+tmp/phase_e_training_gs2/baseline/checkpoint.h5
+tmp/phase_e_training_gs2/pinn/checkpoint.h5
