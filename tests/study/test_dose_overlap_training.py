@@ -12,6 +12,8 @@ Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
 import pytest
 import numpy as np
 from pathlib import Path
+from types import SimpleNamespace
+from studies.fly64_dose_overlap import training
 from studies.fly64_dose_overlap.training import build_training_jobs, TrainingJob
 from studies.fly64_dose_overlap.design import get_study_design
 
@@ -297,12 +299,15 @@ def test_run_training_job_invokes_runner(tmp_path, monkeypatch):
     # Spy: record calls to runner
     runner_calls = []
 
-    def stub_runner(*, config, job, log_path):
+    def stub_runner(*, config, job, log_path, backend):
         runner_calls.append({
             'config': config,
             'job': job,
             'log_path': log_path,
+            'backend': backend,
         })
+        assert backend == 'tensorflow', \
+            f"Expected default backend 'tensorflow', got {backend}"
         return {'status': 'success', 'epochs': 10}  # Mock training result
 
     # Execute with spies
@@ -327,6 +332,8 @@ def test_run_training_job_invokes_runner(tmp_path, monkeypatch):
     bridge_call = bridge_calls[0]
     assert isinstance(bridge_call['config'], TrainingConfig), \
         f"update_legacy_dict must receive TrainingConfig instance, got {type(bridge_call['config'])}"
+    assert bridge_call['config'].backend == 'tensorflow', \
+        f"TrainingConfig.backend should default to 'tensorflow', got {bridge_call['config'].backend}"
 
     # Assertions: runner invoked with correct kwargs
     assert len(runner_calls) == 1, \
@@ -339,6 +346,8 @@ def test_run_training_job_invokes_runner(tmp_path, monkeypatch):
         f"Runner log_path mismatch: expected {log_path}, got {runner_call['log_path']}"
     assert runner_call['config'] is not None, \
         "Runner must receive a config object"
+    assert runner_call['backend'] == 'tensorflow', \
+        f"Runner backend mismatch: expected 'tensorflow', got {runner_call['backend']}"
 
     # Assertions: result returned
     assert result is not None, \
@@ -430,6 +439,197 @@ def test_run_training_job_dry_run(tmp_path):
     print(f"  - Summary returned: {result}")
 
 
+def test_execute_training_job_dispatches_tensorflow_by_default(tmp_path, monkeypatch):
+    """Default execute_training_job call should route to TensorFlow backend."""
+    from ptycho.config.config import TrainingConfig, ModelConfig
+    from studies.fly64_dose_overlap import training as training_module
+
+    artifact_dir = tmp_path / "artifacts"
+    log_path = artifact_dir / "train.log"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    job = TrainingJob(
+        dose=1e3,
+        view='baseline',
+        gridsize=1,
+        train_data_path=str(train_npz),
+        test_data_path=str(test_npz),
+        artifact_dir=artifact_dir,
+        log_path=log_path,
+    )
+
+    config = TrainingConfig(
+        train_data_file=str(train_npz),
+        test_data_file=str(test_npz),
+        output_dir=str(artifact_dir),
+        model=ModelConfig(gridsize=1),
+    )
+
+    tf_calls = []
+
+    def fake_tf_runner(*, config, job, log_path):
+        tf_calls.append({'config': config, 'job': job, 'log_path': log_path})
+        return {'status': 'success', 'bundle_path': None}
+
+    def fail_pytorch_runner(*args, **kwargs):
+        pytest.fail("PyTorch backend should not be invoked when backend is default")
+
+    monkeypatch.setattr(training_module, '_execute_training_job_tensorflow', fake_tf_runner, raising=False)
+    monkeypatch.setattr(training_module, '_execute_training_job_pytorch', fail_pytorch_runner, raising=False)
+
+    result = training_module.execute_training_job(
+        config=config,
+        job=job,
+        log_path=log_path,
+    )
+
+    assert result['status'] == 'success', "TensorFlow runner should return success result"
+    assert len(tf_calls) == 1, "TensorFlow runner should be called exactly once"
+    assert tf_calls[0]['config'].backend == 'tensorflow', \
+        f"TensorFlow runner must receive backend='tensorflow', got {tf_calls[0]['config'].backend}"
+
+
+def test_execute_training_job_dispatches_pytorch_when_requested(tmp_path, monkeypatch):
+    """execute_training_job should route to PyTorch backend when explicitly requested."""
+    from ptycho.config.config import TrainingConfig, ModelConfig
+    from studies.fly64_dose_overlap import training as training_module
+
+    artifact_dir = tmp_path / "artifacts"
+    log_path = artifact_dir / "train.log"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    job = TrainingJob(
+        dose=1e3,
+        view='dense',
+        gridsize=2,
+        train_data_path=str(train_npz),
+        test_data_path=str(test_npz),
+        artifact_dir=artifact_dir,
+        log_path=log_path,
+    )
+
+    config = TrainingConfig(
+        train_data_file=str(train_npz),
+        test_data_file=str(test_npz),
+        output_dir=str(artifact_dir),
+        model=ModelConfig(gridsize=2),
+        backend='pytorch',
+    )
+
+    torch_calls = []
+
+    def fake_pytorch_runner(*, config, job, log_path):
+        torch_calls.append({'config': config, 'job': job, 'log_path': log_path})
+        return {'status': 'success', 'bundle_path': None}
+
+    def fail_tensorflow_runner(*args, **kwargs):
+        pytest.fail("TensorFlow backend should not be invoked when backend='pytorch'")
+
+    monkeypatch.setattr(training_module, '_execute_training_job_pytorch', fake_pytorch_runner, raising=False)
+    monkeypatch.setattr(training_module, '_execute_training_job_tensorflow', fail_tensorflow_runner, raising=False)
+
+    result = training_module.execute_training_job(
+        config=config,
+        job=job,
+        log_path=log_path,
+        backend='pytorch',
+    )
+
+    assert result['status'] == 'success', "PyTorch runner should return success result"
+    assert len(torch_calls) == 1, "PyTorch runner should be called exactly once"
+    assert torch_calls[0]['config'].backend == 'pytorch', \
+        f"PyTorch runner must receive backend='pytorch', got {torch_calls[0]['config'].backend}"
+
+
+def test_execute_training_job_tensorflow_persists_bundle(tmp_path, monkeypatch):
+    """
+    TensorFlow backend should save bundles via model_manager.save with manifest metadata.
+    """
+    from ptycho.config.config import TrainingConfig, ModelConfig
+    from studies.fly64_dose_overlap import training as training_module
+
+    artifact_dir = tmp_path / "artifacts"
+    log_path = artifact_dir / "train.log"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    minimal_data = {
+        'diffraction': np.random.rand(4, 32, 32).astype(np.float32),
+        'objectGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+        'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+        'xcoords': np.linspace(0, 1, 4).astype(np.float32),
+        'ycoords': np.linspace(0, 1, 4).astype(np.float32),
+        'xcoords_start': np.linspace(0, 1, 4).astype(np.float32),
+        'ycoords_start': np.linspace(0, 1, 4).astype(np.float32),
+        'Y': (np.random.rand(4, 64, 64) + 1j * np.random.rand(4, 64, 64)).astype(np.complex64),
+    }
+    np.savez_compressed(train_npz, **minimal_data)
+    np.savez_compressed(test_npz, **minimal_data)
+
+    job = TrainingJob(
+        dose=1e3,
+        view='baseline',
+        gridsize=1,
+        train_data_path=str(train_npz),
+        test_data_path=str(test_npz),
+        artifact_dir=artifact_dir,
+        log_path=log_path,
+    )
+
+    config = TrainingConfig(
+        train_data_file=str(train_npz),
+        test_data_file=str(test_npz),
+        output_dir=str(artifact_dir),
+        model=ModelConfig(gridsize=1),
+        backend='tensorflow',
+    )
+
+    load_calls = []
+    def fake_load_data(path, **kwargs):
+        load_calls.append(path)
+        return SimpleNamespace()
+
+    def fake_train_cdi_model(train_data, test_data, config):
+        return {'history': {'train_loss': [0.5, 0.2, 0.1]}}
+
+    saved_paths = []
+
+    def fake_model_manager_save(out_prefix):
+        bundle_base = Path(out_prefix) / 'wts.h5'
+        bundle_path = bundle_base.with_suffix('.h5.zip')
+        bundle_path.parent.mkdir(parents=True, exist_ok=True)
+        bundle_path.write_text("dummy bundle")
+        saved_paths.append(bundle_path)
+
+    monkeypatch.setattr(
+        training_module,
+        'tf_components',
+        SimpleNamespace(load_data=fake_load_data, train_cdi_model=fake_train_cdi_model),
+        raising=False,
+    )
+    monkeypatch.setattr(training_module, 'model_manager', SimpleNamespace(save=fake_model_manager_save), raising=False)
+    monkeypatch.setattr(training_module, 'validate_dataset_contract', lambda *args, **kwargs: None, raising=False)
+
+    result = training_module._execute_training_job_tensorflow(
+        config=config,
+        job=job,
+        log_path=log_path,
+    )
+
+    assert result['status'] == 'success', "TensorFlow execution should report success"
+    assert result['bundle_path'] is not None, "TensorFlow execution must return bundle_path"
+    assert Path(result['bundle_path']).exists(), "Persisted bundle path must exist on disk"
+    assert result['bundle_sha256'], "TensorFlow execution must compute bundle SHA256"
+    assert result['bundle_size_bytes'] > 0, "TensorFlow bundle size must be positive"
+    assert len(load_calls) == 2, "TensorFlow loader should be called for train and test NPZ files"
+    assert len(saved_paths) == 1, "model_manager.save should be invoked exactly once"
+
+
 def test_training_cli_filters_jobs(tmp_path, monkeypatch):
     """
     RED → GREEN TDD test for training CLI job filtering.
@@ -482,12 +682,13 @@ def test_training_cli_filters_jobs(tmp_path, monkeypatch):
     # Spy: Track which jobs were executed
     executed_jobs = []
 
-    def mock_run_training_job(job, runner, dry_run=False):
+    def mock_run_training_job(job, runner, dry_run=False, backend='tensorflow'):
         executed_jobs.append({
             'dose': job.dose,
             'view': job.view,
             'gridsize': job.gridsize,
             'dry_run': dry_run,
+            'backend': backend,
         })
         return {'status': 'mock_success'}
 
@@ -508,6 +709,8 @@ def test_training_cli_filters_jobs(tmp_path, monkeypatch):
 
     assert len(executed_jobs) == 9, \
         f"Expected 9 jobs without filters, got {len(executed_jobs)}"
+    assert {entry['backend'] for entry in executed_jobs} == {'tensorflow'}, \
+        f"CLI should default to tensorflow backend, got backends: {executed_jobs}"
 
     # Test case 2: Filter by dose (3 jobs: baseline + dense + sparse for dose=1e3)
     executed_jobs.clear()
@@ -525,6 +728,8 @@ def test_training_cli_filters_jobs(tmp_path, monkeypatch):
 
     assert len(executed_jobs) == 3, \
         f"Expected 3 jobs for dose=1000, got {len(executed_jobs)}"
+    assert {entry['backend'] for entry in executed_jobs} == {'tensorflow'}, \
+        "Filtered run should still default to tensorflow backend"
     assert all(j['dose'] == 1e3 for j in executed_jobs), \
         "All executed jobs must have dose=1e3"
 
@@ -651,11 +856,12 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     # Spy: Track run_training_job calls
     run_calls = []
 
-    def mock_run_training_job(job, runner, dry_run=False):
+    def mock_run_training_job(job, runner, dry_run=False, backend='tensorflow'):
         run_calls.append({
             'dose': job.dose,
             'view': job.view,
             'gridsize': job.gridsize,
+            'backend': backend,
         })
         return {'status': 'mock_success'}
 
@@ -686,6 +892,12 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     assert isinstance(manifest, dict), \
         f"Manifest must be a dict, got {type(manifest)}"
 
+    # Runner should have been invoked for each executed job with tensorflow backend
+    assert len(run_calls) == 2, \
+        f"run_training_job should be called twice (baseline + dense), got {len(run_calls)} calls"
+    assert {call['backend'] for call in run_calls} == {'tensorflow'}, \
+        f"Expected run_training_job backend to default to tensorflow, got backends: {run_calls}"
+
     # Assertions: manifest contains expected keys
     required_keys = {'timestamp', 'phase_c_root', 'phase_d_root', 'artifact_root', 'jobs'}
     missing_keys = required_keys - manifest.keys()
@@ -713,6 +925,8 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     # Assertions: run_training_job was called for each job (2 for dose=1000: baseline + dense)
     assert len(run_calls) == 2, \
         f"Expected run_training_job called 2 times (baseline + dense), got {len(run_calls)}"
+    assert {call['backend'] for call in run_calls} == {'tensorflow'}, \
+        f"Expected CLI to invoke training with tensorflow backend, got backends {run_calls}"
 
     # NEW Phase E5 Assertions: manifest contains skipped_views with missing sparse view
     assert 'skipped_views' in manifest, \
@@ -805,7 +1019,12 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
     - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 compliance assumed by caller)
     - docs/workflows/pytorch.md §12 (train_cdi_model_torch signature)
     """
-    from studies.fly64_dose_overlap.training import execute_training_job, TrainingJob
+    from studies.fly64_dose_overlap import training as training_module
+    from studies.fly64_dose_overlap import training as training_module
+    from studies.fly64_dose_overlap import training
+    from studies.fly64_dose_overlap import training
+    from studies.fly64_dose_overlap import training
+    from studies.fly64_dose_overlap.training import TrainingJob
     from ptycho.config.config import TrainingConfig, ModelConfig
 
     # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
@@ -895,14 +1114,16 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
                 scan_index=np.array([0]),
             )
 
-    # Monkeypatch MemmapDatasetBridge in the training module's namespace
-    # The training module should import: from ptycho_torch.memmap_bridge import MemmapDatasetBridge
-    from studies.fly64_dose_overlap import training as training_module
-    monkeypatch.setattr(training_module, 'MemmapDatasetBridge', SpyMemmapDatasetBridge)
-    monkeypatch.setattr(training_module, 'train_cdi_model_torch', spy_train_cdi_model_torch)
+    # Monkeypatch PyTorch backend components at their source modules
+    monkeypatch.setattr('ptycho_torch.memmap_bridge.MemmapDatasetBridge', SpyMemmapDatasetBridge)
+    monkeypatch.setattr('ptycho_torch.workflows.components.train_cdi_model_torch', spy_train_cdi_model_torch)
 
     # Execute: call execute_training_job
-    result = execute_training_job(config=config, job=job, log_path=log_path)
+    result = training._execute_training_job_pytorch(
+        config=config,
+        job=job,
+        log_path=log_path,
+    )
 
     # Debug: print result to see if there was an error
     print(f"\nResult from execute_training_job: {result}")
@@ -1010,7 +1231,7 @@ def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
         - docs/fix_plan.md:31 (Phase G blocked on training bundles)
         - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163
     """
-    from studies.fly64_dose_overlap.training import execute_training_job, TrainingJob
+    from studies.fly64_dose_overlap.training import TrainingJob
     from ptycho.config.config import TrainingConfig, ModelConfig
 
     # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
@@ -1101,14 +1322,17 @@ def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
                 scan_index=np.array([0]),
             )
 
-    # Monkeypatch
-    from studies.fly64_dose_overlap import training as training_module
-    monkeypatch.setattr(training_module, 'MemmapDatasetBridge', SpyMemmapDatasetBridge)
-    monkeypatch.setattr(training_module, 'train_cdi_model_torch', mock_train_cdi_model_torch)
-    monkeypatch.setattr(training_module, 'save_torch_bundle', spy_save_torch_bundle)
+    # Monkeypatch PyTorch backend components
+    monkeypatch.setattr('ptycho_torch.memmap_bridge.MemmapDatasetBridge', SpyMemmapDatasetBridge)
+    monkeypatch.setattr('ptycho_torch.workflows.components.train_cdi_model_torch', mock_train_cdi_model_torch)
+    monkeypatch.setattr('ptycho_torch.model_manager.save_torch_bundle', spy_save_torch_bundle)
 
     # Execute: call execute_training_job
-    result = execute_training_job(config=config, job=job, log_path=log_path)
+    result = training._execute_training_job_pytorch(
+        config=config,
+        job=job,
+        log_path=log_path,
+    )
 
     # Debug output
     print(f"\nResult from execute_training_job: {result}")
@@ -1239,12 +1463,13 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
     # Spy: record calls to execute_training_job (the real runner helper)
     runner_calls = []
 
-    def spy_execute_training_job(*, config, job, log_path):
+    def spy_execute_training_job(*, config, job, log_path, backend):
         """Spy that records invocation signature for validation."""
         runner_calls.append({
             'config': config,
             'job': job,
             'log_path': log_path,
+            'backend': backend,
         })
         # Return minimal success result to satisfy CLI expectations
         return {'status': 'success', 'final_loss': 0.123}
@@ -1298,6 +1523,8 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
         f"job.view must be 'baseline', got {call['job'].view}"
     assert call['job'].gridsize == 1, \
         f"job.gridsize must be 1, got {call['job'].gridsize}"
+    assert call['backend'] == 'tensorflow', \
+        f"Runner backend should default to 'tensorflow', got {call['backend']}"
 
     # Assertions: log_path is Path instance pointing to artifact tree
     assert call['log_path'] is not None, \
@@ -1504,12 +1731,13 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
     # Spy: Track execute_training_job calls and return bundle_path in results
     runner_calls = []
 
-    def mock_execute_training_job(*, config, job, log_path):
+    def mock_execute_training_job(*, config, job, log_path, backend):
         """Mock that returns success with bundle_path, bundle_sha256, and bundle_size_bytes."""
         runner_calls.append({
             'config': config,
             'job': job,
             'log_path': log_path,
+            'backend': backend,
         })
         # Simulate bundle saved to artifact_dir/wts.h5.zip
         bundle_path_abs = job.artifact_dir / "wts.h5.zip"

@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2025-11-06
+**Last Updated:** 2025-11-04
 **Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis [in_progress]
 
 ---
@@ -17,13 +17,14 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 ## [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: —
 - Priority: High
-- Status: in_progress — Phase E6 bundle size tracking implementation
+- Status: in_progress — Phase E6 bundle telemetry & Phase G preparation
 - Owner/Date: Codex Agent/2025-11-04
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
 - Test Strategy: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md`
 - Constraints: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/constraint_analysis.md`
 - Notes: Use existing fly64 object/probe; enforce y‑axis split; group‑level overlap control via min center spacing; emphasize phase MS‑SSIM; PINN backend: TensorFlow; pty‑chi LSQML baseline (100 epochs) uses PyTorch internally.
 - Attempts History: See `docs/archive/2025-11-06_fix_plan_archive.md` (section for this initiative) and the initiative's `reports/` directories for run logs and metrics.
+- Latest Attempt (2025-11-04T222034Z): Implementation — Reinstated TensorFlow as the default Phase E workflow backend while keeping PyTorch optional. Updated `studies/fly64_dose_overlap/training.py` to route through a backend dispatcher, added a TensorFlow-specific execution helper that validates DATA-001 contracts and persists bundles via `ModelManager.save`, and threaded the backend flag through `run_training_job` and the CLI (new `--backend` switch with manifest annotations). Extended `tests/study/test_dose_overlap_training.py` with coverage for both backends plus Tf bundle persistence. Tests: `pytest tests/study/test_dose_overlap_training.py -vv` (13 passed). Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T222034Z/phase_e_training_backend_toggle/` (pytest log, summary). Finding references: POLICY-001 reaffirmed, CONFIG-001, DATA-001.
 - Latest Attempt (2025-11-06T130500Z): Implementation — Phase E6 CLI stdout normalization GREEN. Enhanced test with stdout relative-path assertions (tests/study/test_dose_overlap_training.py:1645-1652); updated training CLI to normalize bundle_path before stdout emission (studies/fly64_dose_overlap/training.py:736-742). RED confirmed absolute-path bug; GREEN validates `wts.h5.zip` relative format. Full suite: 397 passed, 1 pre-existing fail (test_interop_h5_reader), 17 skipped in 249s. Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T130500Z/phase_e_training_bundle_real_runs_exec/` (RED/GREEN/collect/full logs + summary.md). Commit: [pending].
 - Latest Attempt (2025-11-06T150500Z): Bug Fix — PyTorch workflows Path type violations. While attempting Phase E6 evidence capture, discovered **critical production bugs** in `ptycho_torch/workflows/components.py:650,682` where string paths from `TrainingConfig` were passed to functions expecting `Path` objects. Symptoms: `AttributeError: 'str' object has no attribute 'exists'` and `TypeError: unsupported operand type(s) for /`. Fixed by wrapping `config.train_data_file` and `config.output_dir` with `Path()` at call sites (ptycho_torch/workflows/components.py:650-651, 682). Impact: Unblocks all PyTorch backend training workflows. Tests: RED passed (mocked code bypassed bug), GREEN passed after fix, full suite 397 passed/1 pre-existing fail/17 skipped in 249s. New finding: TYPE-PATH-001 (to document). Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T150500Z/phase_e_training_bundle_real_runs_exec/` (summary.md, test logs). Commit: [next].
 - Latest Attempt (2025-11-06T170500Z): Planning — Phase E6 dense/baseline SHA parity staging. Reviewed prior RED/GREEN logs, confirmed Path fix unblock, and reserved new hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T170500Z/phase_e_training_bundle_real_runs_exec/` with refreshed plan/summary. Do Now directs strengthening `test_training_cli_records_bundle_path`, rerunning deterministic dense+baseline CLI jobs, archiving via `bin/archive_phase_e_outputs.py`, and documenting TYPE-PATH-001 in findings. Findings applied: POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001, TYPE-PATH-001.

@@ -21,13 +21,16 @@ References:
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Callable, Dict, Any
+from typing import List, Callable, Dict, Any, Literal
+
+import numpy as np
+
 from studies.fly64_dose_overlap.design import StudyDesign, get_study_design
+from studies.fly64_dose_overlap.validation import validate_dataset_contract
 from ptycho.config.config import update_legacy_dict
+from ptycho.workflows import components as tf_components
+from ptycho import model_manager
 from ptycho import params as p
-from ptycho_torch.memmap_bridge import MemmapDatasetBridge
-from ptycho_torch.workflows.components import train_cdi_model_torch
-from ptycho_torch.model_manager import save_torch_bundle
 
 
 @dataclass
@@ -231,10 +234,14 @@ def build_training_jobs(
     return jobs
 
 
+BackendLiteral = Literal['tensorflow', 'pytorch']
+
+
 def run_training_job(
     job: TrainingJob,
     runner: Callable,
     dry_run: bool = False,
+    backend: BackendLiteral = 'tensorflow',
 ) -> Dict[str, Any]:
     """
     Execute a single training job with CONFIG-001 compliance and logging.
@@ -249,12 +256,14 @@ def run_training_job(
     Args:
         job: TrainingJob instance with dataset paths and artifact destinations
         runner: Callable that executes training, signature:
-                runner(*, config, job, log_path) -> Dict[str, Any]
+                runner(*, config, job, log_path, backend) -> Dict[str, Any]
                 The runner receives:
                 - config: A TrainingConfig dataclass instance
                 - job: The original TrainingJob instance
                 - log_path: Path where training logs should be written
+                - backend: Literal['tensorflow','pytorch'] indicating selected backend
         dry_run: If True, skip runner invocation and return summary dict instead
+        backend: Backend selection ('tensorflow' default)
 
     Returns:
         If dry_run=False: Result dict returned by runner (e.g., {'status': 'success'})
@@ -267,6 +276,7 @@ def run_training_job(
                 'test_data_path': str,
                 'log_path': Path,
                 'dry_run': True,
+                'backend': str,
             }
 
     Raises:
@@ -310,6 +320,7 @@ def run_training_job(
             'log_path': job.log_path,
             'artifact_dir': job.artifact_dir,
             'dry_run': True,
+            'backend': backend,
         }
         # Write dry-run marker to log
         with job.log_path.open('w') as f:
@@ -329,6 +340,7 @@ def run_training_job(
         output_dir=str(job.artifact_dir),
         model=model_config,
         nphotons=job.dose,  # Pass dose as nphotons for CONFIG-001 bridge
+        backend=backend,
     )
 
     # Step 5: Bridge params.cfg (CONFIG-001 compliance)
@@ -336,20 +348,193 @@ def run_training_job(
     update_legacy_dict(p.cfg, config)
 
     # Step 6: Invoke runner with standard kwargs
-    result = runner(config=config, job=job, log_path=job.log_path)
+    result = runner(config=config, job=job, log_path=job.log_path, backend=backend)
 
     # Step 7: Return runner result
     return result
 
 
-def execute_training_job(*, config, job, log_path):
+def _write_execution_header(log_path: Path, config, job: TrainingJob, backend: str) -> None:
+    """Append a standardized execution header to the training log."""
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open('a') as f:
+        f.write(f"\n{'=' * 80}\n")
+        f.write(
+            "Phase E5 Training Execution — "
+            f"{job.view} (dose={job.dose:.0e}, gridsize={job.gridsize}, backend={backend})\n"
+        )
+        f.write(f"{'=' * 80}\n")
+        f.write(f"Train dataset: {config.train_data_file}\n")
+        f.write(f"Test dataset: {config.test_data_file}\n")
+        f.write(f"Output directory: {config.output_dir}\n")
+        f.write(f"Gridsize: {config.model.gridsize}\n")
+        f.write(f"nphotons: {config.nphotons}\n")
+        f.write(f"Backend: {backend}\n\n")
+
+
+def execute_training_job(
+    *,
+    config,
+    job,
+    log_path,
+    backend: BackendLiteral = 'tensorflow',
+):
+    """Dispatcher that routes to the requested backend implementation."""
+    if backend == 'tensorflow':
+        return _execute_training_job_tensorflow(config=config, job=job, log_path=log_path)
+    if backend == 'pytorch':
+        return _execute_training_job_pytorch(config=config, job=job, log_path=log_path)
+    raise ValueError(f"Unsupported backend '{backend}'. Expected 'tensorflow' or 'pytorch'.")
+
+
+def _execute_training_job_tensorflow(*, config, job, log_path):
+    """Execute a single training job using the TensorFlow backend."""
+    import hashlib
+    import traceback
+    from pathlib import Path
+
+    _write_execution_header(log_path, config, job, backend='tensorflow')
+
+    train_path = Path(config.train_data_file)
+    test_path = Path(config.test_data_file)
+
+    if not train_path.exists():
+        raise FileNotFoundError(f"Training dataset not found: {train_path}")
+    if not test_path.exists():
+        raise FileNotFoundError(f"Test dataset not found: {test_path}")
+
+    view_for_validation = job.view if job.view in {'dense', 'sparse'} else None
+
+    try:
+        with np.load(train_path) as train_npz:
+            validate_dataset_contract(
+                dict(train_npz),
+                view=view_for_validation,
+                gridsize=job.gridsize,
+                neighbor_count=config.neighbor_count,
+            )
+        with np.load(test_path) as test_npz:
+            validate_dataset_contract(
+                dict(test_npz),
+                view=view_for_validation,
+                gridsize=job.gridsize,
+                neighbor_count=config.neighbor_count,
+            )
+    except Exception as exc:  # pylint: disable=broad-except
+        with log_path.open('a') as f:
+            f.write(
+                f"Dataset contract validation failed: {type(exc).__name__}: {exc}\n"
+            )
+            f.write(traceback.format_exc())
+        return {
+            'status': 'failed',
+            'error': f"Dataset validation failed: {type(exc).__name__}: {exc}",
+        }
+
+    try:
+        with log_path.open('a') as f:
+            f.write(f"Loading datasets via TensorFlow loader...\n")
+        train_data = tf_components.load_data(str(train_path))
+        test_data = tf_components.load_data(str(test_path))
+    except Exception as exc:  # pylint: disable=broad-except
+        with log_path.open('a') as f:
+            f.write(
+                f"Failed to load datasets via TensorFlow loader: {type(exc).__name__}: {exc}\n"
+            )
+            f.write(traceback.format_exc())
+        return {
+            'status': 'failed',
+            'error': f"Dataset loading failed: {type(exc).__name__}: {exc}",
+        }
+
+    try:
+        with log_path.open('a') as f:
+            f.write("Invoking TensorFlow train_cdi_model...\n")
+        training_results = tf_components.train_cdi_model(
+            train_data=train_data,
+            test_data=test_data,
+            config=config,
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        with log_path.open('a') as f:
+            f.write(f"Training failed: {type(exc).__name__}: {exc}\n")
+            f.write(traceback.format_exc())
+        return {
+            'status': 'failed',
+            'error': f"Training failed: {type(exc).__name__}: {exc}",
+        }
+
+    final_loss = None
+    if 'history' in training_results and 'train_loss' in training_results['history']:
+        train_losses = training_results['history']['train_loss']
+        if train_losses:
+            final_loss = train_losses[-1]
+
+    output_dir = Path(config.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    bundle_path = None
+    bundle_sha256 = None
+    bundle_size_bytes = None
+    checkpoint_path = None
+
+    try:
+        with log_path.open('a') as f:
+            f.write("Persisting model bundle via TensorFlow ModelManager...\n")
+        model_manager.save(str(output_dir))
+        bundle_base = output_dir / p.get('h5_path')
+        bundle_file = bundle_base.with_suffix('.h5.zip')
+        bundle_path = str(bundle_file)
+
+        if bundle_file.exists():
+            bundle_size_bytes = bundle_file.stat().st_size
+            sha256_hash = hashlib.sha256()
+            with bundle_file.open('rb') as bundle_stream:
+                for chunk in iter(lambda: bundle_stream.read(65536), b''):
+                    sha256_hash.update(chunk)
+            bundle_sha256 = sha256_hash.hexdigest()
+            with log_path.open('a') as f:
+                f.write(f"Bundle saved: {bundle_path}\n")
+                f.write(f"Bundle SHA256: {bundle_sha256}\n")
+                f.write(f"Bundle size: {bundle_size_bytes} bytes\n")
+        else:
+            with log_path.open('a') as f:
+                f.write(f"Warning: Bundle file not found after save: {bundle_file}\n")
+    except Exception as exc:  # pylint: disable=broad-except
+        with log_path.open('a') as f:
+            f.write(f"Warning: Bundle persistence failed: {type(exc).__name__}: {exc}\n")
+            f.write(traceback.format_exc())
+
+    with log_path.open('a') as f:
+        f.write("Training completed successfully\n")
+        f.write(f"Final loss: {final_loss}\n")
+        f.write(f"Epochs completed: {len(training_results.get('history', {}).get('train_loss', []))}\n")
+        f.write(f"Checkpoint path: {checkpoint_path}\n")
+        f.write(f"Bundle path: {bundle_path}\n")
+        f.write(f"Bundle SHA256: {bundle_sha256}\n")
+        f.write(f"Bundle size: {bundle_size_bytes} bytes\n")
+
+    return {
+        'status': 'success',
+        'final_loss': final_loss,
+        'epochs_completed': len(training_results.get('history', {}).get('train_loss', [])),
+        'checkpoint_path': checkpoint_path,
+        'bundle_path': bundle_path,
+        'bundle_sha256': bundle_sha256,
+        'bundle_size_bytes': bundle_size_bytes,
+        'training_results': training_results,
+    }
+
+
+def _execute_training_job_pytorch(*, config, job, log_path):
     """
-    Production runner helper for executing a single PtychoPINN training job.
+    Production runner helper for executing a single PtychoPINN training job
+    via the PyTorch backend.
 
     This helper implements the real training execution logic by:
     1. Loading NPZ datasets from Phase C/D paths (already validated in TrainingJob)
     2. Using the provided TrainingConfig (CONFIG-001 bridge already done in run_training_job)
-    3. Delegating to the PyTorch backend trainer (train_cdi_model_torch or equivalent)
+    3. Delegating to the PyTorch backend trainer (train_cdi_model_torch)
     4. Writing logs/artifacts to the provided log_path and job.artifact_dir
     5. Returning training metrics and status for manifest emission
 
@@ -387,20 +572,12 @@ def execute_training_job(*, config, job, log_path):
     import sys
     from pathlib import Path
 
-    # Step 0: Ensure log directory exists
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    from ptycho_torch.memmap_bridge import MemmapDatasetBridge
+    from ptycho_torch.workflows.components import train_cdi_model_torch
+    from ptycho_torch.model_manager import save_torch_bundle
 
-    # Step 1: Write execution metadata to log
-    with log_path.open('a') as f:
-        f.write(f"\n{'=' * 80}\n")
-        f.write(f"Phase E5 Training Execution — {job.view} (dose={job.dose:.0e}, gridsize={job.gridsize})\n")
-        f.write(f"{'=' * 80}\n")
-        f.write(f"Train dataset: {config.train_data_file}\n")
-        f.write(f"Test dataset: {config.test_data_file}\n")
-        f.write(f"Output directory: {config.output_dir}\n")
-        f.write(f"Gridsize: {config.model.gridsize}\n")
-        f.write(f"nphotons: {config.nphotons}\n")
-        f.write(f"\n")
+    # Step 0/1: ensure logging header written
+    _write_execution_header(log_path, config, job, backend='pytorch')
 
     # Step 2: Validate dataset paths exist (defensive check)
     train_path = Path(config.train_data_file)
@@ -486,6 +663,7 @@ def execute_training_job(*, config, job, log_path):
         # ModelManager consumers. Bundle path follows Ptychodus naming convention.
         bundle_path = None
         bundle_sha256 = None
+        bundle_size_bytes = None
         if 'models' in training_results and training_results['models']:
             try:
                 # Define bundle base path (without .zip extension)
@@ -509,7 +687,6 @@ def execute_training_job(*, config, job, log_path):
                 # Compute SHA256 checksum for bundle integrity validation (Phase E6)
                 import hashlib
                 bundle_file = Path(bundle_path)
-                bundle_size_bytes = None
                 if bundle_file.exists():
                     # Compute file size in bytes (Phase E6 Do Now: size tracking)
                     bundle_size_bytes = bundle_file.stat().st_size
@@ -591,6 +768,7 @@ def main():
         --dose: Optional dose filter (e.g., 1000, 10000, 100000)
         --view: Optional view filter (baseline, dense, or sparse)
         --gridsize: Optional gridsize filter (1 or 2)
+        --backend: Backend to use for training ('tensorflow' default)
         --dry-run: If set, skip training execution and emit summary only
 
     Examples:
@@ -671,6 +849,13 @@ def main():
         action='store_true',
         help='Skip training execution; emit summary only'
     )
+    parser.add_argument(
+        '--backend',
+        type=str,
+        default='tensorflow',
+        choices=['tensorflow', 'pytorch'],
+        help="Backend to use for training (default: 'tensorflow')"
+    )
 
     args = parser.parse_args()
 
@@ -687,6 +872,7 @@ def main():
     # Phase E5: Accumulate skip metadata for manifest reporting
     skip_events = []
     print(f"Enumerating training jobs from Phase C ({args.phase_c_root}) and Phase D ({args.phase_d_root})...")
+    print(f"  → Selected backend: {args.backend}")
     all_jobs = build_training_jobs(
         phase_c_root=args.phase_c_root,
         phase_d_root=args.phase_d_root,
@@ -729,8 +915,16 @@ def main():
     job_results = []
 
     for i, job in enumerate(filtered_jobs, start=1):
-        print(f"  [{i}/{len(filtered_jobs)}] {job.view} (dose={job.dose:.0e}, gridsize={job.gridsize})")
-        result = run_training_job(job, runner=execute_training_job, dry_run=args.dry_run)
+        print(
+            f"  [{i}/{len(filtered_jobs)}] {job.view} (dose={job.dose:.0e}, "
+            f"gridsize={job.gridsize}, backend={args.backend})"
+        )
+        result = run_training_job(
+            job,
+            runner=execute_training_job,
+            dry_run=args.dry_run,
+            backend=args.backend,
+        )
 
         # Phase E6: Emit bundle_path and bundle_sha256 to stdout for CLI log capture
         # This ensures each job's bundle digest appears alongside manifest pointers
@@ -786,6 +980,7 @@ def main():
             'test_data_path': job.test_data_path,
             'log_path': str(job.log_path),
             'artifact_dir': str(job.artifact_dir),
+            'backend': args.backend,
             'result': result_serializable,
         })
 
