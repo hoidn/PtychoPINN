@@ -2454,3 +2454,17 @@
   - Guardrail: maintain `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` for all pytest/CLI commands; archive helper script remains canonical for checksum validation.
 - Next actions for Ralph: execute Do Now to land RED→GREEN for `test_training_cli_records_bundle_path`, run dense/baseline Phase E CLI jobs, archive bundles/manifests with checksum proof, update summary, and log Attempt outcome in ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T170500Z: Phase E6 SHA parity staging
+- dwell: 1 (fresh planning loop after Path fix — next turn should execute implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T170500Z/phase_e_training_bundle_real_runs_exec/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) and re-read latest path bug summary plus plan/test_strategy context.
+  - Consulted docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001) and noted TYPE-PATH-001 still missing; scheduled ledger update in Do Now.
+  - Created new hub (plan + summary) with refreshed Do Now covering SHA parity test hardening, deterministic dense/baseline CLI runs, archive proof, and findings/doc updates.
+  - Rewrote `input.md` with Mode TDD, explicit selectors, AUTHORITATIVE_CMDS_DOC guard, archive script usage, and artifact paths for RED/GREEN/cli/collect logs.
+- Next actions for Ralph: execute strengthened test RED→GREEN, run deterministic dense/baseline jobs, archive + checksum via helper script, update docs/findings.md with TYPE-PATH-001, and log results in ledger.
+- <Action State>: [ready_for_implementation]
