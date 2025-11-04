@@ -1,74 +1,56 @@
-Summary: Wire Phase F manifests into Phase G comparisons and prove it with dense/train,test reruns.
-Mode: TDD
-Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (manifest-driven G2.1 dense execution)
+Summary: Produce real Phase G dense/train,test evidence by scripting the Phase C→G pipeline and archiving metrics under the new hub.
+Mode: Perf
+Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense execution evidence)
 Branch: feature/torchapi-newprompt
 Mapped tests: pytest tests/study/test_dose_overlap_comparison.py -k tike_recon_path -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T070500Z/phase_g_execution_real_runs/
 
 Do Now:
-- STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G2.1 dense comparisons manifest integration
-  - Implement: studies/fly64_dose_overlap/comparison.py::execute_comparison_jobs — read each Phase F manifest, require `ptychi_reconstruction.npz`, and append `--tike_recon_path` using `Path` objects (cache manifest parsing to avoid redundant IO).
-  - Implement: tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_appends_tike_recon_path — extend fixtures to emit manifest JSON + recon files; assert RED failure when missing and GREEN when present.
-  - Validate (RED): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/study/test_dose_overlap_comparison.py -k tike_recon_path -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/red/pytest_phase_g_manifest_red.log
-  - Validate (GREEN): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/study/test_dose_overlap_comparison.py -k tike_recon_path -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/green/pytest_phase_g_manifest_green.log
-  - Phase C regeneration (dose=1000): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.generation --base-npz tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/cli/phase_c_generation.log
-  - Phase D dense overlap: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.overlap --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/analysis --doses 1000 --views dense | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/cli/phase_d_overlap.log
-  - Phase E training (baseline gs1, TensorFlow): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.training --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-d-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/training --dose 1000 --view baseline --gridsize 1 --backend tensorflow | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/cli/training_baseline.log
-  - Phase E training (dense gs2, TensorFlow): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.training --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-d-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/training --dose 1000 --view dense --gridsize 2 --backend tensorflow | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/cli/training_dense.log
-  - Phase F LSQML recon (dense/train): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.reconstruction --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-d-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/reconstruction --dose 1000 --view dense --split train | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/cli/reconstruction_dense_train.log
-  - Phase F LSQML recon (dense/test): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.reconstruction --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-d-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/reconstruction --dose 1000 --view dense --split test | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/cli/reconstruction_dense_test.log
-  - Phase G comparisons: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-e-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/training --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/reconstruction --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/analysis --dose 1000 --view dense --split train | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/cli/comparison_dense_train.log
-  - Phase G comparisons: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-e-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/training --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/reconstruction --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/analysis --dose 1000 --view dense --split test | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/cli/comparison_dense_test.log
-  - Archive outputs: summarize checksums/manifests in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/analysis/summary.md.
+- STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — G2 dense comparisons real-run evidence
+  - Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::main — orchestrate Phase C→G commands for a given hub, enforcing TYPE-PATH-001 via `Path`, propagating `AUTHORITATIVE_CMDS_DOC`, teeing stdout/stderr to per-phase log files, and halting on non-zero return codes with blocker log notes.
+  - Validate: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md pytest tests/study/test_dose_overlap_comparison.py -k tike_recon_path -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T070500Z/phase_g_execution_real_runs/green/pytest_phase_g_manifest_green.log
+  - Execute: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T070500Z/phase_g_execution_real_runs --dose 1000 --view dense --splits train test
+  - Summarize: Inspect `{HUB}/analysis` and `{HUB}/summary` outputs, record MS-SSIM/MAE metrics and any anomalies in summary/summary.md, and update docs/fix_plan.md + galph_memory.md with artifact references.
 
 How-To Map:
 - export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-- pytest tests/study/test_dose_overlap_comparison.py -k tike_recon_path -vv
-- python -m studies.fly64_dose_overlap.generation --base-npz tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c
-- python -m studies.fly64_dose_overlap.overlap --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --output-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/analysis --doses 1000 --views dense
-- python -m studies.fly64_dose_overlap.training --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-d-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/training --dose 1000 --view baseline --gridsize 1 --backend tensorflow
-- python -m studies.fly64_dose_overlap.training --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-d-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/training --dose 1000 --view dense --gridsize 2 --backend tensorflow
-- python -m studies.fly64_dose_overlap.reconstruction --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-d-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/reconstruction --dose 1000 --view dense --split train
-- python -m studies.fly64_dose_overlap.reconstruction --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-d-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_d --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/reconstruction --dose 1000 --view dense --split test
-- python -m studies.fly64_dose_overlap.comparison --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-e-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/training --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/reconstruction --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/analysis --dose 1000 --view dense --split train
-- python -m studies.fly64_dose_overlap.comparison --phase-c-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/phase_c --phase-e-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/training --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/data/reconstruction --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/analysis --dose 1000 --view dense --split test
+- pytest tests/study/test_dose_overlap_comparison.py -k tike_recon_path -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T070500Z/phase_g_execution_real_runs/green/pytest_phase_g_manifest_green.log
+- python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T070500Z/phase_g_execution_real_runs --dose 1000 --view dense --splits train test
+- python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub ... --dose 1000 --view dense --splits train test --collect-only (if verification run needed without execution; optional guard)
 
 Pitfalls To Avoid:
-- Do not bypass CONFIG-001; confirm training CLI logs show legacy dict bridge.
-- Do not hardcode string paths; wrap all filesystem inputs with `Path()` (TYPE-PATH-001).
-- Avoid mutating manifests in place; treat JSON as read-only evidence and fail fast if keys missing.
-- Keep CLI runs deterministic (CPU-only, fixed seeds per docs/TESTING_GUIDE.md).
-- Capture RED/GREEN pytest logs and CLI transcripts under the hub; no artifacts at repo root.
-- If Phase F recon fails, stop comparisons and document blocker rather than hacking around missing data.
-- Ensure new pytest selector actually collects >0 tests before marking GREEN.
-- No environment changes; rely on existing deps per Environment Freeze policy.
-- Resist editing core physics modules (`ptycho/model.py`, etc.) unless plan explicitly says so (it does not).
-- Clean up temporary files under `tmp/` if created during execution.
+- Forgetting to normalize paths to `Path` objects inside the new script (violates TYPE-PATH-001).
+- Running CLIs without `AUTHORITATIVE_CMDS_DOC`; keep the guard exported for each command.
+- Allowing script to continue after a failed subprocess—must log blocker and exit immediately.
+- Writing artifacts outside the hub; all logs/metrics belong under the timestamped directory.
+- Skipping manifest validation; confirm Phase F outputs include `ptychi_reconstruction.npz` before launching comparisons.
+- Modifying production modules (e.g., `ptycho/model.py`); scope is scripts + orchestration only.
+- Ignoring CLI return codes when teeing output; ensure logs capture command exit status.
+- Leaving temporary files in `tmp/`; clean up if the script creates scratch space.
 
 If Blocked:
-- Record failure details + command in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/analysis/blocker.log and note in docs/fix_plan.md Attempts History.
-- Mark state `blocked` in galph_memory.md with reason, including CLI return code / stack trace.
-- Pivot to regenerating prerequisite phases only if comparison wiring passes but a downstream CLI flakes; otherwise stop and await guidance.
+- Capture failing command + stderr in `{HUB}/analysis/blocker.log`, mark attempt `blocked` in docs/fix_plan.md, and update galph_memory.md with state=blocked and next steps.
+- If training or reconstruction errors stem from missing datasets, record the manifest path and command, then stop—do not attempt ad-hoc dataset surgery.
+- Should pytest selector fail unexpectedly, keep RED log, revert script changes if they caused regression, and request follow-up plan.
 
 Findings Applied (Mandatory):
-- POLICY-001 — PyTorch backend requirements remain in force; recon CLI must run without disabling torch.
-- CONFIG-001 — Ensure `update_legacy_dict` bridge remains exercised before TensorFlow workflows.
-- DATA-001 — Regenerated NPZs must satisfy contract validated by existing CLI checks.
-- OVERSAMPLING-001 — Dense overlap parameters already fixed; do not regress spacing constraints when rebuilding data.
-- TYPE-PATH-001 — Normalize Phase F paths via `Path` to prevent string/Path mismatches.
+- POLICY-001 — PyTorch backend remains required for LSQML; ensure environment retains torch>=2.2.
+- CONFIG-001 — Training CLI already bridges legacy config; script must not bypass initialization order.
+- DATA-001 — Regenerated NPZs must satisfy dataset contract; validator runs inside pipeline guard this.
+- OVERSAMPLING-001 — Dense overlap spacing must remain per design; reuse CLI defaults without altering overlap ratios.
+- TYPE-PATH-001 — All CLI inputs/outputs should leverage `Path` to avoid string/path mismatches.
 
 Pointers:
-- docs/TESTING_GUIDE.md:183 — Phase G execution checklists and deterministic flags.
-- docs/COMMANDS_REFERENCE.md:259 — `scripts.compare_models` required arguments including `--tike_recon_path`.
-- specs/ptychodus_api_spec.md:220 — Phase F output expectations consumed by Phase G.
-- studies/fly64_dose_overlap/comparison.py:169 — Current CLI command assembly missing Phase F recon flag.
-- tests/study/test_dose_overlap_comparison.py:140 — Existing execute_comparison_jobs coverage to extend for manifest-driven flag.
-- docs/fix_plan.md:36 — Active attempt log for this initiative.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:248 — Phase G execution expectations and evidence requirements.
+- docs/COMMANDS_REFERENCE.md:259 — `scripts/compare_models.py` CLI arguments including `--tike_recon_path`.
+- docs/TESTING_GUIDE.md:183 — Deterministic Phase F CLI invocation pattern with `AUTHORITATIVE_CMDS_DOC` guard.
+- docs/findings.md:21 — TYPE-PATH-001 path normalization policy.
+- studies/fly64_dose_overlap/comparison.py:161 — Manifest-driven comparison executor requiring real Phase F inputs.
 
 Next Up (optional):
-- Regenerate sparse view comparisons once dense path is green to complete Phase G coverage.
+- Execute sparse view comparisons and archive metrics once dense evidence is green.
 
 Doc Sync Plan:
-- After GREEN pytest, run `pytest tests/study/test_dose_overlap_comparison.py --collect-only -k tike_recon_path -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/collect/pytest_phase_g_manifest_collect.log` and update summary with collected node count.
+- Run `pytest tests/study/test_dose_overlap_comparison.py --collect-only -k tike_recon_path -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T070500Z/phase_g_execution_real_runs/collect/pytest_phase_g_manifest_collect.log` after GREEN pytest to reconfirm selector collection.
 
-Mapped Tests Guardrail: Selector above must collect ≥1 test; confirm via collect-only log before marking attempt done.
+Mapped Tests Guardrail: Selector above collects ≥1 test; confirm via collect-only log.

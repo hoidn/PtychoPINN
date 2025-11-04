@@ -2538,3 +2538,16 @@
   - Reinforced findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001; reiterated AUTHORITATIVE_CMDS_DOC guard and collect-only follow-up for new pytest node.
 - Next actions for Ralph: implement manifest parser + `--tike_recon_path`, land pytest coverage, run Phase C→F regenerations, execute dense/train,test comparisons, archive logs, and update ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T070500Z: Phase G dense execution runbook
+- dwell: 0 (implementation landed 2025-11-07T050500Z+exec; resetting counter)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense execution evidence)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T070500Z/phase_g_execution_real_runs/
+- Notes:
+  - Confirmed manifest wiring GREEN via latest summary; dense/train,test artifacts still absent, so evidence run remains outstanding.
+  - Created new hub directories (analysis/cli/collect/data/full/green/red/summary/plan); drafted plan + summary scaffolding and rewrote `input.md` with Mode=Perf Do Now.
+  - Directed Ralph to author initiative script `bin/run_phase_g_dense.py`, rerun manifest pytest selector, execute Phase C→G pipeline with logs captured under hub, and summarize MS-SSIM/MAE outputs; reiterated AUTHORITATIVE_CMDS_DOC guard and findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001.
+- Next actions for Ralph: implement script, run pipeline, archive metrics, and update ledger/memory.
+- <Action State>: [ready_for_implementation]
