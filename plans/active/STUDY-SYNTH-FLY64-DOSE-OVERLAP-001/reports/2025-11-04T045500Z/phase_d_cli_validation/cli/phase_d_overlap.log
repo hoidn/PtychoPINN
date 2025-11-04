@@ -1,0 +1,75 @@
+
+ERROR generating view=sparse for dose=1000.0: Insufficient positions meet spacing threshold for sparse view in train split. Acceptance rate: 0.0% < minimum 10.0%. Min spacing: 50.00 px < threshold: 102.40 px. Consider relaxing overlap fraction or using different scan positions.
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/overlap.py", line 492, in main
+    results = generate_overlap_views(
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/overlap.py", line 333, in generate_overlap_views
+    raise ValueError(
+ValueError: Insufficient positions meet spacing threshold for sparse view in train split. Acceptance rate: 0.0% < minimum 10.0%. Min spacing: 50.00 px < threshold: 102.40 px. Consider relaxing overlap fraction or using different scan positions.
+================================================================================
+Phase D: Dense/Sparse Overlap View Generation
+================================================================================
+Phase C root: tmp/fly64_phase_c_cli
+Output root:  tmp/phase_d_overlap_views
+Doses:        [1000.0, 10000.0, 100000.0]
+Views:        ['dense', 'sparse']
+================================================================================
+
+
+============================================================
+Generating dense overlap view
+Threshold: 38.40 px (f_overlap=0.7)
+============================================================
+
+[TRAIN] Processing patched_train.npz...
+  Computing spacing matrix for 6 positions...
+  Spacing metrics:
+    Min: 50.00 px
+    Max: 111.80 px
+    Mean: 70.43 px
+    Median: 70.71 px
+    Acceptance: 6/6 (100.0%)
+  Filtering to accepted positions...
+  Validating DATA-001 compliance + spacing constraint...
+    ✓ Validation passed
+  Writing filtered NPZ: tmp/phase_d_overlap_views/dose_1000/dense/dense_train.npz
+  Writing metrics JSON: tmp/phase_d_overlap_views/dose_1000/dense/train_metrics.json
+  ✓ TRAIN complete
+
+[TEST] Processing patched_test.npz...
+  Computing spacing matrix for 6 positions...
+  Spacing metrics:
+    Min: 50.00 px
+    Max: 111.80 px
+    Mean: 70.43 px
+    Median: 70.71 px
+    Acceptance: 6/6 (100.0%)
+  Filtering to accepted positions...
+  Validating DATA-001 compliance + spacing constraint...
+    ✓ Validation passed
+  Writing filtered NPZ: tmp/phase_d_overlap_views/dose_1000/dense/dense_test.npz
+  Writing metrics JSON: tmp/phase_d_overlap_views/dose_1000/dense/test_metrics.json
+  ✓ TEST complete
+
+Writing metrics bundle: tmp/phase_d_overlap_views/dose_1000/dense/metrics_bundle.json
+============================================================
+Dense view generation complete
+============================================================
+
+  Copied metrics bundle to artifact root:
+    plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T045500Z/phase_d_cli_validation/metrics/dose_1000/dense.json
+
+============================================================
+Generating sparse overlap view
+Threshold: 102.40 px (f_overlap=0.2)
+============================================================
+
+[TRAIN] Processing patched_train.npz...
+  Computing spacing matrix for 6 positions...
+  Spacing metrics:
+    Min: 50.00 px
+    Max: 111.80 px
+    Mean: 70.43 px
+    Median: 70.71 px
+    Acceptance: 0/6 (0.0%)
