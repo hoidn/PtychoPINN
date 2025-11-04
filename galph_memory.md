@@ -1874,3 +1874,16 @@
   - Updated implementation.md/test_strategy.md Phase D sections, logged docs/fix_plan Attempt #6, and rewrote input.md to hand off the Phase D code loop.
 - Next actions for Ralph: implement overlap.py per D1–D2, author tests/logs per D3 (RED→GREEN→collect), run CLI prototype with spacing metrics, and update summary/docs before closing Phase D.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T041900Z: Phase D metrics alignment plan refresh
+- dwell: 2 (second consecutive planning loop for this focus; next hand-off must be implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase D group-level overlap views
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T041900Z/phase_d_metrics_alignment/
+- Notes:
+  - Reviewed overlap implementation commit `d9521b95` to verify spacing utilities/tests landed; confirmed CLI currently emits a single `spacing_metrics.json` instead of per-dose/view artifacts.
+  - Updated Phase D plan (D1/D3 → [x], D2 → [P] highlighting metrics alignment, D4 still [ ]) and created metrics-alignment artifact hub with subdirectories {red,green,collect,cli,metrics}.
+  - Rewrote input.md (Mode: TDD) directing Ralph to add per-view metrics outputs, new pytest guard, CLI `--artifact-root`, and doc/test registry sync.
+- Next actions for Ralph: execute the metrics-alignment Do Now (RED→GREEN test, CLI run, docs update) to close D2/D4 and capture evidence in the new hub.
+- <Action State>: [ready_for_implementation]
