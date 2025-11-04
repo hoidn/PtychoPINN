@@ -781,27 +781,36 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
             'test_container': test_data,
         }
 
-    # Monkeypatch load_data to return mock RawData objects
-    # This avoids needing to create perfectly formatted NPZ fixtures
-    from ptycho.raw_data import RawData
+    # Spy: record calls to MemmapDatasetBridge
+    bridge_calls = []
 
-    def mock_load_data(file_path):
-        """Return a minimal RawData instance for testing."""
-        return RawData(
-            xcoords=np.array([0.0]),
-            ycoords=np.array([0.0]),
-            xcoords_start=np.array([0.0]),
-            ycoords_start=np.array([0.0]),
-            diff3d=np.random.rand(1, 64, 64).astype(np.float32),
-            probeGuess=np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
-            scan_index=np.array([0]),
-        )
+    class SpyMemmapDatasetBridge:
+        """Spy that records MemmapDatasetBridge instantiation and delegation."""
+        def __init__(self, npz_path, config, memmap_dir="data/memmap"):
+            bridge_calls.append({
+                'npz_path': npz_path,
+                'config': config,
+                'memmap_dir': memmap_dir,
+            })
+            # Store for delegation to raw_data_torch
+            self.npz_path = npz_path
+            self.config = config
+            # Mock raw_data_torch attribute (Phase C.C3 RawDataTorch delegation)
+            from ptycho.raw_data import RawData
+            self.raw_data_torch = RawData(
+                xcoords=np.array([0.0]),
+                ycoords=np.array([0.0]),
+                xcoords_start=np.array([0.0]),
+                ycoords_start=np.array([0.0]),
+                diff3d=np.random.rand(1, 64, 64).astype(np.float32),
+                probeGuess=np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+                scan_index=np.array([0]),
+            )
 
-    # Monkeypatch the PyTorch trainer in the training module's namespace
-    # The training module imports it at module level: from ptycho_torch.workflows.components import train_cdi_model_torch
-    # So we need to patch the reference in studies.fly64_dose_overlap.training
+    # Monkeypatch MemmapDatasetBridge in the training module's namespace
+    # The training module should import: from ptycho_torch.memmap_bridge import MemmapDatasetBridge
     from studies.fly64_dose_overlap import training as training_module
-    monkeypatch.setattr(training_module, 'load_data', mock_load_data)
+    monkeypatch.setattr(training_module, 'MemmapDatasetBridge', SpyMemmapDatasetBridge)
     monkeypatch.setattr(training_module, 'train_cdi_model_torch', spy_train_cdi_model_torch)
 
     # Execute: call execute_training_job
@@ -837,6 +846,33 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
         f"config.test_data_file mismatch: expected {test_npz}, got {call['config'].test_data_file}"
     assert call['config'].model.gridsize == 1, \
         f"config.model.gridsize must be 1, got {call['config'].model.gridsize}"
+
+    # NEW Assertions (Phase E5): MemmapDatasetBridge instantiation
+    assert len(bridge_calls) == 2, \
+        f"MemmapDatasetBridge should be instantiated twice (train + test), got {len(bridge_calls)} calls"
+
+    # Validate train bridge call
+    train_bridge_call = bridge_calls[0]
+    assert str(train_bridge_call['npz_path']) == str(train_npz), \
+        f"Train bridge should receive train_npz path, got {train_bridge_call['npz_path']}"
+    assert train_bridge_call['config'] is config, \
+        "Train bridge should receive the same TrainingConfig instance"
+
+    # Validate test bridge call
+    test_bridge_call = bridge_calls[1]
+    assert str(test_bridge_call['npz_path']) == str(test_npz), \
+        f"Test bridge should receive test_npz path, got {test_bridge_call['npz_path']}"
+    assert test_bridge_call['config'] is config, \
+        "Test bridge should receive the same TrainingConfig instance"
+
+    # Assertions: RawDataTorch payload passed to trainer
+    # The trainer should receive the raw_data_torch attribute from the bridge
+    # (not the bridge itself, but the RawData instance it wraps)
+    from ptycho.raw_data import RawData
+    assert isinstance(call['train_data'], RawData), \
+        f"train_cdi_model_torch should receive RawData from bridge.raw_data_torch, got {type(call['train_data'])}"
+    assert isinstance(call['test_data'], RawData), \
+        f"train_cdi_model_torch should receive RawData from bridge.raw_data_torch, got {type(call['test_data'])}"
 
     # Assertions: result contains expected keys
     assert result is not None, \

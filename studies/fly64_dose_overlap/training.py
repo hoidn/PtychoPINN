@@ -25,7 +25,7 @@ from typing import List, Callable, Dict, Any
 from studies.fly64_dose_overlap.design import StudyDesign, get_study_design
 from ptycho.config.config import update_legacy_dict
 from ptycho import params as p
-from ptycho.workflows.components import load_data
+from ptycho_torch.memmap_bridge import MemmapDatasetBridge
 from ptycho_torch.workflows.components import train_cdi_model_torch
 
 
@@ -357,22 +357,38 @@ def execute_training_job(*, config, job, log_path):
     if not test_path.exists():
         raise FileNotFoundError(f"Test dataset not found: {test_path}")
 
-    # Step 3: Load datasets via load_data helper
-    # load_data() parses NPZ files and constructs RawData instances with proper fields.
-    # The PyTorch backend accepts RawData instances and bridges them internally
-    # via RawDataTorch adapters (Phase C design).
+    # Step 3: Load datasets via MemmapDatasetBridge
+    # MemmapDatasetBridge wraps NPZ files and provides RawDataTorch instances
+    # via the raw_data_torch attribute. This ensures CONFIG-001 compliance
+    # (update_legacy_dict already called above) and enables memory-mapped loading.
+    #
+    # The bridge's RawDataTorch payload (bridge.raw_data_torch) is passed to
+    # train_cdi_model_torch for training. This approach:
+    # - Reuses RawDataTorch grouping logic (Phase C.C3 delegation)
+    # - Maintains DATA-001 NPZ contract enforcement
+    # - Supports large datasets via memory mapping
     try:
         with log_path.open('a') as f:
-            f.write(f"Loading training dataset from {train_path}...\n")
-        train_data = load_data(str(train_path))
+            f.write(f"Instantiating MemmapDatasetBridge for training dataset: {train_path}...\n")
+        train_bridge = MemmapDatasetBridge(
+            npz_path=str(train_path),
+            config=config,  # CONFIG-001: config already bridged above
+        )
+        # Extract RawDataTorch payload from bridge
+        train_data = train_bridge.raw_data_torch
 
         with log_path.open('a') as f:
-            f.write(f"Loading test dataset from {test_path}...\n")
-        test_data = load_data(str(test_path))
+            f.write(f"Instantiating MemmapDatasetBridge for test dataset: {test_path}...\n")
+        test_bridge = MemmapDatasetBridge(
+            npz_path=str(test_path),
+            config=config,  # CONFIG-001: config already bridged above
+        )
+        # Extract RawDataTorch payload from bridge
+        test_data = test_bridge.raw_data_torch
 
     except Exception as e:
         with log_path.open('a') as f:
-            f.write(f"Failed to load datasets: {type(e).__name__}: {e}\n")
+            f.write(f"Failed to load datasets via MemmapDatasetBridge: {type(e).__name__}: {e}\n")
         return {
             'status': 'failed',
             'error': f"Dataset loading failed: {type(e).__name__}: {e}",
