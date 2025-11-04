@@ -19,6 +19,11 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 5. Comparison outputs (plots, aligned NPZs, CSVs) with MS-SSIM (phase, amplitude) and summary tables.
 6. Study summary.md aggregating findings per dose/view.
 
+## Backend Selection (Policy for this Study)
+- PINN training/inference: use the TensorFlow backend (`backend='tensorflow'`).
+- Iterative baseline (pty-chi): uses PyTorch internally — acceptable and expected.
+- Do not switch the study’s PINN runs to `ptycho_torch/`; use TF workflows (`ptycho_train` / workflows.components) and ensure CONFIG-001 bridge (`update_legacy_dict`) precedes legacy consumers.
+
 ## Phases
 
 ### Phase A — Design & Constraints (COMPLETE)
@@ -131,6 +136,7 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 **Findings Applied:** CONFIG-001 (pure NPZ loading; legacy bridge deferred to training), DATA-001 (validator enforces canonical NHW layout + dtype/key contracts), OVERSAMPLING-001 (K=7 ≥ C=4 preserved in group construction).
 
 ### Phase E — Train PtychoPINN
+- Backend: TensorFlow.
 - Run gs1 baseline and gs2 grouped per dose/view with fixed seeds; store configs and logs under reports/.
 
 ### Phase F — pty-chi LSQML Baseline

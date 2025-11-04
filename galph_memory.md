@@ -163,7 +163,7 @@
 - Action type: Planning
 - Mode: Docs
 - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T003530Z/summary.md
-- Notes: Set `docs/fix_plan.md` Active Focus to this initiative (Phase A). Authored initiative plan, test strategy, and constraints docs; updated sampling/oversampling docs for accuracy. Next loop should execute Phase A Do Now (finalize doses/gridsize/K spacing + seeds) then proceed to a code/run loop.
+- Notes: Set `docs/fix_plan.md` Active Focus to this initiative (Phase A). Authored initiative plan, test strategy, and constraints docs; updated sampling/oversampling docs for accuracy. Clarified backend policy in the plan and ledger — PINN runs stay on TensorFlow; pty-chi baseline uses PyTorch only. Next loop should execute Phase A Do Now (finalize doses/gridsize/K spacing + seeds) then proceed to a code/run loop.
 - Findings applied: CONFIG-001 (config bridge), DATA-001 (dataset contracts). Oversampling documented as implemented; guardrails noted (K≥C, n_groups>n_subsample).
 - <Action State>: [gathering_evidence]
 
