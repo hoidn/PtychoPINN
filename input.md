@@ -1,60 +1,71 @@
-Summary: Implement Phase G comparison executor (non-dry-run path) and prove it with targeted pytest plus CLI evidence for dose_1000 conditions.
+Summary: Execute Phase G dose_1000 comparisons end-to-end by adding execution manifest summaries and capturing real-run evidence.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.G2 — Deterministic comparison runs
 Branch: feature/torchapi-newprompt
-Mapped tests: pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_invokes_compare_models -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/
+Mapped tests: pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary -vv; pytest tests/study/test_dose_overlap_comparison.py -k comparison -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/
 
 Do Now:
-- Implement: studies/fly64_dose_overlap/comparison.py::execute_comparison_jobs + tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_invokes_compare_models — add an executor helper that shells out to `scripts/compare_models.py`, update the CLI to invoke it when `--dry-run` is false, and drive the change through a new RED→GREEN pytest.
-- Validate: pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_invokes_compare_models -vv (tee RED to reports/.../red/pytest_phase_g_executor_red.log, GREEN to .../green/pytest_phase_g_executor_green.log).
-- Collect: pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/collect/pytest_phase_g_collect.log.
-- Capture: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root tmp/phase_c_f2_cli --phase-e-root tmp/phase_e_training_gs2 --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/cli --dose 1000 --view dense --split train --dry-run | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/cli/phase_g_cli_dry_run.log.
-- Artifacts: Stage `reports/2025-11-05T173500Z/phase_g_execution_g2/{red,green,collect,cli,analysis}` before execution; drop pytest summaries, CLI transcript, and (if available) comparison summaries/return codes inside.
+- Implement: studies/fly64_dose_overlap/comparison.py::execute_comparison_jobs + tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary — extend the executor to record success/failure counts in the manifest and update the CLI summary, with a RED→GREEN pytest proving the new fields.
+- Validate: pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/red/pytest_phase_g_executor_red.log (expect failure before implementation) then rerun after the change teeing to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/green/pytest_phase_g_executor_green.log.
+- Collect: pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/collect/pytest_phase_g_collect.log.
+- Capture: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root tmp/phase_c_f2_cli --phase-e-root tmp/phase_e_training_gs2 --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense --dose 1000 --view dense | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense.log.
+- Capture: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root tmp/phase_c_f2_cli --phase-e-root tmp/phase_e_training_gs2 --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_sparse_train --dose 1000 --view sparse --split train | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_sparse_train.log.
+- Summarize: Update plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/analysis/summary.md with return codes, metrics file inventory, and outstanding gaps; attach manifest paths.
 
 Priorities & Rationale:
-- docs/fix_plan.md:31 — Active focus notes G2 execution outstanding; this loop must advance deterministic comparison runs.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:31 — G2.1 expects dense train/test executions with captured logs/metrics.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md:8 — Inventory restricts feasible comparisons to dose_1000 (dense train/test, sparse train); executor must respect those prerequisites.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:248 — Phase G section demands a RED→GREEN selector plus CLI evidence before registering real-run commands.
+- docs/fix_plan.md:31 — Phase G2 execution remains outstanding; this loop delivers the first real comparisons.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:32 — G2.1 requires dense train/test runs with captured metrics and logs.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md:165 — Only dose_1000 dense/sparse-train combinations are currently unblocked.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:252 — Phase G test strategy calls for RED→GREEN selector evidence plus real-run logs before registry updates.
+- docs/findings.md:8 — POLICY-001 mandates torch availability; executor must surface any compare_models import failures promptly.
+- docs/findings.md:10 — CONFIG-001 bridge must remain encapsulated inside compare_models invocation; our orchestration stays pure.
 
 How-To Map:
 - export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-- mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/{red,green,collect,cli,analysis}
-- pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_invokes_compare_models -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/red/pytest_phase_g_executor_red.log
-- Implement executor + CLI wiring, then rerun pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_invokes_compare_models -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/green/pytest_phase_g_executor_green.log
-- pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/collect/pytest_phase_g_collect.log
-- AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root tmp/phase_c_f2_cli --phase-e-root tmp/phase_e_training_gs2 --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/cli --dose 1000 --view dense --split train | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/cli/phase_g_cli_run.log
-- Summarize exit codes + outstanding gaps in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/analysis/summary.md
+- mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/{red,green,collect,cli,analysis,docs}
+- pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/red/pytest_phase_g_executor_red.log
+- Implement execution manifest summary + CLI updates (ensure new fields n_success/n_failed are persisted)
+- pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/green/pytest_phase_g_executor_green.log
+- pytest tests/study/test_dose_overlap_comparison.py -k comparison -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/green/pytest_phase_g_suite_green.log
+- pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/collect/pytest_phase_g_collect.log
+- AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root tmp/phase_c_f2_cli --phase-e-root tmp/phase_e_training_gs2 --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense --dose 1000 --view dense | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense.log
+- AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root tmp/phase_c_f2_cli --phase-e-root tmp/phase_e_training_gs2 --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_sparse_train --dose 1000 --view sparse --split train | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_sparse_train.log
+- ls plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/**/metrics* > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/analysis/metrics_inventory.txt
+- Write analysis/summary.md noting return codes, metrics CSV presence, comparison manifest paths, and any failed jobs.
 
 Pitfalls To Avoid:
-- Do not skip the RED phase; commit TDD by running the new pytest before implementation.
-- Avoid invoking `compare_models.py` directly in tests—mock subprocess calls to keep tests fast and deterministic.
-- Keep executor pure wrt CONFIG-001: no direct legacy imports before `update_legacy_dict` lives inside the called script.
-- Capture subprocess return codes and stderr; do not swallow failures silently.
-- Store all logs under the timestamped artifact hub; no ad-hoc tmp outputs left behind.
-- Respect `POLICY-001` by assuming torch is installed—no optional imports or silent downgrades.
-- When CLI execution fails due to missing prerequisites, record the error message instead of patching around it.
-- Do not change dose/view lists yet; focus on executor wiring for ready conditions.
+- Do not run the dense command without verifying `tmp/phase_d_f2_cli/dose_1000/dense` exists; capture ls output if missing.
+- Avoid executing sparse/test until Phase F sparse_test reconstruction lands; filter with `--split train`.
+- Do not swallow subprocess stderr—ensure logs capture stdout/stderr for each job.
+- Keep executor pure; no direct imports of compare_models artifacts before CONFIG-001 runs inside the subprocess.
+- Do not overwrite existing manifests; create new artifact roots per run.
+- Capture RED failure output before implementation; do not skip TDD cadence.
+- Ensure metrics CSVs/plots remain under the timestamped artifact hub; no tmp artifacts left behind.
+- Respect timeout handling—do not remove the 600s guard in executor.
+- Avoid changing dataset paths or study design constants in this loop.
+- Do not edit Phase F artifacts; treat them as read-only inputs.
 
 If Blocked:
-- If required Phase C/E/F assets are missing, run the CLI command above, tee the failure into `analysis/blockers.log`, snapshot `ls` output of the missing directory into the same folder, and log the block in docs/fix_plan.md (Attempt history) referencing the captured error.
+- If compare_models fails (ImportError, missing checkpoint, etc.), capture the stderr in the CLI log, record the failing command, and log the issue in docs/fix_plan.md with artifact references; leave G2 marked blocked with the error signature.
 
 Findings Applied (Mandatory):
-- POLICY-001 — Executor assumes PyTorch backend is available; failures must be surfaced if compare_models.py cannot import torch.
-- CONFIG-001 — Comparisons rely on scripts that perform `update_legacy_dict`; ensure our orchestration does not bypass the bridge.
-- DATA-001 — Job construction continues to point at canonical Phase C/D NPZ layouts (patched_{split}.npz, view/{view}_{split}.npz).
-- OVERSAMPLING-001 — Preserve manifest metadata (selection_strategy, acceptance_rate) when logging sparse job execution.
+- POLICY-001 — docs/findings.md:8; ensure torch-required path surfaces failure codes rather than skipping.
+- CONFIG-001 — docs/findings.md:10; executor remains orchestration only, compare_models handles legacy bridge.
+- DATA-001 — docs/findings.md:14; phase C/D NPZ paths follow canonical layout (patched_{split}.npz, view/{view}_{split}.npz).
+- OVERSAMPLING-001 — docs/findings.md:17; sparse run summary must include acceptance metadata from manifests.
 
 Pointers:
-- docs/fix_plan.md:31 — Phase G status + outstanding tasks.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:31 — G2 checklist expectations.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md:8 — Ready vs blocked comparison conditions.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:248 — Active selectors + execution proof policy for Phase G.
-- studies/fly64_dose_overlap/comparison.py:130 — CLI entry requiring executor integration.
+- docs/fix_plan.md:31 — Active focus status and outstanding G2 execution work.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:32 — G2 checklist expectations.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md:165 — Ready vs blocked comparison conditions.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:252 — Phase G selectors and execution proof policy.
+- scripts/compare_models.py:1 — Execution script invoked by the executor; treat as authoritative target.
 
-Next Up (optional):
-- G2.2 sparse/train CLI execution once executor scaffolding lands and dose_1000 assets verify.
+Next Up:
+- Run sparse/test comparison once Phase F sparse_test reconstruction is generated.
 
-Doc Sync Plan (conditional):
-- After GREEN tests, rerun `pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv` (log already captured) and update `docs/TESTING_GUIDE.md` §Phase G plus `docs/development/TEST_SUITE_INDEX.md` with the new selector + CLI command, citing evidence paths once executor produces real runs.
+Doc Sync Plan:
+- After GREEN tests, rerun `pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv` (log already planned) and update docs/TESTING_GUIDE.md §Phase G plus docs/development/TEST_SUITE_INDEX.md with the new selector and CLI commands, citing the new artifact logs.
+
+Mapped Tests Guardrail: ensure `pytest tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary -vv` collects (new test) and remains in the selector list; rerun collect-only proof if the test name changes.

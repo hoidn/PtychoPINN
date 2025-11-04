@@ -2298,3 +2298,17 @@
   - Reinforced findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 in both plan and Do Now.
 - Next actions for Ralph: land `execute_comparison_jobs` + tests, capture pytest + CLI logs under the new hub, summarize outcomes, update docs if GREEN, or log blockers with evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T190500Z: Phase G2 real-run staging
+- dwell: 1 (planning loop following executor implementation reset)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (G2 execution)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/
+- Notes:
+  - `git pull --rebase` already up to date; reviewed Attempt #92 executor evidence and G0.1 inventory to confirm only dose_1000 dense (train/test) and sparse/train are runnable.
+  - Reserved new artifact hub for real runs and outlined manifest summary enhancement so execution results capture success/failure counts for analysis.
+  - Rewrote `input.md` (Mode: TDD) directing RED→GREEN test addition (`test_execute_comparison_jobs_records_summary`), executor updates, collection proof, and two CLI commands with logs under the new hub plus metrics inventory summary.
+  - Reinforced findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 in plan + Do Now; deferred doc/test registry sync until GREEN evidence lands.
+- Next actions for Ralph: implement manifest summary + new pytest, execute dense & sparse/train comparisons, capture metrics inventory + analysis summary, then sync registries/docs once outputs verified.
+- <Action State>: [ready_for_implementation]
