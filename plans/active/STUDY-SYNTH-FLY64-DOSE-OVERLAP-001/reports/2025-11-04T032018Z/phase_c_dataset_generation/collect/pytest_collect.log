@@ -1,0 +1,46 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 5 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_generation.py>
+        Phase C tests for fly64 dose/overlap dataset generation pipeline.
+        
+        These tests verify:
+        1. build_simulation_plan constructs dose-specific configs correctly
+        2. generate_dataset_for_dose orchestrates all stages with proper dependency injection
+        3. Pipeline invokes simulation, canonicalization, patching, splitting, and validation
+        
+        References:
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/plan.md
+        - specs/data_contracts.md §2 (canonical NPZ format)
+        - CONFIG-001, DATA-001, OVERSAMPLING-001
+        <Function test_build_simulation_plan>
+          Test that build_simulation_plan constructs dose-specific configs correctly.
+        <Function test_generate_dataset_pipeline_orchestration[1000.0]>
+          Test that generate_dataset_for_dose invokes all stages in correct order
+          with proper arguments, using monkeypatched stubs.
+          
+          This is the main RED→GREEN test for Phase C.
+        <Function test_generate_dataset_pipeline_orchestration[10000.0]>
+          Test that generate_dataset_for_dose invokes all stages in correct order
+          with proper arguments, using monkeypatched stubs.
+          
+          This is the main RED→GREEN test for Phase C.
+        <Function test_generate_dataset_pipeline_orchestration[100000.0]>
+          Test that generate_dataset_for_dose invokes all stages in correct order
+          with proper arguments, using monkeypatched stubs.
+          
+          This is the main RED→GREEN test for Phase C.
+        <Function test_generate_dataset_config_construction>
+          Test that TrainingConfig is correctly constructed for simulation.
+
+========================== 5 tests collected in 3.83s ==========================
