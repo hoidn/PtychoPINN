@@ -1,0 +1,71 @@
+{
+  "timestamp": "2025-11-04T08:34:26.114594Z",
+  "phase_c_root": "tmp/phase_c_training_evidence",
+  "phase_d_root": "tmp/phase_d_training_evidence",
+  "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run",
+  "filters": {
+    "dose": 1000.0,
+    "view": null,
+    "gridsize": null
+  },
+  "dry_run": true,
+  "jobs": [
+    {
+      "dose": 1000.0,
+      "view": "baseline",
+      "gridsize": 1,
+      "train_data_path": "tmp/phase_c_training_evidence/dose_1000/patched_train.npz",
+      "test_data_path": "tmp/phase_c_training_evidence/dose_1000/patched_test.npz",
+      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/dose_1000/baseline/gs1/train.log",
+      "artifact_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/dose_1000/baseline/gs1",
+      "result": {
+        "dose": 1000.0,
+        "view": "baseline",
+        "gridsize": 1,
+        "train_data_path": "tmp/phase_c_training_evidence/dose_1000/patched_train.npz",
+        "test_data_path": "tmp/phase_c_training_evidence/dose_1000/patched_test.npz",
+        "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/dose_1000/baseline/gs1/train.log",
+        "artifact_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/dose_1000/baseline/gs1",
+        "dry_run": true
+      }
+    },
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "gridsize": 2,
+      "train_data_path": "tmp/phase_d_training_evidence/dose_1000/dense/dense_train.npz",
+      "test_data_path": "tmp/phase_d_training_evidence/dose_1000/dense/dense_test.npz",
+      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/dose_1000/dense/gs2/train.log",
+      "artifact_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/dose_1000/dense/gs2",
+      "result": {
+        "dose": 1000.0,
+        "view": "dense",
+        "gridsize": 2,
+        "train_data_path": "tmp/phase_d_training_evidence/dose_1000/dense/dense_train.npz",
+        "test_data_path": "tmp/phase_d_training_evidence/dose_1000/dense/dense_test.npz",
+        "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/dose_1000/dense/gs2/train.log",
+        "artifact_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/dose_1000/dense/gs2",
+        "dry_run": true
+      }
+    }
+  ],
+  "skipped_views": [
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "reason": "NPZ files not found (train=False, test=False). This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
+    },
+    {
+      "dose": 10000.0,
+      "view": "sparse",
+      "reason": "NPZ files not found (train=False, test=False). This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
+    },
+    {
+      "dose": 100000.0,
+      "view": "sparse",
+      "reason": "NPZ files not found (train=False, test=False). This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
+    }
+  ],
+  "skipped_count": 3,
+  "skip_summary_path": "skip_summary.json"
+}

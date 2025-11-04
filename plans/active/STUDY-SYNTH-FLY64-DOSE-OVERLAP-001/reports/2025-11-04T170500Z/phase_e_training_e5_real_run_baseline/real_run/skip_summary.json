@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-11-04T08:34:26.114439Z",
+  "skipped_views": [
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "reason": "NPZ files not found (train=False, test=False). This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
+    },
+    {
+      "dose": 10000.0,
+      "view": "sparse",
+      "reason": "NPZ files not found (train=False, test=False). This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
+    },
+    {
+      "dose": 100000.0,
+      "view": "sparse",
+      "reason": "NPZ files not found (train=False, test=False). This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
+    }
+  ],
+  "skipped_count": 3
+}

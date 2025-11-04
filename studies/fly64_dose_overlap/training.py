@@ -689,8 +689,21 @@ def main():
             'result': result_serializable,
         })
 
-    # Step 5: Emit training_manifest.json
+    # Step 5: Emit skip_summary.json (Phase E5.5 standalone artifact)
+    # This provides a dedicated skip report for downstream analytics/tooling
+    # separate from the full training manifest
+    skip_summary_path = args.artifact_root / "skip_summary.json"
+    skip_summary = {
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'skipped_views': skip_events,
+        'skipped_count': len(skip_events),
+    }
+    with skip_summary_path.open('w') as f:
+        json.dump(skip_summary, f, indent=2)
+
+    # Step 6: Emit training_manifest.json
     # Phase E5: Include skip metadata in manifest for traceability
+    # Phase E5.5: Reference skip_summary.json for downstream tooling
     manifest = {
         'timestamp': datetime.utcnow().isoformat() + 'Z',
         'phase_c_root': str(args.phase_c_root),
@@ -705,6 +718,7 @@ def main():
         'jobs': job_results,
         'skipped_views': skip_events,  # Phase E5: expose skip metadata
         'skipped_count': len(skip_events),  # Phase E5: convenience count
+        'skip_summary_path': str(skip_summary_path.relative_to(args.artifact_root)),  # Phase E5.5: relative path to standalone skip summary
     }
 
     manifest_path = args.artifact_root / "training_manifest.json"
@@ -713,6 +727,8 @@ def main():
 
     print(f"\n✓ Training manifest written to {manifest_path}")
     print(f"  → {len(job_results)} job(s) completed")
+    if skip_events:
+        print(f"  → Skip summary written to {skip_summary_path} ({len(skip_events)} view(s) skipped)")
 
 
 if __name__ == '__main__':

@@ -740,6 +740,36 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     assert manifest['skipped_count'] == 1, \
         f"Manifest 'skipped_count' must match len(skipped_views), expected 1, got {manifest['skipped_count']}"
 
+    # NEW Phase E5.5 Assertions: skip_summary.json file exists alongside manifest
+    skip_summary_path = artifact_root / "skip_summary.json"
+    assert skip_summary_path.exists(), \
+        f"skip_summary.json not found at {skip_summary_path} (Phase E5.5 skip persistence requirement)"
+
+    # Assertions: skip_summary.json content is valid JSON
+    with skip_summary_path.open('r') as f:
+        skip_summary = json.load(f)
+
+    assert isinstance(skip_summary, dict), \
+        f"skip_summary.json must be a dict, got {type(skip_summary)}"
+
+    # Assertions: skip_summary contains expected keys
+    required_summary_keys = {'timestamp', 'skipped_views', 'skipped_count'}
+    missing_summary_keys = required_summary_keys - skip_summary.keys()
+    assert not missing_summary_keys, \
+        f"skip_summary.json missing keys: {missing_summary_keys}"
+
+    # Assertions: skip_summary.skipped_views matches manifest.skipped_views
+    assert skip_summary['skipped_views'] == manifest['skipped_views'], \
+        f"skip_summary.skipped_views must match manifest.skipped_views"
+    assert skip_summary['skipped_count'] == manifest['skipped_count'], \
+        f"skip_summary.skipped_count must match manifest.skipped_count"
+
+    # Assertions: manifest contains skip_summary_path reference
+    assert 'skip_summary_path' in manifest, \
+        "Manifest must contain 'skip_summary_path' field pointing to skip_summary.json"
+    assert manifest['skip_summary_path'] == str(skip_summary_path.relative_to(artifact_root)), \
+        f"Manifest skip_summary_path should be relative path 'skip_summary.json', got {manifest.get('skip_summary_path')}"
+
     print(f"\n✓ CLI manifest and bridging validated:")
     print(f"  - training_manifest.json created at {manifest_path}")
     print(f"  - Manifest contains {len(manifest['jobs'])} job entries (baseline + dense)")
@@ -747,6 +777,8 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     print(f"  - Each job entry has required metadata keys")
     print(f"  - Manifest contains {len(manifest['skipped_views'])} skipped view(s): {skip_event['view']} (dose={skip_event['dose']:.0e})")
     print(f"  - Skip reason: {skip_event['reason'][:100]}...")
+    print(f"  - skip_summary.json created at {skip_summary_path} with matching content")
+    print(f"  - Manifest references skip_summary via relative path: {manifest['skip_summary_path']}")
 
 
 def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch):
