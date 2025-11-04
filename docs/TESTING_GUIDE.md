@@ -83,7 +83,7 @@ Specialized tests for synthetic dataset generation and scientific studies.
   - `test_dose_overlap_generation.py` - Tests Phase C dataset generation pipeline
   - `test_dose_overlap_overlap.py` - Tests Phase D overlap view filtering and metrics
   - `test_dose_overlap_dataset_contract.py` - Tests DATA-001 contract enforcement
-  - `test_dose_overlap_training.py` - Tests Phase E training job matrix enumeration
+  - `test_dose_overlap_training.py` - Tests Phase E training job matrix enumeration and run helper
 - **Key selectors:**
   ```bash
   # Run all study tests
@@ -98,8 +98,14 @@ Specialized tests for synthetic dataset generation and scientific studies.
   # Run spacing filter regression tests
   pytest tests/study/test_dose_overlap_overlap.py -k spacing_filter -vv
 
-  # Run Phase E training job matrix test
+  # Run Phase E training tests
+  pytest tests/study/test_dose_overlap_training.py -v
+
+  # Run specific training job builder test
   pytest tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix -vv
+
+  # Run run_training_job helper tests
+  pytest tests/study/test_dose_overlap_training.py -k run_training_job -vv
   ```
 - **Execution time:** Typically < 5 seconds per test (lightweight synthetic data)
 - **Dependencies:** NumPy, study design configuration, no external datasets required

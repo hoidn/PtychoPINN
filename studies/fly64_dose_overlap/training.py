@@ -21,8 +21,10 @@ References:
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Callable, Dict, Any
 from studies.fly64_dose_overlap.design import StudyDesign, get_study_design
+from ptycho.config.config import update_legacy_dict
+from ptycho import params as p
 
 
 @dataclass
@@ -172,3 +174,113 @@ def build_training_jobs(
             jobs.append(overlap_job)
 
     return jobs
+
+
+def run_training_job(
+    job: TrainingJob,
+    runner: Callable,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """
+    Execute a single training job with CONFIG-001 compliance and logging.
+
+    This helper orchestrates the execution of one PtychoPINN training run by:
+    1. Creating artifact and log directories
+    2. Bridging params.cfg via update_legacy_dict (CONFIG-001 compliance)
+    3. Invoking the injected runner callable (or skipping if dry_run=True)
+    4. Ensuring log_path is touched/written for downstream traceability
+
+    Args:
+        job: TrainingJob instance with dataset paths and artifact destinations
+        runner: Callable that executes training, signature:
+                runner(*, config, job, log_path) -> Dict[str, Any]
+                The runner receives:
+                - config: A configuration object (e.g., TrainingConfig)
+                - job: The original TrainingJob instance
+                - log_path: Path where training logs should be written
+        dry_run: If True, skip runner invocation and return summary dict instead
+
+    Returns:
+        If dry_run=False: Result dict returned by runner (e.g., {'status': 'success'})
+        If dry_run=True: Summary dict describing what would be executed:
+            {
+                'dose': float,
+                'view': str,
+                'gridsize': int,
+                'train_data_path': str,
+                'test_data_path': str,
+                'log_path': Path,
+                'dry_run': True,
+            }
+
+    Raises:
+        Any exception raised by runner is propagated after ensuring logs persisted
+
+    References:
+        - CONFIG-001: update_legacy_dict must be called before any legacy loaders
+        - DATA-001: Dataset paths validated at TrainingJob construction time
+        - OVERSAMPLING-001: Gridsize semantics preserved in job metadata
+        - input.md:10 (honor dry_run by skipping runner execution)
+
+    Examples:
+        >>> # Real training execution
+        >>> def actual_trainer(*, config, job, log_path):
+        ...     # Train model...
+        ...     return {'status': 'success', 'final_loss': 0.123}
+        >>> result = run_training_job(job, runner=actual_trainer, dry_run=False)
+
+        >>> # Dry-run preview
+        >>> result = run_training_job(job, runner=actual_trainer, dry_run=True)
+        >>> result['dry_run']
+        True
+    """
+    # Step 1: Create artifact and log directories
+    job.artifact_dir.mkdir(parents=True, exist_ok=True)
+    job.log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Step 2: Touch log file to ensure it exists for downstream tools
+    job.log_path.touch(exist_ok=True)
+
+    # Step 3: If dry_run, return summary without executing
+    if dry_run:
+        summary = {
+            'dose': job.dose,
+            'view': job.view,
+            'gridsize': job.gridsize,
+            'train_data_path': job.train_data_path,
+            'test_data_path': job.test_data_path,
+            'log_path': job.log_path,
+            'artifact_dir': job.artifact_dir,
+            'dry_run': True,
+        }
+        # Write dry-run marker to log
+        with job.log_path.open('w') as f:
+            f.write(f"DRY RUN: {job.view} dose={job.dose} gridsize={job.gridsize}\n")
+            f.write(f"Train: {job.train_data_path}\n")
+            f.write(f"Test: {job.test_data_path}\n")
+        return summary
+
+    # Step 4: Build a minimal config dict for runner
+    # Note: In Phase E4, the runner will be wired to receive a full TrainingConfig dataclass
+    # For now, we create a placeholder dict with essential fields
+    config = {
+        'gridsize': job.gridsize,
+        'train_data_file': job.train_data_path,
+        'test_data_file': job.test_data_path,
+        'output_dir': str(job.artifact_dir),
+    }
+
+    # Step 5: Bridge params.cfg (CONFIG-001 compliance)
+    # Directly update params.cfg with essential fields
+    # Note: update_legacy_dict expects a dataclass; for Phase E3 we manually update
+    # the legacy dict to maintain CONFIG-001 ordering without full dataclass construction
+    p.cfg.update({
+        'gridsize': job.gridsize,
+        'N': 64,  # Placeholder; will be inferred from dataset in Phase E4
+    })
+
+    # Step 6: Invoke runner with standard kwargs
+    result = runner(config=config, job=job, log_path=job.log_path)
+
+    # Step 7: Return runner result
+    return result
