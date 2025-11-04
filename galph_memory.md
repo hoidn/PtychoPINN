@@ -2341,3 +2341,17 @@
   - Set `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` guardrail; emphasized capturing RED→GREEN logs and maintaining artifact-relative paths.
 - Next actions for Ralph: execute the manifest normalization TDD cycle, capture pytest/CLI logs under the new hub, update analysis summary with real bundle paths + remaining gaps, and sync docs/registries when GREEN.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T010500Z: Phase E7 real-run staging plan
+- dwell: 1 (second consecutive planning loop for this focus; next loop must drive implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E6/E7 bundles)
+- Action type: Planning
+- Mode: TDD
+- Key actions:
+  - `timeout 30 git pull --rebase` already clean; reviewed Attempt #95 notes plus summary (`reports/2025-11-05T230500Z/phase_e_training_bundle_real_run/analysis/summary.md:207-219`) confirming real CLI execution still pending.
+  - Re-checked findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 and test_strategy row §268 to ensure Phase E6 evidence expectations remain unchanged.
+  - Reserved artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T010500Z/phase_e_training_bundle_real_runs/` with `{plan,red,green,collect,cli,data,docs,analysis}` for RED/GREEN logs, CLI outputs, bundle copies, and checksum records.
+  - Rewrote `input.md` (Mode: TDD) instructing Ralph to extend `execute_training_job` with `bundle_sha256`, capture RED→GREEN for the persistence test, rerun CLI selectors, regenerate Phase C/D data if missing, execute deterministic dense/baseline runs, archive manifests/bundles, compute SHA256 sums, and update docs/test registries once GREEN.
+  - Updated docs/fix_plan.md Attempt #96 with planning summary and new artifact path.
+- Next actions for Ralph: follow the Do Now — add checksum support + tests, record RED→GREEN logs, run real training CLI for dose=1000 dense/baseline with deterministic knobs, archive manifests/bundles & checksums, refresh docs/TESTING_GUIDE.md + TEST_SUITE_INDEX.md, then document results in fix_plan Attempt #96.
+- <Action State>: [ready_for_implementation]
