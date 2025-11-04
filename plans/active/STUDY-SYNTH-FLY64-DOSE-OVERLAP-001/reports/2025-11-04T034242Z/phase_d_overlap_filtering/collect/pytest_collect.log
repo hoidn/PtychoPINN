@@ -1,0 +1,68 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 9 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_overlap.py>
+        Phase D tests for dense/sparse overlap view generation.
+        
+        This module tests the overlap filtering pipeline:
+        - compute_spacing_matrix correctness
+        - build_acceptance_mask threshold enforcement
+        - generate_overlap_views orchestration
+        - Spacing threshold validation (RED → GREEN workflow)
+        
+        References:
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/plan.md
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151
+        <Function test_compute_spacing_matrix_basic>
+          Test compute_spacing_matrix on simple 3-point layout.
+        <Function test_compute_spacing_matrix_empty>
+          Test edge case: empty coordinates.
+        <Function test_compute_spacing_matrix_single>
+          Test edge case: single coordinate.
+        <Function test_spacing_filter_parametrized[sparse-True]>
+          Parametrized test for spacing threshold enforcement.
+          
+          This test validates that:
+          - Dense coordinates (30 px spacing) violate dense threshold (38.4 px)
+          - Sparse coordinates (110 px spacing) pass sparse threshold (102.4 px)
+          
+          RED expectation: dense view should fail validation.
+          GREEN expectation: After implementation, both views validate correctly.
+        <Function test_spacing_filter_parametrized[dense-False]>
+          Parametrized test for spacing threshold enforcement.
+          
+          This test validates that:
+          - Dense coordinates (30 px spacing) violate dense threshold (38.4 px)
+          - Sparse coordinates (110 px spacing) pass sparse threshold (102.4 px)
+          
+          RED expectation: dense view should fail validation.
+          GREEN expectation: After implementation, both views validate correctly.
+        <Function test_build_acceptance_mask>
+          Test acceptance mask generation with known spacings.
+        <Function test_filter_dataset_by_mask>
+          Test dataset filtering preserves DATA-001 structure.
+        <Function test_compute_spacing_metrics>
+          Test spacing metrics computation.
+        <Function test_generate_overlap_views_paths>
+          Integration test for generate_overlap_views orchestration.
+          
+          RED expectation: This test will fail when validation enforces spacing threshold
+          on dense coordinates that violate the threshold.
+          
+          GREEN expectation: After implementation correctly filters positions,
+          this test passes with accepted positions only.
+          
+          Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths -vv
+
+========================== 9 tests collected in 0.95s ==========================

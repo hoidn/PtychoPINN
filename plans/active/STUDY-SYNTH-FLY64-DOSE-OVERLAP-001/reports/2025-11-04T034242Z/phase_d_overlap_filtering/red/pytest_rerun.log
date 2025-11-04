@@ -1,0 +1,233 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths FAILED [100%]
+
+=================================== FAILURES ===================================
+______________________ test_generate_overlap_views_paths _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-32/test_generate_overlap_views_pa0')
+study_design = StudyDesign(dose_list=[1000.0, 10000.0, 100000.0], gridsizes=[1, 2], neighbor_count=7, patch_size_pixels=128, overlap_...: 456}, metrics_config={'ms_ssim_sigma': 1.0, 'emphasize_phase': True, 'report_amplitude': True, 'frc_threshold': 0.5})
+
+    def test_generate_overlap_views_paths(tmp_path: Path, study_design: StudyDesign):
+        """
+        Integration test for generate_overlap_views orchestration.
+    
+        RED expectation: This test will fail when validation enforces spacing threshold
+        on dense coordinates that violate the threshold.
+    
+        GREEN expectation: After implementation correctly filters positions,
+        this test passes with accepted positions only.
+    
+        Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths -vv
+        """
+        # Create synthetic train/test NPZs with DENSE coordinates (will violate dense threshold)
+        coords_dense = np.array([[0, 0], [30, 0], [60, 0], [0, 30], [30, 30], [60, 30]], dtype=np.float32)
+        n = len(coords_dense)
+    
+        train_data = {
+            'diffraction': np.random.randn(n, 64, 64).astype(np.float32),
+            'objectGuess': np.random.randn(128, 128).astype(np.complex64),
+            'probeGuess': np.random.randn(64, 64).astype(np.complex64),
+            'xcoords': coords_dense[:, 0],
+            'ycoords': coords_dense[:, 1],
+        }
+        test_data = train_data.copy()  # Simplified: reuse same coords
+    
+        train_path = tmp_path / "train.npz"
+        test_path = tmp_path / "test.npz"
+        np.savez_compressed(train_path, **train_data)
+        np.savez_compressed(test_path, **test_data)
+    
+        output_dir = tmp_path / "dense_view"
+    
+        # Attempt to generate dense view
+        # RED: This should raise ValueError due to spacing < threshold
+        # GREEN: After filtering implementation, this passes with reduced positions
+        with pytest.raises(ValueError, match="Minimum inter-position spacing .* < required threshold"):
+>           results = generate_overlap_views(
+                train_path=train_path,
+                test_path=test_path,
+                output_dir=output_dir,
+                view='dense',
+                design=study_design,
+            )
+
+tests/study/test_dose_overlap_overlap.py:262: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_path = PosixPath('/tmp/pytest-of-ollie/pytest-32/test_generate_overlap_views_pa0/train.npz')
+test_path = PosixPath('/tmp/pytest-of-ollie/pytest-32/test_generate_overlap_views_pa0/test.npz')
+output_dir = PosixPath('/tmp/pytest-of-ollie/pytest-32/test_generate_overlap_views_pa0/dense_view')
+view = 'dense'
+design = StudyDesign(dose_list=[1000.0, 10000.0, 100000.0], gridsizes=[1, 2], neighbor_count=7, patch_size_pixels=128, overlap_...: 456}, metrics_config={'ms_ssim_sigma': 1.0, 'emphasize_phase': True, 'report_amplitude': True, 'frc_threshold': 0.5})
+
+    def generate_overlap_views(
+        train_path: Path,
+        test_path: Path,
+        output_dir: Path,
+        view: str,
+        design: StudyDesign | None = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate dense or sparse overlap view from Phase C train/test NPZs.
+    
+        This function:
+        1. Loads train and test NPZs
+        2. Computes spacing matrices and filters to positions meeting threshold
+        3. Validates filtered datasets against DATA-001 + spacing constraints
+        4. Writes filtered NPZs with metadata
+        5. Returns spacing metrics for both splits
+    
+        Args:
+            train_path: Path to Phase C train NPZ
+            test_path: Path to Phase C test NPZ
+            output_dir: Directory for output NPZs and metrics
+            view: Overlap view name ('dense' or 'sparse')
+            design: StudyDesign instance (default: get_study_design())
+    
+        Returns:
+            Dictionary with keys:
+                'train_metrics': SpacingMetrics for train split
+                'test_metrics': SpacingMetrics for test split
+                'train_output': Path to filtered train NPZ
+                'test_output': Path to filtered test NPZ
+    
+        Raises:
+            ValueError: If validation fails or spacing threshold violated
+            FileNotFoundError: If input NPZs don't exist
+    
+        References:
+            - CONFIG-001: Pure utility, no params.cfg access
+            - DATA-001: Validator enforces canonical keys/dtypes
+            - OVERSAMPLING-001: Preserved for downstream Phase E grouping
+        """
+        if design is None:
+            design = get_study_design()
+    
+        # Validate view
+        if view not in design.spacing_thresholds:
+            raise ValueError(
+                f"Unknown view '{view}'. Expected one of: {list(design.spacing_thresholds.keys())}"
+            )
+    
+        threshold = design.spacing_thresholds[view]
+        output_dir.mkdir(parents=True, exist_ok=True)
+    
+        print(f"\n{'='*60}")
+        print(f"Generating {view} overlap view")
+        print(f"Threshold: {threshold:.2f} px (f_overlap={design.overlap_views[view]})")
+        print(f"{'='*60}\n")
+    
+        results = {}
+    
+        for split_name, split_path in [('train', train_path), ('test', test_path)]:
+            print(f"[{split_name.upper()}] Processing {split_path.name}...")
+    
+            # Load dataset
+            with np.load(split_path) as data:
+                data_dict = {k: data[k] for k in data.keys()}
+    
+            # Extract coordinates
+            coords = np.stack([data_dict['xcoords'], data_dict['ycoords']], axis=1)
+    
+            # Compute spacing and build acceptance mask
+            print(f"  Computing spacing matrix for {len(coords)} positions...")
+            distances, min_spacing_by_point = compute_spacing_matrix(coords)
+            mask = build_acceptance_mask(min_spacing_by_point, threshold)
+    
+            # Compute metrics before filtering
+            metrics = compute_spacing_metrics(coords, threshold, mask)
+            print(f"  Spacing metrics:")
+            print(f"    Min: {metrics.min_spacing:.2f} px")
+            print(f"    Max: {metrics.max_spacing:.2f} px")
+            print(f"    Mean: {metrics.mean_spacing:.2f} px")
+            print(f"    Median: {metrics.median_spacing:.2f} px")
+            print(f"    Acceptance: {metrics.n_accepted}/{metrics.n_positions} ({metrics.acceptance_rate:.1%})")
+    
+            # Guard: require minimum acceptance rate to avoid degenerate datasets
+            MIN_ACCEPTANCE_RATE = 0.1  # At least 10% of positions must pass
+            if metrics.acceptance_rate < MIN_ACCEPTANCE_RATE:
+>               raise ValueError(
+                    f"Insufficient positions meet spacing threshold for {view} view in {split_name} split. "
+                    f"Acceptance rate: {metrics.acceptance_rate:.1%} < minimum {MIN_ACCEPTANCE_RATE:.1%}. "
+                    f"Min spacing: {metrics.min_spacing:.2f} px < threshold: {threshold:.2f} px. "
+                    f"Consider relaxing overlap fraction or using different scan positions."
+                )
+E               ValueError: Insufficient positions meet spacing threshold for dense view in train split. Acceptance rate: 0.0% < minimum 10.0%. Min spacing: 30.00 px < threshold: 38.40 px. Consider relaxing overlap fraction or using different scan positions.
+
+studies/fly64_dose_overlap/overlap.py:333: ValueError
+
+During handling of the above exception, another exception occurred:
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-32/test_generate_overlap_views_pa0')
+study_design = StudyDesign(dose_list=[1000.0, 10000.0, 100000.0], gridsizes=[1, 2], neighbor_count=7, patch_size_pixels=128, overlap_...: 456}, metrics_config={'ms_ssim_sigma': 1.0, 'emphasize_phase': True, 'report_amplitude': True, 'frc_threshold': 0.5})
+
+    def test_generate_overlap_views_paths(tmp_path: Path, study_design: StudyDesign):
+        """
+        Integration test for generate_overlap_views orchestration.
+    
+        RED expectation: This test will fail when validation enforces spacing threshold
+        on dense coordinates that violate the threshold.
+    
+        GREEN expectation: After implementation correctly filters positions,
+        this test passes with accepted positions only.
+    
+        Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths -vv
+        """
+        # Create synthetic train/test NPZs with DENSE coordinates (will violate dense threshold)
+        coords_dense = np.array([[0, 0], [30, 0], [60, 0], [0, 30], [30, 30], [60, 30]], dtype=np.float32)
+        n = len(coords_dense)
+    
+        train_data = {
+            'diffraction': np.random.randn(n, 64, 64).astype(np.float32),
+            'objectGuess': np.random.randn(128, 128).astype(np.complex64),
+            'probeGuess': np.random.randn(64, 64).astype(np.complex64),
+            'xcoords': coords_dense[:, 0],
+            'ycoords': coords_dense[:, 1],
+        }
+        test_data = train_data.copy()  # Simplified: reuse same coords
+    
+        train_path = tmp_path / "train.npz"
+        test_path = tmp_path / "test.npz"
+        np.savez_compressed(train_path, **train_data)
+        np.savez_compressed(test_path, **test_data)
+    
+        output_dir = tmp_path / "dense_view"
+    
+        # Attempt to generate dense view
+        # RED: This should raise ValueError due to spacing < threshold
+        # GREEN: After filtering implementation, this passes with reduced positions
+>       with pytest.raises(ValueError, match="Minimum inter-position spacing .* < required threshold"):
+E       AssertionError: Regex pattern did not match.
+E        Regex: 'Minimum inter-position spacing .* < required threshold'
+E        Input: 'Insufficient positions meet spacing threshold for dense view in train split. Acceptance rate: 0.0% < minimum 10.0%. Min spacing: 30.00 px < threshold: 38.40 px. Consider relaxing overlap fraction or using different scan positions.'
+
+tests/study/test_dose_overlap_overlap.py:261: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+============================================================
+Generating dense overlap view
+Threshold: 38.40 px (f_overlap=0.7)
+============================================================
+
+[TRAIN] Processing train.npz...
+  Computing spacing matrix for 6 positions...
+  Spacing metrics:
+    Min: 30.00 px
+    Max: 67.08 px
+    Mean: 42.26 px
+    Median: 42.43 px
+    Acceptance: 0/6 (0.0%)
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths - AssertionError: Regex pattern did not match.
+ Regex: 'Minimum inter-position spacing .* < required threshold'
+ Input: 'Insufficient positions meet spacing threshold for dense view in train split. Acceptance rate: 0.0% < minimum 10.0%. Min spacing: 30.00 px < threshold: 38.40 px. Consider relaxing overlap fraction or using different scan positions.'
+============================== 1 failed in 0.99s ===============================
