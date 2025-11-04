@@ -1,0 +1,36 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_invokes_compare_models FAILED [100%]
+
+=================================== FAILURES ===================================
+_____________ test_execute_comparison_jobs_invokes_compare_models ______________
+
+fake_phase_artifacts = {'phase_c_root': PosixPath('/tmp/pytest-of-ollie/pytest-169/test_execute_comparison_jobs_i0/phase_c'), 'phase_e_root':...obs_i0/phase_e'), 'phase_f_root': PosixPath('/tmp/pytest-of-ollie/pytest-169/test_execute_comparison_jobs_i0/phase_f')}
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-169/test_execute_comparison_jobs_i0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f3e4edaba50>
+
+    def test_execute_comparison_jobs_invokes_compare_models(fake_phase_artifacts, tmp_path, monkeypatch):
+        """
+        Test execute_comparison_jobs shells out to scripts/compare_models.py with correct arguments.
+    
+        Exit criteria:
+        - execute_comparison_jobs invokes subprocess.run for each job
+        - CLI arguments match ComparisonJob fields and artifact root structure
+        - Execution logs and return codes are captured in manifest
+        - Dry-run mode does not execute comparisons
+        """
+>       from studies.fly64_dose_overlap.comparison import build_comparison_jobs, execute_comparison_jobs
+E       ImportError: cannot import name 'execute_comparison_jobs' from 'studies.fly64_dose_overlap.comparison' (/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/comparison.py)
+
+tests/study/test_dose_overlap_comparison.py:125: ImportError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_invokes_compare_models - ImportError: cannot import name 'execute_comparison_jobs' from 'studies.fly64_dose_overlap.comparison' (/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/comparison.py)
+============================== 1 failed in 0.84s ===============================
