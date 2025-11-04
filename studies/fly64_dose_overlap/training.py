@@ -1,0 +1,174 @@
+"""
+Phase E training job matrix builder for fly64 dose/overlap study.
+
+This module provides the job enumeration logic for training PtychoPINN across
+all dose/view/gridsize combinations in the study design. It generates TrainingJob
+instances that encapsulate dataset paths, configuration metadata, and artifact
+destinations without executing any training.
+
+Key responsibilities:
+- Enumerate 9 jobs per dose (3 doses × 3 variants: baseline gs1, dense gs2, sparse gs2)
+- Validate dataset file existence from Phase C and Phase D outputs
+- Derive deterministic artifact paths for logs and checkpoints
+- Maintain CONFIG-001 boundaries (no params.cfg mutation; bridge deferred to execution)
+
+References:
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:133-144
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+- specs/data_contracts.md:190-260 (DATA-001 NPZ requirements)
+- docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 bridge ordering)
+"""
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List
+from studies.fly64_dose_overlap.design import StudyDesign, get_study_design
+
+
+@dataclass
+class TrainingJob:
+    """
+    Encapsulates metadata for a single PtychoPINN training run.
+
+    Attributes:
+        dose: Photon dose level (nphotons per exposure)
+        view: Dataset view ('baseline', 'dense', or 'sparse')
+        gridsize: Gridsize configuration (1 or 2)
+        train_data_path: Path to training NPZ (Phase C or D output)
+        test_data_path: Path to test NPZ (Phase C or D output)
+        artifact_dir: Directory for checkpoints and outputs
+        log_path: Path to training log file
+
+    Invariants:
+        - baseline view uses gridsize=1 with Phase C patched NPZs
+        - dense/sparse views use gridsize=2 with Phase D filtered NPZs
+        - train_data_path and test_data_path must exist on disk
+        - artifact_dir is deterministic from dose/view/gridsize
+    """
+    dose: float
+    view: str
+    gridsize: int
+    train_data_path: str
+    test_data_path: str
+    artifact_dir: Path
+    log_path: Path
+
+    def __post_init__(self):
+        """Validate job invariants."""
+        # Validate view
+        valid_views = {'baseline', 'dense', 'sparse'}
+        if self.view not in valid_views:
+            raise ValueError(
+                f"Invalid view '{self.view}'. Expected one of: {valid_views}"
+            )
+
+        # Validate gridsize matches view
+        if self.view == 'baseline' and self.gridsize != 1:
+            raise ValueError(
+                f"Baseline jobs must use gridsize=1, got {self.gridsize}"
+            )
+        if self.view in {'dense', 'sparse'} and self.gridsize != 2:
+            raise ValueError(
+                f"Overlap jobs ({self.view}) must use gridsize=2, got {self.gridsize}"
+            )
+
+        # Validate dataset paths exist
+        if not Path(self.train_data_path).exists():
+            raise FileNotFoundError(
+                f"Training dataset not found: {self.train_data_path}"
+            )
+        if not Path(self.test_data_path).exists():
+            raise FileNotFoundError(
+                f"Test dataset not found: {self.test_data_path}"
+            )
+
+
+def build_training_jobs(
+    phase_c_root: Path,
+    phase_d_root: Path,
+    artifact_root: Path,
+    design: StudyDesign | None = None,
+) -> List[TrainingJob]:
+    """
+    Enumerate all training jobs for the dose/overlap study.
+
+    This function generates a job matrix covering:
+    - 3 doses (from StudyDesign.dose_list)
+    - 3 variants per dose:
+      - baseline: gs1, Phase C patched_{train,test}.npz
+      - dense: gs2, Phase D dense_{train,test}.npz
+      - sparse: gs2, Phase D sparse_{train,test}.npz
+
+    Total: 3 doses × 3 variants = 9 jobs
+
+    Args:
+        phase_c_root: Root directory for Phase C dataset outputs
+                      (expects dose_{dose}/patched_{train,test}.npz)
+        phase_d_root: Root directory for Phase D overlap views
+                      (expects dose_{dose}/{view}_{train,test}.npz)
+        artifact_root: Root directory for training artifacts
+                       (job-specific subdirs created here)
+        design: StudyDesign instance (default: get_study_design())
+
+    Returns:
+        List of TrainingJob instances, one per dose/view/gridsize combination
+
+    Raises:
+        FileNotFoundError: If any required dataset file is missing
+
+    References:
+        - CONFIG-001: This function remains pure (no params.cfg mutation).
+                      Legacy bridge via update_legacy_dict() is deferred to
+                      execution helper (run_training_job in task E3).
+        - DATA-001: Dataset paths validated for existence; actual NPZ contract
+                    enforcement occurs during training via loader.
+        - OVERSAMPLING-001: Gridsize=2 jobs assume neighbor_count=7 from Phase D.
+
+    Examples:
+        >>> design = get_study_design()
+        >>> jobs = build_training_jobs(
+        ...     phase_c_root=Path("outputs/phase_c"),
+        ...     phase_d_root=Path("outputs/phase_d"),
+        ...     artifact_root=Path("artifacts/training"),
+        ...     design=design,
+        ... )
+        >>> len(jobs)
+        9
+        >>> {j.view for j in jobs}
+        {'baseline', 'dense', 'sparse'}
+    """
+    if design is None:
+        design = get_study_design()
+
+    jobs = []
+
+    for dose in design.dose_list:
+        dose_int = int(dose)
+        dose_suffix = f"dose_{dose_int}"
+
+        # Job 1: Baseline (gs1, Phase C patched NPZs)
+        baseline_job = TrainingJob(
+            dose=dose,
+            view='baseline',
+            gridsize=1,
+            train_data_path=str(phase_c_root / dose_suffix / "patched_train.npz"),
+            test_data_path=str(phase_c_root / dose_suffix / "patched_test.npz"),
+            artifact_dir=artifact_root / dose_suffix / "baseline" / "gs1",
+            log_path=artifact_root / dose_suffix / "baseline" / "gs1" / "train.log",
+        )
+        jobs.append(baseline_job)
+
+        # Jobs 2-3: Overlap views (gs2, Phase D filtered NPZs)
+        for view in ['dense', 'sparse']:
+            overlap_job = TrainingJob(
+                dose=dose,
+                view=view,
+                gridsize=2,
+                train_data_path=str(phase_d_root / dose_suffix / f"{view}_train.npz"),
+                test_data_path=str(phase_d_root / dose_suffix / f"{view}_test.npz"),
+                artifact_dir=artifact_root / dose_suffix / view / "gs2",
+                log_path=artifact_root / dose_suffix / view / "gs2" / "train.log",
+            )
+            jobs.append(overlap_job)
+
+    return jobs

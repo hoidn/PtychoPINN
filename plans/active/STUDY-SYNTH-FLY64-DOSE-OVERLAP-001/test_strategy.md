@@ -81,6 +81,39 @@ Validates:
 - CLI execution: `reports/2025-11-04T045500Z/phase_d_cli_validation/cli/phase_d_overlap.log` (metrics bundle copied to artifact hub)
 **Findings Alignment:** CONFIG-001 (pure functions; no params.cfg mutation in overlap.py), DATA-001 (validator ensures NPZ contract per specs/data_contracts.md), OVERSAMPLING-001 (neighbor_count=7 ≥ C=4 for gridsize=2 enforced in group construction and validated in tests).
 
+### Phase E — Train PtychoPINN (In Progress)
+**Test module:** `tests/study/test_dose_overlap_training.py`
+**Selectors (Planned):**
+- `pytest tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix -vv` (RED→GREEN: job enumeration with correct counts and metadata)
+- `pytest tests/study/test_dose_overlap_training.py --collect-only -vv` (collection proof)
+
+**Coverage Plan:**
+- Job matrix enumeration: Validate that `build_training_jobs()` produces exactly 9 jobs per dose (3 doses × 3 variants):
+  - Baseline: gs1 using Phase C patched_{train,test}.npz
+  - Dense overlap: gs2 using Phase D dense_{train,test}.npz
+  - Sparse overlap: gs2 using Phase D sparse_{train,test}.npz
+- Job metadata validation: Each `TrainingJob` dataclass must contain:
+  - dose (float, from StudyDesign.dose_list)
+  - view (str, one of {"baseline", "dense", "sparse"})
+  - gridsize (int, 1 or 2)
+  - train_data_path (str, validated existence)
+  - test_data_path (str, validated existence)
+  - artifact_dir (Path, deterministic from dose/view/gridsize)
+  - log_path (Path, derived from artifact_dir)
+- Dependency injection: Tests use `tmp_path` fixture to fabricate Phase C and Phase D NPZ trees with minimal valid datasets (DATA-001 keys only, small arrays).
+- Failure handling: Test behavior when Phase C or Phase D artifacts are missing (expect FileNotFoundError with descriptive message).
+- CONFIG-001 guard: Ensure `build_training_jobs()` does NOT call `update_legacy_dict`; that bridge remains in execution helper for E3.
+
+**Execution Proof Requirements:**
+- RED log: Capture initial failure (NotImplementedError or ImportError) in `reports/2025-11-04T060200Z/phase_e_training_e1/red/pytest_red.log`
+- GREEN log: Capture passing test after implementation in `reports/2025-11-04T060200Z/phase_e_training_e1/green/pytest_green.log`
+- Collection log: Verify test collection in `reports/2025-11-04T060200Z/phase_e_training_e1/collect/pytest_collect.log`
+
+**Findings Alignment:**
+- CONFIG-001: Job builder remains pure (no params.cfg mutation); legacy bridge deferred to `run_training_job()` in E3.
+- DATA-001: Test fixtures must create NPZs with canonical keys (diffraction, objectGuess, probeGuess, Y, coords, filenames) per specs/data_contracts.md:190-260.
+- OVERSAMPLING-001: Grouped jobs (gs2) assume neighbor_count=7 from Phase D outputs; tests validate gridsize field matches view expectation.
+
 ### Future Phases (Pending)
 1) Dose sanity per dataset
    - Confirm expected scaling behavior across doses (qualitative/log statistics)
