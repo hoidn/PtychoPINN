@@ -82,12 +82,17 @@ Validates:
 **Findings Alignment:** CONFIG-001 (pure functions; no params.cfg mutation in overlap.py), DATA-001 (validator ensures NPZ contract per specs/data_contracts.md), OVERSAMPLING-001 (neighbor_count=7 ≥ C=4 for gridsize=2 enforced in group construction and validated in tests).
 
 ### Phase E — Train PtychoPINN (In Progress)
-**Test module:** `tests/study/test_dose_overlap_training.py`
-**Selectors (Planned):**
-- `pytest tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix -vv` (RED→GREEN: job enumeration with correct counts and metadata)
-- `pytest tests/study/test_dose_overlap_training.py --collect-only -vv` (collection proof)
+**Test module:** `tests/study/test_dose_overlap_training.py` ✅
+**Selectors (Active):**
+- `pytest tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix -vv` (job enumeration: PASSED GREEN during Attempt #13; evidence in `reports/2025-11-04T060200Z/phase_e_training_e1/green/pytest_green.log`)
+- `pytest tests/study/test_dose_overlap_training.py --collect-only -vv` (collection proof: 1 test collected; log in `reports/2025-11-04T060200Z/phase_e_training_e1/collect/pytest_collect.log`)
 
-**Coverage Plan:**
+**Selectors (Planned — E3 run helper):**
+- `pytest tests/study/test_dose_overlap_training.py::test_run_training_job_invokes_runner -vv` (RED→GREEN: ensure CONFIG-001 bridge + runner invocation + log file creation with stub runner)
+- `pytest tests/study/test_dose_overlap_training.py::test_run_training_job_dry_run -vv` (RED→GREEN: verify dry-run mode prints plan, skips runner execution, and still surfaces intended log path)
+- `pytest tests/study/test_dose_overlap_training.py --collect-only -vv` (post-E3 collection proof once new tests land)
+
+**Coverage Delivered (E1):**
 - Job matrix enumeration: Validate that `build_training_jobs()` produces exactly 9 jobs per dose (3 doses × 3 variants):
   - Baseline: gs1 using Phase C patched_{train,test}.npz
   - Dense overlap: gs2 using Phase D dense_{train,test}.npz
@@ -104,10 +109,17 @@ Validates:
 - Failure handling: Test behavior when Phase C or Phase D artifacts are missing (expect FileNotFoundError with descriptive message).
 - CONFIG-001 guard: Ensure `build_training_jobs()` does NOT call `update_legacy_dict`; that bridge remains in execution helper for E3.
 
+**Coverage Plan (E3 run helper):**
+- CONFIG-001 bridge: `run_training_job()` must call `update_legacy_dict(params.cfg, config)` before invoking the runner; tests will monkeypatch `params.cfg` and assert bridge call ordering via a spy.
+- Runner integration: With a stub runner injected, ensure it receives keyword arguments (`config`, `job`, `log_path`) and that artifact/log directories exist before invocation.
+- Dry-run mode: When `dry_run=True`, ensure no runner call occurs, the function returns a structured preview (dict or string), and prints to stdout/log file list for documentation.
+- Logging: Confirm a log file is created (touch) under `job.log_path` post-run and that execution metadata (dose, view, gridsize) is written; tests can read the file to verify.
+- Error propagation: If runner raises an exception, ensure it bubbles up after ensuring log directory remains intact for post-mortem (exercise via stub raising RuntimeError).
+
 **Execution Proof Requirements:**
-- RED log: Capture initial failure (NotImplementedError or ImportError) in `reports/2025-11-04T060200Z/phase_e_training_e1/red/pytest_red.log`
-- GREEN log: Capture passing test after implementation in `reports/2025-11-04T060200Z/phase_e_training_e1/green/pytest_green.log`
-- Collection log: Verify test collection in `reports/2025-11-04T060200Z/phase_e_training_e1/collect/pytest_collect.log`
+- RED logs: Capture failing runs for each new selector in `reports/<timestamp>/phase_e_training_e2/red/pytest_red_run_helper.log` (engineer to record actual filenames).
+- GREEN logs: Capture passing runs after implementation under the same artifact hub (`.../green/`).
+- Collection: Rerun collect-only selector post-implementation (`.../collect/pytest_collect.log`) demonstrating new tests counted.
 
 **Findings Alignment:**
 - CONFIG-001: Job builder remains pure (no params.cfg mutation); legacy bridge deferred to `run_training_job()` in E3.

@@ -1,61 +1,80 @@
-Summary: Launch Phase E by defining the training job matrix and builder via RED→GREEN TDD so dense/sparse overlap datasets can feed gs1/gs2 runs safely.
+Summary: Drive Phase E forward by TDD'ing `run_training_job` so config bridging, runner injection, and dry-run logging are verified before wiring the CLI.
 Mode: TDD
-Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E (Train PtychoPINN)
+Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.E3 — run_training_job helper
 Branch: feature/torchapi-newprompt
-Mapped tests: pytest tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T060200Z/phase_e_training_e1/
+Mapped tests: pytest tests/study/test_dose_overlap_training.py::test_run_training_job_invokes_runner -vv; pytest tests/study/test_dose_overlap_training.py::test_run_training_job_dry_run -vv; pytest tests/study/test_dose_overlap_training.py --collect-only -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/
 
-Do Now — STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.E1:
-  - Test: tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix — author the RED case that asserts 9 jobs (3 doses × {dense,sparse,gs1}) with correct dataset/model metadata and log paths derived from StudyDesign; capture failed run to `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T060200Z/phase_e_training_e1/red/pytest_red.log`.
-  - Implement: studies/fly64_dose_overlap/training.py::build_training_jobs — introduce `TrainingJob` dataclass and builder that enumerates baseline (Phase C train/test) plus dense/sparse gs2 jobs per dose, validating required files and preparing artifact directories; rerun the selector to go GREEN and log to `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T060200Z/phase_e_training_e1/green/pytest_green.log`.
-  - Doc: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md::Phase E — add the Phase E test design (selectors, fixtures, dependency-injection plan) before implementation, then append Attempt #13 to docs/fix_plan.md with artifact links.
-  - Validate: pytest tests/study/test_dose_overlap_training.py --collect-only -vv (tee to `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T060200Z/phase_e_training_e1/collect/pytest_collect.log`) once GREEN succeeded; update docs/TESTING_GUIDE.md and docs/development/TEST_SUITE_INDEX.md with the new selector after code passes.
+Do Now — STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.E3:
+  - Test: Extend `tests/study/test_dose_overlap_training.py` with `test_run_training_job_invokes_runner` and `test_run_training_job_dry_run`; run each selector to capture RED evidence at `.../red/pytest_run_helper_invokes_runner_red.log` and `.../red/pytest_run_helper_dry_run_red.log`.
+  - Implement: studies/fly64_dose_overlap/training.py::run_training_job — create artifact/log directories, call `update_legacy_dict(params.cfg, config)` before invoking the injected runner, touch/write `job.log_path`, and honor `dry_run` by summarizing the planned call without executing.
+  - Validate: After implementation, run `pytest tests/study/test_dose_overlap_training.py -k run_training_job -vv` (tee to `.../green/pytest_run_helper_green.log`) and `pytest tests/study/test_dose_overlap_training.py --collect-only -vv` (tee to `.../collect/pytest_collect.log`); stash a dry-run preview under `.../dry_run/run_helper_dry_run_preview.txt` and the stub runner call transcript under `.../runner/run_helper_stub.log`.
+  - Doc: Flip plan row E3 to `[x]`, promote new selectors to **Active** in test_strategy.md, append Attempt #14 evidence in docs/TESTING_GUIDE.md and docs/development/TEST_SUITE_INDEX.md, and summarize outcomes in `.../docs/summary.md` with log pointers.
 
 Priorities & Rationale:
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T053500Z/phase_e_training_plan/plan.md:8-31 defines tasks E1–E2 requiring the job builder as first implementation deliverable.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:133 marks Phase E as the next active milestone, so we need executable structure before launching full training runs.
-- docs/DEVELOPER_GUIDE.md:68-104 reiterates CONFIG-001 ordering; the builder must avoid touching params.cfg until execution helpers run `update_legacy_dict`.
-- specs/data_contracts.md:190-260 codifies DATA-001 NPZ expectations, which the test should verify when job builder inspects Phase C/D outputs.
-- docs/GRIDSIZE_N_GROUPS_GUIDE.md:154-172 provides dense/sparse spacing context that the job matrix must preserve for gs2 variants.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T053500Z/phase_e_training_plan/plan.md:15-18 sets E3 as in-progress with CONFIG-001 and logging requirements.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-123 defines the new RED selectors, bridge expectations, and execution proof artifacts for run helper coverage.
+- docs/DEVELOPER_GUIDE.md:68-104 reiterates CONFIG-001 ordering and logging conventions we must satisfy before launching training.
+- specs/data_contracts.md:190-260 ensures dataset paths passed into the runner remain DATA-001 compliant, backing the existence checks performed earlier.
+- docs/findings.md#CONFIG-001/#DATA-001/#OVERSAMPLING-001/#POLICY-001 enforce the guardrails we must continue to honor while adding execution helpers.
 
 How-To Map:
 - export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-- mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T060200Z/phase_e_training_e1/{red,green,collect,docs}
-- Update test_strategy.md Phase E section before creating tests so TDD guardrail is satisfied.
-- For the RED test, use pytest `tmp_path` to fabricate Phase C (`dose_{n}/patched_{split}.npz`) and Phase D (`dose_{n}/{view}_{split}.npz`) trees plus metrics bundle placeholders; assert job metadata (dose, view, gridsize, dataset paths, artifact target).
-- After implementing `build_training_jobs`, rerun the targeted selector and capture GREEN log; include dry-run logging via dataclass repr for future CLI use.
-- Run collect-only selector and copy log; stage doc updates (test strategy, TESTING_GUIDE, TEST_SUITE_INDEX) under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T060200Z/phase_e_training_e1/docs/`.
-- Append Attempt #13 summary to docs/fix_plan.md referencing RED/GREEN logs and doc updates.
+- mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/{red,green,collect,docs,dry_run,runner}
+- pytest tests/study/test_dose_overlap_training.py::test_run_training_job_invokes_runner -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/red/pytest_run_helper_invokes_runner_red.log
+- pytest tests/study/test_dose_overlap_training.py::test_run_training_job_dry_run -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/red/pytest_run_helper_dry_run_red.log
+- After implementation: pytest tests/study/test_dose_overlap_training.py -k run_training_job -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/green/pytest_run_helper_green.log
+- pytest tests/study/test_dose_overlap_training.py --collect-only -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/collect/pytest_collect.log
+- python - <<'PY' 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/dry_run/run_helper_dry_run_preview.txt
+from studies.fly64_dose_overlap.training import TrainingJob, run_training_job
+from pathlib import Path
+job = TrainingJob(dose=1e3, view='baseline', gridsize=1, train_data_path='train.npz', test_data_path='test.npz', artifact_dir=Path('artifacts'), log_path=Path('artifacts/train.log'))
+preview = run_training_job(job, runner=lambda **_: None, dry_run=True)
+print(preview)
+PY
+- python - <<'PY'
+from studies.fly64_dose_overlap.training import TrainingJob, run_training_job
+from pathlib import Path
+class StubRunner:
+    def __init__(self, sink):
+        self.sink = sink
+    def __call__(self, *, config, job, log_path):
+        self.sink.write(f"RUN {job.view} dose={job.dose} log={log_path}\n")
+with open('plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/runner/run_helper_stub.log', 'w', encoding='utf-8') as sink:
+    job = TrainingJob(dose=1e3, view='baseline', gridsize=1, train_data_path='train.npz', test_data_path='test.npz', artifact_dir=Path('artifacts'), log_path=Path('artifacts/train.log'))
+    run_training_job(job, runner=StubRunner(sink), dry_run=False)
+PY
 
 Pitfalls To Avoid:
-- Do not call `update_legacy_dict` inside `build_training_jobs`; reserve CONFIG-001 bridge for execution helper.
-- Avoid hard-coding filesystem paths—parameterize Phase C/D roots via function arguments for testability.
-- Keep tests lightweight; use dependency injection and synthetic files rather than invoking `ptycho_train`.
-- Ensure counts stay deterministic (3 doses × 3 variants) even if datasets missing—prefer raising descriptive errors.
-- Maintain ASCII formatting in docs and tests; no smart quotes or tabs.
-- Store all logs under the new artifact hub; do not leave files in repo root or tmp/.
-- Reference metrics bundle paths but do not load large JSON payloads in tests.
-- Update doc registries only after tests pass to avoid documenting selectors that fail.
-- Preserve CONFIG-001/DATA-001/OVERSAMPLING-001 references in new docs/tests.
+- Do not invoke real `ptycho_train`; rely on injected stubs so tests remain fast and deterministic.
+- Keep CONFIG-001 compliance: bridge params.cfg via `update_legacy_dict` exactly once per call.
+- Avoid mutating `job` objects or global state beyond logging; return useful metadata instead.
+- Ensure log directories are created with `mkdir(parents=True, exist_ok=True)` to prevent race failures.
+- Write ASCII logs; capture dose/view/gridsize metadata so downstream summaries stay informative.
+- Honor dry-run semantics by skipping runner execution while still previewing the command.
+- Do not swallow runner exceptions; allow them to surface after ensuring logs are persisted.
+- Keep new tests isolated with tmp_path fixtures; no reliance on real datasets.
+- Update docs only after GREEN to avoid documenting failing selectors.
+- Remember mapped selectors must collect (>0); rerun collect-only after adding new tests.
 
 If Blocked:
-- Record the failure in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T060200Z/phase_e_training_e1/docs/summary.md, note missing dependency (e.g., Phase D outputs absent), stash RED log, and update docs/fix_plan.md Attempt #13 with unblock criteria (e.g., regenerate Phase D assets).
+- Capture the failing selector output under the artifact hub, log the blocking condition in summary.md, and note the dependency/issue in docs/fix_plan.md Attempt #14 before stopping.
 
 Findings Applied (Mandatory):
-- CONFIG-001 — Ensure legacy bridge remains outside builder logic; document plan to call `update_legacy_dict` in runner.
-- DATA-001 — Validate that job builder references canonical NHW NPZs; tests must assert dataset paths align with spec.
-- OVERSAMPLING-001 — Preserve neighbor_count = 7 for gs2 jobs and reflect spacing constraints in test assertions.
-- POLICY-001 — Training plan must keep PyTorch backend optional (default TensorFlow) while acknowledging torch dependency per project policy.
+- CONFIG-001 — `run_training_job` must bridge params.cfg before any legacy loaders fire; verify via spy in tests.
+- DATA-001 — Keep dataset paths pointed at Phase C/D NPZs created earlier; tests should stub but mirror real filenames.
+- OVERSAMPLING-001 — Preserve gridsize semantics (baseline=1, overlap=2) when logging and invoking the runner.
+- POLICY-001 — Maintain PyTorch-ready paths without downgrading dependency expectations in new helpers/tests.
 
 Pointers:
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T053500Z/phase_e_training_plan/plan.md:1
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:133
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:64
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T053500Z/phase_e_training_plan/plan.md:15-18
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-123
+- studies/fly64_dose_overlap/training.py:1
 - docs/DEVELOPER_GUIDE.md:68
 - specs/data_contracts.md:190
 
 Next Up (optional):
-- STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.E2 — Implement `run_training_job` helper + CLI dry-run once the builder and tests are green.
+- STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.E4 — CLI entrypoint once run helper and tests are green.
 
 Doc Sync Plan:
-- After GREEN, update docs/TESTING_GUIDE.md §2 and docs/development/TEST_SUITE_INDEX.md with the new selector; archive diffs under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T060200Z/phase_e_training_e1/docs/`.
+- After GREEN, append the new selectors and evidence paths to `docs/TESTING_GUIDE.md` §Study Tests and `docs/development/TEST_SUITE_INDEX.md`, and archive the `--collect-only` log in `.../collect/pytest_collect.log` per TESTING_GUIDE hard gate.

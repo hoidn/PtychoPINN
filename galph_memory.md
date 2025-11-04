@@ -1927,3 +1927,17 @@
   - Rewrote `input.md` (Mode: TDD) to drive RED→GREEN implementation of `build_training_jobs`, including RED test creation, doc updates, collect-only proof, and doc sync plan (TESTING_GUIDE + TEST_SUITE_INDEX).
 - Next actions for Ralph: execute Do Now E1 (update test_strategy, add RED test for job matrix, implement builder, run targeted selector + collect-only, update doc registries) and capture logs under `reports/2025-11-04T060200Z/phase_e_training_e1/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T070000Z: Phase E run helper TDD staging
+- dwell: 0 (reset — preparing implementation hand-off after two planning passes)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E run_training_job helper (E3)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T070000Z/phase_e_training_e2/
+- Notes:
+  - Reviewed docs/findings (CONFIG-001, DATA-001, OVERSAMPLING-001, POLICY-001) and latest Attempt #13 artifacts before drafting updates.
+  - Marked Phase E plan rows E1/E2 `[x]`, promoted E3 to `[P]`, and refreshed test_strategy.md with active builder selector + planned run helper RED selectors and execution proof requirements.
+  - Created new artifact hub with `{red,green,collect,docs,dry_run,runner}` subdirs, rewrote input.md (Mode: TDD) to direct RED→GREEN tests for `run_training_job`, implementation expectations (CONFIG-001 bridge, logging, dry-run), validation commands, and doc sync tasks.
+  - Logged Attempt #14 in docs/fix_plan.md detailing plan/test_strategy/input refresh and reinforced findings alignment.
+- Next actions for Ralph: follow Do Now to author RED tests, implement `run_training_job`, capture GREEN + collect evidence, update docs, and flip plan/test strategy statuses to complete E3.
+- <Action State>: [ready_for_implementation]
