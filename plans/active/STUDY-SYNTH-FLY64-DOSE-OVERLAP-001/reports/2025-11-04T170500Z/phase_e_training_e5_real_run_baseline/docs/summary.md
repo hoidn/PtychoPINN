@@ -127,3 +127,85 @@ Persist skip summary artifacts and capture deterministic Phase E5 training evide
 - `specs/data_contracts.md:190` (NPZ key/dtype contract)
 - `docs/DEVELOPER_GUIDE.md:68-104` (CONFIG-001 ordering)
 - Finding: **OVERSAMPLING-001** (sparse view skips due to spacing threshold enforcement)
+
+---
+
+## Documentation Sync Completion (Attempt #26)
+
+**Date:** 2025-11-04T084850Z  
+**Mode:** Docs  
+**Status:** COMPLETE
+
+### Documentation Updates
+
+All outstanding T5 documentation tasks from the Phase E5 plan have been completed:
+
+#### 1. docs/TESTING_GUIDE.md (lines 110-142)
+- Added **Phase E5 Skip Summary Evidence** section documenting skip summary JSON persistence
+- Updated selector snippets to include Phase E5 skip summary validation test
+- Documented deterministic CLI dry-run command with concrete example using `--dry-run` flag
+- Added artifact path pointer to Phase E5 evidence hub
+- Key assertions documented: standalone skip_summary.json file, manifest `skip_summary_path` field, schema validation, content consistency
+
+#### 2. docs/development/TEST_SUITE_INDEX.md (line 60)
+- Updated `test_dose_overlap_training.py` row with Phase E5 coverage details
+- Added new test functions: `test_training_cli_manifest_and_bridging`, `test_build_training_jobs_skips_missing_view`
+- Documented skip summary validation: file existence, schema (`{timestamp, skipped_views, skipped_count}`), manifest consistency
+- Added Phase E5 evidence pointer: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/`
+
+#### 3. plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md (lines 138-184)
+- Replaced Phase E placeholder with comprehensive COMPLETE status section
+- Documented all deliverables: E1 Job Builder, E3 Run Helper, E4 CLI Integration, E5 MemmapDatasetBridge Wiring, E5.5 Skip Reporting
+- Listed all artifact hubs (7 total from Attempts #13-25)
+- Documented test coverage (8 tests, all PASSED)
+- Added deterministic CLI baseline command with concrete flags
+- Applied findings: CONFIG-001, DATA-001, POLICY-001, OVERSAMPLING-001
+
+#### 4. plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md (lines 162-210)
+- Replaced "Future Phases (Pending)" placeholder with **Phase E5 — Training Runner Integration & Skip Summary (COMPLETE)** section
+- Documented all active selectors (5 test selectors)
+- Listed coverage delivered: MemmapDatasetBridge integration, path alignment, skip metadata collection, skip summary persistence, schema validation
+- Captured execution proof: RED logs, GREEN logs (3 runs), collection proof, real CLI run evidence
+- Added deterministic CLI baseline command with artifact path
+- Documented findings alignment and registry update pointers
+- Preserved future Phase E6 tasks for aggregated gs2 training evidence
+
+### Collection Proof
+
+**Command:** 
+```bash
+export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && \
+  pytest tests/study/test_dose_overlap_training.py --collect-only -vv
+```
+
+**Result:** 8 tests collected in 3.65s (all 8 Phase E tests registered)
+
+**Artifact:** `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T084850Z/phase_e_training_e5_doc_sync/collect/pytest_collect_final.log`
+
+### Findings Compliance
+
+All documentation updates adhere to:
+- **CONFIG-001:** Builder remains pure; skip_events accumulated client-side
+- **DATA-001:** Canonical NPZ contract maintained; Phase C/D regeneration reuses contracts
+- **POLICY-001:** PyTorch backend requirement documented throughout
+- **OVERSAMPLING-001:** Skip reasons reference spacing threshold enforcement
+
+### Exit Criteria Met
+
+✅ All T5 tasks from Phase E5 plan completed:
+- `docs/TESTING_GUIDE.md` updated with skip summary expectations and CLI command
+- `docs/development/TEST_SUITE_INDEX.md` updated with Phase E5 coverage details
+- `plans/active/.../implementation.md` expanded with full Phase E deliverables
+- `plans/active/.../test_strategy.md` updated with Phase E5 COMPLETE section
+- Collection proof captured showing 8 tests registered
+- This addendum documents completion
+
+✅ No code changes made (Mode: Docs)  
+✅ No tests executed (documentation sync only)  
+✅ All artifact paths recorded with file:line pointers
+
+### Next Actions
+
+Phase E5 is now fully closed with complete documentation registry. Next recommended work:
+- **Phase E6:** Capture aggregated gs2 training evidence (non-dry-run) for dense/sparse overlap conditions
+- Update `docs/fix_plan.md` Attempts History with Attempt #26 completion entry

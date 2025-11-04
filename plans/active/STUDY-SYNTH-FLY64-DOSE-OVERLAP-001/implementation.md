@@ -135,9 +135,53 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 **Findings Applied:** CONFIG-001 (pure NPZ loading; legacy bridge deferred to training), DATA-001 (validator enforces canonical NHW layout + dtype/key contracts), OVERSAMPLING-001 (K=7 ≥ C=4 preserved in group construction).
 
-### Phase E — Train PtychoPINN
-- Backend: TensorFlow.
-- Run gs1 baseline and gs2 grouped per dose/view with fixed seeds; store configs and logs under reports/.
+### Phase E — Train PtychoPINN (COMPLETE)
+**Status:** COMPLETE — PyTorch training runner integration delivered with skip-aware manifest, skip summary persistence, and deterministic CLI evidence
+
+**Backend:** PyTorch (via `ptycho_torch.train.train_cdi_model_torch`) for this phase; TensorFlow backend still supported for production workflows.
+
+**Deliverables:**
+- **E1-E2 Job Builder (Attempt #13):** `studies/fly64_dose_overlap/training.py::build_training_jobs()` enumerating 9 jobs per dose (3 doses × 3 variants: baseline gs1 + dense/sparse gs2) with dataset path validation and artifact directory derivation. Test coverage: `test_build_training_jobs_matrix` (1/1 PASSED). CONFIG-001 guard: no params.cfg mutation in builder.
+- **E3 Run Helper (Attempt #14-15):** `run_training_job()` orchestrating single job execution with CONFIG-001 bridge (`update_legacy_dict` called before runner invocation), directory creation, runner delegation, and dry-run mode. Test coverage: `test_run_training_job_invokes_runner`, `test_run_training_job_dry_run` (2/2 PASSED with spy-based validation).
+- **E4 CLI Integration (Attempt #16):** `studies/fly64_dose_overlap/training.py::main()` with argparse CLI, job filtering (`--dose`, `--view`, `--gridsize`), manifest emission, and artifact orchestration. Test coverage: `test_training_cli_filters_jobs`, `test_training_cli_manifest_and_bridging` (2/2 PASSED).
+- **E5 MemmapDatasetBridge Wiring (Attempts #20-22):** Replaced `load_data` stub with `MemmapDatasetBridge` instantiation in `execute_training_job()` (training.py:373-387), extracting `raw_data_torch` payload for trainer delegation. Path alignment: fixed Phase D layout to `dose_{dose}/{view}/{view}_{split}.npz` and introduced `allow_missing_phase_d` flag so CLI can skip absent overlap views while tests stay strict. Test coverage: `test_execute_training_job_delegates_to_pytorch_trainer`, `test_build_training_jobs_skips_missing_view` (3/3 PASSED).
+- **E5.5 Skip Reporting (Attempts #23-25):** Enhanced skip reporting with structured metadata: `build_training_jobs()` accepts optional `skip_events` list parameter; when `allow_missing_phase_d=True` and views missing, appends `{dose, view, reason}` dicts (training.py:196-213). CLI `main()` emits skip summary to `skip_summary.json` with schema `{timestamp, skipped_views, skipped_count}`, records path in `training_manifest.json`, and prints human-readable skip count (training.py:692-731). Test coverage: `test_training_cli_manifest_and_bridging` validates skip summary file existence, schema, and manifest consistency (3/3 CLI selectors PASSED).
+
+**Artifact Hubs:**
+- E1 Job Builder: `reports/2025-11-04T060200Z/phase_e_training_e1/`
+- E3 Run Helper: `reports/2025-11-04T070000Z/phase_e_training_e3/`, `reports/2025-11-04T080000Z/phase_e_training_e3_cli/`
+- E4 CLI Integration: `reports/2025-11-04T090000Z/phase_e_training_e4/`
+- E5 MemmapDatasetBridge: `reports/2025-11-04T133500Z/phase_e_training_e5/`, `reports/2025-11-04T150500Z/phase_e_training_e5_path_fix/`
+- E5.5 Skip Summary: `reports/2025-11-04T161500Z/phase_e_training_e5_real_run/`, `reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/`
+- E5 Documentation Sync: `reports/2025-11-04T084850Z/phase_e_training_e5_doc_sync/`
+
+**Key Constraints & References:**
+- CONFIG-001 compliance: `update_legacy_dict(params.cfg, config)` called in `execute_training_job` before any data loading or model construction.
+- DATA-001 compliance: Phase D NPZ layout enforced via `build_training_jobs` path construction; canonical contract assumed.
+- OVERSAMPLING-001: neighbor_count=7 satisfies K≥C=4 for gridsize=2 throughout.
+- POLICY-001: PyTorch backend required for Phase E workflows; `backend='pytorch'` set in training config.
+
+**Test Coverage (8 tests, all PASSED):**
+- `test_build_training_jobs_matrix` — Job enumeration (9 jobs per dose)
+- `test_run_training_job_invokes_runner` — Runner delegation + CONFIG-001 bridge
+- `test_run_training_job_dry_run` — Dry-run mode behavior
+- `test_training_cli_filters_jobs` — CLI job filtering logic
+- `test_training_cli_manifest_and_bridging` — Manifest + skip summary persistence
+- `test_execute_training_job_delegates_to_pytorch_trainer` — MemmapDatasetBridge instantiation
+- `test_training_cli_invokes_real_runner` — Real runner integration
+- `test_build_training_jobs_skips_missing_view` — Graceful skip handling with `allow_missing_phase_d=True`
+
+**Deterministic CLI Baseline Command:**
+```bash
+python -m studies.fly64_dose_overlap.training \
+  --phase-c-root tmp/phase_c_training_evidence \
+  --phase-d-root tmp/phase_d_training_evidence \
+  --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run \
+  --dose 1000 \
+  --dry-run
+```
+
+**Findings Applied:** CONFIG-001 (builder stays pure; skip_events accumulated client-side), DATA-001 (Phase C/D regeneration reuses canonical contract), POLICY-001 (PyTorch runner default), OVERSAMPLING-001 (skip reasons cite spacing threshold rejections).
 
 ### Phase F — pty-chi LSQML Baseline
 - Run scripts/reconstruction/ptychi_reconstruct_tike.py with algorithm='LSQML', num_epochs=100 per test set; capture outputs.

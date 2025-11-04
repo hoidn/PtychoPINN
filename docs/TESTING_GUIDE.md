@@ -107,11 +107,39 @@ Specialized tests for synthetic dataset generation and scientific studies.
   # Run run_training_job helper tests
   pytest tests/study/test_dose_overlap_training.py -k run_training_job -vv
 
-  # Run CLI tests (Phase E4)
+  # Run CLI tests (Phase E4-E5)
   pytest tests/study/test_dose_overlap_training.py -k training_cli -vv
   pytest tests/study/test_dose_overlap_training.py::test_training_cli_filters_jobs -vv
   pytest tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging -vv
+
+  # Run skip summary persistence test (Phase E5)
+  pytest tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging -vv
+
+  # Collect all training tests
+  pytest tests/study/test_dose_overlap_training.py --collect-only -vv
   ```
+
+**Phase E5 Skip Summary Evidence:**
+
+The training CLI now persists skip metadata to a standalone `skip_summary.json` file when views are absent due to Phase D filtering. The `test_training_cli_manifest_and_bridging` test validates:
+
+- Standalone `skip_summary.json` file exists under `--artifact-root`
+- Manifest includes `skip_summary_path` field with relative path
+- Skip summary schema matches: `{timestamp, skipped_views: [{dose, view, reason}], skipped_count}`
+- Content consistency between standalone skip summary and manifest inline fields
+
+**Deterministic CLI command with dry-run for skip summary demonstration:**
+
+```bash
+python -m studies.fly64_dose_overlap.training \
+  --phase-c-root tmp/phase_c_training_evidence \
+  --phase-d-root tmp/phase_d_training_evidence \
+  --artifact-root tmp/training_artifacts \
+  --dose 1000 \
+  --dry-run
+```
+
+The dry-run mode creates artifact directory structure, writes manifest and skip summary, but skips actual training. Phase E5 evidence captured at: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/`
 - **Execution time:** Typically < 5 seconds per test (lightweight synthetic data)
 - **Dependencies:** NumPy, study design configuration, no external datasets required
 

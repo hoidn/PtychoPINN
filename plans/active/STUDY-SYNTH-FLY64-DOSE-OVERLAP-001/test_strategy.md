@@ -159,15 +159,65 @@ Validates:
 - DATA-001: Test fixtures must create NPZs with canonical keys (diffraction, objectGuess, probeGuess, Y, coords, filenames) per specs/data_contracts.md:190-260.
 - OVERSAMPLING-001: Grouped jobs (gs2) assume neighbor_count=7 from Phase D outputs; tests validate gridsize field matches view expectation.
 
+### Phase E5 — Training Runner Integration & Skip Summary (COMPLETE)
+
+**Status:** COMPLETE — MemmapDatasetBridge wiring, skip-aware manifest, skip summary persistence, and deterministic CLI evidence delivered
+
+**Selectors (Active — E5 skip summary persistence):**
+- `pytest tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging -vv` (skip summary validation: RED→GREEN TDD cycle)
+- `pytest tests/study/test_dose_overlap_training.py::test_execute_training_job_delegates_to_pytorch_trainer -vv` (MemmapDatasetBridge instantiation)
+- `pytest tests/study/test_dose_overlap_training.py::test_build_training_jobs_skips_missing_view -vv` (graceful skip with `allow_missing_phase_d=True`)
+- `pytest tests/study/test_dose_overlap_training.py -k training_cli -vv` (all CLI tests: 3 PASSED)
+- `pytest tests/study/test_dose_overlap_training.py --collect-only -vv` (collection proof: 8 tests)
+
+**Coverage Delivered (E5):**
+- **MemmapDatasetBridge Integration:** `execute_training_job()` (training.py:373-387) replaced `load_data` stub with `MemmapDatasetBridge` instantiation, extracting `raw_data_torch` payload for trainer. CONFIG-001 compliance maintained: `update_legacy_dict(params.cfg, config)` called before bridge construction.
+- **Path Alignment:** Fixed Phase D layout mismatch (`dose_{dose}/{view}/{view}_{split}.npz` structure) and introduced `allow_missing_phase_d` parameter so CLI can skip absent overlap views while tests stay strict.
+- **Skip Metadata Collection:** `build_training_jobs()` accepts optional `skip_events` list; when views missing and `allow_missing_phase_d=True`, appends `{dose, view, reason}` dicts (training.py:196-213).
+- **Skip Summary Persistence:** CLI `main()` emits standalone `skip_summary.json` with schema `{timestamp, skipped_views: [{dose, view, reason}], skipped_count}`, records relative path in `training_manifest.json` under `skip_summary_path` field, and prints human-readable skip count (training.py:692-731).
+- **Schema Validation:** `test_training_cli_manifest_and_bridging` asserts skip summary file exists, validates JSON structure, and confirms consistency between standalone skip summary and manifest inline fields.
+
+**Execution Proof (E5):**
+- **RED logs (Phase E5.5):** `reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/red/pytest_training_cli_manifest_red.log` (AssertionError: skip_summary.json not found)
+- **GREEN logs (Phase E5.5):**
+  - `reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/green/pytest_training_cli_manifest_green.log` (1 PASSED in 7.48s)
+  - `reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/green/pytest_training_cli_skips_green.log` (1 PASSED in 7.68s)
+  - `reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/green/pytest_training_cli_suite_green.log` (3 PASSED in 6.55s)
+- **Collection proof:** `reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/collect/pytest_collect.log` (8 tests collected)
+- **Real CLI run (dry-run mode):** `reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/training_cli_real_run.log` (6 jobs enumerated, 3 sparse views skipped, 2 baseline/dense jobs executed, manifest + skip_summary.json written)
+- **Artifacts:** `reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/{training_manifest.json, skip_summary.json}` plus formatted copy at `docs/skip_summary_pretty.json`
+
+**Deterministic CLI Baseline Command:**
+```bash
+python -m studies.fly64_dose_overlap.training \
+  --phase-c-root tmp/phase_c_training_evidence \
+  --phase-d-root tmp/phase_d_training_evidence \
+  --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run \
+  --dose 1000 \
+  --dry-run
+```
+
+**Findings Alignment:**
+- CONFIG-001: Builder remains pure; `skip_events` accumulated client-side in CLI `main()`.
+- DATA-001: Phase C/D regeneration reuses canonical NPZ contract; bridge validates keys/dtypes.
+- POLICY-001: PyTorch backend required; `backend='pytorch'` set in training config.
+- OVERSAMPLING-001: Skip reasons reference spacing threshold enforcement from Phase D filtering.
+
+**Documentation Registry Updates (Attempt #26):**
+- `docs/TESTING_GUIDE.md:110-142` — Added Phase E5 skip summary narrative, updated selector snippets, and documented deterministic CLI dry-run command with artifact path.
+- `docs/development/TEST_SUITE_INDEX.md:60` — Updated `test_dose_overlap_training.py` row with Phase E5 coverage (skip summary file, schema, manifest consistency) and evidence pointer.
+- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:138-184` — Expanded Phase E section from placeholder to full deliverables summary (E1-E5.5) with artifact hubs, test coverage, and CLI command.
+- This file (test_strategy.md) — Replaced "Future Phases (Pending)" with Phase E5 COMPLETE section documenting selectors, coverage, execution proof, and findings alignment.
+
 ### Future Phases (Pending)
-0) Phase E5 training orchestration
-   - Add RED test ensuring CLI `main()` wires real runner helper (monkeypatch friendly) and that manifests/logs record non-dry-run execution metadata.
-   - Capture deterministic baseline job evidence (dose=1e3 baseline gs1) with CLI stdout/logs archived under dedicated artifact hub.
-1) Dose sanity per dataset
+1) Phase E6 — Aggregated gs2 training evidence
+   - Capture end-to-end training runs (non-dry-run) for dense/sparse overlap conditions with deterministic seeds.
+   - Validate Lightning checkpoints, metrics logs, and final model artifacts.
+2) Dose sanity per dataset
    - Confirm expected scaling behavior across doses (qualitative/log statistics)
-2) Train/test separation
+3) Train/test separation
    - Validate y-axis split with non-overlapping regions
-3) Comparison outputs
+4) Comparison outputs
    - Confirm CSV present with MS-SSIM (phase and amplitude), plots saved, aligned NPZs exist
 
 ## 7. PASS Criteria
