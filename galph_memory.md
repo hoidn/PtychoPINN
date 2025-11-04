@@ -1968,3 +1968,16 @@
   - Logged Attempt #16 in docs/fix_plan.md, flipped initiative status to “CLI implementation COMPLETE,” and rewrote input.md (Mode: TDD) directing RED test + runner helper implementation, CLI real-run evidence, and doc sync duties.
 - Next actions for Ralph: execute new Do Now (author RED test `test_training_cli_invokes_real_runner`, implement `execute_training_job`, rerun selectors, regenerate Phase C/D data if needed, run baseline training CLI, update docs/plan/ledger) and archive artifacts under the E5 hub.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T120500Z: Phase E5 real runner handoff
+- dwell: 1 (second planning touch; previous supervisor loop already primed implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training runner integration (E5)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T120500Z/phase_e_training_e5/
+- Notes:
+  - Re-read Attempt #16 summary, inspected current `execute_training_job` stub, and verified base dataset `datasets/fly/fly001_transposed.npz` exists; findings consulted (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001).
+  - Reserved new artifact hub above, drafted RED test requirement (`test_execute_training_job_delegates_to_pytorch_trainer`), and rewrote `input.md` to mandate PyTorch bridge implementation + deterministic CLI run with real outputs.
+  - Logged Attempt #17 in docs/fix_plan.md reflecting updated Do Now and evidence expectations; no production edits performed.
+- Next actions for Ralph: follow Do Now (author RED test, upgrade `execute_training_job` to call `train_cdi_model_torch`, capture GREEN pytest logs, rerun CLI real job with 1 epoch on CPU, and update docs/plan/ledger).
+- <Action State>: [ready_for_implementation]
