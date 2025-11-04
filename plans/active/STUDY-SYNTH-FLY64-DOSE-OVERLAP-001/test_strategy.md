@@ -160,6 +160,9 @@ Validates:
 - OVERSAMPLING-001: Grouped jobs (gs2) assume neighbor_count=7 from Phase D outputs; tests validate gridsize field matches view expectation.
 
 ### Future Phases (Pending)
+0) Phase E5 training orchestration
+   - Add RED test ensuring CLI `main()` wires real runner helper (monkeypatch friendly) and that manifests/logs record non-dry-run execution metadata.
+   - Capture deterministic baseline job evidence (dose=1e3 baseline gs1) with CLI stdout/logs archived under dedicated artifact hub.
 1) Dose sanity per dataset
    - Confirm expected scaling behavior across doses (qualitative/log statistics)
 2) Train/test separation

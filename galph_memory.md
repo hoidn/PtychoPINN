@@ -1955,3 +1955,16 @@
 - Observations: Need to reset `params.cfg` in tests when spying on `update_legacy_dict`; ensure CLI tests isolate filesystem via tmp_path to avoid polluting real datasets.
 - Next supervisor check: confirm Attempt #15 artifacts land under the new hub, plan/test_strategy/doc sync items go GREEN, and update `run_training_job` now uses `update_legacy_dict`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T094200Z: Phase E training runner integration preflight
+- dwell: 0 (new focus E5; first supervisor pass after CLI implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training runner integration (E5)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094200Z/phase_e_training_e5/
+- Notes:
+  - Reviewed Attempt #16 artifacts (green logs, manifest, dry-run) and confirmed `run_training_job` now builds `TrainingConfig` + calls `update_legacy_dict`.
+  - Updated `phase_e_training_plan/plan.md` marking E4 `[x]`, added E5 checklist row detailing real-run orchestration tasks, and extended test_strategy Phase E future section with E5 RED/green expectations.
+  - Logged Attempt #16 in docs/fix_plan.md, flipped initiative status to “CLI implementation COMPLETE,” and rewrote input.md (Mode: TDD) directing RED test + runner helper implementation, CLI real-run evidence, and doc sync duties.
+- Next actions for Ralph: execute new Do Now (author RED test `test_training_cli_invokes_real_runner`, implement `execute_training_job`, rerun selectors, regenerate Phase C/D data if needed, run baseline training CLI, update docs/plan/ledger) and archive artifacts under the E5 hub.
+- <Action State>: [ready_for_implementation]
