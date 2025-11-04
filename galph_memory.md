@@ -2223,7 +2223,22 @@
   - Ran `timeout 30 git pull --rebase` (already up to date) before scoping tasks.
   - Re-read docs/findings IDs POLICY-001/CONFIG-001/DATA-001/OVERSAMPLING-001 plus docs/GRIDSIZE_N_GROUPS_GUIDE.md:143 and Attempt #20/#84 logs to confirm sparse failure stems from spacing guard (<10% acceptance).
   - Authored plan/plan.md documenting tasks D7.1–D7.4 (RED test, greedy helper, pytest logging, doc sync) and reserved new artifact hub (plan/red/green/collect/docs).
-  - Rewrote input.md (Mode: TDD) directing Ralph to add `test_generate_overlap_views_sparse_downsamples`, implement deterministic greedy fallback in `overlap.py::generate_overlap_views`, capture RED/GREEN/collect logs, and update docs/TESTING_GUIDE.md + TEST_SUITE_INDEX after GREEN.
-  - Logged Attempt #85 planning entry in docs/fix_plan.md.
+- Rewrote input.md (Mode: TDD) directing Ralph to add `test_generate_overlap_views_sparse_downsamples`, implement deterministic greedy fallback in `overlap.py::generate_overlap_views`, capture RED/GREEN/collect logs, and update docs/TESTING_GUIDE.md + TEST_SUITE_INDEX after GREEN.
+- Logged Attempt #85 planning entry in docs/fix_plan.md.
 - Next actions for Ralph: follow Do Now to land RED→GREEN cycle for the new test, implement greedy selector, archive logs in the new hub, update docs/test registries, and record Attempt #85 results.
+- <Action State>: [ready_for_implementation]
+
+## 2025-11-05T050500Z: Phase F3 sparse LSQML execution plan
+- dwell: 0 (new focus after Phase D implementation loop)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F3 sparse runs)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date). Re-read Phase F plan, test_strategy, Attempt #86 summary, and docs/findings IDs POLICY-001/CONFIG-001/DATA-001/OVERSAMPLING-001 since new sparse metadata requirements.
+  - Added F3 section (F3.1–F3.4) to `phase_f_ptychi_baseline_plan/plan.md`, created dedicated plan checklist (`.../plan/plan.md`), and refreshed test_strategy Phase F section with planned sparse selectors + artifact routing.
+  - Reserved artifact hub `.../reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/{plan,red,green,collect,cli,real_run,docs}` for RED→GREEN logs, CLI transcripts, and doc updates.
+  - Rewrote `input.md` (Mode: TDD) directing RED test for missing `selection_strategy` metadata, manifest/summary implementation in `reconstruction.py::main`, sparse/train + sparse/test LSQML runs (1000 dose), regression reruns, and documentation/test registry updates.
+  - Logged Attempt #87 planning entry in docs/fix_plan.md with references to updated plan/test_strategy artifacts.
+- Next actions for Ralph: execute Do Now — run RED test, update reconstruction CLI to surface selection metadata, turn tests GREEN, perform sparse/train + sparse/test LSQML runs capturing logs/manifests, update docs/registries, and record Attempt #87 outcomes.
 - <Action State>: [ready_for_implementation]

@@ -241,10 +241,15 @@ python -m studies.fly64_dose_overlap.training \
 - POLICY-001: PyTorch dependency acknowledged in summary.md for Phase F; pty-chi relies on torch>=2.2 runtime.
 - OVERSAMPLING-001: Manifest covers gs2 overlap views generated with neighbor_count=7; tests assert dense/sparse splits remain present.
 
-**Coverage Planned (F2):**
-- Refine script-level test to resolve hard-coded `/home/ollie/Documents/PtychoPINN2` path so selectors run from any clone (use repo-relative module discovery).
-- Execute dense/test LSQML run and archive CLI + manifest evidence under `reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/`, then rerun targeted selectors for parity.
-- Update `docs/TESTING_GUIDE.md` (§Phase F) and `docs/development/TEST_SUITE_INDEX.md` with the new script selector and artifact references once GREEN evidence captured.
+**Selectors (Planned — F3 Sparse Execution):**
+- `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv` — RED expectation: sparse job record missing `selection_strategy` metadata; GREEN: manifest + summary report strategy + acceptance stats (logs to `reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/{red,green}/`).
+- `pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv` — Regression suite to confirm metadata surfacing does not break existing builder logic (GREEN log reserved under new artifact hub).
+- `pytest tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments -vv` — Ensure CLI flag plumbing still valid after manifest changes (collect log under `.../collect/pytest_phase_f_scripts_collect.log`).
+
+**Coverage Planned (F3):**
+- Extend CLI implementation to annotate reconstruction manifest/summary with sparse `selection_strategy` and acceptance metrics so real LSQML evidence demonstrates greedy fallback usage.
+- Execute sparse/train and sparse/test LSQML runs (num_epochs=100, deterministic flags) capturing CLI transcripts, reconstruction logs, manifest snapshot, and skip summary under `reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/{cli,real_run}/`.
+- Update `docs/TESTING_GUIDE.md` (§Phase F) and `docs/development/TEST_SUITE_INDEX.md` with sparse run selectors/commands once tests + CLI evidence are GREEN; include collect-only proof (`collect/pytest_phase_f_sparse_collect.log`) and summary pointers.
 
 ### Future Phases (Pending)
 1) Phase E6 — Aggregated gs2 training evidence
