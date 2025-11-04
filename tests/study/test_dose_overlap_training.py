@@ -1505,7 +1505,7 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
     runner_calls = []
 
     def mock_execute_training_job(*, config, job, log_path):
-        """Mock that returns success with bundle_path and bundle_sha256."""
+        """Mock that returns success with bundle_path, bundle_sha256, and bundle_size_bytes."""
         runner_calls.append({
             'config': config,
             'job': job,
@@ -1517,11 +1517,15 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
         # Use job.view to vary the checksum across jobs
         # abs() to avoid negative hash values that would produce '-' prefix
         mock_sha256 = f"{abs(hash(job.view)):064x}"[-64:]  # Ensure 64 chars
+        # Generate a mock bundle size (deterministic, varies by view)
+        # Use hash to create different sizes for different views
+        mock_size = 10000 + abs(hash(job.view)) % 50000  # Range: 10KB - 60KB
         return {
             'status': 'success',
             'final_loss': 0.123,
             'bundle_path': str(bundle_path_abs),  # Absolute path from execute_training_job
             'bundle_sha256': mock_sha256,  # Phase E6: checksum for integrity validation
+            'bundle_size_bytes': mock_size,  # Phase E6 Do Now: size tracking
         }
 
     monkeypatch.setattr(training, 'execute_training_job', mock_execute_training_job)
@@ -1601,7 +1605,21 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
         assert all(c in '0123456789abcdef' for c in bundle_sha256), \
             f"bundle_sha256 must be hexadecimal, got {bundle_sha256}"
 
-        print(f"  ✓ Job {job_entry['view']} (dose={job_entry['dose']:.0e}): bundle_path={bundle_path}, sha256={bundle_sha256[:16]}...")
+        # Phase E6 Do Now: Validate bundle_size_bytes field is present and properly typed
+        assert 'bundle_size_bytes' in result_dict, \
+            f"Job result must contain 'bundle_size_bytes' field (Phase E6 size tracking), got keys: {result_dict.keys()}"
+
+        bundle_size_bytes = result_dict['bundle_size_bytes']
+        assert bundle_size_bytes is not None, \
+            f"bundle_size_bytes must not be None for successful training with bundle (job: {job_entry['view']})"
+
+        # Validate bundle_size_bytes is a positive integer
+        assert isinstance(bundle_size_bytes, int), \
+            f"bundle_size_bytes must be an int, got {type(bundle_size_bytes)}"
+        assert bundle_size_bytes > 0, \
+            f"bundle_size_bytes must be > 0 for valid bundle, got {bundle_size_bytes}"
+
+        print(f"  ✓ Job {job_entry['view']} (dose={job_entry['dose']:.0e}): bundle_path={bundle_path}, sha256={bundle_sha256[:16]}..., size={bundle_size_bytes} bytes")
 
     # Assertions: skip_summary schema unchanged (no interference)
     assert 'skip_summary_path' in manifest, \
@@ -1614,15 +1632,18 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     stdout_lines = captured.out.splitlines()
 
-    # Extract bundle and SHA256 lines from stdout
+    # Extract bundle, SHA256, and Size lines from stdout
     bundle_lines = [line for line in stdout_lines if '→ Bundle [' in line]
     sha256_lines = [line for line in stdout_lines if '→ SHA256 [' in line]
+    size_lines = [line for line in stdout_lines if '→ Size [' in line]
 
-    # Assertions: 2 jobs (baseline + dense) should produce 2 bundle + 2 SHA256 lines
+    # Assertions: 2 jobs (baseline + dense) should produce 2 bundle + 2 SHA256 + 2 Size lines
     assert len(bundle_lines) == 2, \
         f"Expected 2 bundle lines in stdout (baseline + dense), got {len(bundle_lines)}"
     assert len(sha256_lines) == 2, \
         f"Expected 2 SHA256 lines in stdout (baseline + dense), got {len(sha256_lines)}"
+    assert len(size_lines) == 2, \
+        f"Expected 2 Size lines in stdout (baseline + dense), got {len(size_lines)}"
 
     # Validate format of bundle lines: "    → Bundle [view/dose=X.Xe+YY]: path"
     for line in bundle_lines:
@@ -1701,16 +1722,67 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
         assert checksum_stdout == expected_sha, \
             f"Stdout SHA mismatch for {view_match}/dose={dose_value:.0e}: stdout={checksum_stdout[:16]}... vs manifest={expected_sha[:16]}..."
 
-    print(f"\n✓ CLI manifest bundle_path + bundle_sha256 + stdout format validated:")
+    # NEW Phase E6 Do Now: Validate stdout Size lines format and cross-check with manifest
+    # Expected format: "    → Size [view/dose=X.Xe+YY]: N bytes"
+    # Build a map from (view, dose) → bundle_size_bytes from manifest for parity checking
+    manifest_size_map = {}
+    for job_entry in manifest['jobs']:
+        view = job_entry['view']
+        dose = job_entry['dose']
+        bundle_size_bytes = job_entry['result']['bundle_size_bytes']
+        manifest_size_map[(view, dose)] = bundle_size_bytes
+
+    for line in size_lines:
+        # Expected format: "    → Size [baseline/dose=1e+03]: 12345 bytes"
+        assert '[' in line and '/dose=' in line and ']:' in line, \
+            f"Size line must include [view/dose=X.Xe+YY] context, got: {line}"
+
+        # Extract view name from line
+        view_match = line.split('[')[1].split('/')[0]
+        assert view_match in {'baseline', 'dense'}, \
+            f"Size line view must be 'baseline' or 'dense', got: {view_match}"
+
+        # Extract dose from line
+        dose_match = line.split('dose=')[1].split(']')[0]
+        assert dose_match == '1e+03', \
+            f"Size line dose must be '1e+03' (from --dose 1000), got: {dose_match}"
+
+        # Extract size value from line (after "]: ")
+        size_str = line.split(']: ')[1]
+        # Expected format: "12345 bytes"
+        assert ' bytes' in size_str, \
+            f"Size line must end with ' bytes', got: {size_str}"
+        size_value_str = size_str.replace(' bytes', '')
+        assert size_value_str.isdigit(), \
+            f"Size value must be numeric, got: {size_value_str}"
+        size_value = int(size_value_str)
+        assert size_value > 0, \
+            f"Size value must be > 0, got: {size_value}"
+
+        # Cross-validate with manifest
+        dose_value = float(dose_match)
+        manifest_key = (view_match, dose_value)
+        assert manifest_key in manifest_size_map, \
+            f"Stdout Size line view/dose ({view_match}/{dose_value}) not found in manifest"
+        expected_size = manifest_size_map[manifest_key]
+        assert size_value == expected_size, \
+            f"Stdout size mismatch for {view_match}/dose={dose_value:.0e}: stdout={size_value} vs manifest={expected_size}"
+
+    print(f"\n✓ CLI manifest bundle_path + bundle_sha256 + bundle_size_bytes + stdout format validated:")
     print(f"  - Stdout SHA256 lines match manifest bundle_sha256 entries (parity enforced)")
+    print(f"  - Stdout Size lines match manifest bundle_size_bytes entries (parity enforced)")
     print(f"  - training_manifest.json created at {manifest_path}")
     print(f"  - Manifest contains {len(manifest['jobs'])} job entries")
     print(f"  - Each job result includes bundle_path field (relative to artifact_dir)")
     print(f"  - Each job result includes bundle_sha256 field (64-char hex)")
+    print(f"  - Each job result includes bundle_size_bytes field (positive int)")
     print(f"  - skip_summary schema preserved (no interference)")
     print(f"  - Sample bundle_path: {manifest['jobs'][0]['result']['bundle_path']}")
     print(f"  - Sample bundle_sha256: {manifest['jobs'][0]['result']['bundle_sha256'][:16]}...")
+    print(f"  - Sample bundle_size_bytes: {manifest['jobs'][0]['result']['bundle_size_bytes']} bytes")
     print(f"  - Stdout contains {len(bundle_lines)} bundle lines with [view/dose=X.Xe+YY] context")
     print(f"  - Stdout contains {len(sha256_lines)} SHA256 lines with [view/dose=X.Xe+YY] context")
+    print(f"  - Stdout contains {len(size_lines)} Size lines with [view/dose=X.Xe+YY] context")
     print(f"  - Sample stdout bundle line: {bundle_lines[0]}")
     print(f"  - Sample stdout SHA256 line: {sha256_lines[0]}")
+    print(f"  - Sample stdout Size line: {size_lines[0]}")

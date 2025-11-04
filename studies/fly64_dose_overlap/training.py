@@ -509,7 +509,11 @@ def execute_training_job(*, config, job, log_path):
                 # Compute SHA256 checksum for bundle integrity validation (Phase E6)
                 import hashlib
                 bundle_file = Path(bundle_path)
+                bundle_size_bytes = None
                 if bundle_file.exists():
+                    # Compute file size in bytes (Phase E6 Do Now: size tracking)
+                    bundle_size_bytes = bundle_file.stat().st_size
+
                     sha256_hash = hashlib.sha256()
                     with bundle_file.open('rb') as f:
                         # Read in 64KB chunks to avoid memory issues with large bundles
@@ -520,6 +524,7 @@ def execute_training_job(*, config, job, log_path):
                     with log_path.open('a') as f:
                         f.write(f"Model bundle saved: {bundle_path}\n")
                         f.write(f"Bundle SHA256: {bundle_sha256}\n")
+                        f.write(f"Bundle size: {bundle_size_bytes} bytes\n")
                 else:
                     with log_path.open('a') as f:
                         f.write(f"Warning: Bundle file not found after save: {bundle_path}\n")
@@ -538,6 +543,7 @@ def execute_training_job(*, config, job, log_path):
             'checkpoint_path': checkpoint_path,
             'bundle_path': bundle_path,  # NEW: bundle archive path for Phase G
             'bundle_sha256': bundle_sha256,  # NEW: SHA256 checksum for integrity validation
+            'bundle_size_bytes': bundle_size_bytes,  # NEW Phase E6 Do Now: size tracking
             'training_results': training_results,  # Include full results for downstream use
         }
 
@@ -549,6 +555,7 @@ def execute_training_job(*, config, job, log_path):
             f.write(f"Checkpoint path: {checkpoint_path}\n")
             f.write(f"Bundle path: {bundle_path}\n")
             f.write(f"Bundle SHA256: {bundle_sha256}\n")
+            f.write(f"Bundle size: {bundle_size_bytes} bytes\n")
 
         return result
 
@@ -744,6 +751,9 @@ def main():
             print(f"    → Bundle [{job.view}/dose={job.dose:.0e}]: {bundle_path_display}")
             if result.get('bundle_sha256'):
                 print(f"    → SHA256 [{job.view}/dose={job.dose:.0e}]: {result['bundle_sha256']}")
+            # Phase E6 Do Now: Emit bundle size to stdout for traceability
+            if result.get('bundle_size_bytes') is not None:
+                print(f"    → Size [{job.view}/dose={job.dose:.0e}]: {result['bundle_size_bytes']} bytes")
 
         # Convert result dict paths to strings for JSON serialization
         # Phase E6: Normalize bundle_path to be relative to artifact_dir
