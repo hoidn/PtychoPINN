@@ -60,8 +60,13 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - `tests/study/test_dose_overlap_design.py::test_study_design_validation` (PASSED)
 - `tests/study/test_dose_overlap_design.py::test_study_design_to_dict` (PASSED)
 
-### Phase B — Test Infrastructure Design
-- Author test_strategy.md covering dataset contract checks, dose sanity checks, group filtering invariants, and execution proofs (pytest/logs/CSV under reports/).
+### Phase B — Test Infrastructure Design (IN PROGRESS)
+- Working Plan: `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md`
+- Deliverables:
+  - `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes, amplitude requirement, spacing thresholds vs design constants, and y-axis split integrity.
+  - pytest coverage in `tests/study/test_dose_overlap_dataset_contract.py` (pass/fail scenarios with logged red/green runs).
+  - Updated documentation (`implementation.md`, `test_strategy.md`, `summary.md`) recording validator scope and findings references (CONFIG-001, DATA-001, OVERSAMPLING-001).
+- Artifact Hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/`
 
 ### Phase C — Dataset Generation (Dose Sweep)
 - Use scripts/simulation/simulate_and_save.py with fly64 object/probe to generate synthetic_full.npz per dose with fixed seed.
@@ -91,4 +96,3 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 ## Evidence & Artifacts
 - All runs produce logs/plots/CSV in reports/<timestamp>/ per condition. Summaries collected in summary.md.
-

@@ -1834,3 +1834,17 @@
   - Updated docs/fix_plan.md (Attempt #1) marking status in_progress and logging upcoming tasks.
 - Next actions for Ralph: run red/green pytest loop, implement design module + doc sync, capture logs/summary per plan.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T025541Z: Phase B dataset validation planning
+- dwell: 2 (second consecutive non-implementation loop for this focus)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase B test infrastructure design
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/plan.md
+- Notes:
+  - Reviewed Attempt #1 outputs plus Phase A docs; confirmed design constants + tests landed and artifact hub complete.
+  - Authored Phase B working plan (plan.md) outlining validator implementation, pytest coverage, documentation, and ledger sync requirements; referenced DATA-001, spacing heuristic, and oversampling findings.
+  - Updated implementation.md and test_strategy.md Phase B sections to mark IN PROGRESS with deliverables/artifact hub; rewrote docs/fix_plan.md Attempt #2, Active Focus, and Status to reflect Phase B scope.
+  - Replaced input.md with TDD-mode Do Now directing Ralph to create `validation.py::validate_dataset_contract`, add targeted pytest module, capture red/green/collect logs, and sync docs + summary in the new artifact directory.
+- Next steps for Ralph: execute Do Now (tests + validator + doc sync), produce summary.md with findings references, update docs/fix_plan Attempt #3 after implementation.
+- <Action State>: [ready_for_implementation]
