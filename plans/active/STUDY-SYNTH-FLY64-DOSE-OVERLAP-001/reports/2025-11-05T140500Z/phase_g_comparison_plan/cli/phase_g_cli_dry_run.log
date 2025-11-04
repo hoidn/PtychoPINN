@@ -1,0 +1,11 @@
+Building comparison jobs...
+  Phase C root: tmp/phase_c_f2_cli
+  Phase E root: tmp/phase_e_training_gs2
+  Phase F root: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test
+  Filters: dose=1000, view=dense, split=train
+
+Built 1 comparison jobs
+Wrote manifest to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/cli/comparison_manifest.json
+Wrote summary to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/cli/comparison_summary.txt
+
+Dry-run mode: skipping comparison execution
