@@ -2199,3 +2199,16 @@
   - Rewrote input.md (Mode: TDD) to drive RED test `test_cli_skips_missing_phase_d`, builder skip instrumentation, targeted pytest (`::test_cli_skips_missing_phase_d`, `-k "ptychi"`), sparse-view CLI dry-run, and ledger/doc updates once GREEN.
 - Next actions for Ralph: execute Do Now — land RED→GREEN test + builder changes, rerun Phase F selectors, capture sparse dry-run manifest/skip summary, update summary + fix_plan Attempt #83, and prep doc/test registry sync after GREEN.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T015500Z: Phase F2 sparse skip coverage plan refresh
+- dwell: 0 (implementation directive issued after prior two planning loops)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F2 sparse skip telemetry)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T020500Z/phase_f_ptychi_baseline_f2_sparse_skip_assertions/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) and reviewed Attempt #84 artifacts confirming skip instrumentation landed with RED→GREEN evidence and CLI dry-run logs under `reports/2025-11-05T003000Z/...`.
+  - Updated docs/fix_plan.md status and logged Attempt #84 implementation details; reserved new artifact hub `2025-11-05T020500Z/.../phase_f_ptychi_baseline_f2_sparse_skip_assertions/`.
+  - Rewrote input.md to focus on tightening manifest/skip summary assertions, capturing collect-only proof, and staging sparse dry-run CLI evidence with AUTHORITATIVE_CMDS_DOC set.
+- Next actions for Ralph: follow Do Now — extend `test_cli_skips_missing_phase_d` assertions, rerun targeted pytest, capture collect-only + dry-run artifacts in the new hub, and update summary/ledger once evidence is in place.
+- <Action State>: [ready_for_implementation]
