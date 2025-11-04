@@ -33,8 +33,8 @@ Exit Criteria: At least one deterministic LSQML run completes (dense gs2 recomme
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F2.1 | Execute CLI dry-run (`--dry-run`) to validate manifest and skip reporting before expensive runs | [P] | Instrumentation + tests landed in Attempt #F2 (`execution_results`, per-job logging). Next loop: synthesize Phase C/D fixture data, run CLI dry-run, and archive stdout/stderr to `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/cli/dry_run.log`; confirm manifest lists expected jobs and skip count zero. |
-| F2.2 | Execute real LSQML run for at least one view per dose (start with dense view, 100 epochs) | [ ] | Use deterministic seeds from Phase C config; store output NPZ & log under `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/real_run/dose_{dose}/{view}/`; budget ≤20 min per run; note hardware in summary. |
+| F2.1 | Execute CLI dry-run (`--dry-run`) to validate manifest and skip reporting before expensive runs | [x] | Completed in Attempt #78 — synthetic Phase C/D datasets generated (rng=123), CLI dry-run captured at `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/cli/{dry_run.log,reconstruction_manifest.json,skip_summary.json}` with expected skip telemetry (16 skipped). |
+| F2.2 | Execute real LSQML run for at least one view per dose (start with dense view, 100 epochs) | [ ] | Blocked after Attempt #78 — `scripts/reconstruction/ptychi_reconstruct_tike.py` ignores orchestrator-supplied `--input-npz`, hardcoding legacy TIKE path. Fix script CLI parsing, then rerun dense/train to populate `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/real_run/dose_{dose}/{view}/` with successful log + NPZ; budget ≤20 min per run; note hardware in summary. |
 | F2.3 | Update `summary.md` with run outcomes, deviations, and next-step recommendations for Phase G comparisons | [ ] | Include MS-SSIM placeholder fields; cite DATA-001 compliance checks, CONFIG-001 adherence, and reference CLI/real-run artifacts in `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/docs/summary.md`. |
 
 ## Deliverables & Artifacts

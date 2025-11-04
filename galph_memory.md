@@ -2141,3 +2141,18 @@
 - Next actions for Ralph: generate Phase C/D synthetic NPZs via script, run CLI dry-run and first real LSQML job capturing logs, rerun targeted pytest + collect-only, update summary/test_strategy/docs, then log Attempt #78 results (or blockers) in docs/fix_plan.md.
 - Artifacts to monitor: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/{cli,real_run,docs}
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T210000Z: Phase F2 CLI input handoff plan
+- dwell: 2 (third supervisory planning pass on this focus; hand-off staged for implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F2)
+- Action type: Planning
+- Mode: TDD
+- Key actions:
+  - Confirmed repository up to date (`timeout 30 git pull --rebase`), re-reviewed Attempt #78 artifacts (`reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/{cli,real_run,docs/summary.md}`), and re-applied findings POLICY-001/CONFIG-001/CONFIG-002/DATA-001/OVERSAMPLING-001.
+  - Inspected `scripts/reconstruction/ptychi_reconstruct_tike.py:296-333` to document hard-coded dataset/output defaults causing the Phase F2.2 failure, and logged the blocker/unblocker in fix_plan Attempt #79.
+  - Updated `phase_f_ptychi_baseline_plan/plan.md` to mark F2.1 `[x]` with dry-run evidence and call out F2.2's dependency on the CLI parsing fix; reserved new artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/`.
+  - Rewrote `input.md` (Mode: TDD) directing RED test authoring for `ptychi_reconstruct_tike.py`, argparse refactor, rerunning Phase F selectors, executing the dense/train real run, and syncing plan/test/docs once GREEN.
+  - Documented the plan hand-off in `docs/fix_plan.md` Attempt #79 and ensured test strategy alignment with the new script-level selector.
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/
+- Next actions for Ralph: follow the Do Now — land the RED test + argparse refactor, rerun targeted pytest selectors, execute dense/train real run, update summary/plan/docs, and close F2.2 once evidence is GREEN.
+- <Action State>: [ready_for_implementation]
