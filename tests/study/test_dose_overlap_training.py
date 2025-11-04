@@ -603,14 +603,16 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     Validates that the training CLI main() function:
     - Emits a training_manifest.json file under --artifact-root
     - Manifest contains job metadata (dose, view, gridsize, dataset paths, log paths)
+    - Manifest exposes skipped_views array with skip metadata (dose, view, reason)
     - Ensures run_training_job is called with proper CONFIG-001 bridge
     - Writes CLI stdout/stderr log to --artifact-root for traceability
 
     Test strategy: Mock run_training_job to verify it's called (CONFIG-001 handled internally),
-    execute CLI with --dry-run, validate manifest JSON structure and content.
+    execute CLI with --dry-run and deliberately missing sparse view data, validate manifest
+    JSON structure and content including skipped_views field.
 
     References:
-    - input.md:10 (manifest emission requirement for Phase E4)
+    - input.md:10 (Phase E5: manifest skip reporting requirement)
     - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
     """
     import sys
@@ -626,6 +628,7 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     phase_d_root.mkdir()
 
     # Create minimal dataset structure for all doses (to match StudyDesign defaults)
+    # Phase E5: Deliberately omit sparse view for dose=1000 to test skip reporting
     for dose in [1000, 10000, 100000]:
         dose_dir_c = phase_c_root / f"dose_{dose}"
         dose_dir_d = phase_d_root / f"dose_{dose}"
@@ -637,7 +640,9 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
         (dose_dir_c / "patched_test.npz").touch()
 
         # Phase D overlap views (match actual Phase D layout: dose/view/view_split.npz)
-        for view in ['dense', 'sparse']:
+        # Phase E5: Only create dense view for dose=1000; skip sparse to test skip reporting
+        views = ['dense'] if dose == 1000 else ['dense', 'sparse']
+        for view in views:
             view_dir = dose_dir_d / view
             view_dir.mkdir(parents=True, exist_ok=True)
             (view_dir / f"{view}_train.npz").touch()
@@ -687,11 +692,11 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     assert not missing_keys, \
         f"Manifest missing keys: {missing_keys}"
 
-    # Assertions: jobs list matches executed jobs (3 for dose=1000)
+    # Assertions: jobs list matches executed jobs (2 for dose=1000: baseline + dense, sparse skipped)
     assert isinstance(manifest['jobs'], list), \
         f"Manifest 'jobs' must be a list, got {type(manifest['jobs'])}"
-    assert len(manifest['jobs']) == 3, \
-        f"Expected 3 jobs in manifest for dose=1000, got {len(manifest['jobs'])}"
+    assert len(manifest['jobs']) == 2, \
+        f"Expected 2 jobs in manifest for dose=1000 (baseline + dense, sparse skipped), got {len(manifest['jobs'])}"
 
     # Assertions: each job entry contains required metadata
     for job_entry in manifest['jobs']:
@@ -705,15 +710,43 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
         assert job_entry['view'] in {'baseline', 'dense', 'sparse'}, \
             f"Job view must be one of baseline/dense/sparse, got {job_entry['view']}"
 
-    # Assertions: run_training_job was called for each job
-    assert len(run_calls) == 3, \
-        f"Expected run_training_job called 3 times, got {len(run_calls)}"
+    # Assertions: run_training_job was called for each job (2 for dose=1000: baseline + dense)
+    assert len(run_calls) == 2, \
+        f"Expected run_training_job called 2 times (baseline + dense), got {len(run_calls)}"
+
+    # NEW Phase E5 Assertions: manifest contains skipped_views with missing sparse view
+    assert 'skipped_views' in manifest, \
+        "Manifest must contain 'skipped_views' field for Phase E5 skip reporting"
+    assert isinstance(manifest['skipped_views'], list), \
+        f"Manifest 'skipped_views' must be a list, got {type(manifest['skipped_views'])}"
+
+    # Exactly 1 skip event: dose=1000 sparse view missing
+    assert len(manifest['skipped_views']) == 1, \
+        f"Expected 1 skipped view (dose=1000 sparse), got {len(manifest['skipped_views'])}"
+
+    skip_event = manifest['skipped_views'][0]
+    assert skip_event['dose'] == 1000.0, \
+        f"Skipped event dose must be 1000.0, got {skip_event['dose']}"
+    assert skip_event['view'] == 'sparse', \
+        f"Skipped event view must be 'sparse', got {skip_event['view']}"
+    assert 'reason' in skip_event, \
+        "Skipped event must contain 'reason' field explaining why view was skipped"
+    assert 'not found' in skip_event['reason'].lower() or 'missing' in skip_event['reason'].lower(), \
+        f"Skipped event reason should mention missing files, got: {skip_event['reason']}"
+
+    # NEW Phase E5 Assertions: manifest contains skipped_count convenience field
+    assert 'skipped_count' in manifest, \
+        "Manifest must contain 'skipped_count' field for Phase E5 skip reporting"
+    assert manifest['skipped_count'] == 1, \
+        f"Manifest 'skipped_count' must match len(skipped_views), expected 1, got {manifest['skipped_count']}"
 
     print(f"\n✓ CLI manifest and bridging validated:")
     print(f"  - training_manifest.json created at {manifest_path}")
-    print(f"  - Manifest contains {len(manifest['jobs'])} job entries")
+    print(f"  - Manifest contains {len(manifest['jobs'])} job entries (baseline + dense)")
     print(f"  - run_training_job called {len(run_calls)} times (CONFIG-001 bridging implicit)")
     print(f"  - Each job entry has required metadata keys")
+    print(f"  - Manifest contains {len(manifest['skipped_views'])} skipped view(s): {skip_event['view']} (dose={skip_event['dose']:.0e})")
+    print(f"  - Skip reason: {skip_event['reason'][:100]}...")
 
 
 def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch):

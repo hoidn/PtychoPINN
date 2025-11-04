@@ -93,6 +93,7 @@ def build_training_jobs(
     artifact_root: Path,
     design: StudyDesign | None = None,
     allow_missing_phase_d: bool = False,
+    skip_events: List[Dict[str, Any]] | None = None,
 ) -> List[TrainingJob]:
     """
     Enumerate all training jobs for the dose/overlap study.
@@ -116,6 +117,8 @@ def build_training_jobs(
         design: StudyDesign instance (default: get_study_design())
         allow_missing_phase_d: If True, skip overlap jobs when NPZ files missing (with logging);
                                If False (default), raise FileNotFoundError for strict validation
+        skip_events: Optional list to accumulate skip metadata when allow_missing_phase_d=True.
+                     Each skip appends a dict: {'dose': float, 'view': str, 'reason': str}
 
     Returns:
         List of TrainingJob instances, one per dose/view/gridsize combination
@@ -191,12 +194,23 @@ def build_training_jobs(
             # Check if overlap view NPZs exist
             if not train_data_path.exists() or not test_data_path.exists():
                 if allow_missing_phase_d:
-                    # Log skip and continue
-                    logger.info(
-                        f"Skipping {view} view for dose={dose:.0e}: "
+                    # Build skip reason message
+                    reason = (
                         f"NPZ files not found (train={train_data_path.exists()}, test={test_data_path.exists()}). "
                         f"This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
                     )
+
+                    # Log skip
+                    logger.info(f"Skipping {view} view for dose={dose:.0e}: {reason}")
+
+                    # Accumulate skip metadata if caller provided a list
+                    if skip_events is not None:
+                        skip_events.append({
+                            'dose': dose,
+                            'view': view,
+                            'reason': reason,
+                        })
+
                     continue
                 else:
                     # Strict mode: raise FileNotFoundError (handled by TrainingJob.__post_init__)
@@ -607,14 +621,24 @@ def main():
     # view with too few positions). This allows baseline training to proceed even
     # when overlap data is incomplete. Tests use strict mode (default False) to
     # ensure deterministic job matrices.
+    #
+    # Phase E5: Accumulate skip metadata for manifest reporting
+    skip_events = []
     print(f"Enumerating training jobs from Phase C ({args.phase_c_root}) and Phase D ({args.phase_d_root})...")
     all_jobs = build_training_jobs(
         phase_c_root=args.phase_c_root,
         phase_d_root=args.phase_d_root,
         artifact_root=args.artifact_root,
         allow_missing_phase_d=True,  # Non-strict mode for CLI robustness
+        skip_events=skip_events,  # Phase E5: capture skip metadata
     )
     print(f"  → {len(all_jobs)} total jobs enumerated")
+
+    # Phase E5: Print skip summary if any views were skipped
+    if skip_events:
+        print(f"  ⚠ {len(skip_events)} view(s) skipped due to missing Phase D data:")
+        for skip_event in skip_events:
+            print(f"    - {skip_event['view']} (dose={skip_event['dose']:.0e}): {skip_event['reason'][:80]}...")
 
     # Step 2: Apply filters
     filtered_jobs = all_jobs
@@ -666,6 +690,7 @@ def main():
         })
 
     # Step 5: Emit training_manifest.json
+    # Phase E5: Include skip metadata in manifest for traceability
     manifest = {
         'timestamp': datetime.utcnow().isoformat() + 'Z',
         'phase_c_root': str(args.phase_c_root),
@@ -678,6 +703,8 @@ def main():
         },
         'dry_run': args.dry_run,
         'jobs': job_results,
+        'skipped_views': skip_events,  # Phase E5: expose skip metadata
+        'skipped_count': len(skip_events),  # Phase E5: convenience count
     }
 
     manifest_path = args.artifact_root / "training_manifest.json"
