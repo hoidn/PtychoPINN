@@ -1861,3 +1861,16 @@
   - Updated docs/fix_plan.md (Active Focus → Phase C) and rewrote input.md (Mode: TDD) instructing Ralph to implement `generation.py::generate_dataset_for_dose`, add pipeline tests, capture red/green logs, and run the CLI with logs under the new hub.
 - Next actions for Ralph: follow Do Now to implement C1–C4, record pytest evidence, run dataset generation CLI once artifacts are ready, and draft summary.md with validator outcomes.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T034242Z: Phase D overlap filtering plan
+- dwell: 1 (previous supervisor pass for this focus was planning; engineer finished Phase C implementation in between)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase D group-level overlap views
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/plan.md
+- Notes:
+  - Consulted docs/findings (CONFIG-001, DATA-001, OVERSAMPLING-001) plus Phase C summary + implementation.md to scope dense/sparse overlap requirements.
+  - Authored Phase D working plan (tasks D1–D4) covering spacing utilities, overlap view generator, pytest selectors, CLI/doc sync; created artifact hub with `{red,green,collect,metrics}` directories.
+  - Updated implementation.md/test_strategy.md Phase D sections, logged docs/fix_plan Attempt #6, and rewrote input.md to hand off the Phase D code loop.
+- Next actions for Ralph: implement overlap.py per D1–D2, author tests/logs per D3 (RED→GREEN→collect), run CLI prototype with spacing metrics, and update summary/docs before closing Phase D.
+- <Action State>: [ready_for_implementation]

@@ -102,10 +102,23 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - DATA-001: Canonical NHW layout enforced by `transpose_rename_convert_tool`
 - OVERSAMPLING-001: K=7 neighbor_count preserved in patch generation for Phase D
 
-### Phase D — Group-Level Overlap Views
-- For gs2 (C=4), set neighbor_count=7.
-- Build dense vs sparse group views by filtering groups using min center spacing S; ensure intra-group neighborhoods remain tight via K-NN grouping.
-- When needed, trigger K-choose-C by requesting n_groups > n_subsample (oversampling branch).
+### Phase D — Group-Level Overlap Views (IN PROGRESS)
+**Status:** In progress — planning complete, awaiting implementation per D1–D4 checklist.
+
+**Planned Deliverables:**
+- `studies/fly64_dose_overlap/overlap.py` implementing spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) and `generate_overlap_views` that materializes dense/sparse outputs for each dose (gridsize=2, neighbor_count=7).
+- CLI entry `python -m studies.fly64_dose_overlap.overlap` to batch Phase C artifacts into `{dense,sparse}_{train,test}.npz` files with spacing metrics + manifest.
+- Pytest coverage in `tests/study/test_dose_overlap_overlap.py` validating spacing math, orchestration, and failure handling (RED→GREEN evidence).
+- Documentation updates: Phase D summary, updated test strategy, ledger attempt referencing logs & spacing metrics JSON.
+
+**Key Constraints & References:**
+- Spacing thresholds derived from StudyDesign: dense overlap 0.7 → S≈38.4 px, sparse overlap 0.2 → S≈102.4 px (`docs/GRIDSIZE_N_GROUPS_GUIDE.md:154-172`).
+- Oversampling guardrail: neighbor_count=7 ≥ C=4 for gridsize=2 (`docs/SAMPLING_USER_GUIDE.md:112-140`, `docs/findings.md` OVERSAMPLING-001).
+- Maintain CONFIG-001 boundaries (no params.cfg mutation); reuse Phase B validator with `view` parameter to verify outputs.
+
+**Artifact Hub:** `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/`
+
+**Pending Tasks:** Execute D1–D4 from Phase D working plan (`reports/2025-11-04T034242Z/phase_d_overlap_filtering/plan.md`), capture pytest logs under `{red,green,collect}/`, archive CLI run + spacing metrics in `metrics/<dose>/<view>.json`, and update `summary.md` once dense/sparse datasets validated.
 
 ### Phase E — Train PtychoPINN
 - Run gs1 baseline and gs2 grouped per dose/view with fixed seeds; store configs and logs under reports/.

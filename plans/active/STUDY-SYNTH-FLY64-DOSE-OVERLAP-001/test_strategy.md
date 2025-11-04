@@ -61,15 +61,24 @@ Validates:
   - Logs: RED and GREEN runs stored under `reports/2025-11-04T025541Z/phase_b_test_infra/{red,green}/pytest.log`; collect-only log under `collect/pytest_collect.log`.
 - Documentation: Updated `summary.md`, `implementation.md`, and this strategy with validator coverage; recorded findings adherence (CONFIG-001, DATA-001, OVERSAMPLING-001). ✅
 
-### Phase C onwards — Pending
+### Phase D — Group-Level Overlap Views (PLANNED)
+**Test module (planned):** `tests/study/test_dose_overlap_overlap.py`
+**Selectors:** 
+- `pytest tests/study/test_dose_overlap_overlap.py -k spacing_filter -vv` (RED→GREEN)
+- `pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths -vv`
+**Coverage Goals:**
+- Validate `compute_spacing_matrix` against dense (0.7 → S≈38.4 px) and sparse (0.2 → S≈102.4 px) thresholds using synthetic coordinates.
+- Ensure `generate_overlap_views` orchestrates Phase C assets into dense/sparse NPZ outputs, invokes validator with `view` parameter, and records spacing metrics JSON.
+- Exercise failure path when spacing constraint violated (expect `ValueError`), documenting RED evidence.
+**Artifacts:** Logs under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/{red,green,collect}/pytest*.log`, spacing metrics at `.../metrics/<dose>/<view>.json`, CLI run transcript `dense_sparse_generation.log`.
+**Findings Alignment:** CONFIG-001 (pure functions; no params.cfg), DATA-001 (validator ensures NPZ contract), OVERSAMPLING-001 (neighbor_count≥C enforced in tests).
+
+### Future Phases (Pending)
 1) Dose sanity per dataset
    - Confirm expected scaling behavior across doses (qualitative/log statistics)
-2) Group-level overlap filtering
-   - Verify computed group centers and enforce minimum spacing S
-   - Report acceptance rate and spacing histogram
-3) Train/test separation
+2) Train/test separation
    - Validate y-axis split with non-overlapping regions
-4) Comparison outputs
+3) Comparison outputs
    - Confirm CSV present with MS-SSIM (phase and amplitude), plots saved, aligned NPZs exist
 
 ## 7. PASS Criteria
