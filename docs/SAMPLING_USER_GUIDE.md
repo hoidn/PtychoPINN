@@ -4,7 +4,7 @@
 
 PtychoPINN provides flexible sampling control for managing memory usage and training efficiency. This guide explains how to use the sampling parameters effectively.
 
-> **Note**: This guide documents the current sampling system (Phase 5). An advanced K choose C oversampling feature is planned for Phase 6 - see [phase6_plan.md](initiatives/independent_sampling_control/phase6_plan.md).
+> Note: K‑choose‑C oversampling is implemented in the loader for `gridsize>1` when `n_groups > n_subsample` and `neighbor_count≥C`. Phase 6 focuses on hardening, examples, and documentation — see [phase6_plan.md](initiatives/independent_sampling_control/phase6_plan.md).
 
 ## Quick Start
 
@@ -109,45 +109,33 @@ ptycho_train --train_data_file data.npz \
     --output_dir dense_grouping_run
 ```
 
-## Current Limitations
+## Oversampling (K choose C)
 
-> **Important**: The current system has a fundamental limitation that will be addressed in Phase 6.
+The loader supports K‑choose‑C oversampling today. When `gridsize>1` and you request more groups than available seed points, it generates multiple combinations from each seed’s K nearest neighbors.
 
-### One Group Per Seed Point
+### Preconditions
+- `gridsize > 1` so that `C = gridsize² > 1`
+- Choose `neighbor_count (K) ≥ C` (e.g., for `gridsize=2`, use `K=7`)
 
-Currently, the system can only create **one group per seed point**. This means:
-- Maximum groups = number of seed points available
-- Cannot create overlapping groups from same data
-- Cannot exploit K choose C combinations for augmentation
+### How to Trigger Oversampling
+- Request more groups than images subsampled: set `n_groups > n_subsample`
+- Keep `gridsize>1` and `neighbor_count≥C`
 
-#### Example of Current Limitation
-
+Example:
 ```bash
-# This WILL NOT create 2000 groups as expected:
 ptycho_train --train_data_file data.npz \
-    --n_subsample 500 \   # Only 500 seed points available
-    --n_groups 2000 \     # Wants 2000 groups
-    --gridsize 2
-# Result: Only creates 500 groups (capped at seed points)
-```
-
-### Planned Enhancement (Phase 6)
-
-The upcoming K choose C oversampling feature will enable:
-- Multiple groups per seed point
-- Combinatorial augmentation (e.g., K=7, C=4 → 35 combinations per seed)
-- True oversampling where `n_images >> n_subsample`
-
-```bash
-# Future capability (Phase 6):
-ptycho_train --train_data_file data.npz \
-    --n_subsample 500 \
-    --n_groups 2000 \
+    --n_subsample 500 \    # 500 seed points
+    --n_groups 2000 \      # ask for 2000 groups
     --gridsize 2 \
-    --enable_oversampling true \  # Coming in Phase 6
-    --neighbor_pool_size 7         # K=7 for K choose C
-# Will create 2000 groups from 500 images via combinations
+    --neighbor_count 7 \
+    --output_dir oversampled_run
 ```
+The loader will enter the oversampling branch and draw K‑choose‑C combinations per seed until it reaches `n_groups`. Logs include lines prefixed with `[OVERSAMPLING DEBUG]` indicating the branch taken and pool size.
+
+### Notes & Tips
+- Larger K increases the combination pool; keep K reasonable for memory.
+- Oversampling reuses local neighborhoods; monitor for overfitting using held‑out regions (e.g., spatial half splits).
+- Works with independent sampling: you can keep `n_subsample` small (memory‑friendly) while training on many groups.
 
 ## Reproducibility
 

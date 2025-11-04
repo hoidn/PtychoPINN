@@ -1,5 +1,7 @@
 # Phase 6 Plan: K Choose C Oversampling Implementation
 
+> Status update: The TensorFlow data loader (`RawData.generate_grouped_data`) already includes an automatic K‑choose‑C oversampling branch when `n_groups > n_subsample` and `gridsize>1` with `K≥C`. This plan remains valid with an adjusted focus on hardening, documentation alignment, examples, and performance characterization rather than first implementation.
+
 ## Executive Summary
 
 Phase 6 introduces K choose C oversampling capability to PtychoPINN, enabling creation of more training groups than seed points through combinatorial augmentation. This addresses the current limitation where `nsamples` is capped at the number of available points.
@@ -12,32 +14,25 @@ Phase 6 introduces K choose C oversampling capability to PtychoPINN, enabling cr
 - ✅ Basic example scripts created
 - ✅ Migration guide drafted
 
-### Discovered Limitation
-- System caps groups at number of seed points
-- No K choose C combinatorial generation
-- Parameter K is mentioned but not fully utilized
-- Cannot create overlapping/augmented groups
+### Discovered Limitation (Reframed)
+- Prior limitation (“one group per seed point”) has been addressed in the TF path via K‑choose‑C. Outstanding work: ensure docs, examples, and guardrails reflect current behavior (K≥C validation, memory guidance, consistent logs).
 
 ## Phase 6 Implementation Plan
 
-### Phase 6A: Core Implementation (3-4 hours)
+### Phase 6A: Hardening & Guardrails (3-4 hours)
 
 #### Objective
-Implement array-based K choose C oversampling in the data pipeline.
+Harden the existing oversampling path and add user‑facing guardrails/documentation.
 
 #### Tasks
-1. **Modify `ptycho/raw_data.py`** (~2 hours)
-   ```python
-   def _generate_groups_with_oversampling_array(self, nsamples, K, C, seed=None):
-       """Generate groups using K choose C combinations for augmentation."""
-   ```
-   - Pre-compute combination pools
-   - Implement smart chunking for memory efficiency
-   - Handle edge cases (K < C, insufficient points)
-
-2. **Update `generate_grouped_data` method** (~30 min)
-   - Add `enable_oversampling` parameter (default=False for backward compatibility)
-   - Route to new or existing implementation based on flag
+1. **Validate preconditions & logs** (~1.5 hours)
+   - Ensure clear log messages when entering oversampling branch
+   - Validate `K≥C` with actionable warnings
+2. **Memory guidance** (~30 min)
+   - Document pool sizing and practical K ranges
+3. **Examples & tests** (~1 hour)
+   - Minimal examples demonstrating oversampling vs non‑oversampling
+   - Targeted tests for branch selection and reproducibility
    - Maintain existing return format
 
 3. **Add configuration support** (~30 min)

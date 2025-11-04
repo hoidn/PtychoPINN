@@ -167,6 +167,22 @@ num_epochs = 200  # 200+ recommended for convergence
 n_images = 2000   # Use subset for testing, or None for all
 ```
 
+**Maximum Likelihood (LSQML) Baseline Example (Recommended for studies):**
+
+```python
+# In main(): set the algorithm and epochs for a study baseline
+algorithm = 'LSQML'
+num_epochs = 100  # start with 100; parameterize per study
+```
+
+Run the script (uses the hardcoded config above):
+
+```bash
+python scripts/reconstruction/ptychi_reconstruct_tike.py
+```
+
+Outputs `ptychi_reconstruction.npz` with `reconstructed_object` and `algorithm` fields compatible with `scripts/compare_models.py` via `--tike_recon_path`.
+
 **Input Requirements:**
 Same as Tike reconstruction - NPZ file with:
 - `diffraction` or `diff3d` - Diffraction patterns as amplitude values

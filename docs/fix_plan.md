@@ -25,6 +25,19 @@
 - Status: archived 2025-10-20 — see `archive/2025-10-20_fix_plan_archive.md#integrate-pytorch-001-dataloader-restore-pytorch-dataloader-data-001-compliance`.
 - Notes: Canonical `diffraction` loading with `diff3d` fallback shipped; targeted tests guard canonical + legacy NPZ formats.
 
+## [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
+- Depends on: —
+- Priority: High
+- Status: active
+- Owner/Date: Codex Agent/2025-11-04
+- Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
+- Test Strategy: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md`
+- Constraints: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/constraint_analysis.md`
+- Notes: Use existing fly64 object/probe; enforce y-axis split; group-level overlap control via min center spacing; emphasize phase MS-SSIM; pty-chi LSQML baseline (100 epochs, parameterized).
+
+Attempts History:
+  * [2025-11-04] Attempt #0 — Study scaffolding (Mode: Docs). Created new initiative directory with `implementation.md`, `test_strategy.md`, `constraint_analysis.md`; initialized reports hub and summary. No code changes or runs. Artifact hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T003530Z/summary.md`.
+
 ## [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003
 - Depends on: INTEGRATE-PYTORCH-001 (Phases C–E alignment)
 - Spec/AT: `specs/ptychodus_api_spec.md` §4; `docs/workflows/pytorch.md`; `docs/architecture/adr/ADR-003.md`

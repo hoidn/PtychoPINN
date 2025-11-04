@@ -26,7 +26,7 @@ Enable independent control of data subsampling and neighbor grouping in PtychoPI
 - ✅ **Phase 5: Documentation & Examples** - Fixed help text, created examples, wrote [SAMPLING_USER_GUIDE.md](docs/SAMPLING_USER_GUIDE.md)
 
 ### Next Phase
-- ⏳ **Phase 6: K Choose C Oversampling** - Implement combinatorial group generation for data augmentation
+- ⏳ **Phase 6: Oversampling Hardening & Docs** – The TF data loader already implements K‑choose‑C oversampling (auto when `n_groups > n_subsample` and `gridsize>1`). Phase 6 will focus on documentation alignment, examples, performance characterization, and guardrails (K≥C validation, memory guidance).
 
 ### Key Benefits
 - **Flexibility**: Control data density vs computational cost independently

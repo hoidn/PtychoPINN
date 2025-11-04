@@ -138,6 +138,18 @@ If you're getting unexpected dataset sizes:
 5. ✅ Check if dataset has enough patterns for requested groups
 6. ✅ Look for deprecation warnings about n_images usage
 
+## Inter‑Group Overlap Control
+
+Grouping guarantees tight intra‑group neighborhoods (C = gridsize² from each seed’s K‑NN). To control inter‑group overlap, filter groups by the distance between their centers:
+
+- Compute each group’s center from `coords_offsets` (shape `(nsamples, 1, 2, 1)`).
+- Enforce a minimum spacing `S` between group centers to achieve a target inter‑group overlap fraction `f_group`.
+- Rule of thumb: `S ≈ (1 − f_group) × N` where `N` is patch size.
+
+Tips:
+- Use independent subsampling (`n_subsample`) to bound memory, then request more `n_groups` (oversampling) to fill sparse layouts for `gridsize>1` with `neighbor_count≥C`.
+- Log acceptance rates and spacing histograms to validate filtering.
+
 ## Related Documentation
 
 - [Configuration Guide](CONFIGURATION_GUIDE.md) - Full configuration parameter reference
