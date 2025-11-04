@@ -1488,7 +1488,7 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch):
     runner_calls = []
 
     def mock_execute_training_job(*, config, job, log_path):
-        """Mock that returns success with bundle_path."""
+        """Mock that returns success with bundle_path and bundle_sha256."""
         runner_calls.append({
             'config': config,
             'job': job,
@@ -1496,10 +1496,15 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch):
         })
         # Simulate bundle saved to artifact_dir/wts.h5.zip
         bundle_path_abs = job.artifact_dir / "wts.h5.zip"
+        # Generate a mock 64-character hex SHA256 (deterministic for testing)
+        # Use job.view to vary the checksum across jobs
+        # abs() to avoid negative hash values that would produce '-' prefix
+        mock_sha256 = f"{abs(hash(job.view)):064x}"[-64:]  # Ensure 64 chars
         return {
             'status': 'success',
             'final_loss': 0.123,
             'bundle_path': str(bundle_path_abs),  # Absolute path from execute_training_job
+            'bundle_sha256': mock_sha256,  # Phase E6: checksum for integrity validation
         }
 
     monkeypatch.setattr(training, 'execute_training_job', mock_execute_training_job)
@@ -1561,7 +1566,25 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch):
         assert bundle_path == "wts.h5.zip", \
             f"bundle_path should be 'wts.h5.zip' relative to artifact_dir, got: {bundle_path}"
 
-        print(f"  ✓ Job {job_entry['view']} (dose={job_entry['dose']:.0e}): bundle_path={bundle_path}")
+        # Phase E6: Validate bundle_sha256 field is present and properly formatted
+        assert 'bundle_sha256' in result_dict, \
+            f"Job result must contain 'bundle_sha256' field (Phase E6 checksum requirement), got keys: {result_dict.keys()}"
+
+        bundle_sha256 = result_dict['bundle_sha256']
+        assert bundle_sha256 is not None, \
+            f"bundle_sha256 must not be None for successful training (job: {job_entry['view']})"
+
+        # Validate SHA256 format (64-character lowercase hexadecimal)
+        assert isinstance(bundle_sha256, str), \
+            f"bundle_sha256 must be a string, got {type(bundle_sha256)}"
+        assert len(bundle_sha256) == 64, \
+            f"bundle_sha256 must be 64 characters (SHA256 hex digest), got {len(bundle_sha256)}"
+        assert bundle_sha256.islower(), \
+            f"bundle_sha256 must be lowercase hex, got {bundle_sha256}"
+        assert all(c in '0123456789abcdef' for c in bundle_sha256), \
+            f"bundle_sha256 must be hexadecimal, got {bundle_sha256}"
+
+        print(f"  ✓ Job {job_entry['view']} (dose={job_entry['dose']:.0e}): bundle_path={bundle_path}, sha256={bundle_sha256[:16]}...")
 
     # Assertions: skip_summary schema unchanged (no interference)
     assert 'skip_summary_path' in manifest, \
@@ -1569,9 +1592,11 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch):
     assert 'skipped_views' in manifest, \
         "Manifest must contain skipped_views field (Phase E5 requirement)"
 
-    print(f"\n✓ CLI manifest bundle_path normalization validated:")
+    print(f"\n✓ CLI manifest bundle_path + bundle_sha256 validated:")
     print(f"  - training_manifest.json created at {manifest_path}")
     print(f"  - Manifest contains {len(manifest['jobs'])} job entries")
     print(f"  - Each job result includes bundle_path field (relative to artifact_dir)")
+    print(f"  - Each job result includes bundle_sha256 field (64-char hex)")
     print(f"  - skip_summary schema preserved (no interference)")
     print(f"  - Sample bundle_path: {manifest['jobs'][0]['result']['bundle_path']}")
+    print(f"  - Sample bundle_sha256: {manifest['jobs'][0]['result']['bundle_sha256'][:16]}...")
