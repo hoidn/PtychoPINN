@@ -209,7 +209,7 @@ python -m studies.fly64_dose_overlap.training \
 - `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:138-184` — Expanded Phase E section from placeholder to full deliverables summary (E1-E5.5) with artifact hubs, test coverage, and CLI command.
 - This file (test_strategy.md) — Replaced "Future Phases (Pending)" with Phase E5 COMPLETE section documenting selectors, coverage, execution proof, and findings alignment.
 
-### Phase F — PtyChi LSQML Baseline (In Progress)
+### Phase F — PtyChi LSQML Baseline (COMPLETE)
 **Test module:** `tests/study/test_dose_overlap_reconstruction.py`
 **Selectors (Active):**
 - `pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv` — manifest builder + runner coverage (GREEN Attempt #F1; logs in `reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/green/pytest_phase_f_green.log`)
@@ -220,6 +220,7 @@ python -m studies.fly64_dose_overlap.training \
 - `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv` — Phase F2 execution harness (non-dry-run path with mocked subprocess; RED→GREEN in Attempt #78; evidence in `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/green/pytest_phase_f_cli_exec_green.log`)
 - `pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv` — Full Phase F suite (all selectors GREEN)
 - `pytest tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments -vv` — Script-level CLI parser coverage (Attempt #80 GREEN log at `reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/green/pytest_ptychi_cli_input_green.log`; TODO: convert absolute repo path to relative import)
+- `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv` — Sparse metadata assertions (Attempt #88 validation; GREEN log at `reports/2025-11-04T133218Z/phase_f_ptychi_baseline_f3_metadata_recovery/green/pytest_phase_f_sparse_green.log`)
 
 **Coverage Delivered (F0–F1.2):**
 - Test strategy Phase F section documented RED/GREEN artifact policy and selector expectations (reports/2025-11-04T094500Z/phase_f_ptychi_baseline/).
@@ -228,12 +229,15 @@ python -m studies.fly64_dose_overlap.training \
 - New `test_run_ptychi_job_invokes_script` exercises `run_ptychi_job` dry-run + mocked subprocess path, ensuring CONFIG-001 safety (builder remains pure) and argument propagation.
 - Added script-level unit test `tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments` covering argparse defaults vs overrides; RED→GREEN evidence stored under `reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/{red,green}/`.
 - CLI dry-run selector promoted to ACTIVE in Attempt #F1.3 validating filter combos, manifest + skip summary emission, and artifact logging under `reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/`.
+- Sparse metadata assertions validated in Attempt #88 — no code changes required; tests confirmed GREEN and manifest telemetry present (`selection_strategy`, `acceptance_rate`, `spacing_threshold`, `n_accepted`, `n_rejected`).
 
-**Execution Proof (F0–F1.3):**
+**Execution Proof (F0–F3):**
 - RED log: `reports/2025-11-04T094500Z/phase_f_ptychi_baseline/red/pytest_phase_f_red.log`
 - GREEN log: `reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/green/pytest_phase_f_green.log`
 - Collect-only proof: `reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/collect/pytest_phase_f_collect.log`
 - CLI dry-run evidence: `reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/{red/pytest_phase_f_cli_red.log,green/pytest_phase_f_cli_green.log,collect/pytest_phase_f_cli_collect.log}`
+- Sparse execution suite: `reports/2025-11-04T133218Z/phase_f_ptychi_baseline_f3_metadata_recovery/{red/pytest_phase_f_sparse_red.log,green/pytest_phase_f_sparse_suite_green.log,collect/pytest_phase_f_sparse_collect.log}`
+- Real-run logs: `reports/2025-11-04T133218Z/phase_f_ptychi_baseline_f3_metadata_recovery/cli/{sparse_train.log,sparse_test.log}` with manifests copied per split.
 
 **Findings Alignment:**
 - CONFIG-001: Job builder stays side-effect free; CLI/runner will call `update_legacy_dict` when executing scripts (Phase F2 gating).
@@ -241,15 +245,17 @@ python -m studies.fly64_dose_overlap.training \
 - POLICY-001: PyTorch dependency acknowledged in summary.md for Phase F; pty-chi relies on torch>=2.2 runtime.
 - OVERSAMPLING-001: Manifest covers gs2 overlap views generated with neighbor_count=7; tests assert dense/sparse splits remain present.
 
-**Selectors (Planned — F3 Sparse Execution):**
-- `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv` — RED expectation: sparse job record missing `selection_strategy` metadata; GREEN: manifest + summary report strategy + acceptance stats (logs to `reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/{red,green}/`).
-- `pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv` — Regression suite to confirm metadata surfacing does not break existing builder logic (GREEN log reserved under new artifact hub).
-- `pytest tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments -vv` — Ensure CLI flag plumbing still valid after manifest changes (collect log under `reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/collect/pytest_phase_f_scripts_collect.log`).
+### Phase G — Comparison & Analysis (Planning)
+**Test module:** `tests/study/test_dose_overlap_comparison.py` (new)
+**Selectors (Planned):**
+- `pytest tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions -vv` — RED scaffold to ensure builder raises `NotImplementedError` until implementation (log to `reports/2025-11-05T140500Z/phase_g_comparison_plan/red/pytest_phase_g_red.log`).
+- `pytest tests/study/test_dose_overlap_comparison.py -k "comparison" --collect-only -vv` — Collection proof once GREEN (planned log under `.../collect/pytest_phase_g_collect.log`).
 
-**Coverage Planned (F3):**
-- Extend CLI implementation to annotate reconstruction manifest/summary with sparse `selection_strategy` and acceptance metrics so real LSQML evidence demonstrates greedy fallback usage.
-- Execute sparse/train and sparse/test LSQML runs (num_epochs=100, deterministic flags) capturing CLI transcripts, reconstruction logs, manifest snapshot, and skip summary under `reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/{cli,real_run}/`.
-- Update `docs/TESTING_GUIDE.md` (§Phase F) and `docs/development/TEST_SUITE_INDEX.md` with sparse run selectors/commands once tests + CLI evidence are GREEN; include collect-only proof (`collect/pytest_phase_f_sparse_collect.log`) and summary pointers.
+**Coverage Goals:**
+- Implement `build_comparison_jobs` producing 18 deterministic jobs with pointers to Phase C/E/F artifacts and metric configuration (ms_ssim_sigma=1.0, registration enabled).
+- Add CLI entry `python -m studies.fly64_dose_overlap.comparison` supporting filters (`--dose`, `--view`, `--split`, `--dry-run`) and emitting manifest/summary aligned with Phase F conventions.
+- Execute dry-run + real comparisons capturing metrics CSV, aligned NPZs, and plots under `reports/2025-11-05T140500Z/phase_g_comparison_plan/{cli,analysis}/`.
+- Update documentation registries (TESTING_GUIDE, TEST_SUITE_INDEX) after GREEN runs and artifact capture.
 
 ### Future Phases (Pending)
 1) Phase E6 — Aggregated gs2 training evidence
@@ -259,8 +265,6 @@ python -m studies.fly64_dose_overlap.training \
    - Confirm expected scaling behavior across doses (qualitative/log statistics)
 3) Train/test separation
    - Validate y-axis split with non-overlapping regions
-4) Comparison outputs
-   - Confirm CSV present with MS-SSIM (phase and amplitude), plots saved, aligned NPZs exist
 
 ## 7. PASS Criteria
 - All contract checks pass for generated datasets

@@ -2256,3 +2256,17 @@
   - Updated docs/fix_plan.md (Active Focus → F3, attempt #88 planning log, status) and rewrote input.md with TDD Do Now covering metadata decoding, pytest reruns, distinct manifest snapshots, and doc/test sync.
 - Next actions for Ralph: follow new Do Now to fix metadata extraction, capture RED→GREEN logs, rerun sparse train/test with preserved manifests, and close out F3 plan/doc tasks.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T140500Z: Phase G comparison harness planning
+- dwell: 2 (previous supervisor touch on this focus was Attempt #87 plan; engineer validation Attempt #88 did not change dwell)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (G1 job orchestration)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date), reviewed Attempt #88 evidence, and confirmed Phase F3 plan/test-strategy checkboxes required closing.
+  - Marked F3.1–F3.4 `[x]` in phase_f_ptychi_baseline_plan/plan.md and updated test_strategy Phase F section to COMPLETE; added new Phase G section with planned selectors/jobs.
+  - Authored Phase G plan (G0–G3 table) and scaffolded artifact hub `{plan,red,green,collect,cli,analysis,docs}`.
+  - Updated docs/fix_plan.md Active Focus/status + Attempt #89 log; rewrote input.md directing RED→GREEN cycle for `tests/study/test_dose_overlap_comparison.py` and new `studies/fly64_dose_overlap/comparison.py` CLI.
+- Next actions for Ralph: follow Do Now to land RED test, implement `build_comparison_jobs` + CLI, capture pytest logs and dry-run evidence, update docs/test registries post-GREEN, and log Attempt #90 outcomes.
+- <Action State>: [ready_for_implementation]
