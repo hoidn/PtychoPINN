@@ -485,6 +485,7 @@ def execute_training_job(*, config, job, log_path):
         # Create wts.h5.zip archive for downstream Phase G comparisons and
         # ModelManager consumers. Bundle path follows Ptychodus naming convention.
         bundle_path = None
+        bundle_sha256 = None
         if 'models' in training_results and training_results['models']:
             try:
                 # Define bundle base path (without .zip extension)
@@ -505,15 +506,30 @@ def execute_training_job(*, config, job, log_path):
                 # Record bundle path for manifest emission
                 bundle_path = str(bundle_base.with_suffix('.h5.zip'))
 
-                with log_path.open('a') as f:
-                    f.write(f"Model bundle saved: {bundle_path}\n")
+                # Compute SHA256 checksum for bundle integrity validation (Phase E6)
+                import hashlib
+                bundle_file = Path(bundle_path)
+                if bundle_file.exists():
+                    sha256_hash = hashlib.sha256()
+                    with bundle_file.open('rb') as f:
+                        # Read in 64KB chunks to avoid memory issues with large bundles
+                        for chunk in iter(lambda: f.read(65536), b''):
+                            sha256_hash.update(chunk)
+                    bundle_sha256 = sha256_hash.hexdigest()
+
+                    with log_path.open('a') as f:
+                        f.write(f"Model bundle saved: {bundle_path}\n")
+                        f.write(f"Bundle SHA256: {bundle_sha256}\n")
+                else:
+                    with log_path.open('a') as f:
+                        f.write(f"Warning: Bundle file not found after save: {bundle_path}\n")
             except Exception as e:
                 # Log bundle persistence failure but don't fail the training run
                 with log_path.open('a') as f:
                     f.write(f"Warning: Bundle persistence failed: {type(e).__name__}: {e}\n")
                     import traceback
                     f.write(traceback.format_exc())
-                # Leave bundle_path as None to signal missing bundle
+                # Leave bundle_path and bundle_sha256 as None to signal missing bundle
 
         result = {
             'status': 'success',
@@ -521,6 +537,7 @@ def execute_training_job(*, config, job, log_path):
             'epochs_completed': len(training_results.get('history', {}).get('train_loss', [])),
             'checkpoint_path': checkpoint_path,
             'bundle_path': bundle_path,  # NEW: bundle archive path for Phase G
+            'bundle_sha256': bundle_sha256,  # NEW: SHA256 checksum for integrity validation
             'training_results': training_results,  # Include full results for downstream use
         }
 
@@ -531,6 +548,7 @@ def execute_training_job(*, config, job, log_path):
             f.write(f"Epochs completed: {result['epochs_completed']}\n")
             f.write(f"Checkpoint path: {checkpoint_path}\n")
             f.write(f"Bundle path: {bundle_path}\n")
+            f.write(f"Bundle SHA256: {bundle_sha256}\n")
 
         return result
 

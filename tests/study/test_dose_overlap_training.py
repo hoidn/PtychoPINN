@@ -1144,10 +1144,29 @@ def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
     assert bundle_path.suffix == '.zip', \
         f"Bundle must be a .zip archive, got {bundle_path.suffix}"
 
+    # NEW: Verify bundle_sha256 field (Phase E6)
+    assert 'bundle_sha256' in result, \
+        "result must contain 'bundle_sha256' key after successful bundle persistence"
+
+    assert result['bundle_sha256'] is not None, \
+        "bundle_sha256 must not be None when bundle_path is populated"
+
+    # Validate SHA256 format (64-character lowercase hexadecimal)
+    sha256_value = result['bundle_sha256']
+    assert isinstance(sha256_value, str), \
+        f"bundle_sha256 must be a string, got {type(sha256_value)}"
+    assert len(sha256_value) == 64, \
+        f"bundle_sha256 must be 64 characters (SHA256 hex digest), got {len(sha256_value)}"
+    assert sha256_value.islower(), \
+        f"bundle_sha256 must be lowercase hex, got {sha256_value}"
+    assert all(c in '0123456789abcdef' for c in sha256_value), \
+        f"bundle_sha256 must be hexadecimal, got {sha256_value}"
+
     print(f"\n✓ execute_training_job bundle persistence validated:")
     print(f"  - save_torch_bundle called: {len(bundle_calls)} time(s)")
     print(f"  - Bundle path: {result['bundle_path']}")
     print(f"  - Bundle exists: {bundle_path.exists()}")
+    print(f"  - Bundle SHA256: {result['bundle_sha256']}")
     print(f"  - Models persisted: {list(call['models_dict'].keys())}")
 
 

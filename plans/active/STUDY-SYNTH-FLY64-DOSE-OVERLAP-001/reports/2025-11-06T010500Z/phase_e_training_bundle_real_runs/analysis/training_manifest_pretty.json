@@ -1,0 +1,30 @@
+{
+    "timestamp": "2025-11-04T16:19:50.654029Z",
+    "phase_c_root": "tmp/phase_c_f2_cli",
+    "phase_d_root": "tmp/phase_d_f2_cli",
+    "artifact_root": "tmp/phase_e_training_gs2",
+    "filters": {
+        "dose": 1000.0,
+        "view": "baseline",
+        "gridsize": 1
+    },
+    "dry_run": false,
+    "jobs": [
+        {
+            "dose": 1000.0,
+            "view": "baseline",
+            "gridsize": 1,
+            "train_data_path": "tmp/phase_c_f2_cli/dose_1000/patched_train.npz",
+            "test_data_path": "tmp/phase_c_f2_cli/dose_1000/patched_test.npz",
+            "log_path": "tmp/phase_e_training_gs2/dose_1000/baseline/gs1/train.log",
+            "artifact_dir": "tmp/phase_e_training_gs2/dose_1000/baseline/gs1",
+            "result": {
+                "status": "failed",
+                "error": "Dataset loading failed: KeyError: \"Required key 'diff3d' missing from NPZ file tmp/phase_c_f2_cli/dose_1000/patched_train.npz. Available keys: ['diffraction', 'objectGuess', 'probeGuess', 'Y', 'xcoords', 'ycoords', 'filenames']. See specs/data_contracts.md:13-21 for required schema.\""
+            }
+        }
+    ],
+    "skipped_views": [],
+    "skipped_count": 0,
+    "skip_summary_path": "skip_summary.json"
+}
