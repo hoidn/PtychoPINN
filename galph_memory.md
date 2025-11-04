@@ -1887,3 +1887,16 @@
   - Rewrote input.md (Mode: TDD) directing Ralph to add per-view metrics outputs, new pytest guard, CLI `--artifact-root`, and doc/test registry sync.
 - Next actions for Ralph: execute the metrics-alignment Do Now (RED→GREEN test, CLI run, docs update) to close D2/D4 and capture evidence in the new hub.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T045500Z: Phase D CLI metrics bundle plan
+- dwell: 0 (reset — engineer completed Attempt #8 implementation between supervisor passes)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase D group-level overlap views
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T045500Z/phase_d_cli_validation/
+- Notes:
+  - Reviewed `docs/findings.md` (CONFIG-001, DATA-001, OVERSAMPLING-001) and Phase D plan.md:16-18 to confirm remaining gaps: emit consolidated metrics bundle + CLI artifact capture.
+  - Updated plan D2/D4 guidance to require `metrics_bundle_path` aggregation and CLI manifest copying; recorded Attempt #9 in docs/fix_plan.md with new artifact hub.
+  - Rewrote input.md (Mode: TDD) to drive RED→GREEN updates for `generate_overlap_views` bundle emission, CLI `--artifact-root` copy (including manifest), Phase C data generation fallback, CLI log capture, and doc/test registry sync.
+- Next actions for Ralph: follow Do Now (test RED, implement bundle + CLI copy, rerun selectors, run Phase C/D CLIs, archive logs/metrics, update docs+ledger) to close D2 and progress D4.
+- <Action State>: [ready_for_implementation]
