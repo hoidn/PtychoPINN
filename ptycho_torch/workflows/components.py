@@ -647,8 +647,8 @@ def _train_with_lightning(
 
     # Create payload with factory-derived PyTorch configs
     payload = create_training_payload(
-        train_data_file=config.train_data_file,
-        output_dir=getattr(config, 'output_dir', Path('./outputs')),
+        train_data_file=Path(config.train_data_file),
+        output_dir=Path(getattr(config, 'output_dir', './outputs')),
         execution_config=execution_config,  # Pass through from caller
         overrides=factory_overrides
     )
@@ -679,7 +679,7 @@ def _train_with_lightning(
 
     # B2.5: Configure Trainer with settings from config
     # C3.A3: Thread execution config values to Trainer kwargs
-    output_dir = getattr(config, 'output_dir', Path('./outputs'))
+    output_dir = Path(getattr(config, 'output_dir', './outputs'))
     debug_mode = getattr(config, 'debug', False)
 
     # Import execution config defaults if not provided
