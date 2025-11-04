@@ -2048,3 +2048,16 @@
   - Updated docs/fix_plan.md status + Attempt #24 planning entry, and rewrote `input.md` with TDD Do Now covering skip summary test addition, code change in `training.py::main`, CLI run commands, and doc/test registry updates.
 - Next actions for Ralph: follow the new Do Now to produce RED→GREEN logs, implement skip summary persistence, capture deterministic CLI evidence, update documentation, and log Attempt #24 completion.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T084850Z: Phase E5 doc sync directive
+- dwell: 1 (previous supervisor pass for this focus was planning; engineer completed Attempt #25 implementation in between)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training runner integration (E5)
+- Action type: Planning
+- Mode: Docs
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T084850Z/phase_e_training_e5_doc_sync/
+- Notes:
+  - Reviewed docs/findings (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001) and Attempt #25 evidence to confirm skip summary behavior is locked in and only documentation gaps remain.
+  - Marked T1–T4 complete in Phase E5.5 plan, logged Attempt #25 implementation summary in docs/fix_plan.md, and created new doc-sync plan D1–D6 capturing remaining tasks.
+  - Rewrote input.md (Mode: Docs) directing Ralph to update implementation/test_strategy/doc guides, regenerate collect-only proof, and append doc sync confirmation to summary.md.
+- Next actions for Ralph: execute doc-sync Do Now, archive collect-only log under the new hub, update referenced docs/plan/test strategy, then close T5 and Phase E5 once evidence is captured.
+- <Action State>: [ready_for_implementation]
