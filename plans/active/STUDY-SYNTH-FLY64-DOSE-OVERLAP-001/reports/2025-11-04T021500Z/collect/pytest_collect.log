@@ -1,0 +1,51 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_design.py>
+        Tests for the fly64 dose/overlap study design constants.
+        
+        Validates that Phase A design parameters are correctly encoded and satisfy
+        all documented constraints from the implementation plan.
+        
+        Test tier: Unit
+        Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
+        <Function test_study_design_constants>
+          RED → GREEN TDD test for Phase A design constants.
+          
+          Validates that get_study_design() returns a StudyDesign with:
+          - Correct dose list [1e3, 1e4, 1e5]
+          - Gridsizes {1, 2}
+          - neighbor_count=7 for K-choose-C (K ≥ C=4)
+          - Patch size N=128 pixels
+          - Overlap views: dense=0.7, sparse=0.2
+          - Derived spacing thresholds S ≈ (1 - f_group) × N
+          - Train/test split axis 'y'
+          - Fixed RNG seeds for simulation/grouping/subsampling
+          - MS-SSIM sigma=1.0, phase emphasis enabled
+          
+          References:
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:24-30
+          - docs/GRIDSIZE_N_GROUPS_GUIDE.md:142-151 (spacing rule)
+          - docs/SAMPLING_USER_GUIDE.md:116-119 (K ≥ C constraint)
+        <Function test_study_design_validation>
+          Test that design.validate() raises on constraint violations.
+          
+          Validates constraint checking for:
+          - K ≥ C (neighbor_count ≥ gridsize²)
+          - Overlap fractions in [0, 1)
+          - Spacing thresholds positive
+          - Dose list non-empty and positive
+        <Function test_study_design_to_dict>
+          Test that to_dict() exports all design parameters correctly.
+
+========================== 3 tests collected in 0.83s ==========================
