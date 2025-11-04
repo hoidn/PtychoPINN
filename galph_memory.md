@@ -2034,3 +2034,17 @@
 - Next actions for Ralph: execute the refreshed Do Now (author RED skip-manifest test, implement skip tracking in builder/CLI, rerun targeted selectors, capture deterministic CLI run, sync docs/test registries, and log Attempt #23 with PASS evidence).
 - Artifacts: Reviewed `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T150500Z/phase_e_training_e5_path_fix/{docs/summary.md,red/,green/,collect/}`; next loop hub reserved at `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T161500Z/phase_e_training_e5_real_run/`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T170500Z: Phase E5 skip summary persistence plan
+- dwell: 0 (Attempt #23 implementation delivered between loops; reset before handing off new implementation scope)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training runner integration (E5)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/{plan.md,red/,green/,collect/,docs/,cli/,real_run/}
+- Notes:
+  - Confirmed Attempt #23 artifacts (skip-aware manifest) under `reports/2025-11-04T161500Z/phase_e_training_e5_real_run/` and observed real-run evidence still absent (`real_run/` only holds pre-path-fix log).
+  - Re-scanned findings (CONFIG-001, DATA-001, POLICY-001, OVERSAMPLING-001) and reviewed `test_strategy.md` Phase E selectors plus `docs/TESTING_GUIDE.md` §2 to ensure deterministic CLI execution remains an exit requirement.
+  - Authored new plan.md (tasks T1–T5) in the 2025-11-04T170500Z hub focusing on skip summary persistence, RED→GREEN proof, CLI execution, and documentation sync; created directory skeleton for artifacts.
+  - Updated docs/fix_plan.md status + Attempt #24 planning entry, and rewrote `input.md` with TDD Do Now covering skip summary test addition, code change in `training.py::main`, CLI run commands, and doc/test registry updates.
+- Next actions for Ralph: follow the new Do Now to produce RED→GREEN logs, implement skip summary persistence, capture deterministic CLI evidence, update documentation, and log Attempt #24 completion.
+- <Action State>: [ready_for_implementation]
