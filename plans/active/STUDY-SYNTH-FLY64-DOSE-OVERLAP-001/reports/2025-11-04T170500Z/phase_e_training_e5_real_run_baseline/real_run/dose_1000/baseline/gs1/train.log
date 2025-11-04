@@ -1,0 +1,3 @@
+DRY RUN: baseline dose=1000.0 gridsize=1
+Train: tmp/phase_c_training_evidence/dose_1000/patched_train.npz
+Test: tmp/phase_c_training_evidence/dose_1000/patched_test.npz

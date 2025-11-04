@@ -1,0 +1,25 @@
+2025-11-04 00:34:19.621704: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1762245259.643265  899468 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762245259.656952  899468 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762245259.686971  899468 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762245259.686993  899468 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762245259.686995  899468 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762245259.686996  899468 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-04 00:34:19.690045: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Enumerating training jobs from Phase C (tmp/phase_c_training_evidence) and Phase D (tmp/phase_d_training_evidence)...
+  → 6 total jobs enumerated
+  ⚠ 3 view(s) skipped due to missing Phase D data:
+    - sparse (dose=1e+03): NPZ files not found (train=False, test=False). This is expected when Phase D ove...
+    - sparse (dose=1e+04): NPZ files not found (train=False, test=False). This is expected when Phase D ove...
+    - sparse (dose=1e+05): NPZ files not found (train=False, test=False). This is expected when Phase D ove...
+  → Filtered by dose=1000.0: 2 jobs remain
+
+Executing 2 training job(s)...
+  [1/2] baseline (dose=1e+03, gridsize=1)
+  [2/2] dense (dose=1e+03, gridsize=2)
+
+✓ Training manifest written to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/training_manifest.json
+  → 2 job(s) completed
+  → Skip summary written to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run/skip_summary.json (3 view(s) skipped)
