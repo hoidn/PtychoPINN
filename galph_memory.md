@@ -1941,3 +1941,17 @@
   - Logged Attempt #14 in docs/fix_plan.md detailing plan/test_strategy/input refresh and reinforced findings alignment.
 - Next actions for Ralph: follow Do Now to author RED tests, implement `run_training_job`, capture GREEN + collect evidence, update docs, and flip plan/test strategy statuses to complete E3.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T081500Z: Phase E training CLI staging
+- dwell: 1 (prior supervisor touch on this focus was planning; Attempt #14 implementation completed in between, now rearming for E4)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training CLI (E4)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T081500Z/phase_e_training_cli/ (reserved)
+- Key actions:
+  - Consulted docs/findings (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001) and Attempt #14 summary to capture outstanding CONFIG-001 gap (direct `params.cfg.update`).
+  - Marked plan row E3 `[x]`, refreshed E4 `[P]` with mandates to upgrade `run_training_job` to `TrainingConfig` + `update_legacy_dict` and to deliver CLI manifest/log artifacts; updated test_strategy with planned CLI selectors and execution-proof expectations.
+  - Rewrote input.md (Mode: TDD) directing RED tests for CLI filtering + manifest + bridging, implementation of `studies/fly64_dose_overlap.training::main`, validation commands (targeted selectors, collect-only, CLI dry-run/real run), and doc sync plan.
+- Observations: Need to reset `params.cfg` in tests when spying on `update_legacy_dict`; ensure CLI tests isolate filesystem via tmp_path to avoid polluting real datasets.
+- Next supervisor check: confirm Attempt #15 artifacts land under the new hub, plan/test_strategy/doc sync items go GREEN, and update `run_training_job` now uses `update_legacy_dict`.
+- <Action State>: [ready_for_implementation]

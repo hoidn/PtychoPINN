@@ -122,11 +122,24 @@ Validates:
 - Dry-run demonstration: `reports/2025-11-04T070000Z/phase_e_training_e2/dry_run/run_helper_dry_run_preview.txt` (summary dict with all required keys).
 - Stub runner demonstration: `reports/2025-11-04T070000Z/phase_e_training_e2/runner/run_helper_stub.log` (runner received config, job, log_path kwargs and returned result).
 
+**Selectors (Planned — E4 CLI entrypoint):**
+- `pytest tests/study/test_dose_overlap_training.py::test_training_cli_filters_jobs -vv` (ensures CLI enumerates jobs, applies dose/view/gridsize filters, and delegates to `run_training_job` with stub runner instrumentation)
+- `pytest tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging -vv` (verifies `training_manifest.json` contents, artifact-root layout, and that `update_legacy_dict` receives a `TrainingConfig` per invocation)
+- `pytest tests/study/test_dose_overlap_training.py -k training_cli -vv` (aggregated selector for GREEN evidence; must collect ≥2 tests post-implementation)
+
 **Coverage Plan (E4 CLI entrypoint):**
-- CLI parser: Accept flags for `--phase-c-root`, `--phase-d-root`, `--artifact-root`, `--dose`, `--view`, `--dry-run`.
-- Job selection: Use `build_training_jobs()` to enumerate all jobs, then filter by CLI arguments.
-- Runner wiring: Inject actual training function (e.g., `ptycho_train` wrapper) or stub for testing.
-- Logging: Capture CLI stdout/stderr to artifact directory for audit trail.
+- CLI parser: Accept `--phase-c-root`, `--phase-d-root`, `--artifact-root`, optional `--dose`, `--view`, `--gridsize`, and `--dry-run`; emit helpful errors when required inputs missing.
+- Job selection: Call `build_training_jobs()` once, then filter the matrix per CLI selectors; dry-run should skip execution but still log planned runs.
+- CONFIG-001 bridge: `run_training_job()` must construct `TrainingConfig`/`ModelConfig` objects and call `update_legacy_dict(params.cfg, config)`; tests will monkeypatch `update_legacy_dict` to assert correct ordering.
+- Logging & artifacts: CLI writes per-job `train.log` (baseline + dense/sparse) under `<artifact_root>/phase_e_training/...`, captures stdout to `cli/training_cli.log`, and emits `training_manifest.json` summarizing executed jobs.
+- Failure handling: Non-existent dose/view combinations should exit with status 1 and descriptive message (covered via stub runner raising exception surfaced by CLI).
+
+**Execution Proof Expectations (E4):**
+- RED logs for each new selector under `reports/2025-11-04T081500Z/phase_e_training_cli/red/`
+- GREEN logs under `.../green/` (`pytest_training_cli_green.log`, `training_cli_stdout.log`)
+- Collection proof stored at `.../collect/pytest_collect.log`
+- CLI dry-run transcript under `.../dry_run/training_cli_dry_run.txt`
+- Manifest snapshot saved to `.../artifacts/training_manifest.json` with hash recorded in summary.md
 
 **Findings Alignment:**
 - CONFIG-001: Job builder remains pure (no params.cfg mutation); legacy bridge deferred to `run_training_job()` in E3.
