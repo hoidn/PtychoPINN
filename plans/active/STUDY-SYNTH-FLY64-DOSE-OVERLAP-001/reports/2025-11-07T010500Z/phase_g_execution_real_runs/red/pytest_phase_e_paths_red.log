@@ -1,0 +1,141 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_uses_dose_specific_phase_e_paths FAILED [100%]
+
+=================================== FAILURES ===================================
+_________ test_build_comparison_jobs_uses_dose_specific_phase_e_paths __________
+
+fake_phase_artifacts = {'phase_c_root': PosixPath('/tmp/pytest-of-ollie/pytest-247/test_build_comparison_jobs_use0/phase_c'), 'phase_e_root':...s_use0/phase_e'), 'phase_f_root': PosixPath('/tmp/pytest-of-ollie/pytest-247/test_build_comparison_jobs_use0/phase_f')}
+
+    def test_build_comparison_jobs_uses_dose_specific_phase_e_paths(fake_phase_artifacts):
+        """
+        Test build_comparison_jobs uses dose/view-specific Phase E checkpoint paths.
+    
+        Exit criteria (AT-G2.1):
+        - PINN checkpoint path follows training.py:226 structure: dose_{dose}/{view}/gs2/wts.h5.zip
+        - Baseline checkpoint path follows training.py:184 structure: dose_{dose}/baseline/gs1/wts.h5.zip
+        - Paths are dose-specific (not flat phase_e_root/pinn/, phase_e_root/baseline/)
+        - All checkpoint paths exist and point to the correct artifacts
+    
+        Background:
+        Prior code at comparison.py:95-96 incorrectly used flat structure:
+            pinn_checkpoint = phase_e_root / 'pinn' / 'checkpoint.h5'
+            baseline_checkpoint = phase_e_root / 'baseline' / 'checkpoint.h5'
+    
+        Correct structure (per training.py:184,226):
+            baseline: phase_e_root / f'dose_{dose}' / 'baseline' / 'gs1' / 'wts.h5.zip'
+            view (dense/sparse): phase_e_root / f'dose_{dose}' / view / 'gs2' / 'wts.h5.zip'
+        """
+        from studies.fly64_dose_overlap.comparison import build_comparison_jobs
+    
+        # Build job for dose=1000, view=dense, split=train
+>       jobs = build_comparison_jobs(
+            phase_c_root=fake_phase_artifacts['phase_c_root'],
+            phase_e_root=fake_phase_artifacts['phase_e_root'],
+            phase_f_root=fake_phase_artifacts['phase_f_root'],
+            dose_filter=1000,
+            view_filter='dense',
+            split_filter='train',
+        )
+
+tests/study/test_dose_overlap_comparison.py:282: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+phase_c_root = PosixPath('/tmp/pytest-of-ollie/pytest-247/test_build_comparison_jobs_use0/phase_c')
+phase_e_root = PosixPath('/tmp/pytest-of-ollie/pytest-247/test_build_comparison_jobs_use0/phase_e')
+phase_f_root = PosixPath('/tmp/pytest-of-ollie/pytest-247/test_build_comparison_jobs_use0/phase_f')
+dose_filter = 1000, view_filter = 'dense', split_filter = 'train'
+
+    def build_comparison_jobs(
+        phase_c_root: Path,
+        phase_e_root: Path,
+        phase_f_root: Path,
+        dose_filter: Optional[int] = None,
+        view_filter: Optional[str] = None,
+        split_filter: Optional[str] = None,
+    ) -> List[ComparisonJob]:
+        """
+        Build deterministic comparison jobs for all dose/view/split conditions.
+    
+        Parameters
+        ----------
+        phase_c_root : Path
+            Root directory containing Phase C datasets (dose_{dose}/patched_{split}.npz)
+        phase_e_root : Path
+            Root directory containing Phase E checkpoints (pinn/baseline subdirs)
+        phase_f_root : Path
+            Root directory containing Phase F pty-chi manifests
+        dose_filter : Optional[int]
+            If provided, only include jobs for this dose
+        view_filter : Optional[str]
+            If provided, only include jobs for this view (dense/sparse)
+        split_filter : Optional[str]
+            If provided, only include jobs for this split (train/test)
+    
+        Returns
+        -------
+        List[ComparisonJob]
+            List of comparison jobs with pointers to Phase C/E/F artifacts.
+            Jobs are ordered deterministically: by dose (asc), then view (dense before sparse),
+            then split (train before test).
+        """
+        phase_c_root = Path(phase_c_root)
+        phase_e_root = Path(phase_e_root)
+        phase_f_root = Path(phase_f_root)
+    
+        # Define deterministic ordering
+        doses = [500, 1000, 2000]
+        views = ['dense', 'sparse']
+        splits = ['train', 'test']
+    
+        # Apply filters
+        if dose_filter is not None:
+            doses = [d for d in doses if d == dose_filter]
+        if view_filter is not None:
+            views = [v for v in views if v == view_filter]
+        if split_filter is not None:
+            splits = [s for s in splits if s == split_filter]
+    
+        # Build jobs
+        jobs = []
+        for dose in doses:
+            for view in views:
+                for split in splits:
+                    # Phase C dataset path
+                    dose_dir = phase_c_root / f'dose_{dose}'
+                    if view == 'dense':
+                        # Dense view uses patched data
+                        phase_c_npz = dose_dir / f'patched_{split}.npz'
+                    else:
+                        # Sparse view uses overlap data
+                        phase_c_npz = dose_dir / view / f'{view}_{split}.npz'
+    
+                    # Phase E checkpoints
+                    pinn_checkpoint = phase_e_root / 'pinn' / 'checkpoint.h5'
+                    baseline_checkpoint = phase_e_root / 'baseline' / 'checkpoint.h5'
+    
+                    # Phase F manifest
+                    phase_f_manifest = phase_f_root / f'dose_{dose}_{view}_{split}' / 'manifest.json'
+    
+                    # Validate paths exist (fail fast)
+                    if not phase_c_npz.exists():
+                        raise FileNotFoundError(
+                            f"Phase C dataset not found: {phase_c_npz}\n"
+                            f"Expected at: {phase_c_root}/dose_{dose}/{view if view != 'dense' else ''}..."
+                        )
+                    if not pinn_checkpoint.exists():
+>                       raise FileNotFoundError(f"PINN checkpoint not found: {pinn_checkpoint}")
+E                       FileNotFoundError: PINN checkpoint not found: /tmp/pytest-of-ollie/pytest-247/test_build_comparison_jobs_use0/phase_e/pinn/checkpoint.h5
+
+studies/fly64_dose_overlap/comparison.py:108: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_uses_dose_specific_phase_e_paths - FileNotFoundError: PINN checkpoint not found: /tmp/pytest-of-ollie/pytest-247/test_build_comparison_jobs_use0/phase_e/pinn/checkpoint.h5
+============================== 1 failed in 0.92s ===============================
