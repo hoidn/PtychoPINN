@@ -2270,3 +2270,17 @@
   - Updated docs/fix_plan.md Active Focus/status + Attempt #89 log; rewrote input.md directing RED→GREEN cycle for `tests/study/test_dose_overlap_comparison.py` and new `studies/fly64_dose_overlap/comparison.py` CLI.
 - Next actions for Ralph: follow Do Now to land RED test, implement `build_comparison_jobs` + CLI, capture pytest logs and dry-run evidence, update docs/test registries post-GREEN, and log Attempt #90 outcomes.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T162000Z: Phase G inventory routing
+- dwell: 0 (Attempt #90 implementation reset dwell counter for this focus)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (G0 inventory)
+- Action type: Planning
+- Mode: Docs
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/
+- Notes:
+  - Reviewed Attempt #90 artifacts (builder + CLI dry-run) and updated G0/G1 states in phase_g_comparison_plan/plan.md (G0.3, G1.* marked complete; G0.1 path retargeted to new inventory hub).
+  - Refreshed Phase G section in test_strategy.md to capture active selectors and highlight outstanding G0.1/G0.2 work plus pending execution tasks.
+  - Logged Attempt #90 summary + new status context in docs/fix_plan.md; reserved timestamped artifact hub `.../2025-11-05T162500Z/phase_g_inventory/analysis/` for inventory outputs.
+  - Rewrote input.md (Mode: Docs) directing Ralph to catalog Phase C/E/F assets, capture manifest + NPZ listings, and flag missing `ptychi_reconstruction.npz` prerequisites before planning G2 execution.
+- Next actions for Ralph: execute Do Now inventory capture, populate analysis/inventory.md with authoritative paths + gaps, tee command outputs into the new artifact hub, and update ledger once evidence is in place.
+- <Action State>: [ready_for_documentation]

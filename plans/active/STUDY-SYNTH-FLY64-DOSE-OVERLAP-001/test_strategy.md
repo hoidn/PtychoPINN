@@ -245,17 +245,23 @@ python -m studies.fly64_dose_overlap.training \
 - POLICY-001: PyTorch dependency acknowledged in summary.md for Phase F; pty-chi relies on torch>=2.2 runtime.
 - OVERSAMPLING-001: Manifest covers gs2 overlap views generated with neighbor_count=7; tests assert dense/sparse splits remain present.
 
-### Phase G — Comparison & Analysis (Planning)
-**Test module:** `tests/study/test_dose_overlap_comparison.py` (new)
-**Selectors (Planned):**
-- `pytest tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions -vv` — RED scaffold to ensure builder raises `NotImplementedError` until implementation (log to `reports/2025-11-05T140500Z/phase_g_comparison_plan/red/pytest_phase_g_red.log`).
-- `pytest tests/study/test_dose_overlap_comparison.py -k "comparison" --collect-only -vv` — Collection proof once GREEN (planned log under `.../collect/pytest_phase_g_collect.log`).
+### Phase G — Comparison & Analysis (G1 complete, G2 pending)
+**Test module:** `tests/study/test_dose_overlap_comparison.py`
 
-**Coverage Goals:**
-- Implement `build_comparison_jobs` producing 18 deterministic jobs with pointers to Phase C/E/F artifacts and metric configuration (ms_ssim_sigma=1.0, registration enabled).
-- Add CLI entry `python -m studies.fly64_dose_overlap.comparison` supporting filters (`--dose`, `--view`, `--split`, `--dry-run`) and emitting manifest/summary aligned with Phase F conventions.
-- Execute dry-run + real comparisons capturing metrics CSV, aligned NPZs, and plots under `reports/2025-11-05T140500Z/phase_g_comparison_plan/{cli,analysis}/`.
-- Update documentation registries (TESTING_GUIDE, TEST_SUITE_INDEX) after GREEN runs and artifact capture.
+**Active selectors (Attempt #90 evidence):**
+- `pytest tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions -vv` — verifies 12 jobs (3 doses × 2 views × 2 splits), deterministic ordering, metric config. Log: `reports/2025-11-05T140500Z/phase_g_comparison_plan/green/pytest_phase_g_target_green.log`.
+- `pytest tests/study/test_dose_overlap_comparison.py -k "comparison" -vv` — module-level sweep; ensures no hidden selectors regress. Log: `.../green/pytest_phase_g_suite_green.log`.
+- `pytest tests/study/test_dose_overlap_comparison.py --collect-only -k "comparison" -vv` — collection proof (1 test). Log: `.../collect/pytest_phase_g_collect.log`.
+
+**CLI validation (dry-run only):**
+- `python -m studies.fly64_dose_overlap.comparison --phase-c-root <phase C datasets> --phase-e-root <phase E checkpoints> --phase-f-root <Phase F manifests> --artifact-root .../cli --dose 1000 --view dense --split train --dry-run` — manifest + summary written; execution deferred. Log: `.../cli/phase_g_cli_dry_run.log`.
+
+**Coverage status:** G1 (job builder + CLI scaffolding) satisfied. Remaining work for G2/G3:
+- Populate `analysis/inventory.md` with authoritative paths + acceptance metadata (G0.1 outstanding).
+- Update this test strategy with real-run selectors once comparisons execute (G0.2 outstanding).
+- Implement comparison execution (invoke `scripts/compare_models.py`) and capture metrics/plots; register resulting selectors + CLI commands; archive logs under `reports/.../analysis/` and `.../cli/`.
+
+**Doc sync:** After G2 execution, update `docs/TESTING_GUIDE.md` §Phase G and `docs/development/TEST_SUITE_INDEX.md` with selectors + CLI commands, referencing GREEN/collect logs.
 
 ### Future Phases (Pending)
 1) Phase E6 — Aggregated gs2 training evidence

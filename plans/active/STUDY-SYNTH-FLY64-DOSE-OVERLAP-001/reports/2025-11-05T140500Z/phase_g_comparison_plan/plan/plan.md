@@ -13,9 +13,9 @@ Exit Criteria: Inventory doc lists per-dose artifacts, test strategy section upd
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| G0.1 | Catalog required inputs (PINN checkpoints, baseline checkpoints, Phase F manifests, Phase C/D NPZ paths) and record under `analysis/inventory.md` | [ ] | Use existing reports (Phase C/D/E/F) to confirm locations; note acceptance stats to drive sparse expectations. |
-| G0.2 | Update `test_strategy.md` Phase G section with planned selectors, execution proof policy, and artifact destinations | [ ] | Reference this plan hub; enumerate RED→GREEN selector (`test_build_comparison_jobs_creates_all_conditions`) and CLI evidence commands. |
-| G0.3 | Author minimal RED pytest in `tests/study/test_dose_overlap_comparison.py` asserting `build_comparison_jobs` raises `NotImplementedError` | [ ] | Capture `pytest ...::test_build_comparison_jobs_creates_all_conditions` log under `red/pytest_phase_g_red.log`. |
+| G0.1 | Catalog required inputs (PINN checkpoints, baseline checkpoints, Phase F manifests, Phase C/D NPZ paths) and record under `reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md` | [ ] | Use Phase C/D/E/F reports to confirm locations; note acceptance stats and flag missing artifacts (e.g., absent `ptychi_reconstruction.npz`). |
+| G0.2 | Update `test_strategy.md` Phase G section with active selectors, execution proof policy, and artifact destinations | [ ] | Reference this plan hub; enumerate RED→GREEN selector (`test_build_comparison_jobs_creates_all_conditions`) and CLI evidence commands with log paths. |
+| G0.3 | Land deterministic pytest in `tests/study/test_dose_overlap_comparison.py` covering all dose/view/split combinations | [x] | Attempt #90 (2025-11-05T140500Z) — see `green/pytest_phase_g_target_green.log`; test now asserts 12 jobs and validates metric config. |
 
 ### G1 — Comparison Job Orchestration
 Goal: Implement deterministic job builder + CLI to invoke `scripts/compare_models.py` across all conditions with metadata mirroring Phase F manifests.
@@ -24,9 +24,9 @@ Exit Criteria: `build_comparison_jobs` returns 18 jobs (3 doses × 3 views × 2 
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| G1.1 | Implement `studies/fly64_dose_overlap/comparison.py::build_comparison_jobs` producing dataclasses with pointers to PINN, baseline, Phase F pty-chi outputs | [ ] | Validate structure in pytest; ensure config bridge invoked before loaders to satisfy CONFIG-001. |
-| G1.2 | Extend tests to assert 18 jobs, deterministic ordering, and per-job metric config (ms_ssim_sigma=1.0, registration flags) | [ ] | GREEN log saved to `green/pytest_phase_g_green.log`; collect proof captured separately. |
-| G1.3 | Add CLI entry `python -m studies.fly64_dose_overlap.comparison` supporting filters (`--dose`, `--view`, `--split`, `--dry-run`) and manifest/summary emission | [ ] | CLI dry-run log archived in `cli/phase_g_cli_dry_run.log`; summary describes skip events. |
+| G1.1 | Implement `studies/fly64_dose_overlap/comparison.py::build_comparison_jobs` producing dataclasses with pointers to PINN, baseline, Phase F pty-chi outputs | [x] | Attempt #90 delivered job builder (12 jobs: 3 doses × 2 views × 2 splits) with fail-fast path validation. Evidence: `green/pytest_phase_g_target_green.log`. |
+| G1.2 | Extend tests to assert 12 jobs, deterministic ordering, and per-job metric config (ms_ssim_sigma=1.0, registration flags) | [x] | Attempt #90 tightened assertions on ordering + metric config. Collect proof: `collect/pytest_phase_g_collect.log`. |
+| G1.3 | Add CLI entry `python -m studies.fly64_dose_overlap.comparison` supporting filters (`--dose`, `--view`, `--split`, `--dry-run`) and manifest/summary emission | [x] | Attempt #90 implemented CLI dry-run (manifest + summary). Evidence: `cli/phase_g_cli_dry_run.log`. |
 
 ### G2 — Deterministic Comparison Runs
 Goal: Execute comparisons for dense/sparse views and capture aligned NPZs, CSV metrics, plots.

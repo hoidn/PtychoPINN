@@ -1,65 +1,48 @@
-Summary: Kick off Phase G by adding the comparison job builder + CLI harness so we can generate three-way metrics for every dose/view/split.
-Mode: TDD
-Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.G1 — Comparison job orchestration
+Summary: Catalog Phase G comparison prerequisites and flag missing artifacts so execution planning has ground truth.
+Mode: Docs
+Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.G0 — Evidence inventory & harness prep
 Branch: feature/torchapi-newprompt
-Mapped tests: pytest tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions -vv; pytest tests/study/test_dose_overlap_comparison.py -k comparison -vv; pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/
+Mapped tests: none — evidence-only
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/
 
 Do Now:
-- Implement: tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions — add RED pytest asserting `build_comparison_jobs` raises `NotImplementedError`, create fixture scaffolding for fake Phase C/E/F artifacts, and capture failure with `pytest tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions -vv --maxfail=1` teeing to `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/red/pytest_phase_g_red.log`.
-- Implement: studies/fly64_dose_overlap/comparison.py::build_comparison_jobs — replace stub with dataclass-based job builder + `main()` CLI supporting `--dose/--view/--split/--dry-run`, ensure `update_legacy_dict` runs before loaders, emit manifest/summary JSON into artifact root, and keep deterministic job order; log GREEN proof under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/green/pytest_phase_g_green.log`.
-- Validate: pytest tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/green/pytest_phase_g_target_green.log; pytest tests/study/test_dose_overlap_comparison.py -k comparison -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/green/pytest_phase_g_suite_green.log.
-- Collect: pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/collect/pytest_phase_g_collect.log.
-- CLI dry-run: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.comparison --phase-c-root tmp/phase_c_f2_cli --phase-e-root tmp/phase_e_training_gs2 --phase-f-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/cli --dose 1000 --view dense --split train --dry-run 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/cli/phase_g_cli_dry_run.log.
-- Artifacts: Summarize RED→GREEN + CLI dry-run outcomes in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/docs/summary.md, update `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/analysis/inventory.md` with resolved paths, and record Attempt #90 execution details + selector outcomes in docs/fix_plan.md/test_strategy.md/galph_memory.md.
+- Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md — enumerate Phase C datasets, Phase E PINN/baseline checkpoints, and Phase F manifests for every dose/view/split, explicitly marking where `ptychi_reconstruction.npz` or other comparison inputs are missing and citing the source reports.
+- Capture: find plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 -maxdepth 6 -type f -name "*manifest*.json" | sort | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/phase_f_manifest_listing.txt; find plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 -maxdepth 8 -name "ptychi_reconstruction.npz" | sort | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/ptychi_npz_inventory.txt.
 
 Priorities & Rationale:
-- docs/fix_plan.md:4 — Active focus moved to Phase G comparisons; this loop must advance that item with implementation-ready work.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:20 — G1 tasks require implementing the comparison job builder + CLI after the RED harness is in place.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:27 — G1.1 explicitly calls for `build_comparison_jobs` producing pointers to Phase C/E/F artifacts with CONFIG-001 compliance.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:248 — Phase G section defines the planned selectors and artifact expectations that this loop must realize.
-- docs/findings.md:8 — POLICY-001 mandates PyTorch availability; pty-chi comparisons must assume torch is present and avoid torch-optional fallbacks.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:16 — G0.1 requires an authoritative inventory before execution work can proceed.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:259 — Phase G coverage notes inventory + real-run selectors missing.
+- docs/fix_plan.md:31 — Status callout flags G0.1/G2 as outstanding; this loop must unblock G2 by validating prerequisites.
+- specs/data_contracts.md:1 — Inventory must confirm candidate NPZ inputs adhere to the canonical DATA-001 contract or note gaps.
 
 How-To Map:
 - export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-- Author RED test & stub: pytest tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions -vv --maxfail=1 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/red/pytest_phase_g_red.log
-- Implement builder + CLI, then rerun targeted selector with tee to `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/green/pytest_phase_g_target_green.log`
-- Run suite selector: pytest tests/study/test_dose_overlap_comparison.py -k comparison -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/green/pytest_phase_g_suite_green.log
-- Collect-only proof: pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/collect/pytest_phase_g_collect.log
-- CLI dry-run (dense/train) command above; ensure artifact-root subdirs created before run
-- After GREEN, document inputs/outputs in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/analysis/inventory.md and docs/summary.md; update docs/test registries per Doc Sync Plan.
+- find plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 -maxdepth 6 -type f -name "*manifest*.json" | sort | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/phase_f_manifest_listing.txt
+- find plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 -maxdepth 8 -name "ptychi_reconstruction.npz" | sort | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/ptychi_npz_inventory.txt
+- ls datasets/fly64 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/datasets_fly64_listing.txt
 
 Pitfalls To Avoid:
-- Do not hardcode absolute repo paths; use Path operations relative to provided roots.
-- Keep orchestrator pure — no writes to `params.cfg`, per CONFIG-001.
-- Ensure job ordering is deterministic to prevent flaky tests.
-- Treat Phase F manifests as read-only; never mutate prior evidence.
-- Guard against missing artifacts by validating paths and failing fast with descriptive errors.
-- Maintain device-neutral logic (CPU default); avoid requiring GPUs.
-- Capture stdout/stderr via tee for all pytest and CLI runs; logs must live under artifact hub.
-- Avoid dropping sparse acceptance metadata when forwarding pty-chi manifests.
-- Respect `--dry-run` flag: no external scripts invoked during dry-run tests.
-- No environment/package changes; rely on existing torch/tike installations.
+- Do not modify production code or tests; this loop is documentation-only.
+- Keep inventory outputs scoped to relevant files to prevent giant logs.
+- Preserve existing artifacts; annotate rather than overwrite manifests.
+- Cite absolute evidence paths (reports/2025-11-04T*, datasets/*) instead of informal notes.
+- If an expected artifact is missing, log it in the inventory with TODO + pointer rather than fabricating data.
+- Avoid assumptions about future CLI behavior; record only what is verifiable now.
 
 If Blocked:
-- If test fixtures cannot locate Phase F manifests, document missing path in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/analysis/inventory.md, capture traceback in summary, and note block in docs/fix_plan.md Attempt log.
-- If CLI dry-run fails before emitting manifest, keep full log + partial outputs, move artifacts into `cli/failed/`, and mark attempt blocked with error signature in summary + ledger.
-- If `build_comparison_jobs` cannot compute all 18 combinations due to absent checkpoints, log which conditions missing and pivot to regenerating prerequisites per docs/TESTING_GUIDE.md §4 before continuing.
+- If required directories are absent, capture the failing command output to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T162500Z/phase_g_inventory/analysis/blockers.log, summarize the gap in inventory.md, and note the block in docs/fix_plan.md Attempts History.
 
 Findings Applied (Mandatory):
-- POLICY-001 — Assume torch>=2.2 present; do not add torch-optional branches.
-- CONFIG-001 — Invoke `update_legacy_dict` before legacy loaders; keep orchestrator side-effect free.
-- DATA-001 — Validate Phase C/D NPZ contract when loading comparison inputs; no schema deviations.
-- OVERSAMPLING-001 — Preserve sparse acceptance metadata (`selection_strategy`, `acceptance_rate`) in manifests and tests.
+- POLICY-001 — Assume torch>=2.2 available; inventory should reflect PyTorch-backed artifacts without suggesting torch-optional fallbacks.
+- CONFIG-001 — Track which assets already include CONFIG-001 bridge evidence to avoid re-running legacy modules unsafely.
+- DATA-001 — Validate dataset NPZ candidates reference DATA-001 compliant sources or document contract violations.
+- OVERSAMPLING-001 — Record sparse acceptance metadata sources so later comparisons can justify low-acceptance sparse runs.
 
 Pointers:
-- docs/fix_plan.md:31
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:20
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:27
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/plan/plan.md:9
 - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:248
-- docs/findings.md:8
-- docs/TESTING_GUIDE.md:110
+- docs/fix_plan.md:64
+- specs/data_contracts.md:1
 
-Doc Sync Plan: After GREEN, update docs/TESTING_GUIDE.md (Phase G section) and docs/development/TEST_SUITE_INDEX.md with new selectors + CLI commands, referencing logs stored under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/collect/` and `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T140500Z/phase_g_comparison_plan/cli/`; capture `pytest tests/study/test_dose_overlap_comparison.py --collect-only -k comparison -vv` output and archive under the artifact hub before editing docs.
-
-Next Up (optional): G2 dense/sparse real comparison runs once job builder + CLI validated.
+Next Up (optional):
+- Implement comparison execution (G2) once inventory confirms available NPZ + checkpoint assets.
