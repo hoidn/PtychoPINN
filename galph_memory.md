@@ -2129,3 +2129,15 @@
 - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/
 - Next actions for Ralph: Execute F2 Do Now — land logging + manifest telemetry, run targeted pytest, capture dry-run + real-run evidence, and update docs/test registries.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T193500Z: Phase F2 evidence orchestration plan
+- dwell: 1 (second consecutive planning loop for this focus; next supervisor turn must see implementation evidence)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F2)
+- Action type: Planning
+- Mode: TDD
+- Findings check: Re-read docs/findings.md IDs POLICY-001, CONFIG-001, CONFIG-002, DATA-001, OVERSAMPLING-001 — guidance unchanged; plan adheres.
+- Plan upkeep: Marked `phase_f_ptychi_baseline_plan/plan.md` row F2.1 `[P]` (instrumentation complete, CLI evidence pending). Confirmed Attempt #F2 artifacts under `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/{red,green,collect}/` and noted missing `cli/` / `real_run/` outputs.
+- Input refresh: Rewrote `input.md` with synthetic dataset prep script, dry-run + real-run commands, pytest reruns, doc/test/ledger tasks, and explicit artifact routing; kept branch + selectors intact.
+- Next actions for Ralph: generate Phase C/D synthetic NPZs via script, run CLI dry-run and first real LSQML job capturing logs, rerun targeted pytest + collect-only, update summary/test_strategy/docs, then log Attempt #78 results (or blockers) in docs/fix_plan.md.
+- Artifacts to monitor: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/{cli,real_run,docs}
+- <Action State>: [ready_for_implementation]
