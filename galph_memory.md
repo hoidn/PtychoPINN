@@ -2212,3 +2212,18 @@
   - Rewrote input.md to focus on tightening manifest/skip summary assertions, capturing collect-only proof, and staging sparse dry-run CLI evidence with AUTHORITATIVE_CMDS_DOC set.
 - Next actions for Ralph: follow Do Now — extend `test_cli_skips_missing_phase_d` assertions, rerun targeted pytest, capture collect-only + dry-run artifacts in the new hub, and update summary/ledger once evidence is in place.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T034500Z: Phase D sparse overlap downsampling plan
+- dwell: 1 (planning loop resetting implementation directive for sparse unblocker)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase D sparse overlap selection rescue
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T034500Z/phase_d_sparse_downsampling_fix/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) before scoping tasks.
+  - Re-read docs/findings IDs POLICY-001/CONFIG-001/DATA-001/OVERSAMPLING-001 plus docs/GRIDSIZE_N_GROUPS_GUIDE.md:143 and Attempt #20/#84 logs to confirm sparse failure stems from spacing guard (<10% acceptance).
+  - Authored plan/plan.md documenting tasks D7.1–D7.4 (RED test, greedy helper, pytest logging, doc sync) and reserved new artifact hub (plan/red/green/collect/docs).
+  - Rewrote input.md (Mode: TDD) directing Ralph to add `test_generate_overlap_views_sparse_downsamples`, implement deterministic greedy fallback in `overlap.py::generate_overlap_views`, capture RED/GREEN/collect logs, and update docs/TESTING_GUIDE.md + TEST_SUITE_INDEX after GREEN.
+  - Logged Attempt #85 planning entry in docs/fix_plan.md.
+- Next actions for Ralph: follow Do Now to land RED→GREEN cycle for the new test, implement greedy selector, archive logs in the new hub, update docs/test registries, and record Attempt #85 results.
+- <Action State>: [ready_for_implementation]
