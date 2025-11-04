@@ -2511,3 +2511,17 @@
   - Logged planning attempt in docs/fix_plan.md with findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001 reinforced.
 - Next actions for Ralph: land builder path update + pytest, regenerate dose_1000 data/training/recon assets under the hub, run dense train/test comparisons, and summarize evidence for ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T030500Z: Phase G manifest wiring & dense execution staging
+- dwell: 1 (second consecutive planning loop post 2025-11-07T010500Z)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (manifest-driven dense execution)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T030500Z/phase_g_execution_real_runs/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (up to date); reviewed latest summary + tests confirming dose-specific Phase E paths are fixed.
+  - Identified remaining gap: `execute_comparison_jobs` ignores Phase F manifests, so comparisons never receive `--tike_recon_path`; verified via code + tests fixture.
+  - Created new hub (plan/summary) and rewrote `input.md` with TDD Do Now (manifest parsing code + new pytest, followed by Phase C→G regeneration for dose=1000 dense). Set AUTHORITATIVE_CMDS_DOC guard for all commands.
+  - Logged planning attempt in docs/fix_plan.md with findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001 reiterated; highlighted expectation to capture red/green logs and CLI transcripts under new hub.
+- Next actions for Ralph: implement manifest parsing + test, rerun dense pipelines, execute comparisons, and archive logs; deliver GREEN evidence.
+- <Action State>: [ready_for_implementation]
