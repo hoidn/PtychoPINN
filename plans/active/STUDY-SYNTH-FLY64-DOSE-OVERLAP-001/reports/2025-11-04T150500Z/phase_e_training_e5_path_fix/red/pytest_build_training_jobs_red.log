@@ -1,0 +1,191 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix FAILED [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_build_training_jobs_matrix ________________________
+
+mock_phase_c_datasets = PosixPath('/tmp/pytest-of-ollie/pytest-94/test_build_training_jobs_matri0/phase_c')
+mock_phase_d_datasets = PosixPath('/tmp/pytest-of-ollie/pytest-94/test_build_training_jobs_matri0/phase_d')
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-94/test_build_training_jobs_matri0')
+
+    def test_build_training_jobs_matrix(mock_phase_c_datasets, mock_phase_d_datasets, tmp_path):
+        """
+        RED → GREEN TDD test for Phase E job matrix enumeration.
+    
+        Validates that build_training_jobs() produces exactly 9 jobs per dose:
+        - 1 baseline job (gs1, Phase C patched_train.npz/patched_test.npz)
+        - 2 overlap jobs (gs2, Phase D dense/sparse NPZs)
+    
+        Each TrainingJob must contain:
+        - dose (float, from StudyDesign.dose_list)
+        - view (str, one of {"baseline", "dense", "sparse"})
+        - gridsize (int, 1 or 2)
+        - train_data_path (str, validated existence)
+        - test_data_path (str, validated existence)
+        - artifact_dir (Path, deterministic from dose/view/gridsize)
+        - log_path (Path, derived from artifact_dir)
+    
+        References:
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:133-144
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+        - specs/data_contracts.md:190-260 (DATA-001 keys)
+        """
+        design = get_study_design()
+        artifact_root = tmp_path / "artifacts"
+    
+        # Call builder
+>       jobs = build_training_jobs(
+            phase_c_root=mock_phase_c_datasets,
+            phase_d_root=mock_phase_d_datasets,
+            artifact_root=artifact_root,
+            design=design,
+        )
+
+tests/study/test_dose_overlap_training.py:153: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+studies/fly64_dose_overlap/training.py:167: in build_training_jobs
+    overlap_job = TrainingJob(
+<string>:10: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = TrainingJob(dose=1000.0, view='dense', gridsize=2, train_data_path='/tmp/pytest-of-ollie/pytest-94/test_build_training...th=PosixPath('/tmp/pytest-of-ollie/pytest-94/test_build_training_jobs_matri0/artifacts/dose_1000/dense/gs2/train.log'))
+
+    def __post_init__(self):
+        """Validate job invariants."""
+        # Validate view
+        valid_views = {'baseline', 'dense', 'sparse'}
+        if self.view not in valid_views:
+            raise ValueError(
+                f"Invalid view '{self.view}'. Expected one of: {valid_views}"
+            )
+    
+        # Validate gridsize matches view
+        if self.view == 'baseline' and self.gridsize != 1:
+            raise ValueError(
+                f"Baseline jobs must use gridsize=1, got {self.gridsize}"
+            )
+        if self.view in {'dense', 'sparse'} and self.gridsize != 2:
+            raise ValueError(
+                f"Overlap jobs ({self.view}) must use gridsize=2, got {self.gridsize}"
+            )
+    
+        # Validate dataset paths exist
+        if not Path(self.train_data_path).exists():
+>           raise FileNotFoundError(
+                f"Training dataset not found: {self.train_data_path}"
+            )
+E           FileNotFoundError: Training dataset not found: /tmp/pytest-of-ollie/pytest-94/test_build_training_jobs_matri0/phase_d/dose_1000/dense_train.npz
+
+studies/fly64_dose_overlap/training.py:81: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix - FileNotFoundError: Training dataset not found: /tmp/pytest-of-ollie/pytest-94/test_build_training_jobs_matri0/phase_d/dose_1000/dense_train.npz
+============================== 1 failed in 4.40s ===============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_build_training_jobs_skips_missing_view FAILED [100%]
+
+=================================== FAILURES ===================================
+_________________ test_build_training_jobs_skips_missing_view __________________
+
+mock_phase_c_datasets = PosixPath('/tmp/pytest-of-ollie/pytest-95/test_build_training_jobs_skips0/phase_c')
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-95/test_build_training_jobs_skips0')
+
+    def test_build_training_jobs_skips_missing_view(mock_phase_c_datasets, tmp_path):
+        """
+        RED → GREEN TDD test for build_training_jobs with missing overlap view.
+    
+        Validates that build_training_jobs(..., allow_missing_phase_d=True):
+        - Skips overlap jobs (dense/sparse) when their NPZ files are missing
+        - Logs the omission with clear messaging
+        - Still returns baseline jobs (Phase C always complete)
+        - Does NOT raise FileNotFoundError when allow_missing_phase_d=True
+    
+        This scenario occurs when:
+        - Phase C completed successfully for all doses
+        - Phase D overlap filtering rejected some views due to spacing threshold
+          (e.g., sparse view with too few positions after filtering)
+    
+        Expected behavior:
+        - With allow_missing_phase_d=False (default): FileNotFoundError raised
+        - With allow_missing_phase_d=True: missing views logged and skipped
+    
+        References:
+            - input.md:10 (Phase E5 task: add allow_missing_phase_d switch)
+            - docs/fix_plan.md:33 (Attempt #20 CLI failure on sparse view rejection)
+            - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163
+              (Phase E exit criteria: CLI must handle missing overlap data gracefully)
+        """
+        import logging
+        from io import StringIO
+    
+        # Setup: Phase C complete, Phase D has dense but missing sparse view
+        phase_d_root = tmp_path / "phase_d"
+        artifact_root = tmp_path / "artifacts"
+        design = get_study_design()
+    
+        # Create minimal DATA-001 arrays for Phase D dense view only
+        minimal_data = {
+            'diffraction': np.random.rand(5, 64, 64).astype(np.float32),
+            'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
+            'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+            'Y': (np.random.rand(5, 128, 128) + 1j * np.random.rand(5, 128, 128)).astype(np.complex64),
+            'xcoords': np.random.rand(5).astype(np.float32),
+            'ycoords': np.random.rand(5).astype(np.float32),
+            'filenames': np.array([f'img_{i:04d}' for i in range(5)]),
+        }
+    
+        # Create Phase D with dense view present but sparse view missing
+        for dose in design.dose_list:
+            dose_dir = phase_d_root / f"dose_{int(dose)}"
+    
+            # Dense view: present (matches actual Phase D layout)
+            dense_dir = dose_dir / "dense"
+            dense_dir.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(dense_dir / "dense_train.npz", **minimal_data)
+            np.savez_compressed(dense_dir / "dense_test.npz", **minimal_data)
+    
+            # Sparse view: MISSING (simulates spacing threshold rejection)
+            # Do NOT create dose_dir / "sparse" directory or NPZ files
+    
+        # Capture log output to verify skip messaging
+        log_stream = StringIO()
+        handler = logging.StreamHandler(log_stream)
+        handler.setLevel(logging.INFO)
+        logger = logging.getLogger('studies.fly64_dose_overlap.training')
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+    
+        try:
+            # Test 1: With allow_missing_phase_d=False (default), expect FileNotFoundError
+            with pytest.raises(FileNotFoundError) as exc_info:
+>               jobs = build_training_jobs(
+                    phase_c_root=mock_phase_c_datasets,
+                    phase_d_root=phase_d_root,
+                    artifact_root=artifact_root,
+                    design=design,
+                    allow_missing_phase_d=False,  # strict validation
+                )
+E               TypeError: build_training_jobs() got an unexpected keyword argument 'allow_missing_phase_d'
+
+tests/study/test_dose_overlap_training.py:1113: TypeError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_build_training_jobs_skips_missing_view - TypeError: build_training_jobs() got an unexpected keyword argument 'allow_missing_phase_d'
+============================== 1 failed in 4.31s ===============================
