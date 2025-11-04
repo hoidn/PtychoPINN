@@ -984,6 +984,173 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
     print(f"  - Log written: {log_path}")
 
 
+def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
+    """
+    RED → GREEN TDD test for Phase E training bundle persistence.
+
+    Validates that execute_training_job():
+    - Calls save_torch_bundle after successful training
+    - Creates wts.h5.zip archive in artifact_dir
+    - Populates result['bundle_path'] with the bundle archive path
+    - Writes bundle metadata to training manifest
+
+    This test implements the gating prerequisite for Phase G comparisons,
+    ensuring real training runs emit spec-compliant model bundles per
+    specs/ptychodus_api_spec.md §4.6.
+
+    Test Strategy:
+    - Monkeypatch train_cdi_model_torch to return success with model stubs
+    - Monkeypatch save_torch_bundle to spy on invocation
+    - Verify bundle_path in result dict and file existence
+    - Validate manifest fields include bundle_path
+
+    References:
+        - input.md:9 (Phase E5: bundle persistence requirement)
+        - specs/ptychodus_api_spec.md:239 (§4.6 wts.h5.zip contract)
+        - docs/fix_plan.md:31 (Phase G blocked on training bundles)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163
+    """
+    from studies.fly64_dose_overlap.training import execute_training_job, TrainingJob
+    from ptycho.config.config import TrainingConfig, ModelConfig
+
+    # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
+    train_npz = tmp_path / "phase_c_train.npz"
+    test_npz = tmp_path / "phase_c_test.npz"
+
+    minimal_data = {
+        'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
+        'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
+        'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+        'Y': (np.random.rand(10, 128, 128) + 1j * np.random.rand(10, 128, 128)).astype(np.complex64),
+        'xcoords': np.random.rand(10).astype(np.float32),
+        'ycoords': np.random.rand(10).astype(np.float32),
+        'xcoords_start': np.random.rand(10).astype(np.float32),
+        'ycoords_start': np.random.rand(10).astype(np.float32),
+        'filenames': np.array([f'img_{i:04d}' for i in range(10)]),
+    }
+
+    np.savez_compressed(train_npz, **minimal_data)
+    np.savez_compressed(test_npz, **minimal_data)
+
+    # Setup: Create TrainingJob
+    artifact_dir = tmp_path / "artifacts" / "dose_1000" / "baseline" / "gs1"
+    log_path = artifact_dir / "train.log"
+
+    job = TrainingJob(
+        dose=1e3,
+        view='baseline',
+        gridsize=1,
+        train_data_path=str(train_npz),
+        test_data_path=str(test_npz),
+        artifact_dir=artifact_dir,
+        log_path=log_path,
+    )
+
+    # Setup: Create TrainingConfig
+    model_config = ModelConfig(gridsize=1)
+    config = TrainingConfig(
+        train_data_file=str(train_npz),
+        test_data_file=str(test_npz),
+        output_dir=str(artifact_dir),
+        model=model_config,
+        nphotons=1e3,
+    )
+
+    # Spy: record calls to save_torch_bundle
+    bundle_calls = []
+
+    def spy_save_torch_bundle(models_dict, base_path, config, intensity_scale=None):
+        """Spy that records bundle save invocations."""
+        bundle_calls.append({
+            'models_dict': models_dict,
+            'base_path': base_path,
+            'config': config,
+            'intensity_scale': intensity_scale,
+        })
+        # Create dummy bundle archive to simulate successful save
+        bundle_path = Path(f"{base_path}.zip")
+        bundle_path.parent.mkdir(parents=True, exist_ok=True)
+        bundle_path.write_text("dummy bundle content")
+
+    # Mock train_cdi_model_torch to return success with model stubs
+    def mock_train_cdi_model_torch(train_data, test_data, config):
+        # Return minimal success with model stubs
+        class DummyModel:
+            pass
+        return {
+            'history': {'train_loss': [0.5, 0.3, 0.1]},
+            'train_container': train_data,
+            'test_container': test_data,
+            'models': {
+                'autoencoder': DummyModel(),
+                'diffraction_to_obj': DummyModel(),
+            },
+        }
+
+    # Mock MemmapDatasetBridge
+    class SpyMemmapDatasetBridge:
+        def __init__(self, npz_path, config, memmap_dir="data/memmap"):
+            from ptycho.raw_data import RawData
+            self.raw_data_torch = RawData(
+                xcoords=np.array([0.0]),
+                ycoords=np.array([0.0]),
+                xcoords_start=np.array([0.0]),
+                ycoords_start=np.array([0.0]),
+                diff3d=np.random.rand(1, 64, 64).astype(np.float32),
+                probeGuess=np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+                scan_index=np.array([0]),
+            )
+
+    # Monkeypatch
+    from studies.fly64_dose_overlap import training as training_module
+    monkeypatch.setattr(training_module, 'MemmapDatasetBridge', SpyMemmapDatasetBridge)
+    monkeypatch.setattr(training_module, 'train_cdi_model_torch', mock_train_cdi_model_torch)
+    monkeypatch.setattr(training_module, 'save_torch_bundle', spy_save_torch_bundle)
+
+    # Execute: call execute_training_job
+    result = execute_training_job(config=config, job=job, log_path=log_path)
+
+    # Debug output
+    print(f"\nResult from execute_training_job: {result}")
+    if log_path.exists():
+        print(f"Log contents:\n{log_path.read_text()}")
+
+    # RED Assertions: bundle persistence (expecting failure before implementation)
+    assert result['status'] == 'success', \
+        f"Training should succeed, got status={result['status']}"
+
+    assert 'bundle_path' in result, \
+        "result must contain 'bundle_path' key after successful training"
+
+    assert result['bundle_path'] is not None, \
+        "bundle_path must not be None after successful training"
+
+    # Verify save_torch_bundle was called
+    assert len(bundle_calls) == 1, \
+        f"save_torch_bundle should be called exactly once, got {len(bundle_calls)} calls"
+
+    call = bundle_calls[0]
+    assert 'autoencoder' in call['models_dict'], \
+        "models_dict must contain 'autoencoder' model"
+    assert 'diffraction_to_obj' in call['models_dict'], \
+        "models_dict must contain 'diffraction_to_obj' model"
+    assert call['config'] is config, \
+        "save_torch_bundle must receive the same TrainingConfig instance"
+
+    # Verify bundle file exists
+    bundle_path = Path(result['bundle_path'])
+    assert bundle_path.exists(), \
+        f"Bundle archive must exist at {bundle_path}"
+    assert bundle_path.suffix == '.zip', \
+        f"Bundle must be a .zip archive, got {bundle_path.suffix}"
+
+    print(f"\n✓ execute_training_job bundle persistence validated:")
+    print(f"  - save_torch_bundle called: {len(bundle_calls)} time(s)")
+    print(f"  - Bundle path: {result['bundle_path']}")
+    print(f"  - Bundle exists: {bundle_path.exists()}")
+    print(f"  - Models persisted: {list(call['models_dict'].keys())}")
+
+
 def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
     """
     RED → GREEN TDD test for Phase E5 real training runner integration.

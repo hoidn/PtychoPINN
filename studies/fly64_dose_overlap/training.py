@@ -27,6 +27,7 @@ from ptycho.config.config import update_legacy_dict
 from ptycho import params as p
 from ptycho_torch.memmap_bridge import MemmapDatasetBridge
 from ptycho_torch.workflows.components import train_cdi_model_torch
+from ptycho_torch.model_manager import save_torch_bundle
 
 
 @dataclass
@@ -480,11 +481,46 @@ def execute_training_job(*, config, job, log_path):
                 # Take the most recent checkpoint
                 checkpoint_path = str(sorted(checkpoint_candidates, key=lambda p: p.stat().st_mtime)[-1])
 
+        # Step 5: Persist model bundle (specs/ptychodus_api_spec.md §4.6)
+        # Create wts.h5.zip archive for downstream Phase G comparisons and
+        # ModelManager consumers. Bundle path follows Ptychodus naming convention.
+        bundle_path = None
+        if 'models' in training_results and training_results['models']:
+            try:
+                # Define bundle base path (without .zip extension)
+                bundle_base = output_dir / "wts.h5"
+
+                with log_path.open('a') as f:
+                    f.write(f"Persisting model bundle to {bundle_base}.zip...\n")
+
+                # Call save_torch_bundle with dual-model dict
+                # (autoencoder + diffraction_to_obj per spec §4.6 requirement)
+                save_torch_bundle(
+                    models_dict=training_results['models'],
+                    base_path=str(bundle_base),
+                    config=config,
+                    intensity_scale=None,  # Extract from params.cfg if needed
+                )
+
+                # Record bundle path for manifest emission
+                bundle_path = str(bundle_base.with_suffix('.h5.zip'))
+
+                with log_path.open('a') as f:
+                    f.write(f"Model bundle saved: {bundle_path}\n")
+            except Exception as e:
+                # Log bundle persistence failure but don't fail the training run
+                with log_path.open('a') as f:
+                    f.write(f"Warning: Bundle persistence failed: {type(e).__name__}: {e}\n")
+                    import traceback
+                    f.write(traceback.format_exc())
+                # Leave bundle_path as None to signal missing bundle
+
         result = {
             'status': 'success',
             'final_loss': final_loss,
             'epochs_completed': len(training_results.get('history', {}).get('train_loss', [])),
             'checkpoint_path': checkpoint_path,
+            'bundle_path': bundle_path,  # NEW: bundle archive path for Phase G
             'training_results': training_results,  # Include full results for downstream use
         }
 
@@ -494,6 +530,7 @@ def execute_training_job(*, config, job, log_path):
             f.write(f"Final loss: {final_loss}\n")
             f.write(f"Epochs completed: {result['epochs_completed']}\n")
             f.write(f"Checkpoint path: {checkpoint_path}\n")
+            f.write(f"Bundle path: {bundle_path}\n")
 
         return result
 
