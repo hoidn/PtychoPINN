@@ -1447,24 +1447,26 @@ def test_build_training_jobs_skips_missing_view(mock_phase_c_datasets, tmp_path)
         logger.removeHandler(handler)
 
 
-def test_training_cli_records_bundle_path(tmp_path, monkeypatch):
+def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
     """
-    RED → GREEN TDD test for Phase E6 CLI manifest bundle_path normalization.
+    RED → GREEN TDD test for Phase E6 CLI manifest bundle_path normalization and stdout format.
 
     Validates that the training CLI main() function:
     - Records bundle_path in manifest for each job (relative to job's artifact_dir)
     - Uses artifact-relative paths (not absolute workstation-specific paths)
     - Preserves skip_summary schema unchanged (no interference with bundle fields)
     - Handles missing bundles gracefully (None or omitted field)
+    - NEW Phase E6: Emits bundle/SHA lines to stdout with view/dose context for traceability
 
     Test Strategy:
     - Monkeypatch execute_training_job to return mock results with bundle_path
-    - Execute CLI with --dry-run to skip actual training but test manifest emission
+    - Execute CLI without --dry-run to invoke execute_training_job (mocked)
     - Validate manifest JSON includes bundle_path field for each job entry
     - Verify paths are relative to artifact_dir (e.g., "wts.h5.zip" not "/abs/path/wts.h5.zip")
+    - NEW: Capture stdout with capsys and assert bundle/SHA lines include view/dose context
 
     References:
-        - input.md:9 (Phase E6: manifest bundle_path normalization requirement)
+        - input.md:10 (Phase E6: CLI stdout digest checks with view/dose context)
         - specs/ptychodus_api_spec.md:239 (§4.6 wts.h5.zip persistence contract)
         - docs/TESTING_GUIDE.md:101-140 (Phase E CLI testing requirements)
         - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:268
@@ -1607,7 +1609,64 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch):
     assert 'skipped_views' in manifest, \
         "Manifest must contain skipped_views field (Phase E5 requirement)"
 
-    print(f"\n✓ CLI manifest bundle_path + bundle_sha256 validated:")
+    # NEW Phase E6 Assertions: Validate stdout format includes view/dose context
+    # Capture stdout using capsys fixture
+    captured = capsys.readouterr()
+    stdout_lines = captured.out.splitlines()
+
+    # Extract bundle and SHA256 lines from stdout
+    bundle_lines = [line for line in stdout_lines if '→ Bundle [' in line]
+    sha256_lines = [line for line in stdout_lines if '→ SHA256 [' in line]
+
+    # Assertions: 2 jobs (baseline + dense) should produce 2 bundle + 2 SHA256 lines
+    assert len(bundle_lines) == 2, \
+        f"Expected 2 bundle lines in stdout (baseline + dense), got {len(bundle_lines)}"
+    assert len(sha256_lines) == 2, \
+        f"Expected 2 SHA256 lines in stdout (baseline + dense), got {len(sha256_lines)}"
+
+    # Validate format of bundle lines: "    → Bundle [view/dose=X.Xe+YY]: path"
+    for line in bundle_lines:
+        # Extract view/dose context from line
+        # Expected format: "    → Bundle [baseline/dose=1.0e+03]: wts.h5.zip"
+        assert '[' in line and '/dose=' in line and ']:' in line, \
+            f"Bundle line must include [view/dose=X.Xe+YY] context, got: {line}"
+
+        # Extract view name from line
+        view_match = line.split('[')[1].split('/')[0]
+        assert view_match in {'baseline', 'dense'}, \
+            f"Bundle line view must be 'baseline' or 'dense', got: {view_match}"
+
+        # Extract dose from line
+        dose_match = line.split('dose=')[1].split(']')[0]
+        # Note: Python's .0e format produces '1e+03' not '1.0e+03' for dose=1000
+        assert dose_match == '1e+03', \
+            f"Bundle line dose must be '1e+03' (from --dose 1000), got: {dose_match}"
+
+    # Validate format of SHA256 lines: "    → SHA256 [view/dose=X.Xe+YY]: checksum"
+    for line in sha256_lines:
+        # Expected format: "    → SHA256 [baseline/dose=1.0e+03]: abc123..."
+        assert '[' in line and '/dose=' in line and ']:' in line, \
+            f"SHA256 line must include [view/dose=X.Xe+YY] context, got: {line}"
+
+        # Extract view name from line
+        view_match = line.split('[')[1].split('/')[0]
+        assert view_match in {'baseline', 'dense'}, \
+            f"SHA256 line view must be 'baseline' or 'dense', got: {view_match}"
+
+        # Extract dose from line
+        dose_match = line.split('dose=')[1].split(']')[0]
+        # Note: Python's .0e format produces '1e+03' not '1.0e+03' for dose=1000
+        assert dose_match == '1e+03', \
+            f"SHA256 line dose must be '1e+03' (from --dose 1000), got: {dose_match}"
+
+        # Extract checksum from line (after the ]: )
+        checksum = line.split(']: ')[1]
+        assert len(checksum) == 64, \
+            f"SHA256 checksum must be 64 characters, got {len(checksum)}: {checksum}"
+        assert all(c in '0123456789abcdef' for c in checksum), \
+            f"SHA256 checksum must be lowercase hex, got: {checksum}"
+
+    print(f"\n✓ CLI manifest bundle_path + bundle_sha256 + stdout format validated:")
     print(f"  - training_manifest.json created at {manifest_path}")
     print(f"  - Manifest contains {len(manifest['jobs'])} job entries")
     print(f"  - Each job result includes bundle_path field (relative to artifact_dir)")
@@ -1615,3 +1674,7 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch):
     print(f"  - skip_summary schema preserved (no interference)")
     print(f"  - Sample bundle_path: {manifest['jobs'][0]['result']['bundle_path']}")
     print(f"  - Sample bundle_sha256: {manifest['jobs'][0]['result']['bundle_sha256'][:16]}...")
+    print(f"  - Stdout contains {len(bundle_lines)} bundle lines with [view/dose=X.Xe+YY] context")
+    print(f"  - Stdout contains {len(sha256_lines)} SHA256 lines with [view/dose=X.Xe+YY] context")
+    print(f"  - Sample stdout bundle line: {bundle_lines[0]}")
+    print(f"  - Sample stdout SHA256 line: {sha256_lines[0]}")
