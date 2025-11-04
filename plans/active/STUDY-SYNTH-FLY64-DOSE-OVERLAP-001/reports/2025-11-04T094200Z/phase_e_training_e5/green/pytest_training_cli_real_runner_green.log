@@ -1,0 +1,286 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_training_cli_invokes_real_runner FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_training_cli_invokes_real_runner _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-65/test_training_cli_invokes_real0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f4c37c89c50>
+
+    def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for Phase E5 real training runner integration.
+    
+        Validates that the training CLI main() function, when invoked without --dry-run:
+        - Invokes a production runner helper (execute_training_job) instead of stub_runner
+        - Passes resolved TrainingJob and TrainingConfig to the runner
+        - Runner helper performs CONFIG-001 bridging (update_legacy_dict)
+        - Runner helper delegates to actual backend trainer (e.g., train_cdi_model_torch)
+        - Artifacts (logs, manifests) are written under --artifact-root
+    
+        Test strategy: Monkeypatch execute_training_job to spy on invocation without
+        executing full training. Validate that CLI calls the real runner with proper
+        parameters when --dry-run is NOT set.
+    
+        References:
+        - input.md:10 (Phase E5: wire CLI to real runner with deterministic execution)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md Phase E future item 0
+        - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 bridging)
+        - docs/workflows/pytorch.md §12 (canonical PyTorch training invocation)
+        """
+        import sys
+        import json
+        from studies.fly64_dose_overlap import training
+        from ptycho.config.config import TrainingConfig
+    
+        # Setup: Create mock Phase C and Phase D directories
+        phase_c_root = tmp_path / "phase_c"
+        phase_d_root = tmp_path / "phase_d"
+        artifact_root = tmp_path / "artifacts"
+    
+        phase_c_root.mkdir()
+        phase_d_root.mkdir()
+    
+        # Create minimal dataset structure for dose=1000 baseline
+        dose = 1000
+        dose_dir_c = phase_c_root / f"dose_{dose}"
+        dose_dir_c.mkdir()
+        (dose_dir_c / "patched_train.npz").touch()
+        (dose_dir_c / "patched_test.npz").touch()
+    
+        # Spy: record calls to execute_training_job (the real runner helper)
+        runner_calls = []
+    
+        def spy_execute_training_job(*, config, job, log_path):
+            """Spy that records invocation signature for validation."""
+            runner_calls.append({
+                'config': config,
+                'job': job,
+                'log_path': log_path,
+            })
+            # Return minimal success result to satisfy CLI expectations
+            return {'status': 'success', 'final_loss': 0.123}
+    
+        # Monkeypatch the real runner helper (NOT stub_runner)
+        # Assumption: execute_training_job is the production helper added in E5
+        monkeypatch.setattr(training, 'execute_training_job', spy_execute_training_job)
+    
+        # Monkeypatch CLI to default to execute_training_job instead of stub_runner
+        # This requires main() to be updated to accept runner injection or use execute_training_job
+        # For now, we'll assume main() is refactored to call execute_training_job by default
+    
+        # Execute CLI without --dry-run for baseline job
+        test_argv = [
+            'training.py',
+            '--phase-c-root', str(phase_c_root),
+            '--phase-d-root', str(phase_d_root),
+            '--artifact-root', str(artifact_root),
+            '--dose', '1000',
+            '--view', 'baseline',
+            # No --dry-run flag → should invoke real runner
+        ]
+        monkeypatch.setattr(sys, 'argv', test_argv)
+    
+>       training.main()
+
+tests/study/test_dose_overlap_training.py:770: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+studies/fly64_dose_overlap/training.py:514: in main
+    all_jobs = build_training_jobs(
+studies/fly64_dose_overlap/training.py:165: in build_training_jobs
+    overlap_job = TrainingJob(
+<string>:10: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = TrainingJob(dose=1000.0, view='dense', gridsize=2, train_data_path='/tmp/pytest-of-ollie/pytest-65/test_training_cli_i...th=PosixPath('/tmp/pytest-of-ollie/pytest-65/test_training_cli_invokes_real0/artifacts/dose_1000/dense/gs2/train.log'))
+
+    def __post_init__(self):
+        """Validate job invariants."""
+        # Validate view
+        valid_views = {'baseline', 'dense', 'sparse'}
+        if self.view not in valid_views:
+            raise ValueError(
+                f"Invalid view '{self.view}'. Expected one of: {valid_views}"
+            )
+    
+        # Validate gridsize matches view
+        if self.view == 'baseline' and self.gridsize != 1:
+            raise ValueError(
+                f"Baseline jobs must use gridsize=1, got {self.gridsize}"
+            )
+        if self.view in {'dense', 'sparse'} and self.gridsize != 2:
+            raise ValueError(
+                f"Overlap jobs ({self.view}) must use gridsize=2, got {self.gridsize}"
+            )
+    
+        # Validate dataset paths exist
+        if not Path(self.train_data_path).exists():
+>           raise FileNotFoundError(
+                f"Training dataset not found: {self.train_data_path}"
+            )
+E           FileNotFoundError: Training dataset not found: /tmp/pytest-of-ollie/pytest-65/test_training_cli_invokes_real0/phase_d/dose_1000/dense_train.npz
+
+studies/fly64_dose_overlap/training.py:79: FileNotFoundError
+----------------------------- Captured stdout call -----------------------------
+Enumerating training jobs from Phase C (/tmp/pytest-of-ollie/pytest-65/test_training_cli_invokes_real0/phase_c) and Phase D (/tmp/pytest-of-ollie/pytest-65/test_training_cli_invokes_real0/phase_d)...
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_training_cli_invokes_real_runner - FileNotFoundError: Training dataset not found: /tmp/pytest-of-ollie/pytest-65/test_training_cli_invokes_real0/phase_d/dose_1000/dense_train.npz
+============================== 1 failed in 3.12s ===============================
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_training_cli_invokes_real_runner FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_training_cli_invokes_real_runner _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-66/test_training_cli_invokes_real0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7541bca7de90>
+
+    def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for Phase E5 real training runner integration.
+    
+        Validates that the training CLI main() function, when invoked without --dry-run:
+        - Invokes a production runner helper (execute_training_job) instead of stub_runner
+        - Passes resolved TrainingJob and TrainingConfig to the runner
+        - Runner helper performs CONFIG-001 bridging (update_legacy_dict)
+        - Runner helper delegates to actual backend trainer (e.g., train_cdi_model_torch)
+        - Artifacts (logs, manifests) are written under --artifact-root
+    
+        Test strategy: Monkeypatch execute_training_job to spy on invocation without
+        executing full training. Validate that CLI calls the real runner with proper
+        parameters when --dry-run is NOT set.
+    
+        References:
+        - input.md:10 (Phase E5: wire CLI to real runner with deterministic execution)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md Phase E future item 0
+        - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 bridging)
+        - docs/workflows/pytorch.md §12 (canonical PyTorch training invocation)
+        """
+        import sys
+        import json
+        from studies.fly64_dose_overlap import training
+        from ptycho.config.config import TrainingConfig
+    
+        # Setup: Create mock Phase C and Phase D directories
+        phase_c_root = tmp_path / "phase_c"
+        phase_d_root = tmp_path / "phase_d"
+        artifact_root = tmp_path / "artifacts"
+    
+        phase_c_root.mkdir()
+        phase_d_root.mkdir()
+    
+        # Create minimal dataset structure for dose=1000 (all views to satisfy build_training_jobs)
+        dose = 1000
+        dose_dir_c = phase_c_root / f"dose_{dose}"
+        dose_dir_d = phase_d_root / f"dose_{dose}"
+        dose_dir_c.mkdir()
+        dose_dir_d.mkdir()
+    
+        # Phase C: baseline patched datasets
+        (dose_dir_c / "patched_train.npz").touch()
+        (dose_dir_c / "patched_test.npz").touch()
+    
+        # Phase D: overlap view datasets (needed even though we filter to baseline,
+        # because build_training_jobs enumerates all jobs first)
+        for view in ['dense', 'sparse']:
+            (dose_dir_d / f"{view}_train.npz").touch()
+            (dose_dir_d / f"{view}_test.npz").touch()
+    
+        # Spy: record calls to execute_training_job (the real runner helper)
+        runner_calls = []
+    
+        def spy_execute_training_job(*, config, job, log_path):
+            """Spy that records invocation signature for validation."""
+            runner_calls.append({
+                'config': config,
+                'job': job,
+                'log_path': log_path,
+            })
+            # Return minimal success result to satisfy CLI expectations
+            return {'status': 'success', 'final_loss': 0.123}
+    
+        # Monkeypatch the real runner helper (NOT stub_runner)
+        # Assumption: execute_training_job is the production helper added in E5
+        monkeypatch.setattr(training, 'execute_training_job', spy_execute_training_job)
+    
+        # Monkeypatch CLI to default to execute_training_job instead of stub_runner
+        # This requires main() to be updated to accept runner injection or use execute_training_job
+        # For now, we'll assume main() is refactored to call execute_training_job by default
+    
+        # Execute CLI without --dry-run for baseline job
+        test_argv = [
+            'training.py',
+            '--phase-c-root', str(phase_c_root),
+            '--phase-d-root', str(phase_d_root),
+            '--artifact-root', str(artifact_root),
+            '--dose', '1000',
+            '--view', 'baseline',
+            # No --dry-run flag → should invoke real runner
+        ]
+        monkeypatch.setattr(sys, 'argv', test_argv)
+    
+>       training.main()
+
+tests/study/test_dose_overlap_training.py:780: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+studies/fly64_dose_overlap/training.py:514: in main
+    all_jobs = build_training_jobs(
+studies/fly64_dose_overlap/training.py:152: in build_training_jobs
+    baseline_job = TrainingJob(
+<string>:10: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = TrainingJob(dose=10000.0, view='baseline', gridsize=1, train_data_path='/tmp/pytest-of-ollie/pytest-66/test_training_c...osixPath('/tmp/pytest-of-ollie/pytest-66/test_training_cli_invokes_real0/artifacts/dose_10000/baseline/gs1/train.log'))
+
+    def __post_init__(self):
+        """Validate job invariants."""
+        # Validate view
+        valid_views = {'baseline', 'dense', 'sparse'}
+        if self.view not in valid_views:
+            raise ValueError(
+                f"Invalid view '{self.view}'. Expected one of: {valid_views}"
+            )
+    
+        # Validate gridsize matches view
+        if self.view == 'baseline' and self.gridsize != 1:
+            raise ValueError(
+                f"Baseline jobs must use gridsize=1, got {self.gridsize}"
+            )
+        if self.view in {'dense', 'sparse'} and self.gridsize != 2:
+            raise ValueError(
+                f"Overlap jobs ({self.view}) must use gridsize=2, got {self.gridsize}"
+            )
+    
+        # Validate dataset paths exist
+        if not Path(self.train_data_path).exists():
+>           raise FileNotFoundError(
+                f"Training dataset not found: {self.train_data_path}"
+            )
+E           FileNotFoundError: Training dataset not found: /tmp/pytest-of-ollie/pytest-66/test_training_cli_invokes_real0/phase_c/dose_10000/patched_train.npz
+
+studies/fly64_dose_overlap/training.py:79: FileNotFoundError
+----------------------------- Captured stdout call -----------------------------
+Enumerating training jobs from Phase C (/tmp/pytest-of-ollie/pytest-66/test_training_cli_invokes_real0/phase_c) and Phase D (/tmp/pytest-of-ollie/pytest-66/test_training_cli_invokes_real0/phase_d)...
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_training_cli_invokes_real_runner - FileNotFoundError: Training dataset not found: /tmp/pytest-of-ollie/pytest-66/test_training_cli_invokes_real0/phase_c/dose_10000/patched_train.npz
+============================== 1 failed in 3.26s ===============================

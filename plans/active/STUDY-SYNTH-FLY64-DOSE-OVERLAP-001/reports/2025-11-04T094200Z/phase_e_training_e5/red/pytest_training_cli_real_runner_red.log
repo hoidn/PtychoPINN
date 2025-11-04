@@ -1,0 +1,81 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_training_cli_invokes_real_runner FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_training_cli_invokes_real_runner _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-64/test_training_cli_invokes_real0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x776c42d994d0>
+
+    def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for Phase E5 real training runner integration.
+    
+        Validates that the training CLI main() function, when invoked without --dry-run:
+        - Invokes a production runner helper (execute_training_job) instead of stub_runner
+        - Passes resolved TrainingJob and TrainingConfig to the runner
+        - Runner helper performs CONFIG-001 bridging (update_legacy_dict)
+        - Runner helper delegates to actual backend trainer (e.g., train_cdi_model_torch)
+        - Artifacts (logs, manifests) are written under --artifact-root
+    
+        Test strategy: Monkeypatch execute_training_job to spy on invocation without
+        executing full training. Validate that CLI calls the real runner with proper
+        parameters when --dry-run is NOT set.
+    
+        References:
+        - input.md:10 (Phase E5: wire CLI to real runner with deterministic execution)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md Phase E future item 0
+        - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 bridging)
+        - docs/workflows/pytorch.md §12 (canonical PyTorch training invocation)
+        """
+        import sys
+        import json
+        from studies.fly64_dose_overlap import training
+        from ptycho.config.config import TrainingConfig
+    
+        # Setup: Create mock Phase C and Phase D directories
+        phase_c_root = tmp_path / "phase_c"
+        phase_d_root = tmp_path / "phase_d"
+        artifact_root = tmp_path / "artifacts"
+    
+        phase_c_root.mkdir()
+        phase_d_root.mkdir()
+    
+        # Create minimal dataset structure for dose=1000 baseline
+        dose = 1000
+        dose_dir_c = phase_c_root / f"dose_{dose}"
+        dose_dir_c.mkdir()
+        (dose_dir_c / "patched_train.npz").touch()
+        (dose_dir_c / "patched_test.npz").touch()
+    
+        # Spy: record calls to execute_training_job (the real runner helper)
+        runner_calls = []
+    
+        def spy_execute_training_job(*, config, job, log_path):
+            """Spy that records invocation signature for validation."""
+            runner_calls.append({
+                'config': config,
+                'job': job,
+                'log_path': log_path,
+            })
+            # Return minimal success result to satisfy CLI expectations
+            return {'status': 'success', 'final_loss': 0.123}
+    
+        # Monkeypatch the real runner helper (NOT stub_runner)
+        # Assumption: execute_training_job is the production helper added in E5
+>       monkeypatch.setattr(training, 'execute_training_job', spy_execute_training_job)
+E       AttributeError: <module 'studies.fly64_dose_overlap.training' from '/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py'> has no attribute 'execute_training_job'
+
+tests/study/test_dose_overlap_training.py:752: AttributeError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_training_cli_invokes_real_runner - AttributeError: <module 'studies.fly64_dose_overlap.training' from '/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py'> has no attribute 'execute_training_job'
+============================== 1 failed in 3.33s ===============================
