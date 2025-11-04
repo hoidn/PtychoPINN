@@ -209,6 +209,43 @@ python -m studies.fly64_dose_overlap.training \
 - `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:138-184` — Expanded Phase E section from placeholder to full deliverables summary (E1-E5.5) with artifact hubs, test coverage, and CLI command.
 - This file (test_strategy.md) — Replaced "Future Phases (Pending)" with Phase E5 COMPLETE section documenting selectors, coverage, execution proof, and findings alignment.
 
+### Phase F — PtyChi LSQML Baseline (In Progress)
+**Test module:** `tests/study/test_dose_overlap_reconstruction.py`
+**Selectors (Active):**
+- `pytest tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest -vv` (job manifest builder: RED phase scaffold; GREEN implementation pending)
+- `pytest tests/study/test_dose_overlap_reconstruction.py --collect-only -vv` (collection proof: pending)
+
+**Coverage Delivered (F0 — Test Infrastructure Prep):**
+- Test Strategy Update: This section documents Phase F selectors, execution proof requirements (RED/GREEN logs under `phase_f_ptychi_baseline/{red,green}/`), and artifact expectations per template guidance.
+- RED Test: `test_build_ptychi_jobs_manifest` asserts that `build_ptychi_jobs()` constructs a manifest with:
+  - 3 doses × 2 views (dense, sparse) + 1 baseline per dose = 7 jobs per dose (21 total jobs for study)
+  - Each job contains CLI arguments for `scripts/reconstruction/ptychi_reconstruct_tike.py` with:
+    - `--algorithm LSQML`
+    - `--num-epochs 100` (baseline; parameterizable)
+    - `--input-npz` pointing to Phase E training outputs or Phase D overlap datasets
+    - `--output-dir` derived from dose/view/gridsize
+  - Manifest structure validated against DATA-001 NPZ path expectations
+  - Job builder raises `NotImplementedError` until GREEN implementation
+- Stub Module: `studies/fly64_dose_overlap/reconstruction.py::build_ptychi_jobs` placeholder raising NotImplementedError
+- Module Exposure: `studies/fly64_dose_overlap/__init__.py` updated to expose reconstruction module
+
+**Execution Proof (F0):**
+- RED log: `reports/2025-11-04T094500Z/phase_f_ptychi_baseline/red/pytest_phase_f_red.log` (NotImplementedError expected)
+- Collection proof: `reports/2025-11-04T094500Z/phase_f_ptychi_baseline/collect/pytest_collect.log` (post-RED)
+- GREEN log: pending F1 implementation
+- CLI dry-run: pending F1.3
+
+**Findings Alignment:**
+- CONFIG-001: Job builder remains pure (no params.cfg mutation); CONFIG-001 bridge deferred to actual LSQML runner invocation (Phase F2)
+- DATA-001: Test fixtures reference Phase E training manifest artifacts; builder validates NPZ paths against canonical contract
+- POLICY-001: Pty-chi uses PyTorch internally (acceptable per study design); no PtychoPINN backend switch required
+- OVERSAMPLING-001: Reconstruction jobs inherit neighbor_count=7 from Phase D/E artifacts; no additional K≥C validation needed in builder
+
+**Coverage Planned (F1 — Job Orchestrator, pending):**
+- `build_ptychi_jobs()` implementation returning list of `ReconstructionJob` dataclasses
+- CLI entry point `python -m studies.fly64_dose_overlap.reconstruction` with filters (`--dose`, `--view`, `--dry-run`)
+- Additional tests for CLI invocation, manifest emission, and subprocess runner stub
+
 ### Future Phases (Pending)
 1) Phase E6 — Aggregated gs2 training evidence
    - Capture end-to-end training runs (non-dry-run) for dense/sparse overlap conditions with deterministic seeds.
