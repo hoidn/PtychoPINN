@@ -1,0 +1,158 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging FAILED [100%]
+
+=================================== FAILURES ===================================
+___________________ test_training_cli_manifest_and_bridging ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x739eb0100890>
+
+    def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for training CLI manifest emission and CONFIG-001 bridging.
+    
+        Validates that the training CLI main() function:
+        - Emits a training_manifest.json file under --artifact-root
+        - Manifest contains job metadata (dose, view, gridsize, dataset paths, log paths)
+        - Manifest exposes skipped_views array with skip metadata (dose, view, reason)
+        - Ensures run_training_job is called with proper CONFIG-001 bridge
+        - Writes CLI stdout/stderr log to --artifact-root for traceability
+    
+        Test strategy: Mock run_training_job to verify it's called (CONFIG-001 handled internally),
+        execute CLI with --dry-run and deliberately missing sparse view data, validate manifest
+        JSON structure and content including skipped_views field.
+    
+        References:
+        - input.md:10 (Phase E5: manifest skip reporting requirement)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+        """
+        import sys
+        import json
+        from studies.fly64_dose_overlap import training
+    
+        # Setup: Create mock Phase C and Phase D directories
+        phase_c_root = tmp_path / "phase_c"
+        phase_d_root = tmp_path / "phase_d"
+        artifact_root = tmp_path / "artifacts"
+    
+        phase_c_root.mkdir()
+        phase_d_root.mkdir()
+    
+        # Create minimal dataset structure for all doses (to match StudyDesign defaults)
+        # Phase E5: Deliberately omit sparse view for dose=1000 to test skip reporting
+        for dose in [1000, 10000, 100000]:
+            dose_dir_c = phase_c_root / f"dose_{dose}"
+            dose_dir_d = phase_d_root / f"dose_{dose}"
+            dose_dir_c.mkdir()
+            dose_dir_d.mkdir()
+    
+            # Phase C patched datasets
+            (dose_dir_c / "patched_train.npz").touch()
+            (dose_dir_c / "patched_test.npz").touch()
+    
+            # Phase D overlap views (match actual Phase D layout: dose/view/view_split.npz)
+            # Phase E5: Only create dense view for dose=1000; skip sparse to test skip reporting
+            views = ['dense'] if dose == 1000 else ['dense', 'sparse']
+            for view in views:
+                view_dir = dose_dir_d / view
+                view_dir.mkdir(parents=True, exist_ok=True)
+                (view_dir / f"{view}_train.npz").touch()
+                (view_dir / f"{view}_test.npz").touch()
+    
+        # Spy: Track run_training_job calls
+        run_calls = []
+    
+        def mock_run_training_job(job, runner, dry_run=False):
+            run_calls.append({
+                'dose': job.dose,
+                'view': job.view,
+                'gridsize': job.gridsize,
+            })
+            return {'status': 'mock_success'}
+    
+        monkeypatch.setattr(training, 'run_training_job', mock_run_training_job)
+    
+        # Execute CLI with dose filter to reduce output
+        test_argv = [
+            'training.py',
+            '--phase-c-root', str(phase_c_root),
+            '--phase-d-root', str(phase_d_root),
+            '--artifact-root', str(artifact_root),
+            '--dose', '1000',
+            '--dry-run',
+        ]
+        monkeypatch.setattr(sys, 'argv', test_argv)
+    
+        training.main()
+    
+        # Assertions: manifest file created
+        manifest_path = artifact_root / "training_manifest.json"
+        assert manifest_path.exists(), \
+            f"training_manifest.json not found at {manifest_path}"
+    
+        # Assertions: manifest content is valid JSON
+        with manifest_path.open('r') as f:
+            manifest = json.load(f)
+    
+        assert isinstance(manifest, dict), \
+            f"Manifest must be a dict, got {type(manifest)}"
+    
+        # Assertions: manifest contains expected keys
+        required_keys = {'timestamp', 'phase_c_root', 'phase_d_root', 'artifact_root', 'jobs'}
+        missing_keys = required_keys - manifest.keys()
+        assert not missing_keys, \
+            f"Manifest missing keys: {missing_keys}"
+    
+        # Assertions: jobs list matches executed jobs (2 for dose=1000: baseline + dense, sparse skipped)
+        assert isinstance(manifest['jobs'], list), \
+            f"Manifest 'jobs' must be a list, got {type(manifest['jobs'])}"
+        assert len(manifest['jobs']) == 2, \
+            f"Expected 2 jobs in manifest for dose=1000 (baseline + dense, sparse skipped), got {len(manifest['jobs'])}"
+    
+        # Assertions: each job entry contains required metadata
+        for job_entry in manifest['jobs']:
+            required_job_keys = {'dose', 'view', 'gridsize', 'train_data_path', 'test_data_path', 'log_path'}
+            missing_job_keys = required_job_keys - job_entry.keys()
+            assert not missing_job_keys, \
+                f"Job entry missing keys: {missing_job_keys}"
+    
+            assert job_entry['dose'] == 1000.0, \
+                f"Job dose must be 1000.0, got {job_entry['dose']}"
+            assert job_entry['view'] in {'baseline', 'dense', 'sparse'}, \
+                f"Job view must be one of baseline/dense/sparse, got {job_entry['view']}"
+    
+        # Assertions: run_training_job was called for each job (2 for dose=1000: baseline + dense)
+        assert len(run_calls) == 2, \
+            f"Expected run_training_job called 2 times (baseline + dense), got {len(run_calls)}"
+    
+        # NEW Phase E5 Assertions: manifest contains skipped_views with missing sparse view
+>       assert 'skipped_views' in manifest, \
+            "Manifest must contain 'skipped_views' field for Phase E5 skip reporting"
+E       AssertionError: Manifest must contain 'skipped_views' field for Phase E5 skip reporting
+E       assert 'skipped_views' in {'timestamp': '2025-11-04T08:10:17.131297Z', 'phase_c_root': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_c', 'phase_d_root': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_d', 'artifact_root': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts', 'filters': {'dose': 1000.0, 'view': None, 'gridsize': None}, 'dry_run': True, 'jobs': [{'dose': 1000.0, 'view': 'baseline', 'gridsize': 1, 'train_data_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_c/dose_1000/patched_train.npz', 'test_data_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_c/dose_1000/patched_test.npz', 'log_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/dose_1000/baseline/gs1/train.log', 'artifact_dir': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/dose_1000/baseline/gs1', 'result': {'status': 'mock_success'}}, {'dose': 1000.0, 'view': 'dense', 'gridsize': 2, 'train_data_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_d/dose_1000/dense/dense_train.npz', 'test_data_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_d/dose_1000/dense/dense_test.npz', 'log_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/dose_1000/dense/gs2/train.log', 'artifact_dir': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/dose_1000/dense/gs2', 'result': {'status': 'mock_success'}}]}
+
+tests/study/test_dose_overlap_training.py:718: AssertionError
+----------------------------- Captured stdout call -----------------------------
+Enumerating training jobs from Phase C (/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_c) and Phase D (/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_d)...
+  → 8 total jobs enumerated
+  → Filtered by dose=1000.0: 2 jobs remain
+
+Executing 2 training job(s)...
+  [1/2] baseline (dose=1e+03, gridsize=1)
+  [2/2] dense (dose=1e+03, gridsize=2)
+
+✓ Training manifest written to /tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/training_manifest.json
+  → 2 job(s) completed
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging - AssertionError: Manifest must contain 'skipped_views' field for Phase E5 skip reporting
+assert 'skipped_views' in {'timestamp': '2025-11-04T08:10:17.131297Z', 'phase_c_root': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_c', 'phase_d_root': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_d', 'artifact_root': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts', 'filters': {'dose': 1000.0, 'view': None, 'gridsize': None}, 'dry_run': True, 'jobs': [{'dose': 1000.0, 'view': 'baseline', 'gridsize': 1, 'train_data_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_c/dose_1000/patched_train.npz', 'test_data_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_c/dose_1000/patched_test.npz', 'log_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/dose_1000/baseline/gs1/train.log', 'artifact_dir': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/dose_1000/baseline/gs1', 'result': {'status': 'mock_success'}}, {'dose': 1000.0, 'view': 'dense', 'gridsize': 2, 'train_data_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_d/dose_1000/dense/dense_train.npz', 'test_data_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/phase_d/dose_1000/dense/dense_test.npz', 'log_path': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/dose_1000/dense/gs2/train.log', 'artifact_dir': '/tmp/pytest-of-ollie/pytest-103/test_training_cli_manifest_and0/artifacts/dose_1000/dense/gs2', 'result': {'status': 'mock_success'}}]}
+============================== 1 failed in 3.82s ===============================
