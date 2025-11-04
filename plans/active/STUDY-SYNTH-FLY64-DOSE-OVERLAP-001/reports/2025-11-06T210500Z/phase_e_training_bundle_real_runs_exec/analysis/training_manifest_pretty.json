@@ -1,0 +1,42 @@
+{
+  "artifact_root": "tmp/phase_e_training_gs2",
+  "dry_run": false,
+  "filters": {},
+  "jobs": [
+    {
+      "artifact_dir": "tmp/phase_e_training_gs2/dose_1000/baseline/gs1",
+      "dose": 1000.0,
+      "gridsize": 1,
+      "log_path": "tmp/phase_e_training_gs2/dose_1000/baseline/gs1/train.log",
+      "result": {
+        "bundle_path": "wts.h5.zip",
+        "bundle_sha256": "c52f2fc0d327b5776a22ba0ffaa30c4b10929ba564080062f179f782d4799365",
+        "bundle_size_bytes": 8595443,
+        "status": "success"
+      },
+      "test_data_path": "tmp/phase_d_f2_cli/dose_1000/baseline/baseline_test.npz",
+      "train_data_path": "tmp/phase_d_f2_cli/dose_1000/baseline/baseline_train.npz",
+      "view": "baseline"
+    },
+    {
+      "artifact_dir": "tmp/phase_e_training_gs2/dose_1000/dense/gs2",
+      "dose": 1000.0,
+      "gridsize": 2,
+      "log_path": "tmp/phase_e_training_gs2/dose_1000/dense/gs2/train.log",
+      "result": {
+        "bundle_path": "wts.h5.zip",
+        "bundle_sha256": "77b7c219cab6bbf60e05d61e27730432aab6a9f98b164cb1a4f30bf59df12ed8",
+        "bundle_size_bytes": 8615672,
+        "status": "success"
+      },
+      "test_data_path": "tmp/phase_d_f2_cli/dose_1000/dense/dense_test.npz",
+      "train_data_path": "tmp/phase_d_f2_cli/dose_1000/dense/dense_train.npz",
+      "view": "dense"
+    }
+  ],
+  "phase_c_root": "tmp/phase_c_f2_cli",
+  "phase_d_root": "tmp/phase_d_f2_cli",
+  "skip_summary_path": "tmp/phase_e_training_gs2/skip_summary.json",
+  "skipped_views": [],
+  "timestamp": "2025-11-04T20:56:08Z"
+}

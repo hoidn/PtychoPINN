@@ -76,7 +76,7 @@ def archive_bundles(
     views: Iterable[str],
     manifest: dict,
 ) -> None:
-    """Copy bundle archives into hub/data and record checksums."""
+    """Copy bundle archives into hub/data and record checksums with size validation."""
     data_dir = hub / "data"
     analysis_dir = hub / "analysis"
     checksum_path = analysis_dir / "bundle_checksums.txt"
@@ -98,7 +98,8 @@ def archive_bundles(
         shutil.copy2(bundle_src, bundle_dest)
 
         sha256 = compute_sha256(bundle_dest)
-        entries.append((bundle_dest.name, sha256))
+        size_bytes = bundle_dest.stat().st_size
+        entries.append((bundle_dest.name, sha256, size_bytes))
 
         # Validate manifest contains matching checksum for this job
         matched_jobs = [
@@ -118,9 +119,18 @@ def archive_bundles(
                     f"SHA mismatch for view={view}: manifest={manifest_sha}, computed={sha256}"
                 )
 
+            # Phase E6 Do Now: Validate bundle_size_bytes parity
+            manifest_size = result.get("bundle_size_bytes")
+            if manifest_size is None:
+                raise ValueError(f"Manifest missing bundle_size_bytes for view={view}")
+            if manifest_size != size_bytes:
+                raise ValueError(
+                    f"Size mismatch for view={view}: manifest={manifest_size} bytes, filesystem={size_bytes} bytes"
+                )
+
     with checksum_path.open("w", encoding="utf-8") as handle:
-        for name, sha256 in entries:
-            handle.write(f"{sha256}  {name}\n")
+        for name, sha256, size_bytes in entries:
+            handle.write(f"{sha256}  {name}  {size_bytes}\n")
 
 
 def main() -> None:
