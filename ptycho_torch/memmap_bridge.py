@@ -106,7 +106,23 @@ class MemmapDatasetBridge:
         # but for large datasets the memory-mapped arrays remain lazy
         self.xcoords = self._get_array('xcoords', np.float64)
         self.ycoords = self._get_array('ycoords', np.float64)
-        self.diff3d = self._get_array('diff3d', np.float32)
+
+        # DATA-001 compliance: Accept both canonical 'diffraction' and legacy 'diff3d' keys
+        # Spec: specs/data_contracts.md:207 - canonical key is 'diffraction'
+        # Pattern: scripts/run_tike_reconstruction.py:165-169, generate_patches_tool.py:66-68
+        # Historical context: Phase E training blocked by KeyError (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001)
+        if 'diffraction' in self._npz_data:
+            self.diff3d = self._get_array('diffraction', np.float32)
+        elif 'diff3d' in self._npz_data:
+            self.diff3d = self._get_array('diff3d', np.float32)
+        else:
+            raise KeyError(
+                f"Required diffraction data missing from NPZ file {self.npz_path}. "
+                f"Need either 'diffraction' (canonical, per DATA-001) or 'diff3d' (legacy). "
+                f"Available keys: {list(self._npz_data.keys())}. "
+                f"See specs/data_contracts.md:207 for schema."
+            )
+
         self.probeGuess = self._get_array('probeGuess', np.complex64)
         self.objectGuess = self._get_array('objectGuess', np.complex64)
         self.scan_index = self._get_array('scan_index', np.int32, optional=True)
