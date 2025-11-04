@@ -514,3 +514,126 @@ def test_cli_executes_selected_jobs(mock_phase_c_datasets, mock_phase_d_datasets
     # With filters --dose 1000 --view dense, we expect 16 skipped jobs (18 total - 2 filtered)
     assert skip_summary['skipped_count'] == 16, \
         f"Expected 16 skipped jobs, got {skip_summary['skipped_count']}"
+
+
+def test_cli_skips_missing_phase_d(mock_phase_c_datasets, tmp_path):
+    """
+    RED→GREEN test: CLI skips missing Phase D NPZs with --allow-missing-phase-d.
+
+    Phase F2 sparse view handling:
+    - When sparse view NPZs are missing from Phase D (e.g., rejected by spacing threshold)
+    - And --allow-missing-phase-d flag is set
+    - Then builder should skip missing jobs and record skip metadata
+    - Manifest should include skip events with reasons (e.g., "Phase D NPZ not found")
+    - Skip summary should document missing views
+
+    Test strategy:
+    1. Create Phase C baseline datasets (all doses/splits present)
+    2. Create Phase D datasets WITH ONLY dense views (sparse views deliberately omitted)
+    3. Run CLI with --allow-missing-phase-d flag
+    4. Assert manifest contains skip metadata for missing sparse views
+    5. Assert skip summary documents missing Phase D files
+
+    Expected skip events (with sparse views missing):
+    - 3 doses × 1 view (sparse) × 2 splits = 6 missing jobs
+    - Skip reason: "Phase D NPZ not found: <path>" (or similar)
+
+    Findings alignment:
+    - CONFIG-001: Builder stays pure; skip metadata collected without params.cfg mutation
+    - DATA-001: Validate present NPZs against canonical contract
+    - OVERSAMPLING-001: Skip reasoning should reference spacing guard when applicable
+    """
+    import sys
+    import json
+    from studies.fly64_dose_overlap import reconstruction
+    from studies.fly64_dose_overlap.design import get_study_design
+
+    artifact_root = tmp_path / "sparse_skip_artifacts"
+    artifact_root.mkdir()
+
+    # Create Phase D with ONLY dense views (sparse views omitted)
+    phase_d_root = tmp_path / "phase_d_incomplete"
+    design = get_study_design()
+
+    minimal_data = {
+        'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
+        'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
+        'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+        'Y': (np.random.rand(10, 128, 128) + 1j * np.random.rand(10, 128, 128)).astype(np.complex64),
+        'xcoords': np.random.rand(10).astype(np.float32),
+        'ycoords': np.random.rand(10).astype(np.float32),
+        'filenames': np.array([f'img_{i:04d}' for i in range(10)]),
+    }
+
+    for dose in design.dose_list:
+        dose_dir = phase_d_root / f"dose_{int(dose)}"
+        # Only create dense view (sparse deliberately omitted)
+        dense_dir = dose_dir / "dense"
+        dense_dir.mkdir(parents=True, exist_ok=True)
+
+        for split in ['train', 'test']:
+            npz_path = dense_dir / f"dense_{split}.npz"
+            np.savez_compressed(npz_path, **minimal_data)
+
+    # Build CLI arguments with --allow-missing-phase-d
+    sys.argv = [
+        "reconstruction.py",
+        "--phase-c-root", str(mock_phase_c_datasets),
+        "--phase-d-root", str(phase_d_root),
+        "--artifact-root", str(artifact_root),
+        "--allow-missing-phase-d",
+        "--dry-run",
+    ]
+
+    # Execute CLI
+    exit_code = reconstruction.main()
+
+    # RED expectation: Builder currently raises FileNotFoundError for missing sparse views
+    # even with allow_missing=True because it only gates the assertion, not skip metadata
+    # GREEN expectation: CLI returns 0 and emits skip metadata for missing sparse views
+
+    # Assert CLI executed successfully
+    assert exit_code == 0, f"CLI should handle missing Phase D files gracefully, got exit code {exit_code}"
+
+    # Verify manifest was written
+    manifest_path = artifact_root / "reconstruction_manifest.json"
+    assert manifest_path.exists(), f"Manifest not found: {manifest_path}"
+
+    with open(manifest_path, 'r') as f:
+        manifest = json.load(f)
+
+    # Assert manifest contains skip metadata
+    assert 'phase_d_missing' in manifest or 'skipped_phase_d' in manifest or 'missing_jobs' in manifest, \
+        "Manifest missing skip metadata for Phase D missing files"
+
+    # Load skip summary
+    skip_summary_path = artifact_root / "skip_summary.json"
+    assert skip_summary_path.exists(), f"Skip summary not found: {skip_summary_path}"
+
+    with open(skip_summary_path, 'r') as f:
+        skip_summary = json.load(f)
+
+    # Verify skip summary documents missing sparse views
+    # Expected: 6 missing sparse jobs (3 doses × sparse view × 2 splits)
+    # Plus filter-based skips: 0 (no filters applied)
+    # Total skips should include the 6 missing sparse jobs
+
+    # Extract skip events related to missing Phase D files
+    missing_phase_d_skips = [
+        s for s in skip_summary.get('skipped_jobs', [])
+        if 'Phase D' in s.get('reason', '') or 'not found' in s.get('reason', '').lower()
+    ]
+
+    assert len(missing_phase_d_skips) == 6, \
+        f"Expected 6 missing Phase D sparse jobs, got {len(missing_phase_d_skips)}"
+
+    # Verify all missing jobs are sparse views
+    for skip_event in missing_phase_d_skips:
+        assert skip_event['view'] == 'sparse', \
+            f"Expected missing job to be sparse view, got {skip_event['view']}"
+
+    # Verify skip reasons reference Phase D NPZ paths
+    for skip_event in missing_phase_d_skips:
+        reason = skip_event['reason']
+        assert 'Phase D' in reason or 'not found' in reason.lower(), \
+            f"Skip reason should reference Phase D or missing file: {reason}"

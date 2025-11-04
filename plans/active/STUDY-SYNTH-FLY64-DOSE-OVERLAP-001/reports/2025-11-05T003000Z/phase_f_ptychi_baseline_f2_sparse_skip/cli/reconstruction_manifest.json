@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-11-04T04:24:19.669266",
+  "phase_c_root": "tmp/phase_c_f2_cli",
+  "phase_d_root": "tmp/phase_d_f2_cli",
+  "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T003000Z/phase_f_ptychi_baseline_f2_sparse_skip/cli",
+  "filters": {
+    "dose": 1000.0,
+    "view": "sparse",
+    "split": "train",
+    "gridsize": null
+  },
+  "total_jobs": 18,
+  "filtered_jobs": 1,
+  "missing_jobs": [],
+  "jobs": [
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "split": "train",
+      "input_npz": "tmp/phase_d_f2_cli/dose_1000/sparse/sparse_train.npz",
+      "output_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T003000Z/phase_f_ptychi_baseline_f2_sparse_skip/cli/dose_1000/sparse/train",
+      "algorithm": "LSQML",
+      "num_epochs": 100
+    }
+  ],
+  "execution_results": [
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "split": "train",
+      "returncode": 0,
+      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T003000Z/phase_f_ptychi_baseline_f2_sparse_skip/cli/dose_1000/sparse/train/ptychi.log",
+      "stdout_preview": "[DRY RUN] Would execute: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz tmp/phase_d_f2_cli/dose_1000/sparse/sparse_train.npz --output-dir plans"
+    }
+  ]
+}

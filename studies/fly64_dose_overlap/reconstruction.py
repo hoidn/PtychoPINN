@@ -86,6 +86,7 @@ def build_ptychi_jobs(
     phase_d_root: Path,
     artifact_root: Path,
     allow_missing: bool = False,
+    skip_events: List[dict] = None,
 ) -> List[ReconstructionJob]:
     """
     Enumerate pty-chi LSQML reconstruction jobs for study doses and views.
@@ -111,10 +112,13 @@ def build_ptychi_jobs(
                       (dose_{dose}/{view}/{view}_{split}.npz)
         artifact_root: Root directory for reconstruction outputs
                        (phase_f_reconstruction/dose_{dose}/{view}/{split}/)
-        allow_missing: If False, raise FileNotFoundError for missing NPZ files
+        allow_missing: If False, raise FileNotFoundError for missing NPZ files.
+                       If True, skip missing files and append skip metadata to skip_events.
+        skip_events: Optional list to collect skip metadata when allow_missing=True.
+                     Each skip event is a dict with keys: dose, view, split, reason.
 
     Returns:
-        List of ReconstructionJob dataclasses
+        List of ReconstructionJob dataclasses (only jobs with existing NPZ files)
 
     Raises:
         FileNotFoundError: If allow_missing=False and input NPZ does not exist
@@ -132,11 +136,22 @@ def build_ptychi_jobs(
             phase_c_dose_dir = phase_c_root / f"dose_{dose_int}"
             baseline_npz = phase_c_dose_dir / f"patched_{split}.npz"
 
-            if not allow_missing and not baseline_npz.exists():
-                raise FileNotFoundError(
-                    f"Phase C baseline NPZ not found: {baseline_npz}. "
-                    f"Expected from Phase C patching."
-                )
+            if not baseline_npz.exists():
+                if allow_missing:
+                    # Skip with metadata
+                    if skip_events is not None:
+                        skip_events.append({
+                            "dose": dose,
+                            "view": "baseline",
+                            "split": split,
+                            "reason": f"Phase C baseline NPZ not found: {baseline_npz}",
+                        })
+                    continue
+                else:
+                    raise FileNotFoundError(
+                        f"Phase C baseline NPZ not found: {baseline_npz}. "
+                        f"Expected from Phase C patching."
+                    )
 
             baseline_output = artifact_root / f"dose_{dose_int}" / "baseline" / split
             jobs.append(ReconstructionJob(
@@ -153,11 +168,22 @@ def build_ptychi_jobs(
                 view_dir = phase_d_dose_dir / view
                 overlap_npz = view_dir / f"{view}_{split}.npz"
 
-                if not allow_missing and not overlap_npz.exists():
-                    raise FileNotFoundError(
-                        f"Phase D overlap NPZ not found: {overlap_npz}. "
-                        f"Expected from Phase D overlap filtering."
-                    )
+                if not overlap_npz.exists():
+                    if allow_missing:
+                        # Skip with metadata
+                        if skip_events is not None:
+                            skip_events.append({
+                                "dose": dose,
+                                "view": view,
+                                "split": split,
+                                "reason": f"Phase D overlap NPZ not found: {overlap_npz}",
+                            })
+                        continue
+                    else:
+                        raise FileNotFoundError(
+                            f"Phase D overlap NPZ not found: {overlap_npz}. "
+                            f"Expected from Phase D overlap filtering."
+                        )
 
                 overlap_output = artifact_root / f"dose_{dose_int}" / view / split
                 jobs.append(ReconstructionJob(
@@ -331,18 +357,23 @@ def main():
     # Ensure artifact root exists
     args.artifact_root.mkdir(parents=True, exist_ok=True)
 
-    # Build full job manifest with allow_missing flag
+    # Build full job manifest with allow_missing flag and skip metadata collection
     print(f"Building job manifest from Phase C: {args.phase_c_root}")
     print(f"                      and Phase D: {args.phase_d_root}")
 
+    # Collect skip events for missing Phase D files
+    missing_file_skips = []
     all_jobs = build_ptychi_jobs(
         phase_c_root=args.phase_c_root,
         phase_d_root=args.phase_d_root,
         artifact_root=args.artifact_root,
         allow_missing=args.allow_missing_phase_d,
+        skip_events=missing_file_skips if args.allow_missing_phase_d else None,
     )
 
     print(f"Total jobs enumerated: {len(all_jobs)}")
+    if missing_file_skips:
+        print(f"Skipped {len(missing_file_skips)} missing Phase D files")
 
     # Apply filters
     filtered_jobs = all_jobs
@@ -441,7 +472,7 @@ def main():
                 print(f"  STDERR: {result.stderr}")
             print(f"  Log: {job_log_path}")
 
-    # Emit manifest JSON with execution telemetry
+    # Emit manifest JSON with execution telemetry and missing file metadata
     manifest_path = args.artifact_root / "reconstruction_manifest.json"
     manifest = {
         "timestamp": datetime.now().isoformat(),
@@ -456,6 +487,7 @@ def main():
         },
         "total_jobs": len(all_jobs),
         "filtered_jobs": len(filtered_jobs),
+        "missing_jobs": missing_file_skips,  # Add skip metadata to manifest
         "jobs": [
             {
                 "dose": job.dose,
@@ -476,18 +508,24 @@ def main():
 
     print(f"\nManifest written to: {manifest_path}")
 
-    # Emit skip summary JSON
+    # Emit skip summary JSON (merge filter-based skips with missing file skips)
     skip_summary_path = args.artifact_root / "skip_summary.json"
+    all_skipped_jobs = skipped_jobs + missing_file_skips
     skip_summary = {
         "timestamp": datetime.now().isoformat(),
-        "skipped_count": len(skipped_jobs),
-        "skipped_jobs": skipped_jobs,
+        "skipped_count": len(all_skipped_jobs),
+        "skipped_jobs": all_skipped_jobs,
+        "missing_phase_d_count": len(missing_file_skips),
     }
 
     with open(skip_summary_path, 'w') as f:
         json.dump(skip_summary, f, indent=2)
 
     print(f"Skip summary written to: {skip_summary_path}")
+    if missing_file_skips:
+        print(f"  - Missing Phase D files: {len(missing_file_skips)}")
+        for skip in missing_file_skips:
+            print(f"    {skip['dose']}/{skip['view']}/{skip['split']}")
 
     # Summary
     print(f"\n{'='*60}")
