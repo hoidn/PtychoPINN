@@ -1642,6 +1642,15 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
         assert dose_match == '1e+03', \
             f"Bundle line dose must be '1e+03' (from --dose 1000), got: {dose_match}"
 
+        # NEW Phase E6 Do Now: Validate bundle path is artifact-relative (not absolute)
+        # Extract path portion from line (after "]: ")
+        bundle_path_stdout = line.split(']: ')[1]
+        assert not Path(bundle_path_stdout).is_absolute(), \
+            f"Stdout bundle path must be artifact-relative, got absolute path: {bundle_path_stdout}"
+        # Expect simple filename "wts.h5.zip" relative to artifact_dir
+        assert bundle_path_stdout == "wts.h5.zip", \
+            f"Stdout bundle path should be 'wts.h5.zip', got: {bundle_path_stdout}"
+
     # Validate format of SHA256 lines: "    → SHA256 [view/dose=X.Xe+YY]: checksum"
     for line in sha256_lines:
         # Expected format: "    → SHA256 [baseline/dose=1.0e+03]: abc123..."

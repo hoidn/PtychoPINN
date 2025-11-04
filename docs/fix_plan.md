@@ -17,14 +17,14 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 ## [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: —
 - Priority: High
-- Status: Phase E6 complete (CLI stdout format with view/dose context); awaiting real training runs for Phase G comparisons
+- Status: Phase E6 complete (CLI stdout normalization with artifact-relative bundle paths + view/dose context); Phase G comparison ready pending Phase E/F real runs
 - Owner/Date: Codex Agent/2025-11-04
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
 - Test Strategy: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md`
 - Constraints: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/constraint_analysis.md`
 - Notes: Use existing fly64 object/probe; enforce y‑axis split; group‑level overlap control via min center spacing; emphasize phase MS‑SSIM; PINN backend: TensorFlow; pty‑chi LSQML baseline (100 epochs) uses PyTorch internally.
 - Attempts History: See `docs/archive/2025-11-06_fix_plan_archive.md` (section for this initiative) and the initiative's `reports/` directories for run logs and metrics.
-- Latest Attempt (2025-11-06T13:05Z): Planning — queued stdout normalization follow-up to emit artifact-relative bundle paths, tightened regression plan (stdout vs manifest SHA parity), and scheduled deterministic dense/baseline CLI runs with archive script. Updated `input.md`, provisioned timestamped hub, and left implementation ready for execution. Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T130500Z/phase_e_training_bundle_real_runs_exec/`. Commit: pending (planning only).
+- Latest Attempt (2025-11-06T130500Z): Implementation — Phase E6 CLI stdout normalization GREEN. Enhanced test with stdout relative-path assertions (tests/study/test_dose_overlap_training.py:1645-1652); updated training CLI to normalize bundle_path before stdout emission (studies/fly64_dose_overlap/training.py:736-742). RED confirmed absolute-path bug; GREEN validates `wts.h5.zip` relative format. Full suite: 397 passed, 1 pre-existing fail (test_interop_h5_reader), 17 skipped in 249s. Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T130500Z/phase_e_training_bundle_real_runs_exec/` (RED/GREEN/collect/full logs + summary.md). Commit: [pending].
 
 ## [EXPORT-PTYCHODUS-PRODUCT-001] TF-side Ptychodus product exporter/importer + Run1084 conversion
 - Depends on: —

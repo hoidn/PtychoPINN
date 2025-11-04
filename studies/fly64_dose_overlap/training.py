@@ -729,8 +729,19 @@ def main():
         # This ensures each job's bundle digest appears alongside manifest pointers
         # in the CLI log, providing traceable integrity proof per specs/ptychodus_api_spec.md:239
         # Format includes view/dose context for traceability in captured logs
+        # IMPORTANT: Normalize bundle_path to artifact-relative before stdout emission
+        # to avoid workstation-specific absolute paths in logged output
         if not args.dry_run and result.get('bundle_path'):
-            print(f"    → Bundle [{job.view}/dose={job.dose:.0e}]: {result['bundle_path']}")
+            # Convert absolute bundle_path to artifact-relative path for portable logging
+            bundle_path_abs = Path(result['bundle_path'])
+            try:
+                bundle_path_rel = bundle_path_abs.relative_to(job.artifact_dir)
+                bundle_path_display = str(bundle_path_rel)
+            except ValueError:
+                # Defensive: if bundle_path not under artifact_dir, use as-is
+                bundle_path_display = result['bundle_path']
+
+            print(f"    → Bundle [{job.view}/dose={job.dose:.0e}]: {bundle_path_display}")
             if result.get('bundle_sha256'):
                 print(f"    → SHA256 [{job.view}/dose={job.dose:.0e}]: {result['bundle_sha256']}")
 
