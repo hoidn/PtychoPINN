@@ -98,4 +98,4 @@ collecting ... collected 4 items
           - Assert manifest includes execution metadata
           - Validate skip summary is not mutated by execution results
 
-========================== 4 tests collected in 0.83s ==========================
+========================== 4 tests collected in 0.85s ==========================

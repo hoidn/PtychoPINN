@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-11-04T02:59:05.448372",
+  "phase_c_root": "tmp/phase_c_f2_cli",
+  "phase_d_root": "tmp/phase_d_f2_cli",
+  "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/real_run",
+  "filters": {
+    "dose": 1000.0,
+    "view": "dense",
+    "split": "train",
+    "gridsize": null
+  },
+  "total_jobs": 18,
+  "filtered_jobs": 1,
+  "jobs": [
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "train",
+      "input_npz": "tmp/phase_d_f2_cli/dose_1000/dense/dense_train.npz",
+      "output_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/real_run/dose_1000/dense/train",
+      "algorithm": "LSQML",
+      "num_epochs": 100
+    }
+  ],
+  "execution_results": [
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "train",
+      "returncode": 1,
+      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/real_run/dose_1000/dense/train/ptychi.log",
+      "stdout_preview": "=== PTY-CHI Reconstruction of TIKE Dataset ===\nDataset: tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz\nAlgorithm: DM\nEpochs: 200\nImages: 2000\nLoadi"
+    }
+  ]
+}

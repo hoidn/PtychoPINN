@@ -11,7 +11,7 @@
 
 Phase F2 successfully implemented per-job logging and execution telemetry for the pty-chi LSQML reconstruction orchestrator. This enhancement enables auditable reconstruction workflows by capturing stdout/stderr to structured log files and persisting execution metadata (return codes, log paths) in the manifest JSON.
 
-**Status:** F2.1/F2.2 implementation **COMPLETE** — tests GREEN, comprehensive suite passing. F2.3 summary documentation delivered (this file).
+**Status:** F2.1 **COMPLETE** (dry-run evidence captured); F2.2 **BLOCKED** (CLI orchestration GREEN; real LSQML blocked by script arg handling); F2.3 summary documentation delivered (this file).
 
 ---
 
@@ -164,8 +164,16 @@ plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase
 │   └── pytest_phase_f_cli_suite_green.log    # Full ptychi suite pass
 ├── collect/
 │   └── pytest_phase_f_cli_collect.log        # Collection proof (4 tests)
-├── cli/                                       # Reserved for F2.2 CLI evidence
-├── real_run/                                  # Reserved for F2.2 LSQML execution
+├── cli/
+│   ├── dry_run.log                            # Dry-run CLI transcript (F2.1)
+│   ├── reconstruction_manifest.json           # Dry-run manifest (2 jobs, 16 skipped)
+│   └── skip_summary.json                      # Dry-run skip summary
+├── real_run/
+│   ├── dose_1000/dense/train/
+│   │   ├── ptychi.log                         # Real LSQML log (returncode=1, blocker evidence)
+│   │   └── run.log                            # CLI invocation transcript
+│   ├── reconstruction_manifest.json           # Real run manifest (execution telemetry)
+│   └── skip_summary.json                      # Real run skip summary (17 skipped)
 └── docs/
     └── summary.md                             # This file
 ```
@@ -179,8 +187,10 @@ plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase
 **Evidence:** Test coverage validates dry-run path with log_path mock output.
 
 ### F2.2 — Real LSQML Execution
-**Status:** ⏸ PENDING
-**Next Steps:** Run deterministic LSQML reconstruction for at least one view per dose (recommend dense view, 100 epochs). Store outputs under `real_run/dose_{dose}/{view}/`. Budget ≤20 min per run.
+**Status:** ❌ BLOCKED
+**Blocker:** `scripts/reconstruction/ptychi_reconstruct_tike.py` does not honor `--input-npz` CLI argument; hardcoded to default Tike dataset path.
+**Evidence:** `real_run/dose_1000/dense/train/ptychi.log` captures FileNotFoundError with hardcoded path `tike_outputs/fly001_reconstructed_final_downsampled/...`
+**Unblocker:** Update ptychi_reconstruct_tike.py CLI parser to use `--input-npz` argument when provided (~5 line fix).
 
 ### F2.3 — Summary Documentation
 **Status:** ✅ COMPLETE

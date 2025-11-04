@@ -11,4 +11,4 @@ collecting ... collected 4 items / 2 deselected / 2 selected
 tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest PASSED [ 50%]
 tests/study/test_dose_overlap_reconstruction.py::test_run_ptychi_job_invokes_script PASSED [100%]
 
-======================= 2 passed, 2 deselected in 1.70s ========================
+======================= 2 passed, 2 deselected in 1.71s ========================

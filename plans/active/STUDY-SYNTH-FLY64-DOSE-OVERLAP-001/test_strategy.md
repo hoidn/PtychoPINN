@@ -216,8 +216,9 @@ python -m studies.fly64_dose_overlap.training \
 - `pytest tests/study/test_dose_overlap_reconstruction.py --collect-only -vv` — collection proof (GREEN Attempt #F1; log in `reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/collect/pytest_phase_f_collect.log`)
 - `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_filters_dry_run -vv` — Phase F1.3 CLI filter + manifest emission (GREEN Attempt #F1.3; log in `reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/green/pytest_phase_f_cli_green.log`)
 
-**Selectors (Planned):**
-- `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv` — Phase F2 execution harness (non-dry-run path, capture per-job logs + skip summary updates)
+**Selectors (Active — F2):**
+- `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv` — Phase F2 execution harness (non-dry-run path with mocked subprocess; RED→GREEN in Attempt #78; evidence in `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/green/pytest_phase_f_cli_exec_green.log`)
+- `pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv` — Full Phase F suite (all selectors GREEN)
 
 **Coverage Delivered (F0–F1.2):**
 - Test strategy Phase F section documented RED/GREEN artifact policy and selector expectations (reports/2025-11-04T094500Z/phase_f_ptychi_baseline/).

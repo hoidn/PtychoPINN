@@ -1,0 +1,52 @@
+{
+  "timestamp": "2025-11-04T02:58:17.208842",
+  "phase_c_root": "tmp/phase_c_f2_cli",
+  "phase_d_root": "tmp/phase_d_f2_cli",
+  "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/cli",
+  "filters": {
+    "dose": 1000.0,
+    "view": "dense",
+    "split": null,
+    "gridsize": null
+  },
+  "total_jobs": 18,
+  "filtered_jobs": 2,
+  "jobs": [
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "train",
+      "input_npz": "tmp/phase_d_f2_cli/dose_1000/dense/dense_train.npz",
+      "output_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/cli/dose_1000/dense/train",
+      "algorithm": "LSQML",
+      "num_epochs": 100
+    },
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "test",
+      "input_npz": "tmp/phase_d_f2_cli/dose_1000/dense/dense_test.npz",
+      "output_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/cli/dose_1000/dense/test",
+      "algorithm": "LSQML",
+      "num_epochs": 100
+    }
+  ],
+  "execution_results": [
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "train",
+      "returncode": 0,
+      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/cli/dose_1000/dense/train/ptychi.log",
+      "stdout_preview": "[DRY RUN] Would execute: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz tmp/phase_d_f2_cli/dose_1000/dense/dense_train.npz --output-dir plans/a"
+    },
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "test",
+      "returncode": 0,
+      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/cli/dose_1000/dense/test/ptychi.log",
+      "stdout_preview": "[DRY RUN] Would execute: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz tmp/phase_d_f2_cli/dose_1000/dense/dense_test.npz --output-dir plans/ac"
+    }
+  ]
+}
