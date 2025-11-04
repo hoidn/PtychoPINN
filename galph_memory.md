@@ -2312,3 +2312,17 @@
   - Reinforced findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 in plan + Do Now; deferred doc/test registry sync until GREEN evidence lands.
 - Next actions for Ralph: implement manifest summary + new pytest, execute dense & sparse/train comparisons, capture metrics inventory + analysis summary, then sync registries/docs once outputs verified.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T210500Z: Phase E bundle persistence staging
+- dwell: 2 (third consecutive planning loop for this focus; ready for implementation next)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (G2 execution prerequisite)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T210500Z/phase_e_training_bundle/
+- Notes:
+  - `git pull --rebase` still clean. Reviewed Attempt #93 CLI failure plus `phase_g_inventory/analysis/inventory.md` to confirm `wts.h5.zip`/`checkpoint.h5` are stubbed for dose_1000 and missing elsewhere.
+  - Reserved new phase_e_training_bundle hub ({red,green,collect,cli,analysis,docs}) to capture TDD logs, CLI run, and summary for bundle persistence work.
+  - Rewrote `input.md` directing RED→GREEN addition of `test_execute_training_job_persists_bundle`, wiring `execute_training_job` to call `save_torch_bundle`, manifest updates, and a dense/train CLI run teeing to the new hub.
+  - Findings reinforced: POLICY-001 (torch availability), CONFIG-001 (runner remains pure), DATA-001 / OVERSAMPLING-001 (input datasets unchanged).
+- Next actions for Ralph: land the new test + implementation, capture pytest logs and CLI evidence under the reserved hub, update analysis summary with real bundle paths, then retry Phase G comparisons once bundles exist.
+- <Action State>: [ready_for_implementation]
