@@ -1913,3 +1913,17 @@
 - Observations: Documentation still describes Phase D as “planned”; test strategy stuck at `(PLANNED)`; summary.md lists doc/test sync as outstanding.
 - Next supervisor check: confirm doc-sync loop captures updates, flip plan D4 to `[x]`, and evaluate readiness for Phase E handoff prep.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T053900Z: Phase E training plan kick-off
+- dwell: 2 (second consecutive non-implementation pass on this focus; next hand-off must drive implementation RED→GREEN)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E Train PtychoPINN
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T053500Z/phase_e_training_plan/
+- Notes:
+  - Read docs/findings (CONFIG-001, DATA-001, OVERSAMPLING-001, POLICY-001) and Study implementation/test strategy to scope initial Phase E tasks.
+  - Authored new Phase E working plan (E1–E4) covering test design, training job builder, runner helper, and CLI deliverables with references to `docs/DEVELOPER_GUIDE.md:68-104`, `specs/data_contracts.md:190-260`, `docs/GRIDSIZE_N_GROUPS_GUIDE.md:154-172`.
+  - Updated docs/fix_plan.md status to “Phase E planning in progress” and logged Attempt #12 with artifact hub pointing to plan + summary.
+  - Rewrote `input.md` (Mode: TDD) to drive RED→GREEN implementation of `build_training_jobs`, including RED test creation, doc updates, collect-only proof, and doc sync plan (TESTING_GUIDE + TEST_SUITE_INDEX).
+- Next actions for Ralph: execute Do Now E1 (update test_strategy, add RED test for job matrix, implement builder, run targeted selector + collect-only, update doc registries) and capture logs under `reports/2025-11-04T060200Z/phase_e_training_e1/`.
+- <Action State>: [ready_for_implementation]
