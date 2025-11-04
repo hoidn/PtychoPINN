@@ -83,6 +83,18 @@ def main() -> int:
     log_path = _log_file("claudelog")
     report_path_globs = tuple(p.strip() for p in args.report_path_globs.split(',') if p.strip())
     logdir_prefix_parts = tuple(part for part in PurePath(args.logdir).parts if part not in {"", "."})
+    skip_config_path = Path(os.getenv("REPORT_SKIP_CONFIG", ".reportsignore"))
+    skip_prefix_specs: tuple[tuple[str, ...], ...] = tuple()
+    if skip_config_path.exists():
+        specs: list[tuple[str, ...]] = []
+        for raw_line in skip_config_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.partition("#")[0].strip()
+            if not line:
+                continue
+            parts = tuple(part for part in PurePath(line).parts if part not in {"", "."})
+            if parts:
+                specs.append(parts)
+        skip_prefix_specs = tuple(specs)
 
     def _within(parts: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
         return bool(prefix) and parts[:len(prefix)] == prefix
@@ -93,6 +105,9 @@ def main() -> int:
             return True
         if parts and parts[0] == "tmp":
             return True
+        for spec in skip_prefix_specs:
+            if spec and parts[:len(spec)] == spec:
+                return True
         return False
 
     def logp(msg: str) -> None:

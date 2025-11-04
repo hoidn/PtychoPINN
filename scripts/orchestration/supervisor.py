@@ -118,6 +118,24 @@ def main() -> int:
     ap.add_argument("--report-path-globs", type=str,
                     default=os.getenv("SUPERVISOR_REPORT_PATH_GLOBS", ""),
                     help="Comma-separated glob allowlist for report auto-commit paths (default: none)")
+    # Tracked outputs (e.g., regenerated fixtures) auto-commit
+    ap.add_argument("--auto-commit-tracked-outputs", dest="auto_commit_tracked_outputs", action="store_true",
+                    help="Auto-stage+commit modified tracked output files (e.g., fixtures) when within limits (default: on)")
+    ap.add_argument("--no-auto-commit-tracked-outputs", dest="auto_commit_tracked_outputs", action="store_false",
+                    help="Disable auto commit of modified tracked outputs")
+    ap.set_defaults(auto_commit_tracked_outputs=True)
+    ap.add_argument("--tracked-output-globs", type=str,
+                    default=os.getenv("SUPERVISOR_TRACKED_OUTPUT_GLOBS", "tests/fixtures/**/*.npy,tests/fixtures/**/*.npz,tests/fixtures/**/*.json,tests/fixtures/**/*.pkl"),
+                    help="Comma-separated glob allowlist for tracked output paths (default targets test fixtures)")
+    ap.add_argument("--tracked-output-extensions", type=str,
+                    default=os.getenv("SUPERVISOR_TRACKED_OUTPUT_EXTENSIONS", ".npy,.npz,.json,.pkl"),
+                    help="Comma-separated list of allowed file extensions for tracked outputs")
+    ap.add_argument("--max-tracked-output-file-bytes", type=int,
+                    default=int(os.getenv("SUPERVISOR_MAX_TRACKED_OUTPUT_FILE_BYTES", str(32 * 1024 * 1024))),
+                    help="Maximum per-file size (bytes) eligible for tracked outputs auto-commit (default 32 MiB)")
+    ap.add_argument("--max-tracked-output-total-bytes", type=int,
+                    default=int(os.getenv("SUPERVISOR_MAX_TRACKED_OUTPUT_TOTAL_BYTES", str(100 * 1024 * 1024))),
+                    help="Maximum total size (bytes) staged per iteration for tracked outputs (default 100 MiB)")
     args, unknown = ap.parse_known_args()
 
     report_path_globs = tuple(p.strip() for p in args.report_path_globs.split(',') if p.strip())
@@ -145,6 +163,42 @@ def main() -> int:
     def _matches_any(path: str, patterns: list[str]) -> bool:
         return any(fnmatch.fnmatch(path, pat) for pat in patterns)
 
+    def _gitlink_paths() -> set[str]:
+        """Return submodule (gitlink) paths recorded in the index.
+
+        Uses `git ls-files -s` and filters mode 160000 entries which represent
+        gitlinks. This is more robust than parsing .gitmodules alone and
+        reflects the actual superproject index state.
+        """
+        paths: set[str] = set()
+        try:
+            lines = _list(["git", "ls-files", "-s"])  # mode sha stage path
+            for ln in lines:
+                parts = ln.split()
+                if len(parts) >= 4 and parts[0] == "160000":
+                    paths.add(parts[3])
+        except Exception:
+            pass
+        return paths
+
+    def _submodule_scrub(log_func) -> None:
+        """Attempt to normalize submodules to the recorded commits.
+
+        Safe to run idempotently; helps clear working-tree dirtiness caused by
+        out-of-sync submodule worktrees (pointer drift).
+        """
+        try:
+            from subprocess import run, PIPE
+            cp1 = run(["git", "submodule", "sync", "--recursive"], capture_output=True, text=True)
+            if log_func and (cp1.stdout or cp1.stderr):
+                log_func((cp1.stdout or "") + (cp1.stderr or ""))
+            cp2 = run(["git", "submodule", "update", "--init", "--recursive", "--checkout", "--force"], capture_output=True, text=True)
+            if log_func and (cp2.stdout or cp2.stderr):
+                log_func((cp2.stdout or "") + (cp2.stderr or ""))
+        except Exception as e:
+            if log_func:
+                log_func(f"[submodules] WARN: scrub failed: {e}")
+
     def _supervisor_autocommit_docs(args_ns, log_func) -> tuple[bool, list[str]]:
         """
         Attempt to auto-stage+commit doc/meta whitelist changes.
@@ -154,10 +208,19 @@ def main() -> int:
         whitelist = [p.strip() for p in args_ns.autocommit_whitelist.split(',') if p.strip()]
         max_bytes = args_ns.max_autocommit_bytes
         # Collect dirty paths (modifications and untracked)
-        unstaged_mod = _list(["git", "diff", "--name-only", "--diff-filter=M"])
-        staged_mod = _list(["git", "diff", "--cached", "--name-only", "--diff-filter=AM"])
-        untracked = _list(["git", "ls-files", "--others", "--exclude-standard"])
+        unstaged_mod = _list(["git", "diff", "--name-only", "--diff-filter=M"]) 
+        staged_mod = _list(["git", "diff", "--cached", "--name-only", "--diff-filter=AM"]) 
+        untracked = _list(["git", "ls-files", "--others", "--exclude-standard"]) 
         dirty_all = sorted(set(unstaged_mod) | set(staged_mod) | set(untracked))
+        # Filter out submodule gitlinks (and any paths within submodules)
+        submods = _gitlink_paths()
+        if submods:
+            def _in_submodule(p: str) -> bool:
+                for sp in submods:
+                    if p == sp or p.startswith(sp + os.sep):
+                        return True
+                return False
+            dirty_all = [p for p in dirty_all if not _in_submodule(p)]
         allowed: list[str] = []
         forbidden: list[str] = []
         for p in dirty_all:
@@ -185,6 +248,70 @@ def main() -> int:
             # Do not push here; let subsequent logic push state or later commits
         return committed, []
 
+    def _supervisor_autocommit_tracked_outputs(args_ns, log_func) -> tuple[bool, list[str], list[str]]:
+        """
+        Attempt to auto-stage+commit modified tracked output files (e.g., regenerated fixtures).
+        Returns (committed: bool, staged_paths: list[str], skipped_paths: list[str]).
+
+        Policy:
+        - Only considers tracked modifications (no untracked/ignored files).
+        - Restricts to a glob allowlist and extension allowlist.
+        - Enforces per-file and total size caps to avoid runaway commits.
+        """
+        # Collect modified tracked files only
+        modified = _list(["git", "diff", "--name-only", "--diff-filter=M"])
+        if not modified:
+            return False, [], []
+
+        # Normalize allowlists
+        path_globs = [p.strip() for p in (args_ns.tracked_output_globs or "").split(',') if p.strip()]
+        exts = {e.strip().lower() for e in (args_ns.tracked_output_extensions or "").split(',') if e.strip()}
+        max_file = int(args_ns.max_tracked_output_file_bytes)
+        max_total = int(args_ns.max_tracked_output_total_bytes)
+
+        staged: list[str] = []
+        skipped: list[str] = []
+        total_bytes = 0
+
+        for p in modified:
+            # Extension filter
+            _, ext = os.path.splitext(p)
+            if ext.lower() not in exts:
+                skipped.append(p)
+                continue
+            # Path globs filter
+            if path_globs and not _matches_any(p, path_globs):
+                skipped.append(p)
+                continue
+            # Size guard
+            try:
+                if not os.path.isfile(p):
+                    skipped.append(p)
+                    continue
+                sz = os.path.getsize(p)
+            except FileNotFoundError:
+                skipped.append(p)
+                continue
+            if sz > max_file or (total_bytes + sz) > max_total:
+                skipped.append(p)
+                continue
+
+            # Stage the file
+            try:
+                add([p])
+                staged.append(p)
+                total_bytes += sz
+            except Exception:
+                skipped.append(p)
+
+        committed = False
+        if staged:
+            body = "\n\nFiles:\n" + "\n".join(f" - {x}" for x in staged)
+            committed = commit("SUPERVISOR AUTO: tracked outputs — tests: not run" + body)
+            if committed and log_func:
+                log_func(f"[tracked-outputs] Auto-committed {len(staged)} files ({total_bytes} bytes)")
+        return committed, staged, skipped
+
     def _pull_with_error(log_func, ctx: str) -> bool:
         """Run safe_pull while capturing log lines; on failure, print last error."""
         buf: list[str] = []
@@ -194,6 +321,10 @@ def main() -> int:
             buf.append(msg)
         ok = safe_pull(_cap)
         if not ok:
+            # Retry once after scrubbing submodules (pointer drift robustness)
+            _submodule_scrub(log_func)
+            buf.clear()
+            ok = safe_pull(_cap)
             err_line = None
             for line in reversed(buf):
                 low = line.lower()
@@ -216,7 +347,11 @@ def main() -> int:
 
     # Branch guard (if provided) and target branch resolution
     if args.branch:
-        assert_on_branch(args.branch, lambda m: None)
+        def _branch_guard_log(message: str) -> None:
+            sys.stderr.write(message + "\n")
+            sys.stderr.flush()
+
+        assert_on_branch(args.branch, _branch_guard_log)
         branch_target = args.branch
     else:
         branch_target = current_branch()
@@ -241,13 +376,18 @@ def main() -> int:
         if not _pull_with_error(lambda m: None, "pre-pull"):
             # Pre-pull fallback: attempt doc/meta auto-commit if enabled, then retry pull
             if args.prepull_auto_commit_docs:
-                committed, forbidden = _supervisor_autocommit_docs(args, lambda m: None)
-                if committed and not forbidden:
-                    if not _pull_with_error(lambda m: None, "pre-pull (after autocommit)"):
-                        return 1
+                # First, scrub submodules and retry pull (more robust than committing)
+                _submodule_scrub(lambda m: None)
+                if _pull_with_error(lambda m: None, "pre-pull (after submodule scrub)"):
+                    pass
                 else:
-                    print("[sync] ERROR: git pull failed; pre-pull auto-commit not applicable or blocked.")
-                    return 1
+                    committed, forbidden = _supervisor_autocommit_docs(args, lambda m: None)
+                    if committed and not forbidden:
+                        if not _pull_with_error(lambda m: None, "pre-pull (after autocommit)"):
+                            return 1
+                    else:
+                        print("[sync] ERROR: git pull failed; pre-pull auto-commit not applicable or blocked.")
+                        return 1
             else:
                 # Error already printed by _pull_with_error
                 return 1
@@ -259,13 +399,17 @@ def main() -> int:
 
         if not _pull_with_error(logp, "pre-wait"):
             if args.prepull_auto_commit_docs:
-                committed, forbidden = _supervisor_autocommit_docs(args, logp)
-                if committed and not forbidden:
-                    if not _pull_with_error(logp, "pre-wait (after autocommit)"):
-                        return 1
+                _submodule_scrub(logp)
+                if _pull_with_error(logp, "pre-wait (after submodule scrub)"):
+                    pass
                 else:
-                    print("[sync] ERROR: git pull failed; pre-pull auto-commit not applicable or blocked.")
-                    return 1
+                    committed, forbidden = _supervisor_autocommit_docs(args, logp)
+                    if committed and not forbidden:
+                        if not _pull_with_error(logp, "pre-wait (after autocommit)"):
+                            return 1
+                    else:
+                        print("[sync] ERROR: git pull failed; pre-pull auto-commit not applicable or blocked.")
+                        return 1
             else:
                 # Error already printed by _pull_with_error
                 return 1
@@ -370,13 +514,26 @@ def main() -> int:
                 allowed_path_globs=report_path_globs,
             )
 
+        # Auto-commit modified tracked outputs (e.g., regenerated fixtures) before doc hygiene
+        if args.auto_commit_tracked_outputs:
+            _supervisor_autocommit_tracked_outputs(args, logp)
+
         # Determine post-run success without early-returning
         post_ok = (rc == 0)
         if args.auto_commit_docs:
+            # Scrub submodules once before checking doc/meta dirtiness (pointer drift resilience)
+            _submodule_scrub(logp)
             committed_docs, forbidden = _supervisor_autocommit_docs(args, logp)
             if forbidden:
-                logp("[sync] Doc/meta whitelist violation detected; marking post-run as failed.")
-                post_ok = False
+                # Second-chance: if all forbidden paths are gitlinks, scrub and retry once
+                gitlinks = _gitlink_paths()
+                only_gitlinks = all((p in gitlinks) or any(p.startswith(gl + os.sep) for gl in gitlinks) for p in forbidden)
+                if only_gitlinks:
+                    _submodule_scrub(logp)
+                    committed_docs, forbidden = _supervisor_autocommit_docs(args, logp)
+                if forbidden:
+                    logp("[sync] Doc/meta whitelist violation detected; marking post-run as failed.")
+                    post_ok = False
 
         # Stamp FIRST (idempotent): write local handoff or failure before any pushes
         st = OrchestrationState.read(str(args.state_file))

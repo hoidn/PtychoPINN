@@ -159,9 +159,16 @@ Notes:
     - `--max-report-file-bytes N` (default 5 MiB) · `--max-report-total-bytes N` (default 20 MiB)
     - `--force-add-reports` (default: on) — force-add files even if ignored by .gitignore
     - Notes: stamp-first handoff ensures reports + state publish together; adjust caps/extension list / path globs as needed for your workflow.
-  - `--prepull-auto-commit-docs` / `--no-prepull-auto-commit-docs` (default: on)
-    - If the initial git pull fails (e.g., due to local modified doc/meta files), supervisor will attempt a doc/meta whitelist auto‑commit first, then retry the pull.
-    - If non‑whitelisted dirty files are present, the supervisor exits with a clear error (prevents accidental commits of code/large files).
+  - Tracked outputs auto-commit (publishes modified tracked artifacts like fixtures)
+    - `--auto-commit-tracked-outputs` / `--no-auto-commit-tracked-outputs` (default: on)
+    - `--tracked-output-globs "tests/fixtures/**/*.npy,tests/fixtures/**/*.npz,tests/fixtures/**/*.json,tests/fixtures/**/*.pkl"` — path allowlist (glob); only tracked modifications are considered
+    - `--tracked-output-extensions ".npy,.npz,.json,.pkl"` — allowed extensions
+    - `--max-tracked-output-file-bytes N` (default 32 MiB) · `--max-tracked-output-total-bytes N` (default 100 MiB)
+    - Notes: runs before doc/meta hygiene; keeps repo clean when fixture‑like binaries are legitimately regenerated during a supervisor loop. Files exceeding caps remain dirty and will trigger the whitelist guard (handoff abort).
+- `--prepull-auto-commit-docs` / `--no-prepull-auto-commit-docs` (default: on)
+  - If the initial git pull fails (e.g., due to local modified doc/meta files), supervisor will attempt a doc/meta whitelist auto-commit first, then retry the pull.
+  - If non-whitelisted dirty files are present, the supervisor exits with a clear error (prevents accidental commits of code/large files).
+  - Pointer drift hardening: supervisor now performs a one-time submodule scrub (`git submodule sync --recursive && git submodule update --init --recursive --checkout --force`) before falling back to doc/meta auto-commit, to clear gitlink dirtiness.
 - Loop
   - `--sync-via-git` · `--sync-loops N` · `--poll-interval S` · `--max-wait-sec S`
   - `--branch NAME` · `--logdir PATH` · `--prompt {main,debug}`
@@ -175,6 +182,7 @@ Notes:
 
 ## Troubleshooting
 - Pull failures: both orchestrators now fail fast on git pull errors (including untracked‑file or local‑modification collisions). Read the console/log message, resolve locally (commit/stash/move), and rerun.
+- Submodule pointer drift: if `.claude/` or other gitlinks appear dirty, the supervisor auto-scrubs submodules (sync + update with `--checkout --force`) before retries. This is idempotent and does not commit pointer bumps; it aligns worktrees to the recorded superproject commits.
 - Push rejected / rebase in progress: orchestrators auto‑abort in‑progress rebase before pulling. If conflicts arise, fix them locally, commit, and rerun.
 - Branch mismatch: checkout the correct branch or adjust `--branch`.
 - Missing prompt: ensure `prompts/<name>.md` exists (default is `main`).
