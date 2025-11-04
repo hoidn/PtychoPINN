@@ -1,0 +1,97 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 10 items / 6 deselected / 4 selected
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_training.py>
+        Tests for Phase E training job matrix builder.
+        
+        Validates that build_training_jobs() correctly enumerates 9 jobs per dose
+        (3 doses × 3 variants: baseline gs1, dense gs2, sparse gs2) with proper
+        metadata and dataset path validation.
+        
+        Test tier: Unit
+        Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
+        <Function test_training_cli_filters_jobs>
+          RED → GREEN TDD test for training CLI job filtering.
+          
+          Validates that the training CLI main() function:
+          - Parses command-line arguments (--phase-c-root, --phase-d-root, --artifact-root)
+          - Accepts optional filter flags (--dose, --view, --gridsize)
+          - Calls build_training_jobs() to enumerate full job matrix
+          - Filters jobs based on provided CLI flags
+          - Invokes run_training_job() only for matching jobs
+          - Handles gracefully when filters match nothing (informative error)
+          
+          Test strategy: Mock sys.argv to inject CLI arguments, monkeypatch build_training_jobs
+          and run_training_job to return predictable stubs, validate filtering logic.
+          
+          References:
+          - input.md:10 (CLI filtering requirements for Phase E4)
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+        <Function test_training_cli_manifest_and_bridging>
+          RED → GREEN TDD test for training CLI manifest emission and CONFIG-001 bridging.
+          
+          Validates that the training CLI main() function:
+          - Emits a training_manifest.json file under --artifact-root
+          - Manifest contains job metadata (dose, view, gridsize, dataset paths, log paths)
+          - Manifest exposes skipped_views array with skip metadata (dose, view, reason)
+          - Ensures run_training_job is called with proper CONFIG-001 bridge
+          - Writes CLI stdout/stderr log to --artifact-root for traceability
+          
+          Test strategy: Mock run_training_job to verify it's called (CONFIG-001 handled internally),
+          execute CLI with --dry-run and deliberately missing sparse view data, validate manifest
+          JSON structure and content including skipped_views field.
+          
+          References:
+          - input.md:10 (Phase E5: manifest skip reporting requirement)
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+        <Function test_training_cli_invokes_real_runner>
+          RED → GREEN TDD test for Phase E5 real training runner integration.
+          
+          Validates that the training CLI main() function, when invoked without --dry-run:
+          - Invokes a production runner helper (execute_training_job) instead of stub_runner
+          - Passes resolved TrainingJob and TrainingConfig to the runner
+          - Runner helper performs CONFIG-001 bridging (update_legacy_dict)
+          - Runner helper delegates to actual backend trainer (e.g., train_cdi_model_torch)
+          - Artifacts (logs, manifests) are written under --artifact-root
+          
+          Test strategy: Monkeypatch execute_training_job to spy on invocation without
+          executing full training. Validate that CLI calls the real runner with proper
+          parameters when --dry-run is NOT set.
+          
+          References:
+          - input.md:10 (Phase E5: wire CLI to real runner with deterministic execution)
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md Phase E future item 0
+          - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 bridging)
+          - docs/workflows/pytorch.md §12 (canonical PyTorch training invocation)
+        <Function test_training_cli_records_bundle_path>
+          RED → GREEN TDD test for Phase E6 CLI manifest bundle_path normalization.
+          
+          Validates that the training CLI main() function:
+          - Records bundle_path in manifest for each job (relative to job's artifact_dir)
+          - Uses artifact-relative paths (not absolute workstation-specific paths)
+          - Preserves skip_summary schema unchanged (no interference with bundle fields)
+          - Handles missing bundles gracefully (None or omitted field)
+          
+          Test Strategy:
+          - Monkeypatch execute_training_job to return mock results with bundle_path
+          - Execute CLI with --dry-run to skip actual training but test manifest emission
+          - Validate manifest JSON includes bundle_path field for each job entry
+          - Verify paths are relative to artifact_dir (e.g., "wts.h5.zip" not "/abs/path/wts.h5.zip")
+          
+          References:
+              - input.md:9 (Phase E6: manifest bundle_path normalization requirement)
+              - specs/ptychodus_api_spec.md:239 (§4.6 wts.h5.zip persistence contract)
+              - docs/TESTING_GUIDE.md:101-140 (Phase E CLI testing requirements)
+              - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:268
+
+================= 4/10 tests collected (6 deselected) in 3.64s =================
