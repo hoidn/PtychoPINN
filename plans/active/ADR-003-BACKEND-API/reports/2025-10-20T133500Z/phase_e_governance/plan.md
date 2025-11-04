@@ -35,7 +35,7 @@ Exit Criteria: Legacy API marked deprecated or removed, docs + ledger updated, w
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E.C1 | Implement `ptycho_torch/api/` thin wrappers or deprecation | [ ] | Either wrap old API to new workflows or emit `DeprecationWarning` with migration guidance. Log decision + diff in `reports/<TS>/phase_e_governance/api_deprecation.md`. |
+| E.C1 | Implement `ptycho_torch/api/` thin wrappers or deprecation | [x] | Deprecation warning emitted via `ptycho_torch/api/__init__.py` (`_warn_legacy_api_import`). RED/GREEN evidence + summary archived at `reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/`. |
 | E.C2 | Update docs/fix_plan + plan ledger | [ ] | When Phase E completes, mark `implementation.md` Phase E rows `[x]`, append Attempt summary to `docs/fix_plan.md`, and archive artifacts to `archive/` if initiative ends. |
 | E.C3 | Archive initiative evidence | [ ] | Produce `summary.md` capturing final outcomes, test selectors, and references to ADR/spec commits. Move closed plan to `archive/` per workflow guide. |
 

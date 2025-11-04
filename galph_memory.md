@@ -1821,6 +1821,7 @@
 - Next actions for Ralph: execute RED/green test loop per Do Now, capture summary.md with warning text + MLflow backlog note, update plan row E.C1 guidance.
 - <Action State>: [ready_for_implementation]
 
+
 ## 2025-11-04T021700Z: Phase A constants TDD setup
 - dwell: 1 (prior loop for this focus was planning/docs)
 - Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase A design constants
@@ -2060,4 +2061,16 @@
   - Marked T1–T4 complete in Phase E5.5 plan, logged Attempt #25 implementation summary in docs/fix_plan.md, and created new doc-sync plan D1–D6 capturing remaining tasks.
   - Rewrote input.md (Mode: Docs) directing Ralph to update implementation/test_strategy/doc guides, regenerate collect-only proof, and append doc sync confirmation to summary.md.
 - Next actions for Ralph: execute doc-sync Do Now, archive collect-only log under the new hub, update referenced docs/plan/test strategy, then close T5 and Phase E5 once evidence is captured.
+- <Action State>: [ready_for_implementation]
+
+## 2025-11-04T093200Z: ADR-003 governance close-out staging
+- dwell: 1 (previous supervisor touch on this focus was planning; engineer delivered Attempt #73 implementation in between)
+- Focus issue: ADR-003-BACKEND-API — Phase E.C2/E.C3 ledger + archival close-out
+- Action type: Planning
+- Mode: Docs
+- Key updates:
+  - Reviewed Attempt #73 artifacts (deprecation summary, RED/GREEN logs) and plan.md rows E.C1–E.C3; consulted findings POLICY-001, CONFIG-001, CONFIG-002 plus spec redline pointers.
+  - Marked doc-sync plan D1–D6 complete, flipped phase_e_governance/plan.md E.C1 to `[x]`, updated docs/fix_plan.md active focus/attempt history to reflect E.C1 completion, and set new Active Focus to governance wrap-up.
+  - Established new artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/` (docs, collect, logs) and rewrote `input.md` (Mode: Docs) directing ledger updates, archival summary, and targeted pytest rerun for the deprecation suite.
+- Next actions for Ralph: execute Do Now (implementation/test/doc updates under the new hub), capture pytest log + summary.md, and close E.C2/E.C3 before archiving the initiative.
 - <Action State>: [ready_for_implementation]
