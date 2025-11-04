@@ -1,0 +1,233 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_training_cli_records_bundle_path FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_training_cli_records_bundle_path _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7040d71548d0>
+capsys = <_pytest.capture.CaptureFixture object at 0x7040d7155650>
+
+    def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
+        """
+        RED → GREEN TDD test for Phase E6 CLI manifest bundle_path normalization and stdout format.
+    
+        Validates that the training CLI main() function:
+        - Records bundle_path in manifest for each job (relative to job's artifact_dir)
+        - Uses artifact-relative paths (not absolute workstation-specific paths)
+        - Preserves skip_summary schema unchanged (no interference with bundle fields)
+        - Handles missing bundles gracefully (None or omitted field)
+        - NEW Phase E6: Emits bundle/SHA lines to stdout with view/dose context for traceability
+    
+        Test Strategy:
+        - Monkeypatch execute_training_job to return mock results with bundle_path
+        - Execute CLI without --dry-run to invoke execute_training_job (mocked)
+        - Validate manifest JSON includes bundle_path field for each job entry
+        - Verify paths are relative to artifact_dir (e.g., "wts.h5.zip" not "/abs/path/wts.h5.zip")
+        - NEW: Capture stdout with capsys and assert bundle/SHA lines include view/dose context
+    
+        References:
+            - input.md:10 (Phase E6: CLI stdout digest checks with view/dose context)
+            - specs/ptychodus_api_spec.md:239 (§4.6 wts.h5.zip persistence contract)
+            - docs/TESTING_GUIDE.md:101-140 (Phase E CLI testing requirements)
+            - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:268
+        """
+        import sys
+        import json
+        from studies.fly64_dose_overlap import training
+    
+        # Setup: Create mock Phase C and Phase D directories
+        phase_c_root = tmp_path / "phase_c"
+        phase_d_root = tmp_path / "phase_d"
+        artifact_root = tmp_path / "artifacts"
+    
+        phase_c_root.mkdir()
+        phase_d_root.mkdir()
+    
+        # Create minimal dataset structure for ALL doses (build_training_jobs enumerates all)
+        # Then CLI filters by --dose 1000 to reduce job count
+        for dose in [1000, 10000, 100000]:
+            dose_dir_c = phase_c_root / f"dose_{dose}"
+            dose_dir_d = phase_d_root / f"dose_{dose}"
+            dose_dir_c.mkdir()
+            dose_dir_d.mkdir()
+    
+            # Phase C patched datasets
+            (dose_dir_c / "patched_train.npz").touch()
+            (dose_dir_c / "patched_test.npz").touch()
+    
+            # Phase D dense view datasets
+            dense_dir = dose_dir_d / "dense"
+            dense_dir.mkdir(parents=True, exist_ok=True)
+            (dense_dir / "dense_train.npz").touch()
+            (dense_dir / "dense_test.npz").touch()
+    
+        # Spy: Track execute_training_job calls and return bundle_path in results
+        runner_calls = []
+    
+        def mock_execute_training_job(*, config, job, log_path):
+            """Mock that returns success with bundle_path and bundle_sha256."""
+            runner_calls.append({
+                'config': config,
+                'job': job,
+                'log_path': log_path,
+            })
+            # Simulate bundle saved to artifact_dir/wts.h5.zip
+            bundle_path_abs = job.artifact_dir / "wts.h5.zip"
+            # Generate a mock 64-character hex SHA256 (deterministic for testing)
+            # Use job.view to vary the checksum across jobs
+            # abs() to avoid negative hash values that would produce '-' prefix
+            mock_sha256 = f"{abs(hash(job.view)):064x}"[-64:]  # Ensure 64 chars
+            return {
+                'status': 'success',
+                'final_loss': 0.123,
+                'bundle_path': str(bundle_path_abs),  # Absolute path from execute_training_job
+                'bundle_sha256': mock_sha256,  # Phase E6: checksum for integrity validation
+            }
+    
+        monkeypatch.setattr(training, 'execute_training_job', mock_execute_training_job)
+    
+        # Execute CLI with dose filter (2 jobs: baseline + dense for dose=1000)
+        # NOTE: We do NOT use --dry-run here, because dry-run skips execute_training_job entirely
+        # and returns a summary dict without bundle_path. We need to invoke execute_training_job
+        # (via our mock) to get bundle_path in the result.
+        test_argv = [
+            'training.py',
+            '--phase-c-root', str(phase_c_root),
+            '--phase-d-root', str(phase_d_root),
+            '--artifact-root', str(artifact_root),
+            '--dose', '1000',
+            # No --dry-run → invokes execute_training_job (mocked)
+        ]
+        monkeypatch.setattr(sys, 'argv', test_argv)
+    
+        training.main()
+    
+        # Assertions: manifest file created
+        manifest_path = artifact_root / "training_manifest.json"
+        assert manifest_path.exists(), \
+            f"training_manifest.json not found at {manifest_path}"
+    
+        # Assertions: manifest content is valid JSON
+        with manifest_path.open('r') as f:
+            manifest = json.load(f)
+    
+        assert isinstance(manifest, dict), \
+            f"Manifest must be a dict, got {type(manifest)}"
+    
+        # Assertions: jobs list contains 2 entries (baseline + dense for dose=1000)
+        assert 'jobs' in manifest, \
+            "Manifest must contain 'jobs' list"
+        assert len(manifest['jobs']) == 2, \
+            f"Expected 2 jobs in manifest for dose=1000 (baseline + dense), got {len(manifest['jobs'])}"
+    
+        # Assertions: each job entry contains bundle_path field with relative path
+        for job_entry in manifest['jobs']:
+            assert 'result' in job_entry, \
+                f"Job entry must contain 'result' dict from runner, got keys: {job_entry.keys()}"
+    
+            result_dict = job_entry['result']
+            assert 'bundle_path' in result_dict, \
+                f"Job result must contain 'bundle_path' field (Phase E6 requirement), got keys: {result_dict.keys()}"
+    
+            bundle_path = result_dict['bundle_path']
+            assert bundle_path is not None, \
+                f"bundle_path must not be None for successful training (job: {job_entry['view']})"
+    
+            # KEY ASSERTION: bundle_path must be relative to artifact_dir (not absolute)
+            # Expected format: "wts.h5.zip" or relative path from artifact_dir
+            # NOT acceptable: "/home/user/.../artifacts/dose_1000/baseline/gs1/wts.h5.zip"
+            assert not Path(bundle_path).is_absolute(), \
+                f"bundle_path must be relative to artifact_dir, got absolute path: {bundle_path}"
+    
+            # Validate bundle_path is just the filename (simplest case)
+            assert bundle_path == "wts.h5.zip", \
+                f"bundle_path should be 'wts.h5.zip' relative to artifact_dir, got: {bundle_path}"
+    
+            # Phase E6: Validate bundle_sha256 field is present and properly formatted
+            assert 'bundle_sha256' in result_dict, \
+                f"Job result must contain 'bundle_sha256' field (Phase E6 checksum requirement), got keys: {result_dict.keys()}"
+    
+            bundle_sha256 = result_dict['bundle_sha256']
+            assert bundle_sha256 is not None, \
+                f"bundle_sha256 must not be None for successful training (job: {job_entry['view']})"
+    
+            # Validate SHA256 format (64-character lowercase hexadecimal)
+            assert isinstance(bundle_sha256, str), \
+                f"bundle_sha256 must be a string, got {type(bundle_sha256)}"
+            assert len(bundle_sha256) == 64, \
+                f"bundle_sha256 must be 64 characters (SHA256 hex digest), got {len(bundle_sha256)}"
+            assert bundle_sha256.islower(), \
+                f"bundle_sha256 must be lowercase hex, got {bundle_sha256}"
+            assert all(c in '0123456789abcdef' for c in bundle_sha256), \
+                f"bundle_sha256 must be hexadecimal, got {bundle_sha256}"
+    
+            print(f"  ✓ Job {job_entry['view']} (dose={job_entry['dose']:.0e}): bundle_path={bundle_path}, sha256={bundle_sha256[:16]}...")
+    
+        # Assertions: skip_summary schema unchanged (no interference)
+        assert 'skip_summary_path' in manifest, \
+            "Manifest must contain skip_summary_path field (Phase E5.5 requirement)"
+        assert 'skipped_views' in manifest, \
+            "Manifest must contain skipped_views field (Phase E5 requirement)"
+    
+        # NEW Phase E6 Assertions: Validate stdout format includes view/dose context
+        # Capture stdout using capsys fixture
+        captured = capsys.readouterr()
+        stdout_lines = captured.out.splitlines()
+    
+        # Extract bundle and SHA256 lines from stdout
+        bundle_lines = [line for line in stdout_lines if '→ Bundle [' in line]
+        sha256_lines = [line for line in stdout_lines if '→ SHA256 [' in line]
+    
+        # Assertions: 2 jobs (baseline + dense) should produce 2 bundle + 2 SHA256 lines
+        assert len(bundle_lines) == 2, \
+            f"Expected 2 bundle lines in stdout (baseline + dense), got {len(bundle_lines)}"
+        assert len(sha256_lines) == 2, \
+            f"Expected 2 SHA256 lines in stdout (baseline + dense), got {len(sha256_lines)}"
+    
+        # Validate format of bundle lines: "    → Bundle [view/dose=X.Xe+YY]: path"
+        for line in bundle_lines:
+            # Extract view/dose context from line
+            # Expected format: "    → Bundle [baseline/dose=1.0e+03]: wts.h5.zip"
+            assert '[' in line and '/dose=' in line and ']:' in line, \
+                f"Bundle line must include [view/dose=X.Xe+YY] context, got: {line}"
+    
+            # Extract view name from line
+            view_match = line.split('[')[1].split('/')[0]
+            assert view_match in {'baseline', 'dense'}, \
+                f"Bundle line view must be 'baseline' or 'dense', got: {view_match}"
+    
+            # Extract dose from line
+            dose_match = line.split('dose=')[1].split(']')[0]
+            # Note: Python's .0e format produces '1e+03' not '1.0e+03' for dose=1000
+            assert dose_match == '1e+03', \
+                f"Bundle line dose must be '1e+03' (from --dose 1000), got: {dose_match}"
+    
+            # NEW Phase E6 Do Now: Validate bundle path is artifact-relative (not absolute)
+            # Extract path portion from line (after "]: ")
+            bundle_path_stdout = line.split(']: ')[1]
+>           assert not Path(bundle_path_stdout).is_absolute(), \
+                f"Stdout bundle path must be artifact-relative, got absolute path: {bundle_path_stdout}"
+E           AssertionError: Stdout bundle path must be artifact-relative, got absolute path: /tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0/artifacts/dose_1000/baseline/gs1/wts.h5.zip
+E           assert not True
+E            +  where True = is_absolute()
+E            +    where is_absolute = PosixPath('/tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0/artifacts/dose_1000/baseline/gs1/wts.h5.zip').is_absolute
+E            +      where PosixPath('/tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0/artifacts/dose_1000/baseline/gs1/wts.h5.zip') = Path('/tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0/artifacts/dose_1000/baseline/gs1/wts.h5.zip')
+
+tests/study/test_dose_overlap_training.py:1648: AssertionError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_training_cli_records_bundle_path - AssertionError: Stdout bundle path must be artifact-relative, got absolute path: /tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0/artifacts/dose_1000/baseline/gs1/wts.h5.zip
+assert not True
+ +  where True = is_absolute()
+ +    where is_absolute = PosixPath('/tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0/artifacts/dose_1000/baseline/gs1/wts.h5.zip').is_absolute
+ +      where PosixPath('/tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0/artifacts/dose_1000/baseline/gs1/wts.h5.zip') = Path('/tmp/pytest-of-ollie/pytest-226/test_training_cli_records_bund0/artifacts/dose_1000/baseline/gs1/wts.h5.zip')
+============================== 1 failed in 4.02s ===============================
