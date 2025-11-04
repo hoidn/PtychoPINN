@@ -2115,3 +2115,17 @@
 - Next actions for Ralph: Execute CLI Do Now — author RED tests, implement CLI main, gather RED→GREEN evidence, run dry-run CLI, update docs/registries, then proceed toward Phase F2 dry-run preparation.
 - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T180000Z: Phase F2 execution planning
+- dwell: 0 (handoff staged for implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F2)
+- Action type: Planning
+- Mode: TDD
+- Notes:
+  - Re-ran `timeout 30 git pull --rebase` (already up to date) and reviewed Attempt #76 artifacts alongside `phase_f_ptychi_baseline_plan/plan.md:24-38` and `test_strategy.md:212-244` to confirm F1.3 completion.
+  - Consulted docs/findings entries POLICY-001/CONFIG-001/DATA-001/OVERSAMPLING-001 plus `docs/TESTING_GUIDE.md:100-142` to restate CLI/test guardrails before outlining F2.
+  - Marked F1.3 `[x]` in the Phase F plan, promoted the CLI selector to Active in test_strategy, and reserved new artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/{red,green,collect,cli,real_run,docs}`.
+  - Rewrote `input.md` (Mode: TDD) directing logging instrumentation in `run_ptychi_job`, authoring the non-dry-run pytest selector, capturing RED→GREEN logs, running dry-run + first real LSQML command, and syncing docs/registries.
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/
+- Next actions for Ralph: Execute F2 Do Now — land logging + manifest telemetry, run targeted pytest, capture dry-run + real-run evidence, and update docs/test registries.
+- <Action State>: [ready_for_implementation]

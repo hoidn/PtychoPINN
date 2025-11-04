@@ -24,7 +24,7 @@ Exit Criteria: Builder + CLI helpers emit manifest with LSQML jobs per dose/view
 | --- | --- | --- | --- |
 | F1.1 | Implement `studies/fly64_dose_overlap/reconstruction.py::build_ptychi_jobs` returning dataclasses with CLI args + artifact destinations | [x] | Completed in Attempt #F1 — manifest now emits 18 jobs (3 doses × 3 views × 2 splits) with DATA-001 validation; GREEN log in `reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/green/pytest_phase_f_green.log`. |
 | F1.2 | Extend RED test to GREEN by asserting manifest structure (3 doses × {dense,sparse} GS2 + gs1 baseline) and CLI arg correctness; add `test_run_ptychi_job_invokes_script` using stub subprocess runner | [x] | Tests updated in Attempt #F1 (`tests/study/test_dose_overlap_reconstruction.py`), subprocess runner covered via mocks; see `reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/{green,collect}/`. |
-| F1.3 | Add CLI entry `studies.fly64_dose_overlap.reconstruction:main` mirroring training CLI filters (`--dose`, `--view`, `--gridsize`, `--dry-run`) and emitting manifest/summary to artifact root | [ ] | Follow CLI patterns from `training.py::main`; ensure `AUTHORITATIVE_CMDS_DOC` instructions echoed in usage; capture CLI smoke + dry-run logs under `reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/{cli,docs}/`. |
+| F1.3 | Add CLI entry `studies.fly64_dose_overlap.reconstruction:main` mirroring training CLI filters (`--dose`, `--view`, `--gridsize`, `--dry-run`) and emitting manifest/summary to artifact root | [x] | Completed in Attempt #F1.3 — CLI implemented with deterministic filtering, manifest + skip summary emission, and dry-run evidence under `reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/{cli,docs,red,green,collect}/`. |
 
 ### F2 — Deterministic Baseline Execution
 Goal: Run LSQML reconstructions (CPU mode by default) and archive outputs.
@@ -33,9 +33,9 @@ Exit Criteria: At least one deterministic LSQML run completes (dense gs2 recomme
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| F2.1 | Execute CLI dry-run (`--dry-run`) to validate manifest and skip reporting before expensive runs | [ ] | Archive stdout/stderr to `cli/dry_run.log`; confirm manifest lists expected jobs and skip count zero. |
-| F2.2 | Execute real LSQML run for at least one view per dose (start with dense view, 100 epochs) | [ ] | Use deterministic seeds from Phase C config; store output NPZ & log under `real_run/<dose>/<view>/`; budget ≤20 min per run; note hardware in summary. |
-| F2.3 | Update `summary.md` with run outcomes, deviations, and next-step recommendations for Phase G comparisons | [ ] | Include MS-SSIM placeholder fields; cite DATA-001 compliance checks and CONFIG-001 adherence. |
+| F2.1 | Execute CLI dry-run (`--dry-run`) to validate manifest and skip reporting before expensive runs | [ ] | Archive stdout/stderr to `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/cli/dry_run.log`; confirm manifest lists expected jobs and skip count zero. |
+| F2.2 | Execute real LSQML run for at least one view per dose (start with dense view, 100 epochs) | [ ] | Use deterministic seeds from Phase C config; store output NPZ & log under `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/real_run/dose_{dose}/{view}/`; budget ≤20 min per run; note hardware in summary. |
+| F2.3 | Update `summary.md` with run outcomes, deviations, and next-step recommendations for Phase G comparisons | [ ] | Include MS-SSIM placeholder fields; cite DATA-001 compliance checks, CONFIG-001 adherence, and reference CLI/real-run artifacts in `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/docs/summary.md`. |
 
 ## Deliverables & Artifacts
 - All evidence stored under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline/` (subdirs: plan/, docs/, red/, green/, collect/, cli/, real_run/).
