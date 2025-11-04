@@ -188,3 +188,64 @@ def test_execute_comparison_jobs_invokes_compare_models(fake_phase_artifacts, tm
     result = manifest['execution_results'][0]
     assert 'returncode' in result, "Missing returncode in execution result"
     assert result['returncode'] == 0, f"Expected returncode=0, got {result['returncode']}"
+
+
+def test_execute_comparison_jobs_records_summary(fake_phase_artifacts, tmp_path, monkeypatch):
+    """
+    Test execute_comparison_jobs records n_success and n_failed counts in manifest.
+
+    Exit criteria (AT-G2.1):
+    - Manifest includes 'n_success' field counting jobs with returncode=0
+    - Manifest includes 'n_failed' field counting jobs with returncode!=0
+    - n_success + n_failed == n_executed
+    - Summary fields are persisted in the manifest JSON
+    """
+    from studies.fly64_dose_overlap.comparison import build_comparison_jobs, execute_comparison_jobs
+
+    # Track subprocess calls and simulate mixed success/failure
+    subprocess_calls = []
+
+    def mock_subprocess_run(cmd, **kwargs):
+        call_idx = len(subprocess_calls)
+        subprocess_calls.append({'cmd': cmd, 'kwargs': kwargs})
+
+        # Simulate: first job succeeds, second job fails
+        from unittest.mock import Mock
+        result = Mock()
+        result.returncode = 0 if call_idx == 0 else 1
+        result.stdout = "comparison complete" if call_idx == 0 else "comparison failed"
+        result.stderr = "" if call_idx == 0 else "error: missing checkpoint"
+        return result
+
+    monkeypatch.setattr('subprocess.run', mock_subprocess_run)
+
+    # Build jobs for dose=1000 (both dense and sparse, train only)
+    jobs = build_comparison_jobs(
+        phase_c_root=fake_phase_artifacts['phase_c_root'],
+        phase_e_root=fake_phase_artifacts['phase_e_root'],
+        phase_f_root=fake_phase_artifacts['phase_f_root'],
+        dose_filter=1000,
+        split_filter='train',
+    )
+
+    # Should have 2 jobs (dense + sparse, train only)
+    assert len(jobs) == 2, f"Expected 2 jobs, got {len(jobs)}"
+
+    # Execute comparisons
+    artifact_root = tmp_path / 'phase_g_summary_test'
+    manifest = execute_comparison_jobs(
+        jobs=jobs,
+        artifact_root=artifact_root,
+    )
+
+    # Verify summary fields are present
+    assert 'n_success' in manifest, "Manifest missing 'n_success' field"
+    assert 'n_failed' in manifest, "Manifest missing 'n_failed' field"
+
+    # Verify counts match expected values
+    assert manifest['n_success'] == 1, f"Expected n_success=1, got {manifest['n_success']}"
+    assert manifest['n_failed'] == 1, f"Expected n_failed=1, got {manifest['n_failed']}"
+
+    # Verify n_success + n_failed == n_executed
+    assert manifest['n_success'] + manifest['n_failed'] == manifest['n_executed'], \
+        f"n_success({manifest['n_success']}) + n_failed({manifest['n_failed']}) != n_executed({manifest['n_executed']})"

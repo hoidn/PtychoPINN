@@ -1,0 +1,44 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_comparison.py>
+        Test Phase G comparison orchestration for STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.
+        
+        Validates build_comparison_jobs function produces deterministic jobs with pointers
+        to Phase C/E/F artifacts and metric configuration.
+        <Function test_build_comparison_jobs_creates_all_conditions>
+          Test build_comparison_jobs creates all 18 dose/view/split combinations.
+          
+          Exit criteria:
+          - Returns 18 jobs (3 doses × 3 views × 2 splits)
+          - Jobs have deterministic ordering
+          - Each job includes phase_c_npz, pinn_checkpoint, baseline_checkpoint, phase_f_manifest
+          - Metric config includes ms_ssim_sigma=1.0 and registration flags
+        <Function test_execute_comparison_jobs_invokes_compare_models>
+          Test execute_comparison_jobs shells out to scripts/compare_models.py with correct arguments.
+          
+          Exit criteria:
+          - execute_comparison_jobs invokes subprocess.run for each job
+          - CLI arguments match ComparisonJob fields and artifact root structure
+          - Execution logs and return codes are captured in manifest
+          - Dry-run mode does not execute comparisons
+        <Function test_execute_comparison_jobs_records_summary>
+          Test execute_comparison_jobs records n_success and n_failed counts in manifest.
+          
+          Exit criteria (AT-G2.1):
+          - Manifest includes 'n_success' field counting jobs with returncode=0
+          - Manifest includes 'n_failed' field counting jobs with returncode!=0
+          - n_success + n_failed == n_executed
+          - Summary fields are persisted in the manifest JSON
+
+========================== 3 tests collected in 0.84s ==========================

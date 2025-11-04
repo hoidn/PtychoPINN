@@ -236,10 +236,16 @@ def execute_comparison_jobs(
                 'error': str(e),
             })
 
+    # Calculate success/failure counts
+    n_success = sum(1 for r in execution_results if r['returncode'] == 0)
+    n_failed = len(execution_results) - n_success
+
     # Build manifest with execution results
     manifest = {
         'n_jobs': len(jobs),
         'n_executed': len(execution_results),
+        'n_success': n_success,
+        'n_failed': n_failed,
         'execution_results': execution_results,
     }
 
@@ -354,8 +360,10 @@ def main():
         artifact_root=args.artifact_root,
     )
 
-    # Update manifest with execution results
+    # Update manifest with execution results (including summary counts)
     manifest['execution_results'] = execution_manifest['execution_results']
+    manifest['n_success'] = execution_manifest['n_success']
+    manifest['n_failed'] = execution_manifest['n_failed']
 
     # Rewrite manifest with execution results
     with open(manifest_path, 'w') as f:
@@ -363,17 +371,14 @@ def main():
     print(f"\nUpdated manifest with execution results: {manifest_path}")
 
     # Emit execution summary
-    n_success = sum(1 for r in execution_manifest['execution_results'] if r['returncode'] == 0)
-    n_failed = len(execution_manifest['execution_results']) - n_success
-
     print(f"\nExecution Summary:")
     print(f"  Total jobs: {len(jobs)}")
     print(f"  Executed: {execution_manifest['n_executed']}")
-    print(f"  Success: {n_success}")
-    print(f"  Failed: {n_failed}")
+    print(f"  Success: {execution_manifest['n_success']}")
+    print(f"  Failed: {execution_manifest['n_failed']}")
 
     # Return non-zero if any failures
-    return 1 if n_failed > 0 else 0
+    return 1 if execution_manifest['n_failed'] > 0 else 0
 
 
 if __name__ == '__main__':

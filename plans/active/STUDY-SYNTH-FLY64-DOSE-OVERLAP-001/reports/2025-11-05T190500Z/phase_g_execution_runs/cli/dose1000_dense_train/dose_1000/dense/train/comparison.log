@@ -1,0 +1,127 @@
+Command: /home/ollie/miniconda3/envs/ptycho311/bin/python -m scripts.compare_models --pinn_dir tmp/phase_e_training_gs2/pinn --baseline_dir tmp/phase_e_training_gs2/baseline --test_data tmp/phase_c_f2_cli/dose_1000/patched_train.npz --output_dir plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense_train/dose_1000/dense/train --ms-ssim-sigma 1.0 --register-ptychi-only
+Return code: 1
+
+=== STDOUT ===
+2025-11-04 07:02:31,088 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-04 07:02:31,088 - INFO - Registration: enabled
+2025-11-04 07:02:31,088 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-04 07:02:31,088 - INFO - Loading PtychoPINN model to restore configuration...
+2025-11-04 07:02:31,088 - INFO - Loading PtychoPINN model from tmp/phase_e_training_gs2/pinn...
+2025-11-04 07:02:31,088 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 1219, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 788, in main
+    pinn_model = load_pinn_model(args.pinn_dir)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 108, in load_pinn_model
+    model, _ = load_inference_bundle(model_dir)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/workflows/components.py", line 148, in load_inference_bundle
+    raise FileNotFoundError(
+FileNotFoundError: Model archive not found at: tmp/phase_e_training_gs2/pinn/wts.h5.zip. Expected to find 'wts.h5.zip' in the directory tmp/phase_e_training_gs2/pinn. This file is created during training with ptycho_train.
+2025-11-04 07:02:31,089 - ERROR - Traceback (most recent call last):
+2025-11-04 07:02:31,089 - ERROR - File "<frozen runpy>", line 198, in _run_module_as_main
+2025-11-04 07:02:31,089 - ERROR - File "<frozen runpy>", line 88, in _run_code
+2025-11-04 07:02:31,089 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 1219, in <module>
+2025-11-04 07:02:31,089 - ERROR - main()
+2025-11-04 07:02:31,089 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 788, in main
+2025-11-04 07:02:31,089 - ERROR - pinn_model = load_pinn_model(args.pinn_dir)
+2025-11-04 07:02:31,089 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 108, in load_pinn_model
+2025-11-04 07:02:31,090 - ERROR - model, _ = load_inference_bundle(model_dir)
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - File "/home/ollie/Documents/PtychoPINN2/ptycho/workflows/components.py", line 148, in load_inference_bundle
+2025-11-04 07:02:31,091 - ERROR - raise FileNotFoundError(
+2025-11-04 07:02:31,091 - ERROR - FileNotFoundError
+2025-11-04 07:02:31,091 - ERROR - :
+2025-11-04 07:02:31,091 - ERROR - Model archive not found at: tmp/phase_e_training_gs2/pinn/wts.h5.zip. Expected to find 'wts.h5.zip' in the directory tmp/phase_e_training_gs2/pinn. This file is created during training with ptycho_train.
+
+
+=== STDERR ===
+2025-11-04 07:02:28.691815: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1762268548.703295 1208164 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762268548.706923 1208164 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762268548.716832 1208164 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762268548.716843 1208164 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762268548.716844 1208164 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762268548.716845 1208164 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-04 07:02:28.719541: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 1219, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 788, in main
+    pinn_model = load_pinn_model(args.pinn_dir)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 108, in load_pinn_model
+    model, _ = load_inference_bundle(model_dir)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/workflows/components.py", line 148, in load_inference_bundle
+    raise FileNotFoundError(
+FileNotFoundError: Model archive not found at: tmp/phase_e_training_gs2/pinn/wts.h5.zip. Expected to find 'wts.h5.zip' in the directory tmp/phase_e_training_gs2/pinn. This file is created during training with ptycho_train.

@@ -1,0 +1,88 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary FAILED [100%]
+
+=================================== FAILURES ===================================
+_________________ test_execute_comparison_jobs_records_summary _________________
+
+fake_phase_artifacts = {'phase_c_root': PosixPath('/tmp/pytest-of-ollie/pytest-172/test_execute_comparison_jobs_r0/phase_c'), 'phase_e_root':...obs_r0/phase_e'), 'phase_f_root': PosixPath('/tmp/pytest-of-ollie/pytest-172/test_execute_comparison_jobs_r0/phase_f')}
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-172/test_execute_comparison_jobs_r0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x788e0e78c4d0>
+
+    def test_execute_comparison_jobs_records_summary(fake_phase_artifacts, tmp_path, monkeypatch):
+        """
+        Test execute_comparison_jobs records n_success and n_failed counts in manifest.
+    
+        Exit criteria (AT-G2.1):
+        - Manifest includes 'n_success' field counting jobs with returncode=0
+        - Manifest includes 'n_failed' field counting jobs with returncode!=0
+        - n_success + n_failed == n_executed
+        - Summary fields are persisted in the manifest JSON
+        """
+        from studies.fly64_dose_overlap.comparison import build_comparison_jobs, execute_comparison_jobs
+    
+        # Track subprocess calls and simulate mixed success/failure
+        subprocess_calls = []
+    
+        def mock_subprocess_run(cmd, **kwargs):
+            call_idx = len(subprocess_calls)
+            subprocess_calls.append({'cmd': cmd, 'kwargs': kwargs})
+    
+            # Simulate: first job succeeds, second job fails
+            from unittest.mock import Mock
+            result = Mock()
+            result.returncode = 0 if call_idx == 0 else 1
+            result.stdout = "comparison complete" if call_idx == 0 else "comparison failed"
+            result.stderr = "" if call_idx == 0 else "error: missing checkpoint"
+            return result
+    
+        monkeypatch.setattr('subprocess.run', mock_subprocess_run)
+    
+        # Build jobs for dose=1000 (both dense and sparse, train only)
+        jobs = build_comparison_jobs(
+            phase_c_root=fake_phase_artifacts['phase_c_root'],
+            phase_e_root=fake_phase_artifacts['phase_e_root'],
+            phase_f_root=fake_phase_artifacts['phase_f_root'],
+            dose_filter=1000,
+            split_filter='train',
+        )
+    
+        # Should have 2 jobs (dense + sparse, train only)
+        assert len(jobs) == 2, f"Expected 2 jobs, got {len(jobs)}"
+    
+        # Execute comparisons
+        artifact_root = tmp_path / 'phase_g_summary_test'
+        manifest = execute_comparison_jobs(
+            jobs=jobs,
+            artifact_root=artifact_root,
+        )
+    
+        # Verify summary fields are present
+>       assert 'n_success' in manifest, "Manifest missing 'n_success' field"
+E       AssertionError: Manifest missing 'n_success' field
+E       assert 'n_success' in {'n_jobs': 2, 'n_executed': 2, 'execution_results': [{'dose': 1000, 'view': 'dense', 'split': 'train', 'returncode': 0, 'log_path': 'dose_1000/dense/train/comparison.log'}, {'dose': 1000, 'view': 'sparse', 'split': 'train', 'returncode': 1, 'log_path': 'dose_1000/sparse/train/comparison.log'}]}
+
+tests/study/test_dose_overlap_comparison.py:242: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+Executing comparison for dose=1000, view=dense, split=train
+  Output: /tmp/pytest-of-ollie/pytest-172/test_execute_comparison_jobs_r0/phase_g_summary_test/dose_1000/dense/train
+  Log: /tmp/pytest-of-ollie/pytest-172/test_execute_comparison_jobs_r0/phase_g_summary_test/dose_1000/dense/train/comparison.log
+  SUCCESS (returncode=0)
+
+Executing comparison for dose=1000, view=sparse, split=train
+  Output: /tmp/pytest-of-ollie/pytest-172/test_execute_comparison_jobs_r0/phase_g_summary_test/dose_1000/sparse/train
+  Log: /tmp/pytest-of-ollie/pytest-172/test_execute_comparison_jobs_r0/phase_g_summary_test/dose_1000/sparse/train/comparison.log
+  FAILED (returncode=1)
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary - AssertionError: Manifest missing 'n_success' field
+assert 'n_success' in {'n_jobs': 2, 'n_executed': 2, 'execution_results': [{'dose': 1000, 'view': 'dense', 'split': 'train', 'returncode': 0, 'log_path': 'dose_1000/dense/train/comparison.log'}, {'dose': 1000, 'view': 'sparse', 'split': 'train', 'returncode': 1, 'log_path': 'dose_1000/sparse/train/comparison.log'}]}
+============================== 1 failed in 0.86s ===============================

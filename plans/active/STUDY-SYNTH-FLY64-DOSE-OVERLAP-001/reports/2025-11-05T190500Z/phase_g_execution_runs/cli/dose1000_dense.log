@@ -1,0 +1,9 @@
+Building comparison jobs...
+  Phase C root: tmp/phase_c_f2_cli
+  Phase E root: tmp/phase_e_training_gs2
+  Phase F root: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test
+  Filters: dose=1000, view=dense, split=None
+
+ERROR: Phase F manifest not found: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test/dose_1000_dense_test/manifest.json
+
+Failed to build comparison jobs due to missing prerequisites.

@@ -1,0 +1,26 @@
+Building comparison jobs...
+  Phase C root: tmp/phase_c_f2_cli
+  Phase E root: tmp/phase_e_training_gs2
+  Phase F root: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test
+  Filters: dose=1000, view=dense, split=train
+
+Built 1 comparison jobs
+Wrote manifest to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense_train/comparison_manifest.json
+Wrote summary to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense_train/comparison_summary.txt
+
+==================================================
+EXECUTING COMPARISON JOBS
+==================================================
+
+Executing comparison for dose=1000, view=dense, split=train
+  Output: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense_train/dose_1000/dense/train
+  Log: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense_train/dose_1000/dense/train/comparison.log
+  FAILED (returncode=1)
+
+Updated manifest with execution results: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T190500Z/phase_g_execution_runs/cli/dose1000_dense_train/comparison_manifest.json
+
+Execution Summary:
+  Total jobs: 1
+  Executed: 1
+  Success: 0
+  Failed: 1

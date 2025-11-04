@@ -1,0 +1,33 @@
+{
+  "n_jobs": 1,
+  "filters": {
+    "dose": 1000,
+    "view": "dense",
+    "split": "train"
+  },
+  "jobs": [
+    {
+      "dose": 1000,
+      "view": "dense",
+      "split": "train",
+      "phase_c_npz": "tmp/phase_c_f2_cli/dose_1000/patched_train.npz",
+      "pinn_checkpoint": "tmp/phase_e_training_gs2/pinn/checkpoint.h5",
+      "baseline_checkpoint": "tmp/phase_e_training_gs2/baseline/checkpoint.h5",
+      "phase_f_manifest": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/phase_f_cli_test/dose_1000_dense_train/manifest.json",
+      "ms_ssim_sigma": 1.0,
+      "skip_registration": false,
+      "register_ptychi_only": true
+    }
+  ],
+  "execution_results": [
+    {
+      "dose": 1000,
+      "view": "dense",
+      "split": "train",
+      "returncode": 1,
+      "log_path": "dose_1000/dense/train/comparison.log"
+    }
+  ],
+  "n_success": 0,
+  "n_failed": 1
+}
