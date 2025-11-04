@@ -1,0 +1,30 @@
+# PtyChi LSQML Reconstruction Log
+# Job: dose=1000.0, view=dense, split=train
+# Command: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz tmp/phase_d_f2_cli/dose_1000/dense/dense_train.npz --output-dir plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/real_run/dose_1000/dense/train
+# Return code: 1
+#============================================================
+
+=== STDOUT ===
+=== PTY-CHI Reconstruction of TIKE Dataset ===
+Dataset: tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz
+Algorithm: DM
+Epochs: 200
+Images: 2000
+Loading TIKE dataset from: tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz
+
+✗ Error during reconstruction: [Errno 2] No such file or directory: 'tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz'
+
+
+=== STDERR ===
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/scripts/reconstruction/ptychi_reconstruct_tike.py", line 314, in main
+    data_dict = load_and_convert_tike_data(tike_dataset, n_images=n_images)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/scripts/reconstruction/ptychi_reconstruct_tike.py", line 35, in load_and_convert_tike_data
+    with np.load(npz_path) as data:
+         ^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/numpy/lib/_npyio_impl.py", line 459, in load
+    fid = stack.enter_context(open(os.fspath(file), "rb"))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz'
+
