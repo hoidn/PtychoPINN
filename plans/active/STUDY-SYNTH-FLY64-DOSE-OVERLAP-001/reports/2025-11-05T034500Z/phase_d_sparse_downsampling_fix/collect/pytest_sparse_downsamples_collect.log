@@ -1,0 +1,47 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 11 items / 10 deselected / 1 selected
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_overlap.py>
+        Phase D tests for dense/sparse overlap view generation.
+        
+        This module tests the overlap filtering pipeline:
+        - compute_spacing_matrix correctness
+        - build_acceptance_mask threshold enforcement
+        - generate_overlap_views orchestration
+        - Spacing threshold validation (RED → GREEN workflow)
+        
+        References:
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/plan.md
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151
+        <Function test_generate_overlap_views_sparse_downsamples>
+          Test that sparse overlap generation succeeds via greedy downsampling
+          when initial acceptance <10% but a valid subset exists.
+          
+          Scenario:
+          - Coordinates spaced at 64 px (all positions individually fail sparse threshold 102.4 px)
+          - Greedy selector should identify a subset with spacing ≥102.4 px
+          - generate_overlap_views should emit NPZs with n_accepted > 0 instead of raising
+          
+          RED expectation: Without greedy fallback, raises ValueError("Insufficient positions...")
+          GREEN expectation: After implementation, emits valid NPZs with metadata recording selection strategy
+          
+          References:
+          - input.md:8-9 — Phase D sparse downsampling rescue
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T034500Z/phase_d_sparse_downsampling_fix/plan.md:D7.1
+          - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 — spacing formula
+          - Attempt #20 CLI logs showing sparse view ValueError
+          
+          Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_sparse_downsamples -vv
+
+================ 1/11 tests collected (10 deselected) in 0.94s =================

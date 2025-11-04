@@ -1,0 +1,23 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 11 items
+
+tests/study/test_dose_overlap_overlap.py::test_compute_spacing_matrix_basic PASSED [  9%]
+tests/study/test_dose_overlap_overlap.py::test_compute_spacing_matrix_empty PASSED [ 18%]
+tests/study/test_dose_overlap_overlap.py::test_compute_spacing_matrix_single PASSED [ 27%]
+tests/study/test_dose_overlap_overlap.py::test_spacing_filter_parametrized[sparse-True] PASSED [ 36%]
+tests/study/test_dose_overlap_overlap.py::test_spacing_filter_parametrized[dense-False] PASSED [ 45%]
+tests/study/test_dose_overlap_overlap.py::test_build_acceptance_mask PASSED [ 54%]
+tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask PASSED [ 63%]
+tests/study/test_dose_overlap_overlap.py::test_compute_spacing_metrics PASSED [ 72%]
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths PASSED [ 81%]
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_metrics_manifest PASSED [ 90%]
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_sparse_downsamples PASSED [100%]
+
+============================== 11 passed in 1.20s ==============================

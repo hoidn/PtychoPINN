@@ -1,0 +1,197 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_sparse_downsamples FAILED [100%]
+
+=================================== FAILURES ===================================
+________________ test_generate_overlap_views_sparse_downsamples ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-149/test_generate_overlap_views_sp0')
+study_design = StudyDesign(dose_list=[1000.0, 10000.0, 100000.0], gridsizes=[1, 2], neighbor_count=7, patch_size_pixels=128, overlap_...: 456}, metrics_config={'ms_ssim_sigma': 1.0, 'emphasize_phase': True, 'report_amplitude': True, 'frc_threshold': 0.5})
+
+    def test_generate_overlap_views_sparse_downsamples(tmp_path: Path, study_design: StudyDesign):
+        """
+        Test that sparse overlap generation succeeds via greedy downsampling
+        when initial acceptance <10% but a valid subset exists.
+    
+        Scenario:
+        - Coordinates spaced at 64 px (all positions individually fail sparse threshold 102.4 px)
+        - Greedy selector should identify a subset with spacing ≥102.4 px
+        - generate_overlap_views should emit NPZs with n_accepted > 0 instead of raising
+    
+        RED expectation: Without greedy fallback, raises ValueError("Insufficient positions...")
+        GREEN expectation: After implementation, emits valid NPZs with metadata recording selection strategy
+    
+        References:
+        - input.md:8-9 — Phase D sparse downsampling rescue
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T034500Z/phase_d_sparse_downsampling_fix/plan.md:D7.1
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 — spacing formula
+        - Attempt #20 CLI logs showing sparse view ValueError
+    
+        Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_sparse_downsamples -vv
+        """
+        # Create synthetic coordinates with 64 px spacing (dense pattern, violates sparse threshold)
+        # Use 5x5 grid = 25 points @ 64 px spacing
+        # Sparse threshold = 102.4 px, so no individual point meets threshold
+        # Greedy selector should be able to find a subset with ≥102.4 px spacing
+        x_grid = np.arange(0, 5) * 64.0
+        y_grid = np.arange(0, 5) * 64.0
+        x_coords, y_coords = np.meshgrid(x_grid, y_grid)
+        coords = np.stack([x_coords.ravel(), y_coords.ravel()], axis=1).astype(np.float32)
+        n = len(coords)  # 25 positions
+    
+        # Fabricate DATA-001 compliant dataset
+        dataset = {
+            'diffraction': np.random.randn(n, 64, 64).astype(np.float32),
+            'objectGuess': np.random.randn(128, 128).astype(np.complex64),
+            'probeGuess': np.random.randn(64, 64).astype(np.complex64),
+            'xcoords': coords[:, 0],
+            'ycoords': coords[:, 1],
+        }
+    
+        train_path = tmp_path / "train_sparse_dense.npz"
+        test_path = tmp_path / "test_sparse_dense.npz"
+        np.savez_compressed(train_path, **dataset)
+        np.savez_compressed(test_path, **dataset)
+    
+        output_dir = tmp_path / "sparse_view_downsampled"
+    
+        # Execute: should succeed via greedy fallback
+>       results = generate_overlap_views(
+            train_path=train_path,
+            test_path=test_path,
+            output_dir=output_dir,
+            view='sparse',
+            design=study_design,
+        )
+
+tests/study/test_dose_overlap_overlap.py:453: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+train_path = PosixPath('/tmp/pytest-of-ollie/pytest-149/test_generate_overlap_views_sp0/train_sparse_dense.npz')
+test_path = PosixPath('/tmp/pytest-of-ollie/pytest-149/test_generate_overlap_views_sp0/test_sparse_dense.npz')
+output_dir = PosixPath('/tmp/pytest-of-ollie/pytest-149/test_generate_overlap_views_sp0/sparse_view_downsampled')
+view = 'sparse'
+design = StudyDesign(dose_list=[1000.0, 10000.0, 100000.0], gridsizes=[1, 2], neighbor_count=7, patch_size_pixels=128, overlap_...: 456}, metrics_config={'ms_ssim_sigma': 1.0, 'emphasize_phase': True, 'report_amplitude': True, 'frc_threshold': 0.5})
+
+    def generate_overlap_views(
+        train_path: Path,
+        test_path: Path,
+        output_dir: Path,
+        view: str,
+        design: StudyDesign | None = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate dense or sparse overlap view from Phase C train/test NPZs.
+    
+        This function:
+        1. Loads train and test NPZs
+        2. Computes spacing matrices and filters to positions meeting threshold
+        3. Validates filtered datasets against DATA-001 + spacing constraints
+        4. Writes filtered NPZs with metadata
+        5. Returns spacing metrics for both splits
+    
+        Args:
+            train_path: Path to Phase C train NPZ
+            test_path: Path to Phase C test NPZ
+            output_dir: Directory for output NPZs and metrics
+            view: Overlap view name ('dense' or 'sparse')
+            design: StudyDesign instance (default: get_study_design())
+    
+        Returns:
+            Dictionary with keys:
+                'train_metrics': SpacingMetrics for train split
+                'test_metrics': SpacingMetrics for test split
+                'train_output': Path to filtered train NPZ
+                'test_output': Path to filtered test NPZ
+    
+        Raises:
+            ValueError: If validation fails or spacing threshold violated
+            FileNotFoundError: If input NPZs don't exist
+    
+        References:
+            - CONFIG-001: Pure utility, no params.cfg access
+            - DATA-001: Validator enforces canonical keys/dtypes
+            - OVERSAMPLING-001: Preserved for downstream Phase E grouping
+        """
+        if design is None:
+            design = get_study_design()
+    
+        # Validate view
+        if view not in design.spacing_thresholds:
+            raise ValueError(
+                f"Unknown view '{view}'. Expected one of: {list(design.spacing_thresholds.keys())}"
+            )
+    
+        threshold = design.spacing_thresholds[view]
+        output_dir.mkdir(parents=True, exist_ok=True)
+    
+        print(f"\n{'='*60}")
+        print(f"Generating {view} overlap view")
+        print(f"Threshold: {threshold:.2f} px (f_overlap={design.overlap_views[view]})")
+        print(f"{'='*60}\n")
+    
+        results = {}
+    
+        for split_name, split_path in [('train', train_path), ('test', test_path)]:
+            print(f"[{split_name.upper()}] Processing {split_path.name}...")
+    
+            # Load dataset
+            with np.load(split_path) as data:
+                data_dict = {k: data[k] for k in data.keys()}
+    
+            # Extract coordinates
+            coords = np.stack([data_dict['xcoords'], data_dict['ycoords']], axis=1)
+    
+            # Compute spacing and build acceptance mask
+            print(f"  Computing spacing matrix for {len(coords)} positions...")
+            distances, min_spacing_by_point = compute_spacing_matrix(coords)
+            mask = build_acceptance_mask(min_spacing_by_point, threshold)
+    
+            # Compute metrics before filtering
+            metrics = compute_spacing_metrics(coords, threshold, mask)
+            print(f"  Spacing metrics:")
+            print(f"    Min: {metrics.min_spacing:.2f} px")
+            print(f"    Max: {metrics.max_spacing:.2f} px")
+            print(f"    Mean: {metrics.mean_spacing:.2f} px")
+            print(f"    Median: {metrics.median_spacing:.2f} px")
+            print(f"    Acceptance: {metrics.n_accepted}/{metrics.n_positions} ({metrics.acceptance_rate:.1%})")
+    
+            # Guard: require minimum acceptance rate to avoid degenerate datasets
+            MIN_ACCEPTANCE_RATE = 0.1  # At least 10% of positions must pass
+            if metrics.acceptance_rate < MIN_ACCEPTANCE_RATE:
+>               raise ValueError(
+                    f"Insufficient positions meet spacing threshold for {view} view in {split_name} split. "
+                    f"Acceptance rate: {metrics.acceptance_rate:.1%} < minimum {MIN_ACCEPTANCE_RATE:.1%}. "
+                    f"Min spacing: {metrics.min_spacing:.2f} px < threshold: {threshold:.2f} px. "
+                    f"Consider relaxing overlap fraction or using different scan positions."
+                )
+E               ValueError: Insufficient positions meet spacing threshold for sparse view in train split. Acceptance rate: 0.0% < minimum 10.0%. Min spacing: 64.00 px < threshold: 102.40 px. Consider relaxing overlap fraction or using different scan positions.
+
+studies/fly64_dose_overlap/overlap.py:333: ValueError
+----------------------------- Captured stdout call -----------------------------
+
+============================================================
+Generating sparse overlap view
+Threshold: 102.40 px (f_overlap=0.2)
+============================================================
+
+[TRAIN] Processing train_sparse_dense.npz...
+  Computing spacing matrix for 25 positions...
+  Spacing metrics:
+    Min: 64.00 px
+    Max: 362.04 px
+    Mean: 169.84 px
+    Median: 162.06 px
+    Acceptance: 0/25 (0.0%)
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_sparse_downsamples - ValueError: Insufficient positions meet spacing threshold for sparse view in train split. Acceptance rate: 0.0% < minimum 10.0%. Min spacing: 64.00 px < threshold: 102.40 px. Consider relaxing overlap fraction or using different scan positions.
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+============================== 1 failed in 1.03s ===============================
