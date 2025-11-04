@@ -1,0 +1,228 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_execute_training_job_persists_bundle FAILED [100%]
+
+=================================== FAILURES ===================================
+__________________ test_execute_training_job_persists_bundle ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71cf19df2710>
+
+    def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for Phase E training bundle persistence.
+    
+        Validates that execute_training_job():
+        - Calls save_torch_bundle after successful training
+        - Creates wts.h5.zip archive in artifact_dir
+        - Populates result['bundle_path'] with the bundle archive path
+        - Writes bundle metadata to training manifest
+    
+        This test implements the gating prerequisite for Phase G comparisons,
+        ensuring real training runs emit spec-compliant model bundles per
+        specs/ptychodus_api_spec.md §4.6.
+    
+        Test Strategy:
+        - Monkeypatch train_cdi_model_torch to return success with model stubs
+        - Monkeypatch save_torch_bundle to spy on invocation
+        - Verify bundle_path in result dict and file existence
+        - Validate manifest fields include bundle_path
+    
+        References:
+            - input.md:9 (Phase E5: bundle persistence requirement)
+            - specs/ptychodus_api_spec.md:239 (§4.6 wts.h5.zip contract)
+            - docs/fix_plan.md:31 (Phase G blocked on training bundles)
+            - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163
+        """
+        from studies.fly64_dose_overlap.training import execute_training_job, TrainingJob
+        from ptycho.config.config import TrainingConfig, ModelConfig
+    
+        # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
+        train_npz = tmp_path / "phase_c_train.npz"
+        test_npz = tmp_path / "phase_c_test.npz"
+    
+        minimal_data = {
+            'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
+            'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
+            'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+            'Y': (np.random.rand(10, 128, 128) + 1j * np.random.rand(10, 128, 128)).astype(np.complex64),
+            'xcoords': np.random.rand(10).astype(np.float32),
+            'ycoords': np.random.rand(10).astype(np.float32),
+            'xcoords_start': np.random.rand(10).astype(np.float32),
+            'ycoords_start': np.random.rand(10).astype(np.float32),
+            'filenames': np.array([f'img_{i:04d}' for i in range(10)]),
+        }
+    
+        np.savez_compressed(train_npz, **minimal_data)
+        np.savez_compressed(test_npz, **minimal_data)
+    
+        # Setup: Create TrainingJob
+        artifact_dir = tmp_path / "artifacts" / "dose_1000" / "baseline" / "gs1"
+        log_path = artifact_dir / "train.log"
+    
+        job = TrainingJob(
+            dose=1e3,
+            view='baseline',
+            gridsize=1,
+            train_data_path=str(train_npz),
+            test_data_path=str(test_npz),
+            artifact_dir=artifact_dir,
+            log_path=log_path,
+        )
+    
+        # Setup: Create TrainingConfig
+        model_config = ModelConfig(gridsize=1)
+        config = TrainingConfig(
+            train_data_file=str(train_npz),
+            test_data_file=str(test_npz),
+            output_dir=str(artifact_dir),
+            model=model_config,
+            nphotons=1e3,
+        )
+    
+        # Spy: record calls to save_torch_bundle
+        bundle_calls = []
+    
+        def spy_save_torch_bundle(models_dict, base_path, config, intensity_scale=None):
+            """Spy that records bundle save invocations."""
+            bundle_calls.append({
+                'models_dict': models_dict,
+                'base_path': base_path,
+                'config': config,
+                'intensity_scale': intensity_scale,
+            })
+            # Create dummy bundle archive to simulate successful save
+            bundle_path = Path(f"{base_path}.zip")
+            bundle_path.parent.mkdir(parents=True, exist_ok=True)
+            bundle_path.write_text("dummy bundle content")
+    
+        # Mock train_cdi_model_torch to return success with model stubs
+        def mock_train_cdi_model_torch(train_data, test_data, config):
+            # Return minimal success with model stubs
+            class DummyModel:
+                pass
+            return {
+                'history': {'train_loss': [0.5, 0.3, 0.1]},
+                'train_container': train_data,
+                'test_container': test_data,
+                'models': {
+                    'autoencoder': DummyModel(),
+                    'diffraction_to_obj': DummyModel(),
+                },
+            }
+    
+        # Mock MemmapDatasetBridge
+        class SpyMemmapDatasetBridge:
+            def __init__(self, npz_path, config, memmap_dir="data/memmap"):
+                from ptycho.raw_data import RawData
+                self.raw_data_torch = RawData(
+                    xcoords=np.array([0.0]),
+                    ycoords=np.array([0.0]),
+                    xcoords_start=np.array([0.0]),
+                    ycoords_start=np.array([0.0]),
+                    diff3d=np.random.rand(1, 64, 64).astype(np.float32),
+                    probeGuess=np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+                    scan_index=np.array([0]),
+                )
+    
+        # Monkeypatch
+        from studies.fly64_dose_overlap import training as training_module
+        monkeypatch.setattr(training_module, 'MemmapDatasetBridge', SpyMemmapDatasetBridge)
+        monkeypatch.setattr(training_module, 'train_cdi_model_torch', mock_train_cdi_model_torch)
+        monkeypatch.setattr(training_module, 'save_torch_bundle', spy_save_torch_bundle)
+    
+        # Execute: call execute_training_job
+        result = execute_training_job(config=config, job=job, log_path=log_path)
+    
+        # Debug output
+        print(f"\nResult from execute_training_job: {result}")
+        if log_path.exists():
+            print(f"Log contents:\n{log_path.read_text()}")
+    
+        # RED Assertions: bundle persistence (expecting failure before implementation)
+        assert result['status'] == 'success', \
+            f"Training should succeed, got status={result['status']}"
+    
+        assert 'bundle_path' in result, \
+            "result must contain 'bundle_path' key after successful training"
+    
+        assert result['bundle_path'] is not None, \
+            "bundle_path must not be None after successful training"
+    
+        # Verify save_torch_bundle was called
+        assert len(bundle_calls) == 1, \
+            f"save_torch_bundle should be called exactly once, got {len(bundle_calls)} calls"
+    
+        call = bundle_calls[0]
+        assert 'autoencoder' in call['models_dict'], \
+            "models_dict must contain 'autoencoder' model"
+        assert 'diffraction_to_obj' in call['models_dict'], \
+            "models_dict must contain 'diffraction_to_obj' model"
+        assert call['config'] is config, \
+            "save_torch_bundle must receive the same TrainingConfig instance"
+    
+        # Verify bundle file exists
+        bundle_path = Path(result['bundle_path'])
+        assert bundle_path.exists(), \
+            f"Bundle archive must exist at {bundle_path}"
+        assert bundle_path.suffix == '.zip', \
+            f"Bundle must be a .zip archive, got {bundle_path.suffix}"
+    
+        # NEW: Verify bundle_sha256 field (Phase E6)
+>       assert 'bundle_sha256' in result, \
+            "result must contain 'bundle_sha256' key after successful bundle persistence"
+E       AssertionError: result must contain 'bundle_sha256' key after successful bundle persistence
+E       assert 'bundle_sha256' in {'status': 'success', 'final_loss': 0.1, 'epochs_completed': 3, 'checkpoint_path': None, 'bundle_path': '/tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/artifacts/dose_1000/baseline/gs1/wts.h5.zip', 'training_results': {'history': {'train_loss': [0.5, 0.3, 0.1]}, 'train_container': <ptycho.raw_data.RawData object at 0x71cf19c43c10>, 'test_container': <ptycho.raw_data.RawData object at 0x71cf19c43290>, 'models': {'autoencoder': <tests.study.test_dose_overlap_training.test_execute_training_job_persists_bundle.<locals>.mock_train_cdi_model_torch.<locals>.DummyModel object at 0x71cf19c97650>, 'diffraction_to_obj': <tests.study.test_dose_overlap_training.test_execute_training_job_persists_bundle.<locals>.mock_train_cdi_model_torch.<locals>.DummyModel object at 0x71cf19c95190>}}}
+
+tests/study/test_dose_overlap_training.py:1148: AssertionError
+----------------------------- Captured stdout call -----------------------------
+diff3d shape: (1, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (1,)
+xcoords shape: (1,)
+ycoords shape: (1,)
+xcoords_start shape: (1,)
+ycoords_start shape: (1,)
+diff3d shape: (1, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (1,)
+xcoords shape: (1,)
+ycoords shape: (1,)
+xcoords_start shape: (1,)
+ycoords_start shape: (1,)
+
+Result from execute_training_job: {'status': 'success', 'final_loss': 0.1, 'epochs_completed': 3, 'checkpoint_path': None, 'bundle_path': '/tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/artifacts/dose_1000/baseline/gs1/wts.h5.zip', 'training_results': {'history': {'train_loss': [0.5, 0.3, 0.1]}, 'train_container': <ptycho.raw_data.RawData object at 0x71cf19c43c10>, 'test_container': <ptycho.raw_data.RawData object at 0x71cf19c43290>, 'models': {'autoencoder': <tests.study.test_dose_overlap_training.test_execute_training_job_persists_bundle.<locals>.mock_train_cdi_model_torch.<locals>.DummyModel object at 0x71cf19c97650>, 'diffraction_to_obj': <tests.study.test_dose_overlap_training.test_execute_training_job_persists_bundle.<locals>.mock_train_cdi_model_torch.<locals>.DummyModel object at 0x71cf19c95190>}}}
+Log contents:
+
+================================================================================
+Phase E5 Training Execution — baseline (dose=1e+03, gridsize=1)
+================================================================================
+Train dataset: /tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/phase_c_train.npz
+Test dataset: /tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/phase_c_test.npz
+Output directory: /tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/artifacts/dose_1000/baseline/gs1
+Gridsize: 1
+nphotons: 1000.0
+
+Instantiating MemmapDatasetBridge for training dataset: /tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/phase_c_train.npz...
+Instantiating MemmapDatasetBridge for test dataset: /tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/phase_c_test.npz...
+Invoking train_cdi_model_torch with config...
+Persisting model bundle to /tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/artifacts/dose_1000/baseline/gs1/wts.h5.zip...
+Model bundle saved: /tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/artifacts/dose_1000/baseline/gs1/wts.h5.zip
+Training completed successfully
+Final loss: 0.1
+Epochs completed: 3
+Checkpoint path: None
+Bundle path: /tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/artifacts/dose_1000/baseline/gs1/wts.h5.zip
+
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_execute_training_job_persists_bundle - AssertionError: result must contain 'bundle_sha256' key after successful bundle persistence
+assert 'bundle_sha256' in {'status': 'success', 'final_loss': 0.1, 'epochs_completed': 3, 'checkpoint_path': None, 'bundle_path': '/tmp/pytest-of-ollie/pytest-190/test_execute_training_job_pers0/artifacts/dose_1000/baseline/gs1/wts.h5.zip', 'training_results': {'history': {'train_loss': [0.5, 0.3, 0.1]}, 'train_container': <ptycho.raw_data.RawData object at 0x71cf19c43c10>, 'test_container': <ptycho.raw_data.RawData object at 0x71cf19c43290>, 'models': {'autoencoder': <tests.study.test_dose_overlap_training.test_execute_training_job_persists_bundle.<locals>.mock_train_cdi_model_torch.<locals>.DummyModel object at 0x71cf19c97650>, 'diffraction_to_obj': <tests.study.test_dose_overlap_training.test_execute_training_job_persists_bundle.<locals>.mock_train_cdi_model_torch.<locals>.DummyModel object at 0x71cf19c95190>}}}
+============================== 1 failed in 4.12s ===============================
