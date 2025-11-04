@@ -48,6 +48,16 @@ This document provides a comprehensive index of the automated tests in the `test
 | `test_cropping.py` | Tests for the cropping module, focusing on the align_for_evaluation function. | `test_align_for_evaluation_bounding_box`, `test_align_for_evaluation_coordinates_format`, `test_align_for_evaluation_shapes`, `test_align_for_evaluation_with_squeeze`, `test_center_crop_exact_size` | `python -m unittest tests.image.test_cropping` | — |
 | `test_registration.py` | Covers registration alignment helpers, including translation detection, shift application, and complex-valued data handling. | `test_apply_shift_and_crop_basic`, `test_apply_shift_and_crop_zero_offset`, `test_different_image_content`, `test_edge_case_maximum_shift`, `test_edge_case_single_pixel_shift`, `test_find_offset_known_shift_complex`, `test_find_offset_known_shift_real`, `test_input_validation_2d_requirement`, `test_input_validation_excessive_offset`, `test_input_validation_shape_matching`, `test_noise_robustness`, `test_register_and_align_convenience`, `test_registration_sign_verification`, `test_round_trip_registration`, `test_shift_and_crop_preserves_data_type` | `python -m unittest tests.image.test_registration` | — |
 
+### Study Tests (`tests/study/`)
+
+| Test File | Purpose / Scope | Key Tests | Usage / Command | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+
+| `test_dose_overlap_design.py` | Tests study design configuration and validation for STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 initiative. Validates study parameters, overlap fractions, and spacing thresholds. | `test_study_design_constants`, `test_study_design_validation`, `test_study_design_to_dict` | `pytest tests/study/test_dose_overlap_design.py -v` | Validates study design dataclass and constants. |
+| `test_dose_overlap_dataset_contract.py` | Tests DATA-001 contract enforcement for Phase C/D datasets. Validates dataset structure, dtypes, spacing constraints, and oversampling preconditions. | `test_validate_dataset_contract_happy_path`, `test_validate_dataset_contract_spacing_dense`, `test_validate_dataset_contract_oversampling_precondition_pass` | `pytest tests/study/test_dose_overlap_dataset_contract.py -v` | Enforces canonical NPZ format and study constraints. |
+| `test_dose_overlap_generation.py` | Tests Phase C dataset generation pipeline for dose sweep. Validates simulation configuration, dataset orchestration, and output structure. | `test_build_simulation_plan`, `test_generate_dataset_pipeline_orchestration`, `test_generate_dataset_config_construction` | `pytest tests/study/test_dose_overlap_generation.py -v` | Tests dataset generation workflows (dose_1000, dose_10000, dose_100000). |
+| `test_dose_overlap_overlap.py` | Tests Phase D overlap view filtering and metrics. Validates spacing matrix computation, acceptance mask generation, and metrics bundle emission. | `test_compute_spacing_matrix_basic`, `test_spacing_filter_parametrized`, `test_generate_overlap_views_metrics_manifest` | `pytest tests/study/test_dose_overlap_overlap.py -v` | Tests overlap filtering pipeline and metrics aggregation. Key selector: `pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_metrics_manifest -vv` for metrics bundle validation. |
+
 ### Studies Tests (`tests/studies/`)
 
 | Test File | Purpose / Scope | Key Tests | Usage / Command | Notes |

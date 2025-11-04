@@ -378,6 +378,18 @@ def generate_overlap_views(
         results[f'{split_name}_output'] = output_path
         print(f"  ✓ {split_name.upper()} complete\n")
 
+    # Create metrics bundle (train + test aggregated)
+    metrics_bundle = {
+        'train': results['train_metrics'].to_dict(),
+        'test': results['test_metrics'].to_dict(),
+    }
+    metrics_bundle_path = output_dir / 'metrics_bundle.json'
+    print(f"Writing metrics bundle: {metrics_bundle_path}")
+    with open(metrics_bundle_path, 'w') as f:
+        json.dump(metrics_bundle, f, indent=2)
+
+    results['metrics_bundle_path'] = metrics_bundle_path
+
     print(f"{'='*60}")
     print(f"{view.capitalize()} view generation complete")
     print(f"{'='*60}\n")
@@ -490,22 +502,20 @@ def main():
                     artifact_metrics_dir = args.artifact_root / 'metrics' / f"dose_{int(dose)}"
                     artifact_metrics_dir.mkdir(parents=True, exist_ok=True)
 
-                    # Copy per-split metrics to reports hub with view name
+                    # Copy metrics bundle to reports hub
                     import shutil
-                    artifact_train_path = artifact_metrics_dir / f"{view}_train_metrics.json"
-                    artifact_test_path = artifact_metrics_dir / f"{view}_test_metrics.json"
-                    shutil.copy2(results['train_metrics_path'], artifact_train_path)
-                    shutil.copy2(results['test_metrics_path'], artifact_test_path)
+                    artifact_bundle_path = artifact_metrics_dir / f"{view}.json"
+                    shutil.copy2(results['metrics_bundle_path'], artifact_bundle_path)
 
-                    print(f"  Copied metrics to artifact root:")
-                    print(f"    {artifact_train_path}")
-                    print(f"    {artifact_test_path}")
+                    print(f"  Copied metrics bundle to artifact root:")
+                    print(f"    {artifact_bundle_path}")
 
                 dose_manifest['views'][view] = {
                     'train': str(results['train_output']),
                     'test': str(results['test_output']),
                     'train_metrics': str(results['train_metrics_path']),
                     'test_metrics': str(results['test_metrics_path']),
+                    'metrics_bundle': str(results['metrics_bundle_path']),
                 }
 
             except Exception as e:

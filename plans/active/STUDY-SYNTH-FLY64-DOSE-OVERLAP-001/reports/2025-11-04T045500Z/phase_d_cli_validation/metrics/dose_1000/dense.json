@@ -1,0 +1,24 @@
+{
+  "train": {
+    "min_spacing": 50.0,
+    "max_spacing": 111.80339887498948,
+    "mean_spacing": 70.42996734830653,
+    "median_spacing": 70.71067811865476,
+    "threshold": 38.400000000000006,
+    "n_positions": 6,
+    "n_accepted": 6,
+    "n_rejected": 0,
+    "acceptance_rate": 1.0
+  },
+  "test": {
+    "min_spacing": 50.0,
+    "max_spacing": 111.80339887498948,
+    "mean_spacing": 70.42996734830653,
+    "median_spacing": 70.71067811865476,
+    "threshold": 38.400000000000006,
+    "n_positions": 6,
+    "n_accepted": 6,
+    "n_rejected": 0,
+    "acceptance_rate": 1.0
+  }
+}

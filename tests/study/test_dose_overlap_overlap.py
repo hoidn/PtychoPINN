@@ -374,7 +374,11 @@ def test_generate_overlap_views_metrics_manifest(
     assert results['train_metrics_path'].exists()
     assert results['test_metrics_path'].exists()
 
-    # Validate JSON structure
+    # Validate metrics bundle path (Phase D requirement D2)
+    assert 'metrics_bundle_path' in results
+    assert results['metrics_bundle_path'].exists()
+
+    # Validate JSON structure for individual metrics
     with open(results['train_metrics_path']) as f:
         train_metrics_json = json.load(f)
         assert 'min_spacing' in train_metrics_json
@@ -386,3 +390,13 @@ def test_generate_overlap_views_metrics_manifest(
         assert 'min_spacing' in test_metrics_json
         assert 'threshold' in test_metrics_json
         assert 'acceptance_rate' in test_metrics_json
+
+    # Validate metrics bundle contains both train and test entries
+    with open(results['metrics_bundle_path']) as f:
+        bundle = json.load(f)
+        assert 'train' in bundle
+        assert 'test' in bundle
+        assert 'min_spacing' in bundle['train']
+        assert 'acceptance_rate' in bundle['train']
+        assert 'min_spacing' in bundle['test']
+        assert 'acceptance_rate' in bundle['test']

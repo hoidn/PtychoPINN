@@ -72,6 +72,34 @@ This test ensures that:
 - The saved model format is compatible across different execution contexts
 - The complete user workflow functions as expected
 
+### Study Tests
+
+Specialized tests for synthetic dataset generation and scientific studies.
+
+- **Location:** `tests/study/test_dose_overlap_*.py` files
+- **Purpose:** Validate dataset generation pipelines, spacing analysis, and study orchestration
+- **Examples:**
+  - `test_dose_overlap_design.py` - Tests study design configuration and validation
+  - `test_dose_overlap_generation.py` - Tests Phase C dataset generation pipeline
+  - `test_dose_overlap_overlap.py` - Tests Phase D overlap view filtering and metrics
+  - `test_dose_overlap_dataset_contract.py` - Tests DATA-001 contract enforcement
+- **Key selectors:**
+  ```bash
+  # Run all study tests
+  pytest tests/study/ -v
+
+  # Run Phase D overlap filtering tests
+  pytest tests/study/test_dose_overlap_overlap.py -v
+
+  # Run specific metrics manifest test
+  pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_metrics_manifest -vv
+
+  # Run spacing filter regression tests
+  pytest tests/study/test_dose_overlap_overlap.py -k spacing_filter -vv
+  ```
+- **Execution time:** Typically < 5 seconds per test (lightweight synthetic data)
+- **Dependencies:** NumPy, study design configuration, no external datasets required
+
 ## Running Specific Tests
 
 To run a specific test file:
