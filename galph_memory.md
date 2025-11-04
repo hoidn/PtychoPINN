@@ -2497,3 +2497,17 @@
   - Updated docs/fix_plan.md with planning attempt, reserved timestamped directories, and drafted input.md outline with AUTHORITATIVE_CMDS_DOC guard.
 - Next actions for Ralph: update archive helper for size parity, execute dense/gs2 and baseline/gs1 deterministic runs, archive bundles, and capture SHA+size proof with summary/ledger updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T010500Z: Phase G dense comparison execution reset
+- dwell: 0 (fresh planning loop after 2025-11-06T210500Z+exec implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (G2 dense execution)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T010500Z/phase_g_execution_real_runs/
+- Notes:
+  - Confirmed workspace lacks Phase C/E/F assets referenced by prior manifests; regenerated hub reserved at 2025-11-07T010500Z for deterministic reruns.
+  - Scoped builder fix: `build_comparison_jobs` must target dose-specific directories (`dose_1000/{baseline|dense}/gs{1|2}`) and validate bundle/baseline assets before job creation.
+  - Rewrote input.md with full TDD loop: update builder/tests, rerun Phase C/D/E/F pipelines under hub, execute dense train/test comparisons, and capture logs/summary.
+  - Logged planning attempt in docs/fix_plan.md with findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001 reinforced.
+- Next actions for Ralph: land builder path update + pytest, regenerate dose_1000 data/training/recon assets under the hub, run dense train/test comparisons, and summarize evidence for ledger.
+- <Action State>: [ready_for_implementation]
