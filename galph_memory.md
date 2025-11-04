@@ -2156,3 +2156,17 @@
 - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/
 - Next actions for Ralph: follow the Do Now — land the RED test + argparse refactor, rerun targeted pytest selectors, execute dense/train real run, update summary/plan/docs, and close F2.2 once evidence is GREEN.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T220000Z: Phase F2 dense/test staging
+- dwell: 0 (implementation completed last loop; reset)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F2)
+- Action type: Planning
+- Mode: TDD
+- Notes:
+  - Reviewed Attempt #80 artifacts (`reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/`) confirming RED→GREEN cycle, argparse refactor, and dense/train LSQML success with manifest/log evidence.
+  - Updated Phase F plan (F2.2/F2.3 to `[x]`, added F2.4) and refreshed test_strategy to log the new script-level selector and TODO for relative path fix.
+  - Logged Attempt #80 in docs/fix_plan.md and rewrote input.md with dense/test run + test-path remediation Do Now; reserved artifact hub `reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/`.
+  - Findings check: Reaffirmed POLICY-001/CONFIG-001/CONFIG-002/DATA-001/OVERSAMPLING-001 adherence for upcoming run; noted outstanding absolute-path issue in new pytest.
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/
+- Next actions for Ralph: Execute Do Now — fix pytest path, rerun targeted selectors, capture dense/test LSQML logs, sync docs/TESTING_GUIDE.md + TEST_SUITE_INDEX.md, and record Attempt #81 in ledger.
+- <Action State>: [ready_for_implementation]

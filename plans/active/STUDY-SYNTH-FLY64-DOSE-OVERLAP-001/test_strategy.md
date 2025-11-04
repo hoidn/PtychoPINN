@@ -219,12 +219,14 @@ python -m studies.fly64_dose_overlap.training \
 **Selectors (Active — F2):**
 - `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv` — Phase F2 execution harness (non-dry-run path with mocked subprocess; RED→GREEN in Attempt #78; evidence in `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/green/pytest_phase_f_cli_exec_green.log`)
 - `pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv` — Full Phase F suite (all selectors GREEN)
+- `pytest tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments -vv` — Script-level CLI parser coverage (Attempt #80 GREEN log at `reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/green/pytest_ptychi_cli_input_green.log`; TODO: convert absolute repo path to relative import)
 
 **Coverage Delivered (F0–F1.2):**
 - Test strategy Phase F section documented RED/GREEN artifact policy and selector expectations (reports/2025-11-04T094500Z/phase_f_ptychi_baseline/).
 - RED scaffold `test_build_ptychi_jobs_manifest` captured NotImplementedError evidence before implementation (`reports/2025-11-04T094500Z/phase_f_ptychi_baseline/red/pytest_phase_f_red.log`).
 - GREEN implementation (Attempt #F1) now asserts 18 jobs (3 doses × 3 views × 2 splits), deterministic ordering, artifact root layout, and CLI payload (`--algorithm LSQML`, `--num-epochs 100`, DATA-001 NPZ paths).
 - New `test_run_ptychi_job_invokes_script` exercises `run_ptychi_job` dry-run + mocked subprocess path, ensuring CONFIG-001 safety (builder remains pure) and argument propagation.
+- Added script-level unit test `tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments` covering argparse defaults vs overrides; RED→GREEN evidence stored under `reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/{red,green}/`.
 - CLI dry-run selector promoted to ACTIVE in Attempt #F1.3 validating filter combos, manifest + skip summary emission, and artifact logging under `reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/`.
 
 **Execution Proof (F0–F1.3):**
@@ -240,9 +242,9 @@ python -m studies.fly64_dose_overlap.training \
 - OVERSAMPLING-001: Manifest covers gs2 overlap views generated with neighbor_count=7; tests assert dense/sparse splits remain present.
 
 **Coverage Planned (F2):**
-- Author non-dry-run selector (`test_cli_executes_selected_jobs`) with subprocess patching to confirm per-job invocation, log capture, and skip summary persistence when real Phase D sparsity encountered.
-- Capture CLI dry-run/transcript artifacts prior to real LSQML execution using hub `reports/2025-11-04T180000Z/phase_f_ptychi_baseline_f2/`.
-- Extend tests to assert skip metadata once real Phase D sparse gaps are reintroduced.
+- Refine script-level test to resolve hard-coded `/home/ollie/Documents/PtychoPINN2` path so selectors run from any clone (use repo-relative module discovery).
+- Execute dense/test LSQML run and archive CLI + manifest evidence under `reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/`, then rerun targeted selectors for parity.
+- Update `docs/TESTING_GUIDE.md` (§Phase F) and `docs/development/TEST_SUITE_INDEX.md` with the new script selector and artifact references once GREEN evidence captured.
 
 ### Future Phases (Pending)
 1) Phase E6 — Aggregated gs2 training evidence
