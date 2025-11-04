@@ -2185,3 +2185,17 @@
   - Logged Attempt #82 in docs/fix_plan.md capturing the planning context and references.
 - Next actions for Ralph: follow the Do Now — update the two documentation files, flip plan F2.4 to `[x]`, run pytest --collect-only with AUTHORITATIVE_CMDS_DOC set, archive logs in the new hub, and record Attempt #82 results in docs/fix_plan.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T003000Z: Phase F2 sparse skip instrumentation plan
+- dwell: 2 (second consecutive planning/doc loop; next loop must deliver implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F2 sparse skip)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T003000Z/phase_f_ptychi_baseline_f2_sparse_skip/
+- Notes:
+  - `timeout 30 git pull --rebase` returned “Already up to date”; reused cached understanding of Attempt #82 artifacts after spot-checking dense/test hub (no changes).
+  - Re-read docs/findings POLICY-001, CONFIG-001, CONFIG-002, DATA-001, OVERSAMPLING-001 plus Phase F plan/test_strategy sections to validate that sparse LSQML remains blocked on skip tooling.
+  - Updated fix_plan status to reflect F2.4 completion and logged Attempt #83 planning entry; reserved new artifact hub for RED/GREEN logs, CLI transcripts, and summary.
+  - Rewrote input.md (Mode: TDD) to drive RED test `test_cli_skips_missing_phase_d`, builder skip instrumentation, targeted pytest (`::test_cli_skips_missing_phase_d`, `-k "ptychi"`), sparse-view CLI dry-run, and ledger/doc updates once GREEN.
+- Next actions for Ralph: execute Do Now — land RED→GREEN test + builder changes, rerun Phase F selectors, capture sparse dry-run manifest/skip summary, update summary + fix_plan Attempt #83, and prep doc/test registry sync after GREEN.
+- <Action State>: [ready_for_implementation]
