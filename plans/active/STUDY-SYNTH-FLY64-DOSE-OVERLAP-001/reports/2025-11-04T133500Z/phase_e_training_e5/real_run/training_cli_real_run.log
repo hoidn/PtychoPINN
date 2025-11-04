@@ -1,0 +1,26 @@
+2025-11-03 23:24:00.073616: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1762241040.096649  837950 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762241040.103049  837950 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762241040.119379  837950 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762241040.119419  837950 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762241040.119421  837950 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762241040.119423  837950 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-03 23:24:00.122851: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py", line 648, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py", line 568, in main
+    all_jobs = build_training_jobs(
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py", line 167, in build_training_jobs
+    overlap_job = TrainingJob(
+                  ^^^^^^^^^^^^
+  File "<string>", line 10, in __init__
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py", line 81, in __post_init__
+    raise FileNotFoundError(
+FileNotFoundError: Training dataset not found: tmp/phase_d_training_evidence/dose_1000/dense_train.npz
+Enumerating training jobs from Phase C (tmp/fly64_phase_c_cli) and Phase D (tmp/phase_d_training_evidence)...
