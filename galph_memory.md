@@ -2551,3 +2551,16 @@
   - Directed Ralph to author initiative script `bin/run_phase_g_dense.py`, rerun manifest pytest selector, execute Phase C→G pipeline with logs captured under hub, and summarize MS-SSIM/MAE outputs; reiterated AUTHORITATIVE_CMDS_DOC guard and findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001.
 - Next actions for Ralph: implement script, run pipeline, archive metrics, and update ledger/memory.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T090500Z: Phase C regression triage & handoff prep
+- dwell: 1 (second consecutive planning loop after 2025-11-07T070500Z reset)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense execution evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/
+- Notes:
+  - Reviewed Phase G orchestrator blocker logs confirming `TypeError: object of type 'float' has no len()` during Phase C simulation.
+  - Root caused to missing `TrainingConfig.n_images` assignment in `build_simulation_plan`; noted legacy simulator still reads this field.
+  - Authored new plan/summary hub detailing regression test + code fix + rerun expectations; updated `docs/fix_plan.md` and reaffirmed relevant findings (POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001).
+- Next actions for Ralph: implement TDD fix (add regression test, set `n_images`, rerun pytest + orchestrator) per new hub.
+- <Action State>: [ready_for_implementation]
