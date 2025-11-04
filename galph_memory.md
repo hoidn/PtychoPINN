@@ -2019,3 +2019,18 @@
   - Logged Attempt #21 plan in docs/fix_plan.md, emphasizing CLI rerun with deterministic knobs and doc/test registry sync once evidence lands.
 - Next actions for Ralph: execute Do Now (tests → implementation → CLI rerun), capture artifacts in the new hub, update plan/test_strategy/doc guides, and assess lingering sparse-overlap data gaps for follow-up.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T154900Z: Phase E5 real-run manifest plan
+- dwell: 0 (Attempt #22 implementation delivered between loops; reset after reviewing outcomes)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training runner integration (E5)
+- Action type: Planning
+- Mode: TDD
+- Key actions:
+  - Ran `timeout 30 git pull --rebase` (no changes) and re-read Attempt #21 artifact hub summary (`phase_e_training_e5_path_fix/docs/summary.md`) plus latest logs to confirm path fix scope and remaining gaps.
+  - Performed retrospective via `git log -5 --oneline`/`git show` to verify Do Now adherence: commit 2e136516 captured skip test + builder changes; noted `train_debug.log` lingering at repo root needing relocation.
+  - Reviewed docs/findings (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001) along with plan/test_strategy/test guide references to align exit criteria with outstanding work.
+  - Updated docs/fix_plan.md with Attempt #22 implementation summary and outstanding items; rewrote `input.md` with new Do Now (skip-manifest test, manifest updates, deterministic CLI run) and reserved artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T161500Z/phase_e_training_e5_real_run/`.
+- Observations: Manifest currently omits skip metadata; real-run evidence + doc/test registry updates still missing; `train_debug.log` must be moved under the initiative reports tree before close-out.
+- Next actions for Ralph: execute the refreshed Do Now (author RED skip-manifest test, implement skip tracking in builder/CLI, rerun targeted selectors, capture deterministic CLI run, sync docs/test registries, and log Attempt #23 with PASS evidence).
+- Artifacts: Reviewed `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T150500Z/phase_e_training_e5_path_fix/{docs/summary.md,red/,green/,collect/}`; next loop hub reserved at `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T161500Z/phase_e_training_e5_real_run/`.
+- <Action State>: [ready_for_implementation]
