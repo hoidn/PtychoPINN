@@ -2005,3 +2005,17 @@
 - Notes: Memmap bridge restores Phase E plan alignment and enforces CONFIG-001 automatically; remind Ralph to capture new PASS logs and CLI outputs under fresh timestamp to avoid mixing with previous failures.
 - Next actions for Ralph: follow RED→GREEN instructions, upgrade execute_training_job to use MemmapDatasetBridge factory, regenerate passing artifacts + real-run evidence, update plan/test_strategy/docs, and record Attempt #20.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T150500Z: Phase E5 path alignment plan
+- dwell: 1 (Attempt #20 implementation ran between supervisor loops; fresh planning pass to unblock next hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training runner integration (E5)
+- Action type: Planning
+- Mode: TDD
+- Findings check: Reviewed docs/findings.md entries POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001; no new findings surfaced.
+- Evidence review: Read Attempt #20 summary, real-run logs (path mismatch, sparse overlap rejection), Phase E plan/test_strategy, and CLI test expectations.
+- Decisions:
+  - Reserved new artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T150500Z/phase_e_training_e5_path_fix/` for RED/GREEN, collect, real-run, and doc outputs.
+  - Rewrote `input.md` (Mode: TDD) to drive RED updates for `test_build_training_jobs_matrix` plus new `test_build_training_jobs_skips_missing_view`, then GREEN implementation adjusting `build_training_jobs` to read Phase D `dose/view/view_split.npz` paths and expose an `allow_missing_phase_d` switch used by CLI `main()` so baseline runs skip absent views with logging.
+  - Logged Attempt #21 plan in docs/fix_plan.md, emphasizing CLI rerun with deterministic knobs and doc/test registry sync once evidence lands.
+- Next actions for Ralph: execute Do Now (tests → implementation → CLI rerun), capture artifacts in the new hub, update plan/test_strategy/doc guides, and assess lingering sparse-overlap data gaps for follow-up.
+- <Action State>: [ready_for_implementation]
