@@ -13,6 +13,7 @@ References:
 - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151
 """
 
+import json
 from pathlib import Path
 from typing import Dict
 import tempfile
@@ -316,3 +317,72 @@ def test_generate_overlap_views_paths(tmp_path: Path, study_design: StudyDesign)
         neighbor_count=study_design.neighbor_count,
         design=study_design,
     )
+
+
+def test_generate_overlap_views_metrics_manifest(
+    tmp_path: Path, study_design: StudyDesign
+):
+    """
+    Test that generate_overlap_views returns metrics file paths in results.
+
+    Phase D requirement (D2): metrics must be stored under
+    reports/.../metrics/<dose>/<view>.json, and the function should return
+    the paths so CLI consumers can trace evidence.
+
+    RED → GREEN workflow:
+    - RED: Assert 'train_metrics_path' and 'test_metrics_path' keys are missing
+    - GREEN: After implementation, assert paths exist and point to valid JSON files
+
+    References:
+    - input.md:16 — D2 calls for metrics stored under reports/.../metrics/<dose>/<view>.json
+    - studies/fly64_dose_overlap/overlap.py:304 — generate_overlap_views return value
+    - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T041900Z/phase_d_metrics_alignment/plan.md
+    """
+    # Setup: Create synthetic datasets that meet dense threshold
+    coords = np.array(
+        [[0, 0], [50, 0], [100, 0], [0, 50], [50, 50], [100, 50]], dtype=np.float32
+    )  # 50 px spacing > dense threshold (38.4 px)
+    n = len(coords)
+
+    dataset = {
+        'diffraction': np.random.randn(n, 64, 64).astype(np.float32),
+        'objectGuess': np.random.randn(128, 128).astype(np.complex64),
+        'probeGuess': np.random.randn(64, 64).astype(np.complex64),
+        'xcoords': coords[:, 0],
+        'ycoords': coords[:, 1],
+    }
+
+    train_path = tmp_path / "train.npz"
+    test_path = tmp_path / "test.npz"
+    np.savez_compressed(train_path, **dataset)
+    np.savez_compressed(test_path, **dataset)
+
+    output_dir = tmp_path / "dense_view"
+
+    # Execute
+    results = generate_overlap_views(
+        train_path=train_path,
+        test_path=test_path,
+        output_dir=output_dir,
+        view='dense',
+        design=study_design,
+    )
+
+    # GREEN assertions: Validate metrics paths are returned
+    assert 'train_metrics_path' in results
+    assert 'test_metrics_path' in results
+    assert results['train_metrics_path'].exists()
+    assert results['test_metrics_path'].exists()
+
+    # Validate JSON structure
+    with open(results['train_metrics_path']) as f:
+        train_metrics_json = json.load(f)
+        assert 'min_spacing' in train_metrics_json
+        assert 'threshold' in train_metrics_json
+        assert 'acceptance_rate' in train_metrics_json
+
+    with open(results['test_metrics_path']) as f:
+        test_metrics_json = json.load(f)
+        assert 'min_spacing' in test_metrics_json
+        assert 'threshold' in test_metrics_json
+        assert 'acceptance_rate' in test_metrics_json

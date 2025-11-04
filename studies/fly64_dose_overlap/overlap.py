@@ -362,12 +362,19 @@ def generate_overlap_views(
         )
         print(f"    ✓ Validation passed")
 
-        # Write output
+        # Write output NPZ
         output_path = output_dir / f"{view}_{split_name}.npz"
         print(f"  Writing filtered NPZ: {output_path}")
         np.savez_compressed(output_path, **filtered_data)
 
+        # Write per-split metrics JSON
+        metrics_json_path = output_dir / f"{split_name}_metrics.json"
+        print(f"  Writing metrics JSON: {metrics_json_path}")
+        with open(metrics_json_path, 'w') as f:
+            json.dump(metrics.to_dict(), f, indent=2)
+
         results[f'{split_name}_metrics'] = metrics
+        results[f'{split_name}_metrics_path'] = metrics_json_path
         results[f'{split_name}_output'] = output_path
         print(f"  ✓ {split_name.upper()} complete\n")
 
@@ -414,6 +421,11 @@ def main():
         nargs='*',
         choices=['dense', 'sparse'],
         help='Specific views to generate (default: both)',
+    )
+    parser.add_argument(
+        '--artifact-root',
+        type=Path,
+        help='Optional root directory for copying metrics to reports hub (e.g., plans/active/.../reports/<timestamp>)',
     )
     args = parser.parse_args()
 
@@ -473,22 +485,27 @@ def main():
                     design=design,
                 )
 
-                # Save metrics JSON
-                metrics_dir = output_dir / 'metrics'
-                metrics_dir.mkdir(parents=True, exist_ok=True)
+                # Copy metrics to artifact root if specified
+                if args.artifact_root:
+                    artifact_metrics_dir = args.artifact_root / 'metrics' / f"dose_{int(dose)}"
+                    artifact_metrics_dir.mkdir(parents=True, exist_ok=True)
 
-                metrics_json = {
-                    'train': results['train_metrics'].to_dict(),
-                    'test': results['test_metrics'].to_dict(),
-                }
-                metrics_path = metrics_dir / 'spacing_metrics.json'
-                with open(metrics_path, 'w') as f:
-                    json.dump(metrics_json, f, indent=2)
+                    # Copy per-split metrics to reports hub with view name
+                    import shutil
+                    artifact_train_path = artifact_metrics_dir / f"{view}_train_metrics.json"
+                    artifact_test_path = artifact_metrics_dir / f"{view}_test_metrics.json"
+                    shutil.copy2(results['train_metrics_path'], artifact_train_path)
+                    shutil.copy2(results['test_metrics_path'], artifact_test_path)
+
+                    print(f"  Copied metrics to artifact root:")
+                    print(f"    {artifact_train_path}")
+                    print(f"    {artifact_test_path}")
 
                 dose_manifest['views'][view] = {
                     'train': str(results['train_output']),
                     'test': str(results['test_output']),
-                    'metrics': str(metrics_path),
+                    'train_metrics': str(results['train_metrics_path']),
+                    'test_metrics': str(results['test_metrics_path']),
                 }
 
             except Exception as e:
