@@ -1820,3 +1820,17 @@
   - Established artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/` with red/green/collect logs + summary.md requirements; scheduled TESTING_GUIDE + TEST_SUITE_INDEX updates post-green.
 - Next actions for Ralph: execute RED/green test loop per Do Now, capture summary.md with warning text + MLflow backlog note, update plan row E.C1 guidance.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T021700Z: Phase A constants TDD setup
+- dwell: 1 (prior loop for this focus was planning/docs)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase A design constants
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/supervisor_plan.md
+- Notes:
+  - Reviewed docs/fix_plan.md, implementation/test_strategy docs, and summary artifact from Attempt #0; no prior code yet.
+  - Set AUTHORITATIVE_CMDS_DOC target (docs/TESTING_GUIDE.md) in instructions, referenced specs/data_contracts.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, docs/SAMPLING_USER_GUIDE.md, and findings CONFIG-001/DATA-001/OVERSAMPLING-001.
+  - Established new artifact hub with supervisor_plan.md capturing goals; rewrote input.md (Mode: TDD) directing engineer to create `studies/fly64_dose_overlap/design.py::get_study_design`, add RED→GREEN test `tests/study/test_dose_overlap_design.py::test_study_design_constants`, and update phase docs with concrete values.
+  - Updated docs/fix_plan.md (Attempt #1) marking status in_progress and logging upcoming tasks.
+- Next actions for Ralph: run red/green pytest loop, implement design module + doc sync, capture logs/summary per plan.
+- <Action State>: [ready_for_implementation]

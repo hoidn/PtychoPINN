@@ -28,7 +28,7 @@
 ## [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: —
 - Priority: High
-- Status: active
+- Status: in_progress
 - Owner/Date: Codex Agent/2025-11-04
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
 - Test Strategy: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md`
@@ -37,6 +37,7 @@
 
 Attempts History:
   * [2025-11-04] Attempt #0 — Study scaffolding (Mode: Docs). Created new initiative directory with `implementation.md`, `test_strategy.md`, `constraint_analysis.md`; initialized reports hub and summary. No code changes or runs. Artifact hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T003530Z/summary.md`.
+  * [2025-11-04] Attempt #1 — Phase A constants planning (Mode: TDD). Established artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/` with supervisor_plan.md, rewrote `input.md` to drive creation of `studies/fly64_dose_overlap/design.py::get_study_design` and RED→GREEN test `tests/study/test_dose_overlap_design.py::test_study_design_constants`, and outlined doc updates for Phase A. No code/tests executed this loop; awaiting engineer execution with red/green/collect logs.
 
 ## [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003
 - Depends on: INTEGRATE-PYTORCH-001 (Phases C–E alignment)
