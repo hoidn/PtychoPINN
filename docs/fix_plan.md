@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger
 
-**Last Updated:** 2025-10-20
-**Active Focus:** Harden PyTorch integration regression (CI integration + monitoring).
+**Last Updated:** 2025-11-04
+**Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase A (Design & Constraints)
 
 ---
 
