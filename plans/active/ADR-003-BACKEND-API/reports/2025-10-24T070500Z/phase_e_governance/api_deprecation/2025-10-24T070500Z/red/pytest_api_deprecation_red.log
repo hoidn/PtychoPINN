@@ -1,0 +1,92 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/torch/test_api_deprecation.py::TestLegacyAPIDeprecation::test_example_train_import_emits_deprecation_warning FAILED [100%]
+
+=================================== FAILURES ===================================
+_ TestLegacyAPIDeprecation.test_example_train_import_emits_deprecation_warning _
+
+self = <test_api_deprecation.TestLegacyAPIDeprecation object at 0x7c1c4d287410>
+
+    def test_example_train_import_emits_deprecation_warning(self):
+        """
+        Test that importing ptycho_torch.api package emits DeprecationWarning.
+    
+        RED Expectation:
+        - AssertionError or no warning captured (warn_legacy_api_import not yet implemented)
+    
+        GREEN Expectation:
+        - Exactly one DeprecationWarning captured
+        - Warning message contains migration guidance keywords:
+          * 'ptycho_train_torch' or 'CLI'
+          * 'config_factory' or 'factory'
+          * 'deprecated' or 'legacy'
+    
+        Evidence Parameter Validation:
+        - Source: ptycho_torch/api/__init__.py (legacy API package init)
+        - Mechanism: import triggers __init__.py module-level warn_legacy_api_import() call
+        - Validation: stacklevel=2 ensures warning points to test frame, not __init__.py
+    
+        Note: We import the package (not example_train.py) to avoid executing
+        hardcoded training logic that expects GPU and specific data paths.
+        """
+        # Clear module cache to ensure fresh import triggers warning
+        if 'ptycho_torch.api' in sys.modules:
+            del sys.modules['ptycho_torch.api']
+        # Also clear submodules that might be cached
+        for key in list(sys.modules.keys()):
+            if key.startswith('ptycho_torch.api.'):
+                del sys.modules[key]
+    
+        # Capture warnings during import
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")  # Ensure DeprecationWarning not filtered
+    
+            # Import legacy API package (should trigger warning at __init__.py)
+            import ptycho_torch.api  # noqa: F401
+    
+            # Validate exactly one DeprecationWarning emitted
+            deprecation_warnings = [w for w in caught_warnings if issubclass(w.category, DeprecationWarning)]
+>           assert len(deprecation_warnings) == 1, (
+                f"Expected exactly 1 DeprecationWarning, got {len(deprecation_warnings)}. "
+                f"Captured warnings: {[str(w.message) for w in caught_warnings]}"
+            )
+E           AssertionError: Expected exactly 1 DeprecationWarning, got 2. Captured warnings: ['distutils Version classes are deprecated. Use packaging.version instead.', 'distutils Version classes are deprecated. Use packaging.version instead.']
+E           assert 2 == 1
+E            +  where 2 = len([<warnings.WarningMessage object at 0x7c1b932fdad0>, <warnings.WarningMessage object at 0x7c1b932fdb10>])
+
+tests/torch/test_api_deprecation.py:80: AssertionError
+----------------------------- Captured stdout call -----------------------------
+No GPU found, using CPU instead.
+----------------------------- Captured stderr call -----------------------------
+2025-11-03 18:29:48.753079: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1762223388.764050  582271 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762223388.767759  582271 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762223388.778664  582271 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762223388.778678  582271 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762223388.778680  582271 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762223388.778682  582271 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-03 18:29:48.781413: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-11-03 18:29:50.883837: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+2025-11-03 18:29:50.883866: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:167] env: CUDA_VISIBLE_DEVICES=""
+2025-11-03 18:29:50.883872: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:170] CUDA_VISIBLE_DEVICES is set to an empty string - this hides all GPUs from CUDA
+2025-11-03 18:29:50.883875: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:178] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
+2025-11-03 18:29:50.883878: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] retrieving CUDA diagnostic information for host: ollie-System-Product-Name
+2025-11-03 18:29:50.883880: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] hostname: ollie-System-Product-Name
+2025-11-03 18:29:50.883910: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:197] libcuda reported version is: 570.195.3
+2025-11-03 18:29:50.883923: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:201] kernel reported version is: 570.195.3
+2025-11-03 18:29:50.883926: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:291] kernel version seems to match DSO: 570.195.3
+=========================== short test summary info ============================
+FAILED tests/torch/test_api_deprecation.py::TestLegacyAPIDeprecation::test_example_train_import_emits_deprecation_warning - AssertionError: Expected exactly 1 DeprecationWarning, got 2. Captured warnings: ['distutils Version classes are deprecated. Use packaging.version instead.', 'distutils Version classes are deprecated. Use packaging.version instead.']
+assert 2 == 1
+ +  where 2 = len([<warnings.WarningMessage object at 0x7c1b932fdad0>, <warnings.WarningMessage object at 0x7c1b932fdb10>])
+============================== 1 failed in 3.74s ===============================
