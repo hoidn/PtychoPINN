@@ -39,11 +39,12 @@ def test_main_uses_cli_arguments():
         mock_ptychi_utils.get_suggested_object_size = MagicMock(return_value=(256, 256))
         mock_ptychi_utils.get_default_complex_dtype = MagicMock()
 
-        # Now import the script
+        # Now import the script using repo-relative path
         import importlib.util
+        script_path = Path(__file__).resolve().parents[2] / "scripts" / "reconstruction" / "ptychi_reconstruct_tike.py"
         spec = importlib.util.spec_from_file_location(
             "ptychi_reconstruct_tike",
-            "/home/ollie/Documents/PtychoPINN2/scripts/reconstruction/ptychi_reconstruct_tike.py"
+            str(script_path)
         )
         script_module = importlib.util.module_from_spec(spec)
 

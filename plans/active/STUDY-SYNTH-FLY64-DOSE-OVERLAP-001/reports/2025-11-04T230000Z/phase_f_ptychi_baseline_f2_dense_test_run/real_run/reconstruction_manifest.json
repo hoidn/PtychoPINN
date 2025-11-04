@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-11-04T03:46:30.443153",
+  "phase_c_root": "tmp/phase_c_f2_cli",
+  "phase_d_root": "tmp/phase_d_f2_cli",
+  "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/real_run",
+  "filters": {
+    "dose": 1000.0,
+    "view": "dense",
+    "split": "test",
+    "gridsize": null
+  },
+  "total_jobs": 18,
+  "filtered_jobs": 1,
+  "jobs": [
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "test",
+      "input_npz": "tmp/phase_d_f2_cli/dose_1000/dense/dense_test.npz",
+      "output_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/real_run/dose_1000/dense/test",
+      "algorithm": "LSQML",
+      "num_epochs": 100
+    }
+  ],
+  "execution_results": [
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "test",
+      "returncode": 0,
+      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/real_run/dose_1000/dense/test/ptychi.log",
+      "stdout_preview": "=== PTY-CHI Reconstruction of TIKE Dataset ===\nDataset: tmp/phase_d_f2_cli/dose_1000/dense/dense_test.npz\nAlgorithm: LSQML\nEpochs: 100\nImages: 2000\nLoading TIKE dataset from: tmp/phase_d_f2_cli/dose_1"
+    }
+  ]
+}
