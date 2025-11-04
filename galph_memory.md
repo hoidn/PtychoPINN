@@ -2395,3 +2395,18 @@
   - Updated docs/fix_plan.md with Attempt #100 planning entry and logged dataset regeneration fallback plus manifest verification script expectations.
 - Next actions for Ralph: implement the SHA equality assertion, run mapped pytest selectors, rebuild Phase C/D data if needed, capture dense/baseline CLI outputs with SHA256 verification artifacts, update analysis/summary.md, and record Attempt results in docs/fix_plan.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T090500Z: Phase E6 dense/baseline execution setup
+- dwell: 0 (engineer completed implementation Attempt #101; reset after planning-to-implementation handoff)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T090500Z/phase_e_training_bundle_real_runs_exec/
+- Notes:
+  - `timeout 30 git pull --rebase` → already up to date; inspected Attempt #101 summary + logs (test-only loop) and confirmed `cli/` + `data/` directories empty.
+  - Re-read findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 and Phase E6 guidance in test_strategy.md:268 to ensure new directives stay aligned.
+  - Authored execution plan (Plan E1–E5) and provisioned timestamped reports hub with `{plan,prep,collect,green,cli,data,analysis,docs}` staging.
+  - Updated docs/fix_plan.md (Attempt #102) and rewrote input.md to demand stdout bundle_sha256 emission, targeted pytest revalidation, deterministic dense/baseline CLI runs, artifact archival, checksum proof, and summary auto-generation.
+  - Set `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` guardrail across all commands; archive step now renames bundles (`wts_dense.h5.zip`, `wts_baseline.h5.zip`) before hashing to avoid overwrites.
+- Next actions for Ralph: land stdout summary change in `studies/fly64_dose_overlap/training.py::main`, run mapped pytest selectors, execute dense/baseline CLI jobs, archive manifests/bundles, compute SHA256 proof, refresh summary.md, then log Attempt #103 results.
+- <Action State>: [ready_for_implementation]
