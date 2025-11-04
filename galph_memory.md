@@ -2242,3 +2242,17 @@
   - Logged Attempt #87 planning entry in docs/fix_plan.md with references to updated plan/test_strategy artifacts.
 - Next actions for Ralph: execute Do Now — run RED test, update reconstruction CLI to surface selection metadata, turn tests GREEN, perform sparse/train + sparse/test LSQML runs capturing logs/manifests, update docs/registries, and record Attempt #87 outcomes.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T133200Z: Phase F3 sparse metadata remediation
+- dwell: 1 (prior supervisor touch on this focus was Attempt #87 planning)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F3 sparse runs)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T133218Z/phase_f_ptychi_baseline_f3_metadata_recovery/
+- Notes:
+  - Replayed Attempt #87 evidence; pytest selector remains RED (metadata missing) and sparse/test CLI overwrote sparse/train manifest.
+  - Searched docs/findings (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001) and confirmed F3 checklist unmet in phase_f_ptychi_baseline_plan/plan.md.
+  - Authored remediation plan (M1–M6) and reserved new artifact hub with split-specific manifest copy instructions.
+  - Updated docs/fix_plan.md (Active Focus → F3, attempt #88 planning log, status) and rewrote input.md with TDD Do Now covering metadata decoding, pytest reruns, distinct manifest snapshots, and doc/test sync.
+- Next actions for Ralph: follow new Do Now to fix metadata extraction, capture RED→GREEN logs, rerun sparse train/test with preserved manifests, and close out F3 plan/doc tasks.
+- <Action State>: [ready_for_implementation]
