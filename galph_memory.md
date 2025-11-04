@@ -2370,3 +2370,14 @@
   - Logged Doc Sync expectations (TESTING_GUIDE + TEST_SUITE_INDEX) and reinforced `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` guardrail for all CLI steps.
 - Next actions for Ralph: land the fallback TDD cycle, capture RED→GREEN + CLI evidence in the new hub, update analysis summary with bundle paths/checksums, and sync docs/registries prior to resuming Phase G comparisons.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T050500Z: Phase E6 bundle rerun plan
+- dwell: 1 (planning loop following implementation-ready directive)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Startup: `timeout 30 git pull --rebase` already up to date; reviewed Attempt #98 summary + Attempt #96 manifest blocking notes and findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001.
+- Artifacts: Reserved `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T050500Z/phase_e_training_bundle_real_runs_retry/{plan,red,green,collect,cli,data,analysis,docs}`; captured plan in `.../plan/plan.md`.
+- Directions: Rewrote `input.md` (Mode: TDD) to drive bundle_sha256 manifest assertion tightening, RED→GREEN pytest, deterministic dense/baseline CLI reruns, bundle+checksum archiving, and refreshed summary. Updated `docs/fix_plan.md` Attempt #99 with new scope + artifacts.
+- Next actions for Ralph: Execute Do Now to produce dense/baseline `wts.h5.zip` with SHA256 evidence, then update summary + ledger (Attempt #99 results).
+- <Action State>: [ready_for_implementation]
