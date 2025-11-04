@@ -1,0 +1,33 @@
+[run_phase_g_dense] Collect-only mode: planned commands:
+
+1. Phase C: Dataset Generation
+   Command: python -m studies.fly64_dose_overlap.generation --base-npz tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz --output-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_c
+   Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/cli/phase_c_generation.log
+
+2. Phase D: Overlap View Generation
+   Command: python -m studies.fly64_dose_overlap.overlap --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_c --output-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_d --doses 1000 --views dense --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/analysis
+   Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/cli/phase_d_dense.log
+
+3. Phase E: Training Baseline (gs1)
+   Command: python -m studies.fly64_dose_overlap.training --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_c --phase-d-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_d --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_e --dose 1000 --view baseline --gridsize 1 --backend tensorflow
+   Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/cli/phase_e_baseline_gs1_dose1000.log
+
+4. Phase E: Training Dense (gs2)
+   Command: python -m studies.fly64_dose_overlap.training --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_c --phase-d-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_d --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_e --dose 1000 --view dense --gridsize 2 --backend tensorflow
+   Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/cli/phase_e_dense_gs2_dose1000.log
+
+5. Phase F: Reconstruction dense/train
+   Command: python -m studies.fly64_dose_overlap.reconstruction --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_c --phase-d-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_d --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_f --dose 1000 --view dense --split train --allow-missing-phase-d
+   Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/cli/phase_f_dense_train.log
+
+6. Phase F: Reconstruction dense/test
+   Command: python -m studies.fly64_dose_overlap.reconstruction --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_c --phase-d-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_d --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_f --dose 1000 --view dense --split test --allow-missing-phase-d
+   Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/cli/phase_f_dense_test.log
+
+7. Phase G: Comparison dense/train
+   Command: python -m studies.fly64_dose_overlap.comparison --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_c --phase-e-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_e --phase-f-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_f --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/analysis --dose 1000 --view dense --split train
+   Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/cli/phase_g_dense_train.log
+
+8. Phase G: Comparison dense/test
+   Command: python -m studies.fly64_dose_overlap.comparison --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_c --phase-e-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_e --phase-f-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/data/phase_f --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/analysis --dose 1000 --view dense --split test
+   Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/cli/phase_g_dense_test.log

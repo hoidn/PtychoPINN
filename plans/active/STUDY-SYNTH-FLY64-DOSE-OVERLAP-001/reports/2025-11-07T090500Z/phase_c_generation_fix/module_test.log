@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 5 items
+
+tests/study/test_dose_overlap_generation.py::test_build_simulation_plan PASSED [ 20%]
+tests/study/test_dose_overlap_generation.py::test_generate_dataset_pipeline_orchestration[1000.0] PASSED [ 40%]
+tests/study/test_dose_overlap_generation.py::test_generate_dataset_pipeline_orchestration[10000.0] PASSED [ 60%]
+tests/study/test_dose_overlap_generation.py::test_generate_dataset_pipeline_orchestration[100000.0] PASSED [ 80%]
+tests/study/test_dose_overlap_generation.py::test_generate_dataset_config_construction PASSED [100%]
+
+============================== 5 passed in 3.85s ===============================
