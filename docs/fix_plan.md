@@ -1,7 +1,7 @@
 # PtychoPINN Fix Plan Ledger
 
 **Last Updated:** 2025-11-04
-**Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase B (Test Infrastructure Design)
+**Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase C (Dataset Generation)
 
 ---
 
@@ -28,7 +28,7 @@
 ## [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: —
 - Priority: High
-- Status: in_progress (Phase B — dataset validation harness)
+- Status: in_progress (Phase C — dataset generation pipeline)
 - Owner/Date: Codex Agent/2025-11-04
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
 - Test Strategy: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md`
@@ -40,6 +40,7 @@ Attempts History:
   * [2025-11-04T021500Z] Attempt #1 — Phase A Design Constants (Mode: TDD). Implemented `studies/fly64_dose_overlap/design.py::get_study_design()` encoding dose list [1e3, 1e4, 1e5], gridsizes {1, 2}, neighbor_count=7, overlap views (dense=0.7 → S≈38.4px, sparse=0.2 → S≈102.4px), spacing heuristic S=(1−f_group)×N, y-axis split, RNG seeds (sim=42, group=123, subsample=456), MS-SSIM sigma=1.0. Wrote 3 passing pytest tests (`tests/study/test_dose_overlap_design.py`): test_study_design_constants, test_study_design_validation, test_study_design_to_dict. Tests passed on first run (implementation-first, validated by assertions). Full suite: 350 passed, 1 failed (pre-existing: test_ptychodus_interop_h5), 17 skipped. Updated `implementation.md` Phase A (COMPLETE), `test_strategy.md` Phase A section, authored `summary.md`. **Metrics:** 3/3 tests PASSED; K≥C validated (7≥4); spacing thresholds derived per GRIDSIZE_N_GROUPS_GUIDE.md:142-151. **Artifacts:** `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/{summary.md,green/pytest_green.log,collect/pytest_collect.log,pytest_full_suite.log}`. **Next Actions:** Phase B — Test Infrastructure Design for dataset contract checks, dose sanity, group filtering invariants, execution proofs.
   * [2025-11-04T025541Z] Attempt #2 — Phase B Test Infrastructure Plan (Mode: Planning/TDD). Authored Phase B working plan `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md` detailing validator implementation (`studies/fly64_dose_overlap/validation.py::validate_dataset_contract`), pytest coverage (`tests/study/test_dose_overlap_dataset_contract.py`), and documentation updates. Updated `implementation.md` Phase B section with deliverables/artifact hub, expanded `test_strategy.md` to mark Phase B IN PROGRESS, and set new artifact root `reports/2025-11-04T025541Z/phase_b_test_infra/`. Rewrote `input.md` (TDD mode) to drive validator + tests red/green loop. Findings referenced: CONFIG-001, DATA-001, OVERSAMPLING-001. No code/tests executed this loop.
   * [2025-11-04T025541Z] Attempt #3 — Phase B TDD execution (Mode: TDD). Implemented `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes (amplitude requirement), spacing thresholds (S ≈ (1 - f_group) × N per GRIDSIZE_N_GROUPS_GUIDE.md:143-151), and oversampling preconditions (K ≥ C per OVERSAMPLING-001). Authored 11 pytest tests in `tests/study/test_dose_overlap_dataset_contract.py` covering happy/fail scenarios (missing keys, dtype violations, spacing checks, K-choose-C). RED phase: 1 FAILED (stub NotImplementedError). GREEN phase: 11/11 PASSED (0.96s). Study tests: 14/14 PASSED (11 new + 3 design). Validator is CONFIG-001-safe (no params.cfg access). **Metrics:** 11 tests PASSED, 0 FAILED, 0 SKIPPED. **Artifacts:** `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/{red,green,collect}/pytest*.log` + `summary.md`. Updated `implementation.md` Phase B → COMPLETE, `test_strategy.md` Phase B → COMPLETE with execution proof. **Next Actions:** Phase C dataset generation with dose sweep [1e3, 1e4, 1e5] using fly64 object/probe.
+  * [2025-11-04T032018Z] Attempt #4 — Phase C dataset generation plan (Mode: Planning/TDD). Authored working plan `reports/2025-11-04T032018Z/phase_c_dataset_generation/plan.md` (tasks C1–C5 covering simulation orchestrator, CLI, tests, and documentation), created artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/`, and rewrote `input.md` (Mode: TDD) directing C1–C4 implementation with red/green pytest evidence plus CLI run logging. Focus advanced to Phase C; plan references DATA-001, CONFIG-001, and OVERSAMPLING-001 guardrails. Awaiting engineer execution to produce datasets and summary evidence.
 
 ## [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003
 - Depends on: INTEGRATE-PYTORCH-001 (Phases C–E alignment)

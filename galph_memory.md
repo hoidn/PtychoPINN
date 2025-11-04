@@ -1848,3 +1848,16 @@
   - Replaced input.md with TDD-mode Do Now directing Ralph to create `validation.py::validate_dataset_contract`, add targeted pytest module, capture red/green/collect logs, and sync docs + summary in the new artifact directory.
 - Next steps for Ralph: execute Do Now (tests + validator + doc sync), produce summary.md with findings references, update docs/fix_plan Attempt #3 after implementation.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T032719Z: Phase C dataset generation kickoff plan
+- dwell: 0 (reset — prior two loops were planning; hand-off now ready for implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase C dataset generation
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/plan.md
+- Notes:
+  - Reviewed docs/findings (CONFIG-001, DATA-001, OVERSAMPLING-001) and Phase B summary to confirm guardrails before drafting Phase C.
+  - Authored Phase C working plan (tasks C1–C5) covering simulation orchestrator, CLI, pytest coverage, and documentation requirements; established artifact hub at `reports/2025-11-04T032018Z/phase_c_dataset_generation/`.
+  - Updated docs/fix_plan.md (Active Focus → Phase C) and rewrote input.md (Mode: TDD) instructing Ralph to implement `generation.py::generate_dataset_for_dose`, add pipeline tests, capture red/green logs, and run the CLI with logs under the new hub.
+- Next actions for Ralph: follow Do Now to implement C1–C4, record pytest evidence, run dataset generation CLI once artifacts are ready, and draft summary.md with validator outcomes.
+- <Action State>: [ready_for_implementation]

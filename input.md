@@ -1,74 +1,70 @@
-Summary: Build the Phase B dataset validation harness for the synthetic fly64 study and certify it with red/green pytest evidence plus doc updates.
+Summary: Kick off Phase C by wiring the fly64 dose sweep dataset generator (code + tests) and capture staged artifacts for all doses.
 
 Mode: TDD
 
-Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase B (Test Infrastructure Design)
+Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase C (Dataset Generation)
 
 Branch: feature/torchapi-newprompt
 
-Mapped tests: pytest tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract -vv
+Mapped tests: pytest tests/study/test_dose_overlap_generation.py -k generation_pipeline -vv; pytest tests/study/test_dose_overlap_generation.py::test_build_simulation_plan -vv
 
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/
 
-Do Now — STUDY-SYNTH-FLY64-DOSE-OVERLAP-001:
-  - Implement: studies/fly64_dose_overlap/validation.py::validate_dataset_contract — add reusable checks for DATA-001 keys/dtypes, amplitude requirement, spacing thresholds from StudyDesign, y-axis split validation, and oversampling preconditions with descriptive ValueErrors.
-  - Test: tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract — create pass/fail fixtures for the validator, run the selector once pre-implementation (expect FAIL) and once post-implementation (PASS), tee logs to {red,green}/pytest.log, and run --collect-only to collect/pytest_collect.log.
-  - Document: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{implementation.md,test_strategy.md} Phase B sections plus reports/2025-11-04T025541Z/phase_b_test_infra/summary.md with validator scope, findings references, and execution proof.
-  - Validating selector: pytest tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract -vv
-  - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/
+Do Now — STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.C:
+  - Implement: studies/fly64_dose_overlap/generation.py::generate_dataset_for_dose — create the orchestration entrypoint (with helper `build_simulation_plan`) that consumes StudyDesign, invokes simulate→canonicalize→patch→split→validate, and returns paths for downstream phases.
+  - Test: tests/study/test_dose_overlap_generation.py::test_generate_dataset_pipeline — start red with monkeypatched stubs (expect NotImplementedError), then make it green ensuring each stage is invoked, dose→nphotons mapping holds, and validator runs on final train/test paths; log red/green/collect evidence under the Phase C artifact hub.
+  - Document: Update plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/{implementation.md,test_strategy.md} Phase C sections plus reports/2025-11-04T032018Z/phase_c_dataset_generation/summary.md with pipeline steps, artifact locations, and findings references; record dataset_manifest/run logs per dose.
+  - Validating selector: pytest tests/study/test_dose_overlap_generation.py -k generation_pipeline -vv
+  - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/
 
 Priorities & Rationale:
-  - specs/data_contracts.md:1-152 — normative NPZ schema the validator must enforce (keys, dtypes, amplitude requirement).
-  - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 — spacing heuristic S ≈ (1 − f_group) × N drives dense/sparse overlap checks.
-  - docs/SAMPLING_USER_GUIDE.md:112-123 — oversampling preconditions (neighbor_count ≥ gridsize², n_groups > n_subsample) inform validator guardrails.
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:48-60 — Phase B responsibilities mandate validator + pytest coverage.
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:63-69 — working plan deliverables and artifact hub for Phase B.
+  - specs/data_contracts.md:207 — DATA-001 mandates canonical NHW diffraction arrays that our pipeline must produce before validation.
+  - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143 — spacing heuristic informs how generated coordinates must remain compatible with later overlap filtering.
+  - docs/SAMPLING_USER_GUIDE.md:112 — oversampling preconditions (K ≥ C) must be preserved in generated metadata for Phase D.
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:74 — Phase C deliverable requires simulate→split workflow per dose.
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/plan.md:15 — Working plan specifies functions, artifact layout, and log capture expectations for C1–C4.
 
 How-To Map:
   - export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-  - mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/{red,green,collect}
-  - After authoring the new test but before implementing the validator, run `pytest tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/red/pytest.log`
-  - Implement `validate_dataset_contract`, then rerun the selector with the same tee path for GREEN evidence.
-  - Capture collection proof: `pytest tests/study/test_dose_overlap_dataset_contract.py --collect-only -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/collect/pytest_collect.log`
-  - Update docs (`implementation.md`, `test_strategy.md`, summary.md) to align with validator checks and reference findings CONFIG-001/DATA-001/OVERSAMPLING-001; keep artifact paths consistent.
-  - Run `pytest tests/study/test_dose_overlap_dataset_contract.py -vv` once after docs to ensure selector still green; summarize pass/fail counts in summary.md.
+  - mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/{red,green,collect}
+  - Create the red log: `pytest tests/study/test_dose_overlap_generation.py -k generation_pipeline -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/red/pytest.log`
+  - Implement generation.py helpers + pipeline, then rerun the selector for GREEN evidence with the same tee path but `.../green/pytest.log`.
+  - Collect proof: `pytest tests/study/test_dose_overlap_generation.py --collect-only -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/collect/pytest_collect.log`
+  - After tests pass, run the CLI entry (once) to generate all doses, capturing output: `python -m studies.fly64_dose_overlap.generation --base-npz datasets/fly64/fly64_shuffled.npz --output-root data/studies/fly64_dose_overlap 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/dataset_generation.log`
+  - Move per-dose run_manifest.json files (or a consolidated manifest) into the artifact directory and summarize validator results in summary.md.
 
 Pitfalls To Avoid:
-  - Do not skip the RED log—capture the failing selector before implementing the validator.
-  - Keep validator pure (no filesystem or params.cfg access); rely only on provided arrays/dicts.
-  - Avoid broad pytest runs; stay on the targeted selector to reduce noise.
-  - Do not reuse production datasets; craft small in-memory fixtures for tests.
-  - Make ValueError messages actionable (field, expected vs actual) to aid future debugging.
-  - Keep artifacts inside the designated timestamped directory; nothing at repo root or tmp leftovers.
-  - Do not change runtime scripts for dataset generation yet—Focus is validation harness only.
-  - Ensure new test module follows pytest style (no unittest mixins) to honor project guidance.
-  - Avoid introducing non-ASCII characters in new files; stick to ASCII per repo policy.
+  - Do not commit generated NPZs; leave them under data/ and reference paths in artifacts instead.
+  - Keep simulation seeds deterministic (design.rng_seeds['simulation']) so downstream comparisons stay reproducible.
+  - Ensure validator executes on both train and test splits—skipping validation violates DATA-001 guardrails.
+  - Avoid direct np.savez writes that bypass transpose_rename_convert; rely on canonical tool to enforce NHW layout.
+  - Do not hardcode absolute paths; use pathlib Paths relative to repo root for portability.
+  - Do not call simulate_and_save before update_legacy_dict via TrainingConfig (CONFIG-001) in helper logic.
+  - Keep monkeypatched tests lightweight; never invoke the real simulation in pytest.
+  - Capture CLI output with tee; missing logs will block summary/ledger updates.
 
 If Blocked:
-  - If numpy fixtures require additional helpers, log the gap in summary.md and mark Attempt INCOMPLETE in docs/fix_plan.md before exiting.
-  - If tests fail due to unexpected dependency/import error, capture the traceback in the red log and annotate docs/fix_plan.md with the minimal error signature; halt further implementation.
-  - Should validator design conflict with spec interpretation, record the question in summary.md and flag the task as blocked in docs/fix_plan.md Attempts History.
+  - If simulate_and_save import errors occur, log the traceback in dataset_generation.log and mark Attempt INCOMPLETE in docs/fix_plan.md with the minimal error signature.
+  - If validator fails on generated data, keep failing dataset under data/ (do not delete), summarize the error in summary.md, and flag the attempt as blocked pending investigation.
+  - If pytest selector refuses to collect (0 tests), record the failure in the red log, update summary.md, and pause implementation for supervisor follow-up.
 
 Findings Applied (Mandatory):
-  - CONFIG-001 — Keep validator independent of params.cfg mutations so CONFIG-001 bridge can occur before legacy loaders execute.
-  - DATA-001 — Enforce canonical dataset keys/dtypes and amplitude requirement described by the data contract.
-  - OVERSAMPLING-001 — Verify neighbor_count ≥ gridsize² so oversampling paths remain feasible.
+  - CONFIG-001 — Maintain bridge boundaries: configs update params.cfg before legacy modules, keeping the generator safe to run pre-initialization.
+  - DATA-001 — Enforce canonical keys/dtypes so downstream loaders honor the contract without manual fixes.
+  - OVERSAMPLING-001 — Preserve neighbor_count ≥ gridsize² metadata to ensure later K-choose-C operations remain valid.
 
 Pointers:
-  - specs/data_contracts.md:1
+  - specs/data_contracts.md:207
   - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143
   - docs/SAMPLING_USER_GUIDE.md:112
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:48
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:63
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/plan.md:1
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:74
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/plan.md:15
 
 Next Up (optional):
-  - Phase B: integrate the validator into dataset generation CLI hooks ahead of Phase C runs.
-  - Phase C kickoff: generate single-dose dataset and exercise the new validator against actual NPZ output.
+  - Once datasets exist, prepare Phase D plan for overlap filtering (dense vs sparse acceptance metrics).
 
 Doc Sync Plan:
-  - After GREEN run, update docs/TESTING_GUIDE.md (section referencing study tests) and docs/development/TEST_SUITE_INDEX.md to list `tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract`; note artifact path in summary.md.
-  - Commit summary of new selector coverage in summary.md and ensure collect-only log is stored under phase_b_test_infra/collect/pytest_collect.log before wrapping.
+  - After GREEN, append the new selector to docs/TESTING_GUIDE.md (study section) and docs/development/TEST_SUITE_INDEX.md with artifact path references; store collect-only output under phase_c_dataset_generation/collect/pytest_collect.log.
 
 Mapped Tests Guardrail:
-  - Confirm `pytest tests/study/test_dose_overlap_dataset_contract.py --collect-only -vv` reports ≥1 test; if collection breaks, revert the selector addition or mark as Planned with rationale in summary.md before closing the loop.
+  - Confirm `pytest tests/study/test_dose_overlap_generation.py --collect-only -vv` reports ≥1 test; if not, downgrade selector status to Planned in summary.md and halt implementation until collection succeeds.
