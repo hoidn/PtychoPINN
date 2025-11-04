@@ -1,0 +1,67 @@
+# PtyChi LSQML Reconstruction Log
+# Job: dose=1000.0, view=dense, split=train
+# Command: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz tmp/phase_d_f2_cli/dose_1000/dense/dense_train.npz --output-dir plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/real_run/dose_1000/dense/train
+# Return code: 0
+#============================================================
+
+=== STDOUT ===
+=== PTY-CHI Reconstruction of TIKE Dataset ===
+Dataset: tmp/phase_d_f2_cli/dose_1000/dense/dense_train.npz
+Algorithm: LSQML
+Epochs: 100
+Images: 2000
+Loading TIKE dataset from: tmp/phase_d_f2_cli/dose_1000/dense/dense_train.npz
+Using first 8 images for testing
+
+Converting amplitude to intensity...
+  Original amplitude: min=0.000022, max=0.999949, mean=0.497286
+  Converted intensity: min=0.00000000, max=0.99989891, mean=0.33025199
+
+Positions shape: (8, 2) (n_images, 2)
+  Original X range: [0.01, 0.86]
+  Original Y range: [0.11, 0.99]
+  Centered X range: [-0.43, 0.42]
+  Centered Y range: [-0.53, 0.35]
+
+Configuring LSQML reconstruction...
+  Object size: (115, 115)
+  Probe power constraint: 1351.943970
+  Using GPU acceleration
+
+=== Starting Reconstruction ===
+Running 100 epochs...
+Reconstruction complete!
+
+=== Saving Results to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/real_run/dose_1000/dense/train ===
+Saved NPZ: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/real_run/dose_1000/dense/train/ptychi_reconstruction.npz
+Saved visualization: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/real_run/dose_1000/dense/train/reconstruction_visualization.png
+
+Reconstruction Statistics:
+  Object shape: (115, 115)
+  Object amplitude range: [nan, nan]
+  Probe shape: (64, 64)
+  Probe amplitude range: [nan, nan]
+
+✓ Reconstruction complete! Results saved to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T210000Z/phase_f_ptychi_baseline_f2_cli_input_fix/real_run/dose_1000/dense/train/
+
+
+=== STDERR ===
+`rescale_probe_intensity_in_first_epoch` and `ProbeOptions.power_constraint` are both enabled, which may lead to unexpected results.
+`ObjectOptions.remove_object_probe_ambiguity` and `ProbeOptions.power_constraint` are both enabled, which may lead to unexpected results.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/torch/utils/_device.py:103: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+  return func(*args, **kwargs)
+
+  0%|          | 0/100 [00:00<?, ?it/s]
+  1%|          | 1/100 [00:00<00:23,  4.21it/s]
+  4%|▍         | 4/100 [00:00<00:06, 13.72it/s]
+ 15%|█▌        | 15/100 [00:00<00:01, 47.01it/s]
+ 27%|██▋       | 27/100 [00:00<00:01, 70.37it/s]
+ 39%|███▉      | 39/100 [00:00<00:00, 85.43it/s]
+ 51%|█████     | 51/100 [00:00<00:00, 94.83it/s]
+ 63%|██████▎   | 63/100 [00:00<00:00, 101.53it/s]
+ 75%|███████▌  | 75/100 [00:00<00:00, 105.79it/s]
+ 87%|████████▋ | 87/100 [00:01<00:00, 108.57it/s]
+ 99%|█████████▉| 99/100 [00:01<00:00, 110.70it/s]
+                                                 
+
