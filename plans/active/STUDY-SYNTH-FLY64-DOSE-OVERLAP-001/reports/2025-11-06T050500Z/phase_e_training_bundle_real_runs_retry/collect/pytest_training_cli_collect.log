@@ -94,4 +94,4 @@ collecting ... collected 10 items / 6 deselected / 4 selected
               - docs/TESTING_GUIDE.md:101-140 (Phase E CLI testing requirements)
               - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:268
 
-================= 4/10 tests collected (6 deselected) in 3.63s =================
+================= 4/10 tests collected (6 deselected) in 3.61s =================

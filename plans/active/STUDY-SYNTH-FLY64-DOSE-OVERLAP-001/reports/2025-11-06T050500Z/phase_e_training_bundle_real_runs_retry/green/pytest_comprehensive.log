@@ -425,7 +425,7 @@ tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_tra
 =================================== FAILURES ===================================
 ____________________________ test_interop_h5_reader ____________________________
 
-tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-207/test_interop_h5_reader0')
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-210/test_interop_h5_reader0')
 
     def test_interop_h5_reader(tmp_path: Path):
         # Export a minimal product file using our exporter
@@ -460,7 +460,7 @@ tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_fl
     execution_config = build_execution_config_from_args(args, mode='training')
 
 tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
-  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:552: UserWarning: Error reading probeGuess from /tmp/pytest-of-ollie/pytest-207/test_bundle_persistence0/train.npz: No data left in file. Using fallback N=64.
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:552: UserWarning: Error reading probeGuess from /tmp/pytest-of-ollie/pytest-210/test_bundle_persistence0/train.npz: No data left in file. Using fallback N=64.
     warnings.warn(
 
 tests/torch/test_cli_train_torch.py: 1 warning
@@ -563,4 +563,4 @@ SKIPPED [1] tests/torch/test_tf_helper.py:64: torch tf_helper module not availab
 SKIPPED [1] tests/torch/test_tf_helper.py:57: torch tf_helper module not available
 SKIPPED [1] tests/torch/test_tf_helper.py:74: torch tf_helper module not available - tests would fail
 FAILED tests/io/test_ptychodus_interop_h5.py::test_interop_h5_reader - Module...
-===== 1 failed, 397 passed, 17 skipped, 104 warnings in 249.64s (0:04:09) ======
+===== 1 failed, 397 passed, 17 skipped, 104 warnings in 450.00s (0:07:30) ======

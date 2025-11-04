@@ -10,4 +10,4 @@ collecting ... collected 1 item
 
 tests/study/test_dose_overlap_training.py::test_execute_training_job_persists_bundle PASSED [100%]
 
-============================== 1 passed in 3.75s ===============================
+============================== 1 passed in 3.93s ===============================
