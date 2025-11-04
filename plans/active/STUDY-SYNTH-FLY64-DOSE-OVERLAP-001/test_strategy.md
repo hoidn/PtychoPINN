@@ -61,17 +61,25 @@ Validates:
   - Logs: RED and GREEN runs stored under `reports/2025-11-04T025541Z/phase_b_test_infra/{red,green}/pytest.log`; collect-only log under `collect/pytest_collect.log`.
 - Documentation: Updated `summary.md`, `implementation.md`, and this strategy with validator coverage; recorded findings adherence (CONFIG-001, DATA-001, OVERSAMPLING-001). ✅
 
-### Phase D — Group-Level Overlap Views (PLANNED)
-**Test module (planned):** `tests/study/test_dose_overlap_overlap.py`
-**Selectors:** 
-- `pytest tests/study/test_dose_overlap_overlap.py -k spacing_filter -vv` (RED→GREEN)
-- `pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths -vv`
-**Coverage Goals:**
-- Validate `compute_spacing_matrix` against dense (0.7 → S≈38.4 px) and sparse (0.2 → S≈102.4 px) thresholds using synthetic coordinates.
-- Ensure `generate_overlap_views` orchestrates Phase C assets into dense/sparse NPZ outputs, invokes validator with `view` parameter, and records spacing metrics JSON.
-- Exercise failure path when spacing constraint violated (expect `ValueError`), documenting RED evidence.
-**Artifacts:** Logs under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/{red,green,collect}/pytest*.log`, spacing metrics at `.../metrics/<dose>/<view>.json`, CLI run transcript `dense_sparse_generation.log`.
-**Findings Alignment:** CONFIG-001 (pure functions; no params.cfg), DATA-001 (validator ensures NPZ contract), OVERSAMPLING-001 (neighbor_count≥C enforced in tests).
+### Phase D — Group-Level Overlap Views (COMPLETE)
+**Test module:** `tests/study/test_dose_overlap_overlap.py` ✅
+**Selectors (Active):**
+- `pytest tests/study/test_dose_overlap_overlap.py -k spacing_filter -vv` (RED→GREEN: 2 tests, spacing math validation)
+- `pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_metrics_manifest -vv` (metrics bundle guard)
+- `pytest tests/study/test_dose_overlap_overlap.py --collect-only -vv` (10 tests total)
+**Coverage Delivered:**
+- Spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) validated against dense (0.7 → S≈38.4 px) and sparse (0.2 → S≈102.4 px) thresholds using synthetic coordinates (`test_compute_spacing_matrix_dense`, `test_compute_spacing_matrix_sparse`).
+- `generate_overlap_views` orchestration verified via monkeypatched loaders ensuring correct NPZ outputs, validator invocation with `view` parameter, and spacing metrics JSON emission (`test_generate_overlap_views_paths`, `test_generate_overlap_views_calls_validator_with_view`).
+- Metrics bundle structure validated: `test_generate_overlap_views_metrics_manifest` asserts bundle contains `train`/`test` keys with `output_path` and `spacing_stats_path` entries; paths exist on disk.
+- Failure path exercised when Phase C data missing (`test_generate_overlap_views_missing_phase_c_data` expects FileNotFoundError).
+- RED→GREEN evidence: Attempt #7 spacing filter tests (2 PASSED), Attempt #10 metrics manifest test (1 PASSED RED phase, 1 PASSED GREEN phase after bundle implementation).
+**Execution Proof:**
+- Spacing filter RED/GREEN: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/{red,green}/pytest.log` (2 tests)
+- Metrics bundle RED/GREEN: `reports/2025-11-04T045500Z/phase_d_cli_validation/{red,green}/pytest_metrics_bundle.log` (1 test)
+- Regression suite: `reports/2025-11-04T045500Z/phase_d_cli_validation/green/pytest_spacing.log` (2 tests)
+- Collection proof: `reports/2025-11-04T045500Z/phase_d_cli_validation/collect/pytest_collect.log` (10 collected)
+- CLI execution: `reports/2025-11-04T045500Z/phase_d_cli_validation/cli/phase_d_overlap.log` (metrics bundle copied to artifact hub)
+**Findings Alignment:** CONFIG-001 (pure functions; no params.cfg mutation in overlap.py), DATA-001 (validator ensures NPZ contract per specs/data_contracts.md), OVERSAMPLING-001 (neighbor_count=7 ≥ C=4 for gridsize=2 enforced in group construction and validated in tests).
 
 ### Future Phases (Pending)
 1) Dose sanity per dataset

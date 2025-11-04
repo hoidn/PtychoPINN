@@ -102,23 +102,33 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - DATA-001: Canonical NHW layout enforced by `transpose_rename_convert_tool`
 - OVERSAMPLING-001: K=7 neighbor_count preserved in patch generation for Phase D
 
-### Phase D — Group-Level Overlap Views (IN PROGRESS)
-**Status:** In progress — planning complete, awaiting implementation per D1–D4 checklist.
+### Phase D — Group-Level Overlap Views (COMPLETE)
+**Status:** Complete — D1-D4 delivered with metrics bundle workflow, pytest coverage, and CLI artifact integration.
 
-**Planned Deliverables:**
-- `studies/fly64_dose_overlap/overlap.py` implementing spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) and `generate_overlap_views` that materializes dense/sparse outputs for each dose (gridsize=2, neighbor_count=7).
-- CLI entry `python -m studies.fly64_dose_overlap.overlap` to batch Phase C artifacts into `{dense,sparse}_{train,test}.npz` files with spacing metrics + manifest.
-- Pytest coverage in `tests/study/test_dose_overlap_overlap.py` validating spacing math, orchestration, and failure handling (RED→GREEN evidence).
-- Documentation updates: Phase D summary, updated test strategy, ledger attempt referencing logs & spacing metrics JSON.
+**Delivered Components:**
+- `studies/fly64_dose_overlap/overlap.py:23-89` implementing spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) and `generate_overlap_views:124-227` that materializes dense/sparse outputs for each dose (gridsize=2, neighbor_count=7) and emits consolidated `metrics_bundle.json` with per-split metrics paths.
+- CLI entry `python -m studies.fly64_dose_overlap.overlap` (lines 230-327) batches Phase C artifacts into `{dense,sparse}_{train,test}.npz` files with spacing metrics + manifest; when `--artifact-root` is set, copies `metrics_bundle.json` into the reports hub for traceability.
+- Pytest coverage in `tests/study/test_dose_overlap_overlap.py` with 10 tests validating spacing math (`test_compute_spacing_matrix_*`), orchestration (`test_generate_overlap_views_*`), metrics bundle structure (`test_generate_overlap_views_metrics_manifest`), and failure handling (RED→GREEN evidence: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/{red,green,collect}/`).
+- Documentation synchronized: Phase D sections updated in this file, `test_strategy.md`, and `plan.md` D4 marked `[x]`; ledger Attempt #10/11 referencing logs & metrics bundle artifacts.
+
+**Metrics Bundle Workflow (Attempt #10):**
+- `generate_overlap_views()` returns `metrics_bundle_path` pointing to aggregated JSON containing `train` and `test` keys, each with `{output_path, spacing_stats_path}` entries.
+- CLI main copies bundle from temp output to `<artifact_root>/metrics/<dose>/<view>.json` for archival.
+- Test guard `test_generate_overlap_views_metrics_manifest` asserts bundle contains required keys and paths exist on disk.
+- Execution proof: `reports/2025-11-04T045500Z/phase_d_cli_validation/` (RED→GREEN logs, CLI transcript, copied bundle).
 
 **Key Constraints & References:**
 - Spacing thresholds derived from StudyDesign: dense overlap 0.7 → S≈38.4 px, sparse overlap 0.2 → S≈102.4 px (`docs/GRIDSIZE_N_GROUPS_GUIDE.md:154-172`).
 - Oversampling guardrail: neighbor_count=7 ≥ C=4 for gridsize=2 (`docs/SAMPLING_USER_GUIDE.md:112-140`, `docs/findings.md` OVERSAMPLING-001).
-- Maintain CONFIG-001 boundaries (no params.cfg mutation); reuse Phase B validator with `view` parameter to verify outputs.
+- CONFIG-001 boundaries maintained: `overlap.py` loads NPZ via `np.load` only; no params.cfg mutation; validator invoked with `view` parameter.
+- DATA-001 compliance ensured via Phase B validator (`validate_fly64_dose_overlap_dataset`) called from `generate_overlap_views`.
 
-**Artifact Hub:** `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/`
+**Artifact Hubs:**
+- Spacing filter implementation: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/`
+- Metrics bundle + CLI validation: `reports/2025-11-04T045500Z/phase_d_cli_validation/`
+- Documentation sync: `reports/2025-11-04T051200Z/phase_d_doc_sync/`
 
-**Pending Tasks:** Execute D1–D4 from Phase D working plan (`reports/2025-11-04T034242Z/phase_d_overlap_filtering/plan.md`), capture pytest logs under `{red,green,collect}/`, archive CLI run + spacing metrics in `metrics/<dose>/<view>.json`, and update `summary.md` once dense/sparse datasets validated.
+**Findings Applied:** CONFIG-001 (pure NPZ loading; legacy bridge deferred to training), DATA-001 (validator enforces canonical NHW layout + dtype/key contracts), OVERSAMPLING-001 (K=7 ≥ C=4 preserved in group construction).
 
 ### Phase E — Train PtychoPINN
 - Run gs1 baseline and gs2 grouped per dose/view with fixed seeds; store configs and logs under reports/.
