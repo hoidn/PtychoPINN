@@ -691,3 +691,130 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     print(f"  - Manifest contains {len(manifest['jobs'])} job entries")
     print(f"  - run_training_job called {len(run_calls)} times (CONFIG-001 bridging implicit)")
     print(f"  - Each job entry has required metadata keys")
+
+
+def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
+    """
+    RED → GREEN TDD test for Phase E5 real training runner integration.
+
+    Validates that the training CLI main() function, when invoked without --dry-run:
+    - Invokes a production runner helper (execute_training_job) instead of stub_runner
+    - Passes resolved TrainingJob and TrainingConfig to the runner
+    - Runner helper performs CONFIG-001 bridging (update_legacy_dict)
+    - Runner helper delegates to actual backend trainer (e.g., train_cdi_model_torch)
+    - Artifacts (logs, manifests) are written under --artifact-root
+
+    Test strategy: Monkeypatch execute_training_job to spy on invocation without
+    executing full training. Validate that CLI calls the real runner with proper
+    parameters when --dry-run is NOT set.
+
+    References:
+    - input.md:10 (Phase E5: wire CLI to real runner with deterministic execution)
+    - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md Phase E future item 0
+    - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 bridging)
+    - docs/workflows/pytorch.md §12 (canonical PyTorch training invocation)
+    """
+    import sys
+    import json
+    from studies.fly64_dose_overlap import training
+    from ptycho.config.config import TrainingConfig
+
+    # Setup: Create mock Phase C and Phase D directories
+    phase_c_root = tmp_path / "phase_c"
+    phase_d_root = tmp_path / "phase_d"
+    artifact_root = tmp_path / "artifacts"
+
+    phase_c_root.mkdir()
+    phase_d_root.mkdir()
+
+    # Create minimal dataset structure for ALL doses (build_training_jobs enumerates all)
+    # StudyDesign.dose_list = [1e3, 1e4, 1e5] per design.py
+    for dose in [1000, 10000, 100000]:
+        dose_dir_c = phase_c_root / f"dose_{dose}"
+        dose_dir_d = phase_d_root / f"dose_{dose}"
+        dose_dir_c.mkdir()
+        dose_dir_d.mkdir()
+
+        # Phase C: baseline patched datasets
+        (dose_dir_c / "patched_train.npz").touch()
+        (dose_dir_c / "patched_test.npz").touch()
+
+        # Phase D: overlap view datasets (needed even though we filter to baseline)
+        for view in ['dense', 'sparse']:
+            (dose_dir_d / f"{view}_train.npz").touch()
+            (dose_dir_d / f"{view}_test.npz").touch()
+
+    # Spy: record calls to execute_training_job (the real runner helper)
+    runner_calls = []
+
+    def spy_execute_training_job(*, config, job, log_path):
+        """Spy that records invocation signature for validation."""
+        runner_calls.append({
+            'config': config,
+            'job': job,
+            'log_path': log_path,
+        })
+        # Return minimal success result to satisfy CLI expectations
+        return {'status': 'success', 'final_loss': 0.123}
+
+    # Monkeypatch the real runner helper (NOT stub_runner)
+    # Assumption: execute_training_job is the production helper added in E5
+    monkeypatch.setattr(training, 'execute_training_job', spy_execute_training_job)
+
+    # Monkeypatch CLI to default to execute_training_job instead of stub_runner
+    # This requires main() to be updated to accept runner injection or use execute_training_job
+    # For now, we'll assume main() is refactored to call execute_training_job by default
+
+    # Execute CLI without --dry-run for baseline job
+    test_argv = [
+        'training.py',
+        '--phase-c-root', str(phase_c_root),
+        '--phase-d-root', str(phase_d_root),
+        '--artifact-root', str(artifact_root),
+        '--dose', '1000',
+        '--view', 'baseline',
+        # No --dry-run flag → should invoke real runner
+    ]
+    monkeypatch.setattr(sys, 'argv', test_argv)
+
+    training.main()
+
+    # Assertions: execute_training_job was called
+    assert len(runner_calls) == 1, \
+        f"execute_training_job should be called exactly once, got {len(runner_calls)} calls"
+
+    call = runner_calls[0]
+
+    # Assertions: config is TrainingConfig instance
+    assert isinstance(call['config'], TrainingConfig), \
+        f"Runner must receive TrainingConfig instance, got {type(call['config'])}"
+
+    # Assertions: config has correct fields
+    assert call['config'].train_data_file.endswith('patched_train.npz'), \
+        f"config.train_data_file must point to patched_train.npz, got {call['config'].train_data_file}"
+    assert call['config'].test_data_file.endswith('patched_test.npz'), \
+        f"config.test_data_file must point to patched_test.npz, got {call['config'].test_data_file}"
+    assert call['config'].nphotons == 1000.0, \
+        f"config.nphotons must match dose=1000, got {call['config'].nphotons}"
+    assert call['config'].model.gridsize == 1, \
+        f"config.model.gridsize must be 1 for baseline, got {call['config'].model.gridsize}"
+
+    # Assertions: job metadata matches
+    assert call['job'].dose == 1e3, \
+        f"job.dose must be 1e3, got {call['job'].dose}"
+    assert call['job'].view == 'baseline', \
+        f"job.view must be 'baseline', got {call['job'].view}"
+    assert call['job'].gridsize == 1, \
+        f"job.gridsize must be 1, got {call['job'].gridsize}"
+
+    # Assertions: log_path is Path instance pointing to artifact tree
+    assert call['log_path'] is not None, \
+        "log_path must be provided to runner"
+    assert artifact_root in call['log_path'].parents, \
+        f"log_path must be under artifact_root, got {call['log_path']}"
+
+    print(f"\n✓ CLI real runner integration validated:")
+    print(f"  - execute_training_job called: {len(runner_calls)} time(s)")
+    print(f"  - Received TrainingConfig with nphotons={call['config'].nphotons}, gridsize={call['config'].model.gridsize}")
+    print(f"  - Job metadata: dose={call['job'].dose}, view={call['job'].view}")
+    print(f"  - Log path: {call['log_path']}")
