@@ -1,0 +1,44 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_training.py>
+        Tests for Phase E training job matrix builder.
+        
+        Validates that build_training_jobs() correctly enumerates 9 jobs per dose
+        (3 doses × 3 variants: baseline gs1, dense gs2, sparse gs2) with proper
+        metadata and dataset path validation.
+        
+        Test tier: Unit
+        Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
+        <Function test_build_training_jobs_matrix>
+          RED → GREEN TDD test for Phase E job matrix enumeration.
+          
+          Validates that build_training_jobs() produces exactly 9 jobs per dose:
+          - 1 baseline job (gs1, Phase C patched_train.npz/patched_test.npz)
+          - 2 overlap jobs (gs2, Phase D dense/sparse NPZs)
+          
+          Each TrainingJob must contain:
+          - dose (float, from StudyDesign.dose_list)
+          - view (str, one of {"baseline", "dense", "sparse"})
+          - gridsize (int, 1 or 2)
+          - train_data_path (str, validated existence)
+          - test_data_path (str, validated existence)
+          - artifact_dir (Path, deterministic from dose/view/gridsize)
+          - log_path (Path, derived from artifact_dir)
+          
+          References:
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:133-144
+          - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+          - specs/data_contracts.md:190-260 (DATA-001 keys)
+
+========================== 1 test collected in 0.87s ===========================

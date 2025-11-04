@@ -1,0 +1,40 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... ERROR: found no collectors for /home/ollie/Documents/PtychoPINN2/tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix
+
+collected 0 items / 1 error
+
+==================================== ERRORS ====================================
+__________ ERROR collecting tests/study/test_dose_overlap_training.py __________
+ImportError while importing test module '/home/ollie/Documents/PtychoPINN2/tests/study/test_dose_overlap_training.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/python.py:498: in importtestmodule
+    mod = import_path(
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+../../miniconda3/envs/ptycho311/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen importlib._bootstrap>:1204: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:186: in exec_module
+    exec(co, module.__dict__)
+tests/study/test_dose_overlap_training.py:15: in <module>
+    from studies.fly64_dose_overlap.training import build_training_jobs, TrainingJob
+E   ModuleNotFoundError: No module named 'studies.fly64_dose_overlap.training'
+=========================== short test summary info ============================
+ERROR tests/study/test_dose_overlap_training.py
+=============================== 1 error in 0.88s ===============================
