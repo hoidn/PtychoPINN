@@ -1900,3 +1900,16 @@
   - Rewrote input.md (Mode: TDD) to drive RED→GREEN updates for `generate_overlap_views` bundle emission, CLI `--artifact-root` copy (including manifest), Phase C data generation fallback, CLI log capture, and doc/test registry sync.
 - Next actions for Ralph: follow Do Now (test RED, implement bundle + CLI copy, rerun selectors, run Phase C/D CLIs, archive logs/metrics, update docs+ledger) to close D2 and progress D4.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T045248Z: Phase D doc-sync setup
+- dwell: 1 (last supervisor touch on this focus was planning; engineer completed Attempt #10 implementation in between)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase D group-level overlap views
+- Action type: Review or housekeeping
+- Mode: Docs
+- Key actions:
+  - Consulted docs/findings (CONFIG-001/DATA-001/OVERSAMPLING-001) and refreshed Phase D plan (`.../phase_d_overlap_filtering/plan.md`) — marked D2 `[x]`, D4 `[P]` with remaining doc-sync scope.
+  - Logged Attempt #10 in `docs/fix_plan.md` detailing metrics bundle implementation + CLI evidence.
+  - Rewrote `input.md` for a docs loop directing implementation/test strategy updates, D4 close-out, and collect-only verification under new artifact hub `reports/2025-11-04T051200Z/phase_d_doc_sync/`.
+- Observations: Documentation still describes Phase D as “planned”; test strategy stuck at `(PLANNED)`; summary.md lists doc/test sync as outstanding.
+- Next supervisor check: confirm doc-sync loop captures updates, flip plan D4 to `[x]`, and evaluate readiness for Phase E handoff prep.
+- <Action State>: [ready_for_implementation]
