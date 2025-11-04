@@ -158,6 +158,9 @@ def execute_comparison_jobs(
 
     execution_results = []
 
+    # Cache for parsed Phase F manifests (avoid redundant IO per TYPE-PATH-001 guidance)
+    phase_f_manifest_cache = {}
+
     for job in jobs:
         # Construct output directory for this comparison
         output_dir = artifact_root / f"dose_{job.dose}" / job.view / job.split
@@ -165,6 +168,38 @@ def execute_comparison_jobs(
 
         # Construct log path
         log_path = output_dir / "comparison.log"
+
+        # Parse Phase F manifest to get reconstruction output path (cached to avoid redundant IO)
+        phase_f_manifest_path = Path(job.phase_f_manifest)
+        if phase_f_manifest_path not in phase_f_manifest_cache:
+            # Read and parse manifest JSON
+            try:
+                with open(phase_f_manifest_path, 'r') as f:
+                    phase_f_manifest_cache[phase_f_manifest_path] = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError) as e:
+                raise RuntimeError(
+                    f"Failed to read Phase F manifest at {phase_f_manifest_path}: {e}"
+                )
+
+        phase_f_manifest = phase_f_manifest_cache[phase_f_manifest_path]
+
+        # Extract output_dir from manifest and construct ptychi_reconstruction.npz path
+        # TYPE-PATH-001: Use Path objects to avoid string/Path mismatches
+        if 'output_dir' not in phase_f_manifest:
+            raise KeyError(
+                f"Phase F manifest missing 'output_dir' field: {phase_f_manifest_path}\n"
+                f"Manifest keys: {list(phase_f_manifest.keys())}"
+            )
+
+        phase_f_output_dir = Path(phase_f_manifest['output_dir'])
+        tike_recon_path = phase_f_output_dir / 'ptychi_reconstruction.npz'
+
+        # Fail fast if reconstruction file does not exist
+        if not tike_recon_path.exists():
+            raise FileNotFoundError(
+                f"Phase F reconstruction NPZ not found: {tike_recon_path}\n"
+                f"Expected from Phase F LSQML reconstruction (dose={job.dose}, view={job.view}, split={job.split})"
+            )
 
         # Build command to invoke scripts/compare_models.py
         # Use sys.executable to ensure same Python interpreter
@@ -177,6 +212,9 @@ def execute_comparison_jobs(
             "--output_dir", str(output_dir),
             "--ms-ssim-sigma", str(job.ms_ssim_sigma),
         ]
+
+        # Append --tike_recon_path for three-way comparison (PINN vs baseline vs pty-chi LSQML)
+        cmd.extend(["--tike_recon_path", str(tike_recon_path)])
 
         # Add registration flags
         if job.skip_registration:

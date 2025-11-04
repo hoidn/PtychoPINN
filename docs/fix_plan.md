@@ -1,6 +1,6 @@
 # PtychoPINN Fix Plan Ledger (Condensed)
 
-**Last Updated:** 2025-11-04
+**Last Updated:** 2025-11-07
 **Active Focus:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis [in_progress]
 
 ---
@@ -60,3 +60,4 @@ Process references:
 - Engineer prompt: `prompts/main.md`
 - Findings ledger: `docs/findings.md`
 - Data contracts: `specs/data_contracts.md`
+- Latest Attempt (2025-11-07T050500Z+exec): Implementation — Phase G manifest wiring GREEN. Enhanced `execute_comparison_jobs` with Phase F manifest parsing (cached to avoid redundant IO), `ptychi_reconstruction.npz` path construction via `manifest['output_dir']`, and `--tike_recon_path` flag appending (comparison.py:161-217). Added new test `test_execute_comparison_jobs_appends_tike_recon_path` (test_dose_overlap_comparison.py:333-440) validating manifest-driven three-way comparison wiring. Updated `fake_phase_artifacts` fixture to emit manifests with `output_dir` + recon NPZ files (lines 55-77). RED: confirmed missing flag (expected failure). GREEN: validated flag present with correct path. Selector: 1 test collected. Full suite: 402 passed/1 pre-existing fail (test_interop_h5_reader)/17 skipped in 250.72s. Nucleus complete: manifest parsing + test coverage GREEN. Deferred Phase C→G real runs to follow-up loop (evidence collection vs core acceptance). Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/` (RED/GREEN/collect/full logs + summary.md). Findings reaffirmed: TYPE-PATH-001. Commit: [next].

@@ -52,13 +52,27 @@ def fake_phase_artifacts(tmp_path):
             view_dir.mkdir(parents=True, exist_ok=True)
             (view_dir / 'wts.h5.zip').touch()
 
-    # Phase F manifests
+    # Phase F manifests + reconstruction outputs
     for dose in [500, 1000, 2000]:
         for view in ['dense', 'sparse']:
             for split in ['train', 'test']:
                 manifest_dir = artifacts['phase_f_root'] / f'dose_{dose}_{view}_{split}'
                 manifest_dir.mkdir(parents=True, exist_ok=True)
-                (manifest_dir / 'manifest.json').touch()
+
+                # Create reconstruction output directory + ptychi_reconstruction.npz
+                recon_output_dir = manifest_dir / f'dose_{dose}' / view / split
+                recon_output_dir.mkdir(parents=True, exist_ok=True)
+                (recon_output_dir / 'ptychi_reconstruction.npz').touch()
+
+                # Create manifest.json with output_dir field pointing to reconstruction directory
+                manifest_data = {
+                    'dose': dose,
+                    'view': view,
+                    'split': split,
+                    'output_dir': str(recon_output_dir),
+                }
+                import json
+                (manifest_dir / 'manifest.json').write_text(json.dumps(manifest_data, indent=2))
 
     return artifacts
 
@@ -321,3 +335,113 @@ def test_build_comparison_jobs_uses_dose_specific_phase_e_paths(fake_phase_artif
         f"PINN checkpoint must include view (dense) and gridsize (gs2): {job.pinn_checkpoint}"
     assert 'baseline' in str(job.baseline_checkpoint) and 'gs1' in str(job.baseline_checkpoint), \
         f"Baseline checkpoint must include baseline/gs1: {job.baseline_checkpoint}"
+
+
+def test_execute_comparison_jobs_appends_tike_recon_path(fake_phase_artifacts, tmp_path, monkeypatch):
+    """
+    Test execute_comparison_jobs reads Phase F manifest and appends --tike_recon_path.
+
+    Exit criteria (AT-G2.1):
+    - execute_comparison_jobs reads manifest.json from phase_f_manifest path
+    - Manifest must contain output_dir field (or similar reconstruction location pointer)
+    - Function constructs ptychi_reconstruction.npz path from manifest output_dir
+    - --tike_recon_path <path> is appended to subprocess command
+    - Path is normalized using Path objects (TYPE-PATH-001)
+    - Function fails fast with clear error if ptychi_reconstruction.npz missing
+
+    Background:
+    Prior code at comparison.py:169-186 never passed Phase F reconstruction data to
+    scripts.compare_models, limiting comparisons to PINN vs baseline (two-way).
+    This test validates manifest-driven three-way comparison wiring.
+
+    Test structure:
+    - RED: Assert execute_comparison_jobs currently lacks --tike_recon_path in command
+    - GREEN: After implementation, assert --tike_recon_path present with correct path
+    """
+    from studies.fly64_dose_overlap.comparison import build_comparison_jobs, execute_comparison_jobs
+    import json
+
+    # Update Phase F manifest to include reconstruction output path
+    phase_f_manifest_dir = fake_phase_artifacts['phase_f_root'] / 'dose_1000_dense_train'
+    manifest_data = {
+        'dose': 1000,
+        'view': 'dense',
+        'split': 'train',
+        'output_dir': str(phase_f_manifest_dir / 'dose_1000' / 'dense' / 'train'),
+    }
+    (phase_f_manifest_dir / 'manifest.json').write_text(json.dumps(manifest_data, indent=2))
+
+    # Verify ptychi_reconstruction.npz exists in expected location
+    recon_path = phase_f_manifest_dir / 'dose_1000' / 'dense' / 'train' / 'ptychi_reconstruction.npz'
+    assert recon_path.exists(), f"Test fixture error: reconstruction NPZ missing at {recon_path}"
+
+    # Track subprocess calls
+    subprocess_calls = []
+
+    def mock_subprocess_run(cmd, **kwargs):
+        subprocess_calls.append({'cmd': cmd, 'kwargs': kwargs})
+        from unittest.mock import Mock
+        result = Mock()
+        result.returncode = 0
+        result.stdout = "comparison complete"
+        result.stderr = ""
+        return result
+
+    monkeypatch.setattr('subprocess.run', mock_subprocess_run)
+
+    # Build job for dose=1000, view=dense, split=train
+    jobs = build_comparison_jobs(
+        phase_c_root=fake_phase_artifacts['phase_c_root'],
+        phase_e_root=fake_phase_artifacts['phase_e_root'],
+        phase_f_root=fake_phase_artifacts['phase_f_root'],
+        dose_filter=1000,
+        view_filter='dense',
+        split_filter='train',
+    )
+
+    assert len(jobs) == 1, f"Expected 1 job, got {len(jobs)}"
+
+    # Execute comparison
+    artifact_root = tmp_path / 'phase_g_tike_recon'
+    manifest = execute_comparison_jobs(
+        jobs=jobs,
+        artifact_root=artifact_root,
+    )
+
+    # Verify subprocess invoked once
+    assert len(subprocess_calls) == 1, f"Expected 1 subprocess call, got {len(subprocess_calls)}"
+
+    # Extract command
+    cmd = subprocess_calls[0]['cmd']
+    cmd_str = ' '.join(str(arg) for arg in cmd)
+
+    # RED assertion: --tike_recon_path must be present in command
+    assert '--tike_recon_path' in cmd_str, (
+        f"Missing --tike_recon_path in comparison command.\n"
+        f"Command: {cmd_str}\n"
+        f"Expected path: {recon_path}"
+    )
+
+    # GREEN assertion: --tike_recon_path value must point to ptychi_reconstruction.npz
+    # Find --tike_recon_path argument and check next value
+    try:
+        tike_idx = cmd.index('--tike_recon_path')
+        tike_path_arg = cmd[tike_idx + 1]
+        tike_path = Path(tike_path_arg)
+
+        # Validate path points to ptychi_reconstruction.npz
+        assert tike_path.name == 'ptychi_reconstruction.npz', (
+            f"--tike_recon_path must point to ptychi_reconstruction.npz, got {tike_path.name}"
+        )
+
+        # Validate path matches expected reconstruction location from manifest
+        assert tike_path == recon_path, (
+            f"--tike_recon_path mismatch:\n"
+            f"  Expected: {recon_path}\n"
+            f"  Got: {tike_path}"
+        )
+    except (ValueError, IndexError) as e:
+        raise AssertionError(
+            f"Failed to extract --tike_recon_path value from command: {e}\n"
+            f"Command: {cmd}"
+        )
