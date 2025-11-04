@@ -1,0 +1,68 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 11 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_dataset_contract.py>
+        Phase B test coverage for dataset contract validation (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001).
+        
+        Tests validate_dataset_contract() against DATA-001, spacing thresholds, and
+        oversampling preconditions using small in-memory fixtures (no production datasets).
+        
+        Test Strategy:
+        - Use native pytest (no unittest.TestCase mixins) per project guidance
+        - Small synthetic fixtures for pass/fail scenarios
+        - Actionable ValueError messages for debugging
+        
+        References:
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:48-60
+        - docs/findings.md:DATA-001, CONFIG-001, OVERSAMPLING-001
+        <Function test_validate_dataset_contract_happy_path>
+          Happy path: valid dataset passes all checks without view-specific validation.
+          
+          Validates:
+          - Required keys present
+          - Correct dtypes (float32 amplitude, complex64 object/probe, float coords)
+          - Shape consistency (n_images alignment)
+        <Function test_validate_dataset_contract_missing_key>
+          Fail case: missing required key raises ValueError with actionable message.
+          
+          DATA-001 enforcement.
+        <Function test_validate_dataset_contract_wrong_dtype_diffraction>
+          Fail case: diffraction as complex (intensity) instead of float (amplitude).
+          
+          DATA-001 requires amplitude representation.
+        <Function test_validate_dataset_contract_wrong_dtype_object>
+          Fail case: objectGuess as float instead of complex.
+        <Function test_validate_dataset_contract_shape_mismatch>
+          Fail case: xcoords length does not match diffraction first axis.
+        <Function test_validate_dataset_contract_spacing_dense>
+          Pass case: coordinates satisfy dense spacing threshold (S ≈ 38.4 px).
+          
+          Dense overlap requires tighter spacing than sparse.
+        <Function test_validate_dataset_contract_spacing_violation>
+          Fail case: dense spacing below threshold raises ValueError.
+          
+          Enforces GRIDSIZE_N_GROUPS_GUIDE.md:143-151 spacing formula.
+        <Function test_validate_dataset_contract_oversampling_precondition_pass>
+          Pass case: neighbor_count=7 ≥ C=4 for gridsize=2.
+          
+          OVERSAMPLING-001 compliance.
+        <Function test_validate_dataset_contract_oversampling_precondition_fail>
+          Fail case: neighbor_count=3 < C=4 for gridsize=2.
+          
+          OVERSAMPLING-001 violation.
+        <Function test_validate_dataset_contract_oversampling_missing_neighbor_count>
+          Fail case: gridsize>1 but neighbor_count not provided.
+        <Function test_validate_dataset_contract_unknown_view>
+          Fail case: unknown view name raises ValueError.
+
+========================= 11 tests collected in 0.83s ==========================

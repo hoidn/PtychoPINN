@@ -1,0 +1,48 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_happy_path FAILED [100%]
+
+=================================== FAILURES ===================================
+__________________ test_validate_dataset_contract_happy_path ___________________
+
+valid_dataset = {'diffraction': array([[[6.09985292e-01, 3.91948611e-01, 4.00783308e-02, ...,
+         9.58397448e-01, 3.78840715e-01,...e=complex64), 'xcoords': array([  0., 110., 220., 330., 440., 550., 660., 770., 880., 990.],
+      dtype=float32), ...}
+design = StudyDesign(dose_list=[1000.0, 10000.0, 100000.0], gridsizes=[1, 2], neighbor_count=7, patch_size_pixels=128, overlap_...: 456}, metrics_config={'ms_ssim_sigma': 1.0, 'emphasize_phase': True, 'report_amplitude': True, 'frc_threshold': 0.5})
+
+    def test_validate_dataset_contract_happy_path(valid_dataset, design):
+        """
+        Happy path: valid dataset passes all checks without view-specific validation.
+    
+        Validates:
+        - Required keys present
+        - Correct dtypes (float32 amplitude, complex64 object/probe, float coords)
+        - Shape consistency (n_images alignment)
+        """
+        # Should not raise
+>       validate_dataset_contract(valid_dataset, view=None, gridsize=1, design=design)
+
+tests/study/test_dose_overlap_dataset_contract.py:63: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = ({'diffraction': array([[[6.09985292e-01, 3.91948611e-01, 4.00783308e-02, ...,
+         9.58397448e-01, 3.78840715e-01...complex64), 'xcoords': array([  0., 110., 220., 330., 440., 550., 660., 770., 880., 990.],
+      dtype=float32), ...},)
+kwargs = {'design': StudyDesign(dose_list=[1000.0, 10000.0, 100000.0], gridsizes=[1, 2], neighbor_count=7, patch_size_pixels=12...im_sigma': 1.0, 'emphasize_phase': True, 'report_amplitude': True, 'frc_threshold': 0.5}), 'gridsize': 1, 'view': None}
+
+    def validate_dataset_contract(*args, **kwargs):
+>       raise NotImplementedError("Validator not yet implemented (TDD RED phase)")
+E       NotImplementedError: Validator not yet implemented (TDD RED phase)
+
+studies/fly64_dose_overlap/validation.py:4: NotImplementedError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_happy_path - NotImplementedError: Validator not yet implemented (TDD RED phase)
+============================== 1 failed in 0.85s ===============================
