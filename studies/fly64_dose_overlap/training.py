@@ -92,6 +92,7 @@ def build_training_jobs(
     phase_d_root: Path,
     artifact_root: Path,
     design: StudyDesign | None = None,
+    allow_missing_phase_d: bool = False,
 ) -> List[TrainingJob]:
     """
     Enumerate all training jobs for the dose/overlap study.
@@ -100,25 +101,27 @@ def build_training_jobs(
     - 3 doses (from StudyDesign.dose_list)
     - 3 variants per dose:
       - baseline: gs1, Phase C patched_{train,test}.npz
-      - dense: gs2, Phase D dense_{train,test}.npz
-      - sparse: gs2, Phase D sparse_{train,test}.npz
+      - dense: gs2, Phase D dose/view/view_{train,test}.npz
+      - sparse: gs2, Phase D dose/view/view_{train,test}.npz
 
-    Total: 3 doses × 3 variants = 9 jobs
+    Total: Up to 3 doses × 3 variants = 9 jobs (fewer if allow_missing_phase_d=True and overlap data missing)
 
     Args:
         phase_c_root: Root directory for Phase C dataset outputs
                       (expects dose_{dose}/patched_{train,test}.npz)
         phase_d_root: Root directory for Phase D overlap views
-                      (expects dose_{dose}/{view}_{train,test}.npz)
+                      (expects dose_{dose}/{view}/{view}_{train,test}.npz per overlap.py:490,366)
         artifact_root: Root directory for training artifacts
                        (job-specific subdirs created here)
         design: StudyDesign instance (default: get_study_design())
+        allow_missing_phase_d: If True, skip overlap jobs when NPZ files missing (with logging);
+                               If False (default), raise FileNotFoundError for strict validation
 
     Returns:
         List of TrainingJob instances, one per dose/view/gridsize combination
 
     Raises:
-        FileNotFoundError: If any required dataset file is missing
+        FileNotFoundError: If any required dataset file is missing and allow_missing_phase_d=False
 
     References:
         - CONFIG-001: This function remains pure (no params.cfg mutation).
@@ -127,6 +130,9 @@ def build_training_jobs(
         - DATA-001: Dataset paths validated for existence; actual NPZ contract
                     enforcement occurs during training via loader.
         - OVERSAMPLING-001: Gridsize=2 jobs assume neighbor_count=7 from Phase D.
+        - input.md:10 (Phase E5 path alignment + allow_missing_phase_d parameter)
+        - studies/fly64_dose_overlap/overlap.py:490 (Phase D creates dose/view/ subdirectories)
+        - studies/fly64_dose_overlap/overlap.py:366 (Phase D writes view_split.npz under view subdir)
 
     Examples:
         >>> design = get_study_design()
@@ -140,7 +146,21 @@ def build_training_jobs(
         9
         >>> {j.view for j in jobs}
         {'baseline', 'dense', 'sparse'}
+
+        >>> # Handle missing sparse view gracefully
+        >>> jobs = build_training_jobs(
+        ...     phase_c_root=Path("outputs/phase_c"),
+        ...     phase_d_root=Path("outputs/phase_d_incomplete"),
+        ...     artifact_root=Path("artifacts/training"),
+        ...     design=design,
+        ...     allow_missing_phase_d=True,
+        ... )
+        >>> len(jobs)
+        6  # Only baseline + dense for 3 doses
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     if design is None:
         design = get_study_design()
 
@@ -162,14 +182,32 @@ def build_training_jobs(
         )
         jobs.append(baseline_job)
 
-        # Jobs 2-3: Overlap views (gs2, Phase D filtered NPZs)
+        # Jobs 2-3: Overlap views (gs2, Phase D filtered NPZs under view subdirectories)
         for view in ['dense', 'sparse']:
+            # Phase D path: dose_{dose}/{view}/{view}_{split}.npz
+            train_data_path = phase_d_root / dose_suffix / view / f"{view}_train.npz"
+            test_data_path = phase_d_root / dose_suffix / view / f"{view}_test.npz"
+
+            # Check if overlap view NPZs exist
+            if not train_data_path.exists() or not test_data_path.exists():
+                if allow_missing_phase_d:
+                    # Log skip and continue
+                    logger.info(
+                        f"Skipping {view} view for dose={dose:.0e}: "
+                        f"NPZ files not found (train={train_data_path.exists()}, test={test_data_path.exists()}). "
+                        f"This is expected when Phase D overlap filtering rejected the view due to spacing threshold."
+                    )
+                    continue
+                else:
+                    # Strict mode: raise FileNotFoundError (handled by TrainingJob.__post_init__)
+                    pass  # TrainingJob validation will raise
+
             overlap_job = TrainingJob(
                 dose=dose,
                 view=view,
                 gridsize=2,
-                train_data_path=str(phase_d_root / dose_suffix / f"{view}_train.npz"),
-                test_data_path=str(phase_d_root / dose_suffix / f"{view}_test.npz"),
+                train_data_path=str(train_data_path),
+                test_data_path=str(test_data_path),
                 artifact_dir=artifact_root / dose_suffix / view / "gs2",
                 log_path=artifact_root / dose_suffix / view / "gs2" / "train.log",
             )
@@ -563,12 +601,18 @@ def main():
     # Ensure artifact root exists
     args.artifact_root.mkdir(parents=True, exist_ok=True)
 
-    # Step 1: Build full job matrix
+    # Step 1: Build full job matrix with non-strict mode for CLI
+    # CLI mode uses allow_missing_phase_d=True to handle scenarios where Phase D
+    # overlap filtering rejected some views due to spacing threshold (e.g., sparse
+    # view with too few positions). This allows baseline training to proceed even
+    # when overlap data is incomplete. Tests use strict mode (default False) to
+    # ensure deterministic job matrices.
     print(f"Enumerating training jobs from Phase C ({args.phase_c_root}) and Phase D ({args.phase_d_root})...")
     all_jobs = build_training_jobs(
         phase_c_root=args.phase_c_root,
         phase_d_root=args.phase_d_root,
         artifact_root=args.artifact_root,
+        allow_missing_phase_d=True,  # Non-strict mode for CLI robustness
     )
     print(f"  → {len(all_jobs)} total jobs enumerated")
 

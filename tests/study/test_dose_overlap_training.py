@@ -65,18 +65,34 @@ def mock_phase_d_datasets(tmp_path):
     """
     Create minimal Phase D overlap views for testing.
 
-    Structure:
+    Structure (matches actual Phase D overlap.py output):
         dose_1000/
-            dense_train.npz, dense_test.npz
-            sparse_train.npz, sparse_test.npz
+            dense/
+                dense_train.npz
+                dense_test.npz
+            sparse/
+                sparse_train.npz
+                sparse_test.npz
         dose_10000/
-            dense_train.npz, dense_test.npz
-            sparse_train.npz, sparse_test.npz
+            dense/
+                dense_train.npz
+                dense_test.npz
+            sparse/
+                sparse_train.npz
+                sparse_test.npz
         dose_100000/
-            dense_train.npz, dense_test.npz
-            sparse_train.npz, sparse_test.npz
+            dense/
+                dense_train.npz
+                dense_test.npz
+            sparse/
+                sparse_train.npz
+                sparse_test.npz
 
     Each NPZ contains minimal DATA-001 keys plus gridsize=2 metadata.
+
+    References:
+        - studies/fly64_dose_overlap/overlap.py:490 (output_dir = output_root / dose / view)
+        - studies/fly64_dose_overlap/overlap.py:366 (output_path = output_dir / f"{view}_{split_name}.npz")
     """
     phase_d_root = tmp_path / "phase_d"
     design = get_study_design()
@@ -94,12 +110,15 @@ def mock_phase_d_datasets(tmp_path):
 
     for dose in design.dose_list:
         dose_dir = phase_d_root / f"dose_{int(dose)}"
-        dose_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write dense and sparse NPZs for train/test
+        # Write dense and sparse NPZs under view subdirectories
         for view in ['dense', 'sparse']:
+            view_dir = dose_dir / view
+            view_dir.mkdir(parents=True, exist_ok=True)
+
             for split in ['train', 'test']:
-                npz_path = dose_dir / f"{view}_{split}.npz"
+                # Match actual Phase D output pattern: dose_X/view/view_split.npz
+                npz_path = view_dir / f"{view}_{split}.npz"
                 np.savez_compressed(npz_path, **minimal_data)
 
     return phase_d_root
@@ -453,10 +472,12 @@ def test_training_cli_filters_jobs(tmp_path, monkeypatch):
         (dose_dir_c / "patched_train.npz").touch()
         (dose_dir_c / "patched_test.npz").touch()
 
-        # Phase D overlap views
+        # Phase D overlap views (match actual Phase D layout: dose/view/view_split.npz)
         for view in ['dense', 'sparse']:
-            (dose_dir_d / f"{view}_train.npz").touch()
-            (dose_dir_d / f"{view}_test.npz").touch()
+            view_dir = dose_dir_d / view
+            view_dir.mkdir(parents=True, exist_ok=True)
+            (view_dir / f"{view}_train.npz").touch()
+            (view_dir / f"{view}_test.npz").touch()
 
     # Spy: Track which jobs were executed
     executed_jobs = []
@@ -615,10 +636,12 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
         (dose_dir_c / "patched_train.npz").touch()
         (dose_dir_c / "patched_test.npz").touch()
 
-        # Phase D overlap views
+        # Phase D overlap views (match actual Phase D layout: dose/view/view_split.npz)
         for view in ['dense', 'sparse']:
-            (dose_dir_d / f"{view}_train.npz").touch()
-            (dose_dir_d / f"{view}_test.npz").touch()
+            view_dir = dose_dir_d / view
+            view_dir.mkdir(parents=True, exist_ok=True)
+            (view_dir / f"{view}_train.npz").touch()
+            (view_dir / f"{view}_test.npz").touch()
 
     # Spy: Track run_training_job calls
     run_calls = []
@@ -1021,3 +1044,138 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
     print(f"  - Received TrainingConfig with nphotons={call['config'].nphotons}, gridsize={call['config'].model.gridsize}")
     print(f"  - Job metadata: dose={call['job'].dose}, view={call['job'].view}")
     print(f"  - Log path: {call['log_path']}")
+
+
+def test_build_training_jobs_skips_missing_view(mock_phase_c_datasets, tmp_path):
+    """
+    RED → GREEN TDD test for build_training_jobs with missing overlap view.
+
+    Validates that build_training_jobs(..., allow_missing_phase_d=True):
+    - Skips overlap jobs (dense/sparse) when their NPZ files are missing
+    - Logs the omission with clear messaging
+    - Still returns baseline jobs (Phase C always complete)
+    - Does NOT raise FileNotFoundError when allow_missing_phase_d=True
+
+    This scenario occurs when:
+    - Phase C completed successfully for all doses
+    - Phase D overlap filtering rejected some views due to spacing threshold
+      (e.g., sparse view with too few positions after filtering)
+
+    Expected behavior:
+    - With allow_missing_phase_d=False (default): FileNotFoundError raised
+    - With allow_missing_phase_d=True: missing views logged and skipped
+
+    References:
+        - input.md:10 (Phase E5 task: add allow_missing_phase_d switch)
+        - docs/fix_plan.md:33 (Attempt #20 CLI failure on sparse view rejection)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163
+          (Phase E exit criteria: CLI must handle missing overlap data gracefully)
+    """
+    import logging
+    from io import StringIO
+
+    # Setup: Phase C complete, Phase D has dense but missing sparse view
+    phase_d_root = tmp_path / "phase_d"
+    artifact_root = tmp_path / "artifacts"
+    design = get_study_design()
+
+    # Create minimal DATA-001 arrays for Phase D dense view only
+    minimal_data = {
+        'diffraction': np.random.rand(5, 64, 64).astype(np.float32),
+        'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
+        'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
+        'Y': (np.random.rand(5, 128, 128) + 1j * np.random.rand(5, 128, 128)).astype(np.complex64),
+        'xcoords': np.random.rand(5).astype(np.float32),
+        'ycoords': np.random.rand(5).astype(np.float32),
+        'filenames': np.array([f'img_{i:04d}' for i in range(5)]),
+    }
+
+    # Create Phase D with dense view present but sparse view missing
+    for dose in design.dose_list:
+        dose_dir = phase_d_root / f"dose_{int(dose)}"
+
+        # Dense view: present (matches actual Phase D layout)
+        dense_dir = dose_dir / "dense"
+        dense_dir.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(dense_dir / "dense_train.npz", **minimal_data)
+        np.savez_compressed(dense_dir / "dense_test.npz", **minimal_data)
+
+        # Sparse view: MISSING (simulates spacing threshold rejection)
+        # Do NOT create dose_dir / "sparse" directory or NPZ files
+
+    # Capture log output to verify skip messaging
+    log_stream = StringIO()
+    handler = logging.StreamHandler(log_stream)
+    handler.setLevel(logging.INFO)
+    logger = logging.getLogger('studies.fly64_dose_overlap.training')
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    try:
+        # Test 1: With allow_missing_phase_d=False (default), expect FileNotFoundError
+        with pytest.raises(FileNotFoundError) as exc_info:
+            jobs = build_training_jobs(
+                phase_c_root=mock_phase_c_datasets,
+                phase_d_root=phase_d_root,
+                artifact_root=artifact_root,
+                design=design,
+                allow_missing_phase_d=False,  # strict validation
+            )
+
+        # Assert error message mentions the missing sparse view
+        assert 'sparse' in str(exc_info.value).lower(), \
+            f"FileNotFoundError should mention missing 'sparse' view, got: {exc_info.value}"
+
+        print(f"\n✓ Strict mode (allow_missing_phase_d=False) correctly raised FileNotFoundError")
+        print(f"  Error: {exc_info.value}")
+
+        # Test 2: With allow_missing_phase_d=True, expect graceful skip
+        jobs = build_training_jobs(
+            phase_c_root=mock_phase_c_datasets,
+            phase_d_root=phase_d_root,
+            artifact_root=artifact_root,
+            design=design,
+            allow_missing_phase_d=True,  # non-strict mode
+        )
+
+        # Assertions: Only baseline + dense jobs returned (no sparse)
+        # 3 doses × (1 baseline + 1 dense) = 6 jobs total
+        assert len(jobs) == 6, \
+            f"Expected 6 jobs (3 doses × [baseline + dense]), got {len(jobs)}"
+
+        views_present = {job.view for job in jobs}
+        assert views_present == {'baseline', 'dense'}, \
+            f"Expected views {{'baseline', 'dense'}}, got {views_present}"
+        assert 'sparse' not in views_present, \
+            "Sparse jobs should be skipped when NPZs missing and allow_missing_phase_d=True"
+
+        # Validate each dose has 2 jobs (baseline + dense)
+        jobs_by_dose = {}
+        for job in jobs:
+            if job.dose not in jobs_by_dose:
+                jobs_by_dose[job.dose] = []
+            jobs_by_dose[job.dose].append(job)
+
+        for dose in design.dose_list:
+            assert dose in jobs_by_dose, \
+                f"Missing jobs for dose={dose}"
+            assert len(jobs_by_dose[dose]) == 2, \
+                f"Expected 2 jobs (baseline + dense) for dose={dose}, got {len(jobs_by_dose[dose])}"
+
+            views_for_dose = {job.view for job in jobs_by_dose[dose]}
+            assert views_for_dose == {'baseline', 'dense'}, \
+                f"Expected {{'baseline', 'dense'}} for dose={dose}, got {views_for_dose}"
+
+        # Check log output mentions skipped sparse view
+        log_output = log_stream.getvalue()
+        assert 'sparse' in log_output.lower() and 'skip' in log_output.lower(), \
+            f"Log should mention skipping 'sparse' view, got:\n{log_output}"
+
+        print(f"\n✓ Non-strict mode (allow_missing_phase_d=True) gracefully skipped missing sparse view:")
+        print(f"  - Jobs returned: {len(jobs)} (3 doses × 2 variants)")
+        print(f"  - Views present: {sorted(views_present)}")
+        print(f"  - Log excerpt: {log_output[:200]}...")
+
+    finally:
+        # Cleanup logger
+        logger.removeHandler(handler)
