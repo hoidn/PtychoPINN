@@ -143,6 +143,70 @@ The dry-run mode creates artifact directory structure, writes manifest and skip 
 - **Execution time:** Typically < 5 seconds per test (lightweight synthetic data)
 - **Dependencies:** NumPy, study design configuration, no external datasets required
 
+**Phase F Pty-Chi LSQML Baseline Reconstruction:**
+
+The reconstruction CLI orchestrates pty-chi LSQML baseline runs across the dose/view matrix. The `test_dose_overlap_reconstruction.py` test module validates:
+
+- Job enumeration (18 jobs: 3 doses × 2 views × 3 splits)
+- Subprocess dispatch with CLI argument handoff (`--input-npz`, `--output-dir`, `--algorithm`, `--num-epochs`, `--n-images`)
+- Dry-run filtering and artifact emission (manifest, skip summary)
+- Live execution with per-job logging and execution telemetry
+
+**Key selectors:**
+
+```bash
+# Run all Phase F reconstruction tests
+pytest tests/study/test_dose_overlap_reconstruction.py -v
+
+# Run manifest construction test
+pytest tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest -vv
+
+# Run subprocess dispatch test
+pytest tests/study/test_dose_overlap_reconstruction.py::test_run_ptychi_job_invokes_script -vv
+
+# Run dry-run filtering test
+pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_filters_dry_run -vv
+
+# Run live execution test with logging
+pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv
+
+# Run all ptychi-tagged tests
+pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv
+
+# Collect all reconstruction tests
+pytest tests/study/test_dose_overlap_reconstruction.py --collect-only -vv
+```
+
+**Deterministic CLI command with dense/test baseline:**
+
+```bash
+AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python -m studies.fly64_dose_overlap.reconstruction \
+  --phase-c-root tmp/phase_c_f2_cli \
+  --phase-d-root tmp/phase_d_f2_cli \
+  --artifact-root tmp/reconstruction_artifacts \
+  --dose 1000 \
+  --view dense \
+  --split test \
+  --allow-missing-phase-d
+```
+
+**Dry-run command:**
+
+```bash
+python -m studies.fly64_dose_overlap.reconstruction \
+  --phase-c-root tmp/phase_c_f2_cli \
+  --phase-d-root tmp/phase_d_f2_cli \
+  --artifact-root tmp/reconstruction_artifacts \
+  --dose 1000 \
+  --view dense \
+  --dry-run
+```
+
+The dry-run mode enumerates jobs, writes manifest and skip summary, but skips subprocess execution. Phase F dense/test evidence captured at: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/`
+
+- **Execution time:** Typically < 10 seconds per test (subprocess mocking); real LSQML runs take 100+ epochs (varies by dataset)
+- **Dependencies:** NumPy, Phase C/D datasets, `scripts/reconstruction/ptychi_reconstruct_tike.py`
+
 ## Running Specific Tests
 
 To run a specific test file:
