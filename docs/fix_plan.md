@@ -24,7 +24,7 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 - Constraints: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/constraint_analysis.md`
 - Notes: Use existing fly64 object/probe; enforce y‑axis split; group‑level overlap control via min center spacing; emphasize phase MS‑SSIM; PINN backend: TensorFlow; pty‑chi LSQML baseline (100 epochs) uses PyTorch internally.
 - Attempts History: See `docs/archive/2025-11-06_fix_plan_archive.md` (section for this initiative) and the initiative's `reports/` directories for run logs and metrics.
-- Latest Attempt (2025-11-06T11:30Z): Phase E6 CLI stdout format — Enhanced bundle/SHA digest lines with view/dose context for traceability. Modified `training.py:732-735` to emit `→ Bundle [view/dose=X.Xe+YY]: path` and `→ SHA256 [view/dose=X.Xe+YY]: checksum`. Extended `test_training_cli_records_bundle_path` with capsys assertions. All tests PASSED. Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/`. Commit: b7aea51e.
+- Latest Attempt (2025-11-06T13:05Z): Planning — queued stdout normalization follow-up to emit artifact-relative bundle paths, tightened regression plan (stdout vs manifest SHA parity), and scheduled deterministic dense/baseline CLI runs with archive script. Updated `input.md`, provisioned timestamped hub, and left implementation ready for execution. Artifacts: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T130500Z/phase_e_training_bundle_real_runs_exec/`. Commit: pending (planning only).
 
 ## [EXPORT-PTYCHODUS-PRODUCT-001] TF-side Ptychodus product exporter/importer + Run1084 conversion
 - Depends on: —

@@ -2425,3 +2425,17 @@
   - Logged Attempt #103 planning entry in `docs/fix_plan.md` with artifact path + next steps for Ralph.
 - Next actions for Ralph: follow Do Now to update CLI stdout format/tests, capture RED→GREEN logs, run dense/baseline training CLI runs, archive bundles + checksums, refresh analysis summary, and report back in ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T130500Z: Phase E6 relative bundle stdout plan
+- dwell: 2 (second consecutive planning loop for this focus — next loop must execute implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T130500Z/phase_e_training_bundle_real_runs_exec/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; re-read latest attempt summary + Phase G inventory to confirm dense/baseline evidence gap.
+  - Consulted docs/findings.md (POLICY-001/CONFIG-001/DATA-001/OVERSAMPLING-001) and implementation/test_strategy references; `docs/prompt_sources_map.json` absent, relied on `docs/index.md` entries for study materials.
+  - Created new plan + summary hub at 2025-11-06T130500Z, authored archive helper script (`plans/active/.../bin/archive_phase_e_outputs.py`) for bundle copying + SHA verification, and refreshed input.md with TDD + deterministic CLI steps.
+  - Updated docs/fix_plan.md Latest Attempt bullet to log planning handoff; ensured AUTHORITATIVE_CMDS_DOC guardrails noted in Do Now.
+- Next actions for Ralph: implement stdout normalization + regression test update, execute dense/baseline Phase E runs, archive manifests/bundles via new script, and capture SHA evidence.
+- <Action State>: [ready_for_implementation]
