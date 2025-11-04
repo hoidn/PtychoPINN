@@ -57,9 +57,9 @@ Exit Criteria: `api/` surface deprecated, ADR status set to Accepted, ledger upd
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| E1 | Governance dossier | [ ] | Follow `reports/2025-10-20T133500Z/phase_e_governance/plan.md` Phase E.A checklist (ADR addendum, spec redline, workflow guide updates). |
-| E2 | Execution knobs hardening | [x] | ✅ EB1–EB3.C complete (Attempts #60–69). Logger backend implemented (CSVLogger default, TensorBoard/MLflow optional, `--disable_mlflow` deprecated). Docs sync artifacts at `phase_e_execution_knobs/2025-10-23T110500Z/docs/2025-10-24T041500Z/` (spec §4.9/§7.1 + workflow guide §12 updated, CONFIG-LOGGER-001 added to findings). MLflow Logger migration tracked as Phase EB3.C4 backlog. EB4 smoke pending. |
-| E3 | Deprecation & closure | [ ] | Complete Phase E.C checklist (legacy API deprecation, ledger/plan closure, archive summary). |
+| E1 | Governance dossier | [x] | ✅ Phase E.A complete (Attempts #55–57). ADR addendum authored (`reports/2025-10-20T134500Z/phase_e_governance_adr_addendum/`), spec §§4.7–4.9 redlined (`reports/2025-10-20T150020Z/phase_e_governance_spec_redline/`), workflow guide §§11–13 refreshed + CONFIG-002 finding added (`reports/2025-10-20T151734Z/phase_e_governance_workflow_docs/`). |
+| E2 | Execution knobs hardening | [x] | ✅ EB1–EB4 complete (Attempts #60–71). Logger backend implemented (CSVLogger default, TensorBoard/MLflow optional, `--disable_mlflow` deprecated). Docs sync artifacts at `phase_e_execution_knobs/2025-10-23T110500Z/docs/2025-10-24T041500Z/` (spec §4.9/§7.1 + workflow guide §12 updated, CONFIG-LOGGER-001 added to findings). Runtime smoke at `phase_e_execution_knobs/runtime_smoke/2025-10-24T061500Z/`. |
+| E3 | Deprecation & closure | [x] | ✅ Phase E.C complete (Attempts #72, #TBD-closeout). E.C1: API deprecation warning landed (`reports/2025-10-24T070500Z/phase_e_governance/api_deprecation/2025-10-24T070500Z/`, tests GREEN). E.C2/E.C3: Governance ledger sync + archival decisions documented (`reports/2025-11-04T093500Z/phase_e_governance_closeout/docs/summary.md`). |
 
 ## Reporting Discipline
 - All artefacts stored under `plans/active/ADR-003-BACKEND-API/reports/<ISO8601>/` with descriptive filenames.
