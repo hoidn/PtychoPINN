@@ -71,9 +71,36 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - Test Summary: 11/11 PASSED, 0 FAILED, 0 SKIPPED
 - Execution Proof: red/pytest.log (1 FAILED stub), green/pytest.log (11 PASSED), collect/pytest_collect.log (11 collected)
 
-### Phase C — Dataset Generation (Dose Sweep)
-- Use scripts/simulation/simulate_and_save.py with fly64 object/probe to generate synthetic_full.npz per dose with fixed seed.
-- Split to train/test with scripts/tools/split_dataset_tool.py --split-axis y; validate contracts.
+### Phase C — Dataset Generation (Dose Sweep) (COMPLETE)
+**Status:** Complete — orchestration pipeline with 5 tests PASSED (RED→GREEN evidence captured)
+
+**Deliverables:**
+- `studies/fly64_dose_overlap/generation.py` orchestrates: simulate → canonicalize → patch → split → validate for each dose ✅
+- CLI entry point: `python -m studies.fly64_dose_overlap.generation --base-npz <path> --output-root <path>` ✅
+- pytest coverage in `tests/study/test_dose_overlap_generation.py` (5 tests, all PASSED with monkeypatched dependencies) ✅
+- Updated documentation and test artifacts ✅
+
+**Pipeline Workflow:**
+1. `build_simulation_plan(dose, base_npz_path, design_params)` → constructs dose-specific `TrainingConfig`/`ModelConfig` with n_images from base dataset
+2. `generate_dataset_for_dose(...)` → orchestrates 5 stages:
+   - Stage 1: Simulate diffraction with `simulate_and_save()` (CONFIG-001 bridge handled internally)
+   - Stage 2: Canonicalize with `transpose_rename_convert()` (DATA-001 NHW layout enforced)
+   - Stage 3: Generate Y patches with `generate_patches()` (K=7 neighbors per design)
+   - Stage 4: Split train/test on y-axis with `split_dataset()` (spatial separation)
+   - Stage 5: Validate both splits with `validate_dataset_contract()` (Phase B validator)
+3. CLI entry iterates over `StudyDesign.dose_list`, captures logs, writes `run_manifest.json`
+
+**Artifact Hub:** `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T032018Z/phase_c_dataset_generation/`
+**Test Summary:** 5/5 PASSED, 0 FAILED, 0 SKIPPED
+**Execution Proof:**
+- red/pytest.log (3 FAILED with TypeError on TrainingConfig.gridsize)
+- green/pytest.log (5 PASSED after fixing ModelConfig.gridsize separation)
+- collect/pytest_collect.log (5 collected)
+
+**Findings Applied:**
+- CONFIG-001: `simulate_and_save()` handles `update_legacy_dict(p.cfg, config)` internally
+- DATA-001: Canonical NHW layout enforced by `transpose_rename_convert_tool`
+- OVERSAMPLING-001: K=7 neighbor_count preserved in patch generation for Phase D
 
 ### Phase D — Group-Level Overlap Views
 - For gs2 (C=4), set neighbor_count=7.
