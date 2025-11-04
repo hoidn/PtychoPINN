@@ -28,6 +28,7 @@ from studies.fly64_dose_overlap.overlap import (
     filter_dataset_by_mask,
     compute_spacing_metrics,
     generate_overlap_views,
+    greedy_min_spacing_selection,
 )
 from studies.fly64_dose_overlap.validation import validate_dataset_contract
 
@@ -228,15 +229,19 @@ def test_generate_overlap_views_paths(tmp_path: Path, study_design: StudyDesign)
     """
     Integration test for generate_overlap_views orchestration.
 
-    RED expectation: This test will fail when validation enforces spacing threshold
-    on dense coordinates that violate the threshold.
+    Updated expectation (post greedy-fallback): Coordinates that previously
+    would raise ValueError now succeed via greedy downsampling, as long as
+    a valid subset exists.
 
-    GREEN expectation: After implementation correctly filters positions,
-    this test passes with accepted positions only.
+    This test validates:
+    1. Greedy fallback rescues initially-failing datasets when subset is viable
+    2. Outputs are valid and meet DATA-001 contract
+    3. Final dataset has reduced position count (downsampled)
 
     Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths -vv
     """
-    # Create synthetic train/test NPZs with DENSE coordinates (will violate dense threshold)
+    # Create synthetic train/test NPZs with DENSE coordinates (will violate dense threshold directly)
+    # 30 px spacing < dense threshold (38.4 px), but greedy should rescue
     coords_dense = np.array([[0, 0], [30, 0], [60, 0], [0, 30], [30, 30], [60, 30]], dtype=np.float32)
     n = len(coords_dense)
 
@@ -257,16 +262,31 @@ def test_generate_overlap_views_paths(tmp_path: Path, study_design: StudyDesign)
     output_dir = tmp_path / "dense_view"
 
     # Attempt to generate dense view
-    # RED: This should raise ValueError due to spacing < threshold
-    # The RED test confirms the guard works - coordinates are too dense
-    with pytest.raises(ValueError, match="Insufficient positions meet spacing threshold"):
-        results = generate_overlap_views(
-            train_path=train_path,
-            test_path=test_path,
-            output_dir=output_dir,
-            view='dense',
-            design=study_design,
-        )
+    # Post greedy-fallback: This should now SUCCEED via downsampling
+    results = generate_overlap_views(
+        train_path=train_path,
+        test_path=test_path,
+        output_dir=output_dir,
+        view='dense',
+        design=study_design,
+    )
+
+    # Validate greedy fallback worked
+    assert results['train_output'].exists()
+    assert results['test_output'].exists()
+    assert results['train_metrics'].n_accepted > 0, "Greedy should find valid subset"
+    assert results['train_metrics'].n_accepted < n, "Should be downsampled"
+
+    # Validate filtered dataset
+    with np.load(results['train_output']) as data:
+        filtered_train = {k: data[k] for k in data.keys()}
+    validate_dataset_contract(
+        data=filtered_train,
+        view='dense',
+        gridsize=1,
+        neighbor_count=study_design.neighbor_count,
+        design=study_design,
+    )
 
     # GREEN assertion: Test with coordinates that DO meet the threshold
     # Use wider spacing (50 px > dense threshold of 38.4 px)
@@ -400,3 +420,100 @@ def test_generate_overlap_views_metrics_manifest(
         assert 'acceptance_rate' in bundle['train']
         assert 'min_spacing' in bundle['test']
         assert 'acceptance_rate' in bundle['test']
+
+
+def test_generate_overlap_views_sparse_downsamples(tmp_path: Path, study_design: StudyDesign):
+    """
+    Test that sparse overlap generation succeeds via greedy downsampling
+    when initial acceptance <10% but a valid subset exists.
+
+    Scenario:
+    - Coordinates spaced at 64 px (all positions individually fail sparse threshold 102.4 px)
+    - Greedy selector should identify a subset with spacing ≥102.4 px
+    - generate_overlap_views should emit NPZs with n_accepted > 0 instead of raising
+
+    RED expectation: Without greedy fallback, raises ValueError("Insufficient positions...")
+    GREEN expectation: After implementation, emits valid NPZs with metadata recording selection strategy
+
+    References:
+    - input.md:8-9 — Phase D sparse downsampling rescue
+    - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T034500Z/phase_d_sparse_downsampling_fix/plan.md:D7.1
+    - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 — spacing formula
+    - Attempt #20 CLI logs showing sparse view ValueError
+
+    Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_sparse_downsamples -vv
+    """
+    # Create synthetic coordinates with 64 px spacing (dense pattern, violates sparse threshold)
+    # Use 5x5 grid = 25 points @ 64 px spacing
+    # Sparse threshold = 102.4 px, so no individual point meets threshold
+    # Greedy selector should be able to find a subset with ≥102.4 px spacing
+    x_grid = np.arange(0, 5) * 64.0
+    y_grid = np.arange(0, 5) * 64.0
+    x_coords, y_coords = np.meshgrid(x_grid, y_grid)
+    coords = np.stack([x_coords.ravel(), y_coords.ravel()], axis=1).astype(np.float32)
+    n = len(coords)  # 25 positions
+
+    # Fabricate DATA-001 compliant dataset
+    dataset = {
+        'diffraction': np.random.randn(n, 64, 64).astype(np.float32),
+        'objectGuess': np.random.randn(128, 128).astype(np.complex64),
+        'probeGuess': np.random.randn(64, 64).astype(np.complex64),
+        'xcoords': coords[:, 0],
+        'ycoords': coords[:, 1],
+    }
+
+    train_path = tmp_path / "train_sparse_dense.npz"
+    test_path = tmp_path / "test_sparse_dense.npz"
+    np.savez_compressed(train_path, **dataset)
+    np.savez_compressed(test_path, **dataset)
+
+    output_dir = tmp_path / "sparse_view_downsampled"
+
+    # Execute: should succeed via greedy fallback
+    results = generate_overlap_views(
+        train_path=train_path,
+        test_path=test_path,
+        output_dir=output_dir,
+        view='sparse',
+        design=study_design,
+    )
+
+    # GREEN assertions
+    # 1. Outputs exist
+    assert results['train_output'].exists()
+    assert results['test_output'].exists()
+
+    # 2. Acceptance >0 (greedy selector found valid subset)
+    assert results['train_metrics'].n_accepted > 0, "Greedy selector should find valid subset"
+    assert results['test_metrics'].n_accepted > 0
+
+    # 3. Filtered dataset has fewer positions than input (downsampled)
+    with np.load(results['train_output']) as data:
+        filtered_train = {k: data[k] for k in data.keys()}
+    assert len(filtered_train['xcoords']) < n, "Dataset should be downsampled"
+
+    # 4. Metadata records selection strategy
+    metadata_str = filtered_train.get('_metadata')
+    assert metadata_str is not None, "Metadata should be present"
+    metadata = json.loads(metadata_str.item() if isinstance(metadata_str, np.ndarray) else metadata_str)
+    # Metadata should indicate greedy selection was used (implementation will add this field)
+    # For now, just verify acceptance_rate is documented
+    assert 'acceptance_rate' in metadata
+
+    # 5. Validate DATA-001 compliance
+    validate_dataset_contract(
+        data=filtered_train,
+        view='sparse',
+        gridsize=1,
+        neighbor_count=study_design.neighbor_count,
+        design=study_design,
+    )
+
+    # 6. Verify spacing constraint is met in filtered data
+    filtered_coords = np.stack([filtered_train['xcoords'], filtered_train['ycoords']], axis=1)
+    _, min_spacings = compute_spacing_matrix(filtered_coords)
+    sparse_threshold = study_design.spacing_thresholds['sparse']
+    actual_min_spacing = min_spacings[min_spacings != np.inf].min() if len(min_spacings) > 0 else 0.0
+    assert actual_min_spacing >= sparse_threshold, (
+        f"Filtered data should meet sparse threshold: {actual_min_spacing:.2f} >= {sparse_threshold:.2f}"
+    )

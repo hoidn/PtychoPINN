@@ -191,6 +191,84 @@ def filter_dataset_by_mask(
     return filtered
 
 
+def greedy_min_spacing_selection(
+    coords: np.ndarray,
+    threshold: float,
+) -> np.ndarray:
+    """
+    Greedily select positions satisfying minimum spacing constraint.
+
+    Algorithm:
+    1. Sort positions by (y, x) to ensure deterministic ordering
+    2. Start with empty selection
+    3. For each candidate position:
+       - If selection is empty, accept it
+       - Else, compute distances to all already-selected positions
+       - If min distance >= threshold, accept it
+    4. Return boolean mask of accepted positions
+
+    This produces a deterministic subset that maximizes coverage while
+    respecting spacing constraints. Not globally optimal but efficient
+    and stable.
+
+    Args:
+        coords: Scan coordinates, shape (N, 2) for N positions (x, y)
+        threshold: Minimum required spacing (pixels)
+
+    Returns:
+        mask: Boolean array, shape (N,), True for accepted positions
+
+    References:
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 (spacing formula)
+        - input.md:8-9 (Phase D sparse downsampling rescue)
+        - plans/.../phase_d_sparse_downsampling_fix/plan.md:D7.2
+
+    Example:
+        >>> coords = np.array([[0, 0], [50, 0], [25, 0], [100, 0]])
+        >>> mask = greedy_min_spacing_selection(coords, threshold=60.0)
+        >>> # Should select positions with spacing ≥60
+        >>> accepted_coords = coords[mask]
+        >>> # Deterministic: sorted by (y, x) before greedy pass
+    """
+    if len(coords) == 0:
+        return np.array([], dtype=bool)
+
+    if len(coords) == 1:
+        # Single position: always accept (no spacing constraint)
+        return np.array([True])
+
+    # Sort positions by (y, x) for deterministic ordering
+    n = len(coords)
+    sort_order = np.lexsort((coords[:, 0], coords[:, 1]))
+    sorted_coords = coords[sort_order]
+
+    # Greedy selection
+    selected_mask = np.zeros(n, dtype=bool)
+    selected_indices = []
+
+    for i in range(n):
+        if len(selected_indices) == 0:
+            # Accept first position
+            selected_mask[i] = True
+            selected_indices.append(i)
+        else:
+            # Compute distances to already-selected positions
+            candidate = sorted_coords[i]
+            selected_coords = sorted_coords[selected_indices]
+            distances = np.linalg.norm(selected_coords - candidate, axis=1)
+            min_dist = distances.min()
+
+            if min_dist >= threshold:
+                selected_mask[i] = True
+                selected_indices.append(i)
+
+    # Un-sort mask to match original coordinate order
+    unsorted_mask = np.zeros(n, dtype=bool)
+    unsorted_mask[sort_order] = selected_mask
+
+    return unsorted_mask
+
+
 def compute_spacing_metrics(
     coords: np.ndarray,
     threshold: float,
@@ -329,13 +407,36 @@ def generate_overlap_views(
 
         # Guard: require minimum acceptance rate to avoid degenerate datasets
         MIN_ACCEPTANCE_RATE = 0.1  # At least 10% of positions must pass
+        selection_strategy = 'direct'  # Track whether greedy fallback was used
+
         if metrics.acceptance_rate < MIN_ACCEPTANCE_RATE:
-            raise ValueError(
-                f"Insufficient positions meet spacing threshold for {view} view in {split_name} split. "
-                f"Acceptance rate: {metrics.acceptance_rate:.1%} < minimum {MIN_ACCEPTANCE_RATE:.1%}. "
-                f"Min spacing: {metrics.min_spacing:.2f} px < threshold: {threshold:.2f} px. "
-                f"Consider relaxing overlap fraction or using different scan positions."
-            )
+            # Attempt greedy spacing-aware downsampling
+            print(f"  ⚠ Initial acceptance rate {metrics.acceptance_rate:.1%} < {MIN_ACCEPTANCE_RATE:.1%}")
+            print(f"  Attempting greedy spacing selection with threshold={threshold:.2f} px...")
+
+            greedy_mask = greedy_min_spacing_selection(coords, threshold)
+            greedy_metrics = compute_spacing_metrics(coords, threshold, greedy_mask)
+
+            print(f"  Greedy selection result:")
+            print(f"    Accepted: {greedy_metrics.n_accepted}/{greedy_metrics.n_positions} ({greedy_metrics.acceptance_rate:.1%})")
+
+            if greedy_metrics.acceptance_rate >= MIN_ACCEPTANCE_RATE:
+                # Greedy selection succeeded
+                print(f"    ✓ Greedy selection meets minimum threshold")
+                mask = greedy_mask
+                metrics = greedy_metrics
+                selection_strategy = 'greedy'
+            else:
+                # Even greedy selection insufficient
+                raise ValueError(
+                    f"Insufficient positions meet spacing threshold for {view} view in {split_name} split "
+                    f"even after greedy downsampling. "
+                    f"Direct acceptance: {metrics.acceptance_rate:.1%}, "
+                    f"Greedy acceptance: {greedy_metrics.acceptance_rate:.1%}, "
+                    f"both < minimum {MIN_ACCEPTANCE_RATE:.1%}. "
+                    f"Min spacing: {metrics.min_spacing:.2f} px < threshold: {threshold:.2f} px. "
+                    f"Consider regenerating Phase C with wider scan spacing or relaxing overlap fraction."
+                )
 
         # Filter dataset
         print(f"  Filtering to accepted positions...")
@@ -349,6 +450,7 @@ def generate_overlap_views(
             'n_accepted': metrics.n_accepted,
             'n_rejected': metrics.n_rejected,
             'acceptance_rate': metrics.acceptance_rate,
+            'selection_strategy': selection_strategy,
         })
 
         # Validate filtered dataset
