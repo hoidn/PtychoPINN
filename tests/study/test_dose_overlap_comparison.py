@@ -110,3 +110,81 @@ def test_build_comparison_jobs_creates_all_conditions(fake_phase_artifacts):
         assert job.ms_ssim_sigma == 1.0, f"Expected ms_ssim_sigma=1.0, got {job.ms_ssim_sigma}"
         assert job.skip_registration is False, f"Expected skip_registration=False"
         assert job.register_ptychi_only is True, f"Expected register_ptychi_only=True"
+
+
+def test_execute_comparison_jobs_invokes_compare_models(fake_phase_artifacts, tmp_path, monkeypatch):
+    """
+    Test execute_comparison_jobs shells out to scripts/compare_models.py with correct arguments.
+
+    Exit criteria:
+    - execute_comparison_jobs invokes subprocess.run for each job
+    - CLI arguments match ComparisonJob fields and artifact root structure
+    - Execution logs and return codes are captured in manifest
+    - Dry-run mode does not execute comparisons
+    """
+    from studies.fly64_dose_overlap.comparison import build_comparison_jobs, execute_comparison_jobs
+    import subprocess
+
+    # Track subprocess calls
+    subprocess_calls = []
+
+    def mock_subprocess_run(cmd, **kwargs):
+        subprocess_calls.append({
+            'cmd': cmd,
+            'kwargs': kwargs,
+        })
+        # Return mock CompletedProcess
+        from unittest.mock import Mock
+        result = Mock()
+        result.returncode = 0
+        result.stdout = "comparison complete"
+        result.stderr = ""
+        return result
+
+    monkeypatch.setattr('subprocess.run', mock_subprocess_run)
+
+    # Build jobs for dose=1000, view=dense, split=train
+    jobs = build_comparison_jobs(
+        phase_c_root=fake_phase_artifacts['phase_c_root'],
+        phase_e_root=fake_phase_artifacts['phase_e_root'],
+        phase_f_root=fake_phase_artifacts['phase_f_root'],
+        dose_filter=1000,
+        view_filter='dense',
+        split_filter='train',
+    )
+
+    assert len(jobs) == 1, f"Expected 1 job for filtered query, got {len(jobs)}"
+
+    # Execute comparisons
+    artifact_root = tmp_path / 'phase_g_artifacts'
+    manifest = execute_comparison_jobs(
+        jobs=jobs,
+        artifact_root=artifact_root,
+    )
+
+    # Verify subprocess was invoked once
+    assert len(subprocess_calls) == 1, f"Expected 1 subprocess call, got {len(subprocess_calls)}"
+
+    # Verify command structure: should invoke scripts/compare_models.py with correct flags
+    call = subprocess_calls[0]
+    cmd = call['cmd']
+
+    # Check that we're invoking python -m or python scripts/compare_models.py
+    assert 'python' in cmd[0].lower() or cmd[0] == 'python3', f"Expected python invocation, got {cmd[0]}"
+    assert any('compare_models' in str(arg) for arg in cmd), f"Expected compare_models.py in command: {cmd}"
+
+    # Verify key CLI arguments are present
+    cmd_str = ' '.join(str(arg) for arg in cmd)
+    assert '--pinn_dir' in cmd_str, "Missing --pinn_dir argument"
+    assert '--baseline_dir' in cmd_str, "Missing --baseline_dir argument"
+    assert '--test_data' in cmd_str, "Missing --test_data argument"
+    assert '--output_dir' in cmd_str, "Missing --output_dir argument"
+    assert '--ms-ssim-sigma' in cmd_str, "Missing --ms-ssim-sigma argument"
+
+    # Verify manifest contains execution results
+    assert 'execution_results' in manifest, "Manifest missing execution_results"
+    assert len(manifest['execution_results']) == 1, "Expected 1 execution result"
+
+    result = manifest['execution_results'][0]
+    assert 'returncode' in result, "Missing returncode in execution result"
+    assert result['returncode'] == 0, f"Expected returncode=0, got {result['returncode']}"

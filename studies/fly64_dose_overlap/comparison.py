@@ -127,6 +127,125 @@ def build_comparison_jobs(
     return jobs
 
 
+def execute_comparison_jobs(
+    jobs: List[ComparisonJob],
+    artifact_root: Path,
+) -> dict:
+    """
+    Execute comparison jobs by shelling out to scripts/compare_models.py.
+
+    Parameters
+    ----------
+    jobs : List[ComparisonJob]
+        List of comparison jobs to execute
+    artifact_root : Path
+        Root directory for artifacts (logs, execution results)
+
+    Returns
+    -------
+    dict
+        Manifest with execution results including return codes and log paths
+    """
+    import subprocess
+    import sys
+
+    artifact_root = Path(artifact_root)
+    artifact_root.mkdir(parents=True, exist_ok=True)
+
+    execution_results = []
+
+    for job in jobs:
+        # Construct output directory for this comparison
+        output_dir = artifact_root / f"dose_{job.dose}" / job.view / job.split
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Construct log path
+        log_path = output_dir / "comparison.log"
+
+        # Build command to invoke scripts/compare_models.py
+        # Use sys.executable to ensure same Python interpreter
+        cmd = [
+            sys.executable,
+            "-m", "scripts.compare_models",
+            "--pinn_dir", str(job.pinn_checkpoint.parent),
+            "--baseline_dir", str(job.baseline_checkpoint.parent),
+            "--test_data", str(job.phase_c_npz),
+            "--output_dir", str(output_dir),
+            "--ms-ssim-sigma", str(job.ms_ssim_sigma),
+        ]
+
+        # Add registration flags
+        if job.skip_registration:
+            cmd.append("--skip-registration")
+        if job.register_ptychi_only:
+            cmd.append("--register-ptychi-only")
+
+        # Execute subprocess
+        print(f"\nExecuting comparison for dose={job.dose}, view={job.view}, split={job.split}")
+        print(f"  Output: {output_dir}")
+        print(f"  Log: {log_path}")
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=600,  # 10 minute timeout
+            )
+
+            # Write log
+            with open(log_path, 'w') as f:
+                f.write(f"Command: {' '.join(cmd)}\n")
+                f.write(f"Return code: {result.returncode}\n\n")
+                f.write("=== STDOUT ===\n")
+                f.write(result.stdout)
+                f.write("\n\n=== STDERR ===\n")
+                f.write(result.stderr)
+
+            execution_results.append({
+                'dose': job.dose,
+                'view': job.view,
+                'split': job.split,
+                'returncode': result.returncode,
+                'log_path': str(log_path.relative_to(artifact_root)),
+            })
+
+            if result.returncode == 0:
+                print(f"  SUCCESS (returncode={result.returncode})")
+            else:
+                print(f"  FAILED (returncode={result.returncode})")
+
+        except subprocess.TimeoutExpired:
+            print(f"  TIMEOUT after 600s")
+            execution_results.append({
+                'dose': job.dose,
+                'view': job.view,
+                'split': job.split,
+                'returncode': -1,
+                'log_path': str(log_path.relative_to(artifact_root)),
+                'error': 'timeout',
+            })
+        except Exception as e:
+            print(f"  EXCEPTION: {e}")
+            execution_results.append({
+                'dose': job.dose,
+                'view': job.view,
+                'split': job.split,
+                'returncode': -1,
+                'log_path': str(log_path.relative_to(artifact_root)),
+                'error': str(e),
+            })
+
+    # Build manifest with execution results
+    manifest = {
+        'n_jobs': len(jobs),
+        'n_executed': len(execution_results),
+        'execution_results': execution_results,
+    }
+
+    return manifest
+
+
 def main():
     """CLI entry point for comparison orchestration."""
     parser = argparse.ArgumentParser(
@@ -225,8 +344,36 @@ def main():
         print("\nDry-run mode: skipping comparison execution")
         return 0
 
-    print("\nComparison execution not yet implemented (Phase G2)")
-    return 0
+    # Execute comparison jobs
+    print("\n" + "=" * 50)
+    print("EXECUTING COMPARISON JOBS")
+    print("=" * 50)
+
+    execution_manifest = execute_comparison_jobs(
+        jobs=jobs,
+        artifact_root=args.artifact_root,
+    )
+
+    # Update manifest with execution results
+    manifest['execution_results'] = execution_manifest['execution_results']
+
+    # Rewrite manifest with execution results
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+    print(f"\nUpdated manifest with execution results: {manifest_path}")
+
+    # Emit execution summary
+    n_success = sum(1 for r in execution_manifest['execution_results'] if r['returncode'] == 0)
+    n_failed = len(execution_manifest['execution_results']) - n_success
+
+    print(f"\nExecution Summary:")
+    print(f"  Total jobs: {len(jobs)}")
+    print(f"  Executed: {execution_manifest['n_executed']}")
+    print(f"  Success: {n_success}")
+    print(f"  Failed: {n_failed}")
+
+    # Return non-zero if any failures
+    return 1 if n_failed > 0 else 0
 
 
 if __name__ == '__main__':
