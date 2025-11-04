@@ -45,19 +45,21 @@ Validates:
 - `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/green/pytest_green.log`
 - All tests PASSED; no SKIPs
 
-### Phase B — Dataset Contract Validation (IN PROGRESS)
+### Phase B — Dataset Contract Validation (COMPLETE)
+**Status:** 11/11 tests PASSED — RED/GREEN/collect evidence captured
 - Working Plan: `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md`
-- Validator: `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` checks
+- Validator: `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` checks ✅
   - DATA-001 NPZ keys/dtypes and amplitude requirement (`diffraction` as amplitude float32, complex64 fields for object/probe).
   - Train/test split axis `'y'` using StudyDesign constants.
-  - Spacing thresholds `S ≈ (1 - f_group) × N` derived from `design.get_study_design()`; enforce dense/sparse minima (GRIDSIZE_N_GROUPS_GUIDE.md:141-151).
+  - Spacing thresholds `S ≈ (1 - f_group) × N` derived from `design.get_study_design()`; enforce dense/sparse minima (GRIDSIZE_N_GROUPS_GUIDE.md:143-151).
   - Oversampling preconditions (neighbor_count ≥ gridsize²) aligned with OVERSAMPLING-001.
-- Tests: `tests/study/test_dose_overlap_dataset_contract.py`
-  - `test_validate_dataset_contract` (happy path) — synthetic NPZ-like payload passes validator.
-  - `test_validate_dataset_contract_missing_key` — omits required key, expect `ValueError`.
-  - `test_validate_dataset_contract_spacing_violation` — dense spacing below threshold, expect `ValueError`.
+- Tests: `tests/study/test_dose_overlap_dataset_contract.py` ✅
+  - 11 tests covering happy path, missing keys, dtype violations, shape mismatches, spacing thresholds, oversampling constraints
+  - All tests PASSED in GREEN phase (0.96s runtime)
+  - RED phase: stub implementation → 1 FAILED (NotImplementedError)
+  - GREEN phase: full implementation → 11 PASSED
   - Logs: RED and GREEN runs stored under `reports/2025-11-04T025541Z/phase_b_test_infra/{red,green}/pytest.log`; collect-only log under `collect/pytest_collect.log`.
-- Documentation: Update `summary.md`, `implementation.md`, and this strategy with validator coverage; record findings adherence (CONFIG-001, DATA-001, OVERSAMPLING-001).
+- Documentation: Updated `summary.md`, `implementation.md`, and this strategy with validator coverage; recorded findings adherence (CONFIG-001, DATA-001, OVERSAMPLING-001). ✅
 
 ### Phase C onwards — Pending
 1) Dose sanity per dataset

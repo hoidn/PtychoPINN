@@ -60,13 +60,16 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - `tests/study/test_dose_overlap_design.py::test_study_design_validation` (PASSED)
 - `tests/study/test_dose_overlap_design.py::test_study_design_to_dict` (PASSED)
 
-### Phase B — Test Infrastructure Design (IN PROGRESS)
+### Phase B — Test Infrastructure Design (COMPLETE)
+**Status:** COMPLETE — validator + 11 tests PASSED with RED/GREEN evidence
 - Working Plan: `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md`
 - Deliverables:
-  - `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes, amplitude requirement, spacing thresholds vs design constants, and y-axis split integrity.
-  - pytest coverage in `tests/study/test_dose_overlap_dataset_contract.py` (pass/fail scenarios with logged red/green runs).
-  - Updated documentation (`implementation.md`, `test_strategy.md`, `summary.md`) recording validator scope and findings references (CONFIG-001, DATA-001, OVERSAMPLING-001).
+  - `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes, amplitude requirement, spacing thresholds vs design constants, and y-axis split integrity. ✅
+  - pytest coverage in `tests/study/test_dose_overlap_dataset_contract.py` (11 tests, all PASSED) with logged red/green runs. ✅
+  - Updated documentation (`implementation.md`, `test_strategy.md`, `summary.md`) recording validator scope and findings references (CONFIG-001, DATA-001, OVERSAMPLING-001). ✅
 - Artifact Hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/`
+- Test Summary: 11/11 PASSED, 0 FAILED, 0 SKIPPED
+- Execution Proof: red/pytest.log (1 FAILED stub), green/pytest.log (11 PASSED), collect/pytest_collect.log (11 collected)
 
 ### Phase C — Dataset Generation (Dose Sweep)
 - Use scripts/simulation/simulate_and_save.py with fly64 object/probe to generate synthetic_full.npz per dose with fixed seed.
