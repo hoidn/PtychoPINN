@@ -2410,3 +2410,18 @@
   - Set `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` guardrail across all commands; archive step now renames bundles (`wts_dense.h5.zip`, `wts_baseline.h5.zip`) before hashing to avoid overwrites.
 - Next actions for Ralph: land stdout summary change in `studies/fly64_dose_overlap/training.py::main`, run mapped pytest selectors, execute dense/baseline CLI jobs, archive manifests/bundles, compute SHA256 proof, refresh summary.md, then log Attempt #103 results.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T110500Z: Phase E6 dense/baseline evidence directive
+- dwell: 1 (planning loop after Attempt #102 implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (Phase E real bundle evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) per startup discipline.
+  - Reviewed Attempt #102 summary/logs and confirmed dense/baseline CLI runs + checksum artifacts still outstanding.
+  - Created refreshed plan (E1–E6) requiring view/dose context in CLI stdout, RED→GREEN capture, deterministic CLI runs, archival, and summary update; saved under the new timestamped hub.
+  - Rewrote `input.md` with Mode: TDD, mapped selectors, deterministic CLI commands, archive helpers, and findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001.
+  - Logged Attempt #103 planning entry in `docs/fix_plan.md` with artifact path + next steps for Ralph.
+- Next actions for Ralph: follow Do Now to update CLI stdout format/tests, capture RED→GREEN logs, run dense/baseline training CLI runs, archive bundles + checksums, refresh analysis summary, and report back in ledger.
+- <Action State>: [ready_for_implementation]
