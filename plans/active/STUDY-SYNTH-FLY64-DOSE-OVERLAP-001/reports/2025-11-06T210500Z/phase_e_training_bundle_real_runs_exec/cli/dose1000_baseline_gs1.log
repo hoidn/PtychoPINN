@@ -1,0 +1,121 @@
+2025-11-04 12:50:01.768372: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1762289401.779700 1478496 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762289401.783407 1478496 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762289401.792738 1478496 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762289401.792749 1478496 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762289401.792751 1478496 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762289401.792753 1478496 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-04 12:50:01.795550: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING:root:Requested 512 groups but only 8 points available. Using all points as seeds.
+I0000 00:00:1762289405.400090 1478496 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1762289405.401296 1478496 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 21966 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1762289406.188678 1478496 service.cc:152] XLA service 0x184ce390 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1762289406.188697 1478496 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-04 12:50:06.201985: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1762289406.220570 1478496 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1762289406.346890 1478496 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+WARNING:root:Requested 512 groups but only 8 points available. Using all points as seeds.
+/home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+  tf_training_config = to_training_config(
+/home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:613: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+  warnings.warn(
+INFO: Seed set to 42
+INFO:lightning.fabric.utilities.seed:Seed set to 42
+INFO:pytorch_lightning.utilities.rank_zero:GPU available: True (cuda), used: False
+INFO:pytorch_lightning.utilities.rank_zero:TPU available: False, using: 0 TPU cores
+INFO:pytorch_lightning.utilities.rank_zero:HPU available: False, using: 0 HPUs
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/setup.py:177: GPU available but not used. You can set it by doing `Trainer(accelerator='gpu')`.
+INFO: 
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.345     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+INFO:lightning.pytorch.callbacks.model_summary:
+  | Name  | Type        | Params | Mode 
+----------------------------------------------
+0 | model | PtychoPINN  | 2.3 M  | train
+1 | Loss  | PoissonLoss | 0      | train
+----------------------------------------------
+2.3 M     Trainable params
+0         Non-trainable params
+2.3 M     Total params
+9.345     Total estimated model params size (MB)
+73        Modules in train mode
+0         Modules in eval mode
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+INFO:pytorch_lightning.utilities.rank_zero:`Trainer.fit` stopped: `max_epochs=50` reached.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py", line 835, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/training.py", line 826, in main
+    json.dump(manifest, f, indent=2)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/__init__.py", line 179, in dump
+    for chunk in iterable:
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/encoder.py", line 432, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/encoder.py", line 326, in _iterencode_list
+    yield from chunks
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/encoder.py", line 439, in _iterencode
+    o = _default(o)
+        ^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type PtychoDataContainerTorch is not JSON serializable
+Enumerating training jobs from Phase C (tmp/phase_c_f2_cli) and Phase D (tmp/phase_d_f2_cli)...
+  → 9 total jobs enumerated
+  → Filtered by dose=1000.0: 3 jobs remain
+  → Filtered by view=baseline: 1 jobs remain
+  → Filtered by gridsize=1: 1 jobs remain
+
+Executing 1 training job(s)...
+  [1/1] baseline (dose=1e+03, gridsize=1)
+diff3d shape: (8, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8,)
+objectGuess shape: (128, 128)
+xcoords shape: (8,)
+ycoords shape: (8,)
+xcoords_start shape: (8,)
+ycoords_start shape: (8,)
+diff3d shape: (8, 64, 64)
+probeGuess shape: (64, 64)
+scan_index shape: (8,)
+objectGuess shape: (128, 128)
+xcoords shape: (8,)
+ycoords shape: (8,)
+xcoords_start shape: (8,)
+ycoords_start shape: (8,)
+DEBUG: nsamples: 512, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (8, 64, 64, 1)
+DEBUG: nsamples: 512, gridsize: 1 (using efficient random sample-then-group strategy)
+INFO: 'Y' array not found. Generating ground truth patches from 'objectGuess' as a fallback.
+neighbor-sampled diffraction shape (8, 64, 64, 1)
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+Decoder Block 1: No attention module added.
+Decoder Block 2: No attention module added.
+    → Bundle [baseline/dose=1e+03]: wts.h5.zip
+    → SHA256 [baseline/dose=1e+03]: c52f2fc0d327b5776a22ba0ffaa30c4b10929ba564080062f179f782d4799365
+    → Size [baseline/dose=1e+03]: 8595443 bytes
