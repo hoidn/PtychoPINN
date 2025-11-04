@@ -1,0 +1,515 @@
+"""
+Phase D overlap filtering pipeline for fly64 dose/overlap study.
+
+This module implements the dense/sparse overlap view generation via:
+  1. Loading Phase C train/test NPZs for each dose
+  2. Computing pairwise spacing metrics from scan coordinates
+  3. Filtering to dense/sparse selections based on StudyDesign thresholds
+  4. Validating filtered views against DATA-001 + spacing constraints
+  5. Writing output NPZs with metadata and spacing metrics
+
+References:
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md §Phase D
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T034242Z/phase_d_overlap_filtering/plan.md
+- docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 (spacing formula S ≈ (1 - f_overlap) × N)
+- docs/SAMPLING_USER_GUIDE.md:112-140 (K-choose-C oversampling)
+- specs/data_contracts.md:207 (DATA-001 NPZ contract)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Tuple, Any
+
+import numpy as np
+from scipy.spatial.distance import pdist, squareform
+
+from studies.fly64_dose_overlap.design import get_study_design, StudyDesign
+from studies.fly64_dose_overlap.validation import validate_dataset_contract
+
+
+@dataclass
+class SpacingMetrics:
+    """
+    Statistics for inter-position spacing in a dataset.
+
+    Attributes:
+        min_spacing: Minimum pairwise distance (pixels)
+        max_spacing: Maximum pairwise distance (pixels)
+        mean_spacing: Mean pairwise distance (pixels)
+        median_spacing: Median pairwise distance (pixels)
+        threshold: Required minimum spacing for this view (pixels)
+        n_positions: Number of scan positions
+        n_accepted: Number of positions meeting threshold
+        n_rejected: Number of positions below threshold
+        acceptance_rate: Fraction of positions accepted
+    """
+    min_spacing: float
+    max_spacing: float
+    mean_spacing: float
+    median_spacing: float
+    threshold: float
+    n_positions: int
+    n_accepted: int
+    n_rejected: int
+    acceptance_rate: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to JSON-serializable dict."""
+        return {
+            'min_spacing': float(self.min_spacing),
+            'max_spacing': float(self.max_spacing),
+            'mean_spacing': float(self.mean_spacing),
+            'median_spacing': float(self.median_spacing),
+            'threshold': float(self.threshold),
+            'n_positions': int(self.n_positions),
+            'n_accepted': int(self.n_accepted),
+            'n_rejected': int(self.n_rejected),
+            'acceptance_rate': float(self.acceptance_rate),
+        }
+
+
+def compute_spacing_matrix(
+    coords: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Compute pairwise spacing matrix and per-position minimum spacing.
+
+    Args:
+        coords: Scan coordinates, shape (N, 2) for N positions (x, y)
+
+    Returns:
+        distances: Full pairwise distance matrix, shape (N, N)
+        min_spacing_by_point: Minimum spacing to any other point, shape (N,)
+
+    References:
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-147 (spacing definition)
+        - scipy.spatial.distance.pdist (condensed distance computation)
+
+    Example:
+        >>> coords = np.array([[0, 0], [10, 0], [0, 10]])
+        >>> distances, min_spacings = compute_spacing_matrix(coords)
+        >>> distances.shape
+        (3, 3)
+        >>> np.allclose(min_spacings, [10, 10, 10])
+        True
+    """
+    if len(coords) == 0:
+        return np.array([]), np.array([])
+
+    if len(coords) == 1:
+        # Single point: no spacing to compute
+        return np.zeros((1, 1)), np.array([np.inf])
+
+    # Compute condensed distance matrix (upper triangle only)
+    condensed_distances = pdist(coords)
+
+    # Convert to full square matrix
+    distances = squareform(condensed_distances)
+
+    # For each point, find minimum distance to any other point
+    # Set diagonal to inf to exclude self-distances
+    distances_masked = distances.copy()
+    np.fill_diagonal(distances_masked, np.inf)
+    min_spacing_by_point = distances_masked.min(axis=1)
+
+    return distances, min_spacing_by_point
+
+
+def build_acceptance_mask(
+    min_spacing_by_point: np.ndarray,
+    threshold: float,
+) -> np.ndarray:
+    """
+    Build boolean mask accepting positions with spacing ≥ threshold.
+
+    Args:
+        min_spacing_by_point: Per-position minimum spacing, shape (N,)
+        threshold: Minimum required spacing (pixels)
+
+    Returns:
+        mask: Boolean array, shape (N,), True for accepted positions
+
+    References:
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:146-151 (threshold enforcement)
+
+    Example:
+        >>> min_spacings = np.array([50, 30, 100])
+        >>> mask = build_acceptance_mask(min_spacings, threshold=40.0)
+        >>> mask.tolist()
+        [True, False, True]
+    """
+    return min_spacing_by_point >= threshold
+
+
+def filter_dataset_by_mask(
+    data: Dict[str, np.ndarray],
+    mask: np.ndarray,
+) -> Dict[str, np.ndarray]:
+    """
+    Filter dataset arrays by boolean mask along first axis.
+
+    Args:
+        data: Dictionary of arrays (from np.load)
+        mask: Boolean mask, shape (N,)
+
+    Returns:
+        Filtered dictionary with same keys, reduced first dimension
+
+    Raises:
+        ValueError: If mask length doesn't match first dimension
+
+    Example:
+        >>> data = {'diffraction': np.zeros((3, 64, 64)), 'xcoords': np.array([0, 1, 2])}
+        >>> mask = np.array([True, False, True])
+        >>> filtered = filter_dataset_by_mask(data, mask)
+        >>> filtered['diffraction'].shape
+        (2, 64, 64)
+        >>> filtered['xcoords'].tolist()
+        [0.0, 2.0]
+    """
+    filtered = {}
+    n_expected = len(mask)
+
+    for key, arr in data.items():
+        # Skip non-array metadata
+        if not isinstance(arr, np.ndarray):
+            filtered[key] = arr
+            continue
+
+        # Filter along first axis if it matches mask length
+        if len(arr) == n_expected:
+            filtered[key] = arr[mask]
+        else:
+            # Preserve arrays with different first dimension (e.g., probeGuess, objectGuess)
+            filtered[key] = arr
+
+    return filtered
+
+
+def compute_spacing_metrics(
+    coords: np.ndarray,
+    threshold: float,
+    mask: np.ndarray | None = None,
+) -> SpacingMetrics:
+    """
+    Compute spacing statistics for a set of coordinates.
+
+    Args:
+        coords: Scan coordinates, shape (N, 2)
+        threshold: Required minimum spacing (pixels)
+        mask: Optional boolean mask to identify accepted positions
+
+    Returns:
+        SpacingMetrics instance with statistics
+
+    References:
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:151 (acceptance rate logging)
+    """
+    distances, min_spacing_by_point = compute_spacing_matrix(coords)
+
+    if mask is None:
+        mask = build_acceptance_mask(min_spacing_by_point, threshold)
+
+    # Compute statistics
+    if len(distances) > 0:
+        # Use condensed form for aggregate stats (avoid double-counting)
+        condensed = pdist(coords)
+        min_spacing = float(condensed.min()) if len(condensed) > 0 else 0.0
+        max_spacing = float(condensed.max()) if len(condensed) > 0 else 0.0
+        mean_spacing = float(condensed.mean()) if len(condensed) > 0 else 0.0
+        median_spacing = float(np.median(condensed)) if len(condensed) > 0 else 0.0
+    else:
+        min_spacing = max_spacing = mean_spacing = median_spacing = 0.0
+
+    n_positions = len(coords)
+    n_accepted = int(mask.sum())
+    n_rejected = n_positions - n_accepted
+    acceptance_rate = n_accepted / n_positions if n_positions > 0 else 0.0
+
+    return SpacingMetrics(
+        min_spacing=min_spacing,
+        max_spacing=max_spacing,
+        mean_spacing=mean_spacing,
+        median_spacing=median_spacing,
+        threshold=threshold,
+        n_positions=n_positions,
+        n_accepted=n_accepted,
+        n_rejected=n_rejected,
+        acceptance_rate=acceptance_rate,
+    )
+
+
+def generate_overlap_views(
+    train_path: Path,
+    test_path: Path,
+    output_dir: Path,
+    view: str,
+    design: StudyDesign | None = None,
+) -> Dict[str, Any]:
+    """
+    Generate dense or sparse overlap view from Phase C train/test NPZs.
+
+    This function:
+    1. Loads train and test NPZs
+    2. Computes spacing matrices and filters to positions meeting threshold
+    3. Validates filtered datasets against DATA-001 + spacing constraints
+    4. Writes filtered NPZs with metadata
+    5. Returns spacing metrics for both splits
+
+    Args:
+        train_path: Path to Phase C train NPZ
+        test_path: Path to Phase C test NPZ
+        output_dir: Directory for output NPZs and metrics
+        view: Overlap view name ('dense' or 'sparse')
+        design: StudyDesign instance (default: get_study_design())
+
+    Returns:
+        Dictionary with keys:
+            'train_metrics': SpacingMetrics for train split
+            'test_metrics': SpacingMetrics for test split
+            'train_output': Path to filtered train NPZ
+            'test_output': Path to filtered test NPZ
+
+    Raises:
+        ValueError: If validation fails or spacing threshold violated
+        FileNotFoundError: If input NPZs don't exist
+
+    References:
+        - CONFIG-001: Pure utility, no params.cfg access
+        - DATA-001: Validator enforces canonical keys/dtypes
+        - OVERSAMPLING-001: Preserved for downstream Phase E grouping
+    """
+    if design is None:
+        design = get_study_design()
+
+    # Validate view
+    if view not in design.spacing_thresholds:
+        raise ValueError(
+            f"Unknown view '{view}'. Expected one of: {list(design.spacing_thresholds.keys())}"
+        )
+
+    threshold = design.spacing_thresholds[view]
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'='*60}")
+    print(f"Generating {view} overlap view")
+    print(f"Threshold: {threshold:.2f} px (f_overlap={design.overlap_views[view]})")
+    print(f"{'='*60}\n")
+
+    results = {}
+
+    for split_name, split_path in [('train', train_path), ('test', test_path)]:
+        print(f"[{split_name.upper()}] Processing {split_path.name}...")
+
+        # Load dataset
+        with np.load(split_path) as data:
+            data_dict = {k: data[k] for k in data.keys()}
+
+        # Extract coordinates
+        coords = np.stack([data_dict['xcoords'], data_dict['ycoords']], axis=1)
+
+        # Compute spacing and build acceptance mask
+        print(f"  Computing spacing matrix for {len(coords)} positions...")
+        distances, min_spacing_by_point = compute_spacing_matrix(coords)
+        mask = build_acceptance_mask(min_spacing_by_point, threshold)
+
+        # Compute metrics before filtering
+        metrics = compute_spacing_metrics(coords, threshold, mask)
+        print(f"  Spacing metrics:")
+        print(f"    Min: {metrics.min_spacing:.2f} px")
+        print(f"    Max: {metrics.max_spacing:.2f} px")
+        print(f"    Mean: {metrics.mean_spacing:.2f} px")
+        print(f"    Median: {metrics.median_spacing:.2f} px")
+        print(f"    Acceptance: {metrics.n_accepted}/{metrics.n_positions} ({metrics.acceptance_rate:.1%})")
+
+        # Guard: require minimum acceptance rate to avoid degenerate datasets
+        MIN_ACCEPTANCE_RATE = 0.1  # At least 10% of positions must pass
+        if metrics.acceptance_rate < MIN_ACCEPTANCE_RATE:
+            raise ValueError(
+                f"Insufficient positions meet spacing threshold for {view} view in {split_name} split. "
+                f"Acceptance rate: {metrics.acceptance_rate:.1%} < minimum {MIN_ACCEPTANCE_RATE:.1%}. "
+                f"Min spacing: {metrics.min_spacing:.2f} px < threshold: {threshold:.2f} px. "
+                f"Consider relaxing overlap fraction or using different scan positions."
+            )
+
+        # Filter dataset
+        print(f"  Filtering to accepted positions...")
+        filtered_data = filter_dataset_by_mask(data_dict, mask)
+
+        # Add metadata
+        filtered_data['_metadata'] = json.dumps({
+            'overlap_view': view,
+            'spacing_threshold': threshold,
+            'source_file': str(split_path),
+            'n_accepted': metrics.n_accepted,
+            'n_rejected': metrics.n_rejected,
+            'acceptance_rate': metrics.acceptance_rate,
+        })
+
+        # Validate filtered dataset
+        print(f"  Validating DATA-001 compliance + spacing constraint...")
+        validate_dataset_contract(
+            data=filtered_data,
+            view=view,
+            gridsize=1,  # Phase C datasets are gridsize=1
+            neighbor_count=design.neighbor_count,
+            design=design,
+        )
+        print(f"    ✓ Validation passed")
+
+        # Write output
+        output_path = output_dir / f"{view}_{split_name}.npz"
+        print(f"  Writing filtered NPZ: {output_path}")
+        np.savez_compressed(output_path, **filtered_data)
+
+        results[f'{split_name}_metrics'] = metrics
+        results[f'{split_name}_output'] = output_path
+        print(f"  ✓ {split_name.upper()} complete\n")
+
+    print(f"{'='*60}")
+    print(f"{view.capitalize()} view generation complete")
+    print(f"{'='*60}\n")
+
+    return results
+
+
+def main():
+    """
+    CLI entry point for generating dense/sparse overlap views.
+
+    Usage:
+        python -m studies.fly64_dose_overlap.overlap \\
+            --phase-c-root data/studies/fly64_dose_overlap \\
+            --output-root data/studies/fly64_dose_overlap_views
+    """
+    parser = argparse.ArgumentParser(
+        description="Generate dense/sparse overlap views from Phase C datasets (Phase D)"
+    )
+    parser.add_argument(
+        '--phase-c-root',
+        type=Path,
+        required=True,
+        help='Root directory containing Phase C dose_* subdirectories',
+    )
+    parser.add_argument(
+        '--output-root',
+        type=Path,
+        required=True,
+        help='Root directory for overlap view outputs',
+    )
+    parser.add_argument(
+        '--doses',
+        type=float,
+        nargs='*',
+        help='Specific doses to process (default: all from StudyDesign)',
+    )
+    parser.add_argument(
+        '--views',
+        type=str,
+        nargs='*',
+        choices=['dense', 'sparse'],
+        help='Specific views to generate (default: both)',
+    )
+    args = parser.parse_args()
+
+    # Load study design
+    design = get_study_design()
+
+    # Determine doses to process
+    doses = args.doses if args.doses else design.dose_list
+    views = args.views if args.views else list(design.overlap_views.keys())
+
+    print("=" * 80)
+    print("Phase D: Dense/Sparse Overlap View Generation")
+    print("=" * 80)
+    print(f"Phase C root: {args.phase_c_root}")
+    print(f"Output root:  {args.output_root}")
+    print(f"Doses:        {doses}")
+    print(f"Views:        {views}")
+    print("=" * 80)
+    print()
+
+    # Verify Phase C root exists
+    if not args.phase_c_root.exists():
+        print(f"ERROR: Phase C root not found: {args.phase_c_root}", file=sys.stderr)
+        sys.exit(1)
+
+    # Process each dose × view combination
+    manifest = {}
+    for dose in doses:
+        dose_dir = args.phase_c_root / f"dose_{int(dose)}"
+        if not dose_dir.exists():
+            print(f"WARNING: Skipping dose={dose} (directory not found: {dose_dir})", file=sys.stderr)
+            continue
+
+        # Find Phase C train/test NPZs
+        # Expected pattern: dose_*/patched_train.npz, dose_*/patched_test.npz
+        train_candidates = list(dose_dir.glob("*train.npz"))
+        test_candidates = list(dose_dir.glob("*test.npz"))
+
+        if not train_candidates or not test_candidates:
+            print(f"WARNING: Skipping dose={dose} (missing train/test NPZs)", file=sys.stderr)
+            continue
+
+        train_path = train_candidates[0]
+        test_path = test_candidates[0]
+
+        dose_manifest = {'dose': dose, 'views': {}}
+
+        for view in views:
+            try:
+                output_dir = args.output_root / f"dose_{int(dose)}" / view
+
+                results = generate_overlap_views(
+                    train_path=train_path,
+                    test_path=test_path,
+                    output_dir=output_dir,
+                    view=view,
+                    design=design,
+                )
+
+                # Save metrics JSON
+                metrics_dir = output_dir / 'metrics'
+                metrics_dir.mkdir(parents=True, exist_ok=True)
+
+                metrics_json = {
+                    'train': results['train_metrics'].to_dict(),
+                    'test': results['test_metrics'].to_dict(),
+                }
+                metrics_path = metrics_dir / 'spacing_metrics.json'
+                with open(metrics_path, 'w') as f:
+                    json.dump(metrics_json, f, indent=2)
+
+                dose_manifest['views'][view] = {
+                    'train': str(results['train_output']),
+                    'test': str(results['test_output']),
+                    'metrics': str(metrics_path),
+                }
+
+            except Exception as e:
+                print(f"\nERROR generating view={view} for dose={dose}: {e}", file=sys.stderr)
+                import traceback
+                traceback.print_exc()
+                sys.exit(1)
+
+        manifest[f"dose_{int(dose)}"] = dose_manifest
+
+    # Write manifest
+    manifest_path = args.output_root / 'overlap_manifest.json'
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+
+    print("\n" + "=" * 80)
+    print("All overlap views generated successfully!")
+    print(f"Manifest written to: {manifest_path}")
+    print("=" * 80)
+
+
+if __name__ == '__main__':
+    main()
