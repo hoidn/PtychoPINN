@@ -1,0 +1,109 @@
+{
+  "timestamp": "2025-11-04T05:26:29.012626",
+  "skipped_count": 17,
+  "skipped_jobs": [
+    {
+      "dose": 10000.0,
+      "view": "baseline",
+      "split": "train",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "dense",
+      "split": "train",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "baseline",
+      "split": "test",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "dense",
+      "split": "test",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 10000.0,
+      "view": "sparse",
+      "split": "test",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "baseline",
+      "split": "train",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "dense",
+      "split": "train",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "baseline",
+      "split": "test",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "dense",
+      "split": "test",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 100000.0,
+      "view": "sparse",
+      "split": "test",
+      "reason": "dose filter (requested: 1000.0)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "baseline",
+      "split": "train",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "train",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "baseline",
+      "split": "test",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "dense",
+      "split": "test",
+      "reason": "view filter (requested: sparse)"
+    },
+    {
+      "dose": 1000.0,
+      "view": "sparse",
+      "split": "train",
+      "reason": "split filter (requested: test)"
+    }
+  ],
+  "missing_phase_d_count": 0
+}

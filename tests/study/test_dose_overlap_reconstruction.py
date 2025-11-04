@@ -50,8 +50,9 @@ def mock_phase_d_datasets(tmp_path):
                 sparse_train.npz
                 sparse_test.npz
 
-    Each NPZ contains minimal DATA-001 keys with small arrays.
+    Each NPZ contains minimal DATA-001 keys with small arrays plus Phase D metadata.
     """
+    import json
     phase_d_root = tmp_path / "phase_d"
     design = get_study_design()
 
@@ -73,10 +74,24 @@ def mock_phase_d_datasets(tmp_path):
             view_dir = dose_dir / view
             view_dir.mkdir(parents=True, exist_ok=True)
 
-            # Write train and test NPZs
+            # Simulate Phase D metadata (selection strategy, acceptance metrics)
+            # Dense views typically use 'direct' selection; sparse may use 'greedy'
+            metadata = {
+                'overlap_view': view,
+                'spacing_threshold': 102.4 if view == 'sparse' else 38.4,
+                'source_file': f'dose_{int(dose)}/patched_{view}.npz',
+                'n_accepted': 8 if view == 'dense' else 3,
+                'n_rejected': 2 if view == 'dense' else 7,
+                'acceptance_rate': 0.8 if view == 'dense' else 0.3,
+                'selection_strategy': 'direct' if view == 'dense' else 'greedy',
+            }
+
+            # Write train and test NPZs with metadata
             for split in ['train', 'test']:
                 npz_path = view_dir / f"{view}_{split}.npz"
-                np.savez_compressed(npz_path, **minimal_data)
+                data_with_metadata = minimal_data.copy()
+                data_with_metadata['_metadata'] = json.dumps(metadata)
+                np.savez_compressed(npz_path, **data_with_metadata)
 
     return phase_d_root
 
@@ -476,6 +491,36 @@ def test_cli_executes_selected_jobs(mock_phase_c_datasets, mock_phase_d_datasets
     assert exec_results[1]['view'] == 'dense'
     assert exec_results[1]['split'] == 'test'
     assert 'log_path' in exec_results[1], "Execution result missing log_path"
+
+    # Phase F3 requirement: Verify selection_strategy metadata surfaced from Phase D
+    # Schema: {
+    #   'selection_strategy': 'direct' | 'greedy',
+    #   'acceptance_rate': float (0.0-1.0),
+    #   'spacing_threshold': float (px),
+    #   'n_accepted': int,
+    #   'n_rejected': int
+    # }
+    # NOTE: dense views typically use 'direct' selection; sparse may use 'greedy' fallback
+    for exec_result in exec_results:
+        assert 'selection_strategy' in exec_result, \
+            f"Execution result missing 'selection_strategy' for {exec_result['view']}/{exec_result['split']}"
+        assert exec_result['selection_strategy'] in ['direct', 'greedy'], \
+            f"Invalid selection_strategy: {exec_result['selection_strategy']} (expected 'direct' or 'greedy')"
+
+        # Acceptance metrics should be present and valid
+        assert 'acceptance_rate' in exec_result, \
+            f"Execution result missing 'acceptance_rate' for {exec_result['view']}/{exec_result['split']}"
+        assert isinstance(exec_result['acceptance_rate'], (int, float)), \
+            f"Invalid acceptance_rate type: {type(exec_result['acceptance_rate'])}"
+        assert 0.0 <= exec_result['acceptance_rate'] <= 1.0, \
+            f"acceptance_rate out of range [0,1]: {exec_result['acceptance_rate']}"
+
+        assert 'spacing_threshold' in exec_result, \
+            f"Execution result missing 'spacing_threshold' for {exec_result['view']}/{exec_result['split']}"
+        assert 'n_accepted' in exec_result, \
+            f"Execution result missing 'n_accepted' for {exec_result['view']}/{exec_result['split']}"
+        assert 'n_rejected' in exec_result, \
+            f"Execution result missing 'n_rejected' for {exec_result['view']}/{exec_result['split']}"
 
     # Verify per-job log files were created
     train_log = Path(exec_results[0]['log_path'])

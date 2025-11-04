@@ -271,6 +271,54 @@ def run_ptychi_job(
     return result
 
 
+def extract_phase_d_metadata(npz_path: Path) -> dict:
+    """
+    Extract selection strategy metadata from Phase D overlap NPZ files.
+
+    Phase D NPZs store metadata as JSON in the '_metadata' key containing:
+    - selection_strategy: 'direct' | 'greedy'
+    - acceptance_rate: float (0.0-1.0)
+    - spacing_threshold: float (px)
+    - n_accepted: int
+    - n_rejected: int
+    - overlap_view: str
+    - source_file: str
+
+    Args:
+        npz_path: Path to Phase D NPZ file
+
+    Returns:
+        Dict with extracted metadata fields, or empty dict if no metadata found
+
+    Note:
+        Baseline (Phase C) NPZs do not have this metadata and will return empty dict.
+    """
+    import numpy as np
+    import json
+
+    try:
+        with np.load(npz_path, allow_pickle=True) as data:
+            if '_metadata' not in data:
+                # Baseline NPZ from Phase C has no metadata
+                return {}
+
+            metadata_str = str(data['_metadata'])
+            metadata = json.loads(metadata_str)
+
+            # Extract relevant fields for manifest
+            return {
+                'selection_strategy': metadata.get('selection_strategy', 'unknown'),
+                'acceptance_rate': float(metadata.get('acceptance_rate', 0.0)),
+                'spacing_threshold': float(metadata.get('spacing_threshold', 0.0)),
+                'n_accepted': int(metadata.get('n_accepted', 0)),
+                'n_rejected': int(metadata.get('n_rejected', 0)),
+            }
+    except (FileNotFoundError, KeyError, json.JSONDecodeError, ValueError) as e:
+        # If metadata extraction fails, return empty dict rather than crashing
+        # (Baseline NPZs will hit FileNotFoundError or missing _metadata)
+        return {}
+
+
 def main():
     """
     CLI entry point for Phase F pty-chi LSQML reconstruction orchestrator.
@@ -454,15 +502,22 @@ def main():
         # Execute job with log capture
         result = run_ptychi_job(job, dry_run=args.dry_run, log_path=job_log_path)
 
-        # Record execution telemetry
-        execution_results.append({
+        # Extract Phase D metadata (selection strategy, acceptance metrics)
+        # NOTE: Phase C baseline NPZs have no metadata; extract_phase_d_metadata returns {}
+        phase_d_metadata = extract_phase_d_metadata(job.input_npz)
+
+        # Record execution telemetry with Phase D metadata merged
+        exec_result = {
             "dose": job.dose,
             "view": job.view,
             "split": job.split,
             "returncode": result.returncode,
             "log_path": str(job_log_path),
             "stdout_preview": result.stdout[:200] if result.stdout else "",
-        })
+        }
+        # Merge Phase D metadata fields (selection_strategy, acceptance_rate, etc.)
+        exec_result.update(phase_d_metadata)
+        execution_results.append(exec_result)
 
         if args.dry_run:
             print(f"  [DRY RUN] {result.stdout}")
