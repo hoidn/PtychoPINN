@@ -256,10 +256,11 @@ python -m studies.fly64_dose_overlap.training \
 **CLI validation (dry-run only):**
 - `python -m studies.fly64_dose_overlap.comparison --phase-c-root <phase C datasets> --phase-e-root <phase E checkpoints> --phase-f-root <Phase F manifests> --artifact-root .../cli --dose 1000 --view dense --split train --dry-run` — manifest + summary written; execution deferred. Log: `.../cli/phase_g_cli_dry_run.log`.
 
-**Coverage status:** G1 (job builder + CLI scaffolding) satisfied. Remaining work for G2/G3:
-- Populate `analysis/inventory.md` with authoritative paths + acceptance metadata (G0.1 outstanding).
-- Update this test strategy with real-run selectors once comparisons execute (G0.2 outstanding).
-- Implement comparison execution (invoke `scripts/compare_models.py`) and capture metrics/plots; register resulting selectors + CLI commands; archive logs under `reports/.../analysis/` and `.../cli/`.
+**Coverage status:** G1 (job builder + CLI scaffolding) satisfied. G0.1 inventory complete — see `reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md` for the authoritative dataset/checkpoint/manifests map and sparse acceptance stats. G0.2 test-strategy refresh landed with active selectors, collect-proof evidence, and CLI dry-run references.
+
+**Remaining work for G2/G3:**
+- Implement comparison execution (invoke `scripts/compare_models.py`) for the three ready conditions (dose_1000 dense/train, dense/test, sparse/train) and capture metrics/plots; register resulting selectors + CLI commands; archive logs under `reports/.../analysis/` and `.../cli/`.
+- After GREEN evidence exists, append real-run selectors + CLI commands here and in `docs/TESTING_GUIDE.md` / `docs/development/TEST_SUITE_INDEX.md`, noting blocked dose/view/split combinations pending new Phase E/F outputs.
 
 **Doc sync:** After G2 execution, update `docs/TESTING_GUIDE.md` §Phase G and `docs/development/TEST_SUITE_INDEX.md` with selectors + CLI commands, referencing GREEN/collect logs.
 

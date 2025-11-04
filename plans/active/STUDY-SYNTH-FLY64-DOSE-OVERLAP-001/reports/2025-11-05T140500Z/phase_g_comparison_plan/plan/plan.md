@@ -13,8 +13,8 @@ Exit Criteria: Inventory doc lists per-dose artifacts, test strategy section upd
 
 | ID | Task Description | State | How/Why & Guidance |
 | --- | --- | --- | --- |
-| G0.1 | Catalog required inputs (PINN checkpoints, baseline checkpoints, Phase F manifests, Phase C/D NPZ paths) and record under `reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md` | [ ] | Use Phase C/D/E/F reports to confirm locations; note acceptance stats and flag missing artifacts (e.g., absent `ptychi_reconstruction.npz`). |
-| G0.2 | Update `test_strategy.md` Phase G section with active selectors, execution proof policy, and artifact destinations | [ ] | Reference this plan hub; enumerate RED→GREEN selector (`test_build_comparison_jobs_creates_all_conditions`) and CLI evidence commands with log paths. |
+| G0.1 | Catalog required inputs (PINN checkpoints, baseline checkpoints, Phase F manifests, Phase C/D NPZ paths) and record under `reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md` | [x] | Attempt #91 inventory captured canonical paths, acceptance stats, and gaps (dose_1000 sparse/test + higher doses) in `analysis/inventory.md`. |
+| G0.2 | Update `test_strategy.md` Phase G section with active selectors, execution proof policy, and artifact destinations | [x] | Phase G section refreshed (Attempt #91) with active selectors, collect-proof log references, and G2 execution guardrails; pending selectors will be appended after real runs. |
 | G0.3 | Land deterministic pytest in `tests/study/test_dose_overlap_comparison.py` covering all dose/view/split combinations | [x] | Attempt #90 (2025-11-05T140500Z) — see `green/pytest_phase_g_target_green.log`; test now asserts 12 jobs and validates metric config. |
 
 ### G1 — Comparison Job Orchestration

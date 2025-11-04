@@ -2284,3 +2284,17 @@
   - Rewrote input.md (Mode: Docs) directing Ralph to catalog Phase C/E/F assets, capture manifest + NPZ listings, and flag missing `ptychi_reconstruction.npz` prerequisites before planning G2 execution.
 - Next actions for Ralph: execute Do Now inventory capture, populate analysis/inventory.md with authoritative paths + gaps, tee command outputs into the new artifact hub, and update ledger once evidence is in place.
 - <Action State>: [ready_for_documentation]
+
+## 2025-11-05T173000Z: Phase G2 executor staging
+- dwell: 0 (new execution sub-phase for this focus)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (G2 executor)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T173500Z/phase_g_execution_g2/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) then reviewed Attempt #91 inventory, Phase G plan, and test_strategy to scope executor work.
+  - Marked G0.1/G0.2 complete in `phase_g_comparison_plan/plan.md`, refreshed Phase G section of `test_strategy.md` with inventory context + G2 guardrails.
+  - Reserved new artifact hub (`.../phase_g_execution_g2/{red,green,collect,cli,analysis}`) and rewrote `input.md` (Mode: TDD) directing executor helper implementation, RED→GREEN pytest, CLI dry-run/live attempts, and doc sync.
+  - Reinforced findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 in both plan and Do Now.
+- Next actions for Ralph: land `execute_comparison_jobs` + tests, capture pytest + CLI logs under the new hub, summarize outcomes, update docs if GREEN, or log blockers with evidence.
+- <Action State>: [ready_for_implementation]
