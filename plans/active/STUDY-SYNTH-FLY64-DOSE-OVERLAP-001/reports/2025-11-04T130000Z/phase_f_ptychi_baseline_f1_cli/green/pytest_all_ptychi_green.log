@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items / 1 deselected / 2 selected
+
+tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest PASSED [ 50%]
+tests/study/test_dose_overlap_reconstruction.py::test_run_ptychi_job_invokes_script PASSED [100%]
+
+======================= 2 passed, 1 deselected in 1.70s ========================

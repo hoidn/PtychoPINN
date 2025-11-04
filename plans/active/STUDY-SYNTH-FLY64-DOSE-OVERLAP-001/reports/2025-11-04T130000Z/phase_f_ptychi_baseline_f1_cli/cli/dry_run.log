@@ -1,0 +1,27 @@
+<frozen runpy>:128: RuntimeWarning: 'studies.fly64_dose_overlap.reconstruction' found in sys.modules after import of package 'studies.fly64_dose_overlap', but prior to execution of 'studies.fly64_dose_overlap.reconstruction'; this may result in unpredictable behaviour
+Building job manifest from Phase C: tmp/phase_c_cli_demo
+                      and Phase D: tmp/phase_d_cli_demo
+Total jobs enumerated: 18
+Filter --dose=1000.0: 18 → 6 jobs
+Filter --view=dense: 6 → 2 jobs
+
+Filtered jobs: 2 selected, 16 skipped
+
+[1/2] Job: dose=1000.0, view=dense, split=train
+  [DRY RUN] [DRY RUN] Would execute: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz tmp/phase_d_cli_demo/dose_1000/dense/dense_train.npz --output-dir plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/cli/dose_1000/dense/train
+
+[2/2] Job: dose=1000.0, view=dense, split=test
+  [DRY RUN] [DRY RUN] Would execute: python scripts/reconstruction/ptychi_reconstruct_tike.py --algorithm LSQML --num-epochs 100 --input-npz tmp/phase_d_cli_demo/dose_1000/dense/dense_test.npz --output-dir plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/cli/dose_1000/dense/test
+
+Manifest written to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/cli/reconstruction_manifest.json
+Skip summary written to: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/cli/skip_summary.json
+
+============================================================
+Phase F Reconstruction Orchestrator Summary
+============================================================
+Total jobs:     18
+Filtered jobs:  2
+Skipped jobs:   16
+Dry run:        True
+Artifacts:      plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T130000Z/phase_f_ptychi_baseline_f1_cli/cli
+============================================================

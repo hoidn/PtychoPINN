@@ -1,0 +1,89 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_reconstruction.py::test_cli_filters_dry_run FAILED [100%]
+
+=================================== FAILURES ===================================
+___________________________ test_cli_filters_dry_run ___________________________
+
+mock_phase_c_datasets = PosixPath('/tmp/pytest-of-ollie/pytest-122/test_cli_filters_dry_run0/phase_c')
+mock_phase_d_datasets = PosixPath('/tmp/pytest-of-ollie/pytest-122/test_cli_filters_dry_run0/phase_d')
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-122/test_cli_filters_dry_run0')
+
+    def test_cli_filters_dry_run(mock_phase_c_datasets, mock_phase_d_datasets, tmp_path):
+        """
+        RED→GREEN test: CLI filters jobs by dose/view/split and emits manifest + skip summary.
+    
+        Tests that the CLI main() function:
+        1. Filters jobs by --dose, --view, --split, --gridsize options
+        2. Runs in --dry-run mode (no actual subprocess execution)
+        3. Emits manifest JSON (reconstruction_manifest.json) with filtered jobs
+        4. Emits skip summary JSON (skip_summary.json) with skipped jobs metadata
+        5. Honors --allow-missing-phase-d flag for graceful handling of missing views
+    
+        Expected behavior for --dose 1000 --view dense --split train:
+        - Manifest should contain exactly 1 job (dose_1000/dense/train)
+        - Skip summary should document other doses/views as skipped
+        - Output files written to --artifact-root directory
+        """
+        import sys
+        import json
+        from studies.fly64_dose_overlap import reconstruction
+    
+        artifact_root = tmp_path / "cli_artifacts"
+        artifact_root.mkdir()
+    
+        # Construct CLI arguments for filtering: dose=1000, view=dense, split=train
+        cli_args = [
+            sys.executable,
+            "-m", "studies.fly64_dose_overlap.reconstruction",
+            "--phase-c-root", str(mock_phase_c_datasets),
+            "--phase-d-root", str(mock_phase_d_datasets),
+            "--artifact-root", str(artifact_root),
+            "--dose", "1000",
+            "--view", "dense",
+            "--split", "train",
+            "--dry-run",
+            "--allow-missing-phase-d",
+        ]
+    
+        # Invoke CLI via subprocess (RED expectation: AttributeError or similar when main() not defined)
+        import subprocess
+        result = subprocess.run(
+            cli_args,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    
+        # RED phase: expect failure because main() doesn't exist yet
+        # GREEN phase: expect success and validate outputs
+        if result.returncode != 0:
+            # RED: main() not implemented or has errors
+            # This is acceptable for RED phase - we expect AttributeError or ModuleNotFoundError
+            pytest.skip("RED phase: CLI not implemented yet - skipping GREEN assertions")
+    
+        # GREEN assertions: validate CLI outputs after implementation
+        manifest_path = artifact_root / "reconstruction_manifest.json"
+        skip_summary_path = artifact_root / "skip_summary.json"
+    
+>       assert manifest_path.exists(), f"Manifest not found: {manifest_path}"
+E       AssertionError: Manifest not found: /tmp/pytest-of-ollie/pytest-122/test_cli_filters_dry_run0/cli_artifacts/reconstruction_manifest.json
+E       assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-122/test_cli_filters_dry_run0/cli_artifacts/reconstruction_manifest.json').exists
+
+tests/study/test_dose_overlap_reconstruction.py:347: AssertionError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_reconstruction.py::test_cli_filters_dry_run - AssertionError: Manifest not found: /tmp/pytest-of-ollie/pytest-122/test_cli_filters_dry_run0/cli_artifacts/reconstruction_manifest.json
+assert False
+ +  where False = exists()
+ +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-122/test_cli_filters_dry_run0/cli_artifacts/reconstruction_manifest.json').exists
+============================== 1 failed in 1.73s ===============================

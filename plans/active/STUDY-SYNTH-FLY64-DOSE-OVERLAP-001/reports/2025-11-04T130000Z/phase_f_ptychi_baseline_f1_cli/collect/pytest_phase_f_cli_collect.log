@@ -1,0 +1,86 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 3 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_reconstruction.py>
+        Tests for Phase F pty-chi LSQML reconstruction job builder.
+        
+        Validates that build_ptychi_jobs() correctly constructs a manifest with:
+        - 3 doses × 3 views (baseline, dense, sparse) × 2 splits = 18 jobs total
+        - CLI arguments for scripts/reconstruction/ptychi_reconstruct_tike.py
+        - DATA-001 compliant NPZ path validation
+        
+        Test tier: Unit
+        Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
+        <Function test_build_ptychi_jobs_manifest>
+          GREEN test: build_ptychi_jobs constructs correct manifest.
+          
+          Expected manifest structure:
+          - 3 doses × 3 views (baseline, dense, sparse) × 2 splits (train, test) = 18 jobs
+          - NOTE: Previous plan assumed 7 jobs per dose, but baseline view has 1 split per dose,
+            not per view. Correct count: 3 doses × (1 baseline × 2 splits + 2 views × 2 splits) = 18 jobs.
+          - Actually: baseline IS a view, so: 3 doses × 3 views × 2 splits = 18 jobs. Wait, recount:
+            Per dose: baseline (train, test) + dense (train, test) + sparse (train, test) = 6 jobs/dose
+            Total: 3 doses × 6 jobs/dose = 18 jobs
+          - Ah wait, plan says "3 doses × 2 views (dense, sparse) + 1 baseline per dose = 7 jobs per dose"
+            That means: per dose, we have 1 baseline view (with train+test splits) + 2 overlap views (each with train+test)
+            = (1 baseline × 2 splits) + (2 overlap views × 2 splits) = 2 + 4 = 6 jobs per dose
+            Total: 3 doses × 6 jobs = 18 jobs
+          
+          Actually reading the plan more carefully:
+          "3 doses × 2 views (dense, sparse) + 1 baseline per dose = 7 jobs per dose"
+          This is confusing. Let me interpret as:
+          - Per dose: 1 baseline view (train + test = 2 jobs) + 2 overlap views (dense train+test, sparse train+test = 4 jobs)
+          - Total per dose: 2 + 4 = 6 jobs
+          - Total: 3 doses × 6 jobs = 18 jobs
+          
+          Wait, maybe the "= 7 jobs per dose" was a typo in the plan? Let me check the builder logic.
+          Looking at build_ptychi_jobs: for each dose, for each split (2), we create 1 baseline + 2 views
+          = 3 jobs per split × 2 splits = 6 jobs per dose.
+          Total: 3 doses × 6 = 18 jobs.
+          
+          Let me update the plan interpretation:
+          The original plan said "7 jobs per dose" which seems incorrect. The correct count is 6 jobs/dose = 18 total.
+          
+          Each job contains:
+            - dose (float)
+            - view (str: 'baseline', 'dense', 'sparse')
+            - split (str: 'train' or 'test')
+            - input_npz (Path: Phase C baseline or Phase D overlap NPZ)
+            - output_dir (Path: artifact directory for LSQML outputs)
+            - algorithm (str: 'LSQML')
+            - num_epochs (int: 100 baseline)
+            - cli_args (list: arguments for scripts/reconstruction/ptychi_reconstruct_tike.py)
+        <Function test_run_ptychi_job_invokes_script>
+          Test that run_ptychi_job dispatches subprocess with correct CLI args.
+          
+          Uses unittest.mock to simulate subprocess execution and verify:
+          - Command includes scripts/reconstruction/ptychi_reconstruct_tike.py
+          - --algorithm LSQML is present
+          - --num-epochs 100 is present
+          - --input-npz and --output-dir point to correct paths
+        <Function test_cli_filters_dry_run>
+          RED→GREEN test: CLI filters jobs by dose/view/split and emits manifest + skip summary.
+          
+          Tests that the CLI main() function:
+          1. Filters jobs by --dose, --view, --split, --gridsize options
+          2. Runs in --dry-run mode (no actual subprocess execution)
+          3. Emits manifest JSON (reconstruction_manifest.json) with filtered jobs
+          4. Emits skip summary JSON (skip_summary.json) with skipped jobs metadata
+          5. Honors --allow-missing-phase-d flag for graceful handling of missing views
+          
+          Expected behavior for --dose 1000 --view dense --split train:
+          - Manifest should contain exactly 1 job (dose_1000/dense/train)
+          - Skip summary should document other doses/views as skipped
+          - Output files written to --artifact-root directory
+
+========================== 3 tests collected in 0.84s ==========================
