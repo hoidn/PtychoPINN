@@ -244,7 +244,7 @@ python -m studies.fly64_dose_overlap.training \
 **Selectors (Planned — F3 Sparse Execution):**
 - `pytest tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs -vv` — RED expectation: sparse job record missing `selection_strategy` metadata; GREEN: manifest + summary report strategy + acceptance stats (logs to `reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/{red,green}/`).
 - `pytest tests/study/test_dose_overlap_reconstruction.py -k "ptychi" -vv` — Regression suite to confirm metadata surfacing does not break existing builder logic (GREEN log reserved under new artifact hub).
-- `pytest tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments -vv` — Ensure CLI flag plumbing still valid after manifest changes (collect log under `.../collect/pytest_phase_f_scripts_collect.log`).
+- `pytest tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments -vv` — Ensure CLI flag plumbing still valid after manifest changes (collect log under `reports/2025-11-05T050500Z/phase_f_ptychi_baseline_f3_sparse_runs/collect/pytest_phase_f_scripts_collect.log`).
 
 **Coverage Planned (F3):**
 - Extend CLI implementation to annotate reconstruction manifest/summary with sparse `selection_strategy` and acceptance metrics so real LSQML evidence demonstrates greedy fallback usage.
