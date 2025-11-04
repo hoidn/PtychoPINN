@@ -1,50 +1,59 @@
-Summary: Close ADR-003 Phase E by syncing governance ledgers and packaging the deprecation evidence for archive.
-Mode: Docs
-Focus: ADR-003-BACKEND-API.EC — governance close-out (E.C2–E.C3)
+Summary: Stage Phase F by adding the RED pty-chi job manifest test and updating the study test strategy so LSQML scaffolding can proceed.
+Mode: TDD
+Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.F0 — Phase F pty-chi baseline scaffolding
 Branch: feature/torchapi-newprompt
-Mapped tests: pytest tests/torch/test_api_deprecation.py -vv
-Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/
+Mapped tests: pytest tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline/
 
-Do Now — ADR-003-BACKEND-API.EC:
-  - Implement: plans/active/ADR-003-BACKEND-API/implementation.md::Phase E — mark governance rows complete, link the 2025-10-24T070500Z deprecation artifacts, and note pending archival decisions.
-  - Ledger: docs/fix_plan.md::[ADR-003-BACKEND-API] — append the Phase E.C1 completion summary and reference the new close-out hub.
-  - Archive: plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/docs/summary.md — capture E.C2/E.C3 wrap-up, list relocated artifacts, and document remaining backlog (e.g., neighbor-count CLI follow-up).
-  - Validate: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && pytest tests/torch/test_api_deprecation.py -vv 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/logs/pytest_api_deprecation.log
-  - Artifacts: plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/
+Do Now — STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.F0:
+  - Implement: tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest — add the RED test expecting a 3×2+baseline LSQML manifest derived from Phase E artifacts (will currently fail because `build_ptychi_jobs` is a stub); capture log in red/pytest_phase_f_red.log.
+  - Strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md::Phase F — document planned selectors, RED/GREEN evidence requirements, and CLI invocation rules for LSQML runs.
+  - Scaffold: studies/fly64_dose_overlap/__init__.py — import the forthcoming `reconstruction` module so tests can locate the stub (leave implementation to the GREEN loop but add placeholder raising NotImplementedError).
+  - Validate: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && pytest tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline/red/pytest_phase_f_red.log
+  - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline/
 
 Priorities & Rationale:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md:38-40 keeps E.C2–E.C3 open until ledger/doc archival finishes.
-- docs/fix_plan.md:234 highlights outstanding governance wrap-up for ADR-003 after the deprecation warning landed.
-- docs/TESTING_GUIDE.md:163-179 now documents the API deprecation tests and must stay aligned with post-closeout evidence.
-- docs/development/TEST_SUITE_INDEX.md:84 depends on finalized artifact pointers once we relocate logs under the new 2025-11-04 hub.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline_plan/plan.md: F0 tasks demand test strategy + RED test before implementation.
+- docs/findings.md: CONFIG-001/ DATA-001/ POLICY-001/ OVERSAMPLING-001 enforce reconstruction guardrails we must encode in test strategy + fixtures.
+- specs/data_contracts.md:210-276 defines reconstruction NPZ expectations; RED test should cite these inputs.
+- docs/TESTING_GUIDE.md:102-154 prescribes authoritative commands and reconstruction prerequisites — keep Phase F instructions aligned.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:Phase F outlines LSQML baseline requirements needing manifest-driven automation.
 
 How-To Map:
-- export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md before running any pytest selectors.
-- Edit plans/active/ADR-003-BACKEND-API/implementation.md and docs/fix_plan.md with consistent `[x]` states and artifact links to 2025-10-24T070500Z and 2025-11-04T093500Z hubs.
-- Capture the governance close-out narrative in plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/docs/summary.md (reference E.C1 warning text, spec/workflow redlines, and remaining backlog).
-- pytest tests/torch/test_api_deprecation.py -vv 2>&1 | tee plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/logs/pytest_api_deprecation.log
+- export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+- Edit plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md Phase F section per template (selectors, evidence, findings alignment, artifact destinations).
+- Create tests/study/test_dose_overlap_reconstruction.py with RED test asserting manifest length, dose/view combinations, and CLI arguments; allow current stub to raise NotImplemented which will trigger the failure.
+- Add stub `build_ptychi_jobs` raising NotImplementedError in studies/fly64_dose_overlap/reconstruction.py and expose via __all__ in __init__.py.
+- Run pytest tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest -vv 2>&1 | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline/red/pytest_phase_f_red.log
 
 Pitfalls To Avoid:
-- Do not relocate artifacts outside timestamped hubs; move stray logs into the new close-out directory instead.
-- Keep `_warn_legacy_api_import` messaging unchanged; only documentation/ledger updates are allowed this loop.
-- Do not mark Phase E fully complete unless the implementation plan and fix plan both cite the deprecation evidence path.
-- Avoid editing PyTorch backend production modules beyond the existing deprecation shim.
-- Ensure the pytest command runs with AUTHORITATIVE_CMDS_DOC exported; rerun under CPU-only assumptions (`CUDA_VISIBLE_DEVICES=""` inherited).
+- Do not touch Phase E training implementation beyond the new reconstruction stub.
+- Keep reconstruction paths relative to Phase D/E artifact roots; no hard-coded tmp paths.
+- Avoid importing cupy/tike in tests — use placeholders until GREEN loop.
+- Ensure RED test uses deterministic fixture data (Phase E manifest) instead of triggering heavy CLI runs.
+- Do not update docs/TESTING_GUIDE.md or TEST_SUITE_INDEX yet; defer until GREEN evidence exists.
+- Leave long-running LSQML executions for later phases to respect loop budget.
+- Keep AUTHORITATIVE_CMDS_DOC exported before pytest to satisfy governance checks.
+- Do not run pty-chi script in this loop; focus on scaffolding + RED failure capture.
 
 If Blocked:
-- Store failing pytest output at plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/logs/pytest_api_deprecation_error.log, note the blocker in docs/summary and docs/fix_plan.md, then pause for supervisor guidance.
+- Capture failing pytest output to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline/red/pytest_phase_f_error.log and log blocker + stack trace in docs/summary.md, then notify supervisor via docs/fix_plan.md Attempts History.
 
 Findings Applied (Mandatory):
-- POLICY-001 — Maintain PyTorch-required workflow guidance while documenting the deprecation (docs/findings.md:8).
-- CONFIG-001 — Ensure ledger updates reaffirm that canonical configs bridge params.cfg; execution config stays separate (docs/findings.md:10).
-- CONFIG-002 — Document execution-config isolation and accelerator auto-default within the governance close-out (docs/findings.md:11).
+- CONFIG-001 — Keep reconstruction stub free of params.cfg mutations until runner integrates update_legacy_dict.
+- DATA-001 — RED test must reference canonical NPZ layout for diffraction/object paths.
+- POLICY-001 — Document that PyTorch backend remains required when invoking LSQML pipeline.
+- OVERSAMPLING-001 — Note K≥C guard in fixtures so sparse jobs remain validated once GREEN.
 
 Pointers:
-- plans/active/ADR-003-BACKEND-API/reports/2025-10-20T133500Z/phase_e_governance/plan.md:38
-- docs/fix_plan.md:234
-- docs/TESTING_GUIDE.md:163
-- docs/development/TEST_SUITE_INDEX.md:84
-- ptycho_torch/api/__init__.py:1
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline_plan/plan.md:34
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:188
+- docs/TESTING_GUIDE.md:102
+- specs/data_contracts.md:210
+- docs/findings.md:1
 
 Next Up (optional):
-- Draft follow-up backlog item for exposing `--neighbor-count` in CLI smokes once governance closure is logged.
+- Implement build_ptychi_jobs + CLI (F1.1–F1.3) once RED test captured.
+- Schedule initial LSQML dry-run using new CLI.
+
+Doc Sync Plan (Conditional): After GREEN implementation adds new selectors, rerun `pytest tests/study/test_dose_overlap_reconstruction.py --collect-only -vv`, archive log under collect/, then update docs/TESTING_GUIDE.md §2 and docs/development/TEST_SUITE_INDEX.md with the new Phase F entry.

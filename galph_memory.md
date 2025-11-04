@@ -2074,3 +2074,16 @@
   - Established new artifact hub `plans/active/ADR-003-BACKEND-API/reports/2025-11-04T093500Z/phase_e_governance_closeout/` (docs, collect, logs) and rewrote `input.md` (Mode: Docs) directing ledger updates, archival summary, and targeted pytest rerun for the deprecation suite.
 - Next actions for Ralph: execute Do Now (implementation/test/doc updates under the new hub), capture pytest log + summary.md, and close E.C2/E.C3 before archiving the initiative.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T094500Z: Phase F pty-chi baseline plan kickoff
+- dwell: 0 (new focus after ADR-003 Phase E closure)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi LSQML baseline
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T094500Z/phase_f_ptychi_baseline_plan/
+- Notes:
+  - Confirmed docs/findings entries CONFIG-001, DATA-001, POLICY-001, OVERSAMPLING-001 remain applicable for reconstruction stage; referenced `docs/TESTING_GUIDE.md` §§2,4 and `specs/data_contracts.md` §§4–6 for CLI + NPZ requirements.
+  - Authored Phase F plan (F0–F2) plus summary and reserved artifact hub `.../phase_f_ptychi_baseline/{plan,docs,red,green,collect,cli,real_run}` to capture RED/GREEN logs, manifests, and LSQML outputs.
+  - Updated `docs/fix_plan.md` Active Focus/status to Phase F scaffolding and logged Attempt #27 planning entry.
+- Next actions for Ralph: execute F0 Do Now (test_strategy Phase F update, RED manifest test) and begin F1 builder implementation under the new hub.
+- <Action State>: [ready_for_implementation]
