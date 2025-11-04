@@ -1,0 +1,96 @@
+2025-11-04 07:02:31,088 - INFO - Configuration: phase_align_method='plane', frc_sigma=0.0
+2025-11-04 07:02:31,088 - INFO - Registration: enabled
+2025-11-04 07:02:31,088 - INFO - NPZ output: raw=enabled, aligned=enabled
+2025-11-04 07:02:31,088 - INFO - Loading PtychoPINN model to restore configuration...
+2025-11-04 07:02:31,088 - INFO - Loading PtychoPINN model from tmp/phase_e_training_gs2/pinn...
+2025-11-04 07:02:31,088 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 1219, in <module>
+    main()
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 788, in main
+    pinn_model = load_pinn_model(args.pinn_dir)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 108, in load_pinn_model
+    model, _ = load_inference_bundle(model_dir)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/ptycho/workflows/components.py", line 148, in load_inference_bundle
+    raise FileNotFoundError(
+FileNotFoundError: Model archive not found at: tmp/phase_e_training_gs2/pinn/wts.h5.zip. Expected to find 'wts.h5.zip' in the directory tmp/phase_e_training_gs2/pinn. This file is created during training with ptycho_train.
+2025-11-04 07:02:31,089 - ERROR - Traceback (most recent call last):
+2025-11-04 07:02:31,089 - ERROR - File "<frozen runpy>", line 198, in _run_module_as_main
+2025-11-04 07:02:31,089 - ERROR - File "<frozen runpy>", line 88, in _run_code
+2025-11-04 07:02:31,089 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 1219, in <module>
+2025-11-04 07:02:31,089 - ERROR - main()
+2025-11-04 07:02:31,089 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 788, in main
+2025-11-04 07:02:31,089 - ERROR - pinn_model = load_pinn_model(args.pinn_dir)
+2025-11-04 07:02:31,089 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - File "/home/ollie/Documents/PtychoPINN2/scripts/compare_models.py", line 108, in load_pinn_model
+2025-11-04 07:02:31,090 - ERROR - model, _ = load_inference_bundle(model_dir)
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,090 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - ^
+2025-11-04 07:02:31,091 - ERROR - File "/home/ollie/Documents/PtychoPINN2/ptycho/workflows/components.py", line 148, in load_inference_bundle
+2025-11-04 07:02:31,091 - ERROR - raise FileNotFoundError(
+2025-11-04 07:02:31,091 - ERROR - FileNotFoundError
+2025-11-04 07:02:31,091 - ERROR - :
+2025-11-04 07:02:31,091 - ERROR - Model archive not found at: tmp/phase_e_training_gs2/pinn/wts.h5.zip. Expected to find 'wts.h5.zip' in the directory tmp/phase_e_training_gs2/pinn. This file is created during training with ptycho_train.
