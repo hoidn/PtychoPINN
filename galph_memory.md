@@ -158,6 +158,15 @@
 - Follow-up for Ralph: Implement torch-optional import shim, update pytest gating per plan, run targeted selector, then proceed with probe_mask/nphotons fixes per Phase B.
 - <Action State>: [planning]
 
+## 2025-11-04T004210Z: New Focus — STUDY-SYNTH-FLY64-DOSE-OVERLAP-001
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 (synthetic fly64 dose/overlap study)
+- Action type: Planning
+- Mode: Docs
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T003530Z/summary.md
+- Notes: Set `docs/fix_plan.md` Active Focus to this initiative (Phase A). Authored initiative plan, test strategy, and constraints docs; updated sampling/oversampling docs for accuracy. Next loop should execute Phase A Do Now (finalize doses/gridsize/K spacing + seeds) then proceed to a code/run loop.
+- Findings applied: CONFIG-001 (config bridge), DATA-001 (dataset contracts). Oversampling documented as implemented; guardrails noted (K≥C, n_groups>n_subsample).
+- <Action State>: [gathering_evidence]
+
 ## 2025-10-17T050007Z: Phase B.B5 P0 Evidence Pass
 - Focus issue: INTEGRATE-PYTORCH-001 Phase B.B5 (probe_mask/nphotons blockers)
 - Action type: Evidence collection
