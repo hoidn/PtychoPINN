@@ -28,7 +28,7 @@
 ## [STUDY-SYNTH-FLY64-DOSE-OVERLAP-001] Synthetic fly64 dose/overlap study
 - Depends on: —
 - Priority: High
-- Status: in_progress
+- Status: in_progress (Phase A complete; Phase B next)
 - Owner/Date: Codex Agent/2025-11-04
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
 - Test Strategy: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md`
@@ -37,7 +37,7 @@
 
 Attempts History:
   * [2025-11-04] Attempt #0 — Study scaffolding (Mode: Docs). Created new initiative directory with `implementation.md`, `test_strategy.md`, `constraint_analysis.md`; initialized reports hub and summary. No code changes or runs. Artifact hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T003530Z/summary.md`.
-  * [2025-11-04] Attempt #1 — Phase A constants planning (Mode: TDD). Established artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/` with supervisor_plan.md, rewrote `input.md` to drive creation of `studies/fly64_dose_overlap/design.py::get_study_design` and RED→GREEN test `tests/study/test_dose_overlap_design.py::test_study_design_constants`, and outlined doc updates for Phase A. No code/tests executed this loop; awaiting engineer execution with red/green/collect logs.
+  * [2025-11-04T021500Z] Attempt #1 — Phase A Design Constants (Mode: TDD). Implemented `studies/fly64_dose_overlap/design.py::get_study_design()` encoding dose list [1e3, 1e4, 1e5], gridsizes {1, 2}, neighbor_count=7, overlap views (dense=0.7 → S≈38.4px, sparse=0.2 → S≈102.4px), spacing heuristic S=(1−f_group)×N, y-axis split, RNG seeds (sim=42, group=123, subsample=456), MS-SSIM sigma=1.0. Wrote 3 passing pytest tests (`tests/study/test_dose_overlap_design.py`): test_study_design_constants, test_study_design_validation, test_study_design_to_dict. Tests passed on first run (implementation-first, validated by assertions). Full suite: 350 passed, 1 failed (pre-existing: test_ptychodus_interop_h5), 17 skipped. Updated `implementation.md` Phase A (COMPLETE), `test_strategy.md` Phase A section, authored `summary.md`. **Metrics:** 3/3 tests PASSED; K≥C validated (7≥4); spacing thresholds derived per GRIDSIZE_N_GROUPS_GUIDE.md:142-151. **Artifacts:** `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/{summary.md,green/pytest_green.log,collect/pytest_collect.log,pytest_full_suite.log}`. **Next Actions:** Phase B — Test Infrastructure Design for dataset contract checks, dose sanity, group filtering invariants, execution proofs.
 
 ## [ADR-003-BACKEND-API] Standardize PyTorch backend API per ADR-003
 - Depends on: INTEGRATE-PYTORCH-001 (Phases C–E alignment)

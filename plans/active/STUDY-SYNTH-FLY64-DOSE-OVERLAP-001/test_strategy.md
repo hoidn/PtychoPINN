@@ -25,6 +25,27 @@
 - For simulator inputs, use small synthetic objects/probes when sanity checking structure.
 
 ## 6. Specific Checks
+
+### Phase A — Design Constants (COMPLETE)
+**Test module:** `tests/study/test_dose_overlap_design.py`
+**Status:** 3/3 PASSED
+
+Validates:
+- Dose list [1e3, 1e4, 1e5]
+- Gridsizes {1, 2} with neighbor_count=7
+- K ≥ C constraint (K=7 ≥ C=4 for gridsize=2)
+- Overlap views: dense=0.7, sparse=0.2
+- Derived spacing thresholds: dense ≈ 38.4px, sparse ≈ 102.4px
+- Spacing formula S = (1 − f_group) × N with N=128
+- Train/test split axis='y'
+- RNG seeds: simulation=42, grouping=123, subsampling=456
+- MS-SSIM config: sigma=1.0, emphasize_phase=True
+
+**Execution proof:**
+- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T021500Z/green/pytest_green.log`
+- All tests PASSED; no SKIPs
+
+### Phase B onwards — Pending
 1) Data contracts (specs/data_contracts.md)
    - Required keys present (`diffraction` amplitude float32; `objectGuess`, `probeGuess`, `xcoords`, `ycoords`)
    - `Y` present in final synthetic sets (complex64); squeeze to 3D

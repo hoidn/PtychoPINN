@@ -21,11 +21,44 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 ## Phases
 
-### Phase A — Design & Constraints
-- Fix dose list (e.g., 1e3, 1e4, 1e5), gridsize set(s) {1, 2}, neighbor count K=7 for gs2.
-- Define inter-group overlap heuristic via min group-center spacing S ≈ (1 − f_group) × N; implement filtering over coords_offsets for group centers.
-- Train/test split policy: emulate spatial separation using top vs bottom halves (y-axis split) for synthetic; on real fly64, respect existing top/bottom files.
-- Metrics: emphasize phase MS-SSIM; amplitude MS-SSIM also reported; use ms-ssim sigma=1.0.
+### Phase A — Design & Constraints (COMPLETE)
+**Status:** Complete — constants encoded in `studies/fly64_dose_overlap/design.py::get_study_design()`
+
+**Dose sweep:**
+- Dose list: [1e3, 1e4, 1e5] photons per exposure
+
+**Grouping parameters:**
+- Gridsizes: {1, 2}
+- Neighbor count K=7 for gs2 (satisfies K ≥ C=4 for K-choose-C)
+
+**Inter-group overlap control:**
+- Dense view: f_overlap=0.7 → S ≈ 38.4 pixels
+- Sparse view: f_overlap=0.2 → S ≈ 102.4 pixels
+- Rule: S = (1 − f_group) × N where N=128 pixels (patch size)
+- Filter groups by minimum center spacing to achieve target overlap
+
+**Patch geometry:**
+- Patch size N=128 pixels (nominal from fly64 reconstructions)
+
+**Train/test split:**
+- Axis: 'y' (top vs bottom halves)
+- Ensures spatial separation to prevent leakage
+
+**RNG seeds (reproducibility):**
+- Simulation: 42
+- Grouping: 123
+- Subsampling: 456
+
+**Metrics configuration:**
+- MS-SSIM sigma: 1.0
+- Emphasize phase: True
+- Report amplitude: True
+- FRC threshold: 0.5
+
+**Test coverage:**
+- `tests/study/test_dose_overlap_design.py::test_study_design_constants` (PASSED)
+- `tests/study/test_dose_overlap_design.py::test_study_design_validation` (PASSED)
+- `tests/study/test_dose_overlap_design.py::test_study_design_to_dict` (PASSED)
 
 ### Phase B — Test Infrastructure Design
 - Author test_strategy.md covering dataset contract checks, dose sanity checks, group filtering invariants, and execution proofs (pytest/logs/CSV under reports/).
