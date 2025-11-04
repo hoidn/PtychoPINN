@@ -2170,3 +2170,18 @@
 - Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T230000Z/phase_f_ptychi_baseline_f2_dense_test_run/
 - Next actions for Ralph: Execute Do Now — fix pytest path, rerun targeted selectors, capture dense/test LSQML logs, sync docs/TESTING_GUIDE.md + TEST_SUITE_INDEX.md, and record Attempt #81 in ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T233500Z: Phase F2 doc/test sync plan
+- dwell: 1 (planning pass after implementation loop)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi baseline execution (F2.4 docs)
+- Action type: Planning
+- Mode: Docs
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T233500Z/phase_f_ptychi_baseline_f2_doc_sync/{collect,docs}
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) before reviewing artifacts.
+  - Re-read docs/findings.md IDs POLICY-001/CONFIG-001/CONFIG-002/DATA-001/OVERSAMPLING-001 plus test_strategy Phase F TODOs to confirm outstanding documentation work.
+  - Inspected dense/test evidence hub (`reports/2025-11-04T230000Z/.../phase_f_ptychi_baseline_f2_dense_test_run/`) and confirmed pytest selectors still collect four tests.
+  - Reserved new doc-sync artifact hub (`reports/2025-11-04T233500Z/phase_f_ptychi_baseline_f2_doc_sync/`) and rewrote input.md (Mode: Docs) directing updates to docs/TESTING_GUIDE.md, TEST_SUITE_INDEX.md, and plan F2.4 closure with collect-only proof + ledger summary.
+  - Logged Attempt #82 in docs/fix_plan.md capturing the planning context and references.
+- Next actions for Ralph: follow the Do Now — update the two documentation files, flip plan F2.4 to `[x]`, run pytest --collect-only with AUTHORITATIVE_CMDS_DOC set, archive logs in the new hub, and record Attempt #82 results in docs/fix_plan.md.
+- <Action State>: [ready_for_implementation]
