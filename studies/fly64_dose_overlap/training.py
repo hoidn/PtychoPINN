@@ -725,6 +725,14 @@ def main():
         print(f"  [{i}/{len(filtered_jobs)}] {job.view} (dose={job.dose:.0e}, gridsize={job.gridsize})")
         result = run_training_job(job, runner=execute_training_job, dry_run=args.dry_run)
 
+        # Phase E6: Emit bundle_path and bundle_sha256 to stdout for CLI log capture
+        # This ensures each job's bundle digest appears alongside manifest pointers
+        # in the CLI log, providing traceable integrity proof per specs/ptychodus_api_spec.md:239
+        if not args.dry_run and result.get('bundle_path'):
+            print(f"    → Bundle: {result['bundle_path']}")
+            if result.get('bundle_sha256'):
+                print(f"    → SHA256: {result['bundle_sha256']}")
+
         # Convert result dict paths to strings for JSON serialization
         # Phase E6: Normalize bundle_path to be relative to artifact_dir
         result_serializable = {}
