@@ -2525,3 +2525,16 @@
   - Logged planning attempt in docs/fix_plan.md with findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001 reiterated; highlighted expectation to capture red/green logs and CLI transcripts under new hub.
 - Next actions for Ralph: implement manifest parsing + test, rerun dense pipelines, execute comparisons, and archive logs; deliver GREEN evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T050500Z: Phase G manifest wiring refresh
+- dwell: 2 (third consecutive planning loop; transitioning focus to ready_for_implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (manifest-driven G2.1 dense execution)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T050500Z/phase_g_execution_real_runs/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date); re-read prior (2025-11-07T030500Z) summary and inspected `execute_comparison_jobs` + comparison pytest gaps.
+  - Created new hub with plan/summary, populated dirs (red/green/collect/cli/data) and rewrote `input.md` to drive manifest JSON parsing, new `test_execute_comparison_jobs_appends_tike_recon_path`, and full Phase C→G reruns with CLI logs archived.
+  - Reinforced findings POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001; reiterated AUTHORITATIVE_CMDS_DOC guard and collect-only follow-up for new pytest node.
+- Next actions for Ralph: implement manifest parser + `--tike_recon_path`, land pytest coverage, run Phase C→F regenerations, execute dense/train,test comparisons, archive logs, and update ledger.
+- <Action State>: [ready_for_implementation]
