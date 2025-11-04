@@ -2087,3 +2087,17 @@
   - Updated `docs/fix_plan.md` Active Focus/status to Phase F scaffolding and logged Attempt #27 planning entry.
 - Next actions for Ralph: execute F0 Do Now (test_strategy Phase F update, RED manifest test) and begin F1 builder implementation under the new hub.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T111500Z: Phase F1 orchestrator handoff prep
+- dwell: 1 (second consecutive planning pass for this focus; next supervisor turn must hand off implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase F pty-chi job orchestrator (F1)
+- Action type: Planning
+- Mode: TDD
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) and reviewed Attempt #28 artifacts plus F1 rows in `phase_f_ptychi_baseline_plan/plan.md:18-27` to reconfirm scope.
+  - Consulted docs/findings (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001), `test_strategy.md:216-272`, `docs/TESTING_GUIDE.md:101-140`, and `specs/data_contracts.md:120-214` to restate guardrails for the manifest builder/runner.
+  - Reserved artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/{red,green,collect,cli,docs}` for RED/GREEN pytest logs, collect-only proof, CLI traces, and summary.
+  - Rewrote `input.md` (Mode: TDD) directing builder + run helper implementation, RED→GREEN capture, collect-only proof, and doc/test registry sync; logged Attempt #75 planning update in docs/fix_plan.md.
+- Next actions for Ralph: Execute Do Now — convert `build_ptychi_jobs` to dataclass-driven manifest, add `run_ptychi_job` helper and unit tests, capture RED→GREEN (`pytest ... -k "ptychi"`) plus collect-only logs in the new hub, summarize results, then tackle CLI entry (F1.3) in the following loop.
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T111500Z/phase_f_ptychi_baseline_f1/
+- <Action State>: [ready_for_implementation]
