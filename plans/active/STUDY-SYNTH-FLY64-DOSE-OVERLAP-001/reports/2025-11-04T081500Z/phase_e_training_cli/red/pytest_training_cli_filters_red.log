@@ -1,0 +1,98 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_training_cli_filters_jobs FAILED [100%]
+
+=================================== FAILURES ===================================
+________________________ test_training_cli_filters_jobs ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-57/test_training_cli_filters_jobs0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f92d7490450>
+
+    def test_training_cli_filters_jobs(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for training CLI job filtering.
+    
+        Validates that the training CLI main() function:
+        - Parses command-line arguments (--phase-c-root, --phase-d-root, --artifact-root)
+        - Accepts optional filter flags (--dose, --view, --gridsize)
+        - Calls build_training_jobs() to enumerate full job matrix
+        - Filters jobs based on provided CLI flags
+        - Invokes run_training_job() only for matching jobs
+        - Handles gracefully when filters match nothing (informative error)
+    
+        Test strategy: Mock sys.argv to inject CLI arguments, monkeypatch build_training_jobs
+        and run_training_job to return predictable stubs, validate filtering logic.
+    
+        References:
+        - input.md:10 (CLI filtering requirements for Phase E4)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+        """
+        import sys
+        import json
+        from studies.fly64_dose_overlap import training
+    
+        # Setup: Create mock Phase C and Phase D directories
+        phase_c_root = tmp_path / "phase_c"
+        phase_d_root = tmp_path / "phase_d"
+        artifact_root = tmp_path / "artifacts"
+    
+        phase_c_root.mkdir()
+        phase_d_root.mkdir()
+    
+        # Create minimal dataset structure (empty files suffice for CLI test)
+        for dose in [1000, 10000, 100000]:
+            dose_dir_c = phase_c_root / f"dose_{dose}"
+            dose_dir_d = phase_d_root / f"dose_{dose}"
+            dose_dir_c.mkdir()
+            dose_dir_d.mkdir()
+    
+            # Phase C patched datasets
+            (dose_dir_c / "patched_train.npz").touch()
+            (dose_dir_c / "patched_test.npz").touch()
+    
+            # Phase D overlap views
+            for view in ['dense', 'sparse']:
+                (dose_dir_d / f"{view}_train.npz").touch()
+                (dose_dir_d / f"{view}_test.npz").touch()
+    
+        # Spy: Track which jobs were executed
+        executed_jobs = []
+    
+        def mock_run_training_job(job, runner, dry_run=False):
+            executed_jobs.append({
+                'dose': job.dose,
+                'view': job.view,
+                'gridsize': job.gridsize,
+                'dry_run': dry_run,
+            })
+            return {'status': 'mock_success'}
+    
+        monkeypatch.setattr(training, 'run_training_job', mock_run_training_job)
+    
+        # Test case 1: No filters (all 9 jobs executed)
+        executed_jobs.clear()
+        test_argv = [
+            'training.py',
+            '--phase-c-root', str(phase_c_root),
+            '--phase-d-root', str(phase_d_root),
+            '--artifact-root', str(artifact_root),
+            '--dry-run',
+        ]
+        monkeypatch.setattr(sys, 'argv', test_argv)
+    
+>       training.main()
+        ^^^^^^^^^^^^^
+E       AttributeError: module 'studies.fly64_dose_overlap.training' has no attribute 'main'
+
+tests/study/test_dose_overlap_training.py:486: AttributeError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_training_cli_filters_jobs - AttributeError: module 'studies.fly64_dose_overlap.training' has no attribute 'main'
+============================== 1 failed in 3.29s ===============================

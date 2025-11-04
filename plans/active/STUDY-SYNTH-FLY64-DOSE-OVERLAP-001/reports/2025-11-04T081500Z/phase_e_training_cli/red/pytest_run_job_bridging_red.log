@@ -1,0 +1,115 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_dose_overlap_training.py::test_run_training_job_invokes_runner FAILED [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_run_training_job_invokes_runner _____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-59/test_run_training_job_invokes_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70013c6a9950>
+
+    def test_run_training_job_invokes_runner(tmp_path, monkeypatch):
+        """
+        RED → GREEN TDD test for run_training_job runner invocation.
+    
+        Validates that run_training_job():
+        - Creates artifact and log directories before execution
+        - Constructs a TrainingConfig dataclass with job metadata
+        - Calls update_legacy_dict(params.cfg, config) with the TrainingConfig instance
+        - Invokes the injected runner callable with (config, job, log_path) kwargs
+        - Touches/writes to job.log_path to ensure logging infrastructure ready
+        - Returns useful metadata (e.g., runner result or summary dict)
+    
+        Test strategy: Use monkeypatch to spy on update_legacy_dict call and inject
+        a stub runner that records its invocation signature. Validate call ordering
+        (bridge before runner) and parameter passing.
+    
+        References:
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-123
+        - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 ordering)
+        - input.md:8-11 (task E4 tightened requirements: assert TrainingConfig)
+        """
+        from studies.fly64_dose_overlap.training import run_training_job
+        from ptycho.config.config import TrainingConfig
+    
+        # Setup: create a minimal job with tmp paths
+        artifact_dir = tmp_path / "artifacts" / "dose_1000" / "baseline" / "gs1"
+        log_path = artifact_dir / "train.log"
+    
+        # Create minimal stub datasets (empty files suffice for this test)
+        train_data = tmp_path / "train.npz"
+        test_data = tmp_path / "test.npz"
+        train_data.touch()
+        test_data.touch()
+    
+        job = TrainingJob(
+            dose=1e3,
+            view='baseline',
+            gridsize=1,
+            train_data_path=str(train_data),
+            test_data_path=str(test_data),
+            artifact_dir=artifact_dir,
+            log_path=log_path,
+        )
+    
+        # Spy: record calls to update_legacy_dict
+        bridge_calls = []
+        original_update_legacy_dict = __import__('ptycho.config.config', fromlist=['update_legacy_dict']).update_legacy_dict
+    
+        def spy_update_legacy_dict(cfg_dict, config):
+            bridge_calls.append({
+                'cfg_dict': cfg_dict,
+                'config': config,
+            })
+            # Call original to maintain CONFIG-001 behavior
+            return original_update_legacy_dict(cfg_dict, config)
+    
+        monkeypatch.setattr('studies.fly64_dose_overlap.training.update_legacy_dict', spy_update_legacy_dict)
+    
+        # Spy: record calls to runner
+        runner_calls = []
+    
+        def stub_runner(*, config, job, log_path):
+            runner_calls.append({
+                'config': config,
+                'job': job,
+                'log_path': log_path,
+            })
+            return {'status': 'success', 'epochs': 10}  # Mock training result
+    
+        # Execute with spies
+        result = run_training_job(job, runner=stub_runner, dry_run=False)
+    
+        # Assertions: directories created
+        assert artifact_dir.exists(), \
+            f"artifact_dir not created: {artifact_dir}"
+        assert artifact_dir.is_dir(), \
+            f"artifact_dir is not a directory: {artifact_dir}"
+    
+        # Assertions: log file touched/created
+        assert log_path.exists(), \
+            f"log_path not created: {log_path}"
+        assert log_path.is_file(), \
+            f"log_path is not a file: {log_path}"
+    
+        # Assertions: update_legacy_dict called with TrainingConfig
+>       assert len(bridge_calls) == 1, \
+            f"update_legacy_dict should be called exactly once, got {len(bridge_calls)} calls"
+E       AssertionError: update_legacy_dict should be called exactly once, got 0 calls
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/study/test_dose_overlap_training.py:305: AssertionError
+=========================== short test summary info ============================
+FAILED tests/study/test_dose_overlap_training.py::test_run_training_job_invokes_runner - AssertionError: update_legacy_dict should be called exactly once, got 0 calls
+assert 0 == 1
+ +  where 0 = len([])
+============================== 1 failed in 3.17s ===============================
