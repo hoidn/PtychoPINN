@@ -1994,3 +1994,14 @@
   - Logged Attempt #18 in docs/fix_plan.md capturing the refreshed instructions; no production edits.
 - Next actions for Ralph: execute RED→GREEN cycle per Do Now, populate artifact hub with pytest logs + CLI run, update plan/test_strategy/docs, then move E5 to `[x]`.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-04T134800Z: Phase E5 memmap handoff
+- dwell: 0 (reset after issuing implementation-ready Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase E training runner integration (E5)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T133500Z/phase_e_training_e5/ (reserved for next loop)
+- Key actions: pulled latest (no changes), reviewed Attempt #19 artifacts (backend wiring landed but green logs still failing and no real-run evidence), updated docs/fix_plan.md with Attempt #19 summary/gaps, rewrote input.md directing MemmapDatasetBridge swap + deterministic CLI run, and confirmed mapped selectors via quick local pytest sanity (not archived).
+- Notes: Memmap bridge restores Phase E plan alignment and enforces CONFIG-001 automatically; remind Ralph to capture new PASS logs and CLI outputs under fresh timestamp to avoid mixing with previous failures.
+- Next actions for Ralph: follow RED→GREEN instructions, upgrade execute_training_job to use MemmapDatasetBridge factory, regenerate passing artifacts + real-run evidence, update plan/test_strategy/docs, and record Attempt #20.
+- <Action State>: [ready_for_implementation]
