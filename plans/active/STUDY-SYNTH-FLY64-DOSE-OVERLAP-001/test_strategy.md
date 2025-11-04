@@ -122,15 +122,28 @@ Validates:
 - Dry-run demonstration: `reports/2025-11-04T070000Z/phase_e_training_e2/dry_run/run_helper_dry_run_preview.txt` (summary dict with all required keys).
 - Stub runner demonstration: `reports/2025-11-04T070000Z/phase_e_training_e2/runner/run_helper_stub.log` (runner received config, job, log_path kwargs and returned result).
 
-**Selectors (Planned — E4 CLI entrypoint):**
-- `pytest tests/study/test_dose_overlap_training.py::test_training_cli_filters_jobs -vv` (ensures CLI enumerates jobs, applies dose/view/gridsize filters, and delegates to `run_training_job` with stub runner instrumentation)
-- `pytest tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging -vv` (verifies `training_manifest.json` contents, artifact-root layout, and that `update_legacy_dict` receives a `TrainingConfig` per invocation)
-- `pytest tests/study/test_dose_overlap_training.py -k training_cli -vv` (aggregated selector for GREEN evidence; must collect ≥2 tests post-implementation)
+**Selectors (Active — E4 CLI entrypoint):**
+- `pytest tests/study/test_dose_overlap_training.py::test_run_training_job_invokes_runner -vv` (tightened in E4: now asserts `update_legacy_dict` receives `TrainingConfig`; RED evidence in `reports/2025-11-04T081500Z/phase_e_training_cli/red/pytest_run_job_bridging_red.log`, GREEN in `.../green/pytest_run_job_bridging_green.log`)
+- `pytest tests/study/test_dose_overlap_training.py::test_training_cli_filters_jobs -vv` (CLI job filtering: RED→GREEN TDD cycle; RED in `reports/2025-11-04T081500Z/phase_e_training_cli/red/pytest_training_cli_filters_red.log`, GREEN in `.../green/pytest_training_cli_green.log`)
+- `pytest tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging -vv` (manifest emission: RED→GREEN TDD cycle; RED in `reports/2025-11-04T081500Z/phase_e_training_cli/red/pytest_training_cli_manifest_red.log`, GREEN in `.../green/pytest_training_cli_green.log`)
+- `pytest tests/study/test_dose_overlap_training.py -k training_cli -vv` (aggregated CLI selector: 2 PASSED in 3.21s; evidence in `reports/2025-11-04T081500Z/phase_e_training_cli/green/pytest_training_cli_green.log`)
+- `pytest tests/study/test_dose_overlap_training.py --collect-only -vv` (collection proof: 5 tests collected post-E4; log in `reports/2025-11-04T081500Z/phase_e_training_cli/collect/pytest_collect.log`)
 
-**Coverage Plan (E4 CLI entrypoint):**
-- CLI parser: Accept `--phase-c-root`, `--phase-d-root`, `--artifact-root`, optional `--dose`, `--view`, `--gridsize`, and `--dry-run`; emit helpful errors when required inputs missing.
-- Job selection: Call `build_training_jobs()` once, then filter the matrix per CLI selectors; dry-run should skip execution but still log planned runs.
-- CONFIG-001 bridge: `run_training_job()` must construct `TrainingConfig`/`ModelConfig` objects and call `update_legacy_dict(params.cfg, config)`; tests will monkeypatch `update_legacy_dict` to assert correct ordering.
+**Coverage Delivered (E4 CLI entrypoint):**
+- CLI parser: Accepts `--phase-c-root`, `--phase-d-root`, `--artifact-root` (required), optional `--dose`, `--view`, `--gridsize`, and `--dry-run`; emits informative messages for filtering results.
+- Job selection: Calls `build_training_jobs()` once to enumerate full matrix (9 jobs), then filters per CLI selectors; handles gracefully when filters match nothing (prints warning and exits).
+- CONFIG-001 bridge upgrade: `run_training_job()` now constructs `TrainingConfig` with `ModelConfig(gridsize=job.gridsize)` and calls `update_legacy_dict(params.cfg, config)` before runner invocation; tests spy on `update_legacy_dict` to assert `TrainingConfig` instance passed.
+- Manifest emission: CLI emits `training_manifest.json` under `--artifact-root` with timestamp, Phase C/D roots, filters applied, dry-run flag, and per-job metadata (dose, view, gridsize, dataset paths, log paths, results).
+- JSON serialization hygiene: Path objects converted to strings before JSON serialization to avoid `TypeError: Object of type PosixPath is not JSON serializable`.
+- CLI dry-run demonstration: `python -m studies.fly64_dose_overlap.training --phase-c-root ... --dose 1000 --view baseline --dry-run` executed successfully; output captured in `reports/2025-11-04T081500Z/phase_e_training_cli/dry_run/training_cli_dry_run.txt`.
+
+**Execution Proof (E4):**
+- RED logs: `reports/2025-11-04T081500Z/phase_e_training_cli/red/pytest_training_cli_filters_red.log` (AttributeError: module has no attribute 'main'), `pytest_training_cli_manifest_red.log` (same), `pytest_run_job_bridging_red.log` (AssertionError: update_legacy_dict not called).
+- GREEN logs: `reports/2025-11-04T081500Z/phase_e_training_cli/green/pytest_training_cli_green.log` (2 CLI tests PASSED in 3.21s), `pytest_run_job_bridging_green.log` (1 test PASSED in 3.01s).
+- Collection: `reports/2025-11-04T081500Z/phase_e_training_cli/collect/pytest_collect.log` (5 tests collected: test_build_training_jobs_matrix, test_run_training_job_invokes_runner, test_run_training_job_dry_run, test_training_cli_filters_jobs, test_training_cli_manifest_and_bridging).
+- Full suite: `reports/2025-11-04T081500Z/phase_e_training_cli/green/pytest_full_suite.log` (full regression evidence pending completion).
+- CLI dry-run: `reports/2025-11-04T081500Z/phase_e_training_cli/dry_run/training_cli_dry_run.txt` (successfully enumerated 9 jobs, filtered to 1 baseline job for dose=1000, emitted manifest).
+- Manifest artifact: `reports/2025-11-04T081500Z/phase_e_training_cli/artifacts/training_manifest.json` (valid JSON with timestamp, filters, and job metadata).
 - Logging & artifacts: CLI writes per-job `train.log` (baseline + dense/sparse) under `<artifact_root>/phase_e_training/...`, captures stdout to `cli/training_cli.log`, and emits `training_manifest.json` summarizing executed jobs.
 - Failure handling: Non-existent dose/view combinations should exit with status 1 and descriptive message (covered via stub runner raising exception surfaced by CLI).
 

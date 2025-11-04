@@ -186,16 +186,17 @@ def run_training_job(
 
     This helper orchestrates the execution of one PtychoPINN training run by:
     1. Creating artifact and log directories
-    2. Bridging params.cfg via update_legacy_dict (CONFIG-001 compliance)
-    3. Invoking the injected runner callable (or skipping if dry_run=True)
-    4. Ensuring log_path is touched/written for downstream traceability
+    2. Constructing a TrainingConfig dataclass with job metadata
+    3. Bridging params.cfg via update_legacy_dict (CONFIG-001 compliance)
+    4. Invoking the injected runner callable (or skipping if dry_run=True)
+    5. Ensuring log_path is touched/written for downstream traceability
 
     Args:
         job: TrainingJob instance with dataset paths and artifact destinations
         runner: Callable that executes training, signature:
                 runner(*, config, job, log_path) -> Dict[str, Any]
                 The runner receives:
-                - config: A configuration object (e.g., TrainingConfig)
+                - config: A TrainingConfig dataclass instance
                 - job: The original TrainingJob instance
                 - log_path: Path where training logs should be written
         dry_run: If True, skip runner invocation and return summary dict instead
@@ -217,10 +218,10 @@ def run_training_job(
         Any exception raised by runner is propagated after ensuring logs persisted
 
     References:
-        - CONFIG-001: update_legacy_dict must be called before any legacy loaders
+        - CONFIG-001: update_legacy_dict must be called with TrainingConfig before any legacy loaders
         - DATA-001: Dataset paths validated at TrainingJob construction time
         - OVERSAMPLING-001: Gridsize semantics preserved in job metadata
-        - input.md:10 (honor dry_run by skipping runner execution)
+        - input.md:10 (Phase E4: upgrade to TrainingConfig + update_legacy_dict)
 
     Examples:
         >>> # Real training execution
@@ -234,6 +235,8 @@ def run_training_job(
         >>> result['dry_run']
         True
     """
+    from ptycho.config.config import TrainingConfig, ModelConfig
+
     # Step 1: Create artifact and log directories
     job.artifact_dir.mkdir(parents=True, exist_ok=True)
     job.log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -260,27 +263,218 @@ def run_training_job(
             f.write(f"Test: {job.test_data_path}\n")
         return summary
 
-    # Step 4: Build a minimal config dict for runner
-    # Note: In Phase E4, the runner will be wired to receive a full TrainingConfig dataclass
-    # For now, we create a placeholder dict with essential fields
-    config = {
-        'gridsize': job.gridsize,
-        'train_data_file': job.train_data_path,
-        'test_data_file': job.test_data_path,
-        'output_dir': str(job.artifact_dir),
-    }
+    # Step 4: Construct TrainingConfig dataclass for CONFIG-001 bridge
+    # Create ModelConfig with gridsize
+    model_config = ModelConfig(gridsize=job.gridsize)
+
+    # Create TrainingConfig with essential fields
+    config = TrainingConfig(
+        train_data_file=job.train_data_path,
+        test_data_file=job.test_data_path,
+        output_dir=str(job.artifact_dir),
+        model=model_config,
+        nphotons=job.dose,  # Pass dose as nphotons for CONFIG-001 bridge
+    )
 
     # Step 5: Bridge params.cfg (CONFIG-001 compliance)
-    # Directly update params.cfg with essential fields
-    # Note: update_legacy_dict expects a dataclass; for Phase E3 we manually update
-    # the legacy dict to maintain CONFIG-001 ordering without full dataclass construction
-    p.cfg.update({
-        'gridsize': job.gridsize,
-        'N': 64,  # Placeholder; will be inferred from dataset in Phase E4
-    })
+    # Must call update_legacy_dict BEFORE any runner invocation
+    update_legacy_dict(p.cfg, config)
 
     # Step 6: Invoke runner with standard kwargs
     result = runner(config=config, job=job, log_path=job.log_path)
 
     # Step 7: Return runner result
     return result
+
+
+def main():
+    """
+    CLI entrypoint for fly64 dose/overlap study training jobs.
+
+    This CLI orchestrates training across the full job matrix by:
+    1. Parsing command-line arguments (Phase C/D roots, artifact root, filters)
+    2. Enumerating all jobs via build_training_jobs()
+    3. Filtering jobs by optional --dose, --view, --gridsize flags
+    4. Executing each matching job via run_training_job() with CONFIG-001 bridge
+    5. Emitting training_manifest.json with job metadata for downstream analysis
+
+    CLI Arguments:
+        --phase-c-root: Root directory for Phase C dataset outputs (required)
+        --phase-d-root: Root directory for Phase D overlap views (required)
+        --artifact-root: Root directory for training artifacts/logs (required)
+        --dose: Optional dose filter (e.g., 1000, 10000, 100000)
+        --view: Optional view filter (baseline, dense, or sparse)
+        --gridsize: Optional gridsize filter (1 or 2)
+        --dry-run: If set, skip training execution and emit summary only
+
+    Examples:
+        # Train all jobs (9 total: 3 doses × 3 variants)
+        python -m studies.fly64_dose_overlap.training \\
+            --phase-c-root outputs/phase_c \\
+            --phase-d-root outputs/phase_d \\
+            --artifact-root artifacts/training
+
+        # Train only baseline jobs (gridsize=1)
+        python -m studies.fly64_dose_overlap.training \\
+            --phase-c-root outputs/phase_c \\
+            --phase-d-root outputs/phase_d \\
+            --artifact-root artifacts/training \\
+            --view baseline
+
+        # Dry-run for dose=1e4, dense view
+        python -m studies.fly64_dose_overlap.training \\
+            --phase-c-root outputs/phase_c \\
+            --phase-d-root outputs/phase_d \\
+            --artifact-root artifacts/training \\
+            --dose 10000 \\
+            --view dense \\
+            --dry-run
+
+    References:
+        - input.md:10 (Phase E4 CLI requirements)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:84-115
+    """
+    import argparse
+    import json
+    from datetime import datetime
+
+    # Parse CLI arguments
+    parser = argparse.ArgumentParser(
+        description="Train PtychoPINN across fly64 dose/overlap study matrix"
+    )
+    parser.add_argument(
+        '--phase-c-root',
+        type=Path,
+        required=True,
+        help='Root directory for Phase C dataset outputs (dose_*/patched_{train,test}.npz)'
+    )
+    parser.add_argument(
+        '--phase-d-root',
+        type=Path,
+        required=True,
+        help='Root directory for Phase D overlap views (dose_*/{dense,sparse}_{train,test}.npz)'
+    )
+    parser.add_argument(
+        '--artifact-root',
+        type=Path,
+        required=True,
+        help='Root directory for training artifacts (logs, checkpoints, manifest)'
+    )
+    parser.add_argument(
+        '--dose',
+        type=float,
+        default=None,
+        help='Optional dose filter (e.g., 1000, 10000, 100000)'
+    )
+    parser.add_argument(
+        '--view',
+        type=str,
+        default=None,
+        choices=['baseline', 'dense', 'sparse'],
+        help='Optional view filter (baseline, dense, or sparse)'
+    )
+    parser.add_argument(
+        '--gridsize',
+        type=int,
+        default=None,
+        choices=[1, 2],
+        help='Optional gridsize filter (1 or 2)'
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Skip training execution; emit summary only'
+    )
+
+    args = parser.parse_args()
+
+    # Ensure artifact root exists
+    args.artifact_root.mkdir(parents=True, exist_ok=True)
+
+    # Step 1: Build full job matrix
+    print(f"Enumerating training jobs from Phase C ({args.phase_c_root}) and Phase D ({args.phase_d_root})...")
+    all_jobs = build_training_jobs(
+        phase_c_root=args.phase_c_root,
+        phase_d_root=args.phase_d_root,
+        artifact_root=args.artifact_root,
+    )
+    print(f"  → {len(all_jobs)} total jobs enumerated")
+
+    # Step 2: Apply filters
+    filtered_jobs = all_jobs
+
+    if args.dose is not None:
+        filtered_jobs = [j for j in filtered_jobs if j.dose == args.dose]
+        print(f"  → Filtered by dose={args.dose}: {len(filtered_jobs)} jobs remain")
+
+    if args.view is not None:
+        filtered_jobs = [j for j in filtered_jobs if j.view == args.view]
+        print(f"  → Filtered by view={args.view}: {len(filtered_jobs)} jobs remain")
+
+    if args.gridsize is not None:
+        filtered_jobs = [j for j in filtered_jobs if j.gridsize == args.gridsize]
+        print(f"  → Filtered by gridsize={args.gridsize}: {len(filtered_jobs)} jobs remain")
+
+    # Handle case where no jobs match filters
+    if not filtered_jobs:
+        print("\n⚠ No jobs match the specified filters. Exiting without training.")
+        return
+
+    # Step 3: Define stub runner for CLI execution
+    # In a real training loop, this would invoke ptycho_train or similar
+    def stub_runner(*, config, job, log_path):
+        """Placeholder runner for Phase E4 CLI; will be wired to actual trainer in E5."""
+        return {'status': 'stub_complete', 'job': job.view}
+
+    # Step 4: Execute filtered jobs
+    print(f"\nExecuting {len(filtered_jobs)} training job(s)...")
+    job_results = []
+
+    for i, job in enumerate(filtered_jobs, start=1):
+        print(f"  [{i}/{len(filtered_jobs)}] {job.view} (dose={job.dose:.0e}, gridsize={job.gridsize})")
+        result = run_training_job(job, runner=stub_runner, dry_run=args.dry_run)
+
+        # Convert result dict paths to strings for JSON serialization
+        result_serializable = {}
+        for k, v in result.items():
+            if isinstance(v, Path):
+                result_serializable[k] = str(v)
+            else:
+                result_serializable[k] = v
+
+        job_results.append({
+            'dose': job.dose,
+            'view': job.view,
+            'gridsize': job.gridsize,
+            'train_data_path': job.train_data_path,
+            'test_data_path': job.test_data_path,
+            'log_path': str(job.log_path),
+            'artifact_dir': str(job.artifact_dir),
+            'result': result_serializable,
+        })
+
+    # Step 5: Emit training_manifest.json
+    manifest = {
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'phase_c_root': str(args.phase_c_root),
+        'phase_d_root': str(args.phase_d_root),
+        'artifact_root': str(args.artifact_root),
+        'filters': {
+            'dose': args.dose,
+            'view': args.view,
+            'gridsize': args.gridsize,
+        },
+        'dry_run': args.dry_run,
+        'jobs': job_results,
+    }
+
+    manifest_path = args.artifact_root / "training_manifest.json"
+    with manifest_path.open('w') as f:
+        json.dump(manifest, f, indent=2)
+
+    print(f"\n✓ Training manifest written to {manifest_path}")
+    print(f"  → {len(job_results)} job(s) completed")
+
+
+if __name__ == '__main__':
+    main()

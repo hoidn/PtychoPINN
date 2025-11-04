@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-11-04T06:00:41.071179Z",
+  "phase_c_root": "tmp/phase_e_cli_demo/phase_c",
+  "phase_d_root": "tmp/phase_e_cli_demo/phase_d",
+  "artifact_root": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T081500Z/phase_e_training_cli/artifacts",
+  "filters": {
+    "dose": 1000.0,
+    "view": "baseline",
+    "gridsize": null
+  },
+  "dry_run": true,
+  "jobs": [
+    {
+      "dose": 1000.0,
+      "view": "baseline",
+      "gridsize": 1,
+      "train_data_path": "tmp/phase_e_cli_demo/phase_c/dose_1000/patched_train.npz",
+      "test_data_path": "tmp/phase_e_cli_demo/phase_c/dose_1000/patched_test.npz",
+      "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T081500Z/phase_e_training_cli/artifacts/dose_1000/baseline/gs1/train.log",
+      "artifact_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T081500Z/phase_e_training_cli/artifacts/dose_1000/baseline/gs1",
+      "result": {
+        "dose": 1000.0,
+        "view": "baseline",
+        "gridsize": 1,
+        "train_data_path": "tmp/phase_e_cli_demo/phase_c/dose_1000/patched_train.npz",
+        "test_data_path": "tmp/phase_e_cli_demo/phase_c/dose_1000/patched_test.npz",
+        "log_path": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T081500Z/phase_e_training_cli/artifacts/dose_1000/baseline/gs1/train.log",
+        "artifact_dir": "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T081500Z/phase_e_training_cli/artifacts/dose_1000/baseline/gs1",
+        "dry_run": true
+      }
+    }
+  ]
+}

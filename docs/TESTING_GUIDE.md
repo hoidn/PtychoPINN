@@ -106,6 +106,11 @@ Specialized tests for synthetic dataset generation and scientific studies.
 
   # Run run_training_job helper tests
   pytest tests/study/test_dose_overlap_training.py -k run_training_job -vv
+
+  # Run CLI tests (Phase E4)
+  pytest tests/study/test_dose_overlap_training.py -k training_cli -vv
+  pytest tests/study/test_dose_overlap_training.py::test_training_cli_filters_jobs -vv
+  pytest tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging -vv
   ```
 - **Execution time:** Typically < 5 seconds per test (lightweight synthetic data)
 - **Dependencies:** NumPy, study design configuration, no external datasets required
