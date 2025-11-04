@@ -1,0 +1,83 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 6 items / 3 deselected / 3 selected
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Dir torch>
+      <Module test_data_pipeline.py>
+        Torch-optional parity tests for RawDataTorch and PtychoDataContainerTorch adapters.
+        
+        This module is whitelisted in conftest.py to run without PyTorch installed,
+        validating that adapters correctly delegate to TensorFlow RawData when torch unavailable.
+        
+        Test source citations (from test_blueprint.md and data_contract.md):
+        - RawData API: ptycho/raw_data.py:365-486
+        - PtychoDataContainer API: ptycho/loader.py:93-138
+        - Data contract: specs/data_contracts.md:7-70
+        
+        Phase C.B2/C.B3 Goals (TDD Red Phase):
+        - Document expected RawDataTorch wrapper behavior
+        - Document expected PtychoDataContainerTorch API surface
+        - Capture baseline failure logs for implementation guidance
+        <Class TestMemmapBridgeParity>
+          Test memory-mapped dataset bridge delegates to RawDataTorch.
+          
+          Phase C.C3 Goal: Refactor existing memory-mapped datasets to reuse
+          RawDataTorch delegation instead of reimplementing grouping logic.
+          
+          Expected behavior:
+          - Memory-mapped loader should delegate grouping to RawDataTorch
+          - Outputs should match RawDataTorch baseline (same grouped-data dict)
+          - Cache reuse: .groups_cache.npz and data/memmap preserved across runs
+          
+          Source: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T082035Z/memmap_bridge_analysis.md
+          <Function test_memmap_loader_matches_raw_data_torch>
+            Memory-mapped dataset should produce identical outputs to RawDataTorch.
+            
+            Expected behavior (Phase C.C3):
+            - Memmap loader internally delegates to RawDataTorch.generate_grouped_data()
+            - Returns grouped-data dict with same keys/shapes/dtypes as RawDataTorch baseline
+            - No duplicate grouping logic (gap #1 from memmap_bridge_analysis.md)
+            
+            Test source: memmap_bridge_analysis.md §4.A
+          <Function test_deterministic_generation_validation>
+            Validate deterministic grouped data generation across instantiations.
+            
+            Expected behavior (Phase C.D2 - Updated):
+            - TensorFlow RawData uses efficient "sample-then-group" strategy (no cache files)
+            - Multiple instantiations with same seed produce identical grouped data
+            - Data parity demonstrates delegation correctness
+            
+            NOTE: The current RawData implementation eliminated cache files for performance.
+            See ptycho/raw_data.py:408 - "eliminates the need for caching"
+            
+            Test source: memmap_bridge_analysis.md §5, phase_c_data_pipeline.md C.D2
+          <Function test_memmap_bridge_accepts_diffraction_legacy>
+            MemmapDatasetBridge MUST accept legacy 'diffraction' key per DATA-001.
+            
+            Spec: specs/data_contracts.md:207 - Canonical key is 'diffraction',
+            but legacy datasets may use 'diff3d'. Bridge must tolerate both.
+            
+            Historical context (INTEGRATE-PYTORCH-001 Attempt #96):
+            - Phase E training blocked by KeyError: 'diff3d' when loading legacy NPZs
+            - Multiple scripts (run_tike_reconstruction.py:165, generate_patches_tool.py:66)
+              implement diffraction→diff3d fallback pattern
+            - DATA-001 (docs/findings.md:14) requires readers tolerate legacy keys
+            
+            Expected behavior:
+            - NPZ with 'diffraction' key loads successfully
+            - Falls back to 'diff3d' if 'diffraction' missing
+            - Preserves dtype (float32) and shape (N,H,W) per DATA-001
+            - CONFIG-001 bridge remains intact (no initialization reordering)
+            
+            Test source: input.md:9, specs/data_contracts.md:207
+            ROI: Legacy NPZ with canonical 'diffraction' key
+
+================= 3/6 tests collected (3 deselected) in 0.81s ==================
