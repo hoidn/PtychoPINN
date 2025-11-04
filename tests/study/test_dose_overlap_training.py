@@ -1675,7 +1675,34 @@ def test_training_cli_records_bundle_path(tmp_path, monkeypatch, capsys):
         assert all(c in '0123456789abcdef' for c in checksum), \
             f"SHA256 checksum must be lowercase hex, got: {checksum}"
 
+    # NEW Phase E6 Do Now: Cross-validate stdout SHA256 lines match manifest bundle_sha256
+    # Build a map from (view, dose) → bundle_sha256 from manifest for parity checking
+    manifest_sha_map = {}
+    for job_entry in manifest['jobs']:
+        view = job_entry['view']
+        dose = job_entry['dose']
+        bundle_sha256 = job_entry['result']['bundle_sha256']
+        manifest_sha_map[(view, dose)] = bundle_sha256
+
+    # For each stdout SHA256 line, extract view/dose/checksum and validate against manifest
+    for line in sha256_lines:
+        view_match = line.split('[')[1].split('/')[0]
+        dose_match = line.split('dose=')[1].split(']')[0]
+        # Convert dose string back to float for lookup (e.g., '1e+03' → 1000.0)
+        dose_value = float(dose_match)
+        checksum_stdout = line.split(']: ')[1]
+
+        # Lookup expected SHA from manifest
+        manifest_key = (view_match, dose_value)
+        assert manifest_key in manifest_sha_map, \
+            f"Stdout SHA line view/dose ({view_match}/{dose_value}) not found in manifest"
+
+        expected_sha = manifest_sha_map[manifest_key]
+        assert checksum_stdout == expected_sha, \
+            f"Stdout SHA mismatch for {view_match}/dose={dose_value:.0e}: stdout={checksum_stdout[:16]}... vs manifest={expected_sha[:16]}..."
+
     print(f"\n✓ CLI manifest bundle_path + bundle_sha256 + stdout format validated:")
+    print(f"  - Stdout SHA256 lines match manifest bundle_sha256 entries (parity enforced)")
     print(f"  - training_manifest.json created at {manifest_path}")
     print(f"  - Manifest contains {len(manifest['jobs'])} job entries")
     print(f"  - Each job result includes bundle_path field (relative to artifact_dir)")
