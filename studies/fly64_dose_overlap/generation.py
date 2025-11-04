@@ -86,6 +86,7 @@ def build_simulation_plan(
         model=model_config,
         train_data_file=str(base_npz_path),
         n_groups=n_images,  # gs=1 initially (one group per scan position)
+        n_images=int(n_images),  # Required for legacy simulator coordinate array sizing
         nphotons=int(dose),
         # Use defaults for other params; they'll be overridden in phase E training
     )

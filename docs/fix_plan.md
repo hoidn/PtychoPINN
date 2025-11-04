@@ -41,14 +41,15 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 ## [FIX-PHASE-C-GENERATION-001] Fix Phase C coordinate type bug
 - Depends on: —
 - Priority: High (blocks STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 Phase G evidence)
-- Status: todo
-- Owner/Date: (unassigned)/2025-11-07
+- Status: done
+- Owner/Date: Ralph/2025-11-07
 - Error Signature: `TypeError: object of type 'float' has no len()` at `ptycho/raw_data.py:227`
-- Root Cause: `studies/fly64_dose_overlap/generation.py:170` passes float scalar for `xcoords`/`ycoords` to `RawData.from_simulation` which expects array-like with length
+- Root Cause: `studies/fly64_dose_overlap/generation.py:85-91` did not set `TrainingConfig.n_images`, leaving it None; legacy simulator `_generate_simulated_data_legacy_params` depends on `n_images` to size coordinate arrays
 - Impact: Phase C dataset generation fails immediately, blocking all downstream phases (D/E/F/G)
 - Repro: `python -m studies.fly64_dose_overlap.generation --base-npz <path> --output-root <path>`
-- Scope: `studies/fly64_dose_overlap/generation.py` coordinate generation logic; possibly `ptycho/nongrid_simulation.py` coordinate passing
+- Scope: `studies/fly64_dose_overlap/generation.py` config construction; `tests/study/test_dose_overlap_generation.py` coverage
 - Notes: Discovered during 2025-11-07T070500Z Phase G orchestrator execution; blocker logged at `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T070500Z/phase_g_execution_real_runs/analysis/blocker.log`
+- Latest Attempt (2025-11-07T090500Z): Implementation — Phase C config fix GREEN. Enhanced test with `n_images` assertion (test_dose_overlap_generation.py:180-181). Updated `build_simulation_plan` to set `n_images=int(n_images)` alongside `n_groups` (generation.py:89). RED: AssertionError None == 100. GREEN: PASSED 3.90s. Module suite: 5 passed. Full suite: 402 passed/1 pre-existing fail (test_interop_h5_reader)/17 skipped in 250.25s. Orchestrator dry-run validated Phase C→G command sequencing. Nucleus complete: n_images wiring + regression test. Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/ (RED/GREEN/module/full logs + summary.md). Findings applied: POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001. Commit: [next].
 
 ## [EXPORT-PTYCHODUS-PRODUCT-001] TF-side Ptychodus product exporter/importer + Run1084 conversion
 - Depends on: —

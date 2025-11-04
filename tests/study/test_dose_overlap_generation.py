@@ -177,3 +177,5 @@ def test_generate_dataset_config_construction(mock_base_npz, design_params, tmp_
     assert captured_config.nphotons == int(dose)
     assert captured_config.n_groups == 100  # from mock_base_npz
     assert captured_config.model.gridsize == 1
+    # Verify n_images is set (required for legacy simulator coordinate arrays)
+    assert captured_config.n_images == 100  # must match base dataset length
