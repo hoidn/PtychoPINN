@@ -1,0 +1,39 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_dose_overlap_reconstruction.py>
+        Tests for Phase F pty-chi LSQML reconstruction job builder.
+        
+        Validates that build_ptychi_jobs() correctly constructs a manifest with:
+        - 3 doses × 2 views (dense, sparse) + 1 baseline per dose = 7 jobs per dose
+        - CLI arguments for scripts/reconstruction/ptychi_reconstruct_tike.py
+        - DATA-001 compliant NPZ path validation
+        
+        Test tier: Unit
+        Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
+        <Function test_build_ptychi_jobs_manifest>
+          RED test: build_ptychi_jobs should raise NotImplementedError until GREEN implementation.
+          
+          Expected manifest structure (once GREEN):
+          - 3 doses × 2 views (dense, sparse) + 1 baseline per dose = 7 jobs per dose (21 total)
+          - Each job contains:
+            - dose (float)
+            - view (str: 'baseline', 'dense', 'sparse')
+            - split (str: 'train' or 'test')
+            - input_npz (Path: Phase C baseline or Phase D overlap NPZ)
+            - output_dir (Path: artifact directory for LSQML outputs)
+            - algorithm (str: 'LSQML')
+            - num_epochs (int: 100 baseline)
+            - cli_args (list: arguments for scripts/reconstruction/ptychi_reconstruct_tike.py)
+
+========================== 1 test collected in 0.83s ===========================
