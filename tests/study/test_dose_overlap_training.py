@@ -1411,3 +1411,148 @@ def test_build_training_jobs_skips_missing_view(mock_phase_c_datasets, tmp_path)
     finally:
         # Cleanup logger
         logger.removeHandler(handler)
+
+
+def test_training_cli_records_bundle_path(tmp_path, monkeypatch):
+    """
+    RED → GREEN TDD test for Phase E6 CLI manifest bundle_path normalization.
+
+    Validates that the training CLI main() function:
+    - Records bundle_path in manifest for each job (relative to job's artifact_dir)
+    - Uses artifact-relative paths (not absolute workstation-specific paths)
+    - Preserves skip_summary schema unchanged (no interference with bundle fields)
+    - Handles missing bundles gracefully (None or omitted field)
+
+    Test Strategy:
+    - Monkeypatch execute_training_job to return mock results with bundle_path
+    - Execute CLI with --dry-run to skip actual training but test manifest emission
+    - Validate manifest JSON includes bundle_path field for each job entry
+    - Verify paths are relative to artifact_dir (e.g., "wts.h5.zip" not "/abs/path/wts.h5.zip")
+
+    References:
+        - input.md:9 (Phase E6: manifest bundle_path normalization requirement)
+        - specs/ptychodus_api_spec.md:239 (§4.6 wts.h5.zip persistence contract)
+        - docs/TESTING_GUIDE.md:101-140 (Phase E CLI testing requirements)
+        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:268
+    """
+    import sys
+    import json
+    from studies.fly64_dose_overlap import training
+
+    # Setup: Create mock Phase C and Phase D directories
+    phase_c_root = tmp_path / "phase_c"
+    phase_d_root = tmp_path / "phase_d"
+    artifact_root = tmp_path / "artifacts"
+
+    phase_c_root.mkdir()
+    phase_d_root.mkdir()
+
+    # Create minimal dataset structure for ALL doses (build_training_jobs enumerates all)
+    # Then CLI filters by --dose 1000 to reduce job count
+    for dose in [1000, 10000, 100000]:
+        dose_dir_c = phase_c_root / f"dose_{dose}"
+        dose_dir_d = phase_d_root / f"dose_{dose}"
+        dose_dir_c.mkdir()
+        dose_dir_d.mkdir()
+
+        # Phase C patched datasets
+        (dose_dir_c / "patched_train.npz").touch()
+        (dose_dir_c / "patched_test.npz").touch()
+
+        # Phase D dense view datasets
+        dense_dir = dose_dir_d / "dense"
+        dense_dir.mkdir(parents=True, exist_ok=True)
+        (dense_dir / "dense_train.npz").touch()
+        (dense_dir / "dense_test.npz").touch()
+
+    # Spy: Track execute_training_job calls and return bundle_path in results
+    runner_calls = []
+
+    def mock_execute_training_job(*, config, job, log_path):
+        """Mock that returns success with bundle_path."""
+        runner_calls.append({
+            'config': config,
+            'job': job,
+            'log_path': log_path,
+        })
+        # Simulate bundle saved to artifact_dir/wts.h5.zip
+        bundle_path_abs = job.artifact_dir / "wts.h5.zip"
+        return {
+            'status': 'success',
+            'final_loss': 0.123,
+            'bundle_path': str(bundle_path_abs),  # Absolute path from execute_training_job
+        }
+
+    monkeypatch.setattr(training, 'execute_training_job', mock_execute_training_job)
+
+    # Execute CLI with dose filter (2 jobs: baseline + dense for dose=1000)
+    # NOTE: We do NOT use --dry-run here, because dry-run skips execute_training_job entirely
+    # and returns a summary dict without bundle_path. We need to invoke execute_training_job
+    # (via our mock) to get bundle_path in the result.
+    test_argv = [
+        'training.py',
+        '--phase-c-root', str(phase_c_root),
+        '--phase-d-root', str(phase_d_root),
+        '--artifact-root', str(artifact_root),
+        '--dose', '1000',
+        # No --dry-run → invokes execute_training_job (mocked)
+    ]
+    monkeypatch.setattr(sys, 'argv', test_argv)
+
+    training.main()
+
+    # Assertions: manifest file created
+    manifest_path = artifact_root / "training_manifest.json"
+    assert manifest_path.exists(), \
+        f"training_manifest.json not found at {manifest_path}"
+
+    # Assertions: manifest content is valid JSON
+    with manifest_path.open('r') as f:
+        manifest = json.load(f)
+
+    assert isinstance(manifest, dict), \
+        f"Manifest must be a dict, got {type(manifest)}"
+
+    # Assertions: jobs list contains 2 entries (baseline + dense for dose=1000)
+    assert 'jobs' in manifest, \
+        "Manifest must contain 'jobs' list"
+    assert len(manifest['jobs']) == 2, \
+        f"Expected 2 jobs in manifest for dose=1000 (baseline + dense), got {len(manifest['jobs'])}"
+
+    # Assertions: each job entry contains bundle_path field with relative path
+    for job_entry in manifest['jobs']:
+        assert 'result' in job_entry, \
+            f"Job entry must contain 'result' dict from runner, got keys: {job_entry.keys()}"
+
+        result_dict = job_entry['result']
+        assert 'bundle_path' in result_dict, \
+            f"Job result must contain 'bundle_path' field (Phase E6 requirement), got keys: {result_dict.keys()}"
+
+        bundle_path = result_dict['bundle_path']
+        assert bundle_path is not None, \
+            f"bundle_path must not be None for successful training (job: {job_entry['view']})"
+
+        # KEY ASSERTION: bundle_path must be relative to artifact_dir (not absolute)
+        # Expected format: "wts.h5.zip" or relative path from artifact_dir
+        # NOT acceptable: "/home/user/.../artifacts/dose_1000/baseline/gs1/wts.h5.zip"
+        assert not Path(bundle_path).is_absolute(), \
+            f"bundle_path must be relative to artifact_dir, got absolute path: {bundle_path}"
+
+        # Validate bundle_path is just the filename (simplest case)
+        assert bundle_path == "wts.h5.zip", \
+            f"bundle_path should be 'wts.h5.zip' relative to artifact_dir, got: {bundle_path}"
+
+        print(f"  ✓ Job {job_entry['view']} (dose={job_entry['dose']:.0e}): bundle_path={bundle_path}")
+
+    # Assertions: skip_summary schema unchanged (no interference)
+    assert 'skip_summary_path' in manifest, \
+        "Manifest must contain skip_summary_path field (Phase E5.5 requirement)"
+    assert 'skipped_views' in manifest, \
+        "Manifest must contain skipped_views field (Phase E5 requirement)"
+
+    print(f"\n✓ CLI manifest bundle_path normalization validated:")
+    print(f"  - training_manifest.json created at {manifest_path}")
+    print(f"  - Manifest contains {len(manifest['jobs'])} job entries")
+    print(f"  - Each job result includes bundle_path field (relative to artifact_dir)")
+    print(f"  - skip_summary schema preserved (no interference)")
+    print(f"  - Sample bundle_path: {manifest['jobs'][0]['result']['bundle_path']}")

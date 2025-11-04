@@ -708,10 +708,25 @@ def main():
         result = run_training_job(job, runner=execute_training_job, dry_run=args.dry_run)
 
         # Convert result dict paths to strings for JSON serialization
+        # Phase E6: Normalize bundle_path to be relative to artifact_dir
         result_serializable = {}
         for k, v in result.items():
             if isinstance(v, Path):
                 result_serializable[k] = str(v)
+            elif k == 'bundle_path' and v is not None:
+                # Phase E6: Convert absolute bundle_path to relative path from artifact_dir
+                # This ensures manifest uses portable paths that work across workstations
+                # Example: /abs/path/artifacts/dose_1000/baseline/gs1/wts.h5.zip
+                #          → wts.h5.zip (relative to artifact_dir)
+                bundle_path_abs = Path(v)
+                try:
+                    # Compute relative path from artifact_dir
+                    bundle_path_rel = bundle_path_abs.relative_to(job.artifact_dir)
+                    result_serializable[k] = str(bundle_path_rel)
+                except ValueError:
+                    # If bundle_path is not under artifact_dir, keep absolute
+                    # (should not happen in normal execution, but defensive)
+                    result_serializable[k] = str(v)
             else:
                 result_serializable[k] = v
 
