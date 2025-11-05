@@ -3033,3 +3033,16 @@
   - Authored new Do Now directing Ralph to re-launch the orchestrator with `"$PWD/$HUB"`, capture a fresh full-run log, run highlights/metrics helpers, and update summary/fix_plan with MS-SSIM/MAE deltas plus guardrail evidence.
 - Next actions for Ralph: rerun `run_phase_g_dense.py` with `--clobber`, confirm all Phase D–G artifacts land, run highlights verifier + metrics digest refresh, update summary/docs, then execute the mapped pytest selector.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T125421Z: Dense pipeline completion hand-off
+- dwell: 0 (reset after issuing ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T125421Z/phase_g_dense_pipeline_completion_handoff/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed cached context from 123500Z triage and re-read relevant findings (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001).
+  - Confirmed live orchestrator PID 2278335 still running Phase C (child 2278340); `phase_c_generation.log` now processing dose 1e4, analysis/ remains empty.
+  - Logged new plan + summary in 2025-11-05T125421Z hub, refreshed docs/fix_plan.md with latest attempt, and rewrote input.md with ready-for-implementation Do Now covering completion checks, highlights/digest refresh, summary/doc sync, and pytest evidence.
+- Next actions for Ralph: allow run to finish `[8/8]`, rerun highlights/digest helpers, document MS-SSIM/MAE deltas in summary + fix plan, archive artifact inventory, and rerun the orchestrator pytest selector.
+- <Action State>: [ready_for_implementation]
