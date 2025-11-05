@@ -2707,3 +2707,18 @@
   - Logged planning attempt in docs/fix_plan.md and noted automation goal + evidence requirements.
 - Next actions for Ralph: update orchestrator + tests to call the reporting helper automatically, run mapped pytest selectors, execute dense pipeline with --clobber, archive aggregate report + logs, and sync docs/ledger per plan.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T070500Z: Phase G dense evidence execution staging
+- dwell: 1 (first planning loop after 2025-11-08T050500Z+exec reset)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T070500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) and refreshed findings ledger (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001) before scoping new work.
+  - Reviewed 2025-11-08T050500Z summary to confirm reporting helper integration is GREEN yet dense CLI evidence still pending.
+  - Provisioned new hub (070500Z) with plan/summary scaffolding, directing addition of regression test covering real execution path plus a full `--clobber` dense run capturing CLI transcripts and automated report outputs.
+  - Rewrote input.md (Mode: TDD) with Do Now covering new test, targeted pytest selectors, dense CLI command, findings, pitfalls, and doc/test sync plan; AUTHORITATIVE_CMDS_DOC export mandated in How-To map.
+  - Updated docs/fix_plan.md Latest Attempt entry to reflect the new staging plan and artifact path.
+- Next actions for Ralph: add the reporting helper execution test, capture RED/GREEN evidence, run Phase C→G CLI with automated reporting, archive metrics/logs, and update docs/ledger per instructions.
+- <Action State>: [ready_for_implementation]
