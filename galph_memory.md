@@ -2912,3 +2912,17 @@
   - Updated docs/fix_plan.md Attempts History with the 090500Z planning turn and noted the delta summary objective.
 - Next actions for Ralph: drive TDD (update orchestrator exec test with seeded metrics_summary + delta assertions, then add helper printing MS-SSIM/MAE deltas), rerun targeted selectors, execute `run_phase_g_dense.py --clobber` to gather real metrics evidence, archive CLI/digest outputs, and record MS-SSIM/MAE deltas in summary + docs/fix_plan.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T110500Z: Dense delta JSON + real-run evidence plan refresh
+- dwell: 0 (new implementation hand-off after prior planning dwell reached 2)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T110500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` returned "Already up to date"; reused cached understanding from 090500Z hub, verified input.md/plan gaps, and re-read docs/findings.md entries (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001) to stay aligned.
+  - Added plan.md for 110500Z hub outlining delta JSON persistence, test tightening, docs touch-up, and the long Phase C→G rerun.
+  - Updated docs/fix_plan.md Attempts History with the 110500Z planning turn and rewrote input.md (Mode: TDD) to drive JSON persistence TDD, guard selectors, pipeline execution, and artifact capture (delta JSON + highlights + inventory).
+  - Ensured How-To Map encodes RED→GREEN sequence, AUTHORITATIVE_CMDS_DOC export, pipeline command, and artifact collation commands (json.tool, rg, find) per scriptization policy.
+- Next actions for Ralph: land JSON persistence + banner update in `run_phase_g_dense.py`, tighten the exec-mode pytest, refresh docs/TESTING_GUIDE.md, run the dense pipeline with --clobber, archive metrics_delta_summary.json + highlights/inventory, and document MS-SSIM/MAE deltas in summary + ledger.
+- <Action State>: [ready_for_implementation]
