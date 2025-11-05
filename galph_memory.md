@@ -2737,3 +2737,17 @@
   - Logged planning attempt in docs/fix_plan.md (Latest Attempt 2025-11-08T090500Z) linking artifacts and summarizing highlights deliverables; summary.md scaffold created for evidence logging.
 - Next actions for Ralph: implement `--highlights` support in helper, update orchestrator/tests, run dense pipeline with highlights capture, archive artifacts, and refresh docs/ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T110500Z: Phase G dense highlights preview handoff
+- dwell: 0 (reset after packaging ready_for_implementation tasks following two planning loops)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T110500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; re-read 2025-11-08T090500Z plan/summary plus docs/findings (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001) to scope next increment.
+  - Provisioned new hub (110500Z) with plan + summary scaffolding directing stdout highlights preview implementation, regression coverage, and dense `--clobber` run; AUTHORITATIVE_CMDS_DOC export mandated in How-To map.
+  - Updated docs/fix_plan.md with Latest Attempt 2025-11-08T110500Z, refreshed input.md (Mode: TDD) with preview implementation target, mapped selectors, pipeline command, pitfalls, findings, and doc sync plan.
+  - Confirmed plan aligns with initiative implementation.md Phase G objectives and noted highlight thresholds in instructions (±0.05 MS-SSIM, ±0.01 MAE).
+- Next actions for Ralph: add stdout highlights preview + pytest coverage, rerun collect-only + helper selectors, execute dense Phase C→G pipeline with --clobber, archive metrics/highlights, and update summary/docs per Do Now.
+- <Action State>: [ready_for_implementation]
