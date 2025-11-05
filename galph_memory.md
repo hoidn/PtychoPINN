@@ -2619,3 +2619,18 @@
   - Updated docs/fix_plan.md attempt ledger and ensured How-To map captures log destinations plus block handling.
 - Next actions for Ralph: add failing pytest guard test, implement `validate_phase_c_metadata` + main hook, rerun targeted selectors, execute dense orchestrator, and update ledger/reporting with guard evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T190500Z: Phase C metadata guard transformation enforcement
+- dwell: 1 (first planning loop after 2025-11-07T170500Z reset)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T190500Z/phase_c_metadata_guard_followup/
+- Notes:
+  - `timeout 30 git pull --rebase` up to date; AUTHORITATIVE_CMDS_DOC exported.
+  - Reviewed guard implementation/tests and confirmed transformation history (`transpose_rename_convert`) is not enforced.
+  - Consulted docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001) plus specs/data_contracts.md:215 for `_metadata` contract.
+  - Created new plan hub directing transformation-aware guard update, new RED/GREEN pytest cases using MetadataManager helpers, dense Phase G CLI evidence, and doc/test registry refresh.
+  - Updated docs/fix_plan.md Attempt entry and rewrote input.md with TDD Do Now + CLI command, pitfalls, and doc sync obligations.
+- Next actions for Ralph: ship transformation-aware guard + tests, capture RED→GREEN + collect logs, run dense orchestrator, and sync documentation.
+- <Action State>: [ready_for_implementation]
