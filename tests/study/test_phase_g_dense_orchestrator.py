@@ -206,6 +206,51 @@ def test_summarize_phase_g_outputs(tmp_path: Path) -> None:
     assert baseline_mae['amplitude'] == 0.03
     assert baseline_mae['phase'] == 0.04
 
+    # Validate aggregate metrics in JSON
+    assert 'aggregate_metrics' in summary_data, "Missing aggregate_metrics field in JSON"
+    agg = summary_data['aggregate_metrics']
+
+    # Check PtychoPINN aggregates
+    assert 'PtychoPINN' in agg
+    pinn_agg = agg['PtychoPINN']
+
+    # PtychoPINN MS-SSIM: mean_amp=(0.95+0.945)/2=0.9475, best_amp=max(0.95,0.945)=0.95
+    #                      mean_phase=(0.92+0.915)/2=0.9175, best_phase=max(0.92,0.915)=0.92
+    assert 'ms_ssim' in pinn_agg
+    pinn_ms_ssim_agg = pinn_agg['ms_ssim']
+    assert abs(pinn_ms_ssim_agg['mean_amplitude'] - 0.9475) < 1e-6
+    assert abs(pinn_ms_ssim_agg['best_amplitude'] - 0.95) < 1e-6
+    assert abs(pinn_ms_ssim_agg['mean_phase'] - 0.9175) < 1e-6
+    assert abs(pinn_ms_ssim_agg['best_phase'] - 0.92) < 1e-6
+
+    # PtychoPINN MAE: mean_amp=(0.025+0.027)/2=0.026, mean_phase=(0.035+0.037)/2=0.036
+    assert 'mae' in pinn_agg
+    pinn_mae_agg = pinn_agg['mae']
+    assert abs(pinn_mae_agg['mean_amplitude'] - 0.026) < 1e-6
+    assert abs(pinn_mae_agg['mean_phase'] - 0.036) < 1e-6
+    # MAE should not have 'best' fields (mean only)
+    assert 'best_amplitude' not in pinn_mae_agg
+    assert 'best_phase' not in pinn_mae_agg
+
+    # Check Baseline aggregates
+    assert 'Baseline' in agg
+    baseline_agg = agg['Baseline']
+
+    # Baseline MS-SSIM: mean_amp=(0.93+0.925)/2=0.9275, best_amp=max(0.93,0.925)=0.93
+    #                    mean_phase=(0.90+0.895)/2=0.8975, best_phase=max(0.90,0.895)=0.90
+    assert 'ms_ssim' in baseline_agg
+    baseline_ms_ssim_agg = baseline_agg['ms_ssim']
+    assert abs(baseline_ms_ssim_agg['mean_amplitude'] - 0.9275) < 1e-6
+    assert abs(baseline_ms_ssim_agg['best_amplitude'] - 0.93) < 1e-6
+    assert abs(baseline_ms_ssim_agg['mean_phase'] - 0.8975) < 1e-6
+    assert abs(baseline_ms_ssim_agg['best_phase'] - 0.90) < 1e-6
+
+    # Baseline MAE: mean_amp=(0.03+0.032)/2=0.031, mean_phase=(0.04+0.042)/2=0.041
+    assert 'mae' in baseline_agg
+    baseline_mae_agg = baseline_agg['mae']
+    assert abs(baseline_mae_agg['mean_amplitude'] - 0.031) < 1e-6
+    assert abs(baseline_mae_agg['mean_phase'] - 0.041) < 1e-6
+
     # Assert: Markdown summary exists and contains key metrics
     md_summary_path = analysis / 'metrics_summary.md'
     assert md_summary_path.exists(), f"Missing Markdown summary: {md_summary_path}"
@@ -218,6 +263,22 @@ def test_summarize_phase_g_outputs(tmp_path: Path) -> None:
     assert 'MAE' in md_content or 'mae' in md_content
     assert 'PtychoPINN' in md_content
     assert 'Baseline' in md_content
+
+    # Validate Aggregate Metrics section in Markdown
+    assert '## Aggregate Metrics' in md_content, "Missing '## Aggregate Metrics' section in Markdown"
+    assert 'Summary statistics across all jobs per model' in md_content
+
+    # Check that aggregate tables are present with expected structure
+    # Should have model headings followed by MS-SSIM and MAE tables
+    assert '### Baseline' in md_content or '### PtychoPINN' in md_content
+    assert '**MS-SSIM:**' in md_content
+    assert '**MAE:**' in md_content
+    assert '| Mean |' in md_content
+    assert '| Best |' in md_content  # Only for MS-SSIM
+
+    # Validate specific aggregate values appear in Markdown (formatted to 3 decimals)
+    # PtychoPINN mean MS-SSIM amplitude should be 0.948 (0.9475 rounded to 3 decimals)
+    assert '0.948' in md_content or '0.947' in md_content  # Allow rounding variation
 
 
 def test_summarize_phase_g_outputs_fails_on_missing_manifest(tmp_path: Path) -> None:

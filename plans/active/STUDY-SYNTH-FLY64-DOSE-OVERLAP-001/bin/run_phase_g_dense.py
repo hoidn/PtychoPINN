@@ -331,6 +331,10 @@ def summarize_phase_g_outputs(hub: Path) -> None:
         'jobs': [],
     }
 
+    # Collect per-model metrics across all jobs for aggregate computation
+    # Structure: {model_name: {metric_name: {'amplitude': [...], 'phase': [...]}}}
+    model_metrics_collector = {}
+
     # Extract metrics from each successful job
     for result in execution_results:
         dose = result['dose']
@@ -373,6 +377,15 @@ def summarize_phase_g_outputs(hub: Path) -> None:
                     # Tuple metric (amplitude, phase)
                     metric_entry['amplitude'] = float(amplitude_str)
                     metric_entry['phase'] = float(phase_str)
+
+                    # Collect for aggregation (MS-SSIM and MAE only)
+                    if metric in ('ms_ssim', 'mae'):
+                        if model not in model_metrics_collector:
+                            model_metrics_collector[model] = {}
+                        if metric not in model_metrics_collector[model]:
+                            model_metrics_collector[model][metric] = {'amplitude': [], 'phase': []}
+                        model_metrics_collector[model][metric]['amplitude'].append(metric_entry['amplitude'])
+                        model_metrics_collector[model][metric]['phase'].append(metric_entry['phase'])
                 elif value_str:
                     # Scalar metric
                     metric_entry['value'] = float(value_str)
@@ -388,6 +401,37 @@ def summarize_phase_g_outputs(hub: Path) -> None:
         }
         summary_data['jobs'].append(job_summary)
 
+    # Compute aggregate metrics per model
+    # Structure: {model_name: {metric_name: {'mean_amplitude': float, 'best_amplitude': float, ...}}}
+    aggregate_metrics = {}
+    for model_name, metrics_dict in sorted(model_metrics_collector.items()):
+        aggregate_metrics[model_name] = {}
+
+        for metric_name, values_dict in sorted(metrics_dict.items()):
+            amp_values = values_dict.get('amplitude', [])
+            phase_values = values_dict.get('phase', [])
+
+            aggregate_entry = {}
+
+            if amp_values:
+                aggregate_entry['mean_amplitude'] = sum(amp_values) / len(amp_values)
+                if metric_name == 'ms_ssim':
+                    # Best MS-SSIM is maximum (higher is better)
+                    aggregate_entry['best_amplitude'] = max(amp_values)
+                # MAE: mean only (lower is better, "best" is ambiguous across jobs)
+
+            if phase_values:
+                aggregate_entry['mean_phase'] = sum(phase_values) / len(phase_values)
+                if metric_name == 'ms_ssim':
+                    # Best MS-SSIM is maximum (higher is better)
+                    aggregate_entry['best_phase'] = max(phase_values)
+                # MAE: mean only
+
+            aggregate_metrics[model_name][metric_name] = aggregate_entry
+
+    # Add aggregates to summary data
+    summary_data['aggregate_metrics'] = aggregate_metrics
+
     # Write JSON summary
     json_summary_path = analysis / "metrics_summary.json"
     with json_summary_path.open('w') as f:
@@ -402,6 +446,45 @@ def summarize_phase_g_outputs(hub: Path) -> None:
         f.write(f"**Total Jobs:** {n_jobs}  \n")
         f.write(f"**Successful:** {n_success}  \n")
         f.write(f"**Failed:** {n_failed}  \n\n")
+
+        f.write("---\n\n")
+
+        # Write aggregate metrics section
+        f.write("## Aggregate Metrics\n\n")
+        f.write("Summary statistics across all jobs per model.\n\n")
+
+        for model_name in sorted(aggregate_metrics.keys()):
+            model_aggs = aggregate_metrics[model_name]
+            f.write(f"### {model_name}\n\n")
+
+            # MS-SSIM table
+            if 'ms_ssim' in model_aggs:
+                ms_ssim = model_aggs['ms_ssim']
+                f.write("**MS-SSIM:**\n\n")
+                f.write("| Statistic | Amplitude | Phase |\n")
+                f.write("|-----------|-----------|-------|\n")
+                mean_amp = ms_ssim.get('mean_amplitude', '')
+                mean_phase = ms_ssim.get('mean_phase', '')
+                best_amp = ms_ssim.get('best_amplitude', '')
+                best_phase = ms_ssim.get('best_phase', '')
+                mean_amp_str = f"{mean_amp:.3f}" if mean_amp != '' else ''
+                mean_phase_str = f"{mean_phase:.3f}" if mean_phase != '' else ''
+                best_amp_str = f"{best_amp:.3f}" if best_amp != '' else ''
+                best_phase_str = f"{best_phase:.3f}" if best_phase != '' else ''
+                f.write(f"| Mean | {mean_amp_str} | {mean_phase_str} |\n")
+                f.write(f"| Best | {best_amp_str} | {best_phase_str} |\n\n")
+
+            # MAE table
+            if 'mae' in model_aggs:
+                mae = model_aggs['mae']
+                f.write("**MAE:**\n\n")
+                f.write("| Statistic | Amplitude | Phase |\n")
+                f.write("|-----------|-----------|-------|\n")
+                mean_amp = mae.get('mean_amplitude', '')
+                mean_phase = mae.get('mean_phase', '')
+                mean_amp_str = f"{mean_amp:.3f}" if mean_amp != '' else ''
+                mean_phase_str = f"{mean_phase:.3f}" if mean_phase != '' else ''
+                f.write(f"| Mean | {mean_amp_str} | {mean_phase_str} |\n\n")
 
         f.write("---\n\n")
 
