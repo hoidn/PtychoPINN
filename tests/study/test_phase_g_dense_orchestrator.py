@@ -1093,3 +1093,65 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         f"Expected stdout to contain MAE delta line vs PtyChi, got:\n{stdout}"
     assert "-0.002" in stdout, \
         f"Expected stdout to contain -0.002 delta value (MAE amplitude vs PtyChi), got:\n{stdout}"
+
+    # Assert: metrics_delta_summary.json should be created in analysis/
+    delta_json_path = phase_g_root / "metrics_delta_summary.json"
+    assert delta_json_path.exists(), \
+        f"Expected metrics_delta_summary.json to exist at {delta_json_path}, but it was not found"
+
+    # Assert: JSON should contain valid delta structure with numeric values
+    import json
+    with delta_json_path.open("r", encoding="utf-8") as f:
+        delta_data = json.load(f)
+
+    # Validate top-level structure
+    assert "deltas" in delta_data, "Expected 'deltas' key in metrics_delta_summary.json"
+    deltas = delta_data["deltas"]
+
+    # Validate Baseline deltas (PtychoPINN - Baseline)
+    assert "vs_Baseline" in deltas, "Expected 'vs_Baseline' key in deltas"
+    baseline_deltas = deltas["vs_Baseline"]
+    assert "ms_ssim" in baseline_deltas, "Expected 'ms_ssim' in vs_Baseline deltas"
+    assert "mae" in baseline_deltas, "Expected 'mae' in vs_Baseline deltas"
+
+    # Validate MS-SSIM vs Baseline values (numeric floats, not formatted strings)
+    ms_ssim_baseline = baseline_deltas["ms_ssim"]
+    assert "amplitude" in ms_ssim_baseline, "Expected 'amplitude' in ms_ssim vs_Baseline"
+    assert "phase" in ms_ssim_baseline, "Expected 'phase' in ms_ssim vs_Baseline"
+    assert abs(ms_ssim_baseline["amplitude"] - 0.020) < 1e-6, \
+        f"Expected ms_ssim amplitude delta vs Baseline to be ~0.020, got {ms_ssim_baseline['amplitude']}"
+    assert abs(ms_ssim_baseline["phase"] - 0.020) < 1e-6, \
+        f"Expected ms_ssim phase delta vs Baseline to be ~0.020, got {ms_ssim_baseline['phase']}"
+
+    # Validate MAE vs Baseline values (negative deltas expected)
+    mae_baseline = baseline_deltas["mae"]
+    assert "amplitude" in mae_baseline, "Expected 'amplitude' in mae vs_Baseline"
+    assert "phase" in mae_baseline, "Expected 'phase' in mae vs_Baseline"
+    assert abs(mae_baseline["amplitude"] - (-0.005)) < 1e-6, \
+        f"Expected mae amplitude delta vs Baseline to be ~-0.005, got {mae_baseline['amplitude']}"
+    assert abs(mae_baseline["phase"] - (-0.005)) < 1e-6, \
+        f"Expected mae phase delta vs Baseline to be ~-0.005, got {mae_baseline['phase']}"
+
+    # Validate PtyChi deltas (PtychoPINN - PtyChi)
+    assert "vs_PtyChi" in deltas, "Expected 'vs_PtyChi' key in deltas"
+    ptychi_deltas = deltas["vs_PtyChi"]
+    assert "ms_ssim" in ptychi_deltas, "Expected 'ms_ssim' in vs_PtyChi deltas"
+    assert "mae" in ptychi_deltas, "Expected 'mae' in vs_PtyChi deltas"
+
+    # Validate MS-SSIM vs PtyChi values
+    ms_ssim_ptychi = ptychi_deltas["ms_ssim"]
+    assert abs(ms_ssim_ptychi["amplitude"] - 0.010) < 1e-6, \
+        f"Expected ms_ssim amplitude delta vs PtyChi to be ~0.010, got {ms_ssim_ptychi['amplitude']}"
+    assert abs(ms_ssim_ptychi["phase"] - 0.010) < 1e-6, \
+        f"Expected ms_ssim phase delta vs PtyChi to be ~0.010, got {ms_ssim_ptychi['phase']}"
+
+    # Validate MAE vs PtyChi values (negative deltas expected)
+    mae_ptychi = ptychi_deltas["mae"]
+    assert abs(mae_ptychi["amplitude"] - (-0.002)) < 1e-6, \
+        f"Expected mae amplitude delta vs PtyChi to be ~-0.002, got {mae_ptychi['amplitude']}"
+    assert abs(mae_ptychi["phase"] - (-0.002)) < 1e-6, \
+        f"Expected mae phase delta vs PtyChi to be ~-0.002, got {mae_ptychi['phase']}"
+
+    # Assert: Success banner should mention metrics_delta_summary.json path
+    assert "metrics_delta_summary.json" in stdout, \
+        f"Expected success banner to mention metrics_delta_summary.json, got:\n{stdout}"

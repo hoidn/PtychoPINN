@@ -878,6 +878,63 @@ def main() -> int:
             print("      For MAE, negative Δ indicates PtychoPINN is better (lower error).")
             print("=" * 80 + "\n")
 
+            # Persist delta metrics to JSON (TYPE-PATH-001)
+            delta_json_path = Path(phase_g_root) / "metrics_delta_summary.json"
+
+            # Helper to get raw numeric delta (None if either value is missing)
+            def compute_numeric_delta(pinn_val, other_val):
+                if pinn_val is None or other_val is None:
+                    return None
+                return pinn_val - other_val
+
+            # Build JSON structure with raw numeric deltas (not formatted strings)
+            delta_summary = {
+                "deltas": {
+                    "vs_Baseline": {
+                        "ms_ssim": {
+                            "amplitude": compute_numeric_delta(
+                                pinn_ms.get("mean_amplitude"), base_ms.get("mean_amplitude")
+                            ),
+                            "phase": compute_numeric_delta(
+                                pinn_ms.get("mean_phase"), base_ms.get("mean_phase")
+                            )
+                        },
+                        "mae": {
+                            "amplitude": compute_numeric_delta(
+                                pinn_mae.get("mean_amplitude"), base_mae.get("mean_amplitude")
+                            ),
+                            "phase": compute_numeric_delta(
+                                pinn_mae.get("mean_phase"), base_mae.get("mean_phase")
+                            )
+                        }
+                    },
+                    "vs_PtyChi": {
+                        "ms_ssim": {
+                            "amplitude": compute_numeric_delta(
+                                pinn_ms.get("mean_amplitude"), pty_ms.get("mean_amplitude")
+                            ),
+                            "phase": compute_numeric_delta(
+                                pinn_ms.get("mean_phase"), pty_ms.get("mean_phase")
+                            )
+                        },
+                        "mae": {
+                            "amplitude": compute_numeric_delta(
+                                pinn_mae.get("mean_amplitude"), pty_mae.get("mean_amplitude")
+                            ),
+                            "phase": compute_numeric_delta(
+                                pinn_mae.get("mean_phase"), pty_mae.get("mean_phase")
+                            )
+                        }
+                    }
+                }
+            }
+
+            # Write JSON with indentation for readability
+            with delta_json_path.open("w", encoding="utf-8") as f:
+                json.dump(delta_summary, f, indent=2)
+
+            print(f"Delta metrics saved to: {delta_json_path.relative_to(hub)}")
+
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             print(f"Warning: Failed to parse metrics_summary.json for delta computation: {e}")
 
@@ -889,6 +946,11 @@ def main() -> int:
     print(f"Metrics digest: {metrics_digest_md}")
     print(f"Metrics digest (Markdown): {metrics_digest_md}")
     print(f"Metrics digest log: {analyze_digest_log}")
+
+    # Add delta JSON to success banner (TYPE-PATH-001)
+    delta_json_path = Path(phase_g_root) / "metrics_delta_summary.json"
+    if delta_json_path.exists():
+        print(f"Delta metrics (JSON): {delta_json_path.relative_to(hub)}")
 
     return 0
 

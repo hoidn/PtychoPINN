@@ -328,6 +328,32 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics
   --output plans/active/.../reports/<timestamp>/analysis/metrics_digest.md
 ```
 
+**Phase G Delta Metrics Persistence:**
+
+The orchestrator automatically persists computed MS-SSIM/MAE deltas to `analysis/metrics_delta_summary.json` after the digest generation step. This JSON artifact:
+
+- Contains raw numeric delta values (not formatted strings) for programmatic consumption
+- Structure: `{"deltas": {"vs_Baseline": {"ms_ssim": {...}, "mae": {...}}, "vs_PtyChi": {...}}}`
+- Each metric includes `amplitude` and `phase` fields with numeric delta values (null if source data missing)
+- Location: `<hub>/analysis/metrics_delta_summary.json`
+- Referenced in orchestrator success banner for traceability
+
+**Example structure:**
+```json
+{
+  "deltas": {
+    "vs_Baseline": {
+      "ms_ssim": {"amplitude": 0.020, "phase": 0.020},
+      "mae": {"amplitude": -0.005, "phase": -0.005}
+    },
+    "vs_PtyChi": {
+      "ms_ssim": {"amplitude": 0.010, "phase": 0.010},
+      "mae": {"amplitude": -0.002, "phase": -0.002}
+    }
+  }
+}
+```
+
 **Phase G Full Pipeline Orchestrator:**
 
 ```bash

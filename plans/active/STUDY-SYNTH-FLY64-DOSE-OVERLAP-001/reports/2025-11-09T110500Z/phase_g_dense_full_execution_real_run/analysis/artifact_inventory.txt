@@ -1,0 +1,8 @@
+./analysis/artifact_inventory.txt
+./green/pytest_analyze_success.log
+./green/pytest_collect_only.log
+./green/pytest_full.log
+./green/pytest_orchestrator_delta_json_green.log
+./plan/plan.md
+./red/pytest_orchestrator_delta_json_red.log
+./summary/summary.md
