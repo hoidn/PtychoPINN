@@ -855,16 +855,18 @@ def test_run_phase_g_dense_exec_prints_highlights_preview(tmp_path: Path, monkey
 
 def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Test that main() in real execution mode invokes analyze_dense_metrics.py after reporting helper.
+    Test that main() in real execution mode invokes analyze_dense_metrics.py after reporting helper
+    and emits MS-SSIM/MAE delta summary to stdout.
 
     Acceptance:
     - Loads main() from orchestrator script via importlib
-    - Stubs prepare_hub, validate_phase_c_metadata, summarize_phase_g_outputs (no-op for speed)
+    - Stubs prepare_hub, validate_phase_c_metadata, summarize_phase_g_outputs (seeds metrics_summary.json)
     - Monkeypatches run_command to record invocations and create required files
     - Runs main() without --collect-only to trigger real execution path
     - Asserts analyze_dense_metrics.py is invoked after report_phase_g_dense_metrics.py
     - Validates analyze command includes --metrics, --highlights, --output flags
     - Validates log_path points to cli/metrics_digest_cli.log
+    - Validates stdout contains delta block with four lines (MS-SSIM vs Baseline/PtyChi, MAE vs Baseline/PtyChi)
     - Ensures AUTHORITATIVE_CMDS_DOC environment variable is respected
     - Returns 0 exit code on success
 
@@ -913,8 +915,60 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         pass
 
     def stub_summarize_phase_g_outputs(hub_path):
-        """No-op stub for summarize_phase_g_outputs."""
-        pass
+        """Create metrics_summary.json with test data for delta computation."""
+        analysis = Path(hub_path) / "analysis"
+        analysis.mkdir(parents=True, exist_ok=True)
+
+        # Create metrics_summary.json with aggregate_metrics for delta computation
+        summary_data = {
+            "n_jobs": 2,
+            "n_success": 2,
+            "n_failed": 0,
+            "jobs": [],
+            "aggregate_metrics": {
+                "PtychoPINN": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.950,
+                        "best_amplitude": 0.955,
+                        "mean_phase": 0.920,
+                        "best_phase": 0.925
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.025,
+                        "mean_phase": 0.035
+                    }
+                },
+                "Baseline": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.930,
+                        "best_amplitude": 0.935,
+                        "mean_phase": 0.900,
+                        "best_phase": 0.905
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.030,
+                        "mean_phase": 0.040
+                    }
+                },
+                "PtyChi": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.940,
+                        "best_amplitude": 0.945,
+                        "mean_phase": 0.910,
+                        "best_phase": 0.915
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.027,
+                        "mean_phase": 0.037
+                    }
+                }
+            }
+        }
+
+        import json
+        metrics_summary_path = analysis / "metrics_summary.json"
+        with metrics_summary_path.open("w", encoding="utf-8") as f:
+            json.dump(summary_data, f, indent=2)
 
     monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
     monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
@@ -1012,3 +1066,30 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         f"Expected stdout to mention metrics_digest.md path, got:\n{stdout}"
     assert "metrics_digest_cli.log" in stdout, \
         f"Expected stdout to mention metrics_digest_cli.log path, got:\n{stdout}"
+
+    # Assert: stdout should contain delta summary block with four delta lines
+    # Expected deltas (computed from stub data above):
+    # MS-SSIM vs Baseline: mean_amp = 0.950 - 0.930 = +0.020, mean_phase = 0.920 - 0.900 = +0.020
+    # MS-SSIM vs PtyChi: mean_amp = 0.950 - 0.940 = +0.010, mean_phase = 0.920 - 0.910 = +0.010
+    # MAE vs Baseline: mean_amp = 0.025 - 0.030 = -0.005, mean_phase = 0.035 - 0.040 = -0.005
+    # MAE vs PtyChi: mean_amp = 0.025 - 0.027 = -0.002, mean_phase = 0.035 - 0.037 = -0.002
+
+    assert "MS-SSIM Δ (PtychoPINN - Baseline)" in stdout, \
+        f"Expected stdout to contain MS-SSIM delta line vs Baseline, got:\n{stdout}"
+    assert "+0.020" in stdout, \
+        f"Expected stdout to contain +0.020 delta value (MS-SSIM amplitude vs Baseline), got:\n{stdout}"
+
+    assert "MS-SSIM Δ (PtychoPINN - PtyChi)" in stdout, \
+        f"Expected stdout to contain MS-SSIM delta line vs PtyChi, got:\n{stdout}"
+    assert "+0.010" in stdout, \
+        f"Expected stdout to contain +0.010 delta value (MS-SSIM amplitude vs PtyChi), got:\n{stdout}"
+
+    assert "MAE Δ (PtychoPINN - Baseline)" in stdout, \
+        f"Expected stdout to contain MAE delta line vs Baseline, got:\n{stdout}"
+    assert "-0.005" in stdout, \
+        f"Expected stdout to contain -0.005 delta value (MAE amplitude vs Baseline), got:\n{stdout}"
+
+    assert "MAE Δ (PtychoPINN - PtyChi)" in stdout, \
+        f"Expected stdout to contain MAE delta line vs PtyChi, got:\n{stdout}"
+    assert "-0.002" in stdout, \
+        f"Expected stdout to contain -0.002 delta value (MAE amplitude vs PtyChi), got:\n{stdout}"

@@ -821,6 +821,66 @@ def main() -> int:
     print("=" * 80 + "\n")
     run_command(analyze_digest_cmd, analyze_digest_log)
 
+    # Print key delta summary to stdout (sourced from metrics_summary.json)
+    print("\n" + "=" * 80)
+    print("[run_phase_g_dense] Key Metrics Deltas (PtychoPINN vs Baselines)")
+    print("=" * 80 + "\n")
+
+    # Load metrics_summary.json to compute deltas
+    metrics_summary_path = Path(phase_g_root) / "metrics_summary.json"
+    if not metrics_summary_path.exists():
+        print(f"Warning: metrics_summary.json not found at {metrics_summary_path}, skipping delta summary")
+    else:
+        try:
+            import json
+            with metrics_summary_path.open("r", encoding="utf-8") as f:
+                summary_data = json.load(f)
+
+            # Extract aggregate_metrics for delta computation
+            agg = summary_data.get("aggregate_metrics", {})
+            pinn = agg.get("PtychoPINN", {})
+            baseline = agg.get("Baseline", {})
+            ptychi = agg.get("PtyChi", {})
+
+            # Helper to compute delta with 3-decimal formatting and sign
+            def compute_delta(pinn_val, other_val):
+                if pinn_val is None or other_val is None:
+                    return "N/A"
+                delta = pinn_val - other_val
+                return f"{delta:+.3f}"
+
+            # MS-SSIM deltas (higher is better → positive delta is good for PtychoPINN)
+            pinn_ms = pinn.get("ms_ssim", {})
+            base_ms = baseline.get("ms_ssim", {})
+            pty_ms = ptychi.get("ms_ssim", {})
+
+            delta_ms_base_amp = compute_delta(pinn_ms.get("mean_amplitude"), base_ms.get("mean_amplitude"))
+            delta_ms_base_phase = compute_delta(pinn_ms.get("mean_phase"), base_ms.get("mean_phase"))
+            delta_ms_pty_amp = compute_delta(pinn_ms.get("mean_amplitude"), pty_ms.get("mean_amplitude"))
+            delta_ms_pty_phase = compute_delta(pinn_ms.get("mean_phase"), pty_ms.get("mean_phase"))
+
+            # MAE deltas (lower is better → negative delta is good for PtychoPINN)
+            pinn_mae = pinn.get("mae", {})
+            base_mae = baseline.get("mae", {})
+            pty_mae = ptychi.get("mae", {})
+
+            delta_mae_base_amp = compute_delta(pinn_mae.get("mean_amplitude"), base_mae.get("mean_amplitude"))
+            delta_mae_base_phase = compute_delta(pinn_mae.get("mean_phase"), base_mae.get("mean_phase"))
+            delta_mae_pty_amp = compute_delta(pinn_mae.get("mean_amplitude"), pty_mae.get("mean_amplitude"))
+            delta_mae_pty_phase = compute_delta(pinn_mae.get("mean_phase"), pty_mae.get("mean_phase"))
+
+            # Print delta block (4 lines: MS-SSIM vs Baseline/PtyChi, MAE vs Baseline/PtyChi)
+            print(f"MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude {delta_ms_base_amp}  phase {delta_ms_base_phase}")
+            print(f"MS-SSIM Δ (PtychoPINN - PtyChi)    : amplitude {delta_ms_pty_amp}  phase {delta_ms_pty_phase}")
+            print(f"MAE Δ (PtychoPINN - Baseline)      : amplitude {delta_mae_base_amp}  phase {delta_mae_base_phase}")
+            print(f"MAE Δ (PtychoPINN - PtyChi)        : amplitude {delta_mae_pty_amp}  phase {delta_mae_pty_phase}")
+            print("\nNote: For MS-SSIM, positive Δ indicates PtychoPINN is better (higher similarity).")
+            print("      For MAE, negative Δ indicates PtychoPINN is better (lower error).")
+            print("=" * 80 + "\n")
+
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            print(f"Warning: Failed to parse metrics_summary.json for delta computation: {e}")
+
     print(f"\nArtifacts saved to: {hub}")
     print(f"CLI logs: {cli_log_dir}")
     print(f"Analysis outputs: {phase_g_root}")
