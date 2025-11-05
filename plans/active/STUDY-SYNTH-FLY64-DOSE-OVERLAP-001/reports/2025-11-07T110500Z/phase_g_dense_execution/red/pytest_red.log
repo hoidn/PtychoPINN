@@ -1,0 +1,37 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs FAILED [100%]
+
+=================================== FAILURES ===================================
+________________________ test_summarize_phase_g_outputs ________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-289/test_summarize_phase_g_outputs0')
+
+    def test_summarize_phase_g_outputs(tmp_path: Path) -> None:
+        """
+        Test that summarize_phase_g_outputs() validates manifest, extracts metrics, and emits summaries.
+    
+        Acceptance:
+        - Parses comparison_manifest.json from hub/analysis/
+        - Fails fast if n_failed > 0 or metrics CSV missing
+        - Extracts MS-SSIM + MAE (amplitude/phase/value) from per-job comparison_metrics.csv
+        - Writes deterministic JSON + Markdown summary to hub/analysis/
+    
+        Follows TYPE-PATH-001 (Path normalization).
+        """
+        # Import the function under test
+>       from plans.active.STUDY_SYNTH_FLY64_DOSE_OVERLAP_001.bin.run_phase_g_dense import summarize_phase_g_outputs
+E       ModuleNotFoundError: No module named 'plans.active.STUDY_SYNTH_FLY64_DOSE_OVERLAP_001'
+
+tests/study/test_phase_g_dense_orchestrator.py:25: ModuleNotFoundError
+=========================== short test summary info ============================
+FAILED tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs - ModuleNotFoundError: No module named 'plans.active.STUDY_SYNTH_FLY64_DOSE_OVERLAP_001'
+============================== 1 failed in 1.24s ===============================
