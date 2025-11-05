@@ -674,8 +674,19 @@ def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeyp
     run_command_calls = []
 
     def stub_run_command(cmd, log_path):
-        """Record cmd and log_path for assertions."""
+        """Record cmd and log_path for assertions, and create highlights file when reporting helper is invoked."""
         run_command_calls.append((cmd, log_path))
+        # When reporting helper is invoked, create the highlights file to satisfy orchestrator expectations
+        cmd_str = " ".join(str(c) for c in cmd)
+        if "report_phase_g_dense_metrics.py" in cmd_str and "--highlights" in cmd_str:
+            # Extract highlights path from command
+            for i, part in enumerate(cmd):
+                if str(part) == "--highlights" and i + 1 < len(cmd):
+                    highlights_path = Path(cmd[i + 1])
+                    highlights_path.parent.mkdir(parents=True, exist_ok=True)
+                    # Write minimal highlights content
+                    highlights_path.write_text("Minimal highlights for test\n", encoding="utf-8")
+                    break
 
     monkeypatch.setattr(module, "run_command", stub_run_command)
 
@@ -708,3 +719,131 @@ def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeyp
     # Validate log_path points to cli/aggregate_report_cli.log
     assert "aggregate_report_cli.log" in str(final_log_path), \
         f"Expected reporting helper log path to be cli/aggregate_report_cli.log, got: {final_log_path}"
+
+
+def test_run_phase_g_dense_exec_prints_highlights_preview(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """
+    Test that main() in real execution mode prints an "Aggregate highlights" preview after reporting helper.
+
+    Acceptance:
+    - Loads main() from orchestrator script via importlib
+    - Stubs prepare_hub, validate_phase_c_metadata, summarize_phase_g_outputs (no-op for speed)
+    - Stubs run_command to write deterministic highlights text when reporting helper is invoked
+    - Runs main() without --collect-only to trigger real execution path
+    - Captures stdout via capsys
+    - Asserts stdout contains "Aggregate highlights preview" banner
+    - Asserts stdout contains sample highlights content (MS-SSIM/MAE deltas)
+    - Returns 0 exit code on success
+
+    Follows TYPE-PATH-001 (Path normalization).
+    """
+    # Import main() and helper functions from orchestrator
+    module = _import_orchestrator_module()
+    main = module.main
+
+    # Setup: Create tmp hub directory
+    hub = tmp_path / "exec_hub"
+    hub.mkdir(parents=True)
+
+    # Create expected directory structure for Phase C→G
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+    cli_log_dir = hub / "cli"
+    cli_log_dir.mkdir(parents=True)
+    phase_g_root = hub / "analysis"
+    phase_g_root.mkdir(parents=True)
+
+    # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+    monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+
+    # Prepare sys.argv for argparse (NO --collect-only, so real execution)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_phase_g_dense.py",
+            "--hub", str(hub),
+            "--dose", "1000",
+            "--view", "dense",
+            "--splits", "train", "test",
+            "--clobber",  # Required to pass prepare_hub check
+        ],
+    )
+
+    # Stub heavy helpers to no-op (we only care about run_command invocations)
+    def stub_prepare_hub(hub_path, clobber):
+        """No-op stub for prepare_hub."""
+        pass
+
+    def stub_validate_phase_c_metadata(hub_path):
+        """No-op stub for validate_phase_c_metadata."""
+        pass
+
+    def stub_summarize_phase_g_outputs(hub_path):
+        """No-op stub for summarize_phase_g_outputs."""
+        pass
+
+    monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
+    monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
+    monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+
+    # Create deterministic highlights file when reporting helper is invoked
+    def stub_run_command(cmd, log_path):
+        """Stub that writes highlights file when reporting helper is invoked."""
+        cmd_str = " ".join(str(c) for c in cmd)
+        if "report_phase_g_dense_metrics.py" in cmd_str and "--highlights" in cmd_str:
+            # Extract highlights path from command
+            # Command format: [..., '--highlights', 'path/to/aggregate_highlights.txt', ...]
+            for i, part in enumerate(cmd):
+                if str(part) == "--highlights" and i + 1 < len(cmd):
+                    highlights_path = Path(cmd[i + 1])
+                    highlights_path.parent.mkdir(parents=True, exist_ok=True)
+                    # Write deterministic highlights content
+                    highlights_path.write_text(
+                        "Phase G Dense Metrics — Highlights\n"
+                        "==================================================\n"
+                        "\n"
+                        "MS-SSIM Deltas (PtychoPINN - Baseline):\n"
+                        "  Amplitude (mean): +0.123\n"
+                        "  Phase (mean):     +0.045\n"
+                        "\n"
+                        "MS-SSIM Deltas (PtychoPINN - PtyChi):\n"
+                        "  Amplitude (mean): +0.067\n"
+                        "  Phase (mean):     +0.012\n"
+                        "\n"
+                        "MAE Deltas (PtychoPINN - Baseline):\n"
+                        "  [Note: Negative = PtychoPINN better (lower error)]\n"
+                        "  Amplitude (mean): -0.008\n"
+                        "  Phase (mean):     -0.003\n"
+                        "\n"
+                        "MAE Deltas (PtychoPINN - PtyChi):\n"
+                        "  [Note: Negative = PtychoPINN better (lower error)]\n"
+                        "  Amplitude (mean): -0.005\n"
+                        "  Phase (mean):     -0.001\n",
+                        encoding="utf-8"
+                    )
+                    break
+
+    monkeypatch.setattr(module, "run_command", stub_run_command)
+
+    # Execute: Call main() (should execute Phase C→G pipeline + reporting helper + highlights preview)
+    exit_code = main()
+
+    # Assert: Exit code should be 0
+    assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
+
+    # Capture stdout
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # Assert: stdout should contain "Aggregate highlights preview" banner
+    assert "Aggregate highlights preview" in stdout, \
+        f"Expected stdout to contain 'Aggregate highlights preview' banner, got:\n{stdout}"
+
+    # Assert: stdout should contain sample highlights content
+    assert "MS-SSIM Deltas (PtychoPINN - Baseline):" in stdout, \
+        f"Expected highlights preview to contain MS-SSIM delta header, got:\n{stdout}"
+    assert "Amplitude (mean): +0.123" in stdout, \
+        f"Expected highlights preview to contain amplitude delta value, got:\n{stdout}"
+    assert "MAE Deltas (PtychoPINN - Baseline):" in stdout, \
+        f"Expected highlights preview to contain MAE delta header, got:\n{stdout}"

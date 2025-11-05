@@ -773,6 +773,32 @@ def main() -> int:
     print("=" * 80 + "\n")
     run_command(report_helper_cmd, report_helper_log)
 
+    # Print highlights preview to stdout for quick sanity-check
+    print("\n" + "=" * 80)
+    print("[run_phase_g_dense] Aggregate highlights preview")
+    print("=" * 80 + "\n")
+
+    # Read and display highlights file (TYPE-PATH-001 compliance: use Path)
+    highlights_path = Path(aggregate_highlights_txt)
+    if not highlights_path.exists():
+        raise RuntimeError(
+            f"Highlights file not found at: {highlights_path}\n"
+            f"The reporting helper should have created this file.\n"
+            f"Check the reporting helper log at: {report_helper_log}"
+        )
+
+    highlights_content = highlights_path.read_text(encoding="utf-8")
+    if not highlights_content.strip():
+        raise RuntimeError(
+            f"Highlights file is empty: {highlights_path}\n"
+            f"The reporting helper should have written highlights content.\n"
+            f"Check the reporting helper log at: {report_helper_log}"
+        )
+
+    # Print highlights content to stdout
+    print(highlights_content)
+    print("=" * 80 + "\n")
+
     print(f"\nArtifacts saved to: {hub}")
     print(f"CLI logs: {cli_log_dir}")
     print(f"Analysis outputs: {phase_g_root}")

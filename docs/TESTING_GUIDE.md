@@ -290,16 +290,18 @@ The `report_phase_g_dense_metrics.py` CLI helper parses `metrics_summary.json` (
 - Computes deltas: PtychoPINN - Baseline and PtychoPINN - PtyChi for MS-SSIM and MAE (amplitude/phase)
 - Formats output with 3-decimal precision and signed deltas (+/- prefix)
 - Emits report to stdout + optional Markdown file via `--output` flag
+- Optionally generates concise highlights summary via `--highlights` flag (`aggregate_highlights.txt`)
 - Exit codes: 0 (success), 1 (required model missing), 2 (invalid input/IO error)
 
-Tests validate two behaviors: successful reporting with all models present (verifies aggregate tables, delta sections, 3-decimal formatting, stdout/Markdown outputs), and graceful failure with actionable error message when required models are missing.
+Tests validate two behaviors: successful reporting with all models present (verifies aggregate tables, delta sections, 3-decimal formatting, stdout/Markdown outputs, optional highlights file), and graceful failure with actionable error message when required models are missing.
 
 **Usage:**
 ```bash
-# Generate report from metrics_summary.json
+# Generate report from metrics_summary.json with highlights
 python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py \
   --metrics plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/metrics_summary.json \
-  --output plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_report.md
+  --output plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_report.md \
+  --highlights plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_highlights.txt
 ```
 
 **Phase G Full Pipeline Orchestrator:**
@@ -331,7 +333,7 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py 
   --splits train test
 ```
 
-The orchestrator runs 8 sequential commands (Phase C generation → D overlap → E training baseline/dense → F reconstruction train/test → G comparison train/test), captures per-phase CLI logs under `{HUB}/cli/`, and calls `summarize_phase_g_outputs()` after successful pipeline completion. Emits blocker log on any command failure.
+The orchestrator runs 8 sequential commands (Phase C generation → D overlap → E training baseline/dense → F reconstruction train/test → G comparison train/test), captures per-phase CLI logs under `{HUB}/cli/`, calls `summarize_phase_g_outputs()` after successful pipeline completion, invokes the reporting helper to generate aggregate Markdown + highlights, and prints a highlights preview to stdout for quick sanity-checks of MS-SSIM/MAE deltas. Emits blocker log on any command failure.
 
 - **Execution time:** Typically < 2s per test (mocked helper); real pipeline ~2-4 hours (8 phases with TensorFlow training + Pty-chi LSQML reconstruction)
 - **Dependencies:** TensorFlow, PyTorch (for Pty-chi), Phase C base NPZ, `scripts/compare_models.py`
