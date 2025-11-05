@@ -2868,3 +2868,18 @@
   - Rewrote input.md (Mode: TDD) directing Ralph to add a success-path digest regression test, implement the success banner in `analyze_dense_metrics.py`, run targeted selectors (RED→GREEN), execute the dense Phase C→G pipeline with `--clobber`, generate metrics_digest.md, and update docs/fix_plan.md + testing docs.
 - Next actions for Ralph: ship success banner + success-path test, rerun targeted pytest selectors, execute Phase C→G pipeline, run analyze_dense_metrics.py to emit digest/logs, then record MS-SSIM/MAE deltas in summary/docs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T050500Z: Dense pipeline automation plan
+- dwell: 0 (reset after issuing ready_for_implementation handoff)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T050500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed 030500Z hub (success banner shipped, no pipeline evidence) and refreshed fix_plan + working plan context.
+  - Confirmed findings ledger coverage (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001); no new knowledge base entries required.
+  - Provisioned new 050500Z hub (plan/collect/red/green/cli/analysis/summary) and drafted plan.md targeting dense pipeline rerun with digest capture.
+  - Updated docs/fix_plan.md Attempts History with 050500Z planning entry and reaffirmed digest automation objective.
+  - Rewrote input.md (Mode: TDD) instructing Ralph to integrate `analyze_dense_metrics.py` invocation into `run_phase_g_dense.py`, add a new orchestrator exec test, rerun targeted selectors RED→GREEN, execute the dense pipeline with `--clobber`, and archive metrics/digest evidence + doc sync.
+- Next actions for Ralph: land orchestrator integration + tests, run dense pipeline to generate digest automatically, capture artifacts under 050500Z hub, and update summary/docs/fix_plan with measured MS-SSIM/MAE deltas.
+- <Action State>: [ready_for_implementation]
