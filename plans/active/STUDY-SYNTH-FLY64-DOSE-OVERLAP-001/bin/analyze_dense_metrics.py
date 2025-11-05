@@ -7,8 +7,8 @@ dense orchestrator pipeline, summarizes MS-SSIM/MAE deltas, and emits a concise
 Markdown digest suitable for documentation and reporting.
 
 Exit codes:
-  0 - Success
-  1 - Missing required input files
+  0 - Success (all comparison jobs succeeded)
+  1 - Failures detected (n_failed > 0) or missing required input files
   2 - Invalid JSON or file format
 """
 
@@ -72,6 +72,12 @@ def generate_digest(metrics_data: dict, highlights_content: str) -> str:
     n_jobs = metrics_data.get('n_jobs', 0)
     n_success = metrics_data.get('n_success', 0)
     n_failed = metrics_data.get('n_failed', 0)
+
+    # Add failure banner if needed
+    if n_failed > 0:
+        lines.append("**⚠️ FAILURES PRESENT ⚠️**\n")
+        lines.append(f"**{n_failed} of {n_jobs} comparison job(s) failed.**")
+        lines.append("Review pipeline logs for diagnostic information.\n")
 
     lines.append("## Pipeline Summary\n")
     lines.append(f"- Total comparison jobs: {n_jobs}")
@@ -245,6 +251,12 @@ Example usage:
     metrics_data = load_metrics_json(args.metrics)
     highlights_content = load_highlights_txt(args.highlights)
 
+    # Check for failures before generating digest
+    n_failed = metrics_data.get('n_failed', 0)
+    if n_failed > 0:
+        print(f"\n**⚠️ FAILURES PRESENT ⚠️**", file=sys.stderr)
+        print(f"{n_failed} comparison job(s) failed. Review logs for details.", file=sys.stderr)
+
     # Generate digest
     digest = generate_digest(metrics_data, highlights_content)
 
@@ -259,6 +271,10 @@ Example usage:
     except Exception as e:
         print(f"\nERROR: Failed to write digest to {args.output}: {e}", file=sys.stderr)
         sys.exit(2)
+
+    # Exit with non-zero status if failures are present
+    if n_failed > 0:
+        sys.exit(1)
 
     sys.exit(0)
 
