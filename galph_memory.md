@@ -2605,3 +2605,17 @@
   - Reaffirmed AUTHORITATIVE_CMDS_DOC guard and laid out artifact/log locations for Ralph.
 - Next actions for Ralph: implement metadata guard helper + tests, rerun dense pipeline, capture RED→GREEN pytest logs and CLI transcript, then summarize results.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T170500Z: Phase C metadata guard ready handoff
+- dwell: 0 (reset after issuing implementation-ready plan)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T170500Z/phase_c_metadata_guard/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; guard still missing from orchestrator script and metadata-free NPZ regression remains reproducible.
+  - Reviewed docs/index.md and findings ledger (POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001); `docs/prompt_sources_map.json` still absent.
+  - Provisioned refreshed hub (plan/summary scaffold) and rewrote Do Now with RED test, guard implementation, orchestrator rerun, and doc-sync requirements; set AUTHORITATIVE_CMDS_DOC guard in instructions.
+  - Updated docs/fix_plan.md attempt ledger and ensured How-To map captures log destinations plus block handling.
+- Next actions for Ralph: add failing pytest guard test, implement `validate_phase_c_metadata` + main hook, rerun targeted selectors, execute dense orchestrator, and update ledger/reporting with guard evidence.
+- <Action State>: [ready_for_implementation]
