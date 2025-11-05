@@ -1,0 +1,41 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 2 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_phase_g_dense_metrics_report.py>
+        Tests for Phase G dense metrics reporting helper.
+        <Function test_report_phase_g_dense_metrics>
+          Test reporting helper parses metrics_summary.json and emits delta tables.
+          
+          Acceptance:
+          - Loads report_phase_g_dense_metrics.py via importlib
+          - Creates fixture metrics_summary.json with PtychoPINN, Baseline, PtyChi aggregates
+          - Invokes helper with --metrics pointing to fixture
+          - Validates stdout contains:
+            - Aggregate metrics tables for each model (deterministic sorted order)
+            - Delta section showing PtychoPINN - Baseline and PtychoPINN - PtyChi
+            - 3-decimal formatting for all floats
+            - MS-SSIM amplitude/phase and MAE amplitude/phase comparisons
+          - Optionally writes Markdown via --output flag
+          - Returns 0 on success
+          
+          Follows TYPE-PATH-001 (Path normalization).
+        <Function test_report_phase_g_dense_metrics_missing_model_fails>
+          Test reporting helper fails gracefully when required model missing.
+          
+          Acceptance:
+          - Creates metrics_summary.json with only PtychoPINN (missing Baseline/PtyChi)
+          - Invokes helper
+          - Asserts non-zero exit code
+          - Stderr contains actionable error message mentioning missing model
+
+========================== 2 tests collected in 0.84s ==========================
