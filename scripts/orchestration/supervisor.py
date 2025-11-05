@@ -195,6 +195,23 @@ def main() -> int:
             cp2 = run(["git", "submodule", "update", "--init", "--recursive", "--checkout", "--force"], capture_output=True, text=True)
             if log_func and (cp2.stdout or cp2.stderr):
                 log_func((cp2.stdout or "") + (cp2.stderr or ""))
+            # Fallback: manually align any gitlinks to recorded HEAD pointers when .gitmodules lacks URL
+            gitlinks = _gitlink_paths()
+            for p in sorted(gitlinks):
+                # Get recorded pointer from HEAD tree
+                tree = run(["git", "ls-tree", "HEAD", "--", p], capture_output=True, text=True)
+                sha = None
+                if tree.stdout:
+                    parts = tree.stdout.strip().split()
+                    if len(parts) >= 3:
+                        sha = parts[2]
+                if not sha:
+                    continue
+                # If p is an initialized submodule, force checkout to recorded sha
+                if os.path.isdir(os.path.join(p, ".git")) or os.path.isfile(os.path.join(p, ".git")):
+                    run(["git", "-C", p, "checkout", "-f", sha], capture_output=True, text=True)
+                    if log_func:
+                        log_func(f"[submodules] aligned {p} to {sha}")
         except Exception as e:
             if log_func:
                 log_func(f"[submodules] WARN: scrub failed: {e}")
@@ -378,16 +395,18 @@ def main() -> int:
             if args.prepull_auto_commit_docs:
                 # First, scrub submodules and retry pull (more robust than committing)
                 _submodule_scrub(lambda m: None)
-                if _pull_with_error(lambda m: None, "pre-pull (after submodule scrub)"):
-                    pass
-                else:
-                    committed, forbidden = _supervisor_autocommit_docs(args, lambda m: None)
-                    if committed and not forbidden:
-                        if not _pull_with_error(lambda m: None, "pre-pull (after autocommit)"):
+                if not _pull_with_error(lambda m: None, "pre-pull (after submodule scrub)"):
+                    # Next, try auto-committing modified tracked outputs (fixtures) within limits
+                    _supervisor_autocommit_tracked_outputs(args, lambda m: None)
+                    if not _pull_with_error(lambda m: None, "pre-pull (after tracked-outputs)"):
+                        # Finally, attempt doc/meta auto-commit
+                        committed, forbidden = _supervisor_autocommit_docs(args, lambda m: None)
+                        if committed and not forbidden:
+                            if not _pull_with_error(lambda m: None, "pre-pull (after autocommit)"):
+                                return 1
+                        else:
+                            print("[sync] ERROR: git pull failed; pre-pull auto-commit not applicable or blocked.")
                             return 1
-                    else:
-                        print("[sync] ERROR: git pull failed; pre-pull auto-commit not applicable or blocked.")
-                        return 1
             else:
                 # Error already printed by _pull_with_error
                 return 1
@@ -400,16 +419,16 @@ def main() -> int:
         if not _pull_with_error(logp, "pre-wait"):
             if args.prepull_auto_commit_docs:
                 _submodule_scrub(logp)
-                if _pull_with_error(logp, "pre-wait (after submodule scrub)"):
-                    pass
-                else:
-                    committed, forbidden = _supervisor_autocommit_docs(args, logp)
-                    if committed and not forbidden:
-                        if not _pull_with_error(logp, "pre-wait (after autocommit)"):
+                if not _pull_with_error(logp, "pre-wait (after submodule scrub)"):
+                    _supervisor_autocommit_tracked_outputs(args, logp)
+                    if not _pull_with_error(logp, "pre-wait (after tracked-outputs)"):
+                        committed, forbidden = _supervisor_autocommit_docs(args, logp)
+                        if committed and not forbidden:
+                            if not _pull_with_error(logp, "pre-wait (after autocommit)"):
+                                return 1
+                        else:
+                            print("[sync] ERROR: git pull failed; pre-pull auto-commit not applicable or blocked.")
                             return 1
-                    else:
-                        print("[sync] ERROR: git pull failed; pre-pull auto-commit not applicable or blocked.")
-                        return 1
             else:
                 # Error already printed by _pull_with_error
                 return 1
