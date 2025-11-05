@@ -2722,3 +2722,18 @@
   - Updated docs/fix_plan.md Latest Attempt entry to reflect the new staging plan and artifact path.
 - Next actions for Ralph: add the reporting helper execution test, capture RED/GREEN evidence, run Phase C→G CLI with automated reporting, archive metrics/logs, and update docs/ledger per instructions.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T090500Z: Phase G dense highlights export staging
+- dwell: 2 (second consecutive planning loop; setting next_action=ready_for_implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T090500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed 2025-11-08T070500Z hub summary (reporting helper exec test GREEN, dense run still outstanding).
+  - Confirmed findings (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001) remain applicable; no new ledger entries required.
+  - Created new hub (090500Z) with plan focusing on `--highlights` export for the reporting helper, orchestrator wiring updates, and the pending dense Phase C→G run with `--clobber`.
+  - Rewrote input.md to mandate helper + orchestrator updates, mapped pytest selectors, CLI invocation, pitfalls, findings, and doc sync plan; AUTHORITATIVE_CMDS_DOC export remains step 1.
+  - Logged planning attempt in docs/fix_plan.md (Latest Attempt 2025-11-08T090500Z) linking artifacts and summarizing highlights deliverables; summary.md scaffold created for evidence logging.
+- Next actions for Ralph: implement `--highlights` support in helper, update orchestrator/tests, run dense pipeline with highlights capture, archive artifacts, and refresh docs/ledger.
+- <Action State>: [ready_for_implementation]
