@@ -1,0 +1,93 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands FAILED [100%]
+
+=================================== FAILURES ===================================
+____________ test_run_phase_g_dense_collect_only_generates_commands ____________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x77b15296b890>
+capsys = <_pytest.capture.CaptureFixture object at 0x77b15296aed0>
+
+    def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+        """
+        Test that main() with --collect-only prints planned commands without executing them.
+    
+        Acceptance:
+        - Loads main() from orchestrator script via importlib
+        - Runs with --collect-only into a tmp hub directory
+        - Asserts stdout contains expected command substrings (Phase C/D/E/F/G markers)
+        - Verifies no Phase C outputs are created (dry-run mode, no filesystem side effects)
+        - Ensures AUTHORITATIVE_CMDS_DOC environment variable is respected
+        - Returns 0 exit code on success
+    
+        Follows TYPE-PATH-001 (Path normalization).
+        """
+        # Import main() from orchestrator
+        module = _import_orchestrator_module()
+        main = module.main
+    
+        # Setup: Create tmp hub directory
+        hub = tmp_path / "collect_only_hub"
+        hub.mkdir(parents=True)
+    
+        # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+        monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+    
+        # Prepare sys.argv for argparse
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "run_phase_g_dense.py",
+                "--hub", str(hub),
+                "--dose", "1000",
+                "--view", "dense",
+                "--splits", "train", "test",
+                "--collect-only",
+            ],
+        )
+    
+        # Execute: Call main() (should print commands and return 0)
+        exit_code = main()
+    
+        # Assert: Exit code should be 0
+        assert exit_code == 0, f"Expected exit code 0 from --collect-only mode, got {exit_code}"
+    
+        # Assert: Capture stdout and verify expected command substrings
+        captured = capsys.readouterr()
+        stdout = captured.out
+    
+        # Check for phase markers in stdout
+        assert "Phase C: Dataset Generation" in stdout, "Missing Phase C command in --collect-only output"
+        assert "Phase D: Overlap View Generation" in stdout, "Missing Phase D command in --collect-only output"
+        assert "Phase E: Training Baseline (gs1)" in stdout, "Missing Phase E baseline command in --collect-only output"
+        assert "Phase E: Training Dense (gs2)" in stdout, "Missing Phase E dense command in --collect-only output"
+        assert "Phase F: Reconstruction" in stdout, "Missing Phase F command in --collect-only output"
+        assert "Phase G: Comparison" in stdout, "Missing Phase G command in --collect-only output"
+    
+        # Check for specific command keywords
+        assert "studies.fly64_dose_overlap.generation" in stdout, "Missing generation module in command output"
+        assert "studies.fly64_dose_overlap.overlap" in stdout, "Missing overlap module in command output"
+        assert "studies.fly64_dose_overlap.training" in stdout, "Missing training module in command output"
+        assert "studies.fly64_dose_overlap.reconstruction" in stdout, "Missing reconstruction module in command output"
+        assert "studies.fly64_dose_overlap.comparison" in stdout, "Missing comparison module in command output"
+    
+        # Check for reporting helper command
+>       assert "report_phase_g_dense_metrics.py" in stdout, "Missing reporting helper command in --collect-only output"
+E       AssertionError: Missing reporting helper command in --collect-only output
+E       assert 'report_phase_g_dense_metrics.py' in '[run_phase_g_dense] Collect-only mode: planned commands:\n\n1. Phase C: Dataset Generation\n   Command: python -m studies.fly64_dose_overlap.generation --base-npz tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz --output-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_c_generation.log\n\n2. Phase D: Overlap View Generation\n   Command: python -m studies.fly64_dose_overlap.overlap --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --output-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --doses 1000 --views dense --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/analysis\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_d_dense.log\n\n3. Phase E: Training Baseline (gs1)\n   Command: python -m studies.fly64_dose_overlap.training --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-d-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_e --dose 1000 --view baseline --gridsize 1 --backend tensorflow\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_e_baseline_gs1_dose1000.log\n\n4. Phase E: Training Dense (gs2)\n   Command: python -m studies.fly64_dose_overlap.training --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-d-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_e --dose 1000 --view dense --gridsize 2 --backend tensorflow\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_e_dense_gs2_dose1000.log\n\n5. Phase F: Reconstruction dense/train\n   Command: python -m studies.fly64_dose_overlap.reconstruction --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-d-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_f --dose 1000 --view dense --split train --allow-missing-phase-d\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_f_dense_train.log\n\n6. Phase F: Reconstruction dense/test\n   Command: python -m studies.fly64_dose_overlap.reconstruction --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-d-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_f --dose 1000 --view dense --split test --allow-missing-phase-d\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_f_dense_test.log\n\n7. Phase G: Comparison dense/train\n   Command: python -m studies.fly64_dose_overlap.comparison --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-e-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_e --phase-f-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_f --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/analysis --dose 1000 --view dense --split train\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_g_dense_train.log\n\n8. Phase G: Comparison dense/test\n   Command: python -m studies.fly64_dose_overlap.comparison --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-e-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_e --phase-f-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_f --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/analysis --dose 1000 --view dense --split test\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_g_dense_test.log\n'
+
+tests/study/test_phase_g_dense_orchestrator.py:94: AssertionError
+=========================== short test summary info ============================
+FAILED tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands - AssertionError: Missing reporting helper command in --collect-only output
+assert 'report_phase_g_dense_metrics.py' in '[run_phase_g_dense] Collect-only mode: planned commands:\n\n1. Phase C: Dataset Generation\n   Command: python -m studies.fly64_dose_overlap.generation --base-npz tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz --output-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_c_generation.log\n\n2. Phase D: Overlap View Generation\n   Command: python -m studies.fly64_dose_overlap.overlap --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --output-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --doses 1000 --views dense --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/analysis\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_d_dense.log\n\n3. Phase E: Training Baseline (gs1)\n   Command: python -m studies.fly64_dose_overlap.training --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-d-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_e --dose 1000 --view baseline --gridsize 1 --backend tensorflow\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_e_baseline_gs1_dose1000.log\n\n4. Phase E: Training Dense (gs2)\n   Command: python -m studies.fly64_dose_overlap.training --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-d-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_e --dose 1000 --view dense --gridsize 2 --backend tensorflow\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_e_dense_gs2_dose1000.log\n\n5. Phase F: Reconstruction dense/train\n   Command: python -m studies.fly64_dose_overlap.reconstruction --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-d-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_f --dose 1000 --view dense --split train --allow-missing-phase-d\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_f_dense_train.log\n\n6. Phase F: Reconstruction dense/test\n   Command: python -m studies.fly64_dose_overlap.reconstruction --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-d-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_d --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_f --dose 1000 --view dense --split test --allow-missing-phase-d\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_f_dense_test.log\n\n7. Phase G: Comparison dense/train\n   Command: python -m studies.fly64_dose_overlap.comparison --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-e-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_e --phase-f-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_f --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/analysis --dose 1000 --view dense --split train\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_g_dense_train.log\n\n8. Phase G: Comparison dense/test\n   Command: python -m studies.fly64_dose_overlap.comparison --phase-c-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_c --phase-e-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_e --phase-f-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/data/phase_f --artifact-root /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/analysis --dose 1000 --view dense --split test\n   Log: /tmp/pytest-of-ollie/pytest-335/test_run_phase_g_dense_collect0/collect_only_hub/cli/phase_g_dense_test.log\n'
+============================== 1 failed in 1.88s ===============================
