@@ -2823,3 +2823,18 @@
   - Findings reaffirmed: POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001.
 - Next actions for Ralph: ship metadata-aware loaders + tests, rerun targeted pytest selectors, relaunch dense pipeline, and record MS-SSIM/MAE deltas in summary/docs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T230500Z: Metadata coverage + dense rerun handoff
+- dwell: 0 (reset after issuing ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning → ready_for_implementation
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T230500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed 210500Z summary and verified metadata guard commit 3804a22a landed.
+  - Consulted docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001) and refreshed plan context; confirmed no new findings since last loop.
+  - Audited pipeline artifacts: 170500Z hub shows allow_pickle failure; 210500Z hub documents metadata fix but dense rerun not yet executed. No newer reports exist.
+  - Added Implementation entry for 210500Z+exec to docs/fix_plan.md and provisioned new 230500Z hub with plan scaffolding (plan/collect/red/green/cli/analysis/summary).
+  - Rewrote input.md (Mode: TDD) directing Ralph to add Stage 5 metadata-splits regression test, rerun targeted selectors, relaunch `run_phase_g_dense.py --clobber` with AUTHORITATIVE_CMDS_DOC guard, run analyze_dense_metrics.py, and capture MS-SSIM/MAE deltas.
+- Next actions for Ralph: implement metadata-splits test + any necessary Stage 5 tweaks, cycle metadata/highlights pytest selectors RED→GREEN, rerun dense pipeline under 230500Z hub, run metrics digest, and update summary/docs with measured deltas.
+- <Action State>: [ready_for_implementation]
