@@ -49,6 +49,7 @@ tmp/
 
 # Model artifacts
 wts.h5.zip
+wts_*.h5.zip
 baseline_model.h5
 *.pb
 
