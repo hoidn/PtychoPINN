@@ -2692,3 +2692,18 @@
   - Updated docs/fix_plan.md Attempts History and input scaffolding to hand off reporting helper implementation + dense pipeline run.
 - Next actions for Ralph: build the reporting helper + pytest, run the dense Phase C→G pipeline with --clobber, execute guards/reporting scripts, and sync docs/summary with aggregate deltas.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T050500Z: Phase G dense automation & evidence plan
+- dwell: 0 (reset after 2025-11-08T030500Z+exec delivered reporting helper implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T050500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date); reviewed latest hub (2025-11-08T030500Z) summary confirming reporting helper + docs landed but dense run still pending.
+  - Consulted docs/findings.md entries POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001 and refreshed docs/index.md for authoritative pointers; no new sources detected.
+  - Created new hub (050500Z) with plan/summary scaffolding, scoping work to append the reporting helper to the orchestrator command inventory (collect-only + execution) and run the dense Phase C→G pipeline with `--clobber`, capturing CLI + Markdown outputs automatically.
+  - Rewrote input.md to enforce TDD (collect-only test update first), mapped selectors, CLI invocation, findings, pitfalls, and doc sync actions; AUTHORITATIVE_CMDS_DOC guard reiterated.
+  - Logged planning attempt in docs/fix_plan.md and noted automation goal + evidence requirements.
+- Next actions for Ralph: update orchestrator + tests to call the reporting helper automatically, run mapped pytest selectors, execute dense pipeline with --clobber, archive aggregate report + logs, and sync docs/ledger per plan.
+- <Action State>: [ready_for_implementation]
