@@ -212,8 +212,8 @@ The dry-run mode enumerates jobs, writes manifest and skip summary, but skips su
 Tests for the Phase C→G dense execution orchestrator and metrics aggregation helper.
 
 - **Files:**
-  - `test_phase_g_dense_orchestrator.py` - Tests `summarize_phase_g_outputs()` helper and `validate_phase_c_metadata()` guard in `bin/run_phase_g_dense.py`
-- **Purpose:** Validate orchestrator metrics summary extraction from Phase G comparison results and Phase C metadata integrity enforcement
+  - `test_phase_g_dense_orchestrator.py` - Tests `summarize_phase_g_outputs()` helper, `validate_phase_c_metadata()` guard, and `prepare_hub()` helper in `bin/run_phase_g_dense.py`
+- **Purpose:** Validate orchestrator metrics summary extraction from Phase G comparison results, Phase C metadata integrity enforcement, and hub preparation with stale output detection
 - **Key selectors:**
   ```bash
   # Run Phase G orchestrator summary helper test
@@ -230,9 +230,26 @@ Tests for the Phase C→G dense execution orchestrator and metrics aggregation h
   pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_canonical_transform -vv
   pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv
 
-  # Collect all orchestrator tests (7 tests: 4 summary + 3 metadata guard)
+  # Run hub preparation tests (stale detection + clobber mode)
+  pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs -vv
+  pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs -vv
+
+  # Collect all orchestrator tests (9 tests: 4 summary + 3 metadata guard + 2 prepare_hub)
   pytest tests/study/test_phase_g_dense_orchestrator.py --collect-only -vv
   ```
+
+**Hub Preparation Helper:**
+
+The `prepare_hub()` helper detects and manages stale Phase C outputs to prevent accidental overwrites. The helper:
+
+- Normalizes hub path via TYPE-PATH-001 (Path.resolve())
+- Detects existing Phase C outputs under `{hub}/data/phase_c/`
+- Default behavior (clobber=False): raises RuntimeError with actionable `--clobber` guidance
+- Clobber mode (clobber=True): archives stale outputs to timestamped `{hub}/archive/phase_c_<timestamp>/` directory
+- Read-only by default to prevent accidental data loss
+- Preserves evidence via archiving instead of deletion
+
+Tests validate two behaviors: stale detection with read-only error (no file deletions), and clobber mode with clean hub state (all .npz files removed/archived).
 
 **Phase C Metadata Guard:**
 
@@ -267,6 +284,15 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py 
   --view dense \
   --splits train test \
   --collect-only
+
+# Real execution mode (remove --collect-only, add --clobber to archive stale outputs)
+export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
+  --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_g_dense_execution \
+  --dose 1000 \
+  --view dense \
+  --splits train test \
+  --clobber
 
 # Real execution (Phase C→G pipeline with metrics summary)
 python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \

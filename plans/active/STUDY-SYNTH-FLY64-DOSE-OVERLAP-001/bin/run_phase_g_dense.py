@@ -134,6 +134,63 @@ def run_command(
         raise
 
 
+def prepare_hub(hub: Path, clobber: bool = False) -> None:
+    """
+    Prepare hub directory for Phase C→G pipeline execution.
+
+    This helper normalizes the hub path, detects stale Phase C outputs, and either
+    raises an error (when clobber=False) or removes/archives them (when clobber=True).
+
+    Args:
+        hub: Root directory for all phase artifacts
+        clobber: If True, remove/archive stale outputs; if False (default), raise on stale outputs
+
+    Raises:
+        RuntimeError: If clobber=False and stale Phase C outputs exist, with actionable
+                      error message mentioning the stale path and --clobber remedy
+
+    Follows TYPE-PATH-001 (Path normalization).
+    Default behavior is read-only (clobber=False) to prevent accidental data loss.
+    """
+    import shutil
+    from datetime import datetime
+
+    # TYPE-PATH-001: Normalize to Path
+    hub = Path(hub).resolve()
+    phase_c_root = hub / "data" / "phase_c"
+
+    # Check if Phase C outputs already exist
+    stale_outputs_exist = phase_c_root.exists() and any(phase_c_root.iterdir())
+
+    if not stale_outputs_exist:
+        # Clean hub, nothing to do
+        print(f"[prepare_hub] Hub is clean: {hub}")
+        return
+
+    # Stale outputs detected
+    if not clobber:
+        # Read-only mode: raise error with actionable guidance
+        raise RuntimeError(
+            f"Hub contains stale Phase C outputs: {phase_c_root}\n"
+            f"To remove previous outputs and proceed, re-run with --clobber flag.\n"
+            f"Example: python {Path(__file__).name} --hub {hub} --dose <dose> --view <view> --splits <splits> --clobber"
+        )
+
+    # Clobber mode: archive or delete stale outputs
+    # Archive strategy: move to timestamped archive directory to preserve evidence
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    archive_root = hub / "archive" / f"phase_c_{timestamp}"
+
+    print(f"[prepare_hub] Archiving stale Phase C outputs to: {archive_root}")
+
+    # Move phase_c_root to archive
+    archive_root.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(phase_c_root), str(archive_root))
+
+    print(f"[prepare_hub] Archived {phase_c_root} → {archive_root}")
+    print(f"[prepare_hub] Hub is now clean and ready for new pipeline run")
+
+
 def validate_phase_c_metadata(hub: Path) -> None:
     """
     Validate that Phase C dataset NPZ outputs contain required _metadata field.
@@ -423,6 +480,11 @@ def main() -> int:
         action="store_true",
         help="Verification mode: print planned commands without execution",
     )
+    parser.add_argument(
+        "--clobber",
+        action="store_true",
+        help="Remove/archive stale Phase C outputs before starting pipeline (default: error on stale outputs)",
+    )
 
     args = parser.parse_args()
 
@@ -538,8 +600,24 @@ def main() -> int:
             print(f"   Log: {log_path}")
         return 0
 
+    # Prepare hub: detect and handle stale outputs
+    print("\n" + "=" * 80)
+    print("[run_phase_g_dense] Preparing hub...")
+    print("=" * 80 + "\n")
+    try:
+        prepare_hub(hub, clobber=args.clobber)
+    except RuntimeError as e:
+        print(f"[run_phase_g_dense] ERROR during hub preparation: {e}", file=sys.stderr)
+        # Write blocker log
+        blocker_path = phase_g_root / "blocker.log"
+        blocker_path.parent.mkdir(parents=True, exist_ok=True)
+        with blocker_path.open("w", encoding="utf-8") as blocker:
+            blocker.write("Blocked during hub preparation\n")
+            blocker.write(f"Exception: {e}\n")
+        return 1
+
     # Execute all commands in sequence
-    print(f"[run_phase_g_dense] Starting Phase C→G pipeline for dose={dose}, view={view}, splits={splits}")
+    print(f"\n[run_phase_g_dense] Starting Phase C→G pipeline for dose={dose}, view={view}, splits={splits}")
     print(f"[run_phase_g_dense] Hub: {hub}")
     print(f"[run_phase_g_dense] Total commands: {len(commands)}\n")
 

@@ -376,3 +376,84 @@ def test_validate_phase_c_metadata_accepts_valid_metadata(tmp_path: Path) -> Non
 
     # Execute: Call the guard (should succeed without raising)
     validate_phase_c_metadata(hub)
+
+
+def _import_prepare_hub():
+    """Import prepare_hub() from the orchestrator script using spec loader."""
+    script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py"
+    spec = importlib.util.spec_from_file_location("run_phase_g_dense", script_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.prepare_hub
+
+
+def test_prepare_hub_detects_stale_outputs(tmp_path: Path) -> None:
+    """
+    Test that prepare_hub() raises RuntimeError when hub contains stale Phase C outputs and clobber=False.
+
+    Acceptance:
+    - Normalizes hub path via TYPE-PATH-001
+    - Detects existing Phase C outputs under hub/data/phase_c/
+    - Raises RuntimeError with actionable guidance mentioning both the stale path and --clobber remedy
+    - Does not delete/modify hub contents when clobber=False (default read-only behavior)
+
+    Follows TYPE-PATH-001 (Path normalization).
+    """
+    # Import the function under test
+    prepare_hub = _import_prepare_hub()
+
+    # Setup: Create fake hub with existing Phase C outputs
+    hub = tmp_path / "stale_hub"
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+
+    # Create a fake Phase C output file to simulate stale state
+    stale_file = phase_c_root / "dose_1000_train" / "fly64_train_simulated.npz"
+    stale_file.parent.mkdir(parents=True)
+    stale_file.write_text("fake stale data")
+
+    # Execute: Call prepare_hub with clobber=False (should raise RuntimeError)
+    with pytest.raises(RuntimeError, match=r"(?=.*stale)(?=.*--clobber)"):
+        prepare_hub(hub, clobber=False)
+
+    # Assert: Stale file should still exist (read-only, no deletion)
+    assert stale_file.exists(), "prepare_hub should not delete files when clobber=False"
+
+
+def test_prepare_hub_clobbers_previous_outputs(tmp_path: Path) -> None:
+    """
+    Test that prepare_hub() removes stale outputs and produces a clean hub when clobber=True.
+
+    Acceptance:
+    - Normalizes hub path via TYPE-PATH-001
+    - Detects existing Phase C outputs under hub/data/phase_c/
+    - When clobber=True, archives or deletes prior data (implementation choice)
+    - Produces clean hub directory structure ready for new pipeline run
+    - Does not raise errors when clobber=True
+
+    Follows TYPE-PATH-001 (Path normalization).
+    """
+    # Import the function under test
+    prepare_hub = _import_prepare_hub()
+
+    # Setup: Create fake hub with existing Phase C outputs
+    hub = tmp_path / "clobber_hub"
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+
+    # Create multiple fake Phase C output files
+    for split in ["train", "test"]:
+        stale_dir = phase_c_root / f"dose_1000_{split}"
+        stale_dir.mkdir(parents=True)
+        stale_file = stale_dir / f"fly64_{split}_simulated.npz"
+        stale_file.write_text("fake stale data")
+
+    # Execute: Call prepare_hub with clobber=True (should succeed and clean up)
+    prepare_hub(hub, clobber=True)
+
+    # Assert: Hub should be clean (Phase C outputs either moved or deleted)
+    # Check that phase_c_root either doesn't exist or is empty
+    if phase_c_root.exists():
+        # If it exists, it should be empty or contain only archive metadata
+        remaining_files = list(phase_c_root.rglob("*.npz"))
+        assert len(remaining_files) == 0, f"prepare_hub should remove/archive all .npz files when clobber=True, found: {remaining_files}"
