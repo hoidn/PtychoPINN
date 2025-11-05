@@ -217,11 +217,19 @@ def generate_dataset_for_dose(
     print(f"[Stage 5/5] Validating DATA-001 compliance...")
     for split_name, split_path in [('train', train_npz), ('test', test_npz)]:
         print(f"  Validating {split_name}...")
-        validate_fn(
-            dataset_path=split_path,
-            design_params=design_params,
-            expected_dose=dose,
-        )
+        # Load NPZ data for validation (validator now expects in-memory dict)
+        with np.load(split_path) as npz_data:
+            data_dict = {k: npz_data[k] for k in npz_data.keys()}
+        # Call refactored validator with correct signature
+        # Note: 'view' is optional; only pass it if present in design_params
+        validate_kwargs = {
+            'data': data_dict,
+            'gridsize': design_params.get('gridsize', 1),
+            'neighbor_count': design_params.get('neighbor_count'),
+        }
+        if 'view' in design_params:
+            validate_kwargs['view'] = design_params['view']
+        validate_fn(**validate_kwargs)
         print(f"    ✓ {split_name} validation passed")
 
     print(f"\n{'='*60}")
