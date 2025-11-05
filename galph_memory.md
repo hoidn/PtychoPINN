@@ -2794,3 +2794,18 @@
   - Updated docs/fix_plan.md Latest Attempt entry, rewrote input.md (Mode: Perf) with implementation target, mapped selector, pipeline command, analysis script invocation, pitfalls, findings, and guardrails; AUTHORITATIVE_CMDS_DOC guard reiterated in How-To map.
 - Next actions for Ralph: run highlights preview test, execute the dense Phase C→G pipeline, implement the analysis script, generate metrics_digest.md, archive artifacts, and update summary/docs ledger per plan.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T190500Z: Dense pipeline status audit & relaunch handoff
+- dwell: 1 (post-implementation planning loop — reset after prior ready_for_implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T190500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` returned “Already up to date”; reviewed cached plan context plus 170500Z hub outputs, then re-opened logs to confirm status.
+  - Consulted docs/findings.md for POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001; no new findings required.
+  - Inspected `cli/run_phase_g_dense_cli.log` (40 lines) and empty `analysis/` directory; `pgrep -fl run_phase_g_dense.py` shows no active orchestrator, so prior background run ended without producing metrics.
+  - Created new supervisor artifacts hub (190500Z), rewrote input.md with failure-guard requirement for `analyze_dense_metrics.py`, explicit pipeline relaunch steps, and summary/docs sync instructions; reiterated AUTHORITATIVE_CMDS_DOC guard and added `pgrep` pitfall.
+  - Updated docs/fix_plan.md Attempts History with the audit + relaunch plan.
+- Next actions for Ralph: harden the digest script to fail when `n_failed > 0`, rerun the highlights preview, relaunch the dense pipeline with `--clobber`, run the digest to produce metrics_digest.md, and update summary/docs ledger with MS-SSIM/MAE evidence.
+- <Action State>: [ready_for_implementation]
