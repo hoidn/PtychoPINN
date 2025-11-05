@@ -2780,3 +2780,17 @@
   - Findings confirmed: POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001 remain applicable.
 - Next actions for Ralph: patch `generate_dataset_for_dose` to load NPZ splits and call `validate_dataset_contract` correctly, extend Phase C tests, rerun targeted pytest + dense pipeline.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T170500Z: Phase G dense pipeline relaunch plan
+- dwell: 2 (second consecutive planning loop — setting next_action=ready_for_implementation per dwell guard)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T170500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed latest validator hotfix hub and reused cached understanding for Phase G plan docs after verifying no new commits.
+  - Consulted docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001) and refreshed plan hub from 150500Z to confirm validator fix cleared the blocker.
+  - Provisioned new hub (170500Z) with plan instructing highlights regression rerun, dense pipeline execution with --clobber, and a new T2 analysis script (`bin/analyze_dense_metrics.py`) to produce metrics_digest.md from metrics_summary.json + aggregate_highlights.txt.
+  - Updated docs/fix_plan.md Latest Attempt entry, rewrote input.md (Mode: Perf) with implementation target, mapped selector, pipeline command, analysis script invocation, pitfalls, findings, and guardrails; AUTHORITATIVE_CMDS_DOC guard reiterated in How-To map.
+- Next actions for Ralph: run highlights preview test, execute the dense Phase C→G pipeline, implement the analysis script, generate metrics_digest.md, archive artifacts, and update summary/docs ledger per plan.
+- <Action State>: [ready_for_implementation]
