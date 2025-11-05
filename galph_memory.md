@@ -3007,3 +3007,16 @@
   - Rewrote `input.md` with new hub path, command map (including highlight check script), pitfalls, and findings alignment; updated docs/fix_plan.md Attempts History accordingly.
 - Next actions for Ralph: run orchestrator regression selector, execute dense Phase C→G pipeline with --clobber using the new hub, validate highlights via the check script, and document MS-SSIM/MAE deltas + provenance in summary/docs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T121303Z: Dense pipeline monitor check
+- dwell: 1 (first planning loop after the 115706Z ready_for_implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T121303Z/phase_g_dense_pipeline_monitor/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed cached plan context and inspected the active hub under `/home/ollie/Documents/PtychoPINN2/.../phase_g_dense_full_execution_real_run/`.
+  - `pgrep -fl studies.fly64_dose_overlap` shows PIDs 2246737/2246738 still running `python -m studies.fly64_dose_overlap.generation`; `analysis/` remains empty while `data/phase_c/` now contains dose_1000, dose_10000, and dose_100000 NPZ outputs.
+  - Added 2025-11-05T121303Z monitor summary + fix_plan update, and rewrote input.md so Ralph waits for the run to finish before executing highlights/metrics verification scripts.
+- Next actions for Ralph: monitor run completion, verify metrics bundle with the highlights checker + digest refresh, then document MS-SSIM/MAE deltas in summary.md and docs/fix_plan.md.
+- <Action State>: [ready_for_implementation]
