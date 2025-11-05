@@ -1,47 +1,73 @@
-# Phase G Dense Execution — Summary (Placeholder)
+# Phase G Dense Orchestrator Summary — 2025-11-07T110500Z
 
-**Loop Timestamp:** 2025-11-07T110500Z  
-**Initiative:** STUDY-SYNTH-FLY64-DOSE-OVERLAP-001  
-**Mode:** TDD  
-**Focus:** Dense evidence run (dose=1000, splits=train/test)
+## Objective
+Implement orchestrator metrics summary helper (`summarize_phase_g_outputs`) and validate via TDD, then execute full Phase C→G dense pipeline (dose=1000, train/test splits) with metrics extraction.
 
----
+## Mode
+TDD
 
-## Status Checklist
-- [ ] RED selector fails prior to implementation
-- [ ] GREEN selector passes after implementation
-- [ ] Phase C→G pipeline completes without blocker
-- [ ] Metrics summary generated (`analysis/metrics_summary.json`, `.md`)
-- [ ] CLI logs archived under `cli/`
-- [ ] Doc sync performed (TESTING_GUIDE / TEST_SUITE_INDEX)
-- [ ] Findings references reaffirmed (POLICY-001, CONFIG-001, DATA-001, OVERSAMPLING-001, TYPE-PATH-001)
+## Nucleus Implementation Status
 
----
+### ✅ Completed (GREEN)
 
-## Key Metrics (fill after run)
-- **PtychoPINN MS-SSIM (phase)** — train: ___ / test: ___
-- **PtychoPINN MS-SSIM (amplitude)** — train: ___ / test: ___
-- **Baseline MS-SSIM (phase)** — train: ___ / test: ___
-- **Baseline MS-SSIM (amplitude)** — train: ___ / test: ___
-- **Pty-chi MS-SSIM (phase)** — train: ___ / test: ___
-- **Pty-chi MS-SSIM (amplitude)** — train: ___ / test: ___
-- Additional observations: ____________________________________
+#### 1. Test Implementation (RED → GREEN)
+- **File:** `tests/study/test_phase_g_dense_orchestrator.py:1-208`
+- **Selector:** `pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv`
+- **RED:** ModuleNotFoundError (function did not exist) — confirmed expected failure
+- **GREEN:** PASSED in 1.49s
+- **Coverage:**
+  - Happy path: Parses `comparison_manifest.json`, extracts metrics from per-job `comparison_metrics.csv`, writes JSON + Markdown summaries
+  - Fail-fast: Missing manifest (RuntimeError)
+  - Fail-fast: `n_failed > 0` (RuntimeError)
+  - Fail-fast: Missing CSV for successful job (RuntimeError)
 
----
+#### 2. Helper Implementation
+- **File:** `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:137-300`
+- **Function:** `summarize_phase_g_outputs(hub: Path) -> None`
+- **Features:**
+  - TYPE-PATH-001 compliant (Path normalization)
+  - Parses execution manifest from `{hub}/analysis/comparison_manifest.json`
+  - Validates `n_failed == 0` (fail-fast if any jobs failed)
+  - Extracts metrics from per-job `comparison_metrics.csv` (tidy format: model, metric, amplitude, phase, value)
+  - Writes `metrics_summary.json` (deterministic structure)
+  - Writes `metrics_summary.md` (tables by model/job)
+  - Called from `main()` after all Phase C→G commands succeed (lines 468-482)
 
-## Artifacts
-- RED pytest log: `red/pytest_red.log`
-- GREEN pytest log: `green/pytest_green.log`
-- Collect-only log: `collect/pytest_collect.log`
-- Full CLI logs: `cli/phase_*.log`
-- Comparison manifest: `analysis/comparison_manifest.json`
-- Metrics summary: `analysis/metrics_summary.{json,md}`
-- Data bundles: `data/phase_{c,d,e,f}/...`
+#### 3. Static Analysis
+- **Tool:** `ruff`
+- **Result:** 1 auto-fixed issue (f-string without placeholders)
+- **Status:** ✅ PASSED (0 remaining errors)
 
----
+#### 4. Full Test Suite (Hard Gate)
+- **Command:** `pytest -v tests/`
+- **Result:** 406 passed, 1 pre-existing fail (test_interop_h5_reader), 17 skipped in 451.41s
+- **Status:** ✅ PASSED (no new failures introduced)
 
-## Notes
-- Record any anomalies (e.g., acceptance rate warnings, training retries).
-- Capture SHA256 checksums for key outputs if required by manifest policy.
-- If blocker occurs, document in `analysis/blocker.log` and update fix_plan + galph_memory.
+#### 5. Selector Validation
+- **Command:** `pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv --collect-only`
+- **Result:** 1 test collected
+- **Status:** ✅ Active selector
 
+## Pipeline Execution Status
+
+### ⏳ In Progress (Background Process)
+
+- **Command:** `python bin/run_phase_g_dense.py --hub <this-hub> --dose 1000 --view dense --splits train test`
+- **PID/Shell:** Background shell 3b97b9
+- **Current Phase:** Phase C (Dataset Generation) — TensorFlow initialization + XLA compilation
+- **Observation:** Pipeline executing as expected; Phase C simulation running (GPU active, cuDNN/cuFFT loaded)
+- **Estimated Duration:** ~2-4 hours for full pipeline (8 commands: C, D, E-baseline, E-dense, F-train, F-test, G-train, G-test)
+
+**Note:** Full pipeline evidence capture deferred per Ralph nucleus principle — core acceptance (test + helper GREEN) shipped first; dense/baseline real-run evidence will be captured when pipeline completes or in follow-up loop if time constraint exceeded.
+
+## Findings Applied
+- **POLICY-001** — PyTorch optional; TensorFlow backend active for training
+- **CONFIG-001** — No legacy bridge mutations in summary helper
+- **DATA-001** — Metrics CSV parsing respects amplitude/phase/value tuple structure
+- **OVERSAMPLING-001** — Dense view f_overlap=0.7 threshold unchanged
+- **TYPE-PATH-001** — All new filesystem paths via `Path()` (manifest, CSV, summaries)
+
+## Next Actions
+1. Monitor background pipeline (shell 3b97b9) to completion
+2. If pipeline completes within loop time: validate `metrics_summary.{json,md}` contents
+3. If time constraint exceeded: halt, commit nucleus, create follow-up fix_plan item for evidence capture

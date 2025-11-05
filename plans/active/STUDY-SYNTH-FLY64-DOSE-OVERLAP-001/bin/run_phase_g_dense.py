@@ -32,6 +32,8 @@ If any command fails, execution halts and a blocker note is written to:
 from __future__ import annotations
 
 import argparse
+import csv
+import json
 import os
 import subprocess
 import sys
@@ -130,6 +132,172 @@ def run_command(
             blocker.write(f"Log: {log_path}\n")
 
         raise
+
+
+def summarize_phase_g_outputs(hub: Path) -> None:
+    """
+    Parse comparison_manifest.json and per-job metrics CSVs to emit a metrics summary.
+
+    This helper validates successful Phase G execution, extracts key metrics
+    (MS-SSIM, MAE) from per-job comparison_metrics.csv files, and writes both
+    JSON and Markdown summaries to {hub}/analysis/.
+
+    Args:
+        hub: Root directory containing analysis/ subdirectory with comparison_manifest.json
+
+    Raises:
+        RuntimeError: If manifest is missing, n_failed > 0, or required CSV files are absent
+
+    Follows TYPE-PATH-001 (Path normalization).
+    """
+    # TYPE-PATH-001: Normalize to Path
+    hub = Path(hub).resolve()
+    analysis = hub / "analysis"
+
+    # Validate manifest exists
+    manifest_path = analysis / "comparison_manifest.json"
+    if not manifest_path.exists():
+        raise RuntimeError(
+            f"comparison_manifest.json not found at {manifest_path}. "
+            "Phase G comparison may not have completed."
+        )
+
+    # Load manifest
+    with manifest_path.open() as f:
+        manifest = json.load(f)
+
+    # Fail fast on execution failures
+    n_failed = manifest.get('n_failed', 0)
+    if n_failed > 0:
+        raise RuntimeError(
+            f"Manifest reports {n_failed} failed comparison jobs (n_failed > 0). "
+            "Cannot summarize metrics until all jobs succeed."
+        )
+
+    n_jobs = manifest.get('n_jobs', 0)
+    n_success = manifest.get('n_success', 0)
+    execution_results = manifest.get('execution_results', [])
+
+    # Build summary data structure
+    summary_data = {
+        'n_jobs': n_jobs,
+        'n_success': n_success,
+        'n_failed': n_failed,
+        'jobs': [],
+    }
+
+    # Extract metrics from each successful job
+    for result in execution_results:
+        dose = result['dose']
+        view = result['view']
+        split = result['split']
+        returncode = result.get('returncode', -1)
+
+        if returncode != 0:
+            continue  # Skip failed jobs
+
+        # Construct path to comparison_metrics.csv
+        # Per comparison.py:189-191, output_dir = artifact_root / f"dose_{dose}" / view / split
+        job_dir = analysis / f"dose_{dose}" / view / split
+        csv_path = job_dir / "comparison_metrics.csv"
+
+        if not csv_path.exists():
+            raise RuntimeError(
+                f"comparison_metrics.csv not found for dose={dose}, view={view}, split={split}. "
+                f"Expected at: {csv_path}"
+            )
+
+        # Parse CSV (tidy format: model, metric, amplitude, phase, value)
+        job_metrics = []
+        with csv_path.open(newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                model = row['model']
+                metric = row['metric']
+                amplitude_str = row.get('amplitude', '').strip()
+                phase_str = row.get('phase', '').strip()
+                value_str = row.get('value', '').strip()
+
+                # Build metric entry
+                metric_entry = {
+                    'model': model,
+                    'metric': metric,
+                }
+
+                if amplitude_str and phase_str:
+                    # Tuple metric (amplitude, phase)
+                    metric_entry['amplitude'] = float(amplitude_str)
+                    metric_entry['phase'] = float(phase_str)
+                elif value_str:
+                    # Scalar metric
+                    metric_entry['value'] = float(value_str)
+
+                job_metrics.append(metric_entry)
+
+        # Append job summary
+        job_summary = {
+            'dose': dose,
+            'view': view,
+            'split': split,
+            'metrics': job_metrics,
+        }
+        summary_data['jobs'].append(job_summary)
+
+    # Write JSON summary
+    json_summary_path = analysis / "metrics_summary.json"
+    with json_summary_path.open('w') as f:
+        json.dump(summary_data, f, indent=2)
+
+    print(f"[summarize_phase_g_outputs] Wrote JSON summary: {json_summary_path}")
+
+    # Write Markdown summary
+    md_summary_path = analysis / "metrics_summary.md"
+    with md_summary_path.open('w') as f:
+        f.write("# Phase G Metrics Summary\n\n")
+        f.write(f"**Total Jobs:** {n_jobs}  \n")
+        f.write(f"**Successful:** {n_success}  \n")
+        f.write(f"**Failed:** {n_failed}  \n\n")
+
+        f.write("---\n\n")
+
+        for job in summary_data['jobs']:
+            dose = job['dose']
+            view = job['view']
+            split = job['split']
+
+            f.write(f"## Job: {view}/{split} (dose={dose})\n\n")
+
+            # Group metrics by model
+            models = {}
+            for m in job['metrics']:
+                model_name = m['model']
+                if model_name not in models:
+                    models[model_name] = []
+                models[model_name].append(m)
+
+            for model_name, metrics in models.items():
+                f.write(f"### {model_name}\n\n")
+                f.write("| Metric | Amplitude | Phase | Value |\n")
+                f.write("|--------|-----------|-------|-------|\n")
+
+                for metric in metrics:
+                    metric_name = metric['metric']
+                    amp = metric.get('amplitude', '')
+                    phase = metric.get('phase', '')
+                    val = metric.get('value', '')
+
+                    # Format floats
+                    amp_str = f"{amp:.4f}" if amp != '' else ''
+                    phase_str = f"{phase:.4f}" if phase != '' else ''
+                    val_str = f"{val:.4f}" if val != '' else ''
+
+                    f.write(f"| {metric_name} | {amp_str} | {phase_str} | {val_str} |\n")
+
+                f.write("\n")
+
+            f.write("---\n\n")
+
+    print(f"[summarize_phase_g_outputs] Wrote Markdown summary: {md_summary_path}")
 
 
 def main() -> int:
@@ -296,6 +464,23 @@ def main() -> int:
     print("\n" + "=" * 80)
     print("[run_phase_g_dense] SUCCESS: All phases completed")
     print("=" * 80)
+
+    # Summarize metrics from Phase G comparison results
+    print("\n" + "=" * 80)
+    print("[run_phase_g_dense] Summarizing Phase G metrics...")
+    print("=" * 80 + "\n")
+    try:
+        summarize_phase_g_outputs(hub)
+    except Exception as e:
+        print(f"[run_phase_g_dense] ERROR during metrics summarization: {e}", file=sys.stderr)
+        # Write blocker log
+        blocker_path = phase_g_root / "blocker.log"
+        blocker_path.parent.mkdir(parents=True, exist_ok=True)
+        with blocker_path.open("w", encoding="utf-8") as blocker:
+            blocker.write("Blocked during metrics summarization\n")
+            blocker.write(f"Exception: {e}\n")
+        return 1
+
     print(f"\nArtifacts saved to: {hub}")
     print(f"CLI logs: {cli_log_dir}")
     print(f"Analysis outputs: {phase_g_root}")

@@ -207,6 +207,60 @@ The dry-run mode enumerates jobs, writes manifest and skip summary, but skips su
 - **Execution time:** Typically < 10 seconds per test (subprocess mocking); real LSQML runs take 100+ epochs (varies by dataset)
 - **Dependencies:** NumPy, Phase C/D datasets, `scripts/reconstruction/ptychi_reconstruct_tike.py`
 
+**Phase G Orchestrator Metrics Summary:**
+
+Tests for the Phase C→G dense execution orchestrator and metrics aggregation helper.
+
+- **Files:**
+  - `test_phase_g_dense_orchestrator.py` - Tests `summarize_phase_g_outputs()` helper in `bin/run_phase_g_dense.py`
+- **Purpose:** Validate orchestrator metrics summary extraction from Phase G comparison results
+- **Key selectors:**
+  ```bash
+  # Run Phase G orchestrator summary helper test
+  pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
+
+  # Run failure mode tests (missing manifest, n_failed > 0, missing CSV)
+  pytest tests/study/test_phase_g_dense_orchestrator.py -k fails -vv
+
+  # Collect all orchestrator tests
+  pytest tests/study/test_phase_g_dense_orchestrator.py --collect-only -vv
+  ```
+
+**Phase G Orchestrator Summary Helper:**
+
+The `summarize_phase_g_outputs()` helper validates Phase G execution manifest, extracts metrics from per-job `comparison_metrics.csv` files (MS-SSIM, MAE, computation time), and emits JSON + Markdown summaries to `{hub}/analysis/`. The test validates:
+
+- Manifest parsing from `{hub}/analysis/comparison_manifest.json`
+- Fail-fast on `n_failed > 0` or missing CSV files
+- Metrics extraction (amplitude/phase/value columns) from tidy CSV format
+- Deterministic JSON output (`metrics_summary.json`)
+- Formatted Markdown tables (`metrics_summary.md`) by model/job
+
+**Phase G Full Pipeline Orchestrator:**
+
+```bash
+# Dry-run mode (prints planned commands without execution)
+export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
+python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
+  --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_g_dense_execution \
+  --dose 1000 \
+  --view dense \
+  --splits train test \
+  --collect-only
+
+# Real execution (Phase C→G pipeline with metrics summary)
+python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py \
+  --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/<timestamp>/phase_g_dense_execution \
+  --dose 1000 \
+  --view dense \
+  --splits train test
+```
+
+The orchestrator runs 8 sequential commands (Phase C generation → D overlap → E training baseline/dense → F reconstruction train/test → G comparison train/test), captures per-phase CLI logs under `{HUB}/cli/`, and calls `summarize_phase_g_outputs()` after successful pipeline completion. Emits blocker log on any command failure.
+
+- **Execution time:** Typically < 2s per test (mocked helper); real pipeline ~2-4 hours (8 phases with TensorFlow training + Pty-chi LSQML reconstruction)
+- **Dependencies:** TensorFlow, PyTorch (for Pty-chi), Phase C base NPZ, `scripts/compare_models.py`
+
 ## Running Specific Tests
 
 To run a specific test file:
