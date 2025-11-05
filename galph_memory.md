@@ -2649,3 +2649,17 @@
   - Updated docs/fix_plan.md Attempts History, refreshed input.md with mapped selectors/commands, and recorded AUTHORITATIVE_CMDS_DOC guard in How-To map.
 - Next actions for Ralph: implement `prepare_hub` + tests, run mapped selectors + collect-only, execute the dense pipeline with `--clobber`, and summarize metrics/logs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T230500Z: Phase G dense CLI evidence planning
+- dwell: 0 (reset after confirming 2025-11-07T210500Z+exec implementation delivered prepare_hub helper)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) and reviewed 2025-11-07T210500Z summary/logs to confirm prepare_hub helper + tests are GREEN.
+  - Consulted docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001) to anchor dense pipeline evidence requirements.
+  - Provisioned new hub (230500Z) with plan/summary scaffolding, outlining CLI execution, collect-only smoke test, post-run validation, and doc sync obligations.
+  - Updated docs/fix_plan.md attempt ledger and rewrote input.md (Mode: TDD) with Implementation target (collect-only test), mapped selectors, CLI command, findings, pitfalls, and doc sync plan; AUTHORITATIVE_CMDS_DOC guard reiterated.
+- Next actions for Ralph: add collect-only smoke test, run targeted pytest selectors, execute dense Phase C→G pipeline with --clobber, validate metadata/summary helpers on real outputs, and archive logs/metrics while updating docs per Do Now.
+- <Action State>: [ready_for_implementation]
