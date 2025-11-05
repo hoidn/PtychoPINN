@@ -155,6 +155,16 @@
     - `docs/fix_plan.md` delta (items done/new), Attempts History snippet.
     - Any `CLAUDE.md` or `docs/architecture.md` updates (1–3 lines each).
     - Next most‑important item you would pick if you had another loop.
+
+    **Turn Summary (required at end of reply):** Append a lightweight Markdown block humans can skim. Format: a single level‑3 heading `### Turn Summary`, followed by 3–5 short single‑line sentences describing: (a) what you shipped/advanced this turn, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step you intend. Finish with an `Artifacts:` line pointing to this loop’s reports directory and (optionally) 1–2 filenames. Do **not** include focus IDs, branch names, dwell/state, or pytest selectors (those are already captured in `galph_memory.md` and `input.md`). Markdown only — no JSON/YAML/XML.
+    **Persistence:** Write the **exact same block** to `plans/active/<initiative-id>/reports/<ISO8601Z>/summary.md` for this loop (use the initiative ID and timestamp used for this loop’s Artifacts path). If `summary.md` already exists, **prepend** this turn’s block above earlier notes.
+
+    Example:
+    ### Turn Summary
+    Implemented score coercion so CLI diagnostics always emit numeric ROI scores; no telemetry schema changes.
+    Resolved the mocked‑score TypeError with explicit float casting and added an empty‑list guard; remaining paths look clean.
+    Next: run the full CLI test module and refresh docs only if any user‑visible messages changed.
+    Artifacts: plans/active/TORCH-CLI-004/reports/2025-11-04T222435Z/ (pytest_torch_diag.log, out.h5)
   </output_format>
 
   <completion_checklist>
