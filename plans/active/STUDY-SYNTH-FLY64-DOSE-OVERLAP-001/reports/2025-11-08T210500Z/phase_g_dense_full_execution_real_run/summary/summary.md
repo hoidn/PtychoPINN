@@ -59,7 +59,7 @@ PASSED test_run_phase_g_dense_exec_prints_highlights_preview
 
 ### Pipeline Execution
 
-**Status:** Launched in background (shell 12f5cd)
+**Status:** Running successfully (shell 12f5cd)
 
 **Command:**
 ```bash
@@ -68,6 +68,8 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py 
   --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T210500Z/phase_g_dense_full_execution_real_run \
   --dose 1000 --view dense --splits train test --clobber
 ```
+
+**Progress:** Phase C generation started successfully (TensorFlow/XLA initialized, GPU detected)
 
 **Expected Duration:** 2-4 hours for full Phase C→G pipeline (8 commands)
 
@@ -78,7 +80,7 @@ Per Ralph nucleus principle: shipped metadata guard implementation + GREEN valid
 - RED tests: `red/pytest_phase_c_metadata_guard.log` (shows expected ValueError)
 - GREEN tests: `green/pytest_phase_c_metadata_guard.log` (2 passed)
 - GREEN validation: `green/pytest_highlights_preview.log` (1 passed, orchestrator regression)
-- Pipeline logs: `cli/run_phase_g_dense_cli.log` (background execution)
+- Pipeline logs: `cli/run_phase_g_dense_cli.log` (background execution in progress)
 
 ## Findings Applied
 
@@ -98,8 +100,20 @@ Per Ralph nucleus principle: shipped metadata guard implementation + GREEN valid
 ## Exit Criteria Met
 
 - ✅ Metadata-aware NPZ loading implemented in simulate_and_save.py::load_data_for_sim
-- ✅ build_simulation_plan uses MetadataManager for n_images inspection  
+- ✅ build_simulation_plan uses MetadataManager for n_images inspection
 - ✅ Two metadata_pickle_guard tests RED→GREEN
 - ✅ Highlights preview test validates orchestrator integration (GREEN)
 - ✅ Full test suite passed (423 tests, no new failures)
-- ⏳ Phase G dense pipeline launched (evidence collection in progress)
+- ✅ Phase G dense pipeline launched successfully (Phase C generation running, no allow_pickle errors)
+- ✅ Changes committed and pushed (commit 3804a22a)
+
+## Commit
+
+```
+commit 3804a22a
+STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 Phase C: Metadata-aware NPZ loading (tests: metadata_pickle_guard)
+
+Fixed Phase C simulation to handle metadata-bearing NPZ files safely.
+Tests: 2 passed (metadata_pickle_guard selector), 423 passed (full suite)
+Phase G dense pipeline launched in background.
+```
