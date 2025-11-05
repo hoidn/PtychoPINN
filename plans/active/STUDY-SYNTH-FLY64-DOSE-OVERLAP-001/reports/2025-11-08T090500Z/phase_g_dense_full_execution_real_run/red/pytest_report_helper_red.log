@@ -1,0 +1,115 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_phase_g_dense_metrics_report.py::test_report_phase_g_dense_metrics FAILED [100%]
+
+=================================== FAILURES ===================================
+______________________ test_report_phase_g_dense_metrics _______________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0')
+
+    def test_report_phase_g_dense_metrics(tmp_path: Path) -> None:
+        """
+        Test reporting helper parses metrics_summary.json and emits delta tables.
+    
+        Acceptance:
+        - Loads report_phase_g_dense_metrics.py via importlib
+        - Creates fixture metrics_summary.json with PtychoPINN, Baseline, PtyChi aggregates
+        - Invokes helper with --metrics pointing to fixture
+        - Validates stdout contains:
+          - Aggregate metrics tables for each model (deterministic sorted order)
+          - Delta section showing PtychoPINN - Baseline and PtychoPINN - PtyChi
+          - 3-decimal formatting for all floats
+          - MS-SSIM amplitude/phase and MAE amplitude/phase comparisons
+        - Optionally writes Markdown via --output flag
+        - Optionally writes highlights via --highlights flag
+        - Returns 0 on success
+    
+        Follows TYPE-PATH-001 (Path normalization).
+        """
+        # Create fixture metrics_summary.json with realistic aggregate values
+        metrics_file = tmp_path / "metrics_summary.json"
+        fixture_data = {
+            "n_jobs": 2,
+            "n_success": 2,
+            "n_failed": 0,
+            "jobs": [],  # Not consumed by reporting helper
+            "aggregate_metrics": {
+                "PtychoPINN": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.987,
+                        "best_amplitude": 0.992,
+                        "mean_phase": 0.945,
+                        "best_phase": 0.956,
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.012,
+                        "mean_phase": 0.034,
+                    },
+                },
+                "Baseline": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.923,
+                        "best_amplitude": 0.931,
+                        "mean_phase": 0.889,
+                        "best_phase": 0.902,
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.048,
+                        "mean_phase": 0.067,
+                    },
+                },
+                "PtyChi": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.912,
+                        "best_amplitude": 0.919,
+                        "mean_phase": 0.876,
+                        "best_phase": 0.887,
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.055,
+                        "mean_phase": 0.078,
+                    },
+                },
+            },
+        }
+    
+        with metrics_file.open('w') as f:
+            json.dump(fixture_data, f, indent=2)
+    
+        # Invoke helper script as subprocess (validates CLI interface)
+        script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py"
+        md_output = tmp_path / "report.md"
+        highlights_output = tmp_path / "highlights.txt"
+    
+        result = subprocess.run(
+            [sys.executable, str(script_path), "--metrics", str(metrics_file), "--output", str(md_output), "--highlights", str(highlights_output)],
+            capture_output=True,
+            text=True,
+        )
+    
+        # Assert success
+>       assert result.returncode == 0, f"Helper failed: {result.stderr}"
+E       AssertionError: Helper failed: usage: report_phase_g_dense_metrics.py [-h] --metrics METRICS
+E                                                [--output OUTPUT]
+E         report_phase_g_dense_metrics.py: error: unrecognized arguments: --highlights /tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/highlights.txt
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/home/ollie/miniconda3/envs/ptycho311/bin/python3.11', '/home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py', '--metrics', '/tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/metrics_summary.json', '--output', '/tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/report.md', '--highlights', '/tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/highlights.txt'], returncode=2, stdout='', stderr='usage: report_phase_g_dense_metrics.py [-h] --metrics METRICS\n                                       [--output OUTPUT]\nreport_phase_g_dense_metrics.py: error: unrecognized arguments: --highlights /tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/highlights.txt\n').returncode
+
+tests/study/test_phase_g_dense_metrics_report.py:104: AssertionError
+=========================== short test summary info ============================
+FAILED tests/study/test_phase_g_dense_metrics_report.py::test_report_phase_g_dense_metrics - AssertionError: Helper failed: usage: report_phase_g_dense_metrics.py [-h] --metrics METRICS
+                                         [--output OUTPUT]
+  report_phase_g_dense_metrics.py: error: unrecognized arguments: --highlights /tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/highlights.txt
+  
+assert 2 == 0
+ +  where 2 = CompletedProcess(args=['/home/ollie/miniconda3/envs/ptycho311/bin/python3.11', '/home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py', '--metrics', '/tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/metrics_summary.json', '--output', '/tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/report.md', '--highlights', '/tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/highlights.txt'], returncode=2, stdout='', stderr='usage: report_phase_g_dense_metrics.py [-h] --metrics METRICS\n                                       [--output OUTPUT]\nreport_phase_g_dense_metrics.py: error: unrecognized arguments: --highlights /tmp/pytest-of-ollie/pytest-344/test_report_phase_g_dense_metr0/highlights.txt\n').returncode
+============================== 1 failed in 0.88s ===============================
