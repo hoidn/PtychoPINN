@@ -1,0 +1,89 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 9 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_phase_g_dense_orchestrator.py>
+        Tests for Phase G dense orchestrator summary helper.
+        <Function test_summarize_phase_g_outputs>
+          Test that summarize_phase_g_outputs() validates manifest, extracts metrics, and emits summaries.
+          
+          Acceptance:
+          - Parses comparison_manifest.json from hub/analysis/
+          - Fails fast if n_failed > 0 or metrics CSV missing
+          - Extracts MS-SSIM + MAE (amplitude/phase/value) from per-job comparison_metrics.csv
+          - Writes deterministic JSON + Markdown summary to hub/analysis/
+          
+          Follows TYPE-PATH-001 (Path normalization).
+        <Function test_summarize_phase_g_outputs_fails_on_missing_manifest>
+          Test that summarize_phase_g_outputs() raises RuntimeError if comparison_manifest.json is missing.
+        <Function test_summarize_phase_g_outputs_fails_on_execution_failures>
+          Test that summarize_phase_g_outputs() raises RuntimeError if n_failed > 0.
+        <Function test_summarize_phase_g_outputs_fails_on_missing_csv>
+          Test that summarize_phase_g_outputs() raises RuntimeError if comparison_metrics.csv is missing for a successful job.
+        <Function test_validate_phase_c_metadata_requires_metadata>
+          Test that validate_phase_c_metadata() raises RuntimeError when Phase C NPZ outputs lack _metadata.
+          
+          Acceptance:
+          - Normalizes hub path via TYPE-PATH-001
+          - Checks both train/test splits exist under phase_c_root
+          - Loads NPZ files via MetadataManager.load_with_metadata
+          - Raises RuntimeError mentioning '_metadata' if metadata is None
+          - Does not mutate or delete Phase C outputs (read-only)
+          
+          Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+        <Function test_validate_phase_c_metadata_requires_canonical_transform>
+          Test that validate_phase_c_metadata() raises RuntimeError when Phase C NPZ outputs have _metadata but missing transpose_rename_convert transformation.
+          
+          Acceptance:
+          - Normalizes hub path via TYPE-PATH-001
+          - Checks both train/test splits exist under phase_c_root
+          - Loads NPZ files via MetadataManager.load_with_metadata
+          - Checks metadata["data_transformations"] for "transpose_rename_convert" (case-sensitive list membership)
+          - Raises RuntimeError mentioning both '_metadata' and 'transpose_rename_convert' if transformation is missing
+          - Does not mutate or delete Phase C outputs (read-only)
+          
+          Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+        <Function test_validate_phase_c_metadata_accepts_valid_metadata>
+          Test that validate_phase_c_metadata() succeeds when Phase C NPZ outputs have proper metadata with transpose_rename_convert.
+          
+          Acceptance:
+          - Normalizes hub path via TYPE-PATH-001
+          - Checks both train/test splits exist under phase_c_root
+          - Loads NPZ files via MetadataManager.load_with_metadata
+          - Verifies metadata["data_transformations"] contains "transpose_rename_convert" transformation
+          - Succeeds without raising when transformation is present
+          - Does not mutate or delete Phase C outputs (read-only)
+          
+          Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+        <Function test_prepare_hub_detects_stale_outputs>
+          Test that prepare_hub() raises RuntimeError when hub contains stale Phase C outputs and clobber=False.
+          
+          Acceptance:
+          - Normalizes hub path via TYPE-PATH-001
+          - Detects existing Phase C outputs under hub/data/phase_c/
+          - Raises RuntimeError with actionable guidance mentioning both the stale path and --clobber remedy
+          - Does not delete/modify hub contents when clobber=False (default read-only behavior)
+          
+          Follows TYPE-PATH-001 (Path normalization).
+        <Function test_prepare_hub_clobbers_previous_outputs>
+          Test that prepare_hub() removes stale outputs and produces a clean hub when clobber=True.
+          
+          Acceptance:
+          - Normalizes hub path via TYPE-PATH-001
+          - Detects existing Phase C outputs under hub/data/phase_c/
+          - When clobber=True, archives or deletes prior data (implementation choice)
+          - Produces clean hub directory structure ready for new pipeline run
+          - Does not raise errors when clobber=True
+          
+          Follows TYPE-PATH-001 (Path normalization).
+
+========================== 9 tests collected in 2.01s ==========================

@@ -1,0 +1,50 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_prepare_hub_detects_stale_outputs ____________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-312/test_prepare_hub_detects_stale0')
+
+    def test_prepare_hub_detects_stale_outputs(tmp_path: Path) -> None:
+        """
+        Test that prepare_hub() raises RuntimeError when hub contains stale Phase C outputs and clobber=False.
+    
+        Acceptance:
+        - Normalizes hub path via TYPE-PATH-001
+        - Detects existing Phase C outputs under hub/data/phase_c/
+        - Raises RuntimeError with actionable guidance mentioning both the stale path and --clobber remedy
+        - Does not delete/modify hub contents when clobber=False (default read-only behavior)
+    
+        Follows TYPE-PATH-001 (Path normalization).
+        """
+        # Import the function under test
+>       prepare_hub = _import_prepare_hub()
+                      ^^^^^^^^^^^^^^^^^^^^^
+
+tests/study/test_phase_g_dense_orchestrator.py:403: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _import_prepare_hub():
+        """Import prepare_hub() from the orchestrator script using spec loader."""
+        script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py"
+        spec = importlib.util.spec_from_file_location("run_phase_g_dense", script_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+>       return module.prepare_hub
+               ^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'run_phase_g_dense' has no attribute 'prepare_hub'
+
+tests/study/test_phase_g_dense_orchestrator.py:387: AttributeError
+=========================== short test summary info ============================
+FAILED tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs - AttributeError: module 'run_phase_g_dense' has no attribute 'prepare_hub'
+============================== 1 failed in 0.91s ===============================
