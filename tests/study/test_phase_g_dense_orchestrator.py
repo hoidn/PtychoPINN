@@ -600,3 +600,108 @@ def test_prepare_hub_clobbers_previous_outputs(tmp_path: Path) -> None:
         # If it exists, it should be empty or contain only archive metadata
         remaining_files = list(phase_c_root.rglob("*.npz"))
         assert len(remaining_files) == 0, f"prepare_hub should remove/archive all .npz files when clobber=True, found: {remaining_files}"
+
+
+def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Test that main() in real execution mode invokes the reporting helper after Phase C→G pipeline.
+
+    Acceptance:
+    - Loads main() from orchestrator script via importlib
+    - Stubs prepare_hub, validate_phase_c_metadata, summarize_phase_g_outputs (no-op for speed)
+    - Monkeypatches run_command to record invocations
+    - Runs main() without --collect-only to trigger real execution path
+    - Asserts final run_command call targets report_phase_g_dense_metrics.py script
+    - Validates command includes --metrics metrics_summary.json and --output aggregate_report.md
+    - Validates log_path points to cli/aggregate_report_cli.log
+    - Ensures AUTHORITATIVE_CMDS_DOC environment variable is respected
+    - Returns 0 exit code on success
+
+    Follows TYPE-PATH-001 (Path normalization).
+    """
+    # Import main() and helper functions from orchestrator
+    module = _import_orchestrator_module()
+    main = module.main
+
+    # Setup: Create tmp hub directory
+    hub = tmp_path / "exec_hub"
+    hub.mkdir(parents=True)
+
+    # Create expected directory structure for Phase C→G
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+    cli_log_dir = hub / "cli"
+    cli_log_dir.mkdir(parents=True)
+    phase_g_root = hub / "analysis"
+    phase_g_root.mkdir(parents=True)
+
+    # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+    monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+
+    # Prepare sys.argv for argparse (NO --collect-only, so real execution)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_phase_g_dense.py",
+            "--hub", str(hub),
+            "--dose", "1000",
+            "--view", "dense",
+            "--splits", "train", "test",
+            "--clobber",  # Required to pass prepare_hub check
+        ],
+    )
+
+    # Stub heavy helpers to no-op (we only care about run_command invocations)
+    def stub_prepare_hub(hub_path, clobber):
+        """No-op stub for prepare_hub."""
+        pass
+
+    def stub_validate_phase_c_metadata(hub_path):
+        """No-op stub for validate_phase_c_metadata."""
+        pass
+
+    def stub_summarize_phase_g_outputs(hub_path):
+        """No-op stub for summarize_phase_g_outputs."""
+        pass
+
+    monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
+    monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
+    monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+
+    # Record run_command invocations
+    run_command_calls = []
+
+    def stub_run_command(cmd, log_path):
+        """Record cmd and log_path for assertions."""
+        run_command_calls.append((cmd, log_path))
+
+    monkeypatch.setattr(module, "run_command", stub_run_command)
+
+    # Execute: Call main() (should execute Phase C→G pipeline + reporting helper)
+    exit_code = main()
+
+    # Assert: Exit code should be 0
+    assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
+
+    # Assert: run_command should have been called multiple times (Phase C/D/E/F/G + reporting helper)
+    # Expected: 1 Phase C + 1 Phase D + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper = 9 total
+    assert len(run_command_calls) >= 9, f"Expected at least 9 run_command calls (C/D/E/F/G phases + reporting helper), got {len(run_command_calls)}"
+
+    # Assert: Final call should be the reporting helper
+    final_cmd, final_log_path = run_command_calls[-1]
+
+    # Validate final command targets report_phase_g_dense_metrics.py
+    assert any("report_phase_g_dense_metrics.py" in str(part) for part in final_cmd), \
+        f"Final run_command call should target report_phase_g_dense_metrics.py, got: {final_cmd}"
+
+    # Validate command includes required flags
+    cmd_str = " ".join(str(c) for c in final_cmd)
+    assert "--metrics" in cmd_str, f"Missing --metrics flag in reporting helper command: {cmd_str}"
+    assert "metrics_summary.json" in cmd_str, f"Missing metrics_summary.json in reporting helper command: {cmd_str}"
+    assert "--output" in cmd_str, f"Missing --output flag in reporting helper command: {cmd_str}"
+    assert "aggregate_report.md" in cmd_str, f"Missing aggregate_report.md in reporting helper command: {cmd_str}"
+
+    # Validate log_path points to cli/aggregate_report_cli.log
+    assert "aggregate_report_cli.log" in str(final_log_path), \
+        f"Expected reporting helper log path to be cli/aggregate_report_cli.log, got: {final_log_path}"
