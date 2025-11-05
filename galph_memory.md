@@ -2979,3 +2979,16 @@
   - Updated docs/fix_plan.md Attempts History with the 190500Z planning entry and rewrote input.md to point Ralph at the new hub (regression selector, pipeline command with --clobber, artifact checks, summary/doc updates).
 - Next actions for Ralph: run the regression selector, execute the dense Phase C→G pipeline under the 190500Z hub, verify the metrics bundle, and document MS-SSIM/MAE deltas in summary.md + docs/fix_plan.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T111247Z: Dense pipeline relaunch handoff
+- dwell: 2 (second consecutive planning loop; setting next_action=ready_for_implementation per dwell guard)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 - Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: none
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T111247Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed cached plan context then inspected 2025-11-09T190500Z hub (Phase C logs only, empty analysis/, no metrics bundle) and confirmed no live orchestrator processes.
+  - Consulted docs/findings.md entries (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001) and reused implementation.md guidance for Phase G workflow.
+  - Staged new hub 2025-11-05T111247Z with plan/summary scaffolding, documented relaunch steps in plan.md, updated docs/fix_plan.md status/attempt log, and rewrote input.md with ready-for-implementation Do Now + guardrails.
+- Next actions for Ralph: run the mapped regression selector, execute run_phase_g_dense.py with --clobber in the new hub, verify metrics/highlights artifacts, and log MS-SSIM/MAE deltas in summary.md plus docs/fix_plan.md.
+- <Action State>: [ready_for_implementation]
