@@ -50,6 +50,31 @@ def safe_pull(log_print) -> bool:
                 "Move/remove conflicting files and retry."
             )
             return False
+        # If pull failed due to local modifications, attempt one-shot autostash
+        if cp.returncode != 0 and (
+            "cannot pull with rebase: you have unstaged changes" in err
+            or "please commit or stash them" in err
+            or "your local changes to the following files would be overwritten" in err
+        ):
+            try:
+                log_print("[git_bus] Detected local modifications blocking rebase; attempting autostash…")
+                _run(["git", "stash", "push", "-u", "-m", "orchestrator-safe_pull-autostash"], timeout=30)
+                cp2 = _run(["git", "pull", "--rebase"], timeout=60)
+                if cp2.stdout:
+                    log_print(cp2.stdout.rstrip())
+                if cp2.stderr:
+                    log_print(cp2.stderr.rstrip())
+                # Try to restore working changes
+                pop = _run(["git", "stash", "pop"], timeout=30)
+                if pop.stdout:
+                    log_print(pop.stdout.rstrip())
+                if pop.stderr:
+                    # Conflicts here are acceptable; surface but don't fail pull outcome
+                    log_print(pop.stderr.rstrip())
+                return cp2.returncode == 0
+            except Exception as e2:
+                log_print(f"[git_bus] Autostash pull failed: {e2}")
+                # Fall through to recovery path
         return cp.returncode == 0
     except Exception as e:
         log_print(f"git pull --rebase failed or timed out: {e}")

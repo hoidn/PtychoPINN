@@ -25,3 +25,5 @@ WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/sit
 Instructions for updating:
 Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
 2025-11-04 20:55:46.357643: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+
+ERROR generating dose=1000.0: Object arrays cannot be loaded when allow_pickle=False

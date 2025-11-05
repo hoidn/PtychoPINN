@@ -135,6 +135,30 @@ def main() -> int:
 
     # (reports auto-commit now shared via autocommit.autocommit_reports)
 
+    def _prepull_reports_autocommit(logger) -> None:
+        """Proactively commit reports under plans/active/**/reports/** before pulling.
+
+        This reduces chances that local evidence files block `git pull --rebase`.
+        Large/binary artifacts remain skipped via extension and size caps.
+        """
+        if not args.auto_commit_reports:
+            return
+        try:
+            allowed_exts = {e.strip().lower() for e in args.report_extensions.split(',') if e.strip()}
+            autocommit_reports(
+                allowed_extensions=allowed_exts,
+                max_file_bytes=args.max_report_file_bytes,
+                max_total_bytes=args.max_report_total_bytes,
+                force_add=args.force_add_reports,
+                logger=logger,
+                commit_message_prefix="RALPH AUTO PRE-PULL: reports evidence — autopublish",
+                skip_predicate=_skip_reports,
+                allowed_path_globs=("plans/active/**/reports/**",),
+            )
+        except Exception:
+            # Pre-pull hygiene is best-effort; continue to pull fallback if this fails
+            pass
+
     # Branch guard / resolution
     if args.branch:
         assert_on_branch(args.branch, lambda m: None)
@@ -142,7 +166,8 @@ def main() -> int:
     else:
         branch_target = current_branch()
 
-    # Always keep up to date
+    # Always keep up to date (pre-pull reports publish, then pull)
+    _prepull_reports_autocommit(logp)
     ok_initial = _pull_with_error(logp, "initial")
     if not ok_initial:
         print("[sync] ERROR: git pull failed; see iter log for details (likely untracked-file collisions).")
@@ -151,6 +176,7 @@ def main() -> int:
 
     for _ in range(args.sync_loops):
         # Compute per-iteration log path (branch/prompt aware)
+        _prepull_reports_autocommit(logp)
         ok_probe = _pull_with_error(lambda m: None, "probe")
         if not ok_probe:
             # Error line already printed
@@ -184,6 +210,7 @@ def main() -> int:
             logp("[SYNC] Waiting for expected_actor=ralph...")
             start = time.time()
             while True:
+                _prepull_reports_autocommit(logp)
                 if not _pull_with_error(logp, "polling"):
                     # Error line already printed
                     return 1

@@ -25,6 +25,7 @@ import numpy as np
 # Import study design
 from studies.fly64_dose_overlap.design import get_study_design
 from studies.fly64_dose_overlap.validation import validate_dataset_contract
+from ptycho.metadata import MetadataManager
 
 # Import ptycho config and tools
 from ptycho.config.config import TrainingConfig, ModelConfig
@@ -217,9 +218,8 @@ def generate_dataset_for_dose(
     print(f"[Stage 5/5] Validating DATA-001 compliance...")
     for split_name, split_path in [('train', train_npz), ('test', test_npz)]:
         print(f"  Validating {split_name}...")
-        # Load NPZ data for validation (validator now expects in-memory dict)
-        with np.load(split_path) as npz_data:
-            data_dict = {k: npz_data[k] for k in npz_data.keys()}
+        # Load NPZ data for validation via MetadataManager to handle object metadata
+        data_dict, _ = MetadataManager.load_with_metadata(str(split_path))
         # Call refactored validator with correct signature
         # Note: 'view' is optional; only pass it if present in design_params
         validate_kwargs = {
