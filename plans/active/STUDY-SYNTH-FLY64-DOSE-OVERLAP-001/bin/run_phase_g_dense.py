@@ -878,6 +878,19 @@ def main() -> int:
             print("      For MAE, negative Δ indicates PtychoPINN is better (lower error).")
             print("=" * 80 + "\n")
 
+            # Persist delta highlights to text file (TYPE-PATH-001)
+            highlights_txt_path = Path(phase_g_root) / "metrics_delta_highlights.txt"
+            highlights_lines = [
+                f"MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude {delta_ms_base_amp}  phase {delta_ms_base_phase}",
+                f"MS-SSIM Δ (PtychoPINN - PtyChi)    : amplitude {delta_ms_pty_amp}  phase {delta_ms_pty_phase}",
+                f"MAE Δ (PtychoPINN - Baseline)      : amplitude {delta_mae_base_amp}  phase {delta_mae_base_phase}",
+                f"MAE Δ (PtychoPINN - PtyChi)        : amplitude {delta_mae_pty_amp}  phase {delta_mae_pty_phase}",
+            ]
+            with highlights_txt_path.open("w", encoding="utf-8") as f:
+                f.write("\n".join(highlights_lines) + "\n")
+
+            print(f"Delta highlights saved to: {highlights_txt_path.relative_to(hub)}")
+
             # Persist delta metrics to JSON (TYPE-PATH-001)
             delta_json_path = Path(phase_g_root) / "metrics_delta_summary.json"
 
@@ -959,10 +972,14 @@ def main() -> int:
     print(f"Metrics digest (Markdown): {metrics_digest_md}")
     print(f"Metrics digest log: {analyze_digest_log}")
 
-    # Add delta JSON to success banner (TYPE-PATH-001)
+    # Add delta JSON and highlights to success banner (TYPE-PATH-001)
     delta_json_path = Path(phase_g_root) / "metrics_delta_summary.json"
     if delta_json_path.exists():
         print(f"Delta metrics (JSON): {delta_json_path.relative_to(hub)}")
+
+    metrics_delta_highlights_path = Path(phase_g_root) / "metrics_delta_highlights.txt"
+    if metrics_delta_highlights_path.exists():
+        print(f"Delta highlights (TXT): {metrics_delta_highlights_path.relative_to(hub)}")
 
     return 0
 

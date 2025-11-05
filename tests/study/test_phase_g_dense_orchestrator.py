@@ -1177,3 +1177,45 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         f"Expected source_metrics to be relative path (TYPE-PATH-001), got absolute: {source_metrics}"
     assert "metrics_summary.json" in source_metrics, \
         f"Expected source_metrics to reference metrics_summary.json, got {source_metrics}"
+
+    # Assert: metrics_delta_highlights.txt should be created in analysis/
+    highlights_txt_path = phase_g_root / "metrics_delta_highlights.txt"
+    assert highlights_txt_path.exists(), \
+        f"Expected metrics_delta_highlights.txt to exist at {highlights_txt_path}, but it was not found"
+
+    # Read highlights file content
+    highlights_content = highlights_txt_path.read_text(encoding="utf-8")
+
+    # Assert: highlights file should contain exactly 4 delta lines (MS-SSIM vs Baseline/PtyChi, MAE vs Baseline/PtyChi)
+    # Expected format: "MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude +0.020  phase +0.020"
+    assert "MS-SSIM Δ (PtychoPINN - Baseline)" in highlights_content, \
+        f"Expected highlights to contain MS-SSIM delta line vs Baseline, got:\n{highlights_content}"
+    assert "amplitude +0.020" in highlights_content, \
+        f"Expected highlights to contain amplitude +0.020 (MS-SSIM vs Baseline), got:\n{highlights_content}"
+    assert "phase +0.020" in highlights_content, \
+        f"Expected highlights to contain phase +0.020 (MS-SSIM vs Baseline), got:\n{highlights_content}"
+
+    assert "MS-SSIM Δ (PtychoPINN - PtyChi)" in highlights_content, \
+        f"Expected highlights to contain MS-SSIM delta line vs PtyChi, got:\n{highlights_content}"
+    assert "amplitude +0.010" in highlights_content, \
+        f"Expected highlights to contain amplitude +0.010 (MS-SSIM vs PtyChi), got:\n{highlights_content}"
+    assert "phase +0.010" in highlights_content, \
+        f"Expected highlights to contain phase +0.010 (MS-SSIM vs PtyChi), got:\n{highlights_content}"
+
+    assert "MAE Δ (PtychoPINN - Baseline)" in highlights_content, \
+        f"Expected highlights to contain MAE delta line vs Baseline, got:\n{highlights_content}"
+    assert "amplitude -0.005" in highlights_content, \
+        f"Expected highlights to contain amplitude -0.005 (MAE vs Baseline), got:\n{highlights_content}"
+    assert "phase -0.005" in highlights_content, \
+        f"Expected highlights to contain phase -0.005 (MAE vs Baseline), got:\n{highlights_content}"
+
+    assert "MAE Δ (PtychoPINN - PtyChi)" in highlights_content, \
+        f"Expected highlights to contain MAE delta line vs PtyChi, got:\n{highlights_content}"
+    assert "amplitude -0.002" in highlights_content, \
+        f"Expected highlights to contain amplitude -0.002 (MAE vs PtyChi), got:\n{highlights_content}"
+    assert "phase -0.002" in highlights_content, \
+        f"Expected highlights to contain phase -0.002 (MAE vs PtyChi), got:\n{highlights_content}"
+
+    # Assert: Success banner should mention metrics_delta_highlights.txt path (TYPE-PATH-001)
+    assert "metrics_delta_highlights.txt" in stdout, \
+        f"Expected success banner to mention metrics_delta_highlights.txt, got:\n{stdout}"

@@ -330,16 +330,24 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics
 
 **Phase G Delta Metrics Persistence:**
 
-The orchestrator automatically persists computed MS-SSIM/MAE deltas to `analysis/metrics_delta_summary.json` after the digest generation step. This JSON artifact:
+The orchestrator automatically persists computed MS-SSIM/MAE deltas to two complementary artifacts after the digest generation step:
 
-- Contains raw numeric delta values (not formatted strings) for programmatic consumption
-- Includes provenance metadata (`generated_at`, `source_metrics`) for traceability
-- Structure: `{"generated_at": "...", "source_metrics": "...", "deltas": {"vs_Baseline": {...}, "vs_PtyChi": {...}}}`
-- Each metric includes `amplitude` and `phase` fields with numeric delta values (null if source data missing)
-- Location: `<hub>/analysis/metrics_delta_summary.json`
-- Referenced in orchestrator success banner for traceability
+1. **JSON artifact** (`analysis/metrics_delta_summary.json`):
+   - Contains raw numeric delta values (not formatted strings) for programmatic consumption
+   - Includes provenance metadata (`generated_at`, `source_metrics`) for traceability
+   - Structure: `{"generated_at": "...", "source_metrics": "...", "deltas": {"vs_Baseline": {...}, "vs_PtyChi": {...}}}`
+   - Each metric includes `amplitude` and `phase` fields with numeric delta values (null if source data missing)
+   - Referenced in orchestrator success banner for traceability
 
-**Provenance metadata fields:**
+2. **Highlights text artifact** (`analysis/metrics_delta_highlights.txt`):
+   - Contains formatted delta lines (4 lines total) for quick human review
+   - Format: `MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude +0.020  phase +0.020`
+   - Signed 3-decimal formatting (+/-0.000) for all deltas
+   - Order: MS-SSIM vs Baseline, MS-SSIM vs PtyChi, MAE vs Baseline, MAE vs PtyChi
+   - Referenced in orchestrator success banner for traceability
+   - Useful for quick delta validation without parsing JSON
+
+**Provenance metadata fields (JSON only):**
 - `generated_at`: ISO8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ) when deltas were computed
 - `source_metrics`: Relative POSIX path from hub to source metrics_summary.json (TYPE-PATH-001 compliance)
 
