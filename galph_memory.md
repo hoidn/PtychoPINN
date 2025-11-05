@@ -2838,3 +2838,18 @@
   - Rewrote input.md (Mode: TDD) directing Ralph to add Stage 5 metadata-splits regression test, rerun targeted selectors, relaunch `run_phase_g_dense.py --clobber` with AUTHORITATIVE_CMDS_DOC guard, run analyze_dense_metrics.py, and capture MS-SSIM/MAE deltas.
 - Next actions for Ralph: implement metadata-splits test + any necessary Stage 5 tweaks, cycle metadata/highlights pytest selectors RED→GREEN, rerun dense pipeline under 230500Z hub, run metrics digest, and update summary/docs with measured deltas.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T010500Z: Dense rerun plan + digest alignment
+- dwell: 0 (first planning loop after prior ready-for-implementation handoff)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T010500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reread latest hub summaries (230500Z) plus new plan requirements.
+  - Confirmed metadata splits regression test merged; pipeline evidence still outstanding, so rescoped focus to “rerun dense pipeline + digest”.
+  - Created 2025-11-09T010500Z hub with plan scaffolding (plan/collect/red/green/cli/analysis/summary) and documented scope in plan.md.
+  - Updated docs/fix_plan.md Attempts History with new planning entry (test addition + rerun tasks) and reaffirmed POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001 guards.
+  - Ensured AUTHORITATIVE_CMDS_DOC guard stays `./docs/TESTING_GUIDE.md` for downstream commands; How-To will reference ENV export explicitly.
+- Next actions for Ralph: add analyze-digest failure regression test, capture RED→GREEN logs, execute Phase C→G pipeline with `--clobber`, run digest, and propagate MS-SSIM/MAE deltas + artifact links into summary/docs.
+- <Action State>: [ready_for_implementation]

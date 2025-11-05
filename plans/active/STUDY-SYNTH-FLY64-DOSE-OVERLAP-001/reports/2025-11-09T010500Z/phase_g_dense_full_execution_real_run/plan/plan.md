@@ -1,0 +1,42 @@
+# Phase G Dense Pipeline Rerun + Digest (2025-11-09T010500Z)
+
+## Objective
+Execute the full Phase C→G pipeline for dose=1000, view=dense with fresh artifacts after metadata coverage landed, then generate the metrics digest inside the same hub. Capture RED→GREEN pytest evidence for the new analyze script regression test and archive long-running CLI logs.
+
+## Scope
+- Add a regression test ensuring `analyze_dense_metrics.py` returns exit code 1 when `n_failed > 0` and emits the failure banner.
+- Run targeted pytest selectors for the reporting/analyze helpers and highlight preview guard.
+- Execute `run_phase_g_dense.py --clobber` for dose 1000 dense train/test and persist CLI logs.
+- Run `analyze_dense_metrics.py` once metrics_summary.json + aggregate_highlights.txt exist to produce `analysis/metrics_digest.md`.
+- Update `summary.md` + `docs/fix_plan.md` with MS-SSIM/MAE deltas and digest path.
+
+## Deliverables
+1. `tests/study/test_phase_g_dense_metrics_report.py::test_analyze_dense_metrics_flags_failures` (new test).
+2. RED→GREEN pytest logs under `reports/2025-11-09T010500Z/.../{red,green}/`.
+3. Fresh Phase C→G CLI transcripts under `.../cli/` and metrics artifacts under `.../analysis/`.
+4. `analysis/metrics_digest.md` plus digest CLI log.
+5. Turn Summary appended to `summary/summary.md`.
+6. docs/fix_plan.md Attempts History update referencing this rerun.
+
+## Acceptance Criteria
+- New pytest test fails if `analyze_dense_metrics.py` stops flagging `n_failed > 0`. Selector added to registry.
+- Phase G pipeline exits 0 with `metrics_summary.json`, `aggregate_report.md`, `aggregate_highlights.txt`, and updated `comparison_manifest.json` in hub.
+- `analyze_dense_metrics.py` exits 0 when `n_failed == 0` (real run) and produces digest referencing Phase G outputs.
+- Summary/docs capture MS-SSIM + MAE amplitude/phase deltas for PtychoPINN vs Baseline and PtyChi.
+- Artifacts recorded in `docs/fix_plan.md` + `galph_memory.md` with timestamped path.
+
+## Findings to Observe
+- POLICY-001 (PyTorch dependency enforcement)
+- CONFIG-001 (AUTHORITATIVE_CMDS_DOC export before orchestrator)
+- DATA-001 (MetadataManager usage + NPZ contract)
+- TYPE-PATH-001 (Path objects in scripts/tests)
+- OVERSAMPLING-001 (Check spacing metrics in digest/logs)
+
+## Risks / Mitigations
+- **Long runtime (2-4h):** Ensure `--clobber` to avoid stale artifacts; monitor CLI logs via `tail -f` (optional) and checkpoint with `pgrep` if hang observed.
+- **Digest failure:** Capture `analysis/metrics_digest.log` via `tee` and treat non-zero exit as blocker.
+- **Test flake:** Run new regression test standalone first to confirm deterministic output.
+
+## Next Steps After Success
+- Kick off sparse-view dense run (train/test) with mirrored workflow.
+- Promote digest highlights into study-level report.
