@@ -2634,3 +2634,18 @@
   - Updated docs/fix_plan.md Attempt entry and rewrote input.md with TDD Do Now + CLI command, pitfalls, and doc sync obligations.
 - Next actions for Ralph: ship transformation-aware guard + tests, capture RED→GREEN + collect logs, run dense orchestrator, and sync documentation.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T210500Z: Phase G dense rerun clean-hub plan
+- dwell: 2 (third consecutive planning loop — handed off ready implementation per dwell guard)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date); re-read 2025-11-07T190500Z+exec summary confirming guard/summary helpers are GREEN yet dense pipeline evidence still missing.
+  - Consulted docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001) plus specs/data_contracts.md:215 to ensure metadata + overlap requirements guide the rerun.
+  - Reviewed prior hub artifacts (2025-11-07T190500Z) and identified stale Phase C outputs as root cause for previous guard failures; determined need for explicit hub cleanup before reruns.
+  - Stood up new hub (210500Z) with plan/summary, drafted implementation-ready Do Now adding `prepare_hub` helper + `--clobber` flag, RED→GREEN pytest steps, collect-only log, and dense CLI rerun instructions.
+  - Updated docs/fix_plan.md Attempts History, refreshed input.md with mapped selectors/commands, and recorded AUTHORITATIVE_CMDS_DOC guard in How-To map.
+- Next actions for Ralph: implement `prepare_hub` + tests, run mapped selectors + collect-only, execute the dense pipeline with `--clobber`, and summarize metrics/logs.
+- <Action State>: [ready_for_implementation]

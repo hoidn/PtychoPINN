@@ -1,66 +1,71 @@
-Summary: Enforce the Phase C metadata guard to require canonical transformation history and prove it with a dense orchestrator run.
+Summary: Rerun the Phase C→G dense pipeline on a clean hub by adding a `prepare_hub` helper with `--clobber`, covering it with tests, and capturing full CLI evidence.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis
 Branch: feature/torchapi-newprompt
 Mapped tests:
+  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs -vv
+  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs -vv
   - pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_canonical_transform -vv
   - pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv
-  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T190500Z/phase_c_metadata_guard_followup/
+  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun/
 
 Do Now (hard validity contract):
-  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_canonical_transform — add failing pytest case that fabricates Phase C NPZ outputs with `_metadata` but missing `transpose_rename_convert`, expecting `RuntimeError` mentioning the missing transformation.
-  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata — add positive-path test using `MetadataManager.save_with_metadata` to embed a transformation record and assert the guard passes.
-  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::validate_phase_c_metadata — require `transpose_rename_convert` in `metadata["data_transformations"]` for each split; raise a RuntimeError referencing `_metadata` and the missing transformation when absent.
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs — add failing pytest case that seeds a fake hub containing existing Phase C outputs and asserts `prepare_hub(..., clobber=False)` raises `RuntimeError` with actionable guidance.
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::prepare_hub — create helper that normalizes paths, detects stale hub contents, and either raises or moves/deletes them based on a new `--clobber` flag.
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs — add positive-path test proving `prepare_hub(..., clobber=True)` produces a clean hub and archives/deletes prior data.
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs -vv
   - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_canonical_transform -vv
   - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata -vv
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T190500Z/phase_c_metadata_guard_followup --dose 1000 --view dense --splits train test
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun --dose 1000 --view dense --splits train test --clobber
 
 How-To Map:
   1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-  2. mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T190500Z/phase_c_metadata_guard_followup/{red,green,collect,cli,analysis}
-  3. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_canonical_transform -vv` and tee output to `.../red/pytest_guard_transform_red.log` to capture the expected failure.
-  4. Extend `tests/study/test_phase_g_dense_orchestrator.py` with helper(s) that write NPZ files via `MetadataManager.save_with_metadata`, add the new RED test, add the positive-path test, and update fixtures as needed.
-  5. Update `validate_phase_c_metadata` in the orchestrator script to enforce `transpose_rename_convert` in `metadata["data_transformations"]` (list membership, case-sensitive) and emit actionable RuntimeError text.
-  6. Re-run the three mapped pytest selectors, capturing GREEN logs under `.../green/` and `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > .../collect/pytest_phase_g_guard_collect.log`.
-  7. Execute the dense orchestrator CLI (`python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub .../phase_c_metadata_guard_followup --dose 1000 --view dense --splits train test`) while teeing output to `.../cli/phase_g_dense_guard.log`; if it fails, copy the traceback into `analysis/blocker.log`.
-  8. On success, archive any metrics/manifests produced into the hub’s `analysis/` directory; if blocked, leave the pipeline outputs intact for inspection.
-  9. Update `summary/summary.md`, `docs/fix_plan.md` Attempts History, `docs/TESTING_GUIDE.md` §2, `docs/development/TEST_SUITE_INDEX.md`, and `galph_memory.md` with outcomes and selector references.
+  2. mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun/{red,green,collect,cli,analysis}
+  3. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs -vv` and tee output to `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun/red/pytest_prepare_hub_red.log` to capture the expected RuntimeError.
+  4. Extend `tests/study/test_phase_g_dense_orchestrator.py` with helper imports and new tests covering `prepare_hub` failure/cleanup paths; implement `prepare_hub` and `--clobber` flag in `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py`.
+  5. Re-run the mapped pytest selectors one by one, capturing GREEN logs under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun/green/pytest_prepare_hub_green.log`, `pytest_metadata_guard_green.log`, and `pytest_summary_helper_green.log`.
+  6. Execute `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun/collect/pytest_phase_g_orchestrator_collect.log`.
+  7. Launch the dense pipeline rerun with `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun --dose 1000 --view dense --splits train test --clobber | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun/cli/phase_g_dense_pipeline.log`.
+  8. If the pipeline succeeds, ensure metrics/manifests emitted by the script remain under the hub’s `analysis/` directory; if it fails, capture the traceback in `analysis/blocker.log` and stop.
+  9. Update `summary/summary.md`, `docs/fix_plan.md`, `docs/TESTING_GUIDE.md` §2, `docs/development/TEST_SUITE_INDEX.md`, and `galph_memory.md` with outcomes, selector references, and artifact paths.
 
 Pitfalls To Avoid:
-  - Do not load NPZ fixtures with `allow_pickle=False`; rely on `MetadataManager.save_with_metadata`.
-  - Guard must stay read-only; never mutate or delete Phase C files during checks.
-  - RuntimeError text should include both `_metadata` and `transpose_rename_convert` for stable pytest matching.
-  - Ensure the new tests clean up tmp artifacts and avoid writing outside `tmp_path`.
-  - Keep guard logs backend-neutral (POLICY-001) and avoid TensorFlow-specific assumptions.
-  - Preserve TYPE-PATH-001 normalization (`Path.resolve()`) when touching filesystem paths.
-  - Prevent redundant large array loads; only inspect metadata headers.
-  - Confirm mapped selectors still collect ≥1 test; repair immediately if collection drops.
-  - CLI run should target the new hub only; do not reuse prior hubs to avoid overwriting evidence.
-  - If CLI fails, capture `analysis/blocker.log` before retrying and do not rerun blindly.
+  - Do not delete hub contents unless `--clobber` is explicitly passed; default must be read-only.
+  - Keep cleanup logic TYPE-PATH-001 compliant (`Path.resolve()` before filesystem ops).
+  - Preserve prior evidence by archiving instead of trashing when practical; document retention in RuntimeError text.
+  - New tests must use `tmp_path` and avoid touching real study directories.
+  - Ensure RuntimeError messages are stable for pytest matching and mention both the stale path and the `--clobber` remedy.
+  - Export `AUTHORITATIVE_CMDS_DOC` before running pytest/CLI commands.
+  - Monitor pipeline duration; if a long-running phase fails, stop immediately and record the failure signature rather than re-running blindly.
+  - Never mutate NPZ payloads during validation; `prepare_hub` must only touch directory scaffolding.
+  - Confirm mapped selectors still collect ≥1 test; fix immediately if collection drops.
+  - When moving old hubs, avoid crossing filesystem boundaries that would discard metadata permissions.
 
 If Blocked:
-  - Stop, record the failure signature (pytest or CLI) in `analysis/blocker.log`, keep logs in place, and document the block in `summary/summary.md`, `docs/fix_plan.md`, and `galph_memory.md` before ending the loop.
+  - Stop work, save the failing pytest or CLI output to the hub (`analysis/blocker.log` plus relevant logs), update `summary/summary.md` with the blocker context, and document the block in `docs/fix_plan.md` and `galph_memory.md` before ending the loop.
 
 Findings Applied (Mandatory):
-  - POLICY-001 — Guard and tests must remain backend-neutral while honoring mandatory PyTorch dependency.
-  - CONFIG-001 — Guard must not bypass the params.cfg bridge; read-only metadata validation only.
-  - DATA-001 — NPZ contract (including `_metadata`) enforced without mutating payloads.
-  - TYPE-PATH-001 — All filesystem interactions use `Path.resolve()` to avoid string path bugs.
-  - OVERSAMPLING-001 — Ensure dense view parameters remain unchanged when running the pipeline evidence.
+  - POLICY-001 — PyTorch dependency policy: pipeline script must stay backend-neutral while maintaining mandatory torch install context (docs/findings.md:8).
+  - CONFIG-001 — Respect legacy bridge sequencing; helper cannot bypass `update_legacy_dict` (docs/findings.md:10).
+  - DATA-001 — Enforce NPZ metadata contract without mutating payloads (docs/findings.md:14).
+  - TYPE-PATH-001 — Normalize filesystem paths when cleaning/archiving hub contents (docs/findings.md:21).
+  - OVERSAMPLING-001 — Maintain dense view overlap parameters during rerun (docs/findings.md:17).
 
 Pointers:
-  - docs/findings.md:8 (POLICY-001 PyTorch requirement context)
-  - docs/findings.md:10 (CONFIG-001 legacy bridge sequencing)
-  - docs/findings.md:14 (DATA-001 NPZ contract expectations)
-  - docs/findings.md:21 (TYPE-PATH-001 path normalization guardrail)
-  - specs/data_contracts.md:215 (`_metadata` contract details)
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:137 (guard implementation site)
-  - tests/study/test_phase_g_dense_orchestrator.py:200 (existing orchestrator guard tests scaffold)
+  - docs/findings.md:8
+  - docs/findings.md:10
+  - docs/findings.md:14
+  - docs/findings.md:21
+  - specs/data_contracts.md:215
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:120
+  - tests/study/test_phase_g_dense_orchestrator.py:200
 
 Next Up (optional):
-  - After guard passes with dense evidence, extend CLI summary generation checks for sparse view coverage.
+  - After dense evidence is archived, extend the orchestrator summary to aggregate sparse view metrics for parity.
 
 Doc Sync Plan (Conditional):
-  - After GREEN, run `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T190500Z/phase_c_metadata_guard_followup/collect/pytest_phase_g_guard_collect.log` and update `docs/TESTING_GUIDE.md` §2 plus `docs/development/TEST_SUITE_INDEX.md` with the new guard selectors.
+  - After GREEN, run `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T210500Z/phase_g_dense_execution_rerun/collect/pytest_phase_g_orchestrator_collect.log` and update `docs/TESTING_GUIDE.md` §2 plus `docs/development/TEST_SUITE_INDEX.md` with the new `prepare_hub` selectors.
