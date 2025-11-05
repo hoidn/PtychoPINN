@@ -205,3 +205,54 @@ def test_summarize_phase_g_outputs_fails_on_missing_csv(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="comparison_metrics.csv.*not found"):
         summarize_phase_g_outputs(hub)
+
+
+def _import_validate_phase_c_metadata():
+    """Import validate_phase_c_metadata() from the orchestrator script using spec loader."""
+    script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py"
+    spec = importlib.util.spec_from_file_location("run_phase_g_dense", script_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.validate_phase_c_metadata
+
+
+def test_validate_phase_c_metadata_requires_metadata(tmp_path: Path) -> None:
+    """
+    Test that validate_phase_c_metadata() raises RuntimeError when Phase C NPZ outputs lack _metadata.
+
+    Acceptance:
+    - Normalizes hub path via TYPE-PATH-001
+    - Checks both train/test splits exist under phase_c_root
+    - Loads NPZ files via MetadataManager.load_with_metadata
+    - Raises RuntimeError mentioning '_metadata' if metadata is None
+    - Does not mutate or delete Phase C outputs (read-only)
+
+    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+    """
+    # Import the function under test
+    validate_phase_c_metadata = _import_validate_phase_c_metadata()
+
+    # Setup: Create fake Phase C outputs without metadata
+    hub = tmp_path / "phase_c_hub"
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+
+    # Create minimal NPZ files for train and test splits WITHOUT _metadata
+    import numpy as np
+
+    for split in ["train", "test"]:
+        split_dir = phase_c_root / f"dose_1000_{split}"
+        split_dir.mkdir(parents=True)
+
+        # Create a minimal NPZ without metadata (violates expected contract)
+        npz_path = split_dir / f"fly64_{split}_simulated.npz"
+        np.savez_compressed(
+            npz_path,
+            diffraction=np.random.rand(10, 64, 64).astype(np.float32),
+            objectGuess=np.random.rand(128, 128).astype(np.complex64),
+            probeGuess=np.random.rand(64, 64).astype(np.complex64),
+        )
+
+    # Execute: Call the guard (should raise RuntimeError mentioning '_metadata')
+    with pytest.raises(RuntimeError, match="_metadata"):
+        validate_phase_c_metadata(hub)

@@ -134,6 +134,80 @@ def run_command(
         raise
 
 
+def validate_phase_c_metadata(hub: Path) -> None:
+    """
+    Validate that Phase C dataset NPZ outputs contain required _metadata field.
+
+    This guard ensures Phase C outputs were generated with metadata tracking enabled,
+    which is required for downstream provenance and parameter validation. Checks both
+    train and test splits and raises RuntimeError if metadata is missing.
+
+    Args:
+        hub: Root directory containing data/phase_c/ subdirectory
+
+    Raises:
+        RuntimeError: If metadata is missing from any Phase C NPZ file, with actionable
+                      error message mentioning '_metadata' and the offending file path
+
+    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+    Does not mutate or delete Phase C outputs (read-only validation).
+    """
+    from ptycho.metadata import MetadataManager
+
+    # TYPE-PATH-001: Normalize to Path
+    hub = Path(hub).resolve()
+    phase_c_root = hub / "data" / "phase_c"
+
+    if not phase_c_root.exists():
+        raise RuntimeError(
+            f"Phase C root directory not found: {phase_c_root}. "
+            "Phase C generation may not have completed."
+        )
+
+    # Check both train and test splits
+    # Phase C generation creates dose_<dose>_<split> directories with
+    # fly64_<split>_simulated.npz files (see studies/fly64_dose_overlap/generation.py)
+    splits_to_check = ["train", "test"]
+
+    for split in splits_to_check:
+        # Find the split directory (pattern: dose_*_<split>)
+        split_dirs = list(phase_c_root.glob(f"dose_*_{split}"))
+
+        if not split_dirs:
+            raise RuntimeError(
+                f"Phase C {split} split directory not found under {phase_c_root}. "
+                f"Expected pattern: dose_*_{split}/"
+            )
+
+        # Should only be one per split, but check all if multiple exist
+        for split_dir in split_dirs:
+            # Find NPZ file (pattern: fly64_<split>_simulated.npz)
+            npz_files = list(split_dir.glob(f"fly64_{split}_simulated.npz"))
+
+            if not npz_files:
+                raise RuntimeError(
+                    f"Phase C NPZ file not found in {split_dir}. "
+                    f"Expected: fly64_{split}_simulated.npz"
+                )
+
+            for npz_path in npz_files:
+                # Load NPZ and check for metadata
+                data_dict, metadata = MetadataManager.load_with_metadata(str(npz_path))
+
+                if metadata is None:
+                    raise RuntimeError(
+                        f"Phase C NPZ file missing required _metadata field: {npz_path}. "
+                        f"This file was likely generated before metadata tracking was enabled. "
+                        f"Please regenerate Phase C outputs with metadata support."
+                    )
+
+                # Optional: Check for specific metadata fields (e.g., transpose_rename_convert)
+                # For now, just verify metadata exists
+                print(f"[validate_phase_c_metadata] ✓ {npz_path.name} contains _metadata")
+
+    print(f"[validate_phase_c_metadata] SUCCESS: All Phase C NPZ files contain required _metadata")
+
+
 def summarize_phase_g_outputs(hub: Path) -> None:
     """
     Parse comparison_manifest.json and per-job metrics CSVs to emit a metrics summary.
@@ -460,6 +534,24 @@ def main() -> int:
         print(f"[{i}/{len(commands)}] {desc}")
         print(f"{'=' * 80}\n")
         run_command(cmd, log_path)
+
+        # After Phase C completes, validate metadata
+        # (Skip this guard when --collect-only to keep dry runs fast)
+        if not args.collect_only and "Phase C:" in desc:
+            print("\n" + "=" * 80)
+            print("[run_phase_g_dense] Validating Phase C metadata...")
+            print("=" * 80 + "\n")
+            try:
+                validate_phase_c_metadata(hub)
+            except RuntimeError as e:
+                print(f"[run_phase_g_dense] ERROR during Phase C metadata validation: {e}", file=sys.stderr)
+                # Write blocker log
+                blocker_path = phase_g_root / "blocker.log"
+                blocker_path.parent.mkdir(parents=True, exist_ok=True)
+                with blocker_path.open("w", encoding="utf-8") as blocker:
+                    blocker.write("Blocked during Phase C metadata validation\n")
+                    blocker.write(f"Exception: {e}\n")
+                return 1
 
     print("\n" + "=" * 80)
     print("[run_phase_g_dense] SUCCESS: All phases completed")
