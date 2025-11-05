@@ -2809,3 +2809,17 @@
   - Updated docs/fix_plan.md Attempts History with the audit + relaunch plan.
 - Next actions for Ralph: harden the digest script to fail when `n_failed > 0`, rerun the highlights preview, relaunch the dense pipeline with `--clobber`, run the digest to produce metrics_digest.md, and update summary/docs ledger with MS-SSIM/MAE evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T210500Z: Phase C NPZ metadata triage
+- dwell: 2 (second consecutive planning loop — marking next_action=ready_for_implementation per dwell guard)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T210500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed cached plan stack then reopened 170500Z hub logs to inspect Phase C failure.
+  - Confirmed `cli/phase_c_generation.log` aborts immediately with `ValueError: Object arrays cannot be loaded when allow_pickle=False`; no `data/phase_c/` outputs exist and `analysis/` is empty, so pipeline never advanced beyond Stage 1.
+  - Drafted new TDD scope: add metadata pickle-guard tests around `build_simulation_plan` and `load_data_for_sim`, refactor both to use `MetadataManager.load_with_metadata`, rerun highlights preview, relaunch dense pipeline with `--clobber`, and regenerate digest evidence inside new 210500Z hub.
+  - Findings reaffirmed: POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001.
+- Next actions for Ralph: ship metadata-aware loaders + tests, rerun targeted pytest selectors, relaunch dense pipeline, and record MS-SSIM/MAE deltas in summary/docs.
+- <Action State>: [ready_for_implementation]
