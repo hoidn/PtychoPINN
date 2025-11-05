@@ -1,0 +1,122 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata FAILED [100%]
+
+=================================== FAILURES ===================================
+___________________ test_generate_patches_preserves_metadata ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-295/test_generate_patches_preserve0')
+sample_npz_with_metadata = PosixPath('/tmp/pytest-of-ollie/pytest-295/test_generate_patches_preserve0/input_with_metadata.npz')
+sample_metadata = {'creation_info': {'hostname': 'test-host', 'ptychopinn_version': '2.0.0', 'script': 'test_fixture', 'timestamp': '202...rename_convert'}], 'physics_parameters': {'N': 64, 'gridsize': 1, 'nphotons': 1000000000.0}, 'schema_version': '1.0.0'}
+
+    def test_generate_patches_preserves_metadata(tmp_path, sample_npz_with_metadata, sample_metadata):
+        """Test that generate_patches preserves and extends metadata.
+    
+        This is the RED test - it should fail initially because the tool
+        does not yet handle metadata.
+        """
+        output_path = tmp_path / "output_with_patches.npz"
+    
+        # Run the patch generation tool
+>       generate_patches(
+            input_path=sample_npz_with_metadata,
+            output_path=output_path,
+            patch_size=64,
+            k_neighbors=5,
+            nsamples=1
+        )
+
+tests/tools/test_generate_patches_tool.py:79: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/tools/generate_patches_tool.py:52: in generate_patches
+    data_dict = {key: data[key] for key in data.files}
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scripts/tools/generate_patches_tool.py:52: in <dictcomp>
+    data_dict = {key: data[key] for key in data.files}
+                      ^^^^^^^^^
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/numpy/lib/_npyio_impl.py:258: in __getitem__
+    return format.read_array(bytes,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+fp = <zipfile.ZipExtFile name='_metadata.npy' mode='r' compress_type=deflate>
+allow_pickle = False, pickle_kwargs = {'encoding': 'ASCII', 'fix_imports': True}
+
+    def read_array(fp, allow_pickle=False, pickle_kwargs=None, *,
+                   max_header_size=_MAX_HEADER_SIZE):
+        """
+        Read an array from an NPY file.
+    
+        Parameters
+        ----------
+        fp : file_like object
+            If this is not a real file object, then this may take extra memory
+            and time.
+        allow_pickle : bool, optional
+            Whether to allow writing pickled data. Default: False
+    
+            .. versionchanged:: 1.16.3
+                Made default False in response to CVE-2019-6446.
+    
+        pickle_kwargs : dict
+            Additional keyword arguments to pass to pickle.load. These are only
+            useful when loading object arrays saved on Python 2 when using
+            Python 3.
+        max_header_size : int, optional
+            Maximum allowed size of the header.  Large headers may not be safe
+            to load securely and thus require explicitly passing a larger value.
+            See :py:func:`ast.literal_eval()` for details.
+            This option is ignored when `allow_pickle` is passed.  In that case
+            the file is by definition trusted and the limit is unnecessary.
+    
+        Returns
+        -------
+        array : ndarray
+            The array from the data on disk.
+    
+        Raises
+        ------
+        ValueError
+            If the data is invalid, or allow_pickle=False and the file contains
+            an object array.
+    
+        """
+        if allow_pickle:
+            # Effectively ignore max_header_size, since `allow_pickle` indicates
+            # that the input is fully trusted.
+            max_header_size = 2**64
+    
+        version = read_magic(fp)
+        _check_version(version)
+        shape, fortran_order, dtype = _read_array_header(
+                fp, version, max_header_size=max_header_size)
+        if len(shape) == 0:
+            count = 1
+        else:
+            count = numpy.multiply.reduce(shape, dtype=numpy.int64)
+    
+        # Now read the actual data.
+        if dtype.hasobject:
+            # The array contained Python objects. We need to unpickle the data.
+            if not allow_pickle:
+>               raise ValueError("Object arrays cannot be loaded when "
+                                 "allow_pickle=False")
+E               ValueError: Object arrays cannot be loaded when allow_pickle=False
+
+../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/numpy/lib/format.py:822: ValueError
+----------------------------- Captured stdout call -----------------------------
+--- Generating Patches: /tmp/pytest-of-ollie/pytest-295/test_generate_patches_preserve0/input_with_metadata.npz ---
+  - Output file: /tmp/pytest-of-ollie/pytest-295/test_generate_patches_preserve0/output_with_patches.npz
+  - Patch size (N): 64
+  - K neighbors: 5
+  - Samples: 1
+=========================== short test summary info ============================
+FAILED tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata - ValueError: Object arrays cannot be loaded when allow_pickle=False
+============================== 1 failed in 3.89s ===============================

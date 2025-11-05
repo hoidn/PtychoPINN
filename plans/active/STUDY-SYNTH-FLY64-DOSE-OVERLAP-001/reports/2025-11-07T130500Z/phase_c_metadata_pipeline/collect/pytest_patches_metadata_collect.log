@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 2 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Dir tools>
+      <Module test_generate_patches_tool.py>
+        Test suite for generate_patches_tool.py with metadata preservation.
+        
+        This module tests the patch generation tool's ability to preserve and extend
+        metadata through NPZ transformations.
+        <Function test_generate_patches_preserves_metadata>
+          Test that generate_patches preserves and extends metadata.
+          
+          This is the RED test - it should fail initially because the tool
+          does not yet handle metadata.
+        <Function test_generate_patches_without_metadata>
+          Test that the tool handles NPZ files without metadata gracefully.
+
+========================== 2 tests collected in 3.66s ==========================
