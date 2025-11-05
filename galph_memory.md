@@ -2766,3 +2766,17 @@
   - AUTHORITATIVE_CMDS_DOC export reiterated in How-To map; hard gate called out for zero-exit pipeline + logged preview.
 - Next actions for Ralph: run the highlights preview selector, execute `bin/run_phase_g_dense.py` (dose 1000 dense view) with --clobber, capture CLI/analysis artifacts inside the hub, and update summary + docs/fix_plan.md with real metrics or blockers.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T150500Z: Phase G validator failure triage
+- dwell: 1 (reset after prior ready_for_implementation; this loop re-enters planning to unblock validator hotfix)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T150500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reused cached understanding of plan docs but re-read Phase G hub to inspect logs.
+  - Reviewed `cli/phase_c_generation.log` from 130500Z hub and captured TypeError caused by validator signature drift (`dataset_path` kwarg).
+  - Logged failure evidence + recovery plan (plan/plan.md) and rewrote input.md to direct validator fix, refreshed tests, and rerun pipeline with AUTHORITATIVE_CMDS_DOC export.
+  - Findings confirmed: POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001 remain applicable.
+- Next actions for Ralph: patch `generate_dataset_for_dose` to load NPZ splits and call `validate_dataset_contract` correctly, extend Phase C tests, rerun targeted pytest + dense pipeline.
+- <Action State>: [ready_for_implementation]

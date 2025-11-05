@@ -1,0 +1,11 @@
+Source log: ../2025-11-08T130500Z/phase_g_dense_full_execution_real_run/cli/phase_c_generation.log
+
+Traceback (most recent call last):
+  File "studies/fly64_dose_overlap/generation.py", line 279, in main
+    paths = generate_dataset_for_dose(...)
+  File "studies/fly64_dose_overlap/generation.py", line 220, in generate_dataset_for_dose
+    validate_fn(
+TypeError: validate_dataset_contract() got an unexpected keyword argument 'dataset_path'
+
+Stage: Phase C Stage 5 validation (train split).
+Impact: Phase G dense pipeline halted before generating Phase D inputs; dense metrics remain pending.
