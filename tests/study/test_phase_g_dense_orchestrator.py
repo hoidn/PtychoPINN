@@ -5,18 +5,96 @@ from __future__ import annotations
 import csv
 import importlib.util
 import json
+import os
+import sys
 from pathlib import Path
 
 import pytest
 
 
-def _import_summarize_phase_g_outputs():
-    """Import summarize_phase_g_outputs() from the orchestrator script using spec loader."""
+def _import_orchestrator_module():
+    """Import the orchestrator module using spec loader."""
     script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py"
     spec = importlib.util.spec_from_file_location("run_phase_g_dense", script_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.summarize_phase_g_outputs
+    return module
+
+
+def _import_summarize_phase_g_outputs():
+    """Import summarize_phase_g_outputs() from the orchestrator script using spec loader."""
+    return _import_orchestrator_module().summarize_phase_g_outputs
+
+
+def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """
+    Test that main() with --collect-only prints planned commands without executing them.
+
+    Acceptance:
+    - Loads main() from orchestrator script via importlib
+    - Runs with --collect-only into a tmp hub directory
+    - Asserts stdout contains expected command substrings (Phase C/D/E/F/G markers)
+    - Verifies no Phase C outputs are created (dry-run mode, no filesystem side effects)
+    - Ensures AUTHORITATIVE_CMDS_DOC environment variable is respected
+    - Returns 0 exit code on success
+
+    Follows TYPE-PATH-001 (Path normalization).
+    """
+    # Import main() from orchestrator
+    module = _import_orchestrator_module()
+    main = module.main
+
+    # Setup: Create tmp hub directory
+    hub = tmp_path / "collect_only_hub"
+    hub.mkdir(parents=True)
+
+    # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+    monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+
+    # Prepare sys.argv for argparse
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_phase_g_dense.py",
+            "--hub", str(hub),
+            "--dose", "1000",
+            "--view", "dense",
+            "--splits", "train", "test",
+            "--collect-only",
+        ],
+    )
+
+    # Execute: Call main() (should print commands and return 0)
+    exit_code = main()
+
+    # Assert: Exit code should be 0
+    assert exit_code == 0, f"Expected exit code 0 from --collect-only mode, got {exit_code}"
+
+    # Assert: Capture stdout and verify expected command substrings
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # Check for phase markers in stdout
+    assert "Phase C: Dataset Generation" in stdout, "Missing Phase C command in --collect-only output"
+    assert "Phase D: Overlap View Generation" in stdout, "Missing Phase D command in --collect-only output"
+    assert "Phase E: Training Baseline (gs1)" in stdout, "Missing Phase E baseline command in --collect-only output"
+    assert "Phase E: Training Dense (gs2)" in stdout, "Missing Phase E dense command in --collect-only output"
+    assert "Phase F: Reconstruction" in stdout, "Missing Phase F command in --collect-only output"
+    assert "Phase G: Comparison" in stdout, "Missing Phase G command in --collect-only output"
+
+    # Check for specific command keywords
+    assert "studies.fly64_dose_overlap.generation" in stdout, "Missing generation module in command output"
+    assert "studies.fly64_dose_overlap.overlap" in stdout, "Missing overlap module in command output"
+    assert "studies.fly64_dose_overlap.training" in stdout, "Missing training module in command output"
+    assert "studies.fly64_dose_overlap.reconstruction" in stdout, "Missing reconstruction module in command output"
+    assert "studies.fly64_dose_overlap.comparison" in stdout, "Missing comparison module in command output"
+
+    # Assert: No Phase C outputs created (dry-run mode)
+    phase_c_root = hub / "data" / "phase_c"
+    if phase_c_root.exists():
+        phase_c_files = list(phase_c_root.rglob("*.npz"))
+        assert len(phase_c_files) == 0, f"--collect-only mode should not create Phase C outputs, found: {phase_c_files}"
 
 
 def test_summarize_phase_g_outputs(tmp_path: Path) -> None:
