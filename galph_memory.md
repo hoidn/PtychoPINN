@@ -2751,3 +2751,18 @@
   - Confirmed plan aligns with initiative implementation.md Phase G objectives and noted highlight thresholds in instructions (±0.05 MS-SSIM, ±0.01 MAE).
 - Next actions for Ralph: add stdout highlights preview + pytest coverage, rerun collect-only + helper selectors, execute dense Phase C→G pipeline with --clobber, archive metrics/highlights, and update summary/docs per Do Now.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T130500Z: Phase G dense real run staging
+- dwell: 0 (ready_for_implementation package prepared after planning loop)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T130500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` stayed clean; confirmed docs/findings entries (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001) still apply before scoping real run.
+  - Reviewed 2025-11-08T110500Z summary + plan to verify highlights preview landed and that dense pipeline execution remains outstanding.
+  - Created new hub (130500Z) with plan + summary scaffolding for the production run, provisioned `green/`, `cli/`, `red/`, `collect/`, and `analysis/` directories, and recorded placeholder summary.
+  - Updated docs/fix_plan.md Latest Attempt 2025-11-08T130500Z and rewrote input.md (Mode: Perf) with Do Now: rerun highlights preview test, execute `--clobber` pipeline, archive artifacts, and document MS-SSIM/MAE deltas.
+  - AUTHORITATIVE_CMDS_DOC export reiterated in How-To map; hard gate called out for zero-exit pipeline + logged preview.
+- Next actions for Ralph: run the highlights preview selector, execute `bin/run_phase_g_dense.py` (dose 1000 dense view) with --clobber, capture CLI/analysis artifacts inside the hub, and update summary + docs/fix_plan.md with real metrics or blockers.
+- <Action State>: [ready_for_implementation]
