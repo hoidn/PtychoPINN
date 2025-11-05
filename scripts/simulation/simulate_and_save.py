@@ -34,22 +34,40 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 def load_data_for_sim(file_path: str, load_all: bool = False) -> tuple:
-    """Loads object and probe, and optionally all other data from an NPZ file."""
+    """Loads object and probe, and optionally all other data from an NPZ file.
+
+    Uses MetadataManager to handle metadata-bearing NPZ files safely,
+    avoiding allow_pickle=False errors.
+
+    Args:
+        file_path: Path to NPZ file
+        load_all: If True, return all data arrays (excluding metadata)
+
+    Returns:
+        Tuple of (objectGuess, probeGuess, all_data) where all_data is None
+        if load_all=False, otherwise dict of all arrays (excluding _metadata)
+
+    References:
+        - DATA-001 (metadata preservation requirement)
+        - MetadataManager.load_with_metadata() for safe metadata handling
+    """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Input file not found: {file_path}")
 
-    with np.load(file_path) as data:
-        if 'objectGuess' not in data or 'probeGuess' not in data:
-            raise ValueError("The .npz file must contain 'objectGuess' and 'probeGuess'")
-        
-        objectGuess = data['objectGuess']
-        probeGuess = data['probeGuess']
-        
-        if load_all:
-            all_data = {key: data[key] for key in data.files}
-            return objectGuess, probeGuess, all_data
-        else:
-            return objectGuess, probeGuess, None
+    # Use MetadataManager to safely load NPZ with metadata
+    data_dict, metadata = MetadataManager.load_with_metadata(file_path)
+
+    if 'objectGuess' not in data_dict or 'probeGuess' not in data_dict:
+        raise ValueError("The .npz file must contain 'objectGuess' and 'probeGuess'")
+
+    objectGuess = data_dict['objectGuess']
+    probeGuess = data_dict['probeGuess']
+
+    if load_all:
+        # Return all data arrays (metadata already filtered by MetadataManager)
+        return objectGuess, probeGuess, data_dict
+    else:
+        return objectGuess, probeGuess, None
 
 def simulate_and_save(
     config: TrainingConfig,

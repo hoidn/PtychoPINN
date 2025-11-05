@@ -69,8 +69,10 @@ def build_simulation_plan(
         - specs/data_contracts.md:207 (canonical format requirements)
     """
     # Load base dataset to determine n_images
-    with np.load(base_npz_path) as data:
-        n_images = len(data['xcoords'])
+    # Use MetadataManager to safely load NPZ with metadata
+    from ptycho.metadata import MetadataManager
+    data_dict, metadata = MetadataManager.load_with_metadata(base_npz_path)
+    n_images = len(data_dict['xcoords'])
 
     # Extract design constants
     simulation_seed = design_params['rng_seeds']['simulation']

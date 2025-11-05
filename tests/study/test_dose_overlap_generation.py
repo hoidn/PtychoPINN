@@ -288,3 +288,132 @@ def test_generate_dataset_validates_with_real_contract(mock_base_npz, design_par
             assert call['view'] == design_params['view']
         assert call['gridsize'] == design_params.get('gridsize', 1)
         assert call['neighbor_count'] == design_params.get('neighbor_count')
+
+
+def test_build_simulation_plan_handles_metadata_pickle_guard(tmp_path, design_params):
+    """
+    Test that build_simulation_plan can load base NPZ files with metadata
+    without triggering allow_pickle=False errors.
+
+    This validates the fix for:
+    ValueError: Object arrays cannot be loaded when allow_pickle=False
+
+    Prior to fix, build_simulation_plan used raw np.load() which fails
+    on metadata-bearing NPZs. After fix, it uses MetadataManager.load_with_metadata()
+    which correctly handles pickle=True for _metadata field.
+
+    References:
+    - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T210500Z/phase_g_dense_full_execution_real_run/plan/plan.md
+    - DATA-001 (metadata must be preserved across pipeline stages)
+    """
+    from ptycho.metadata import MetadataManager
+    from ptycho.config.config import TrainingConfig, ModelConfig
+
+    # Create a base NPZ with embedded metadata (simulating simulate_and_save output)
+    base_path = tmp_path / "base_with_metadata.npz"
+
+    # Create minimal config for metadata
+    model_cfg = ModelConfig(gridsize=1, N=64)
+    train_cfg = TrainingConfig(
+        model=model_cfg,
+        train_data_file=str(base_path),
+        n_images=100,
+        nphotons=5000,
+    )
+
+    # Create metadata
+    metadata = MetadataManager.create_metadata(
+        config=train_cfg,
+        script_name="test_metadata_guard",
+        seed=42,
+    )
+
+    # Save NPZ with metadata
+    data_dict = {
+        'xcoords': np.arange(100, dtype=np.float32),
+        'ycoords': np.arange(100, dtype=np.float32),
+        'diffraction': np.random.rand(100, 64, 64).astype(np.float32),
+        'objectGuess': np.random.rand(256, 256).astype(np.complex64),
+        'probeGuess': np.random.rand(64, 64).astype(np.complex64),
+    }
+
+    MetadataManager.save_with_metadata(
+        file_path=str(base_path),
+        data_dict=data_dict,
+        metadata=metadata,
+    )
+
+    # This should NOT raise ValueError about allow_pickle
+    plan = build_simulation_plan(
+        dose=1e4,
+        base_npz_path=base_path,
+        design_params=design_params,
+    )
+
+    # Verify plan was constructed successfully
+    assert plan.n_images == 100
+    assert plan.dose == 1e4
+
+
+def test_load_data_for_sim_handles_metadata_pickle_guard(tmp_path):
+    """
+    Test that scripts/simulation/simulate_and_save.py::load_data_for_sim
+    can load NPZ files with metadata without triggering allow_pickle=False errors.
+
+    This validates the fix for:
+    ValueError: Object arrays cannot be loaded when allow_pickle=False
+
+    Prior to fix, load_data_for_sim used raw np.load() which fails on metadata-bearing
+    NPZs. After fix, it uses MetadataManager.load_with_metadata() which correctly
+    handles pickle=True for _metadata field.
+
+    References:
+    - scripts/simulation/simulate_and_save.py:37 (load_data_for_sim function)
+    - DATA-001 (metadata must be preserved)
+    """
+    from scripts.simulation.simulate_and_save import load_data_for_sim
+    from ptycho.metadata import MetadataManager
+    from ptycho.config.config import TrainingConfig, ModelConfig
+
+    # Create a NPZ with embedded metadata
+    npz_path = tmp_path / "data_with_metadata.npz"
+
+    # Create minimal config for metadata
+    model_cfg = ModelConfig(gridsize=1, N=64)
+    train_cfg = TrainingConfig(
+        model=model_cfg,
+        train_data_file=str(npz_path),
+        n_images=50,
+        nphotons=3000,
+    )
+
+    metadata = MetadataManager.create_metadata(
+        config=train_cfg,
+        script_name="test_load_data_for_sim_guard",
+        seed=123,
+    )
+
+    # Save NPZ with metadata
+    data_dict = {
+        'objectGuess': np.random.rand(256, 256).astype(np.complex64),
+        'probeGuess': np.random.rand(64, 64).astype(np.complex64),
+        'xcoords': np.arange(50, dtype=np.float32),
+        'ycoords': np.arange(50, dtype=np.float32),
+    }
+
+    MetadataManager.save_with_metadata(
+        file_path=str(npz_path),
+        data_dict=data_dict,
+        metadata=metadata,
+    )
+
+    # This should NOT raise ValueError about allow_pickle
+    objectGuess, probeGuess, all_data = load_data_for_sim(str(npz_path), load_all=True)
+
+    # Verify data was loaded correctly
+    assert objectGuess.shape == (256, 256)
+    assert probeGuess.shape == (64, 64)
+    assert all_data is not None
+    assert 'xcoords' in all_data
+    # Metadata should NOT be in the returned data dict (filtered by MetadataManager)
+    assert '_metadata' not in all_data
