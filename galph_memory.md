@@ -2883,3 +2883,17 @@
   - Rewrote input.md (Mode: TDD) instructing Ralph to integrate `analyze_dense_metrics.py` invocation into `run_phase_g_dense.py`, add a new orchestrator exec test, rerun targeted selectors RED→GREEN, execute the dense pipeline with `--clobber`, and archive metrics/digest evidence + doc sync.
 - Next actions for Ralph: land orchestrator integration + tests, run dense pipeline to generate digest automatically, capture artifacts under 050500Z hub, and update summary/docs/fix_plan with measured MS-SSIM/MAE deltas.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T070500Z: Dense digest banner + evidence staging
+- dwell: 1 (second consecutive planning loop for dense Phase G evidence)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date) then reviewed prior hub (2025-11-09T050500Z) and summary.md confirming digest integration shipped but real-run evidence missing.
+  - Re-read docs/findings.md entries POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001; no new findings required.
+  - Provisioned new hub (070500Z) with plan/summary scaffolding capturing success-banner upgrade + dense run objectives; added plan.md outlining TDD + pipeline steps.
+  - Updated docs/fix_plan.md with new planning attempt and rewrote input.md (Mode: TDD) directing RED→GREEN test guard, banner surfacing, dense pipeline execution, and ledger/doc updates.
+- Next actions for Ralph: tighten orchestrator exec test, update success banner, run targeted pytest selectors RED→GREEN, execute dense Phase C→G pipeline with --clobber, archive digest artifacts, and sync docs/fix_plan.md + summary with MS-SSIM/MAE deltas.
+- <Action State>: [ready_for_implementation]
