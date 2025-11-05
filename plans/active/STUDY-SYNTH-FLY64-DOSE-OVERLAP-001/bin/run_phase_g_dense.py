@@ -688,6 +688,18 @@ def main() -> int:
     ]
     report_helper_log = cli_log_dir / "aggregate_report_cli.log"
 
+    # Analyze Digest: Generate final metrics digest from summary + highlights
+    # (executed after reporting helper generates aggregate_report.md and aggregate_highlights.txt)
+    metrics_digest_md = phase_g_root / "metrics_digest.md"
+    analyze_digest_script = Path(__file__).parent / "analyze_dense_metrics.py"
+    analyze_digest_cmd = [
+        "python", str(analyze_digest_script),
+        "--metrics", str(metrics_summary_json),
+        "--highlights", str(aggregate_highlights_txt),
+        "--output", str(metrics_digest_md),
+    ]
+    analyze_digest_log = cli_log_dir / "metrics_digest_cli.log"
+
     # Collect-only mode: print commands and exit
     if args.collect_only:
         print("[run_phase_g_dense] Collect-only mode: planned commands:")
@@ -700,6 +712,10 @@ def main() -> int:
         print(f"\n{len(commands) + 1}. Reporting: Aggregate metrics report")
         print(f"   Command: {' '.join(str(c) for c in report_helper_cmd)}")
         print(f"   Log: {report_helper_log}")
+        # Print analyze digest command
+        print(f"\n{len(commands) + 2}. Analysis: Generate metrics digest")
+        print(f"   Command: {' '.join(str(c) for c in analyze_digest_cmd)}")
+        print(f"   Log: {analyze_digest_log}")
         return 0
 
     # Prepare hub: detect and handle stale outputs
@@ -799,11 +815,18 @@ def main() -> int:
     print(highlights_content)
     print("=" * 80 + "\n")
 
+    # Generate final metrics digest
+    print("\n" + "=" * 80)
+    print("[run_phase_g_dense] Generating metrics digest...")
+    print("=" * 80 + "\n")
+    run_command(analyze_digest_cmd, analyze_digest_log)
+
     print(f"\nArtifacts saved to: {hub}")
     print(f"CLI logs: {cli_log_dir}")
     print(f"Analysis outputs: {phase_g_root}")
     print(f"Aggregate report: {aggregate_report_md}")
     print(f"Highlights: {aggregate_highlights_txt}")
+    print(f"Metrics digest: {metrics_digest_md}")
 
     return 0
 

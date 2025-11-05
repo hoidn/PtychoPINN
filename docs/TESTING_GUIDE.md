@@ -357,7 +357,7 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py 
   --splits train test
 ```
 
-The orchestrator runs 8 sequential commands (Phase C generation → D overlap → E training baseline/dense → F reconstruction train/test → G comparison train/test), captures per-phase CLI logs under `{HUB}/cli/`, calls `summarize_phase_g_outputs()` after successful pipeline completion, invokes the reporting helper to generate aggregate Markdown + highlights, and prints a highlights preview to stdout for quick sanity-checks of MS-SSIM/MAE deltas. Emits blocker log on any command failure.
+The orchestrator runs 8 sequential commands (Phase C generation → D overlap → E training baseline/dense → F reconstruction train/test → G comparison train/test), captures per-phase CLI logs under `{HUB}/cli/`, calls `summarize_phase_g_outputs()` after successful pipeline completion, invokes the reporting helper to generate aggregate Markdown + highlights, prints a highlights preview to stdout for quick sanity-checks of MS-SSIM/MAE deltas, then invokes `analyze_dense_metrics.py` to generate the final `metrics_digest.md` combining summary + highlights. Emits blocker log on any command failure.
 
 - **Execution time:** Typically < 2s per test (mocked helper); real pipeline ~2-4 hours (8 phases with TensorFlow training + Pty-chi LSQML reconstruction)
 - **Dependencies:** TensorFlow, PyTorch (for Pty-chi), Phase C base NPZ, `scripts/compare_models.py`
