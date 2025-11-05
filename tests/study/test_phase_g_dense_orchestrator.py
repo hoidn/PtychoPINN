@@ -90,6 +90,10 @@ def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monke
     assert "studies.fly64_dose_overlap.reconstruction" in stdout, "Missing reconstruction module in command output"
     assert "studies.fly64_dose_overlap.comparison" in stdout, "Missing comparison module in command output"
 
+    # Check for reporting helper command
+    assert "report_phase_g_dense_metrics.py" in stdout, "Missing reporting helper command in --collect-only output"
+    assert "aggregate_report.md" in stdout, "Missing aggregate_report.md output path in reporting helper command"
+
     # Assert: No Phase C outputs created (dry-run mode)
     phase_c_root = hub / "data" / "phase_c"
     if phase_c_root.exists():
