@@ -1,0 +1,51 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata FAILED [100%]
+
+=================================== FAILURES ===================================
+_______________ test_validate_phase_c_metadata_requires_metadata _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-302/test_validate_phase_c_metadata0')
+
+    def test_validate_phase_c_metadata_requires_metadata(tmp_path: Path) -> None:
+        """
+        Test that validate_phase_c_metadata() raises RuntimeError when Phase C NPZ outputs lack _metadata.
+    
+        Acceptance:
+        - Normalizes hub path via TYPE-PATH-001
+        - Checks both train/test splits exist under phase_c_root
+        - Loads NPZ files via MetadataManager.load_with_metadata
+        - Raises RuntimeError mentioning '_metadata' if metadata is None
+        - Does not mutate or delete Phase C outputs (read-only)
+    
+        Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+        """
+        # Import the function under test
+>       validate_phase_c_metadata = _import_validate_phase_c_metadata()
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/study/test_phase_g_dense_orchestrator.py:233: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _import_validate_phase_c_metadata():
+        """Import validate_phase_c_metadata() from the orchestrator script using spec loader."""
+        script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py"
+        spec = importlib.util.spec_from_file_location("run_phase_g_dense", script_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+>       return module.validate_phase_c_metadata
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'run_phase_g_dense' has no attribute 'validate_phase_c_metadata'
+
+tests/study/test_phase_g_dense_orchestrator.py:216: AttributeError
+=========================== short test summary info ============================
+FAILED tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata - AttributeError: module 'run_phase_g_dense' has no attribute 'validate_phase_c_metadata'
+============================== 1 failed in 1.73s ===============================
