@@ -2926,3 +2926,17 @@
   - Ensured How-To Map encodes RED→GREEN sequence, AUTHORITATIVE_CMDS_DOC export, pipeline command, and artifact collation commands (json.tool, rg, find) per scriptization policy.
 - Next actions for Ralph: land JSON persistence + banner update in `run_phase_g_dense.py`, tighten the exec-mode pytest, refresh docs/TESTING_GUIDE.md, run the dense pipeline with --clobber, archive metrics_delta_summary.json + highlights/inventory, and document MS-SSIM/MAE deltas in summary + ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T130500Z: Dense delta metadata + real-run evidence staging
+- dwell: 1 (first planning loop after 110500Z implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T130500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; skimmed prior 110500Z hub plan/summary and re-read docs/findings.md entries (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001) plus working plan context before drafting new scope.
+  - Provisioned 130500Z hub (plan/summary/cli/analysis etc.), authored plan.md directing metadata TDD, docs refresh, and dense pipeline execution with `--clobber`.
+  - Rewrote input.md with Mode TDD Do Now covering metadata fields (`generated_at`, `source_metrics`), orchestrator/test updates, pytest selectors, pipeline command, artifact collation, and ledger/doc updates; reinforced AUTHORITATIVE_CMDS_DOC first step.
+  - Updated docs/fix_plan.md (Last Updated → 2025-11-09) with 110500Z implementation summary and this 130500Z planning attempt; confirmed artifacts path recorded.
+- Next actions for Ralph: extend exec-mode pytest for metadata, implement UTC/source path fields in `run_phase_g_dense.py::main`, update TESTING_GUIDE.md, run targeted selectors, execute the dense pipeline with --clobber, archive artifacts (metrics_summary/delta/digest/highlights), and sync summary + fix_plan with real MS-SSIM/MAE deltas.
+- <Action State>: [ready_for_implementation]
