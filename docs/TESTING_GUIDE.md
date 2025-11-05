@@ -333,14 +333,21 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics
 The orchestrator automatically persists computed MS-SSIM/MAE deltas to `analysis/metrics_delta_summary.json` after the digest generation step. This JSON artifact:
 
 - Contains raw numeric delta values (not formatted strings) for programmatic consumption
-- Structure: `{"deltas": {"vs_Baseline": {"ms_ssim": {...}, "mae": {...}}, "vs_PtyChi": {...}}}`
+- Includes provenance metadata (`generated_at`, `source_metrics`) for traceability
+- Structure: `{"generated_at": "...", "source_metrics": "...", "deltas": {"vs_Baseline": {...}, "vs_PtyChi": {...}}}`
 - Each metric includes `amplitude` and `phase` fields with numeric delta values (null if source data missing)
 - Location: `<hub>/analysis/metrics_delta_summary.json`
 - Referenced in orchestrator success banner for traceability
 
+**Provenance metadata fields:**
+- `generated_at`: ISO8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ) when deltas were computed
+- `source_metrics`: Relative POSIX path from hub to source metrics_summary.json (TYPE-PATH-001 compliance)
+
 **Example structure:**
 ```json
 {
+  "generated_at": "2025-11-09T13:05:00Z",
+  "source_metrics": "analysis/metrics_summary.json",
   "deltas": {
     "vs_Baseline": {
       "ms_ssim": {"amplitude": 0.020, "phase": 0.020},

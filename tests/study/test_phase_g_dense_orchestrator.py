@@ -1155,3 +1155,25 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     # Assert: Success banner should mention metrics_delta_summary.json path
     assert "metrics_delta_summary.json" in stdout, \
         f"Expected success banner to mention metrics_delta_summary.json, got:\n{stdout}"
+
+    # Assert: JSON should contain provenance metadata fields (generated_at, source_metrics)
+    assert "generated_at" in delta_data, "Expected 'generated_at' key in metrics_delta_summary.json"
+    assert "source_metrics" in delta_data, "Expected 'source_metrics' key in metrics_delta_summary.json"
+
+    # Validate generated_at is ISO8601 UTC timestamp string
+    generated_at = delta_data["generated_at"]
+    assert isinstance(generated_at, str), f"Expected generated_at to be string, got {type(generated_at)}"
+    assert generated_at.endswith("Z"), f"Expected generated_at to be UTC (end with 'Z'), got {generated_at}"
+    # Basic ISO8601 format check: YYYY-MM-DDTHH:MM:SSZ pattern
+    import re
+    iso8601_pattern = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
+    assert re.match(iso8601_pattern, generated_at), \
+        f"Expected generated_at to match ISO8601 UTC format (YYYY-MM-DDTHH:MM:SSZ), got {generated_at}"
+
+    # Validate source_metrics is relative POSIX path (TYPE-PATH-001)
+    source_metrics = delta_data["source_metrics"]
+    assert isinstance(source_metrics, str), f"Expected source_metrics to be string, got {type(source_metrics)}"
+    assert not source_metrics.startswith("/"), \
+        f"Expected source_metrics to be relative path (TYPE-PATH-001), got absolute: {source_metrics}"
+    assert "metrics_summary.json" in source_metrics, \
+        f"Expected source_metrics to reference metrics_summary.json, got {source_metrics}"

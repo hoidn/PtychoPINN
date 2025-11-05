@@ -887,8 +887,20 @@ def main() -> int:
                     return None
                 return pinn_val - other_val
 
-            # Build JSON structure with raw numeric deltas (not formatted strings)
+            # Build JSON structure with raw numeric deltas (not formatted strings) plus provenance metadata
+            from datetime import datetime, timezone
+
+            # Generate UTC timestamp for provenance (TYPE-PATH-001: deterministic timezone)
+            utc_now = datetime.now(timezone.utc)
+            generated_at = utc_now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            # Compute relative path from hub to metrics_summary.json (TYPE-PATH-001: relative POSIX serialization)
+            metrics_summary_path = Path(phase_g_root) / "metrics_summary.json"
+            source_metrics_rel = metrics_summary_path.relative_to(hub).as_posix()
+
             delta_summary = {
+                "generated_at": generated_at,
+                "source_metrics": source_metrics_rel,
                 "deltas": {
                     "vs_Baseline": {
                         "ms_ssim": {
