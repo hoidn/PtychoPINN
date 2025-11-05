@@ -1,0 +1,1016 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 436 items / 2 skipped
+
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_bounding_box PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_coordinates_format PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_shapes PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_align_for_evaluation_with_squeeze PASSED [  0%]
+tests/image/test_cropping.py::TestCroppingAlignment::test_center_crop_exact_size PASSED [  1%]
+tests/image/test_registration.py::TestRegistration::test_apply_shift_and_crop_basic PASSED [  1%]
+tests/image/test_registration.py::TestRegistration::test_apply_shift_and_crop_zero_offset PASSED [  1%]
+tests/image/test_registration.py::TestRegistration::test_different_image_content PASSED [  1%]
+tests/image/test_registration.py::TestRegistration::test_edge_case_maximum_shift PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_edge_case_single_pixel_shift PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_find_offset_known_shift_complex PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_find_offset_known_shift_real PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_2d_requirement PASSED [  2%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_excessive_offset PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_input_validation_shape_matching PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_noise_robustness PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_register_and_align_convenience PASSED [  3%]
+tests/image/test_registration.py::TestRegistration::test_registration_sign_verification PASSED [  4%]
+tests/image/test_registration.py::TestRegistration::test_round_trip_registration PASSED [  4%]
+tests/image/test_registration.py::TestRegistration::test_shift_and_crop_preserves_data_type PASSED [  4%]
+tests/io/test_ptychodus_interop_h5.py::test_interop_h5_reader FAILED     [  4%]
+tests/io/test_ptychodus_product_io.py::test_export_writes_minimal_hdf5 PASSED [  5%]
+tests/io/test_ptychodus_product_io.py::test_import_reads_hdf5_to_rawdata PASSED [  5%]
+tests/io/test_ptychodus_product_io.py::test_cli_convert_run1084_smoke PASSED [  5%]
+tests/scripts/test_ptychi_reconstruct_tike.py::test_main_uses_cli_arguments PASSED [  5%]
+tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_creates_all_conditions PASSED [  5%]
+tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_invokes_compare_models PASSED [  6%]
+tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_records_summary PASSED [  6%]
+tests/study/test_dose_overlap_comparison.py::test_build_comparison_jobs_uses_dose_specific_phase_e_paths PASSED [  6%]
+tests/study/test_dose_overlap_comparison.py::test_execute_comparison_jobs_appends_tike_recon_path PASSED [  6%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_happy_path PASSED [  7%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_missing_key PASSED [  7%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_wrong_dtype_diffraction PASSED [  7%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_wrong_dtype_object PASSED [  7%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_shape_mismatch PASSED [  8%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_spacing_dense PASSED [  8%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_spacing_violation PASSED [  8%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_oversampling_precondition_pass PASSED [  8%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_oversampling_precondition_fail PASSED [  8%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_oversampling_missing_neighbor_count PASSED [  9%]
+tests/study/test_dose_overlap_dataset_contract.py::test_validate_dataset_contract_unknown_view PASSED [  9%]
+tests/study/test_dose_overlap_design.py::test_study_design_constants PASSED [  9%]
+tests/study/test_dose_overlap_design.py::test_study_design_validation PASSED [  9%]
+tests/study/test_dose_overlap_design.py::test_study_design_to_dict PASSED [ 10%]
+tests/study/test_dose_overlap_generation.py::test_build_simulation_plan PASSED [ 10%]
+tests/study/test_dose_overlap_generation.py::test_generate_dataset_pipeline_orchestration[1000.0] PASSED [ 10%]
+tests/study/test_dose_overlap_generation.py::test_generate_dataset_pipeline_orchestration[10000.0] PASSED [ 10%]
+tests/study/test_dose_overlap_generation.py::test_generate_dataset_pipeline_orchestration[100000.0] PASSED [ 11%]
+tests/study/test_dose_overlap_generation.py::test_generate_dataset_config_construction PASSED [ 11%]
+tests/study/test_dose_overlap_overlap.py::test_compute_spacing_matrix_basic PASSED [ 11%]
+tests/study/test_dose_overlap_overlap.py::test_compute_spacing_matrix_empty PASSED [ 11%]
+tests/study/test_dose_overlap_overlap.py::test_compute_spacing_matrix_single PASSED [ 11%]
+tests/study/test_dose_overlap_overlap.py::test_spacing_filter_parametrized[sparse-True] PASSED [ 12%]
+tests/study/test_dose_overlap_overlap.py::test_spacing_filter_parametrized[dense-False] PASSED [ 12%]
+tests/study/test_dose_overlap_overlap.py::test_build_acceptance_mask PASSED [ 12%]
+tests/study/test_dose_overlap_overlap.py::test_filter_dataset_by_mask PASSED [ 12%]
+tests/study/test_dose_overlap_overlap.py::test_compute_spacing_metrics PASSED [ 13%]
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_paths PASSED [ 13%]
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_metrics_manifest PASSED [ 13%]
+tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_sparse_downsamples PASSED [ 13%]
+tests/study/test_dose_overlap_reconstruction.py::test_build_ptychi_jobs_manifest PASSED [ 13%]
+tests/study/test_dose_overlap_reconstruction.py::test_run_ptychi_job_invokes_script PASSED [ 14%]
+tests/study/test_dose_overlap_reconstruction.py::test_cli_filters_dry_run PASSED [ 14%]
+tests/study/test_dose_overlap_reconstruction.py::test_cli_executes_selected_jobs PASSED [ 14%]
+tests/study/test_dose_overlap_reconstruction.py::test_cli_skips_missing_phase_d PASSED [ 14%]
+tests/study/test_dose_overlap_training.py::test_build_training_jobs_matrix PASSED [ 15%]
+tests/study/test_dose_overlap_training.py::test_run_training_job_invokes_runner PASSED [ 15%]
+tests/study/test_dose_overlap_training.py::test_run_training_job_dry_run PASSED [ 15%]
+tests/study/test_dose_overlap_training.py::test_execute_training_job_dispatches_tensorflow_by_default PASSED [ 15%]
+tests/study/test_dose_overlap_training.py::test_execute_training_job_dispatches_pytorch_when_requested PASSED [ 16%]
+tests/study/test_dose_overlap_training.py::test_execute_training_job_tensorflow_persists_bundle PASSED [ 16%]
+tests/study/test_dose_overlap_training.py::test_training_cli_filters_jobs PASSED [ 16%]
+tests/study/test_dose_overlap_training.py::test_training_cli_manifest_and_bridging PASSED [ 16%]
+tests/study/test_dose_overlap_training.py::test_execute_training_job_delegates_to_pytorch_trainer PASSED [ 16%]
+tests/study/test_dose_overlap_training.py::test_execute_training_job_persists_bundle PASSED [ 17%]
+tests/study/test_dose_overlap_training.py::test_training_cli_invokes_real_runner PASSED [ 17%]
+tests/study/test_dose_overlap_training.py::test_build_training_jobs_skips_missing_view PASSED [ 17%]
+tests/study/test_dose_overlap_training.py::test_training_cli_records_bundle_path PASSED [ 17%]
+tests/study/test_phase_g_dense_metrics_report.py::test_report_phase_g_dense_metrics PASSED [ 18%]
+tests/study/test_phase_g_dense_metrics_report.py::test_report_phase_g_dense_metrics_missing_model_fails PASSED [ 18%]
+tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands PASSED [ 18%]
+tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs PASSED [ 18%]
+tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs_fails_on_missing_manifest PASSED [ 19%]
+tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs_fails_on_execution_failures PASSED [ 19%]
+tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs_fails_on_missing_csv PASSED [ 19%]
+tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata PASSED [ 19%]
+tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_canonical_transform PASSED [ 19%]
+tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata PASSED [ 20%]
+tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs PASSED [ 20%]
+tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs PASSED [ 20%]
+tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_invokes_reporting_helper FAILED [ 20%]
+tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_prints_highlights_preview PASSED [ 21%]
+tests/test_baselines.py::TestBaselines::test_build_model_always_creates_single_channel_output PASSED [ 21%]
+tests/test_cli_args.py::TestCliArgs::test_add_logging_arguments PASSED   [ 21%]
+tests/test_cli_args.py::TestCliArgs::test_console_level_choices PASSED   [ 21%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_custom_level PASSED [ 22%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_defaults PASSED [ 22%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_quiet PASSED [ 22%]
+tests/test_cli_args.py::TestCliArgs::test_get_logging_config_verbose PASSED [ 22%]
+tests/test_cli_args.py::TestCliArgs::test_quiet_verbose_mutually_exclusive PASSED [ 22%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_backward_compatibility PASSED [ 23%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_different_seeds_produce_different_results PASSED [ 23%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_k_less_than_c PASSED [ 23%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_more_samples_than_points PASSED [ 23%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_edge_case_small_dataset PASSED [ 24%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_output_shape PASSED [ 24%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_spatial_coherence PASSED [ 24%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_efficient_grouping_valid_indices PASSED [ 24%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_generate_grouped_data_gridsize_1 PASSED [ 25%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_generate_grouped_data_integration PASSED [ 25%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_memory_efficiency PASSED [ 25%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_no_cache_files_created PASSED [ 25%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_performance_improvement PASSED [ 25%]
+tests/test_coordinate_grouping.py::TestCoordinateGrouping::test_reproducibility_with_seed PASSED [ 26%]
+tests/test_coordinate_grouping.py::TestIntegrationWithExistingCode::test_existing_tests_still_pass PASSED [ 26%]
+tests/test_generic_loader.py::TestGenericLoader::test_generic_loader_roundtrip SKIPPED [ 26%]
+tests/test_generic_loader.py::test_generic_loader PASSED                 [ 26%]
+tests/test_integration_baseline_gs2.py::TestBaselineGridsize2Integration::test_baseline_gridsize2_end_to_end SKIPPED [ 27%]
+tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle PASSED [ 27%]
+tests/test_log_config.py::TestLogConfig::test_backward_compatibility PASSED [ 27%]
+tests/test_log_config.py::TestLogConfig::test_conflicting_flags_verbose_overrides PASSED [ 27%]
+tests/test_log_config.py::TestLogConfig::test_custom_console_level PASSED [ 27%]
+tests/test_log_config.py::TestLogConfig::test_default_setup_logging_creates_log_directory_and_file PASSED [ 28%]
+tests/test_log_config.py::TestLogConfig::test_quiet_flag_overrides_console_level PASSED [ 28%]
+tests/test_log_config.py::TestLogConfig::test_quiet_mode_disables_console PASSED [ 28%]
+tests/test_log_config.py::TestLogConfig::test_setup_logging_clears_existing_handlers PASSED [ 28%]
+tests/test_log_config.py::TestLogConfig::test_string_path_support PASSED [ 29%]
+tests/test_log_config.py::TestLogConfig::test_verbose_mode_enables_debug_console PASSED [ 29%]
+tests/test_misc.py::test_memoize_simulated_data SKIPPED (Deprecated:...) [ 29%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_configuration_mismatch_warnings PASSED [ 29%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_end_to_end_workflow_consistency PASSED [ 30%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_backward_compatibility PASSED [ 30%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_persistence_single_nphotons PASSED [ 30%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_multiple_nphotons_metadata_consistency PASSED [ 30%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_training_with_mismatched_config_warns_but_continues PASSED [ 30%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_automatic_oversampling_triggers PASSED [ 31%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_gridsize_1_no_oversampling PASSED [ 31%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_oversampling_with_different_k_values PASSED [ 31%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_reproducibility_with_seed PASSED [ 31%]
+tests/test_oversampling.py::TestAutomaticOversampling::test_standard_sampling_no_oversampling PASSED [ 32%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_batch_processing PASSED [ 32%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_complex128_dtype PASSED [ 32%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_complex64_dtype PASSED [ 32%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_fill_modes PASSED [ 33%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float32_dtype PASSED [ 33%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float64_dtype PASSED [ 33%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_float64_with_translation PASSED [ 33%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_interpolation_modes PASSED [ 33%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_jit_compilation_float32 PASSED [ 34%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_jit_compilation_float64 PASSED [ 34%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_mixed_precision_translation PASSED [ 34%]
+tests/test_projective_warp_xla.py::TestProjectiveWarpXLA::test_tfa_params_conversion PASSED [ 34%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_content_validity PASSED [ 35%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_k_less_than_c PASSED [ 35%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_more_samples_than_points PASSED [ 35%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_edge_case_small_dataset PASSED [ 35%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_memory_efficiency PASSED [ 36%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_output_shape PASSED [ 36%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_performance_improvement PASSED [ 36%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_reproducibility PASSED [ 36%]
+tests/test_raw_data_grouping.py::TestRawDataGrouping::test_uniform_sampling PASSED [ 36%]
+tests/test_scaling_regression.py::TestScalingRegression::test_both_arrays_scaled_identically PASSED [ 37%]
+tests/test_scaling_regression.py::TestScalingRegression::test_different_nphotons_produce_proportional_scaling PASSED [ 37%]
+tests/test_scaling_regression.py::TestScalingRegression::test_intensity_scale_is_valid PASSED [ 37%]
+tests/test_scaling_regression.py::TestScalingRegression::test_phase_is_not_scaled PASSED [ 37%]
+tests/test_scaling_regression.py::TestScalingRegression::test_scaling_is_reversible PASSED [ 38%]
+tests/test_scaling_regression.py::TestScalingRegression::test_scaling_preserves_physics PASSED [ 38%]
+tests/test_scaling_regression.py::TestScalingAssertions::test_assertions_catch_invalid_intensity_scale PASSED [ 38%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_default_behavior_is_random PASSED [ 38%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_handles_edge_cases PASSED [ 38%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_is_deterministic PASSED [ 39%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_order PASSED [ 39%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_uses_first_n_points PASSED [ 39%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_with_gridsize_greater_than_1 PASSED [ 39%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_sampling_with_seed_parameter PASSED [ 40%]
+tests/test_sequential_sampling.py::TestSequentialSampling::test_sequential_vs_random_coverage PASSED [ 40%]
+tests/test_sequential_sampling.py::TestIntegrationWithWorkflow::test_cli_argument_parsing PASSED [ 40%]
+tests/test_sequential_sampling.py::TestIntegrationWithWorkflow::test_config_flag_exists PASSED [ 40%]
+tests/test_subsampling.py::TestSubsampling::test_different_seeds_produce_different_results PASSED [ 41%]
+tests/test_subsampling.py::TestSubsampling::test_interaction_with_config_dataclass PASSED [ 41%]
+tests/test_subsampling.py::TestSubsampling::test_legacy_n_images_behavior PASSED [ 41%]
+tests/test_subsampling.py::TestSubsampling::test_n_subsample_overrides_n_images PASSED [ 41%]
+tests/test_subsampling.py::TestSubsampling::test_no_subsample_uses_full_dataset PASSED [ 41%]
+tests/test_subsampling.py::TestSubsampling::test_reproducible_subsampling_with_seed PASSED [ 42%]
+tests/test_subsampling.py::TestSubsampling::test_sorted_indices_for_consistency PASSED [ 42%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_larger_than_dataset PASSED [ 42%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_with_n_subsample PASSED [ 42%]
+tests/test_subsampling.py::TestSubsampling::test_subsample_zero_edge_case PASSED [ 43%]
+tests/test_subsampling.py::TestSubsampling::test_y_patches_subsampled_consistently PASSED [ 43%]
+tests/test_tf_helper.py::TestReassemblePosition::test_basic_functionality PASSED [ 43%]
+tests/test_tf_helper.py::TestReassemblePosition::test_different_patch_values_blend PASSED [ 43%]
+tests/test_tf_helper.py::TestReassemblePosition::test_identical_patches_single_vs_double PASSED [ 44%]
+tests/test_tf_helper.py::TestReassemblePosition::test_perfect_overlap_averages_to_identity PASSED [ 44%]
+tests/test_tf_helper.py::TestTranslateFunction::test_batch_translation PASSED [ 44%]
+tests/test_tf_helper.py::TestTranslateFunction::test_complex_tensor_translation PASSED [ 44%]
+tests/test_tf_helper.py::TestTranslateFunction::test_edge_cases PASSED   [ 44%]
+tests/test_tf_helper.py::TestTranslateFunction::test_integer_translation PASSED [ 45%]
+tests/test_tf_helper.py::TestTranslateFunction::test_subpixel_translation PASSED [ 45%]
+tests/test_tf_helper.py::TestTranslateFunction::test_translate_core_matches_addons SKIPPED [ 45%]
+tests/test_tf_helper.py::TestTranslateFunction::test_zero_translation PASSED [ 45%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_complex_smooth_translation PASSED [ 46%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_gaussian_probe_translation SKIPPED [ 46%]
+tests/test_tf_helper_edge_aware.py::TestTranslateSmoothPatterns::test_smooth_object_translation SKIPPED [ 46%]
+tests/test_tf_helper_edge_aware.py::TestTranslateEdgeCases::test_boundary_behavior SKIPPED [ 46%]
+tests/test_tf_helper_edge_aware.py::TestTranslateEdgeCases::test_document_edge_differences SKIPPED [ 47%]
+tests/test_tf_helper_edge_aware.py::TestPtychoPINNRelevantCases::test_batch_smooth_patterns SKIPPED [ 47%]
+tests/test_tf_helper_edge_aware.py::TestPtychoPINNRelevantCases::test_typical_probe_sizes SKIPPED [ 47%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_exception_propagation PASSED [ 47%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_load_valid_model_directory PASSED [ 47%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_missing_diffraction_model PASSED [ 48%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_missing_model_archive PASSED [ 48%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_nonexistent_directory PASSED [ 48%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_not_a_directory PASSED [ 48%]
+tests/test_workflow_components.py::TestLoadInferenceBundle::test_path_conversion PASSED [ 49%]
+tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata PASSED [ 49%]
+tests/tools/test_generate_patches_tool.py::test_generate_patches_without_metadata PASSED [ 49%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_module_docstring_handles_missing_docstring PASSED [ 49%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_module_docstring_reads_existing_docstring PASSED [ 50%]
+tests/tools/test_generate_test_index.py::GenerateTestIndexTests::test_get_test_functions_lists_key_tests PASSED [ 50%]
+tests/tools/test_tail_interleave_logs.py::test_interleave_summaries PASSED [ 50%]
+tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata PASSED [ 50%]
+tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_without_metadata PASSED [ 50%]
+tests/tools/test_update_tool.py::TestUpdateTool::test_update_function PASSED [ 51%]
+tests/tools/test_update_tool.py::test_update_function PASSED             [ 51%]
+tests/torch/test_api_deprecation.py::TestLegacyAPIDeprecation::test_example_train_import_emits_deprecation_warning PASSED [ 51%]
+tests/torch/test_api_deprecation.py::TestLegacyAPIDeprecation::test_api_package_import_is_idempotent PASSED [ 51%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_defaults_to_tensorflow_backend PASSED [ 52%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_selects_pytorch_backend PASSED [ 52%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_backend_calls_update_legacy_dict PASSED [ 52%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_pytorch_unavailable_raises_error PASSED [ 52%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_inference_config_supports_backend_selection PASSED [ 52%]
+tests/torch/test_backend_selection.py::TestBackendSelection::test_backend_selection_preserves_api_parity PASSED [ 53%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip PASSED [ 53%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_num_workers_flag_roundtrip PASSED [ 53%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_inference_batch_size_flag_roundtrip PASSED [ 53%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_multiple_execution_config_flags PASSED [ 54%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_delegates_to_validate_paths PASSED [ 54%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_delegates_to_helper_for_data_loading PASSED [ 54%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_delegates_to_inference_helper PASSED [ 54%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_cli_calls_save_individual_reconstructions PASSED [ 55%]
+tests/torch/test_cli_inference_torch.py::TestInferenceCLIThinWrapper::test_quiet_flag_suppresses_progress_output PASSED [ 55%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_default_no_device PASSED [ 55%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_legacy_device_cpu PASSED [ 55%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_legacy_device_cuda_maps_to_gpu PASSED [ 55%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_conflict_accelerator_wins PASSED [ 56%]
+tests/torch/test_cli_shared.py::TestResolveAccelerator::test_all_accelerator_values_passthrough PASSED [ 56%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_training_mode_defaults PASSED [ 56%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_training_mode_custom_values PASSED [ 56%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_inference_mode PASSED [ 57%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_emits_deterministic_warning PASSED [ 57%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_quiet_flag PASSED [ 57%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_handles_disable_mlflow_flag PASSED [ 57%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_quiet_or_disable_mlflow_both_true PASSED [ 58%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_invalid_mode_raises_value_error PASSED [ 58%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfig::test_resolves_accelerator_from_device_flag PASSED [ 58%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_creates_output_dir PASSED [ 58%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_raises_if_train_file_missing PASSED [ 58%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_raises_if_test_file_missing PASSED [ 59%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_test_file PASSED [ 59%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_works_with_pathlib_path_objects PASSED [ 59%]
+tests/torch/test_cli_shared.py::TestValidatePaths::test_accepts_none_train_file_for_inference_mode PASSED [ 59%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfigInferenceMode::test_inference_mode_defaults PASSED [ 60%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfigInferenceMode::test_inference_mode_custom_batch_size PASSED [ 60%]
+tests/torch/test_cli_shared.py::TestBuildExecutionConfigInferenceMode::test_inference_mode_respects_quiet PASSED [ 60%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accelerator_flag_roundtrip PASSED [ 60%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_deterministic_flag_roundtrip PASSED [ 61%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_no_deterministic_flag_roundtrip PASSED [ 61%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip PASSED [ 61%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_learning_rate_flag_roundtrip PASSED [ 61%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_multiple_execution_config_flags PASSED [ 61%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence PASSED [ 62%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_enable_checkpointing_flag PASSED [ 62%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_save_top_k_flag PASSED [ 62%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_monitor_flag PASSED [ 62%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_checkpoint_mode_flag PASSED [ 63%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_early_stop_patience_flag PASSED [ 63%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_scheduler_flag_roundtrip PASSED [ 63%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_accumulate_grad_batches_roundtrip PASSED [ 63%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_logger_backend_csv_default PASSED [ 63%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_logger_backend_tensorboard PASSED [ 64%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_logger_backend_none PASSED [ 64%]
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_disable_mlflow_deprecation_warning PASSED [ 64%]
+tests/torch/test_config_bridge.py::TestConfigBridgeMVP::test_mvp_config_bridge_populates_params_cfg PASSED [ 64%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[N-direct] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[n_filters_scale-direct] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[object_big-direct] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_direct_fields[probe_big-direct] PASSED [ 65%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct] PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[gridsize-tuple-to-int] PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-unsupervised] PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[model_type-supervised] PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-silu] PASSED [ 66%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-SiLU] PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_transform_fields[amp_activation-passthrough] PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename] PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true] PASSED [ 67%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false] PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-default] PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[pad_object-override] PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-default] PASSED [ 68%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_override_fields[gaussian_smoothing_sigma-override] PASSED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default] PASSED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override] PASSED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default] PASSED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default] PASSED [ 69%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default] PASSED [ 70%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default] PASSED [ 70%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default] PASSED [ 70%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-default] PASSED [ 70%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_override_fields[debug-override] PASSED [ 71%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_translation[probe_mask-default] PASSED [ 71%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_config_probe_mask_override PASSED [ 71%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence] PASSED [ 71%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[probe_scale-divergence] PASSED [ 72%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_gridsize_error_handling[gridsize-non-square] PASSED [ 72%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_type_error_handling[model_type-invalid-enum] PASSED [ 72%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_activation_error_handling[amp_activation-unknown] PASSED [ 72%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error PASSED [ 72%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_model_path_required_error PASSED [ 73%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_default_divergence_error PASSED [ 73%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation PASSED [ 73%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none PASSED [ 73%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override PASSED [ 74%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_missing_override_uses_none PASSED [ 74%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_inference_config_n_subsample_explicit_override PASSED [ 74%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_n_groups_missing_override_warning PASSED [ 74%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_test_data_file_training_missing_warning PASSED [ 75%]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_params_cfg_matches_baseline PASSED [ 75%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_returns_dataclass PASSED [ 75%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_tf_config PASSED [ 75%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_pytorch_configs PASSED [ 75%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_contains_overrides_dict PASSED [ 76%]
+tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_gridsize_sets_channel_count PASSED [ 76%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_returns_dataclass PASSED [ 76%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_tf_config PASSED [ 76%]
+tests/torch/test_config_factory.py::TestInferencePayloadStructure::test_inference_payload_contains_pytorch_configs PASSED [ 77%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_grid_size_tuple_to_gridsize_int PASSED [ 77%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_epochs_to_nepochs_conversion PASSED [ 77%]
+tests/torch/test_config_factory.py::TestConfigBridgeTranslation::test_k_to_neighbor_count_conversion PASSED [ 77%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_factory_populates_params_cfg PASSED [ 77%]
+tests/torch/test_config_factory.py::TestLegacyParamsPopulation::test_populate_legacy_params_helper PASSED [ 78%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_override_dict_wins_over_defaults PASSED [ 78%]
+tests/torch/test_config_factory.py::TestOverridePrecedence::test_probe_size_override_wins_over_inference PASSED [ 78%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_n_groups_raises_error PASSED [ 78%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_nonexistent_train_data_file_raises_error PASSED [ 79%]
+tests/torch/test_config_factory.py::TestFactoryValidation::test_missing_checkpoint_raises_error PASSED [ 79%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_training_payload_execution_config_not_none PASSED [ 79%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_inference_payload_execution_config_not_none PASSED [ 79%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_defaults_applied PASSED [ 80%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_explicit_instance_propagates PASSED [ 80%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_execution_config_fields_accessible PASSED [ 80%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_overrides_applied_records_execution_knobs PASSED [ 80%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_checkpoint_knobs_propagate_through_factory PASSED [ 80%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_checkpoint_defaults_respected PASSED [ 81%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_scheduler_override_applied PASSED [ 81%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_accum_steps_override_applied PASSED [ 81%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_logger_backend_csv_default PASSED [ 81%]
+tests/torch/test_config_factory.py::TestExecutionConfigOverrides::test_logger_backend_tensorboard PASSED [ 82%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_from_npz PASSED [ 82%]
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback PASSED [ 82%]
+tests/torch/test_data_pipeline.py::TestRawDataTorchAdapter::test_raw_data_torch_matches_tensorflow PASSED [ 82%]
+tests/torch/test_data_pipeline.py::TestDataContainerParity::test_data_container_shapes_and_dtypes PASSED [ 83%]
+tests/torch/test_data_pipeline.py::TestGroundTruthLoading::test_y_patches_are_complex64 PASSED [ 83%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_memmap_loader_matches_raw_data_torch PASSED [ 83%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_deterministic_generation_validation PASSED [ 83%]
+tests/torch/test_data_pipeline.py::TestMemmapBridgeParity::test_memmap_bridge_accepts_diffraction_legacy PASSED [ 83%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_backward_compat_legacy_diff3d PASSED [ 84%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_error_when_no_diffraction_key PASSED [ 84%]
+tests/torch/test_dataloader.py::TestDataloaderCanonicalKeySupport::test_loads_canonical_diffraction PASSED [ 84%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_auto_transposes_legacy_hwn_format PASSED [ 84%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_handles_edge_case_square_dataset PASSED [ 85%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_npz_headers_also_transposes_shape PASSED [ 85%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_preserves_canonical_nwh_format PASSED [ 85%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_real_dataset_dimensions PASSED [ 85%]
+tests/torch/test_dataloader.py::TestDataloaderFormatAutoTranspose::test_works_with_diff3d_legacy_key PASSED [ 86%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_file_exists PASSED [ 86%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_fixture_outputs_match_contract PASSED [ 86%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_sidecar_exists PASSED [ 86%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_metadata_content_valid PASSED [ 86%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureContract::test_coordinate_coverage PASSED [ 87%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_loads_with_rawdata PASSED [ 87%]
+tests/torch/test_fixture_pytorch_integration.py::TestFixtureIntegrationSmoke::test_fixture_compatible_with_pytorch_dataloader PASSED [ 87%]
+tests/torch/test_integration_workflow_torch.py::test_bundle_loader_returns_modules PASSED [ 87%]
+tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer PASSED [ 88%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_train_save_load_infer_cycle_legacy SKIPPED [ 88%]
+tests/torch/test_integration_workflow_torch.py::TestPyTorchIntegrationWorkflow::test_pytorch_tf_output_parity SKIPPED [ 88%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters PASSED [ 88%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs PASSED [ 88%]
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable PASSED [ 89%]
+tests/torch/test_model_manager.py::TestSaveTorchBundle::test_archive_structure PASSED [ 89%]
+tests/torch/test_model_manager.py::TestSaveTorchBundle::test_params_snapshot PASSED [ 89%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_updates_params_cfg PASSED [ 89%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_missing_params_raises_value_error PASSED [ 90%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_load_round_trip_returns_model_stub PASSED [ 90%]
+tests/torch/test_model_manager.py::TestLoadTorchBundle::test_reconstructs_models_from_bundle PASSED [ 90%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_combine_complex SKIPPED [ 90%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_get_mask SKIPPED  [ 91%]
+tests/torch/test_tf_helper.py::TestTorchTFHelper::test_placeholder_torch_functions SKIPPED [ 91%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_128 PASSED [ 91%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_from_npz PASSED [ 91%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_missing_probe PASSED [ 91%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_real_dataset PASSED [ 92%]
+tests/torch/test_train_probe_size.py::TestNPZProbeSizeExtraction::test_infer_probe_size_rectangular PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsScaffold::test_run_cdi_example_calls_update_legacy_dict PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_cdi_model_torch_invokes_lightning PASSED [ 92%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_dataloader_tensor_dict_structure PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_poisson_count_contract PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_coords_relative_layout PASSED [ 93%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_invokes_training PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_run_cdi_example_persists_models PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsRun::test_load_inference_bundle_handles_bundle PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_runs_trainer_fit PASSED [ 94%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_returns_models_dict PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_guard_without_train_results PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False] PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False] PASSED [ 95%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True] PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble PASSED [ 96%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_return_contract PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_batches_remain_float32 PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchFloat32::test_dataloader_casts_float64_to_float32 PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_shape_alignment PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestDecoderLastShapeParity::test_probe_big_false_no_mismatch PASSED [ 97%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestInferenceExecutionConfig::test_inference_uses_execution_batch_size PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_model_checkpoint_callback_configured PASSED [ 98%]
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_early_stopping_callback_configured PASSED [ 99%]
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_disable_checkpointing_skips_callbacks PASSED [ 99%]
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_accumulation PASSED [ 99%]
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name PASSED [ 99%]
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_logger PASSED [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_interop_h5_reader ____________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-353/test_interop_h5_reader0')
+
+    def test_interop_h5_reader(tmp_path: Path):
+        # Export a minimal product file using our exporter
+        raw = _stub_raw()
+        meta = ExportMeta(
+            name="InteropTest",
+            comments="interop smoke",
+            detector_distance_m=0.5,
+            probe_energy_eV=9000.0,
+            exposure_time_s=0.2,
+            object_pixel_width_m=5.0e-8,
+            object_pixel_height_m=5.0e-8,
+            probe_pixel_width_m=1.25e-7,
+            probe_pixel_height_m=1.25e-7,
+            object_center_x_m=0.0,
+            object_center_y_m=0.0,
+        )
+        out = tmp_path / "interop.h5"
+        export_product_from_rawdata(raw, out, meta)
+    
+        # Ensure ptychodus/src is importable so we can use its HDF5 reader plugin
+        proj_root = Path(__file__).resolve().parents[2]
+        sys.path.insert(0, str(proj_root / "ptychodus" / "src"))
+    
+>       from ptychodus.plugins.h5_product_file import H5ProductFileIO
+E       ModuleNotFoundError: No module named 'ptychodus'
+
+tests/io/test_ptychodus_interop_h5.py:49: ModuleNotFoundError
+_____________ test_run_phase_g_dense_exec_invokes_reporting_helper _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-353/test_run_phase_g_dense_exec_in0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x79ce106f1450>
+
+    def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        Test that main() in real execution mode invokes the reporting helper after Phase C→G pipeline.
+    
+        Acceptance:
+        - Loads main() from orchestrator script via importlib
+        - Stubs prepare_hub, validate_phase_c_metadata, summarize_phase_g_outputs (no-op for speed)
+        - Monkeypatches run_command to record invocations
+        - Runs main() without --collect-only to trigger real execution path
+        - Asserts final run_command call targets report_phase_g_dense_metrics.py script
+        - Validates command includes --metrics metrics_summary.json and --output aggregate_report.md
+        - Validates log_path points to cli/aggregate_report_cli.log
+        - Ensures AUTHORITATIVE_CMDS_DOC environment variable is respected
+        - Returns 0 exit code on success
+    
+        Follows TYPE-PATH-001 (Path normalization).
+        """
+        # Import main() and helper functions from orchestrator
+        module = _import_orchestrator_module()
+        main = module.main
+    
+        # Setup: Create tmp hub directory
+        hub = tmp_path / "exec_hub"
+        hub.mkdir(parents=True)
+    
+        # Create expected directory structure for Phase C→G
+        phase_c_root = hub / "data" / "phase_c"
+        phase_c_root.mkdir(parents=True)
+        cli_log_dir = hub / "cli"
+        cli_log_dir.mkdir(parents=True)
+        phase_g_root = hub / "analysis"
+        phase_g_root.mkdir(parents=True)
+    
+        # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+        monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+    
+        # Prepare sys.argv for argparse (NO --collect-only, so real execution)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "run_phase_g_dense.py",
+                "--hub", str(hub),
+                "--dose", "1000",
+                "--view", "dense",
+                "--splits", "train", "test",
+                "--clobber",  # Required to pass prepare_hub check
+            ],
+        )
+    
+        # Stub heavy helpers to no-op (we only care about run_command invocations)
+        def stub_prepare_hub(hub_path, clobber):
+            """No-op stub for prepare_hub."""
+            pass
+    
+        def stub_validate_phase_c_metadata(hub_path):
+            """No-op stub for validate_phase_c_metadata."""
+            pass
+    
+        def stub_summarize_phase_g_outputs(hub_path):
+            """No-op stub for summarize_phase_g_outputs."""
+            pass
+    
+        monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
+        monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
+        monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+    
+        # Record run_command invocations
+        run_command_calls = []
+    
+        def stub_run_command(cmd, log_path):
+            """Record cmd and log_path for assertions."""
+            run_command_calls.append((cmd, log_path))
+    
+        monkeypatch.setattr(module, "run_command", stub_run_command)
+    
+        # Execute: Call main() (should execute Phase C→G pipeline + reporting helper)
+>       exit_code = main()
+                    ^^^^^^
+
+tests/study/test_phase_g_dense_orchestrator.py:683: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def main() -> int:
+        """CLI entry point for Phase C→G dense execution orchestrator."""
+        parser = argparse.ArgumentParser(
+            description="Phase G Dense Execution Orchestrator - run full Phase C→G pipeline"
+        )
+        parser.add_argument(
+            "--hub",
+            type=Path,
+            required=True,
+            help="Hub directory for all phase artifacts and logs",
+        )
+        parser.add_argument(
+            "--dose",
+            type=int,
+            required=True,
+            help="Dose value (e.g., 1000, 10000, 100000)",
+        )
+        parser.add_argument(
+            "--view",
+            type=str,
+            required=True,
+            choices=["dense", "sparse"],
+            help="Overlap view type",
+        )
+        parser.add_argument(
+            "--splits",
+            nargs="+",
+            default=["train", "test"],
+            help="Data splits to process (default: train test)",
+        )
+        parser.add_argument(
+            "--collect-only",
+            action="store_true",
+            help="Verification mode: print planned commands without execution",
+        )
+        parser.add_argument(
+            "--clobber",
+            action="store_true",
+            help="Remove/archive stale Phase C outputs before starting pipeline (default: error on stale outputs)",
+        )
+    
+        args = parser.parse_args()
+    
+        # TYPE-PATH-001: Normalize to Path objects
+        hub = Path(args.hub).resolve()
+        dose = args.dose
+        view = args.view
+        splits = args.splits
+    
+        # Verify AUTHORITATIVE_CMDS_DOC is set
+        if "AUTHORITATIVE_CMDS_DOC" not in os.environ:
+            print(
+                "[run_phase_g_dense] WARNING: AUTHORITATIVE_CMDS_DOC not set; "
+                "setting to ./docs/TESTING_GUIDE.md",
+                file=sys.stderr,
+            )
+            os.environ["AUTHORITATIVE_CMDS_DOC"] = "./docs/TESTING_GUIDE.md"
+    
+        # Define artifact directories (TYPE-PATH-001)
+        phase_c_root = hub / "data" / "phase_c"
+        phase_d_root = hub / "data" / "phase_d"
+        phase_e_root = hub / "data" / "phase_e"
+        phase_f_root = hub / "data" / "phase_f"
+        phase_g_root = hub / "analysis"
+        cli_log_dir = hub / "cli"
+    
+        # Base NPZ for Phase C generation (from generation.py default)
+        base_npz = Path("tike_outputs/fly001_reconstructed_final_prepared/fly001_reconstructed_interp_smooth_both.npz")
+    
+        # Collect commands
+        commands = []
+    
+        # Phase C: Dataset Generation
+        phase_c_cmd = [
+            "python", "-m", "studies.fly64_dose_overlap.generation",
+            "--base-npz", str(base_npz),
+            "--output-root", str(phase_c_root),
+        ]
+        commands.append(("Phase C: Dataset Generation", phase_c_cmd, cli_log_dir / "phase_c_generation.log"))
+    
+        # Phase D: Overlap View Generation
+        phase_d_cmd = [
+            "python", "-m", "studies.fly64_dose_overlap.overlap",
+            "--phase-c-root", str(phase_c_root),
+            "--output-root", str(phase_d_root),
+            "--doses", str(dose),
+            "--views", view,
+            "--artifact-root", str(phase_g_root),
+        ]
+        commands.append(("Phase D: Overlap View Generation", phase_d_cmd, cli_log_dir / f"phase_d_{view}.log"))
+    
+        # Phase E: Training (baseline gs1 + view gs2)
+        # Baseline (gs1)
+        phase_e_baseline_cmd = [
+            "python", "-m", "studies.fly64_dose_overlap.training",
+            "--phase-c-root", str(phase_c_root),
+            "--phase-d-root", str(phase_d_root),
+            "--artifact-root", str(phase_e_root),
+            "--dose", str(dose),
+            "--view", "baseline",
+            "--gridsize", "1",
+            "--backend", "tensorflow",
+        ]
+        commands.append(("Phase E: Training Baseline (gs1)", phase_e_baseline_cmd, cli_log_dir / f"phase_e_baseline_gs1_dose{dose}.log"))
+    
+        # Dense/sparse (gs2)
+        phase_e_view_cmd = [
+            "python", "-m", "studies.fly64_dose_overlap.training",
+            "--phase-c-root", str(phase_c_root),
+            "--phase-d-root", str(phase_d_root),
+            "--artifact-root", str(phase_e_root),
+            "--dose", str(dose),
+            "--view", view,
+            "--gridsize", "2",
+            "--backend", "tensorflow",
+        ]
+        commands.append((f"Phase E: Training {view.capitalize()} (gs2)", phase_e_view_cmd, cli_log_dir / f"phase_e_{view}_gs2_dose{dose}.log"))
+    
+        # Phase F: Reconstruction (one job per split)
+        for split in splits:
+            phase_f_cmd = [
+                "python", "-m", "studies.fly64_dose_overlap.reconstruction",
+                "--phase-c-root", str(phase_c_root),
+                "--phase-d-root", str(phase_d_root),
+                "--artifact-root", str(phase_f_root),
+                "--dose", str(dose),
+                "--view", view,
+                "--split", split,
+                "--allow-missing-phase-d",
+            ]
+            commands.append((f"Phase F: Reconstruction {view}/{split}", phase_f_cmd, cli_log_dir / f"phase_f_{view}_{split}.log"))
+    
+        # Phase G: Comparison (one job per split)
+        for split in splits:
+            phase_g_cmd = [
+                "python", "-m", "studies.fly64_dose_overlap.comparison",
+                "--phase-c-root", str(phase_c_root),
+                "--phase-e-root", str(phase_e_root),
+                "--phase-f-root", str(phase_f_root),
+                "--artifact-root", str(phase_g_root),
+                "--dose", str(dose),
+                "--view", view,
+                "--split", split,
+            ]
+            commands.append((f"Phase G: Comparison {view}/{split}", phase_g_cmd, cli_log_dir / f"phase_g_{view}_{split}.log"))
+    
+        # Reporting Helper: Generate aggregate metrics report
+        # (executed after summarize_phase_g_outputs generates metrics_summary.json)
+        metrics_summary_json = phase_g_root / "metrics_summary.json"
+        aggregate_report_md = phase_g_root / "aggregate_report.md"
+        aggregate_highlights_txt = phase_g_root / "aggregate_highlights.txt"
+        report_helper_script = Path(__file__).parent / "report_phase_g_dense_metrics.py"
+        report_helper_cmd = [
+            "python", str(report_helper_script),
+            "--metrics", str(metrics_summary_json),
+            "--output", str(aggregate_report_md),
+            "--highlights", str(aggregate_highlights_txt),
+        ]
+        report_helper_log = cli_log_dir / "aggregate_report_cli.log"
+    
+        # Collect-only mode: print commands and exit
+        if args.collect_only:
+            print("[run_phase_g_dense] Collect-only mode: planned commands:")
+            # Print Phase C-G commands
+            for i, (desc, cmd, log_path) in enumerate(commands, 1):
+                print(f"\n{i}. {desc}")
+                print(f"   Command: {' '.join(str(c) for c in cmd)}")
+                print(f"   Log: {log_path}")
+            # Print reporting helper command
+            print(f"\n{len(commands) + 1}. Reporting: Aggregate metrics report")
+            print(f"   Command: {' '.join(str(c) for c in report_helper_cmd)}")
+            print(f"   Log: {report_helper_log}")
+            return 0
+    
+        # Prepare hub: detect and handle stale outputs
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Preparing hub...")
+        print("=" * 80 + "\n")
+        try:
+            prepare_hub(hub, clobber=args.clobber)
+        except RuntimeError as e:
+            print(f"[run_phase_g_dense] ERROR during hub preparation: {e}", file=sys.stderr)
+            # Write blocker log
+            blocker_path = phase_g_root / "blocker.log"
+            blocker_path.parent.mkdir(parents=True, exist_ok=True)
+            with blocker_path.open("w", encoding="utf-8") as blocker:
+                blocker.write("Blocked during hub preparation\n")
+                blocker.write(f"Exception: {e}\n")
+            return 1
+    
+        # Execute all commands in sequence
+        print(f"\n[run_phase_g_dense] Starting Phase C→G pipeline for dose={dose}, view={view}, splits={splits}")
+        print(f"[run_phase_g_dense] Hub: {hub}")
+        print(f"[run_phase_g_dense] Total commands: {len(commands)}\n")
+    
+        for i, (desc, cmd, log_path) in enumerate(commands, 1):
+            print(f"\n{'=' * 80}")
+            print(f"[{i}/{len(commands)}] {desc}")
+            print(f"{'=' * 80}\n")
+            run_command(cmd, log_path)
+    
+            # After Phase C completes, validate metadata
+            # (Skip this guard when --collect-only to keep dry runs fast)
+            if not args.collect_only and "Phase C:" in desc:
+                print("\n" + "=" * 80)
+                print("[run_phase_g_dense] Validating Phase C metadata...")
+                print("=" * 80 + "\n")
+                try:
+                    validate_phase_c_metadata(hub)
+                except RuntimeError as e:
+                    print(f"[run_phase_g_dense] ERROR during Phase C metadata validation: {e}", file=sys.stderr)
+                    # Write blocker log
+                    blocker_path = phase_g_root / "blocker.log"
+                    blocker_path.parent.mkdir(parents=True, exist_ok=True)
+                    with blocker_path.open("w", encoding="utf-8") as blocker:
+                        blocker.write("Blocked during Phase C metadata validation\n")
+                        blocker.write(f"Exception: {e}\n")
+                    return 1
+    
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] SUCCESS: All phases completed")
+        print("=" * 80)
+    
+        # Summarize metrics from Phase G comparison results
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Summarizing Phase G metrics...")
+        print("=" * 80 + "\n")
+        try:
+            summarize_phase_g_outputs(hub)
+        except Exception as e:
+            print(f"[run_phase_g_dense] ERROR during metrics summarization: {e}", file=sys.stderr)
+            # Write blocker log
+            blocker_path = phase_g_root / "blocker.log"
+            blocker_path.parent.mkdir(parents=True, exist_ok=True)
+            with blocker_path.open("w", encoding="utf-8") as blocker:
+                blocker.write("Blocked during metrics summarization\n")
+                blocker.write(f"Exception: {e}\n")
+            return 1
+    
+        # Generate aggregate metrics report using the reporting helper
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Generating aggregate metrics report...")
+        print("=" * 80 + "\n")
+        run_command(report_helper_cmd, report_helper_log)
+    
+        # Print highlights preview to stdout for quick sanity-check
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Aggregate highlights preview")
+        print("=" * 80 + "\n")
+    
+        # Read and display highlights file (TYPE-PATH-001 compliance: use Path)
+        highlights_path = Path(aggregate_highlights_txt)
+        if not highlights_path.exists():
+>           raise RuntimeError(
+                f"Highlights file not found at: {highlights_path}\n"
+                f"The reporting helper should have created this file.\n"
+                f"Check the reporting helper log at: {report_helper_log}"
+            )
+E           RuntimeError: Highlights file not found at: /tmp/pytest-of-ollie/pytest-353/test_run_phase_g_dense_exec_in0/exec_hub/analysis/aggregate_highlights.txt
+E           The reporting helper should have created this file.
+E           Check the reporting helper log at: /tmp/pytest-of-ollie/pytest-353/test_run_phase_g_dense_exec_in0/exec_hub/cli/aggregate_report_cli.log
+
+plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:784: RuntimeError
+----------------------------- Captured stdout call -----------------------------
+
+================================================================================
+[run_phase_g_dense] Preparing hub...
+================================================================================
+
+
+[run_phase_g_dense] Starting Phase C→G pipeline for dose=1000, view=dense, splits=['train', 'test']
+[run_phase_g_dense] Hub: /tmp/pytest-of-ollie/pytest-353/test_run_phase_g_dense_exec_in0/exec_hub
+[run_phase_g_dense] Total commands: 8
+
+
+================================================================================
+[1/8] Phase C: Dataset Generation
+================================================================================
+
+
+================================================================================
+[run_phase_g_dense] Validating Phase C metadata...
+================================================================================
+
+
+================================================================================
+[2/8] Phase D: Overlap View Generation
+================================================================================
+
+
+================================================================================
+[3/8] Phase E: Training Baseline (gs1)
+================================================================================
+
+
+================================================================================
+[4/8] Phase E: Training Dense (gs2)
+================================================================================
+
+
+================================================================================
+[5/8] Phase F: Reconstruction dense/train
+================================================================================
+
+
+================================================================================
+[6/8] Phase F: Reconstruction dense/test
+================================================================================
+
+
+================================================================================
+[7/8] Phase G: Comparison dense/train
+================================================================================
+
+
+================================================================================
+[8/8] Phase G: Comparison dense/test
+================================================================================
+
+
+================================================================================
+[run_phase_g_dense] SUCCESS: All phases completed
+================================================================================
+
+================================================================================
+[run_phase_g_dense] Summarizing Phase G metrics...
+================================================================================
+
+
+================================================================================
+[run_phase_g_dense] Generating aggregate metrics report...
+================================================================================
+
+
+================================================================================
+[run_phase_g_dense] Aggregate highlights preview
+================================================================================
+
+=============================== warnings summary ===============================
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_num_workers_flag_roundtrip
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/train.py:652: UserWarning: Deterministic mode with num_workers=4 may cause performance degradation. Consider setting --num-workers 0 for reproducibility.
+    execution_config = build_execution_config_from_args(args, mode='training')
+
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:552: UserWarning: Error reading probeGuess from /tmp/pytest-of-ollie/pytest-353/test_bundle_persistence0/train.npz: No data left in file. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_cli_train_torch.py: 1 warning
+tests/torch/test_config_factory.py: 22 warnings
+tests/torch/test_workflows_components.py: 12 warnings
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:257: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_training_config = to_training_config(
+
+tests/torch/test_cli_train_torch.py: 1 warning
+tests/torch/test_config_factory.py: 25 warnings
+tests/torch/test_workflows_components.py: 12 warnings
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:613: UserWarning: params.cfg already populated. Set force=True to overwrite existing values.
+    warnings.warn(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeMVP::test_mvp_config_bridge_populates_params_cfg
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:100: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    spec_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_direct_fields[batch_size-direct]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:235: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nepochs-rename]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-true]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_transform_fields[nll_weight-false]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:298: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[mae_weight-override]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_mae_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[realspace_weight-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[positions_provided-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[probe_trainable-default]
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_override_fields[sequential_sampling-default]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:366: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_default_divergence_detection[nphotons-divergence]
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:493: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_train_data_file_required_error
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:575: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_nphotons_override_passes_validation
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:666: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_missing_override_uses_none
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:707: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_bridge.py::TestConfigBridgeParity::test_training_config_n_subsample_explicit_override
+  /home/ollie/Documents/PtychoPINN2/tests/torch/test_config_bridge.py:742: UserWarning: test_data_file not provided in TrainingConfig overrides. Evaluation workflows require test_data_file to be set during inference update. Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))
+    tf_train = config_bridge.to_training_config(
+
+tests/torch/test_config_factory.py::TestProbeSizeInference::test_infer_probe_size_missing_file_fallback
+  /home/ollie/Documents/PtychoPINN2/ptycho_torch/config_factory.py:546: UserWarning: Data file /nonexistent/data.npz not found. Using fallback N=64.
+    warnings.warn(
+
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_contains_hyperparameters
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_load_from_checkpoint_without_kwargs
+tests/torch/test_lightning_checkpoint.py::TestLightningCheckpointSerialization::test_checkpoint_configs_are_serializable
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/setup.py:177: GPU available but not used. You can set it by doing `Trainer(accelerator='gpu')`.
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_poisson_count_contract
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/core/module.py:449: You are trying to `self.log()` but the `self.trainer` reference is not registered on the model yet. This is most likely because the model hasn't been passed to the `Trainer`
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:751: Checkpoint directory /home/ollie/Documents/PtychoPINN2/training_outputs/checkpoints exists and is not empty.
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:433: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=31` in the `DataLoader` to improve performance.
+
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+  /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:467: `ModelCheckpoint(monitor='train_loss')` could not find the monitored key in the returned metrics: ['epoch', 'step']. HINT: Did you call `log('train_loss', value)` in the `LightningModule`?
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_benchmark_throughput.py:11: scripts/benchmark_inference_throughput.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_run_baseline.py:4: tests/test_utilities.py not found. This is a pre-existing broken test dependency. Add to fix_plan.md for future resolution.
+SKIPPED [1] tests/test_generic_loader.py:46: Data loading failed:
+SKIPPED [1] tests/test_integration_baseline_gs2.py:27: Test data not found at /home/ollie/Documents/PtychoPINN2/datasets/fly/fly001_transposed.npz
+SKIPPED [1] ../../miniconda3/envs/ptycho311/lib/python3.11/site-packages/_pytest/unittest.py:385: Deprecated: generate_simulated_data API changed from (obj,probe,nimages) to (config,obj,probe) and memoization disabled
+SKIPPED [1] tests/test_tf_helper.py:199: TensorFlow Addons removed in TF 2.19 migration
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:47: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:86: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:198: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:169: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:257: tensorflow_addons not available
+SKIPPED [1] tests/test_tf_helper_edge_aware.py:227: tensorflow_addons not available
+SKIPPED [2] tests/torch/test_integration_workflow_torch.py: Migrated to pytest-native test_run_pytorch_train_save_load_infer
+SKIPPED [1] tests/torch/test_tf_helper.py:64: torch tf_helper module not available
+SKIPPED [1] tests/torch/test_tf_helper.py:57: torch tf_helper module not available
+SKIPPED [1] tests/torch/test_tf_helper.py:74: torch tf_helper module not available - tests would fail
+FAILED tests/io/test_ptychodus_interop_h5.py::test_interop_h5_reader - Module...
+FAILED tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_invokes_reporting_helper
+===== 2 failed, 419 passed, 17 skipped, 104 warnings in 249.68s (0:04:09) ======

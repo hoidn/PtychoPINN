@@ -1,0 +1,297 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_prints_highlights_preview FAILED [100%]
+
+=================================== FAILURES ===================================
+____________ test_run_phase_g_dense_exec_prints_highlights_preview _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b0cf4b0fe90>
+capsys = <_pytest.capture.CaptureFixture object at 0x7b0cf4b1c390>
+
+    def test_run_phase_g_dense_exec_prints_highlights_preview(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+        """
+        Test that main() in real execution mode prints an "Aggregate highlights" preview after reporting helper.
+    
+        Acceptance:
+        - Loads main() from orchestrator script via importlib
+        - Stubs prepare_hub, validate_phase_c_metadata, summarize_phase_g_outputs (no-op for speed)
+        - Stubs run_command to write deterministic highlights text when reporting helper is invoked
+        - Runs main() without --collect-only to trigger real execution path
+        - Captures stdout via capsys
+        - Asserts stdout contains "Aggregate highlights preview" banner
+        - Asserts stdout contains sample highlights content (MS-SSIM/MAE deltas)
+        - Returns 0 exit code on success
+    
+        Follows TYPE-PATH-001 (Path normalization).
+        """
+        # Import main() and helper functions from orchestrator
+        module = _import_orchestrator_module()
+        main = module.main
+    
+        # Setup: Create tmp hub directory
+        hub = tmp_path / "exec_hub"
+        hub.mkdir(parents=True)
+    
+        # Create expected directory structure for Phase C→G
+        phase_c_root = hub / "data" / "phase_c"
+        phase_c_root.mkdir(parents=True)
+        cli_log_dir = hub / "cli"
+        cli_log_dir.mkdir(parents=True)
+        phase_g_root = hub / "analysis"
+        phase_g_root.mkdir(parents=True)
+    
+        # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+        monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+    
+        # Prepare sys.argv for argparse (NO --collect-only, so real execution)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "run_phase_g_dense.py",
+                "--hub", str(hub),
+                "--dose", "1000",
+                "--view", "dense",
+                "--splits", "train", "test",
+                "--clobber",  # Required to pass prepare_hub check
+            ],
+        )
+    
+        # Stub heavy helpers to no-op (we only care about run_command invocations)
+        def stub_prepare_hub(hub_path, clobber):
+            """No-op stub for prepare_hub."""
+            pass
+    
+        def stub_validate_phase_c_metadata(hub_path):
+            """No-op stub for validate_phase_c_metadata."""
+            pass
+    
+        def stub_summarize_phase_g_outputs(hub_path):
+            """No-op stub for summarize_phase_g_outputs."""
+            pass
+    
+        monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
+        monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
+        monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+    
+        # Create deterministic highlights file when reporting helper is invoked
+        def stub_run_command(cmd, log_path):
+            """Stub that writes highlights file when reporting helper is invoked."""
+            cmd_str = " ".join(str(c) for c in cmd)
+            if "report_phase_g_dense_metrics.py" in cmd_str and "--highlights" in cmd_str:
+                # Extract highlights path from command
+                # Command format: [..., '--highlights', 'path/to/aggregate_highlights.txt', ...]
+                for i, part in enumerate(cmd):
+                    if str(part) == "--highlights" and i + 1 < len(cmd):
+                        highlights_path = Path(cmd[i + 1])
+                        highlights_path.parent.mkdir(parents=True, exist_ok=True)
+                        # Write deterministic highlights content
+                        highlights_path.write_text(
+                            "Phase G Dense Metrics — Highlights\n"
+                            "==================================================\n"
+                            "\n"
+                            "MS-SSIM Deltas (PtychoPINN - Baseline):\n"
+                            "  Amplitude (mean): +0.123\n"
+                            "  Phase (mean):     +0.045\n"
+                            "\n"
+                            "MS-SSIM Deltas (PtychoPINN - PtyChi):\n"
+                            "  Amplitude (mean): +0.067\n"
+                            "  Phase (mean):     +0.012\n"
+                            "\n"
+                            "MAE Deltas (PtychoPINN - Baseline):\n"
+                            "  [Note: Negative = PtychoPINN better (lower error)]\n"
+                            "  Amplitude (mean): -0.008\n"
+                            "  Phase (mean):     -0.003\n"
+                            "\n"
+                            "MAE Deltas (PtychoPINN - PtyChi):\n"
+                            "  [Note: Negative = PtychoPINN better (lower error)]\n"
+                            "  Amplitude (mean): -0.005\n"
+                            "  Phase (mean):     -0.001\n",
+                            encoding="utf-8"
+                        )
+                        break
+    
+        monkeypatch.setattr(module, "run_command", stub_run_command)
+    
+        # Execute: Call main() (should execute Phase C→G pipeline + reporting helper + highlights preview)
+        exit_code = main()
+    
+        # Assert: Exit code should be 0
+        assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
+    
+        # Capture stdout
+        captured = capsys.readouterr()
+        stdout = captured.out
+    
+        # Assert: stdout should contain "Aggregate highlights preview" banner
+>       assert "Aggregate highlights preview" in stdout, \
+            f"Expected stdout to contain 'Aggregate highlights preview' banner, got:\n{stdout}"
+E       AssertionError: Expected stdout to contain 'Aggregate highlights preview' banner, got:
+E         
+E         ================================================================================
+E         [run_phase_g_dense] Preparing hub...
+E         ================================================================================
+E         
+E         
+E         [run_phase_g_dense] Starting Phase C→G pipeline for dose=1000, view=dense, splits=['train', 'test']
+E         [run_phase_g_dense] Hub: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub
+E         [run_phase_g_dense] Total commands: 8
+E         
+E         
+E         ================================================================================
+E         [1/8] Phase C: Dataset Generation
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [run_phase_g_dense] Validating Phase C metadata...
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [2/8] Phase D: Overlap View Generation
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [3/8] Phase E: Training Baseline (gs1)
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [4/8] Phase E: Training Dense (gs2)
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [5/8] Phase F: Reconstruction dense/train
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [6/8] Phase F: Reconstruction dense/test
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [7/8] Phase G: Comparison dense/train
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [8/8] Phase G: Comparison dense/test
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [run_phase_g_dense] SUCCESS: All phases completed
+E         ================================================================================
+E         
+E         ================================================================================
+E         [run_phase_g_dense] Summarizing Phase G metrics...
+E         ================================================================================
+E         
+E         
+E         ================================================================================
+E         [run_phase_g_dense] Generating aggregate metrics report...
+E         ================================================================================
+E         
+E         
+E         Artifacts saved to: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub
+E         CLI logs: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/cli
+E         Analysis outputs: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis
+E         Aggregate report: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis/aggregate_report.md
+E         Highlights: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis/aggregate_highlights.txt
+E         
+E       assert 'Aggregate highlights preview' in "\n================================================================================\n[run_phase_g_dense] Preparing hub...\n================================================================================\n\n\n[run_phase_g_dense] Starting Phase C\u2192G pipeline for dose=1000, view=dense, splits=['train', 'test']\n[run_phase_g_dense] Hub: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub\n[run_phase_g_dense] Total commands: 8\n\n\n================================================================================\n[1/8] Phase C: Dataset Generation\n================================================================================\n\n\n================================================================================\n[run_phase_g_dense] Validating Phase C metadata...\n================================================================================\n\n\n================================================================================\n[2/8] Phase D: Overlap View Generation\n================================================================================\n\n\n================================================================================\n[3/8] Phase E: Training Baseline (gs1)\n================================================================================\n\n\n================================================================================\n[4/8] Phase E: Training Dense (gs2)\n================================================================================\n\n\n================================================================================\n[5/8] Phase F: Reconstruction dense/train\n================================================================================\n\n\n================================================================================\n[6/8] Phase F: Reconstruction dense/test\n================================================================================\n\n\n================================================================================\n[7/8] Phase G: Comparison dense/train\n================================================================================\n\n\n================================================================================\n[8/8] Phase G: Comparison dense/test\n================================================================================\n\n\n================================================================================\n[run_phase_g_dense] SUCCESS: All phases completed\n================================================================================\n\n================================================================================\n[run_phase_g_dense] Summarizing Phase G metrics...\n================================================================================\n\n\n================================================================================\n[run_phase_g_dense] Generating aggregate metrics report...\n================================================================================\n\n\nArtifacts saved to: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub\nCLI logs: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/cli\nAnalysis outputs: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis\nAggregate report: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis/aggregate_report.md\nHighlights: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis/aggregate_highlights.txt\n"
+
+tests/study/test_phase_g_dense_orchestrator.py:829: AssertionError
+=========================== short test summary info ============================
+FAILED tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_prints_highlights_preview - AssertionError: Expected stdout to contain 'Aggregate highlights preview' banner, got:
+  
+  ================================================================================
+  [run_phase_g_dense] Preparing hub...
+  ================================================================================
+  
+  
+  [run_phase_g_dense] Starting Phase C→G pipeline for dose=1000, view=dense, splits=['train', 'test']
+  [run_phase_g_dense] Hub: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub
+  [run_phase_g_dense] Total commands: 8
+  
+  
+  ================================================================================
+  [1/8] Phase C: Dataset Generation
+  ================================================================================
+  
+  
+  ================================================================================
+  [run_phase_g_dense] Validating Phase C metadata...
+  ================================================================================
+  
+  
+  ================================================================================
+  [2/8] Phase D: Overlap View Generation
+  ================================================================================
+  
+  
+  ================================================================================
+  [3/8] Phase E: Training Baseline (gs1)
+  ================================================================================
+  
+  
+  ================================================================================
+  [4/8] Phase E: Training Dense (gs2)
+  ================================================================================
+  
+  
+  ================================================================================
+  [5/8] Phase F: Reconstruction dense/train
+  ================================================================================
+  
+  
+  ================================================================================
+  [6/8] Phase F: Reconstruction dense/test
+  ================================================================================
+  
+  
+  ================================================================================
+  [7/8] Phase G: Comparison dense/train
+  ================================================================================
+  
+  
+  ================================================================================
+  [8/8] Phase G: Comparison dense/test
+  ================================================================================
+  
+  
+  ================================================================================
+  [run_phase_g_dense] SUCCESS: All phases completed
+  ================================================================================
+  
+  ================================================================================
+  [run_phase_g_dense] Summarizing Phase G metrics...
+  ================================================================================
+  
+  
+  ================================================================================
+  [run_phase_g_dense] Generating aggregate metrics report...
+  ================================================================================
+  
+  
+  Artifacts saved to: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub
+  CLI logs: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/cli
+  Analysis outputs: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis
+  Aggregate report: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis/aggregate_report.md
+  Highlights: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis/aggregate_highlights.txt
+  
+assert 'Aggregate highlights preview' in "\n================================================================================\n[run_phase_g_dense] Preparing hub...\n================================================================================\n\n\n[run_phase_g_dense] Starting Phase C\u2192G pipeline for dose=1000, view=dense, splits=['train', 'test']\n[run_phase_g_dense] Hub: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub\n[run_phase_g_dense] Total commands: 8\n\n\n================================================================================\n[1/8] Phase C: Dataset Generation\n================================================================================\n\n\n================================================================================\n[run_phase_g_dense] Validating Phase C metadata...\n================================================================================\n\n\n================================================================================\n[2/8] Phase D: Overlap View Generation\n================================================================================\n\n\n================================================================================\n[3/8] Phase E: Training Baseline (gs1)\n================================================================================\n\n\n================================================================================\n[4/8] Phase E: Training Dense (gs2)\n================================================================================\n\n\n================================================================================\n[5/8] Phase F: Reconstruction dense/train\n================================================================================\n\n\n================================================================================\n[6/8] Phase F: Reconstruction dense/test\n================================================================================\n\n\n================================================================================\n[7/8] Phase G: Comparison dense/train\n================================================================================\n\n\n================================================================================\n[8/8] Phase G: Comparison dense/test\n================================================================================\n\n\n================================================================================\n[run_phase_g_dense] SUCCESS: All phases completed\n================================================================================\n\n================================================================================\n[run_phase_g_dense] Summarizing Phase G metrics...\n================================================================================\n\n\n================================================================================\n[run_phase_g_dense] Generating aggregate metrics report...\n================================================================================\n\n\nArtifacts saved to: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub\nCLI logs: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/cli\nAnalysis outputs: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis\nAggregate report: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis/aggregate_report.md\nHighlights: /tmp/pytest-of-ollie/pytest-349/test_run_phase_g_dense_exec_pr0/exec_hub/analysis/aggregate_highlights.txt\n"
+============================== 1 failed in 0.88s ===============================
