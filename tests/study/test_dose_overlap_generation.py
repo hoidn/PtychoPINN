@@ -417,3 +417,127 @@ def test_load_data_for_sim_handles_metadata_pickle_guard(tmp_path):
     assert 'xcoords' in all_data
     # Metadata should NOT be in the returned data dict (filtered by MetadataManager)
     assert '_metadata' not in all_data
+
+
+def test_generate_dataset_for_dose_handles_metadata_splits(tmp_path, design_params):
+    """
+    Test that generate_dataset_for_dose Stage 5 loads metadata-bearing train/test splits
+    via MetadataManager and passes clean data to validator.
+
+    This validates the fix for:
+    - ValueError: Object arrays cannot be loaded when allow_pickle=False
+    - Ensures validator receives dict without '_metadata' key (DATA-001 compliance)
+
+    Stage 5 (lines 219-235) must use MetadataManager.load_with_metadata() to:
+    1. Load train/test NPZs with embedded metadata safely (allow_pickle=True)
+    2. Filter '_metadata' before passing to validator
+    3. Preserve TYPE-PATH-001 by passing Path objects where required
+
+    References:
+    - studies/fly64_dose_overlap/generation.py:224 (Stage 5 validation block)
+    - DATA-001 (metadata filtering requirement)
+    - input.md (2025-11-08T230500Z Do Now)
+    """
+    from ptycho.metadata import MetadataManager
+    from ptycho.config.config import TrainingConfig, ModelConfig
+
+    # Create base NPZ with metadata
+    base_npz_path = tmp_path / "base.npz"
+    model_cfg = ModelConfig(gridsize=2, N=64)
+    train_cfg = TrainingConfig(
+        model=model_cfg,
+        train_data_file=str(base_npz_path),
+        n_images=100,
+        nphotons=5000,
+    )
+    metadata = MetadataManager.create_metadata(
+        config=train_cfg,
+        script_name="test_metadata_splits",
+        seed=42,
+    )
+    base_data = {
+        'xcoords': np.arange(100, dtype=np.float32),
+        'ycoords': np.arange(100, dtype=np.float32),
+        'diffraction': np.random.rand(100, 64, 64).astype(np.float32),
+        'objectGuess': np.random.rand(256, 256).astype(np.complex64),
+        'probeGuess': np.random.rand(64, 64).astype(np.complex64),
+    }
+    MetadataManager.save_with_metadata(
+        file_path=str(base_npz_path),
+        data_dict=base_data,
+        metadata=metadata,
+    )
+
+    # Create mock split function that produces metadata-bearing NPZs
+    def mock_split_with_metadata(input_path, output_dir, split_fraction, split_axis):
+        """Create train/test splits with embedded metadata."""
+        train_path = output_dir / "patched_train.npz"
+        test_path = output_dir / "patched_test.npz"
+
+        # Create minimal splits with metadata
+        split_metadata = MetadataManager.create_metadata(
+            config=train_cfg,
+            script_name="mock_split",
+            seed=99,
+        )
+        MetadataManager.add_transformation_record(
+            metadata=split_metadata,
+            tool_name='transpose_rename_convert',
+            operation='canonical_layout',
+            parameters={'layout': 'NHW'},
+        )
+
+        split_data = {
+            'diffraction': np.random.rand(50, 64, 64).astype(np.float32),
+            'Y': np.random.rand(50, 10, 64, 64).astype(np.complex64),
+            'nn_indices': np.random.randint(0, 50, size=(50, 10), dtype=np.int32),
+            'xcoords': np.arange(50, dtype=np.float32),
+            'ycoords': np.arange(50, dtype=np.float32),
+            'objectGuess': np.random.rand(256, 256).astype(np.complex64),
+            'probeGuess': np.random.rand(64, 64).astype(np.complex64),
+        }
+
+        MetadataManager.save_with_metadata(str(train_path), split_data, split_metadata)
+        MetadataManager.save_with_metadata(str(test_path), split_data, split_metadata)
+
+    # Mock validator to capture what it receives
+    validator_calls = []
+    def mock_validator(**kwargs):
+        validator_calls.append(kwargs)
+        # Assert no '_metadata' key leaked through
+        assert '_metadata' not in kwargs.get('data', {}), \
+            "Stage 5 validator received _metadata key; MetadataManager filter failed"
+
+    # Stub heavy pipeline stages
+    mock_simulate = Mock()
+    mock_canonicalize = Mock()
+    mock_patch_gen = Mock()
+
+    output_root = tmp_path / "output"
+    dose = 1000
+
+    # Execute pipeline
+    generate_dataset_for_dose(
+        dose=dose,
+        base_npz_path=base_npz_path,
+        output_root=output_root,
+        design_params=design_params,
+        simulate_fn=mock_simulate,
+        canonicalize_fn=mock_canonicalize,
+        patch_gen_fn=mock_patch_gen,
+        split_fn=mock_split_with_metadata,
+        validate_fn=mock_validator,
+    )
+
+    # Verify validator was called twice (train + test) with clean data
+    assert len(validator_calls) == 2, f"Expected 2 validator calls, got {len(validator_calls)}"
+
+    # Verify each call received dict without '_metadata'
+    for i, call in enumerate(validator_calls):
+        assert 'data' in call, f"Call {i}: missing 'data' kwarg"
+        assert isinstance(call['data'], dict), f"Call {i}: 'data' not a dict"
+        assert '_metadata' not in call['data'], \
+            f"Call {i}: validator received '_metadata' key (DATA-001 violation)"
+        # Verify DATA-001 keys present
+        assert 'diffraction' in call['data'], f"Call {i}: missing 'diffraction'"
+        assert 'Y' in call['data'], f"Call {i}: missing 'Y'"
