@@ -1,63 +1,67 @@
-Summary: Capture dense Phase G CLI evidence with a new collect-only smoke test and post-run validation on a clean hub.
+Summary: Add aggregate metrics to Phase G summaries and rerun the dense pipeline on a clean hub to capture real evidence.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis
 Branch: feature/torchapi-newprompt
 Mapped tests:
-  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv
-  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs -vv
-  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv
   - pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/
+  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv
+  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv
+  - pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/
 
 Do Now (hard validity contract):
-  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands — add a collect-only smoke test that loads main(), runs with --collect-only into a tmp hub, asserts command text matches expected substrings, and verifies no Phase C outputs are created.
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs -vv
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::summarize_phase_g_outputs — compute per-model aggregate metrics (mean & best MS-SSIM amplitude/phase, mean MAE amplitude/phase) and emit them in both JSON (`aggregate_metrics`) and Markdown (`## Aggregate Metrics`) outputs.
   - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv
   - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution --dose 1000 --view dense --splits train test --clobber | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/cli/phase_g_dense_pipeline.log
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): python - <<'PY' >> plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/analysis/validate_and_summarize.log
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution --dose 1000 --view dense --splits train test --clobber | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/cli/phase_g_dense_pipeline.log
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): python - <<'PY' | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/analysis/validate_and_summarize.log
 from pathlib import Path
-from run_phase_g_dense import validate_phase_c_metadata, summarize_phase_g_outputs
-hub = Path("plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution")
-validate_phase_c_metadata(hub)
-summarize_phase_g_outputs(hub)
+import importlib.util
+
+script_path = Path("plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py")
+spec = importlib.util.spec_from_file_location("run_phase_g_dense", script_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+hub = Path("plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution")
+module.validate_phase_c_metadata(hub)
+module.summarize_phase_g_outputs(hub)
 PY
 
 How-To Map:
   1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-  2. mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/{analysis,cli,collect,green,red,summary}
-  3. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/green/pytest_collect_only_green.log`
-  4. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/green/pytest_prepare_hub_clobber_green.log`
-  5. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/green/pytest_metadata_guard_green.log`
-  6. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/green/pytest_summarize_green.log`
-  7. Capture selector coverage with `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/collect/pytest_phase_g_orchestrator_collect.log`
-  8. Execute the dense run with `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution --dose 1000 --view dense --splits train test --clobber | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T230500Z/phase_g_dense_cli_execution/cli/phase_g_dense_pipeline.log`
-  9. Post-run, execute the embedded validation script from Do Now step to log `validate_phase_c_metadata` + `summarize_phase_g_outputs` results into `analysis/validate_and_summarize.log`
-  10. Update summary/summary.md with Turn Summary, metrics snapshot, and key pointers once outputs exist.
+  2. mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/{analysis,cli,collect,docs,green,red,summary}
+  3. Implement aggregate metrics in `summarize_phase_g_outputs` (preserve existing per-job data; add deterministic ordering) and extend the Markdown writer with a `## Aggregate Metrics` section summarizing mean/best MS-SSIM + mean MAE per model.
+  4. Update `tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs` to fabricate fixtures that cover aggregates, asserting both JSON (`aggregate_metrics`) and Markdown section contents.
+  5. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/green/pytest_summarize_green.log`
+  6. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/green/pytest_metadata_guard_green.log`
+  7. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/green/pytest_collect_only_green.log`
+  8. Capture selector inventory with `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/collect/pytest_phase_g_orchestrator_collect.log`
+  9. Execute dense pipeline: `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution --dose 1000 --view dense --splits train test --clobber | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/cli/phase_g_dense_pipeline.log`
+ 10. After success, run the embedded validation shim from Do Now to capture guard + aggregate summary logs.
+ 11. Update `summary/summary.md` with Turn Summary, aggregate highlights, metrics pointers, and link to CLI/analysis logs; sync docs (`docs/TESTING_GUIDE.md`, `docs/development/TEST_SUITE_INDEX.md`) once GREEN.
 
 Pitfalls To Avoid:
-  - Do not force clobber logic outside prepare_hub; rely on helper for cleanup and archive path emission.
-  - Keep collect-only test fully isolated—no real filesystem side effects beyond tmp_path.
-  - Ensure AUTHORITATIVE_CMDS_DOC remains exported for all pytest and CLI commands.
-  - Watch for long-running CLI; abort on first failure and capture blocker log instead of rerunning blindly.
-  - Validate that metrics_summary.json/md exist after summarization; log a blocker if missing.
-  - Avoid hard-coded absolute paths in tests; derive from tmp_path to maintain portability.
-  - Maintain TYPE-PATH-001 compliance by normalizing paths inside tests before assertions.
-  - Leave prior evidence archived; never delete archive/ directories generated by prepare_hub.
-  - Verify new test is deterministic—mock or patch time-based components if they surface in output.
-  - Keep pytest output logs under the hub directories named above; no stray files at repo root.
+  - Do not mutate Phase C NPZ contents while computing aggregates; operate on CSV outputs only.
+  - Keep aggregate ordering deterministic (sorted by model, metric) to avoid flaky diffs.
+  - Ensure float formatting uses consistent precision (retain raw floats in JSON, format Markdown to 3 decimals max).
+  - Monitor CLI runtime; abort immediately on failure and capture traceback in `analysis/blocker.log`.
+  - Preserve previous hubs; never reuse 2025-11-07T230500Z directories when generating new evidence.
+  - Maintain AUTHORITATIVE_CMDS_DOC export for every pytest/CLI invocation.
+  - Avoid hard-coded absolute paths in tests; rely on `tmp_path` and helper loaders.
+  - Do not skip doc/test registry updates if new selectors collect; mark blocked if aggregates fail before docs update.
 
 If Blocked:
-  - Stop immediately, save failing pytest/CLI output to `analysis/blocker.log`, annotate summary.md with blocker context, and document the block in docs/fix_plan.md + galph_memory.md before ending the loop.
+  - Stop work, tee failing pytest/CLI output to `analysis/blocker.log`, add blocker context to `summary/summary.md`, and document the issue in docs/fix_plan.md + galph_memory.md before ending the loop.
 
 Findings Applied (Mandatory):
-  - POLICY-001 — Dense pipeline may trigger PyTorch baselines; ensure environment honors mandatory torch dependency.
-  - CONFIG-001 — Orchestrator already bridges params.cfg; collect-only test must not bypass this contract.
-  - DATA-001 — Post-run validation must confirm NPZ metadata contract on fresh outputs.
-  - TYPE-PATH-001 — Normalize hub paths in tests and validation scripts to prevent string/path regressions.
-  - OVERSAMPLING-001 — Preserve dense overlap parameters; report any divergence if CLI output suggests mismatch.
+  - POLICY-001 — Dense pipeline invokes PyTorch baselines; ensure environment retains torch dependency and CLI handles backend switches.
+  - CONFIG-001 — CLI helper must continue bridging params.cfg prior to Phase C; aggregates cannot bypass initialization order.
+  - DATA-001 — Guard + summaries confirm NPZ metadata contract on regenerated outputs.
+  - TYPE-PATH-001 — Normalize hubs/paths inside script and tests (Path.resolve, Path operations).
+  - OVERSAMPLING-001 — Dense overlap configuration must stay unchanged; report any deviation detected in CLI output.
 
 Pointers:
   - docs/findings.md:8
@@ -67,12 +71,12 @@ Pointers:
   - docs/findings.md:17
   - docs/TESTING_GUIDE.md:215
   - docs/development/TEST_SUITE_INDEX.md:62
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:137
-  - tests/study/test_phase_g_dense_orchestrator.py:380
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:210
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:194
+  - tests/study/test_phase_g_dense_orchestrator.py:100
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/plan/plan.md:1
 
 Next Up (optional):
-  - Extend collect-only smoke coverage to sparse view once dense evidence is captured.
+  - When dense evidence is green, mirror aggregate logic for sparse view to complete Phase G coverage.
 
 Doc Sync Plan (Conditional):
-  - After GREEN, re-run `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv` (log already captured) and update docs/TESTING_GUIDE.md §2 plus docs/development/TEST_SUITE_INDEX.md with the new collect-only test entry.
+  - After GREEN, rerun `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv` (already captured in step 8), update docs/TESTING_GUIDE.md §2 and docs/development/TEST_SUITE_INDEX.md with the aggregate-aware selector wording, and reference the new collect-only log in summary.md.

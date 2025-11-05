@@ -2663,3 +2663,17 @@
   - Updated docs/fix_plan.md attempt ledger and rewrote input.md (Mode: TDD) with Implementation target (collect-only test), mapped selectors, CLI command, findings, pitfalls, and doc sync plan; AUTHORITATIVE_CMDS_DOC guard reiterated.
 - Next actions for Ralph: add collect-only smoke test, run targeted pytest selectors, execute dense Phase C→G pipeline with --clobber, validate metadata/summary helpers on real outputs, and archive logs/metrics while updating docs per Do Now.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T010500Z: Phase G dense full execution staging
+- dwell: 0 (reset after confirming 2025-11-07T230500Z+exec implementation landed the collect-only smoke test)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense full execution evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T010500Z/phase_g_dense_full_execution/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; exported AUTHORITATIVE_CMDS_DOC and reviewed latest hub (2025-11-07T230500Z) artifacts confirming CLI smoke test + guard coverage are GREEN.
+  - Consulted docs/findings.md (POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001) plus implementation plan §Phase G to scope remaining gaps (real CLI evidence, aggregate metrics).
+  - Provisioned new hub (010500Z) with plan detailing aggregate metric enhancement, dense pipeline rerun with --clobber, guard/summarizer validation, and documentation sync.
+  - Updated docs/fix_plan.md Attempts History to reflect the new staging plan and reinforced findings alignment.
+- Next actions for Ralph: implement aggregate metrics in summarize_phase_g_outputs + tests, rerun dense CLI with --clobber under the new hub, capture guard/summarizer logs, and refresh summary/docs/test registries with aggregate results.
+- <Action State>: [ready_for_implementation]
