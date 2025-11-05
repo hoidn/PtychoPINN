@@ -1,5 +1,6 @@
 ### Turn Summary
-Phase G dense pipeline failed during Phase C validation because `validate_dataset_contract()` no longer accepts the legacy `dataset_path` kwargs; captured stack trace and CLI logs under this hub.
-Framed recovery plan to load NPZ splits before validation, refresh Phase C tests to exercise the real validator, and keep highlights preview guard green.
-Next: Ralph patches `generate_dataset_for_dose`, updates tests, and re-runs `bin/run_phase_g_dense.py --clobber` to resume the dense evidence run.
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T150500Z/phase_g_dense_full_execution_real_run/ (plan/plan.md, evidence/)
+Fixed Phase C validator interface mismatch that blocked Phase G dense pipeline execution at Stage 5 dataset validation.
+Root cause: `generate_dataset_for_dose` invoked refactored validator with legacy file-path signature instead of in-memory dict interface.
+Implemented NPZ loading wrapper in Stage 5, added regression test for validator signature, updated existing tests to create stub NPZ files.
+Next: Relaunch Phase C→G dense pipeline with `--clobber` to generate full metrics evidence now that validator is unblocked.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T150500Z/phase_g_dense_full_execution_real_run/green/ (pytest_validator_regression.log, pytest_highlights_preview_green.log, pytest_full.log)
