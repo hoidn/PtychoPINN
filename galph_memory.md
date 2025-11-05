@@ -2853,3 +2853,18 @@
   - Ensured AUTHORITATIVE_CMDS_DOC guard stays `./docs/TESTING_GUIDE.md` for downstream commands; How-To will reference ENV export explicitly.
 - Next actions for Ralph: add analyze-digest failure regression test, capture RED→GREEN logs, execute Phase C→G pipeline with `--clobber`, run digest, and propagate MS-SSIM/MAE deltas + artifact links into summary/docs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T030500Z: Dense pipeline digest handoff
+- dwell: 1 (second consecutive planning loop — next action set to ready_for_implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T030500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed latest hub (010500Z) and confirmed pipeline outputs absent (`cli/` + `analysis/` empty) so execution still outstanding.
+  - Consulted docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001) and re-read Phase G working plan to align scope with digest handoff.
+  - Updated docs/fix_plan.md with 2025-11-09T010500Z+exec attempt capturing the new failure-path regression and noting pipeline still pending.
+  - Provisioned new hub `2025-11-09T030500Z` (plan/collect/red/green/cli/analysis/summary) with plan.md detailing success-banner test, pipeline rerun, digest generation, and doc sync steps.
+  - Rewrote input.md (Mode: TDD) directing Ralph to add a success-path digest regression test, implement the success banner in `analyze_dense_metrics.py`, run targeted selectors (RED→GREEN), execute the dense Phase C→G pipeline with `--clobber`, generate metrics_digest.md, and update docs/fix_plan.md + testing docs.
+- Next actions for Ralph: ship success banner + success-path test, rerun targeted pytest selectors, execute Phase C→G pipeline, run analyze_dense_metrics.py to emit digest/logs, then record MS-SSIM/MAE deltas in summary/docs.
+- <Action State>: [ready_for_implementation]
