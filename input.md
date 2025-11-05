@@ -1,4 +1,4 @@
-Summary: Surface the Phase G metrics digest paths in the orchestrator success banner and generate fresh dense run evidence with the new digest automation.
+Summary: Add a key MS-SSIM/MAE delta summary to the Phase G orchestrator stdout and rerun the dense pipeline to capture real metrics evidence.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
 Branch: feature/torchapi-newprompt
@@ -6,74 +6,65 @@ Mapped tests:
   - pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv
   - pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv
   - pytest tests/study/test_phase_g_dense_metrics_report.py::test_analyze_dense_metrics_success_digest -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run/
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T090500Z/phase_g_dense_full_execution_real_run/
 
 Do Now:
 - Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001
-- Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::main (surface metrics_digest.md + cli/metrics_digest_cli.log in the success banner after adding a failing assertion to the orchestrator exec test)
+- Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::main — emit a formatted MS-SSIM/MAE delta block sourced from analysis/metrics_summary.json (drive via updated orchestrator exec test)
 - Validate: pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv
-- Validate: pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv
-- Validate: pytest tests/study/test_phase_g_dense_metrics_report.py::test_analyze_dense_metrics_success_digest -vv
-- Execute: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md && python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run --dose 1000 --view dense --splits train test --clobber | tee plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run/cli/run_phase_g_dense_cli.log
-- Verify: tail -n 40 plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run/cli/run_phase_g_dense_cli.log > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run/analysis/cli_tail.txt && find plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run -maxdepth 3 -type f | sort > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run/analysis/artifact_inventory.txt
-- Update: Prepend metrics deltas + artifact links to plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run/summary/summary.md, refresh docs/TESTING_GUIDE.md §2.5 and docs/development/TEST_SUITE_INDEX.md if selector inventory changes, and log Attempt in docs/fix_plan.md
-- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run/
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T090500Z/phase_g_dense_full_execution_real_run/
 
 How-To Map:
 1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-2. export HUB=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T070500Z/phase_g_dense_full_execution_real_run
-3. mkdir -p "$HUB"/{plan,collect,red,green,cli,analysis,summary}
-4. Edit tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest to assert stdout contains both "Metrics digest (Markdown):" and "Metrics digest log:" (expect RED) and run pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv | tee "$HUB"/red/pytest_digest_exec.log
-5. Run pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv | tee "$HUB"/red/pytest_collect_only.log  # should still pass; keep log for regression guard
-6. Update plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::main so the success banner prints "Metrics digest (Markdown): {metrics_digest_md}" and "Metrics digest log: {analyze_digest_log}" via pathlib string conversion
-7. pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv | tee "$HUB"/green/pytest_digest_exec.log
-8. pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv | tee "$HUB"/green/pytest_collect_only.log
-9. pytest tests/study/test_phase_g_dense_metrics_report.py::test_analyze_dense_metrics_success_digest -vv | tee "$HUB"/green/pytest_analyze_success.log
-10. python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber | tee "$HUB"/cli/run_phase_g_dense_cli.log
-11. tail -n 40 "$HUB"/cli/run_phase_g_dense_cli.log > "$HUB"/analysis/cli_tail.txt
-12. find "$HUB" -maxdepth 3 -type f | sort > "$HUB"/analysis/artifact_inventory.txt && cp "$HUB"/analysis/metrics_digest.md "$HUB"/analysis/metrics_digest_preview.md
-13. Prepend the Turn Summary + metrics deltas to "$HUB"/summary/summary.md and update docs/fix_plan.md Attempt entry; attach pytest collect-only log if selector inventory changed before updating docs/TESTING_GUIDE.md §2.5 and docs/development/TEST_SUITE_INDEX.md
-14. git status --short > "$HUB"/summary/git_status.txt
+2. export HUB=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T090500Z/phase_g_dense_full_execution_real_run
+3. Ensure "$HUB" exists with plan/collect/red/green/cli/analysis/summary (directories already scaffolded; create if missing).
+4. Update tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest to seed metrics_summary.json in the stub summarizer and assert the four new delta lines; run RED: `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv | tee "$HUB"/red/pytest_orchestrator_delta_red.log` (expect failure until implementation).
+5. Implement helper in plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py (after analyze digest) to load "$HUB"/analysis/metrics_summary.json, compute MS-SSIM/MAE deltas (PtychoPINN - Baseline / PtyChi), and print the formatted block with f"{value:+.3f}"; guard missing data by printing "N/A".
+6. GREEN targeted tests:
+   - `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv | tee "$HUB"/green/pytest_orchestrator_delta_green.log`
+   - `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands -vv | tee "$HUB"/green/pytest_collect_only.log`
+   - `pytest tests/study/test_phase_g_dense_metrics_report.py::test_analyze_dense_metrics_success_digest -vv | tee "$HUB"/green/pytest_analyze_success.log`
+7. Kick off the dense pipeline run (long): `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense.log` (keep terminal session open; expect 2–4 h runtime).
+8. After completion, verify artifacts exist (`metrics_summary.json`, `aggregate_report.md`, `aggregate_highlights.txt`, `metrics_digest.md`, `cli/metrics_digest_cli.log`) and extract the new stdout delta block: `rg "Δ" "$HUB"/cli/run_phase_g_dense.log > "$HUB"/analysis/metric_delta_block.txt`.
+9. Capture artifact inventory: `find "$HUB" -maxdepth 3 -type f | sort > "$HUB"/analysis/artifact_inventory.txt` and copy digest preview `cp "$HUB"/analysis/metrics_digest.md "$HUB"/analysis/metrics_digest_preview.md`.
+10. Summarize MS-SSIM/MAE delta values and key observations in "$HUB"/analysis/metrics_highlights.txt (include numbers from the delta block and digest) and update "$HUB"/summary/summary.md with pass/fail counts + artifact links.
+11. Update docs/fix_plan.md Attempts History (add 2025-11-09T090500Z execution details), then stage summary/doc edits after verifying `git status`.
 
 Pitfalls To Avoid:
-- Forgetting to capture RED evidence before touching run_phase_g_dense.py breaks TDD requirements.
-- Running pytest without AUTHORITATIVE_CMDS_DOC causes CONFIG-001 guard failures.
-- Editing collect-only output formatting beyond added banner lines risks breaking existing command order assertions.
-- Allowing run_phase_g_dense.py to print Path objects without str() conversion violates TYPE-PATH-001 expectations in tests.
-- Skipping the dense pipeline because it is long leaves this attempt incomplete; document and halt only if execution fails with captured logs.
-- Writing artifacts outside "$HUB" violates storage policy; keep digests/logs under the hub.
-- Do not modify core modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
-- Keep stdout assertions ASCII-safe; no emojis in new strings.
-- If the pipeline exits non-zero, stop immediately, log blocker details, and mark attempt blocked.
+- TDD guard: capture the RED failure log before touching run_phase_g_dense.py.
+- Forgetting AUTHORITATIVE_CMDS_DOC breaks CONFIG-001 guards in orchestrator tests and CLI.
+- Do not let delta helper raise if Baseline/PtyChi keys are missing; print "N/A" and continue so pipeline evidence still ships.
+- Keep new stdout lines ASCII with fixed precision (±0.000); avoid emoji/symbols that may break CI log parsing.
+- Ensure helper reads from `analysis/metrics_summary.json` relative to hub (TYPE-PATH-001 compliance); no hard-coded cwd assumptions.
+- Pipeline log must stay under `$HUB/cli/`; do not leave large logs at repo root.
+- abort pipeline immediately if exit code non-zero; archive `cli/run_phase_g_dense.log` and document blocker in summary + docs/fix_plan.md.
+- No edits to core modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
 
 If Blocked:
-- Archive failing pytest output under "$HUB"/red/ with selector in filename, summarize the failure in summary.md, and log the block in docs/fix_plan.md + galph_memory.md.
-- If the dense pipeline aborts, keep the full CLI log, capture the failing command snippet into "$HUB"/analysis/blocker.txt", and mark the attempt blocked pending rerun.
-- When digest files are missing, run `find "$HUB" -maxdepth 3 -type f` to document state, stash under analysis/, and stop further actions until resolved.
+- Store failing pytest output under `$HUB/red/`, note selector + failure in summary.md, and log the block in docs/fix_plan.md plus galph_memory.md.
+- If the pipeline aborts, keep the full CLI log, capture the failing command snippet into `$HUB/analysis/blocker.txt`, and mark the attempt blocked pending rerun.
+- When metrics_summary.json is missing or malformed, snapshot `$HUB/analysis` via `find` into artifact_inventory, skip helper execution, and document the issue before exiting.
 
 Findings Applied (Mandatory):
-- POLICY-001 — PyTorch dependency remains mandatory; no environment downgrade while running orchestrator helpers.
-- CONFIG-001 — Export AUTHORITATIVE_CMDS_DOC before invoking orchestrator/tests to satisfy legacy bridge guard.
-- DATA-001 — Verify regenerated metrics artifacts align with data contract (metrics_summary.json + highlights contents).
-- TYPE-PATH-001 — Normalize Path handling in both banner strings and tests.
-- OVERSAMPLING-001 — Dense view relies on K > C; avoid altering grouping assumptions during evidence run.
-- STUDY-001 — Track MS-SSIM/MAE deltas to compare against prior fly64 study expectations.
+- POLICY-001 — PyTorch dependency stays enabled; orchestrator helpers rely on torch-ready environment.
+- CONFIG-001 — Always export AUTHORITATIVE_CMDS_DOC before pytest/pipeline invocations to keep legacy bridge aligned.
+- DATA-001 — Verify regenerated metrics_summary.json and digest respect the documented schema.
+- TYPE-PATH-001 — Use Path objects and deterministic string formatting for banner output and tests.
+- OVERSAMPLING-001 — Dense scenario assumes K > C; avoid altering group configuration during evidence run.
+- STUDY-001 — Record MS-SSIM/MAE deltas to track PtychoPINN vs Baseline/PtyChi performance consistency.
 
 Pointers:
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:824 — Success banner block to update with digest paths.
-- tests/study/test_phase_g_dense_orchestrator.py:951 — Digest invocation test to tighten stdout assertions.
-- docs/TESTING_GUIDE.md:360 — Phase G orchestrator workflow diagram notes digest integration.
-- docs/development/TEST_SUITE_INDEX.md:62 — Registry entry for Phase G orchestrator selectors.
-- docs/findings.md:8 — POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001 entries for guardrails.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:800 — Success banner + digest printing block to extend with delta helper call.
+- tests/study/test_phase_g_dense_orchestrator.py:856 — Exec-mode integration test to tighten with delta assertions and stub summary data.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py:1 — Digest script behavior reference for success/failure semantics.
+- docs/TESTING_GUIDE.md:300 — Phase G testing workflow and selector registry expectations.
+- docs/findings.md:8 — POLICY-001/CONFIG-001/DATA-001/TYPE-PATH-001/OVERSAMPLING-001 guidance.
 
 Next Up (optional):
-- Prepare sparse view digest automation once dense evidence is captured and analyzed.
-
-Doc Sync Plan (Conditional):
-- After GREEN, rerun pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest --collect-only -vv > "$HUB"/collect/pytest_digest_exec_collect.log and update docs/TESTING_GUIDE.md §2.5 plus docs/development/TEST_SUITE_INDEX.md if assertions changed.
+- After dense evidence lands, queue sparse view pipeline run with identical delta summary helper.
 
 Mapped Tests Guardrail:
-- Ensure pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest --collect-only -vv reports ≥1 collected test; adjust selector or add test before completion otherwise.
+- `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest --collect-only -vv` must report ≥1 collected test; author or adjust selector before exiting if collection drops to zero.
 
 Hard Gate:
-- Attempt is incomplete unless run_phase_g_dense.py exits 0, `$HUB` contains metrics_summary.json/aggregate_report.md/aggregate_highlights.txt/metrics_digest.md from this run, banner strings mention both digest artifacts, docs/fix_plan.md logs the attempt, and summary.md records MS-SSIM/MAE deltas with artifact links.
+- Do not close loop unless the new delta block prints in both stdout and CLI log, all mapped selectors pass (GREEN logs saved), the dense pipeline exits 0 with fresh metrics_summary.json/digest artifacts under `$HUB`, summary.md captures MS-SSIM/MAE deltas with artifact links, and docs/fix_plan.md records this attempt.

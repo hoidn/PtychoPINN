@@ -2897,3 +2897,18 @@
   - Updated docs/fix_plan.md with new planning attempt and rewrote input.md (Mode: TDD) directing RED→GREEN test guard, banner surfacing, dense pipeline execution, and ledger/doc updates.
 - Next actions for Ralph: tighten orchestrator exec test, update success banner, run targeted pytest selectors RED→GREEN, execute dense Phase C→G pipeline with --clobber, archive digest artifacts, and sync docs/fix_plan.md + summary with MS-SSIM/MAE deltas.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T090500Z: Dense delta block + real-run evidence
+- dwell: 2 (third consecutive planning loop; handing off ready_for_implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T090500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` confirmed up to date; reviewed 070500Z hub (digest paths shipped, pipeline still pending) and carried context forward.
+  - Consulted docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001) and re-read working plan + latest report summaries to frame the remaining evidence gap.
+  - Provisioned 090500Z hub (plan/collect/red/green/cli/analysis/summary) and authored plan.md focusing on TDD for a new MS-SSIM/MAE delta stdout block plus the long Phase C→G run.
+  - Rewrote input.md (Mode: TDD) directing RED→GREEN updates to `test_run_phase_g_dense_exec_runs_analyze_digest`, implementation of a helper in `run_phase_g_dense.py::main` to print key deltas, targeted guard selectors, the dense pipeline execution with AUTHORITATIVE_CMDS_DOC exported, and documentation updates with captured metrics.
+  - Updated docs/fix_plan.md Attempts History with the 090500Z planning turn and noted the delta summary objective.
+- Next actions for Ralph: drive TDD (update orchestrator exec test with seeded metrics_summary + delta assertions, then add helper printing MS-SSIM/MAE deltas), rerun targeted selectors, execute `run_phase_g_dense.py --clobber` to gather real metrics evidence, archive CLI/digest outputs, and record MS-SSIM/MAE deltas in summary + docs/fix_plan.md.
+- <Action State>: [ready_for_implementation]
