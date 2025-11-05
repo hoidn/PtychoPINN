@@ -2992,3 +2992,18 @@
   - Staged new hub 2025-11-05T111247Z with plan/summary scaffolding, documented relaunch steps in plan.md, updated docs/fix_plan.md status/attempt log, and rewrote input.md with ready-for-implementation Do Now + guardrails.
 - Next actions for Ralph: run the mapped regression selector, execute run_phase_g_dense.py with --clobber in the new hub, verify metrics/highlights artifacts, and log MS-SSIM/MAE deltas in summary.md plus docs/fix_plan.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T115706Z: Dense pipeline relaunch plan refresh
+- dwell: 0 (reset after prior dwell hit 2; issuing new ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning (hand-off)
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T115706Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; revalidated prior hub `2025-11-05T111247Z` still lacks metrics artifacts, so evidence gap persists.
+  - Reviewed docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001) and working plan context before drafting new scope.
+  - Provisioned fresh 115706Z hub (plan/summary/cli/red/green/analysis/data) and authored updated supervisor plan reinforcing guard exports, regression selector rerun, dense pipeline command, and artifact verification sequence.
+  - Added helper script `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_dense_highlights_match.py` so Ralph can validate highlights text/preview against metrics_delta_summary.json without inline probes.
+  - Rewrote `input.md` with new hub path, command map (including highlight check script), pitfalls, and findings alignment; updated docs/fix_plan.md Attempts History accordingly.
+- Next actions for Ralph: run orchestrator regression selector, execute dense Phase C→G pipeline with --clobber using the new hub, validate highlights via the check script, and document MS-SSIM/MAE deltas + provenance in summary/docs.
+- <Action State>: [ready_for_implementation]
