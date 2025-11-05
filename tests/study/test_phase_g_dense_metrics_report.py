@@ -294,3 +294,129 @@ MAE Phase Delta (PtychoPINN - Baseline): -0.033
 
     # Assert highlights embedded in digest
     assert "MS-SSIM Amplitude Delta" in digest_content, "Digest should embed highlights content"
+
+
+def test_analyze_dense_metrics_success_digest(tmp_path: Path) -> None:
+    """
+    Test analyze script exits with code 0 and emits success banner when n_failed == 0.
+
+    Acceptance:
+    - Creates metrics_summary.json with n_failed == 0 (all jobs succeeded)
+    - Creates valid aggregate_highlights.txt
+    - Invokes analyze_dense_metrics.py
+    - Asserts exit code == 0 (success)
+    - Stdout/digest contains success banner and NO failure warning
+    - Digest file written successfully
+    - Stderr should NOT contain failure banner
+
+    Follows TYPE-PATH-001 (Path normalization).
+    """
+    # Create fixture with all successes (n_failed == 0)
+    metrics_file = tmp_path / "metrics_summary.json"
+    fixture_data = {
+        "n_jobs": 2,
+        "n_success": 2,
+        "n_failed": 0,  # Critical: zero failures
+        "jobs": [],
+        "aggregate_metrics": {
+            "PtychoPINN": {
+                "ms_ssim": {
+                    "mean_amplitude": 0.987,
+                    "best_amplitude": 0.992,
+                    "mean_phase": 0.945,
+                    "best_phase": 0.956,
+                },
+                "mae": {
+                    "mean_amplitude": 0.012,
+                    "mean_phase": 0.034,
+                },
+            },
+            "Baseline": {
+                "ms_ssim": {
+                    "mean_amplitude": 0.923,
+                    "best_amplitude": 0.931,
+                    "mean_phase": 0.889,
+                    "best_phase": 0.902,
+                },
+                "mae": {
+                    "mean_amplitude": 0.048,
+                    "mean_phase": 0.067,
+                },
+            },
+            "PtyChi": {
+                "ms_ssim": {
+                    "mean_amplitude": 0.912,
+                    "best_amplitude": 0.919,
+                    "mean_phase": 0.876,
+                    "best_phase": 0.887,
+                },
+                "mae": {
+                    "mean_amplitude": 0.055,
+                    "mean_phase": 0.078,
+                },
+            },
+        },
+    }
+
+    with metrics_file.open('w') as f:
+        json.dump(fixture_data, f, indent=2)
+
+    # Create valid highlights fixture
+    highlights_file = tmp_path / "aggregate_highlights.txt"
+    highlights_content = """MS-SSIM Amplitude Delta (PtychoPINN - Baseline): +0.064
+MS-SSIM Phase Delta (PtychoPINN - Baseline): +0.056
+MAE Amplitude Delta (PtychoPINN - Baseline): -0.036
+MAE Phase Delta (PtychoPINN - Baseline): -0.033
+"""
+    highlights_file.write_text(highlights_content)
+
+    # Invoke analyze script
+    script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py"
+    output_file = tmp_path / "metrics_digest.md"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--metrics", str(metrics_file),
+            "--highlights", str(highlights_file),
+            "--output", str(output_file),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    # Assert exit code is exactly 0 (success)
+    assert result.returncode == 0, f"Expected exit code 0 for n_failed == 0, got {result.returncode}. Stderr: {result.stderr}"
+
+    # Assert NO failure banner in stderr
+    assert "⚠️ FAILURES PRESENT ⚠️" not in result.stderr, "Should not show failure banner in stderr when all jobs succeed"
+
+    # Assert stdout contains digest WITHOUT failure warning
+    stdout = result.stdout
+    assert "⚠️ FAILURES PRESENT ⚠️" not in stdout, "Should not show failure warning in stdout digest when all jobs succeed"
+
+    # Assert explicit success banner present (required per input.md)
+    assert "✓ ALL COMPARISONS SUCCESSFUL ✓" in stdout, "Should show explicit success banner in stdout when all jobs succeed"
+
+    # Assert success indicators present
+    assert "Successful: 2" in stdout, "Should show successful count in digest"
+    assert "Failed: 0" in stdout, "Should show zero failures in digest"
+
+    # Assert digest file written successfully
+    assert output_file.exists(), "Digest file should be written for successful runs"
+    digest_content = output_file.read_text()
+
+    # Assert NO failure banner in digest content
+    assert "⚠️ FAILURES PRESENT ⚠️" not in digest_content, "Digest file should NOT contain failure banner when all jobs succeed"
+
+    # Assert explicit success banner in digest content
+    assert "✓ ALL COMPARISONS SUCCESSFUL ✓" in digest_content, "Digest file should contain success banner when all jobs succeed"
+    assert "Failed: 0" in digest_content, "Digest should show zero failures in summary"
+
+    # Assert highlights embedded in digest
+    assert "MS-SSIM Amplitude Delta" in digest_content, "Digest should embed highlights content"
+
+    # Assert key deltas section present
+    assert "Key Deltas" in digest_content, "Digest should contain Key Deltas section"
+    assert "PtychoPINN - Baseline" in digest_content, "Digest should show baseline comparison"

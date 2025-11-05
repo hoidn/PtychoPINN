@@ -304,6 +304,30 @@ python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_
   --highlights plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_highlights.txt
 ```
 
+**Phase G Dense Metrics Analysis Script:**
+
+The `analyze_dense_metrics.py` script generates a concise Markdown digest summarizing Phase G comparison results, combining metrics summaries with highlights for documentation and reporting. The script:
+
+- Loads `metrics_summary.json` (output from `summarize_phase_g_outputs()`)
+- Loads `aggregate_highlights.txt` (output from `report_phase_g_dense_metrics.py`)
+- Emits success banner when `n_failed == 0`: **✓ ALL COMPARISONS SUCCESSFUL ✓**
+- Emits failure banner when `n_failed > 0`: **⚠️ FAILURES PRESENT ⚠️** (stderr + digest)
+- Embeds highlights content in code block
+- Generates Key Deltas section with MS-SSIM and MAE comparison tables
+- Writes digest to specified output file and prints to stdout
+- Exit codes: 0 (all jobs succeeded), 1 (failures present or missing files), 2 (invalid format)
+
+Tests validate two behaviors: success digest (exit 0, success banner present, no failure warning) and failure detection (exit 1, failure banner in stderr and digest, digest file still written).
+
+**Usage:**
+```bash
+# Generate digest from Phase G outputs
+python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py \
+  --metrics plans/active/.../reports/<timestamp>/analysis/metrics_summary.json \
+  --highlights plans/active/.../reports/<timestamp>/analysis/aggregate_highlights.txt \
+  --output plans/active/.../reports/<timestamp>/analysis/metrics_digest.md
+```
+
 **Phase G Full Pipeline Orchestrator:**
 
 ```bash

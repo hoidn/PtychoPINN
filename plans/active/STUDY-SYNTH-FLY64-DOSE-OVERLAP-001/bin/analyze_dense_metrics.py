@@ -73,11 +73,15 @@ def generate_digest(metrics_data: dict, highlights_content: str) -> str:
     n_success = metrics_data.get('n_success', 0)
     n_failed = metrics_data.get('n_failed', 0)
 
-    # Add failure banner if needed
+    # Add status banner (success or failure)
     if n_failed > 0:
         lines.append("**⚠️ FAILURES PRESENT ⚠️**\n")
         lines.append(f"**{n_failed} of {n_jobs} comparison job(s) failed.**")
         lines.append("Review pipeline logs for diagnostic information.\n")
+    else:
+        # Success banner when all jobs succeeded
+        lines.append("**✓ ALL COMPARISONS SUCCESSFUL ✓**\n")
+        lines.append(f"All {n_jobs} comparison job(s) completed successfully.\n")
 
     lines.append("## Pipeline Summary\n")
     lines.append(f"- Total comparison jobs: {n_jobs}")
