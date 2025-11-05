@@ -2591,3 +2591,17 @@
   - Updated docs/fix_plan.md with Attempt entry and rewrote input.md (TDD Do Now, new selectors, doc sync instructions). AUTHORITATIVE_CMDS_DOC guard preserved.
 - Next actions for Ralph: Implement metadata-aware tests + tool refactors, rerun targeted pytest selectors, execute dense orchestrator, and document outcomes per plan.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T150500Z: Phase C metadata guard staging
+- dwell: 2 (second consecutive planning loop — next must ship implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T150500Z/phase_c_metadata_guard/
+- Notes:
+  - Reviewed 2025-11-07T130500Z metadata pipeline summary + CLI logs; pipeline still pending and needs explicit metadata gate.
+  - Consulted findings ledger (POLICY-001 / CONFIG-001 / DATA-001 / OVERSAMPLING-001 / TYPE-PATH-001) to confirm guard requirements.
+  - Authored new plan + Do Now for `validate_phase_c_metadata` TDD, orchestrator wiring, and dense pipeline rerun; updated docs/fix_plan.md and input.md accordingly.
+  - Reaffirmed AUTHORITATIVE_CMDS_DOC guard and laid out artifact/log locations for Ralph.
+- Next actions for Ralph: implement metadata guard helper + tests, rerun dense pipeline, capture RED→GREEN pytest logs and CLI transcript, then summarize results.
+- <Action State>: [ready_for_implementation]

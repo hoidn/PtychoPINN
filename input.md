@@ -1,67 +1,61 @@
-Summary: Restore Phase C dataset generation by making canonicalization and patch tools metadata-aware so the dense Phase G pipeline can run.
+Summary: Add a Phase C metadata guard to the dense orchestrator and prove it with TDD plus a fresh dense pipeline run.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis
 Branch: feature/torchapi-newprompt
 Mapped tests:
-  - pytest tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata -vv
-  - pytest tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/
+  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata -vv
+  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T150500Z/phase_c_metadata_guard/
 
 Do Now (hard validity contract):
-  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata — create failing test covering metadata-bearing NPZ input (expect ValueError today) and log RED.
-  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata — add failing test ensuring metadata propagates through Y patch generation.
-  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): scripts/tools/transpose_rename_convert_tool.py::transpose_rename_convert — load via MetadataManager, record canonicalization transformation, and save with metadata.
-  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): scripts/tools/generate_patches_tool.py::generate_patches — load/save with MetadataManager while logging generate_patches transformation.
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata -vv
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata -vv
-  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline --dose 1000 --view dense --splits train test
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata — add failing test covering missing `_metadata` on Phase C outputs and capture RED log.
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::validate_phase_c_metadata — introduce metadata guard using MetadataManager with actionable RuntimeError.
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::main — invoke the guard immediately after Phase C command succeeds (skip when --collect-only).
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T150500Z/phase_c_metadata_guard --dose 1000 --view dense --splits train test
 
 How-To Map:
   1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-  2. mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/{red,green,collect,tests}
-  3. Write regression tests in `tests/tools/test_transpose_rename_convert_tool.py` and `tests/tools/test_generate_patches_tool.py` using MetadataManager fixtures; run `pytest tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata -vv` expecting ValueError, capture log to `red/pytest_transpose_metadata.log`; repeat for patches test saving to `red/pytest_patches_metadata.log`.
-  4. Update `scripts/tools/transpose_rename_convert_tool.py` to ingest via `MetadataManager.load_with_metadata`, skip `_metadata` during array transforms, append canonicalization transformation record, and save via `MetadataManager.save_with_metadata`.
-  5. Update `scripts/tools/generate_patches_tool.py` to load metadata, add generate_patches transformation entry, and save output with metadata.
-  6. Rerun pytest selectors (GREEN) and write logs to `green/pytest_transpose_metadata.log` and `green/pytest_patches_metadata.log`; execute `pytest --collect-only tests/tools/test_transpose_rename_convert_tool.py -vv > collect/pytest_transpose_metadata_collect.log` (repeat for patches test) after GREEN.
-  7. Execute dense orchestrator command (dose=1000 dense train/test) targeting the new hub; archive CLI log under `cli/phase_c_generation.log` and any blockers in `analysis/blocker.log`.
-  8. Update `summary/summary.md` with RED/green evidence and pipeline status; amend `docs/TESTING_GUIDE.md` §2 + `docs/development/TEST_SUITE_INDEX.md` with new selectors and capture collect-only proof.
-  9. Update `docs/fix_plan.md` Attempts and note any new finding about metadata propagation if warranted.
+  2. mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T150500Z/phase_c_metadata_guard/{red,green,collect,cli,analysis}
+  3. Author the new RED test in tests/study/test_phase_g_dense_orchestrator.py and run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata -vv` redirecting output to `red/pytest_guard_red.log` (expect RuntimeError signature).
+  4. Update run_phase_g_dense.py with validate_phase_c_metadata helper + main() hook; ensure guard skips under --collect-only and uses MetadataManager.
+  5. Re-run pytest selector, capturing GREEN log to `green/pytest_guard_green.log`, and collect-only proof via `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > collect/pytest_phase_g_orchestrator_collect.log`.
+  6. Execute orchestrator command (dose 1000 dense train/test) with `--hub` pointing to this loop; tee stdout/stderr to `cli/phase_g_orchestrator.log` and ensure guard prints metadata confirmation; store any blocker details under `analysis/blocker.log` if command fails.
+  7. If command succeeds, archive resulting `analysis/metrics_summary.*` and note pass/fail in summary/summary.md; if failure before Phase G, document guard message and stop.
+  8. Update docs/fix_plan.md Attempts + summary artifacts; append new insights to docs/findings.md only if we crystallize a metadata policy gap.
 
 Pitfalls To Avoid:
-  - Do not drop metadata; preserve and extend transformation history via MetadataManager.
-  - Keep new tests lightweight (tiny arrays) to avoid long runtimes in CI.
-  - Maintain TYPE-PATH-001 discipline when constructing file paths.
+  - Guard must not mutate datasets or delete outputs; only inspect metadata.
+  - Ensure guard runs after Phase C only when not in --collect-only mode.
+  - Keep RuntimeError text stable for pytest assertion (mention `_metadata`).
+  - Avoid hardcoding hub paths; rely on Path resolves for TYPE-PATH-001.
   - Do not touch stable physics modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
-  - Ensure pytest selectors collect ≥1 test before finalizing.
-  - Stop pipeline on error and log blocker instead of retrying blindly.
-  - Avoid writing artifacts outside the assigned hub or modifying previous timestamp directories.
-  - Keep MetadataManager imports confined to tooling modules (no circular deps).
+  - Stop pipeline immediately on guard failure and log the culprit NPZ in blocker note.
+  - Maintain DATA-001 shapes; no squeezing of Y beyond canonical rules.
+  - Capture pytest logs and orchestrator transcript under the hub; no stray artifacts at repo root.
+  - Keep orchestrator compatible with TensorFlow-only environments (no PyTorch-only calls in guard).
+  - Ensure mapped selectors still collect ≥1 test after code changes.
 
 If Blocked:
-  - Capture the failure signature in `analysis/blocker.log`, store offending CLI log under `cli/`, summarize in `summary/summary.md`, and ping supervisor via docs/fix_plan.md / galph_memory.md update.
+  - Record failure signature in analysis/blocker.log with offending path, keep CLI log, update summary.md, and notify supervisor via docs/fix_plan.md / galph_memory.md entry.
 
 Findings Applied (Mandatory):
-  - DATA-001 — Canonical NPZ keys/dtypes must remain intact while handling metadata.
-  - CONFIG-001 — Do not reorder legacy config initialization pathways.
-  - TYPE-PATH-001 — Normalize any new Path usage.
-  - OVERSAMPLING-001 — Leave dense overlap thresholds unchanged.
-  - POLICY-001 — Ensure PyTorch dependency expectations stay satisfied (no optional gating).
+  - POLICY-001 — PyTorch remains required; guard must coexist with TF pipeline.
+  - CONFIG-001 — Guard cannot bypass update_legacy_dict sequencing; pure metadata check only.
+  - DATA-001 — Preserve canonical NPZ structure while inspecting metadata.
+  - OVERSAMPLING-001 — Do not alter dense overlap thresholds or grouping parameters.
+  - TYPE-PATH-001 — Normalize all filesystem paths inside new helper.
 
 Pointers:
-  - scripts/tools/transpose_rename_convert_tool.py:1 (existing canonicalization logic)
-  - scripts/tools/generate_patches_tool.py:1 (patch generation workflow)
-  - scripts/simulation/simulate_and_save.py:112 (metadata saved during simulation)
-  - docs/TESTING_GUIDE.md:210 (Phase G study selectors section)
-  - docs/development/TEST_SUITE_INDEX.md:62 (tooling tests registry entry)
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:44 (orchestrator helpers)
+  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:303 (main command wiring)
+  - tests/study/test_phase_g_dense_orchestrator.py:1 (existing orchestrator TDD harness)
+  - scripts/tools/transpose_rename_convert_tool.py:1 (metadata-preserving canonicalizer reference)
+  - ptycho/metadata.py:200 (MetadataManager.add_transformation_record API)
 
 Next Up (optional):
-  - Execute sparse view pipeline once dense run and metadata tooling are green.
+  - Phase F reconstruction metadata validation once dense guard is green.
 
 Doc Sync Plan (Conditional):
-  - After GREEN: `pytest --collect-only tests/tools/test_transpose_rename_convert_tool.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/collect/pytest_transpose_metadata_collect.log`
-  - After GREEN: `pytest --collect-only tests/tools/test_generate_patches_tool.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/collect/pytest_patches_metadata_collect.log`
-  - Update `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` to document the two new selectors after successful runs.
-
-Mapped Tests Guardrail: Ensure both selectors above collect at least one test (`pytest --collect-only …` commands in Doc Sync Plan).
-
-Hard Gate: Do not mark the attempt done unless Phase C completes without metadata-related ValueError and both pytest selectors pass; if later pipeline phases fail, log blocker and stop.
+  - After GREEN, run `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T150500Z/phase_c_metadata_guard/collect/pytest_phase_g_orchestrator_collect.log` and update docs/TESTING_GUIDE.md §2 plus docs/development/TEST_SUITE_INDEX.md with the new selector.
