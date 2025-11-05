@@ -1,0 +1,127 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_phase_g_dense_metrics_report.py::test_analyze_dense_metrics_success_digest FAILED [100%]
+
+=================================== FAILURES ===================================
+__________________ test_analyze_dense_metrics_success_digest ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-388/test_analyze_dense_metrics_suc0')
+
+    def test_analyze_dense_metrics_success_digest(tmp_path: Path) -> None:
+        """
+        Test analyze script exits with code 0 and emits success banner when n_failed == 0.
+    
+        Acceptance:
+        - Creates metrics_summary.json with n_failed == 0 (all jobs succeeded)
+        - Creates valid aggregate_highlights.txt
+        - Invokes analyze_dense_metrics.py
+        - Asserts exit code == 0 (success)
+        - Stdout/digest contains success banner and NO failure warning
+        - Digest file written successfully
+        - Stderr should NOT contain failure banner
+    
+        Follows TYPE-PATH-001 (Path normalization).
+        """
+        # Create fixture with all successes (n_failed == 0)
+        metrics_file = tmp_path / "metrics_summary.json"
+        fixture_data = {
+            "n_jobs": 2,
+            "n_success": 2,
+            "n_failed": 0,  # Critical: zero failures
+            "jobs": [],
+            "aggregate_metrics": {
+                "PtychoPINN": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.987,
+                        "best_amplitude": 0.992,
+                        "mean_phase": 0.945,
+                        "best_phase": 0.956,
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.012,
+                        "mean_phase": 0.034,
+                    },
+                },
+                "Baseline": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.923,
+                        "best_amplitude": 0.931,
+                        "mean_phase": 0.889,
+                        "best_phase": 0.902,
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.048,
+                        "mean_phase": 0.067,
+                    },
+                },
+                "PtyChi": {
+                    "ms_ssim": {
+                        "mean_amplitude": 0.912,
+                        "best_amplitude": 0.919,
+                        "mean_phase": 0.876,
+                        "best_phase": 0.887,
+                    },
+                    "mae": {
+                        "mean_amplitude": 0.055,
+                        "mean_phase": 0.078,
+                    },
+                },
+            },
+        }
+    
+        with metrics_file.open('w') as f:
+            json.dump(fixture_data, f, indent=2)
+    
+        # Create valid highlights fixture
+        highlights_file = tmp_path / "aggregate_highlights.txt"
+        highlights_content = """MS-SSIM Amplitude Delta (PtychoPINN - Baseline): +0.064
+    MS-SSIM Phase Delta (PtychoPINN - Baseline): +0.056
+    MAE Amplitude Delta (PtychoPINN - Baseline): -0.036
+    MAE Phase Delta (PtychoPINN - Baseline): -0.033
+    """
+        highlights_file.write_text(highlights_content)
+    
+        # Invoke analyze script
+        script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/analyze_dense_metrics.py"
+        output_file = tmp_path / "metrics_digest.md"
+    
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script_path),
+                "--metrics", str(metrics_file),
+                "--highlights", str(highlights_file),
+                "--output", str(output_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+    
+        # Assert exit code is exactly 0 (success)
+        assert result.returncode == 0, f"Expected exit code 0 for n_failed == 0, got {result.returncode}. Stderr: {result.stderr}"
+    
+        # Assert NO failure banner in stderr
+        assert "⚠️ FAILURES PRESENT ⚠️" not in result.stderr, "Should not show failure banner in stderr when all jobs succeed"
+    
+        # Assert stdout contains digest WITHOUT failure warning
+        stdout = result.stdout
+        assert "⚠️ FAILURES PRESENT ⚠️" not in stdout, "Should not show failure warning in stdout digest when all jobs succeed"
+    
+        # Assert explicit success banner present (required per input.md)
+>       assert "✓ ALL COMPARISONS SUCCESSFUL ✓" in stdout, "Should show explicit success banner in stdout when all jobs succeed"
+E       AssertionError: Should show explicit success banner in stdout when all jobs succeed
+E       assert '\u2713 ALL COMPARISONS SUCCESSFUL \u2713' in '# Phase G Dense Metrics Digest\n\n## Pipeline Summary\n\n- Total comparison jobs: 2\n- Successful: 2\n- Failed: 0\n\n## Highlights\n\n```\nMS-SSIM Amplitude Delta (PtychoPINN - Baseline): +0.064\nMS-SSIM Phase Delta (PtychoPINN - Baseline): +0.056\nMAE Amplitude Delta (PtychoPINN - Baseline): -0.036\nMAE Phase Delta (PtychoPINN - Baseline): -0.033\n```\n\n## Key Deltas\n\n### MS-SSIM (Mean Values)\n\n| Comparison | Amplitude | Phase |\n|------------|-----------|-------|\n| PtychoPINN - Baseline | +0.064 | +0.056 |\n| PtychoPINN - PtyChi | +0.075 | +0.069 |\n\n### MAE (Mean Values)\n\n**Note:** Negative delta = PtychoPINN better (lower error)\n\n| Comparison | Amplitude | Phase |\n|------------|-----------|-------|\n| PtychoPINN - Baseline | -0.036 | -0.033 |\n| PtychoPINN - PtyChi | -0.043 | -0.044 |\n\n## References\n\n- Full metrics report: `aggregate_report.md`\n- Raw metrics data: `metrics_summary.json`\n- Detailed highlights: `aggregate_highlights.txt`\n'
+
+tests/study/test_phase_g_dense_metrics_report.py:400: AssertionError
+=========================== short test summary info ============================
+FAILED tests/study/test_phase_g_dense_metrics_report.py::test_analyze_dense_metrics_success_digest - AssertionError: Should show explicit success banner in stdout when all jobs succeed
+assert '\u2713 ALL COMPARISONS SUCCESSFUL \u2713' in '# Phase G Dense Metrics Digest\n\n## Pipeline Summary\n\n- Total comparison jobs: 2\n- Successful: 2\n- Failed: 0\n\n## Highlights\n\n```\nMS-SSIM Amplitude Delta (PtychoPINN - Baseline): +0.064\nMS-SSIM Phase Delta (PtychoPINN - Baseline): +0.056\nMAE Amplitude Delta (PtychoPINN - Baseline): -0.036\nMAE Phase Delta (PtychoPINN - Baseline): -0.033\n```\n\n## Key Deltas\n\n### MS-SSIM (Mean Values)\n\n| Comparison | Amplitude | Phase |\n|------------|-----------|-------|\n| PtychoPINN - Baseline | +0.064 | +0.056 |\n| PtychoPINN - PtyChi | +0.075 | +0.069 |\n\n### MAE (Mean Values)\n\n**Note:** Negative delta = PtychoPINN better (lower error)\n\n| Comparison | Amplitude | Phase |\n|------------|-----------|-------|\n| PtychoPINN - Baseline | -0.036 | -0.033 |\n| PtychoPINN - PtyChi | -0.043 | -0.044 |\n\n## References\n\n- Full metrics report: `aggregate_report.md`\n- Raw metrics data: `metrics_summary.json`\n- Detailed highlights: `aggregate_highlights.txt`\n'
+============================== 1 failed in 0.87s ===============================

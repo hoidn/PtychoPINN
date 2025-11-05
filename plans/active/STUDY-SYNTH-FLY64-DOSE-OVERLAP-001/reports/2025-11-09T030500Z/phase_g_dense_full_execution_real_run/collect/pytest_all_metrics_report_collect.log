@@ -1,0 +1,68 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 4 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_phase_g_dense_metrics_report.py>
+        Tests for Phase G dense metrics reporting helper.
+        <Function test_report_phase_g_dense_metrics>
+          Test reporting helper parses metrics_summary.json and emits delta tables.
+          
+          Acceptance:
+          - Loads report_phase_g_dense_metrics.py via importlib
+          - Creates fixture metrics_summary.json with PtychoPINN, Baseline, PtyChi aggregates
+          - Invokes helper with --metrics pointing to fixture
+          - Validates stdout contains:
+            - Aggregate metrics tables for each model (deterministic sorted order)
+            - Delta section showing PtychoPINN - Baseline and PtychoPINN - PtyChi
+            - 3-decimal formatting for all floats
+            - MS-SSIM amplitude/phase and MAE amplitude/phase comparisons
+          - Optionally writes Markdown via --output flag
+          - Optionally writes highlights via --highlights flag
+          - Returns 0 on success
+          
+          Follows TYPE-PATH-001 (Path normalization).
+        <Function test_report_phase_g_dense_metrics_missing_model_fails>
+          Test reporting helper fails gracefully when required model missing.
+          
+          Acceptance:
+          - Creates metrics_summary.json with only PtychoPINN (missing Baseline/PtyChi)
+          - Invokes helper
+          - Asserts non-zero exit code
+          - Stderr contains actionable error message mentioning missing model
+        <Function test_analyze_dense_metrics_flags_failures>
+          Test analyze script exits with code 1 and emits failure banner when n_failed > 0.
+          
+          Acceptance:
+          - Creates metrics_summary.json with n_failed > 0
+          - Creates valid aggregate_highlights.txt
+          - Invokes analyze_dense_metrics.py
+          - Asserts exit code == 1 (not 0 or 2)
+          - Stderr contains failure banner "⚠️ FAILURES PRESENT ⚠️"
+          - Stdout/digest contains failure warning section
+          - Digest file written successfully despite failures
+          
+          Follows TYPE-PATH-001 (Path normalization).
+        <Function test_analyze_dense_metrics_success_digest>
+          Test analyze script exits with code 0 and emits success banner when n_failed == 0.
+          
+          Acceptance:
+          - Creates metrics_summary.json with n_failed == 0 (all jobs succeeded)
+          - Creates valid aggregate_highlights.txt
+          - Invokes analyze_dense_metrics.py
+          - Asserts exit code == 0 (success)
+          - Stdout/digest contains success banner and NO failure warning
+          - Digest file written successfully
+          - Stderr should NOT contain failure banner
+          
+          Follows TYPE-PATH-001 (Path normalization).
+
+========================== 4 tests collected in 0.84s ==========================
