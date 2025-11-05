@@ -3020,3 +3020,16 @@
   - Added 2025-11-05T121303Z monitor summary + fix_plan update, and rewrote input.md so Ralph waits for the run to finish before executing highlights/metrics verification scripts.
 - Next actions for Ralph: monitor run completion, verify metrics bundle with the highlights checker + digest refresh, then document MS-SSIM/MAE deltas in summary.md and docs/fix_plan.md.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T123500Z: Dense pipeline relaunch triage hand-off
+- dwell: 2 (second consecutive planning loop; issuing ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning (handoff)
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T123500Z/phase_g_dense_pipeline_triage/
+- Notes:
+  - `pgrep` confirms no active `run_phase_g_dense` or `studies.fly64_dose_overlap` processes; hub still contains only Phase C outputs under `data/phase_c` in the PtychoPINN2 workspace.
+  - `cli/run_phase_g_dense_v2.log` lacks `[2/8]` or later banners, matching the prior summary that only Phase C executed.
+  - Authored new Do Now directing Ralph to re-launch the orchestrator with `"$PWD/$HUB"`, capture a fresh full-run log, run highlights/metrics helpers, and update summary/fix_plan with MS-SSIM/MAE deltas plus guardrail evidence.
+- Next actions for Ralph: rerun `run_phase_g_dense.py` with `--clobber`, confirm all Phase D–G artifacts land, run highlights verifier + metrics digest refresh, update summary/docs, then execute the mapped pytest selector.
+- <Action State>: [ready_for_implementation]
