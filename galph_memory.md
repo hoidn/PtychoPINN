@@ -2966,3 +2966,16 @@
   - Authored fresh plan.md + input.md directing Ralph to re-run the highlights regression selector, execute the dense Phase C→G pipeline with --clobber, verify artifacts, and propagate MS-SSIM/MAE deltas into summary + ledger.
 - Next actions for Ralph: follow input.md How-To Map to run pytest guard, execute the dense pipeline, confirm highlights/JSON parity, update summary.md and docs/fix_plan.md with real deltas, archive inventory/logs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-05T105749Z: Dense pipeline completion plan (190500Z hub)
+- dwell: 1 (first planning loop after 170500Z ready_for_implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: none
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T190500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - Confirmed 170500Z hub only contains Phase C outputs (`artifact_inventory_partial.txt`, no Phase D/F/G logs or metrics) and no orchestrator processes remain (`pgrep` empty).
+  - Added new planning hub 190500Z with refreshed plan.md directing full pipeline rerun, metrics verification, and documentation updates.
+  - Updated docs/fix_plan.md Attempts History with the 190500Z planning entry and rewrote input.md to point Ralph at the new hub (regression selector, pipeline command with --clobber, artifact checks, summary/doc updates).
+- Next actions for Ralph: run the regression selector, execute the dense Phase C→G pipeline under the 190500Z hub, verify the metrics bundle, and document MS-SSIM/MAE deltas in summary.md + docs/fix_plan.md.
+- <Action State>: [ready_for_implementation]
