@@ -2940,3 +2940,16 @@
   - Updated docs/fix_plan.md (Last Updated → 2025-11-09) with 110500Z implementation summary and this 130500Z planning attempt; confirmed artifacts path recorded.
 - Next actions for Ralph: extend exec-mode pytest for metadata, implement UTC/source path fields in `run_phase_g_dense.py::main`, update TESTING_GUIDE.md, run targeted selectors, execute the dense pipeline with --clobber, archive artifacts (metrics_summary/delta/digest/highlights), and sync summary + fix_plan with real MS-SSIM/MAE deltas.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T150500Z: Dense highlights automation planning
+- dwell: 2 (second consecutive planning loop — issuing ready_for_implementation per dwell guard)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T150500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; re-read working plan + latest hub summaries and reviewed docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001) before setting scope.
+  - Provisioned new 150500Z hub with plan/summary scaffolding and authored plan.md targeting automatic metrics_delta_highlights.txt generation plus dense pipeline evidence.
+  - Updated docs/fix_plan.md Latest Attempt entry, refreshed input.md (Mode: TDD) with highlight TDD + pipeline commands, and captured the AUTHORITATIVE_CMDS_DOC guard in the How-To Map.
+- Next actions for Ralph: extend the exec-mode pytest with highlights assertions, implement highlights emission in run_phase_g_dense.py, update TESTING_GUIDE.md, run mapped selectors, execute the dense pipeline with --clobber, and document MS-SSIM/MAE deltas from real artifacts.
+- <Action State>: [ready_for_implementation]
