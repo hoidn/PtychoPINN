@@ -201,9 +201,23 @@ def validate_phase_c_metadata(hub: Path) -> None:
                         f"Please regenerate Phase C outputs with metadata support."
                     )
 
-                # Optional: Check for specific metadata fields (e.g., transpose_rename_convert)
-                # For now, just verify metadata exists
-                print(f"[validate_phase_c_metadata] ✓ {npz_path.name} contains _metadata")
+                # Require canonical transformation history (transpose_rename_convert)
+                # This ensures Phase C outputs have gone through format canonicalization
+                transformations = metadata.get("data_transformations", [])
+                has_canonical_transform = any(
+                    t.get("tool") == "transpose_rename_convert"
+                    for t in transformations
+                )
+
+                if not has_canonical_transform:
+                    raise RuntimeError(
+                        f"Phase C NPZ file missing required canonical transformation in _metadata: {npz_path}. "
+                        f"Expected 'transpose_rename_convert' in data_transformations list. "
+                        f"Found transformations: {[t.get('tool') for t in transformations]}. "
+                        f"Please ensure Phase C pipeline includes transpose_rename_convert canonicalization."
+                    )
+
+                print(f"[validate_phase_c_metadata] ✓ {npz_path.name} contains _metadata with canonical transformation")
 
     print(f"[validate_phase_c_metadata] SUCCESS: All Phase C NPZ files contain required _metadata")
 

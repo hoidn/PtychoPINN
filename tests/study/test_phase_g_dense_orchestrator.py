@@ -256,3 +256,123 @@ def test_validate_phase_c_metadata_requires_metadata(tmp_path: Path) -> None:
     # Execute: Call the guard (should raise RuntimeError mentioning '_metadata')
     with pytest.raises(RuntimeError, match="_metadata"):
         validate_phase_c_metadata(hub)
+
+
+def test_validate_phase_c_metadata_requires_canonical_transform(tmp_path: Path) -> None:
+    """
+    Test that validate_phase_c_metadata() raises RuntimeError when Phase C NPZ outputs have _metadata but missing transpose_rename_convert transformation.
+
+    Acceptance:
+    - Normalizes hub path via TYPE-PATH-001
+    - Checks both train/test splits exist under phase_c_root
+    - Loads NPZ files via MetadataManager.load_with_metadata
+    - Checks metadata["data_transformations"] for "transpose_rename_convert" (case-sensitive list membership)
+    - Raises RuntimeError mentioning both '_metadata' and 'transpose_rename_convert' if transformation is missing
+    - Does not mutate or delete Phase C outputs (read-only)
+
+    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+    """
+    # Import the function under test
+    validate_phase_c_metadata = _import_validate_phase_c_metadata()
+
+    # Setup: Create fake Phase C outputs with _metadata but missing canonical transformation
+    hub = tmp_path / "phase_c_hub"
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+
+    # Create NPZ files for train and test splits WITH _metadata but WITHOUT transpose_rename_convert
+    import numpy as np
+    from ptycho.metadata import MetadataManager
+
+    for split in ["train", "test"]:
+        split_dir = phase_c_root / f"dose_1000_{split}"
+        split_dir.mkdir(parents=True)
+
+        npz_path = split_dir / f"fly64_{split}_simulated.npz"
+
+        # Create minimal NPZ data
+        data_dict = {
+            'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
+            'objectGuess': np.random.rand(128, 128).astype(np.complex64),
+            'probeGuess': np.random.rand(64, 64).astype(np.complex64),
+        }
+
+        # Create metadata with a DIFFERENT transformation (not transpose_rename_convert)
+        metadata = {
+            "schema_version": "1.0",
+            "data_transformations": [
+                {
+                    "tool": "some_other_tool",
+                    "timestamp": "2025-11-07T19:00:00Z",
+                    "operation": "other_operation",
+                    "parameters": {}
+                }
+            ]
+        }
+
+        # Save with metadata but missing the required transformation
+        MetadataManager.save_with_metadata(str(npz_path), data_dict, metadata)
+
+    # Execute: Call the guard (should raise RuntimeError mentioning both '_metadata' and 'transpose_rename_convert')
+    with pytest.raises(RuntimeError, match=r"transpose_rename_convert"):
+        validate_phase_c_metadata(hub)
+
+
+def test_validate_phase_c_metadata_accepts_valid_metadata(tmp_path: Path) -> None:
+    """
+    Test that validate_phase_c_metadata() succeeds when Phase C NPZ outputs have proper metadata with transpose_rename_convert.
+
+    Acceptance:
+    - Normalizes hub path via TYPE-PATH-001
+    - Checks both train/test splits exist under phase_c_root
+    - Loads NPZ files via MetadataManager.load_with_metadata
+    - Verifies metadata["data_transformations"] contains "transpose_rename_convert" transformation
+    - Succeeds without raising when transformation is present
+    - Does not mutate or delete Phase C outputs (read-only)
+
+    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+    """
+    # Import the function under test
+    validate_phase_c_metadata = _import_validate_phase_c_metadata()
+
+    # Setup: Create fake Phase C outputs with complete valid metadata
+    hub = tmp_path / "phase_c_hub"
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+
+    # Create NPZ files for train and test splits WITH proper metadata including transpose_rename_convert
+    import numpy as np
+    from ptycho.metadata import MetadataManager
+
+    for split in ["train", "test"]:
+        split_dir = phase_c_root / f"dose_1000_{split}"
+        split_dir.mkdir(parents=True)
+
+        npz_path = split_dir / f"fly64_{split}_simulated.npz"
+
+        # Create minimal NPZ data
+        data_dict = {
+            'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
+            'objectGuess': np.random.rand(128, 128).astype(np.complex64),
+            'probeGuess': np.random.rand(64, 64).astype(np.complex64),
+        }
+
+        # Create metadata with the required transformation
+        metadata = {
+            "schema_version": "1.0",
+            "data_transformations": []
+        }
+
+        # Use add_transformation_record to properly embed the canonical transformation
+        metadata = MetadataManager.add_transformation_record(
+            metadata,
+            tool_name="transpose_rename_convert",
+            operation="canonicalize_npz_format",
+            parameters={"target_format": "NHW"}
+        )
+
+        # Save with proper metadata
+        MetadataManager.save_with_metadata(str(npz_path), data_dict, metadata)
+
+    # Execute: Call the guard (should succeed without raising)
+    validate_phase_c_metadata(hub)

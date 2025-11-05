@@ -212,8 +212,8 @@ The dry-run mode enumerates jobs, writes manifest and skip summary, but skips su
 Tests for the Phase C→G dense execution orchestrator and metrics aggregation helper.
 
 - **Files:**
-  - `test_phase_g_dense_orchestrator.py` - Tests `summarize_phase_g_outputs()` helper in `bin/run_phase_g_dense.py`
-- **Purpose:** Validate orchestrator metrics summary extraction from Phase G comparison results
+  - `test_phase_g_dense_orchestrator.py` - Tests `summarize_phase_g_outputs()` helper and `validate_phase_c_metadata()` guard in `bin/run_phase_g_dense.py`
+- **Purpose:** Validate orchestrator metrics summary extraction from Phase G comparison results and Phase C metadata integrity enforcement
 - **Key selectors:**
   ```bash
   # Run Phase G orchestrator summary helper test
@@ -222,9 +222,29 @@ Tests for the Phase C→G dense execution orchestrator and metrics aggregation h
   # Run failure mode tests (missing manifest, n_failed > 0, missing CSV)
   pytest tests/study/test_phase_g_dense_orchestrator.py -k fails -vv
 
-  # Collect all orchestrator tests
+  # Run Phase C metadata guard tests (requires _metadata, requires transpose_rename_convert, accepts valid)
+  pytest tests/study/test_phase_g_dense_orchestrator.py -k metadata -vv
+
+  # Run specific metadata guard tests
+  pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_metadata -vv
+  pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_requires_canonical_transform -vv
+  pytest tests/study/test_phase_g_dense_orchestrator.py::test_validate_phase_c_metadata_accepts_valid_metadata -vv
+
+  # Collect all orchestrator tests (7 tests: 4 summary + 3 metadata guard)
   pytest tests/study/test_phase_g_dense_orchestrator.py --collect-only -vv
   ```
+
+**Phase C Metadata Guard:**
+
+The `validate_phase_c_metadata()` guard enforces Phase C dataset integrity requirements before downstream Phase D/E/F/G processing. The guard validates:
+
+- Phase C NPZ outputs contain required `_metadata` field (DATA-001 contract)
+- Metadata includes `transpose_rename_convert` transformation in `data_transformations` list (canonical format enforcement)
+- Read-only validation (no mutations or deletions of Phase C outputs)
+- TYPE-PATH-001 compliance (Path normalization)
+- Actionable RuntimeError messages with missing field details
+
+The guard ensures Phase C outputs have undergone format canonicalization via `scripts/tools/transpose_rename_convert_tool.py`, preventing silent format mismatches in downstream phases. Tests validate three behaviors: missing metadata (baseline), missing canonical transformation (new requirement), and valid metadata acceptance.
 
 **Phase G Orchestrator Summary Helper:**
 
