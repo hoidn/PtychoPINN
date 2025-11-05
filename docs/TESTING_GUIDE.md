@@ -213,7 +213,8 @@ Tests for the Phase C→G dense execution orchestrator and metrics aggregation h
 
 - **Files:**
   - `test_phase_g_dense_orchestrator.py` - Tests `summarize_phase_g_outputs()` helper, `validate_phase_c_metadata()` guard, and `prepare_hub()` helper in `bin/run_phase_g_dense.py`
-- **Purpose:** Validate orchestrator metrics summary extraction from Phase G comparison results, Phase C metadata integrity enforcement, and hub preparation with stale output detection
+  - `test_phase_g_dense_metrics_report.py` - Tests `report_phase_g_dense_metrics.py` CLI helper for aggregate metrics reporting with delta computation
+- **Purpose:** Validate orchestrator metrics summary extraction from Phase G comparison results, Phase C metadata integrity enforcement, hub preparation with stale output detection, and aggregate reporting with baseline deltas
 - **Key selectors:**
   ```bash
   # Run Phase G orchestrator summary helper test
@@ -234,8 +235,15 @@ Tests for the Phase C→G dense execution orchestrator and metrics aggregation h
   pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_detects_stale_outputs -vv
   pytest tests/study/test_phase_g_dense_orchestrator.py::test_prepare_hub_clobbers_previous_outputs -vv
 
-  # Collect all orchestrator tests (9 tests: 4 summary + 3 metadata guard + 2 prepare_hub)
+  # Run metrics reporting helper tests
+  pytest tests/study/test_phase_g_dense_metrics_report.py::test_report_phase_g_dense_metrics -vv
+  pytest tests/study/test_phase_g_dense_metrics_report.py::test_report_phase_g_dense_metrics_missing_model_fails -vv
+
+  # Collect all orchestrator tests (10 tests)
   pytest tests/study/test_phase_g_dense_orchestrator.py --collect-only -vv
+
+  # Collect all reporting helper tests (2 tests)
+  pytest tests/study/test_phase_g_dense_metrics_report.py --collect-only -vv
   ```
 
 **Hub Preparation Helper:**
@@ -270,8 +278,29 @@ The `summarize_phase_g_outputs()` helper validates Phase G execution manifest, e
 - Manifest parsing from `{hub}/analysis/comparison_manifest.json`
 - Fail-fast on `n_failed > 0` or missing CSV files
 - Metrics extraction (amplitude/phase/value columns) from tidy CSV format
-- Deterministic JSON output (`metrics_summary.json`)
-- Formatted Markdown tables (`metrics_summary.md`) by model/job
+- Deterministic JSON output (`metrics_summary.json`) with aggregate metrics (mean/best per model)
+- Formatted Markdown tables (`metrics_summary.md`) by model/job with aggregate section
+
+**Phase G Metrics Reporting Helper:**
+
+The `report_phase_g_dense_metrics.py` CLI helper parses `metrics_summary.json` (output from `summarize_phase_g_outputs`) and generates aggregate reports with delta tables comparing PtychoPINN against Baseline and PtyChi. The helper:
+
+- Loads and validates `metrics_summary.json` structure (fails on missing `aggregate_metrics`)
+- Requires presence of all three models (PtychoPINN, Baseline, PtyChi) for delta computation
+- Computes deltas: PtychoPINN - Baseline and PtychoPINN - PtyChi for MS-SSIM and MAE (amplitude/phase)
+- Formats output with 3-decimal precision and signed deltas (+/- prefix)
+- Emits report to stdout + optional Markdown file via `--output` flag
+- Exit codes: 0 (success), 1 (required model missing), 2 (invalid input/IO error)
+
+Tests validate two behaviors: successful reporting with all models present (verifies aggregate tables, delta sections, 3-decimal formatting, stdout/Markdown outputs), and graceful failure with actionable error message when required models are missing.
+
+**Usage:**
+```bash
+# Generate report from metrics_summary.json
+python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py \
+  --metrics plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/metrics_summary.json \
+  --output plans/active/.../reports/<timestamp>/phase_g_dense_execution/analysis/aggregate_report.md
+```
 
 **Phase G Full Pipeline Orchestrator:**
 
