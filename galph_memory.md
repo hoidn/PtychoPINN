@@ -2677,3 +2677,18 @@
   - Updated docs/fix_plan.md Attempts History to reflect the new staging plan and reinforced findings alignment.
 - Next actions for Ralph: implement aggregate metrics in summarize_phase_g_outputs + tests, rerun dense CLI with --clobber under the new hub, capture guard/summarizer logs, and refresh summary/docs/test registries with aggregate results.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-08T030500Z: Phase G dense real-run staging
+- dwell: 0 (reset after 2025-11-08T010500Z+exec delivered aggregate metrics implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense full execution evidence + aggregate metrics)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-08T030500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (already up to date); confirmed AUTHORITATIVE_CMDS_DOC guard remains set for this loop.
+  - Re-scanned docs/findings.md for POLICY-001 / CONFIG-001 / DATA-001 / TYPE-PATH-001 / OVERSAMPLING-001 and verified aggregation work aligns.
+  - Reviewed 2025-11-08T010500Z summary/logs and noted dense pipeline still missing real-run evidence post-aggregation.
+  - Created new hub (030500Z) with execution plan capturing reporting helper requirements, pytest coverage, and CLI/guard/reporting steps.
+  - Updated docs/fix_plan.md Attempts History and input scaffolding to hand off reporting helper implementation + dense pipeline run.
+- Next actions for Ralph: build the reporting helper + pytest, run the dense Phase C→G pipeline with --clobber, execute guards/reporting scripts, and sync docs/summary with aggregate deltas.
+- <Action State>: [ready_for_implementation]
