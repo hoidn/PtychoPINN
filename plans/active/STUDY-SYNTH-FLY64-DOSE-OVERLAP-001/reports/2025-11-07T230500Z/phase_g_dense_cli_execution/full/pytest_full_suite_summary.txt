@@ -1,0 +1,16 @@
+Full Test Suite Results
+=======================
+Date: 2025-11-07T230500Z
+Command: pytest -v tests/
+
+Results:
+- 416 passed (up from 415)
+- 1 failed (pre-existing: test_interop_h5_reader)
+- 17 skipped
+- 104 warnings
+- Duration: 497.02s (8m17s)
+
+New Test Added:
+- tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_collect_only_generates_commands
+
+Status: GREEN (new test passed, no regressions)
