@@ -34,6 +34,7 @@ def test_report_phase_g_dense_metrics(tmp_path: Path) -> None:
       - 3-decimal formatting for all floats
       - MS-SSIM amplitude/phase and MAE amplitude/phase comparisons
     - Optionally writes Markdown via --output flag
+    - Optionally writes highlights via --highlights flag
     - Returns 0 on success
 
     Follows TYPE-PATH-001 (Path normalization).
@@ -91,9 +92,10 @@ def test_report_phase_g_dense_metrics(tmp_path: Path) -> None:
     # Invoke helper script as subprocess (validates CLI interface)
     script_path = Path(__file__).parent.parent.parent / "plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py"
     md_output = tmp_path / "report.md"
+    highlights_output = tmp_path / "highlights.txt"
 
     result = subprocess.run(
-        [sys.executable, str(script_path), "--metrics", str(metrics_file), "--output", str(md_output)],
+        [sys.executable, str(script_path), "--metrics", str(metrics_file), "--output", str(md_output), "--highlights", str(highlights_output)],
         capture_output=True,
         text=True,
     )
@@ -127,6 +129,18 @@ def test_report_phase_g_dense_metrics(tmp_path: Path) -> None:
     assert "Aggregate Metrics" in md_content, "Missing aggregate metrics in Markdown"
     assert "Deltas" in md_content or "Delta" in md_content, "Missing delta section in Markdown"
     assert "0.987" in md_content, "Missing metric value in Markdown"
+
+    # Validate highlights file written with top-line deltas
+    assert highlights_output.exists(), "Highlights output file not created"
+    highlights_content = highlights_output.read_text()
+    # Should contain MS-SSIM and MAE deltas for both amplitude and phase
+    assert "MS-SSIM" in highlights_content, "Missing MS-SSIM in highlights"
+    assert "MAE" in highlights_content, "Missing MAE in highlights"
+    assert "amplitude" in highlights_content.lower(), "Missing amplitude in highlights"
+    assert "phase" in highlights_content.lower(), "Missing phase in highlights"
+    # Should contain numeric deltas (spot check)
+    assert "0.064" in highlights_content, "Missing MS-SSIM amplitude delta in highlights"
+    assert "-0.036" in highlights_content, "Missing MAE amplitude delta in highlights"
 
 
 def test_report_phase_g_dense_metrics_missing_model_fails(tmp_path: Path) -> None:

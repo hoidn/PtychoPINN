@@ -678,11 +678,13 @@ def main() -> int:
     # (executed after summarize_phase_g_outputs generates metrics_summary.json)
     metrics_summary_json = phase_g_root / "metrics_summary.json"
     aggregate_report_md = phase_g_root / "aggregate_report.md"
+    aggregate_highlights_txt = phase_g_root / "aggregate_highlights.txt"
     report_helper_script = Path(__file__).parent / "report_phase_g_dense_metrics.py"
     report_helper_cmd = [
         "python", str(report_helper_script),
         "--metrics", str(metrics_summary_json),
         "--output", str(aggregate_report_md),
+        "--highlights", str(aggregate_highlights_txt),
     ]
     report_helper_log = cli_log_dir / "aggregate_report_cli.log"
 
@@ -775,6 +777,7 @@ def main() -> int:
     print(f"CLI logs: {cli_log_dir}")
     print(f"Analysis outputs: {phase_g_root}")
     print(f"Aggregate report: {aggregate_report_md}")
+    print(f"Highlights: {aggregate_highlights_txt}")
 
     return 0
 

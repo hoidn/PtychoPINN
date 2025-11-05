@@ -169,6 +169,57 @@ def format_delta_tables(pinn_metrics: dict, baseline_metrics: dict, ptychi_metri
     return "\n".join(lines)
 
 
+def generate_highlights(pinn_metrics: dict, baseline_metrics: dict, ptychi_metrics: dict) -> str:
+    """Generate concise highlights text with top-line deltas."""
+    lines = []
+    lines.append("Phase G Dense Metrics — Highlights")
+    lines.append("=" * 50)
+    lines.append("")
+
+    # MS-SSIM deltas
+    if 'ms_ssim' in pinn_metrics:
+        pinn_ms = pinn_metrics['ms_ssim']
+        base_ms = baseline_metrics.get('ms_ssim', {})
+        pty_ms = ptychi_metrics.get('ms_ssim', {})
+
+        lines.append("MS-SSIM Deltas (PtychoPINN - Baseline):")
+        delta_mean_amp_base = compute_delta(pinn_ms.get('mean_amplitude'), base_ms.get('mean_amplitude'))
+        delta_mean_phase_base = compute_delta(pinn_ms.get('mean_phase'), base_ms.get('mean_phase'))
+        lines.append(f"  Amplitude (mean): {delta_mean_amp_base}")
+        lines.append(f"  Phase (mean):     {delta_mean_phase_base}")
+        lines.append("")
+
+        lines.append("MS-SSIM Deltas (PtychoPINN - PtyChi):")
+        delta_mean_amp_pty = compute_delta(pinn_ms.get('mean_amplitude'), pty_ms.get('mean_amplitude'))
+        delta_mean_phase_pty = compute_delta(pinn_ms.get('mean_phase'), pty_ms.get('mean_phase'))
+        lines.append(f"  Amplitude (mean): {delta_mean_amp_pty}")
+        lines.append(f"  Phase (mean):     {delta_mean_phase_pty}")
+        lines.append("")
+
+    # MAE deltas
+    if 'mae' in pinn_metrics:
+        pinn_mae = pinn_metrics['mae']
+        base_mae = baseline_metrics.get('mae', {})
+        pty_mae = ptychi_metrics.get('mae', {})
+
+        lines.append("MAE Deltas (PtychoPINN - Baseline):")
+        lines.append("  [Note: Negative = PtychoPINN better (lower error)]")
+        delta_mean_amp_base = compute_delta(pinn_mae.get('mean_amplitude'), base_mae.get('mean_amplitude'))
+        delta_mean_phase_base = compute_delta(pinn_mae.get('mean_phase'), base_mae.get('mean_phase'))
+        lines.append(f"  Amplitude (mean): {delta_mean_amp_base}")
+        lines.append(f"  Phase (mean):     {delta_mean_phase_base}")
+        lines.append("")
+
+        lines.append("MAE Deltas (PtychoPINN - PtyChi):")
+        lines.append("  [Note: Negative = PtychoPINN better (lower error)]")
+        delta_mean_amp_pty = compute_delta(pinn_mae.get('mean_amplitude'), pty_mae.get('mean_amplitude'))
+        delta_mean_phase_pty = compute_delta(pinn_mae.get('mean_phase'), pty_mae.get('mean_phase'))
+        lines.append(f"  Amplitude (mean): {delta_mean_amp_pty}")
+        lines.append(f"  Phase (mean):     {delta_mean_phase_pty}")
+
+    return "\n".join(lines)
+
+
 def generate_report(data: dict) -> str:
     """Generate full Markdown report from metrics_summary.json."""
     aggregate_metrics = data['aggregate_metrics']
@@ -218,6 +269,11 @@ def main() -> None:
         type=Path,
         help="Optional path to write Markdown report (in addition to stdout)",
     )
+    parser.add_argument(
+        "--highlights",
+        type=Path,
+        help="Optional path to write concise highlights text (top-line deltas)",
+    )
 
     args = parser.parse_args()
 
@@ -241,6 +297,22 @@ def main() -> None:
             print(f"\n[report_phase_g_dense_metrics] Wrote Markdown report: {args.output}", file=sys.stderr)
         except IOError as e:
             print(f"ERROR: Failed to write Markdown report: {e}", file=sys.stderr)
+            sys.exit(2)
+
+    # Optionally write highlights file
+    if args.highlights:
+        try:
+            pinn_metrics = aggregate_metrics['PtychoPINN']
+            baseline_metrics = aggregate_metrics['Baseline']
+            ptychi_metrics = aggregate_metrics['PtyChi']
+            highlights = generate_highlights(pinn_metrics, baseline_metrics, ptychi_metrics)
+
+            args.highlights.parent.mkdir(parents=True, exist_ok=True)
+            with args.highlights.open('w') as f:
+                f.write(highlights)
+            print(f"[report_phase_g_dense_metrics] Wrote highlights: {args.highlights}", file=sys.stderr)
+        except IOError as e:
+            print(f"ERROR: Failed to write highlights: {e}", file=sys.stderr)
             sys.exit(2)
 
 

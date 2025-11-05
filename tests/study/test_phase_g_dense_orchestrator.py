@@ -93,6 +93,7 @@ def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monke
     # Check for reporting helper command
     assert "report_phase_g_dense_metrics.py" in stdout, "Missing reporting helper command in --collect-only output"
     assert "aggregate_report.md" in stdout, "Missing aggregate_report.md output path in reporting helper command"
+    assert "aggregate_highlights.txt" in stdout, "Missing aggregate_highlights.txt output path in reporting helper command"
 
     # Assert: No Phase C outputs created (dry-run mode)
     phase_c_root = hub / "data" / "phase_c"
@@ -701,6 +702,8 @@ def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeyp
     assert "metrics_summary.json" in cmd_str, f"Missing metrics_summary.json in reporting helper command: {cmd_str}"
     assert "--output" in cmd_str, f"Missing --output flag in reporting helper command: {cmd_str}"
     assert "aggregate_report.md" in cmd_str, f"Missing aggregate_report.md in reporting helper command: {cmd_str}"
+    assert "--highlights" in cmd_str, f"Missing --highlights flag in reporting helper command: {cmd_str}"
+    assert "aggregate_highlights.txt" in cmd_str, f"Missing aggregate_highlights.txt in reporting helper command: {cmd_str}"
 
     # Validate log_path points to cli/aggregate_report_cli.log
     assert "aggregate_report_cli.log" in str(final_log_path), \
