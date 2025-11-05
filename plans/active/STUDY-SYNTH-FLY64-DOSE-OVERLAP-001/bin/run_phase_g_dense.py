@@ -827,6 +827,8 @@ def main() -> int:
     print(f"Aggregate report: {aggregate_report_md}")
     print(f"Highlights: {aggregate_highlights_txt}")
     print(f"Metrics digest: {metrics_digest_md}")
+    print(f"Metrics digest (Markdown): {metrics_digest_md}")
+    print(f"Metrics digest log: {analyze_digest_log}")
 
     return 0
 

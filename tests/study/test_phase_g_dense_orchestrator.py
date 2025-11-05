@@ -948,8 +948,15 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
 
     monkeypatch.setattr(module, "run_command", stub_run_command)
 
-    # Execute: Call main() (should execute Phase C→G pipeline + reporting helper + analyze digest)
-    exit_code = main()
+    # Execute: Call main() with stdout capture (should execute Phase C→G pipeline + reporting helper + analyze digest)
+    import io
+    import contextlib
+
+    stdout_buffer = io.StringIO()
+    with contextlib.redirect_stdout(stdout_buffer):
+        exit_code = main()
+
+    stdout = stdout_buffer.getvalue()
 
     # Assert: Exit code should be 0
     assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
@@ -993,3 +1000,15 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     # Validate log_path points to cli/metrics_digest_cli.log
     assert "metrics_digest_cli.log" in str(analyze_log_path), \
         f"Expected analyze digest log path to be cli/metrics_digest_cli.log, got: {analyze_log_path}"
+
+    # Assert: Success banner should include metrics digest paths (TYPE-PATH-001)
+    assert "Metrics digest (Markdown):" in stdout, \
+        f"Expected success banner to include 'Metrics digest (Markdown):' line, got:\n{stdout}"
+    assert "Metrics digest log:" in stdout, \
+        f"Expected success banner to include 'Metrics digest log:' line, got:\n{stdout}"
+
+    # Validate digest paths appear in stdout (should show relative paths per TYPE-PATH-001)
+    assert "metrics_digest.md" in stdout, \
+        f"Expected stdout to mention metrics_digest.md path, got:\n{stdout}"
+    assert "metrics_digest_cli.log" in stdout, \
+        f"Expected stdout to mention metrics_digest_cli.log path, got:\n{stdout}"
