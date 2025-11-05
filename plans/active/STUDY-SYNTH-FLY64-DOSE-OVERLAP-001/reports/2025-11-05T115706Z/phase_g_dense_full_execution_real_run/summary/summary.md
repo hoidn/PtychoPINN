@@ -67,3 +67,9 @@ Pipeline launched at 2025-11-05T12:04:27 UTC and currently executing Phase C (Da
 
 **Last Updated**: 2025-11-05T12:07:00 UTC (Ralph)
 **Status**: Pipeline executing Phase C, expected to complete in 4-6 hours
+
+### Turn Summary
+Launched the dense Phase C→G pipeline successfully after resolving a path corruption issue with shell variable expansion.
+Pre-flight regression test passed (0.84s), pipeline is now running in background with Phase C dataset generation active on RTX 3090 GPU.
+Next: Monitor background shell bead02 for completion, then validate metrics bundle and extract MS-SSIM/MAE deltas.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T115706Z/phase_g_dense_full_execution_real_run/ (summary.md, cli/run_phase_g_dense_v2.log, cli/phase_c_generation.log)
