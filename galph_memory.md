@@ -2578,3 +2578,16 @@
   - Updated `docs/fix_plan.md` with Attempt #110 planning entry describing new summary helper + pipeline directives; rewrote `input.md` (Mode: TDD) with Implement/Validate steps, How-To map, pitfalls, doc sync obligations, and AUTHORITATIVE_CMDS_DOC guard.
 - Next actions for Ralph: Add failing pytest for `summarize_phase_g_outputs`, implement summary helper in `bin/run_phase_g_dense.py`, re-run targeted tests, execute full Phase C→G pipeline writing metrics summaries, perform doc sync, and log evidence in summary + ledger.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-07T130500Z: Phase C metadata pipeline hardening plan
+- dwell: 1 (first planning loop after 2025-11-07T110500Z ready state)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense evidence)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/
+- Notes:
+  - Reproduced Phase C blocker via logs: `transpose_rename_convert` chokes on MetadataManager `_metadata` object array (allow_pickle=False).
+  - Scoped new hub + plan directing metadata-aware refactor of canonicalization and patch tools with RED→GREEN tests and orchestrator validation.
+  - Updated docs/fix_plan.md with Attempt entry and rewrote input.md (TDD Do Now, new selectors, doc sync instructions). AUTHORITATIVE_CMDS_DOC guard preserved.
+- Next actions for Ralph: Implement metadata-aware tests + tool refactors, rerun targeted pytest selectors, execute dense orchestrator, and document outcomes per plan.
+- <Action State>: [ready_for_implementation]

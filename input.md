@@ -1,58 +1,67 @@
-Summary: Capture dense Phase G evidence by extending the orchestrator to emit a metrics summary and running the full Phase C→G pipeline (dose=1000, train/test).
+Summary: Restore Phase C dataset generation by making canonicalization and patch tools metadata-aware so the dense Phase G pipeline can run.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis
 Branch: feature/torchapi-newprompt
 Mapped tests:
-  - pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T110500Z/phase_g_dense_execution/
+  - pytest tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata -vv
+  - pytest tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/
 
 Do Now (hard validity contract):
-  - Implement: tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs — author failing test covering orchestrator summary helper expectations (summary files + metric extraction).
-  - Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::summarize_phase_g_outputs — add Path-safe manifest validation + metrics summary emission (`analysis/metrics_summary.json`/`.md`) and invoke from `main()` after successful pipeline execution.
-  - Validate: pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv
-  - Validate: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T110500Z/phase_g_dense_execution --dose 1000 --view dense --splits train test
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata — create failing test covering metadata-bearing NPZ input (expect ValueError today) and log RED.
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata — add failing test ensuring metadata propagates through Y patch generation.
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): scripts/tools/transpose_rename_convert_tool.py::transpose_rename_convert — load via MetadataManager, record canonicalization transformation, and save with metadata.
+  - Implement (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): scripts/tools/generate_patches_tool.py::generate_patches — load/save with MetadataManager while logging generate_patches transformation.
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): pytest tests/tools/test_generate_patches_tool.py::test_generate_patches_preserves_metadata -vv
+  - Validate (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001): AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline --dose 1000 --view dense --splits train test
 
 How-To Map:
   1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-  2. Create `tests/study/test_phase_g_dense_orchestrator.py` (or extend existing file) with `test_summarize_phase_g_outputs` that builds a temp hub containing `analysis/comparison_manifest.json`, per-job `comparison_metrics.csv`, and asserts that `summarize_phase_g_outputs()` writes JSON/Markdown summaries with MS-SSIM + MAE entries for each model/split. Run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv` expecting an ImportError/AssertionError (RED) and archive to `red/pytest_red.log`.
-  3. Update `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py`: add `summarize_phase_g_outputs(hub: Path)` that (a) loads `analysis/comparison_manifest.json`, (b) raises `RuntimeError` if `n_failed > 0` or metrics CSV missing, (c) parses each CSV via `csv.DictReader` into `{model: metric}` dictionaries (handle amplitude/phase/value columns), and (d) writes deterministic JSON + Markdown tables. Call helper from `main()` after all commands succeed. Ensure all new filesystem paths go through `Path(...)`.
-  4. Rerun `pytest tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs -vv` (GREEN) and store log at `green/pytest_green.log`.
-  5. Execute the dense pipeline: `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T110500Z/phase_g_dense_execution --dose 1000 --view dense --splits train test`. Confirm `cli/` logs, `analysis/comparison_manifest.json`, `analysis/metrics_summary.json`, `analysis/metrics_summary.md`, and `data/phase_{c,d,e,f}/` outputs populate the hub.
-  6. If the run succeeds, update `summary/summary.md` with key MS-SSIM/MAE numbers. If it fails, capture traceback in `analysis/blocker.log` and halt.
+  2. mkdir -p plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/{red,green,collect,tests}
+  3. Write regression tests in `tests/tools/test_transpose_rename_convert_tool.py` and `tests/tools/test_generate_patches_tool.py` using MetadataManager fixtures; run `pytest tests/tools/test_transpose_rename_convert_tool.py::test_canonicalize_preserves_metadata -vv` expecting ValueError, capture log to `red/pytest_transpose_metadata.log`; repeat for patches test saving to `red/pytest_patches_metadata.log`.
+  4. Update `scripts/tools/transpose_rename_convert_tool.py` to ingest via `MetadataManager.load_with_metadata`, skip `_metadata` during array transforms, append canonicalization transformation record, and save via `MetadataManager.save_with_metadata`.
+  5. Update `scripts/tools/generate_patches_tool.py` to load metadata, add generate_patches transformation entry, and save output with metadata.
+  6. Rerun pytest selectors (GREEN) and write logs to `green/pytest_transpose_metadata.log` and `green/pytest_patches_metadata.log`; execute `pytest --collect-only tests/tools/test_transpose_rename_convert_tool.py -vv > collect/pytest_transpose_metadata_collect.log` (repeat for patches test) after GREEN.
+  7. Execute dense orchestrator command (dose=1000 dense train/test) targeting the new hub; archive CLI log under `cli/phase_c_generation.log` and any blockers in `analysis/blocker.log`.
+  8. Update `summary/summary.md` with RED/green evidence and pipeline status; amend `docs/TESTING_GUIDE.md` §2 + `docs/development/TEST_SUITE_INDEX.md` with new selectors and capture collect-only proof.
+  9. Update `docs/fix_plan.md` Attempts and note any new finding about metadata propagation if warranted.
 
 Pitfalls To Avoid:
-  - Do not modify core stable modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
-  - Keep all new filesystem interactions Path-based (TYPE-PATH-001) and inside the hub.
-  - Fail fast when manifest reports `n_failed > 0`; do not silently continue.
-  - Ensure the summary helper handles both amplitude/phase and scalar metrics; avoid dropping rows.
-  - Leave orchestrator collect-only behavior unchanged.
-  - Avoid reusing previous hubs; this loop must write only to `2025-11-07T110500Z/phase_g_dense_execution/`.
-  - Do not delete existing artifacts from earlier attempts.
+  - Do not drop metadata; preserve and extend transformation history via MetadataManager.
+  - Keep new tests lightweight (tiny arrays) to avoid long runtimes in CI.
+  - Maintain TYPE-PATH-001 discipline when constructing file paths.
+  - Do not touch stable physics modules (`ptycho/model.py`, `ptycho/diffsim.py`, `ptycho/tf_helper.py`).
+  - Ensure pytest selectors collect ≥1 test before finalizing.
+  - Stop pipeline on error and log blocker instead of retrying blindly.
+  - Avoid writing artifacts outside the assigned hub or modifying previous timestamp directories.
+  - Keep MetadataManager imports confined to tooling modules (no circular deps).
 
 If Blocked:
-  - Record failure signature in `analysis/blocker.log`, keep relevant CLI log under `cli/`, update `summary/summary.md` with the blocker context, and notify supervisor via docs/fix_plan.md + galph_memory.md entry.
+  - Capture the failure signature in `analysis/blocker.log`, store offending CLI log under `cli/`, summarize in `summary/summary.md`, and ping supervisor via docs/fix_plan.md / galph_memory.md update.
 
 Findings Applied (Mandatory):
-  - POLICY-001 — PyTorch remains installed; TensorFlow backend still drives training CLI.
-  - CONFIG-001 — Legacy bridge order untouched; orchestrator summary must not mutate params.cfg.
-  - DATA-001 — Verify generated datasets remain contract compliant when summarizing metrics.
-  - OVERSAMPLING-001 — Dense view spacing thresholds stay at f_overlap=0.7; no parameter tweaks.
-  - TYPE-PATH-001 — Normalize every new path (manifests, CSVs, output summaries) via `Path`.
+  - DATA-001 — Canonical NPZ keys/dtypes must remain intact while handling metadata.
+  - CONFIG-001 — Do not reorder legacy config initialization pathways.
+  - TYPE-PATH-001 — Normalize any new Path usage.
+  - OVERSAMPLING-001 — Leave dense overlap thresholds unchanged.
+  - POLICY-001 — Ensure PyTorch dependency expectations stay satisfied (no optional gating).
 
 Pointers:
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T110500Z/phase_g_dense_execution/plan/plan.md
-  - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T090500Z/phase_c_generation_fix/summary.md
-  - docs/TESTING_GUIDE.md#phase-g-study-selectors
-  - docs/development/TEST_SUITE_INDEX.md
+  - scripts/tools/transpose_rename_convert_tool.py:1 (existing canonicalization logic)
+  - scripts/tools/generate_patches_tool.py:1 (patch generation workflow)
+  - scripts/simulation/simulate_and_save.py:112 (metadata saved during simulation)
+  - docs/TESTING_GUIDE.md:210 (Phase G study selectors section)
+  - docs/development/TEST_SUITE_INDEX.md:62 (tooling tests registry entry)
 
-Next Up (optional): Run sparse view pipeline once dense evidence + summaries are green.
+Next Up (optional):
+  - Execute sparse view pipeline once dense run and metadata tooling are green.
 
-Doc Sync Plan (tests updated this loop):
-  - pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -vv > collect/pytest_collect.log
-  - Update docs/TESTING_GUIDE.md §2 (Phase G study selectors) to include new selector.
-  - Update docs/development/TEST_SUITE_INDEX.md to list `tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs`.
+Doc Sync Plan (Conditional):
+  - After GREEN: `pytest --collect-only tests/tools/test_transpose_rename_convert_tool.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/collect/pytest_transpose_metadata_collect.log`
+  - After GREEN: `pytest --collect-only tests/tools/test_generate_patches_tool.py -vv > plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-07T130500Z/phase_c_metadata_pipeline/collect/pytest_patches_metadata_collect.log`
+  - Update `docs/TESTING_GUIDE.md` §2 and `docs/development/TEST_SUITE_INDEX.md` to document the two new selectors after successful runs.
 
-Mapped Tests Guardrail: `tests/study/test_phase_g_dense_orchestrator.py::test_summarize_phase_g_outputs` collects exactly one test; ensure selector stays active.
+Mapped Tests Guardrail: Ensure both selectors above collect at least one test (`pytest --collect-only …` commands in Doc Sync Plan).
 
-Hard Gate: Do not mark attempt complete unless pipeline finishes without blocker **and** `analysis/metrics_summary.json`/`.md` reflect both train/test splits; otherwise treat as blocked and escalate.
+Hard Gate: Do not mark the attempt done unless Phase C completes without metadata-related ValueError and both pytest selectors pass; if later pipeline phases fail, log blocker and stop.
