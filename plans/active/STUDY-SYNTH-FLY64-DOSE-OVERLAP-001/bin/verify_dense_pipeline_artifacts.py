@@ -434,6 +434,92 @@ def validate_artifact_inventory(inventory_path: Path, hub: Path) -> dict[str, An
     return result
 
 
+def validate_cli_logs(cli_dir: Path) -> dict[str, Any]:
+    """
+    Validate CLI logs from run_phase_g_dense.py orchestrator.
+
+    Checks for:
+    - Existence of run_phase_g_dense.log or phase_*_generation.log
+    - Phase banners [1/8] through [8/8] in orchestrator log
+    - SUCCESS sentinel: "SUCCESS: All phases completed"
+
+    Args:
+        cli_dir: Path to cli/ directory containing orchestrator logs
+
+    Returns:
+        dict with validation result including:
+        - valid: bool
+        - description: str
+        - path: str
+        - error: str (if invalid)
+        - found_logs: list[str] (names of found log files)
+        - missing_banners: list[str] (if any phase banners missing)
+        - has_success: bool (whether SUCCESS marker found)
+    """
+    result = {
+        'valid': True,
+        'description': 'CLI orchestrator logs validation',
+        'path': str(cli_dir),
+    }
+
+    if not cli_dir.exists():
+        result['valid'] = False
+        result['error'] = f'CLI directory not found: {cli_dir}'
+        return result
+
+    # Look for orchestrator log (run_phase_g_dense.log) - REQUIRED
+    orchestrator_log = cli_dir / "run_phase_g_dense.log"
+    phase_logs = list(cli_dir.glob("phase_*.log"))
+
+    found_logs = []
+    if orchestrator_log.exists():
+        found_logs.append(orchestrator_log.name)
+    found_logs.extend([p.name for p in phase_logs])
+
+    result['found_logs'] = found_logs
+
+    if not orchestrator_log.exists():
+        result['valid'] = False
+        result['error'] = 'Orchestrator log not found: run_phase_g_dense.log is required'
+        return result
+
+    # Validate orchestrator log content
+    if orchestrator_log.exists():
+        try:
+            content = orchestrator_log.read_text()
+        except Exception as e:
+            result['valid'] = False
+            result['error'] = f'Failed to read orchestrator log: {e}'
+            return result
+
+        # Check for phase banners [1/8] through [8/8]
+        expected_banners = [f'[{i}/8]' for i in range(1, 9)]
+        missing_banners = []
+        for banner in expected_banners:
+            if banner not in content:
+                missing_banners.append(banner)
+
+        # Check for SUCCESS marker
+        has_success = 'SUCCESS: All phases completed' in content
+
+        result['missing_banners'] = missing_banners
+        result['has_success'] = has_success
+
+        if missing_banners:
+            result['valid'] = False
+            result['error'] = f'Missing phase banners in orchestrator log: {", ".join(missing_banners)}'
+            return result
+
+        if not has_success:
+            result['valid'] = False
+            result['error'] = 'Orchestrator log missing SUCCESS sentinel: "SUCCESS: All phases completed"'
+            return result
+
+    # All checks passed
+    result['valid'] = True
+    return result
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -530,16 +616,10 @@ def main() -> int:
         validate_metrics_delta_highlights(delta_highlights_path)
     )
 
-    # 9. CLI logs (phase_g_*.log)
-    phase_g_logs = sorted(cli_dir.glob("phase_g_*.log")) if cli_dir.exists() else []
-    validations.append({
-        'valid': len(phase_g_logs) > 0,
-        'description': 'Phase G CLI logs',
-        'path': str(cli_dir),
-        'found_count': len(phase_g_logs),
-        'log_files': [log.name for log in phase_g_logs] if phase_g_logs else [],
-        'error': 'No phase_g_*.log files found' if not phase_g_logs else None,
-    })
+    # 9. CLI orchestrator logs validation (phase banners + SUCCESS sentinel)
+    validations.append(
+        validate_cli_logs(cli_dir)
+    )
 
     # 10. Artifact inventory (TYPE-PATH-001 compliance)
     inventory_path = analysis / "artifact_inventory.txt"

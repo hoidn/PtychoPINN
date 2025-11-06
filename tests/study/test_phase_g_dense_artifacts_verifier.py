@@ -198,12 +198,49 @@ analysis/metrics_delta_summary.json
 analysis/metrics_digest.md
 analysis/metrics_summary.json
 analysis/metrics_summary.md
-cli/phase_g_train.log
+cli/run_phase_g_dense.log
 """
     (analysis / "artifact_inventory.txt").write_text(inventory_content)
 
-    # Create CLI log
-    (cli_dir / "phase_g_train.log").write_text("fake log")
+    # Create orchestrator CLI log with all required elements
+    orchestrator_log_content = """[run_phase_g_dense] Starting pipeline...
+================================================================================
+[1/8] Phase C: Dataset Generation
+================================================================================
+Running Phase C...
+================================================================================
+[2/8] Phase D: Overlap View Generation
+================================================================================
+Running Phase D...
+================================================================================
+[3/8] Phase E: Training Baseline (gs1)
+================================================================================
+Running baseline...
+================================================================================
+[4/8] Phase E: Training Dense (gs2)
+================================================================================
+Running dense...
+================================================================================
+[5/8] Phase F: Reconstruction dense/train
+================================================================================
+Reconstruction train...
+================================================================================
+[6/8] Phase F: Reconstruction dense/test
+================================================================================
+Reconstruction test...
+================================================================================
+[7/8] Phase G: Comparison dense/train
+================================================================================
+Comparison train...
+================================================================================
+[8/8] Phase G: Comparison dense/test
+================================================================================
+Comparison test...
+================================================================================
+[run_phase_g_dense] SUCCESS: All phases completed
+================================================================================
+"""
+    (cli_dir / "run_phase_g_dense.log").write_text(orchestrator_log_content)
 
     report_path = tmp_path / "report_complete.json"
 
@@ -257,3 +294,284 @@ cli/phase_g_train.log
         "Expected validation check for artifact inventory"
     assert inventory_check['valid'], \
         f"Expected artifact inventory check to be valid, got error: {inventory_check.get('error', 'none')}"
+
+
+def test_verify_dense_pipeline_cli_logs_missing(tmp_path: Path) -> None:
+    """
+    RED test: Verify that CLI log validation fails when required logs are missing.
+
+    Acceptance:
+    - Create a hub with cli/ directory but missing phase logs
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with non-zero status
+    - Assert the verification report JSON shows a validation failure for CLI logs
+    - Assert error message mentions missing phase banners or SUCCESS sentinel
+
+    Follows input.md Do Now step 1 (TDD RED).
+    """
+    # Setup: Create incomplete hub (cli/ dir exists but logs are empty/missing)
+    hub = tmp_path / "incomplete_cli_hub"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal artifacts so other checks don't all fail
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "deltas": {}
+    }))
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.010\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.005\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.020\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.015"
+    )
+    (analysis / "artifact_inventory.txt").write_text(
+        "analysis/metrics_summary.json\n"
+        "analysis/metrics_summary.md\n"
+        "cli/phase_c_generation.log\n"
+    )
+
+    # Create a CLI log that is incomplete (missing phase banners and SUCCESS)
+    (cli_dir / "phase_c_generation.log").write_text(
+        "# Command: python -m studies.fly64_dose_overlap.generation\n"
+        "Some output\n"
+        "But no phase banners or success marker\n"
+    )
+
+    report_path = tmp_path / "report_missing_cli.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assert: Verification failed due to missing CLI log validation
+    assert exit_code != 0, f"Expected non-zero exit code with incomplete CLI logs, got {exit_code}"
+
+    # Load report and check for CLI log validation failure
+    assert report_path.exists(), "Report JSON should be created even on failure"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    assert not report_data['all_valid'], \
+        "Expected all_valid=False with incomplete CLI logs"
+    assert report_data['n_invalid'] > 0, "Expected at least one invalid check"
+
+    # Find the CLI log validation result
+    cli_check = None
+    for check in report_data['validations']:
+        desc = check.get('description', '').lower()
+        if 'orchestrator' in desc or ('cli' in desc and 'log' in desc):
+            cli_check = check
+            break
+
+    assert cli_check is not None, \
+        f"Expected validation check for CLI orchestrator logs. Available checks: {[v.get('description') for v in report_data['validations']]}"
+    assert not cli_check['valid'], \
+        "Expected CLI log check to be invalid with incomplete logs"
+    assert cli_check.get('error') is not None, \
+        "Expected error message for missing CLI log content"
+
+
+def test_verify_dense_pipeline_cli_logs_complete(tmp_path: Path) -> None:
+    """
+    GREEN test: Verify that CLI log validation passes when all required logs are present.
+
+    Acceptance:
+    - Create a hub with cli/ directory containing complete logs with all phase banners
+    - Ensure logs include [1/8]...[8/8] banners and "SUCCESS: All phases completed"
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with status 0
+    - Assert the verification report JSON shows CLI log validation passed
+
+    Follows input.md Do Now step 1 (TDD GREEN).
+    """
+    # Setup: Create complete hub with proper CLI logs
+    hub = tmp_path / "complete_cli_hub"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal artifacts
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "deltas": {}
+    }))
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.010\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.005\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.020\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.015"
+    )
+    (analysis / "artifact_inventory.txt").write_text(
+        "analysis/metrics_summary.json\n"
+        "analysis/metrics_summary.md\n"
+        "cli/run_phase_g_dense.log\n"
+    )
+
+    # Create a complete CLI log with all phase banners and SUCCESS
+    complete_log_content = """
+# Command: python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py
+# CWD: /home/user/PtychoPINN2
+# Log: cli/run_phase_g_dense.log
+# ==============================================================================
+
+[run_phase_g_dense] Preparing hub...
+[run_phase_g_dense] Hub: /home/user/hub
+[run_phase_g_dense] Total commands: 8
+
+================================================================================
+[1/8] Phase C: Dataset Generation
+================================================================================
+Running phase C...
+
+================================================================================
+[2/8] Phase D: Overlap View Generation
+================================================================================
+Running phase D...
+
+================================================================================
+[3/8] Phase E: Training Baseline (gs1)
+================================================================================
+Running baseline training...
+
+================================================================================
+[4/8] Phase E: Training Dense (gs2)
+================================================================================
+Running dense training...
+
+================================================================================
+[5/8] Phase F: Reconstruction dense/train
+================================================================================
+Running reconstruction train...
+
+================================================================================
+[6/8] Phase F: Reconstruction dense/test
+================================================================================
+Running reconstruction test...
+
+================================================================================
+[7/8] Phase G: Comparison dense/train
+================================================================================
+Running comparison train...
+
+================================================================================
+[8/8] Phase G: Comparison dense/test
+================================================================================
+Running comparison test...
+
+================================================================================
+[run_phase_g_dense] SUCCESS: All phases completed
+================================================================================
+"""
+    (cli_dir / "run_phase_g_dense.log").write_text(complete_log_content)
+
+    report_path = tmp_path / "report_complete_cli.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Load report and check CLI log validation passed
+    # Note: Other checks may fail due to minimal fixture data, but we only care about CLI validation here
+    assert report_path.exists(), "Report JSON should be created"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    # Find the CLI log validation result
+    cli_check = None
+    for check in report_data['validations']:
+        desc = check.get('description', '').lower()
+        if 'orchestrator' in desc or ('cli' in desc and 'log' in desc):
+            cli_check = check
+            break
+
+    # The CLI check must exist and be valid
+    assert cli_check is not None, \
+        f"Expected validation check for CLI orchestrator logs. Available checks: {[v.get('description') for v in report_data['validations']]}"
+    assert cli_check['valid'], \
+        f"Expected CLI log check to be valid with complete logs, got error: {cli_check.get('error', 'none')}"
+
+    # Verify the check found all required elements
+    assert cli_check.get('has_success') is True, \
+        "Expected CLI check to find SUCCESS marker"
+    assert not cli_check.get('missing_banners'), \
+        f"Expected no missing phase banners, got: {cli_check.get('missing_banners', [])}"
