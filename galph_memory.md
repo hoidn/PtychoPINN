@@ -3196,3 +3196,16 @@
   - Rewrote input.md with TDD Do Now covering RED/green highlight fixtures, validator upgrade, dense pipeline execution, and artifact verification (AUTHORITATIVE_CMDS_DOC guard captured in How-To Map).
 - Next actions for Ralph: ship highlight summary guard via TDD, run dense `run_phase_g_dense.py --clobber` into the new hub, execute verifier/highlights checks, and document MS-SSIM/MAE deltas + ledger updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-10T193500Z: Dense highlights validator alignment hand-off
+- dwell: 0 (reset after issuing ready_for_implementation plan)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-10T193500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed docs/findings.md entries (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001, TEST-CLI-001) and confirmed prior hubs (133500Z/153500Z/173500Z) still lack Phase D–G artifacts.
+  - Created new 193500Z hub (plan/summary/analysis/cli/collect/green/red) and drafted plan.md emphasizing new RED fixtures (missing preview, preview mismatch, delta mismatch), validator enhancement to parse metrics_delta_summary.json + preview text, and checker alignment.
+  - Rewrote input.md with Mode TDD Do Now (tests, pipeline rerun, verifier/checker execution, doc updates) and updated docs/fix_plan.md Attempts History accordingly; AUTHORITATIVE_CMDS_DOC guard captured in How-To Map.
+- Next actions for Ralph: land the enhanced highlight validator + tests, sync the CLI checker, execute the dense pipeline into the 193500Z hub, and archive verifier/highlight evidence + ledger updates.
+- <Action State>: [ready_for_implementation]
