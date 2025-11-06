@@ -3169,3 +3169,16 @@
   - Updated input.md to Mode TDD with expanded pytest selectors (phase log fixtures) and How-To Map covering RED/green logs, orchestrator run, verifier execution, and doc sync guard; refreshed docs/fix_plan.md Attempts History with the new planning entry.
 - Next actions for Ralph: implement per-phase CLI log checks + tests, run the dense pipeline into 133500Z hub, verify artifacts, and document metrics/ledger updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-10T153500Z: Dense pipeline filename-pattern guard plan
+- dwell: 1 (first planning loop after the 133500Z implementation run)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-10T153500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed prior hub 133500Z (cli/ + analysis empty) and inspected `run_phase_g_dense.py` to confirm real CLI filenames include dose/view suffixes (e.g., `phase_e_baseline_gs1_dose1000.log`, `phase_e_dense_gs2_dose1000.log`, `phase_f_dense_train.log`, helpers `aggregate_report_cli.log`, `metrics_digest_cli.log`).
+  - Consulted docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001, TEST-CLI-001) and refreshed working plan context; identified verifier mismatch where current guard hard-codes generic filenames and lacks per-log sentinel enforcement.
+  - Provisioned new 153500Z hub (plan/summary/analysis/cli/collect/green/red), authored updated plan.md + input.md directing pattern-aware RED/GREEN tests, `validate_cli_logs()` enhancements (pattern + sentinel + helper logs), dense pipeline rerun, and documentation updates; recorded attempt in docs/fix_plan.md (s=250).
+- Next actions for Ralph: extend verifier/tests for real filename patterns, rerun dense Phase C→G pipeline under the new hub, pass the tightened guard, and capture MS-SSIM/MAE deltas plus ledger/findings updates.
+- <Action State>: [ready_for_implementation]
