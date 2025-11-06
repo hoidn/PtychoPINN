@@ -3087,3 +3087,17 @@
   - Drafted ready-for-implementation Do Now: extend `summarize_phase_g_outputs()` to persist Phase C metadata compliance in summaries, rerun dense `run_phase_g_dense.py --clobber` into the new hub, refresh highlights/digest, and archive MS-SSIM/MAE deltas with pytest logs.
 - Next actions for Ralph: implement metadata compliance summary + pytest assertion, run the dense pipeline to `[8/8]`, capture highlights/metrics evidence under the new hub, and update summary/docs before handing back.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T091223Z: Dense Phase G verification plan
+- dwell: 1 (first planning loop after the 2025-11-06T084736Z implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T091223Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed latest fix_plan + working plan to confirm dense pipeline evidence still missing beyond Phase C outputs.
+  - `pgrep -fl run_phase_g_dense.py` returned empty (no active orchestrator); inspected prior hub (2025-11-06T084736Z) and found analysis/ empty, only Phase C NPZs present.
+  - Created new 2025-11-06T091223Z hub (plan/summary/cli/analysis/collect/green/red), rewrote input.md (Mode: Perf) with Do Now covering verify script implementation, full `[1/8]→[8/8]` run, checker execution, and documentation updates; updated docs/fix_plan.md accordingly.
+  - Reaffirmed findings (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001) and noted AUTHORITATIVE_CMDS_DOC guard in How-To Map.
+- Next actions for Ralph: ship verify_dense_pipeline_artifacts.py, rerun dense Phase C→G pipeline with --clobber into the new hub, archive checker/analyzer outputs, log MS-SSIM/MAE deltas + metadata compliance in summary/docs, and capture mapped pytest selectors.
+- <Action State>: [ready_for_implementation]
