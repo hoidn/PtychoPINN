@@ -355,6 +355,85 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path) -> dict[str, An
     return result
 
 
+def validate_artifact_inventory(inventory_path: Path, hub: Path) -> dict[str, Any]:
+    """
+    Validate artifact_inventory.txt exists and contains POSIX-relative paths.
+
+    Args:
+        inventory_path: Path to artifact_inventory.txt
+        hub: Hub directory root for validating entries are relative to hub
+
+    Returns:
+        dict with validation result
+
+    TYPE-PATH-001: All paths must be POSIX-relative (no absolute paths, no backslashes)
+    """
+    result = {
+        'valid': False,
+        'description': 'Artifact inventory',
+        'path': str(inventory_path),
+    }
+
+    if not inventory_path.exists():
+        result['error'] = 'artifact_inventory.txt not found'
+        return result
+
+    try:
+        content = inventory_path.read_text()
+    except Exception as e:
+        result['error'] = f'Failed to read file: {e}'
+        return result
+
+    lines = [line.strip() for line in content.strip().splitlines() if line.strip()]
+
+    if not lines:
+        result['error'] = 'artifact_inventory.txt is empty'
+        result['line_count'] = 0
+        return result
+
+    # Validate each path entry
+    invalid_entries = []
+    for i, line in enumerate(lines):
+        # Check for absolute paths (starts with / or contains drive letter)
+        if line.startswith('/') or (len(line) > 1 and line[1] == ':'):
+            invalid_entries.append({
+                'line': i + 1,
+                'path': line,
+                'reason': 'Absolute path (must be relative to hub)'
+            })
+            continue
+
+        # Check for backslashes (Windows-style paths)
+        if '\\' in line:
+            invalid_entries.append({
+                'line': i + 1,
+                'path': line,
+                'reason': 'Contains backslashes (must use POSIX forward slashes)'
+            })
+            continue
+
+        # Check that referenced file exists relative to hub
+        artifact_path = hub / line
+        if not artifact_path.exists():
+            invalid_entries.append({
+                'line': i + 1,
+                'path': line,
+                'reason': f'Referenced file not found: {artifact_path}'
+            })
+
+    if invalid_entries:
+        result['valid'] = False
+        result['error'] = f'{len(invalid_entries)} invalid entries in artifact_inventory.txt'
+        result['invalid_entries'] = invalid_entries
+        result['line_count'] = len(lines)
+        return result
+
+    result['valid'] = True
+    result['line_count'] = len(lines)
+    result['entries'] = lines
+    return result
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -461,6 +540,12 @@ def main() -> int:
         'log_files': [log.name for log in phase_g_logs] if phase_g_logs else [],
         'error': 'No phase_g_*.log files found' if not phase_g_logs else None,
     })
+
+    # 10. Artifact inventory (TYPE-PATH-001 compliance)
+    inventory_path = analysis / "artifact_inventory.txt"
+    validations.append(
+        validate_artifact_inventory(inventory_path, hub)
+    )
 
     # Aggregate results
     all_valid = all(v['valid'] for v in validations)
