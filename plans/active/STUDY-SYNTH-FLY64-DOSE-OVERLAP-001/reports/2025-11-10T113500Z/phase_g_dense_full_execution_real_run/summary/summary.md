@@ -95,3 +95,11 @@ All artifacts saved to: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports
 - CLI validation is now a hard gate: pipeline runs without complete orchestrator logs will fail verification
 - Tests are device-neutral (no GPU-specific strings in validation logic)
 - Orchestrator log path is normalized per TYPE-PATH-001 before validation
+
+---
+
+### Turn Summary
+Implemented CLI log validation with complete TDD coverage (RED→GREEN cycle) adding validate_cli_logs() helper to verify_dense_pipeline_artifacts.py.
+The validator now enforces orchestrator log completeness: run_phase_g_dense.log must exist with all [1/8]...[8/8] phase banners and "SUCCESS: All phases completed" sentinel.
+Next: execute the full Phase C→G dense pipeline with --clobber to generate the complete artifact bundle and validate all checks including the new CLI guard.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-10T113500Z/phase_g_dense_full_execution_real_run/ (red/pytest_cli_logs_fail.log, green/pytest_cli_logs_fix.log, summary.md)
