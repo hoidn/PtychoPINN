@@ -1,0 +1,30 @@
+Phase G Dense Orchestrator Monitoring Status
+Generated: 2025-11-06T080334Z
+PID: 2478561
+Runtime: 17:39 elapsed
+
+Current State: Phase C (Dataset Generation) - IN PROGRESS
+------------------------------------------------------------
+
+Phase C subprocess (PID 2478563) is actively generating datasets for all three dose levels:
+- dose_1000: COMPLETE (00:02, ~4.5GB)
+- dose_10000: COMPLETE (00:04, ~4.5GB) 
+- dose_100000: IN PROGRESS (currently running, empty directory)
+
+The subprocess is healthy:
+- State: Running (99% CPU usage)
+- Expected behavior: StudyDesign default dose_list=[1e3, 1e4, 1e5]
+- Progress: 2/3 dose levels complete
+
+Log analysis:
+- Main log: run_phase_g_dense_relaunch_2025-11-06T074519Z.log (205 lines, last update 00:02:10)
+- Log shows dose_1000 completion message but subprocess continues with dose_10000, dose_100000
+- No errors detected
+
+Next actions:
+- Continue monitoring subprocess completion
+- Expect Phase D-G to start after dose_100000 completes
+- Total pipeline: [1/8] Phase C → [2/8] Phase D → ... → [8/8] aggregate analysis
+
+Estimated time to Phase C completion: Unknown (dose_100000 generation in progress, ~4.5GB expected)
+Estimated total pipeline time: Many hours (8 phases, includes training/reconstruction)

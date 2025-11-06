@@ -36,12 +36,20 @@
 - **Disk Status**: 47GB free (90% used on /dev/nvme0n1p2)
 
 ### Phase C (Dataset Generation)
-- **Status**: 🔄 IN PROGRESS
+- **Status**: 🔄 IN PROGRESS - Generating dose_100000 (2/3 doses complete)
 - **Started**: 2025-11-06T07:45:19 UTC
+- **Runtime**: 17:39 elapsed (as of 2025-11-06T08:03:34Z)
 - **GPU**: NVIDIA GeForce RTX 3090 (22259 MB, Compute Capability 8.6)
 - **TensorFlow**: Initialized with CUDA malloc Async allocator, XLA compilation active, cuDNN 91002
-- **Log**: `cli/phase_c_generation.log`
+- **Subprocess PID**: 2478563 (State: Running, 99% CPU)
+- **Log**: `cli/phase_c_generation.log` (205 lines, last update 00:02:10)
 - **Hub Preparation**: Previous Phase C outputs archived to `archive/phase_c_20251106T074519Z`
+- **Progress Detail**:
+  - ✓ dose_1000: COMPLETE (00:02, ~4.5GB total)
+  - ✓ dose_10000: COMPLETE (00:04, ~4.5GB total)
+  - 🔄 dose_100000: IN PROGRESS (directory created, empty)
+- **Expected Behavior**: Generation script iterates through StudyDesign.dose_list=[1e3, 1e4, 1e5] regardless of orchestrator --dose flag
+- **Monitoring**: Process is healthy and actively generating dose_100000 NPZ files
 
 ### Phase D-G (Overlap, Training, Reconstruction, Comparison)
 - **Status**: ⏳ PENDING
@@ -156,9 +164,11 @@ When PID 2478561 exits and `[8/8]` appears in the orchestrator log:
 
 ---
 
-**Last Updated**: 2025-11-06T074747Z (Ralph i=245)
-**Status**: RUNNING - Pipeline relaunched successfully after disk space recovery, Phase C in progress
-**Background PID**: 2478561
+**Last Updated**: 2025-11-06T080334Z (Ralph i=246)
+**Status**: RUNNING - Phase C generating dose_100000 (2/3 doses complete)
+**Background PID**: 2478561 (child PID: 2478563)
 **Previous PID**: 2278335 (blocked by disk space after Phase C completion)
 
 **Launch Evidence**: Disk space issue resolved (47GB free); previous Phase C data archived; pipeline executing with full CONFIG-001/DATA-001/TYPE-PATH-001 guardrails active.
+
+**Monitoring Evidence (2025-11-06T080334Z)**: Process health confirmed - subprocess PID 2478563 actively running at 99% CPU, generating dose_100000 after successfully completing dose_1000 (~4.5GB) and dose_10000 (~4.5GB). Log shows Phase C generation script iterating through all three dose levels per StudyDesign.dose_list=[1e3, 1e4, 1e5]. Expected to proceed to Phase D-G after dose_100000 completes. No errors detected; process is not stuck. See `cli/monitor_status_2025-11-06T080334Z.txt` for detailed process analysis.
