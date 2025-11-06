@@ -434,18 +434,22 @@ def validate_artifact_inventory(inventory_path: Path, hub: Path) -> dict[str, An
     return result
 
 
-def validate_cli_logs(cli_dir: Path) -> dict[str, Any]:
+def validate_cli_logs(cli_dir: Path, dose: int = 1000, view: str = 'dense') -> dict[str, Any]:
     """
     Validate CLI logs from run_phase_g_dense.py orchestrator.
 
     Checks for:
-    - Existence of run_phase_g_dense.log or phase_*_generation.log
+    - Existence of run_phase_g_dense.log orchestrator log
     - Phase banners [1/8] through [8/8] in orchestrator log
     - SUCCESS sentinel: "SUCCESS: All phases completed"
-    - Per-phase log files for all 8 phases
+    - Per-phase log files with dose/view-specific patterns (e.g., phase_e_baseline_gs1_dose1000.log)
+    - Helper logs: aggregate_report_cli.log and metrics_digest_cli.log
+    - Completion sentinels in per-phase logs (e.g., "complete" marker)
 
     Args:
         cli_dir: Path to cli/ directory containing orchestrator logs
+        dose: Dose value for filename pattern matching (default: 1000)
+        view: View type ('dense' or 'sparse') for filename pattern matching (default: 'dense')
 
     Returns:
         dict with validation result including:
@@ -458,6 +462,8 @@ def validate_cli_logs(cli_dir: Path) -> dict[str, Any]:
         - has_success: bool (whether SUCCESS marker found)
         - found_phase_logs: list[str] (names of found per-phase log files)
         - missing_phase_logs: list[str] (names of expected but missing per-phase log files)
+        - missing_helper_logs: list[str] (names of expected but missing helper log files)
+        - incomplete_phase_logs: list[str] (names of phase logs missing completion sentinels)
     """
     result = {
         'valid': True,
@@ -518,19 +524,22 @@ def validate_cli_logs(cli_dir: Path) -> dict[str, Any]:
             result['error'] = 'Orchestrator log missing SUCCESS sentinel: "SUCCESS: All phases completed"'
             return result
 
-    # Check for required per-phase log files
-    # Expected phase logs based on the 8-phase pipeline:
-    # Phase C: generation, Phase D: dense view, Phase E: baseline + dense training,
-    # Phase F: train + test reconstruction, Phase G: train + test comparison
+    # Check for required per-phase log files with dose/view-specific patterns
+    # Expected phase logs based on the 8-phase pipeline with actual filenames from run_phase_g_dense.py:
+    # Phase C: generation (generic)
+    # Phase D: dense/sparse view (view-specific)
+    # Phase E: baseline gs1 + dense/sparse gs2 training (dose/view-specific)
+    # Phase F: train + test reconstruction (view-specific)
+    # Phase G: train + test comparison (view-specific)
     expected_phase_logs = [
         "phase_c_generation.log",
-        "phase_d_dense.log",
-        "phase_e_baseline.log",
-        "phase_e_dense.log",
-        "phase_f_train.log",
-        "phase_f_test.log",
-        "phase_g_train.log",
-        "phase_g_test.log",
+        f"phase_d_{view}.log",
+        f"phase_e_baseline_gs1_dose{dose}.log",
+        f"phase_e_{view}_gs2_dose{dose}.log",
+        f"phase_f_{view}_train.log",
+        f"phase_f_{view}_test.log",
+        f"phase_g_{view}_train.log",
+        f"phase_g_{view}_test.log",
     ]
 
     found_phase_log_names = [p.name for p in phase_logs]
@@ -542,6 +551,44 @@ def validate_cli_logs(cli_dir: Path) -> dict[str, Any]:
     if missing_phase_logs:
         result['valid'] = False
         result['error'] = f'Missing required per-phase log files: {", ".join(missing_phase_logs)}'
+        return result
+
+    # Check for required helper logs (aggregate report and metrics digest CLIs)
+    helper_logs = [
+        "aggregate_report_cli.log",
+        "metrics_digest_cli.log",
+    ]
+    found_helper_logs = [name for name in helper_logs if (cli_dir / name).exists()]
+    missing_helper_logs = [log for log in helper_logs if log not in found_helper_logs]
+
+    result['found_helper_logs'] = found_helper_logs
+    result['missing_helper_logs'] = missing_helper_logs
+
+    if missing_helper_logs:
+        result['valid'] = False
+        result['error'] = f'Missing required helper log files: {", ".join(missing_helper_logs)}'
+        return result
+
+    # Check for completion sentinels in per-phase logs
+    # Each phase log should contain a "complete" marker indicating successful completion
+    incomplete_phase_logs = []
+    for log_name in expected_phase_logs:
+        log_path = cli_dir / log_name
+        if log_path.exists():
+            try:
+                log_content = log_path.read_text()
+                # Look for completion markers (case-insensitive)
+                if 'complete' not in log_content.lower():
+                    incomplete_phase_logs.append(log_name)
+            except Exception as e:
+                # If we can't read the log, consider it incomplete
+                incomplete_phase_logs.append(log_name)
+
+    result['incomplete_phase_logs'] = incomplete_phase_logs
+
+    if incomplete_phase_logs:
+        result['valid'] = False
+        result['error'] = f'Incomplete phase logs (missing completion sentinel): {", ".join(incomplete_phase_logs)}'
         return result
 
     # All checks passed
@@ -566,6 +613,19 @@ def main() -> int:
         type=Path,
         required=True,
         help='Output path for verification report JSON',
+    )
+    parser.add_argument(
+        '--dose',
+        type=int,
+        default=1000,
+        help='Dose value for CLI log filename pattern matching (default: 1000)',
+    )
+    parser.add_argument(
+        '--view',
+        type=str,
+        default='dense',
+        choices=['dense', 'sparse'],
+        help='View type for CLI log filename pattern matching (default: dense)',
     )
 
     args = parser.parse_args()
@@ -645,9 +705,9 @@ def main() -> int:
         validate_metrics_delta_highlights(delta_highlights_path)
     )
 
-    # 9. CLI orchestrator logs validation (phase banners + SUCCESS sentinel)
+    # 9. CLI orchestrator logs validation (phase banners + SUCCESS sentinel + per-phase logs)
     validations.append(
-        validate_cli_logs(cli_dir)
+        validate_cli_logs(cli_dir, dose=args.dose, view=args.view)
     )
 
     # 10. Artifact inventory (TYPE-PATH-001 compliance)
