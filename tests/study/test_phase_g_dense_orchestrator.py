@@ -1091,9 +1091,36 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         with metrics_summary_path.open("w", encoding="utf-8") as f:
             json.dump(summary_data, f, indent=2)
 
+    def stub_generate_artifact_inventory(hub_path):
+        """Create artifact_inventory.txt with test data listing key artifacts."""
+        analysis = Path(hub_path) / "analysis"
+        analysis.mkdir(parents=True, exist_ok=True)
+
+        inventory_path = analysis / "artifact_inventory.txt"
+
+        # List key artifacts that should be present after pipeline execution
+        artifacts = [
+            "analysis/aggregate_highlights.txt",
+            "analysis/aggregate_report.md",
+            "analysis/comparison_manifest.json",
+            "analysis/metrics_delta_highlights.txt",
+            "analysis/metrics_delta_summary.json",
+            "analysis/metrics_digest.md",
+            "analysis/metrics_summary.json",
+            "analysis/metrics_summary.md",
+            "cli/metrics_digest_cli.log",
+            "cli/aggregate_report_cli.log",
+        ]
+
+        # Write sorted artifact list (deterministic)
+        with inventory_path.open("w", encoding="utf-8") as f:
+            for artifact in sorted(artifacts):
+                f.write(f"{artifact}\n")
+
     monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
     monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
     monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+    monkeypatch.setattr(module, "generate_artifact_inventory", stub_generate_artifact_inventory)
 
     # Record run_command invocations
     run_command_calls = []
@@ -1276,6 +1303,22 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     # Assert: Success banner should mention metrics_delta_summary.json path
     assert "metrics_delta_summary.json" in stdout, \
         f"Expected success banner to mention metrics_delta_summary.json, got:\n{stdout}"
+
+    # Assert: artifact_inventory.txt should be created in analysis/ directory
+    inventory_path = phase_g_root / "artifact_inventory.txt"
+    assert inventory_path.exists(), \
+        f"Expected artifact_inventory.txt to exist at {inventory_path}, but it was not found"
+
+    # Assert: Inventory file should be non-empty and contain POSIX-style relative paths
+    inventory_content = inventory_path.read_text(encoding="utf-8")
+    assert inventory_content.strip(), \
+        f"Expected artifact_inventory.txt to be non-empty, but it was empty"
+
+    # Assert: Inventory should list key artifacts (at minimum: metrics_summary.json, aggregate_report.md)
+    assert "metrics_summary.json" in inventory_content, \
+        f"Expected artifact_inventory.txt to list metrics_summary.json, got:\n{inventory_content}"
+    assert "aggregate_report.md" in inventory_content, \
+        f"Expected artifact_inventory.txt to list aggregate_report.md, got:\n{inventory_content}"
 
     # Assert: JSON should contain provenance metadata fields (generated_at, source_metrics)
     assert "generated_at" in delta_data, "Expected 'generated_at' key in metrics_delta_summary.json"

@@ -282,6 +282,53 @@ def validate_phase_c_metadata(hub: Path) -> None:
     print(f"[validate_phase_c_metadata] SUCCESS: All Phase C NPZ files contain required _metadata")
 
 
+def generate_artifact_inventory(hub: Path) -> None:
+    """
+    Generate deterministic artifact_inventory.txt listing all files in the hub.
+
+    This helper walks the hub directory tree and emits a sorted list of all artifacts
+    (relative POSIX paths from hub root) to analysis/artifact_inventory.txt.
+    The inventory is deterministic (sorted lexicographically) to enable diffs across runs.
+
+    Args:
+        hub: Root directory containing all phase artifacts
+
+    Follows TYPE-PATH-001 (Path normalization), deterministic ordering.
+    Output format: one relative POSIX path per line, sorted.
+    """
+    # TYPE-PATH-001: Normalize to Path
+    hub = Path(hub).resolve()
+    analysis = hub / "analysis"
+    analysis.mkdir(parents=True, exist_ok=True)
+
+    inventory_path = analysis / "artifact_inventory.txt"
+
+    # Walk hub directory and collect all file paths
+    all_files = []
+    for root, dirs, files in os.walk(hub):
+        root_path = Path(root)
+        for file in files:
+            file_path = root_path / file
+            # Compute relative path from hub root
+            try:
+                rel_path = file_path.relative_to(hub)
+                # Convert to POSIX style for deterministic serialization (TYPE-PATH-001)
+                all_files.append(rel_path.as_posix())
+            except ValueError:
+                # Skip files outside hub (should not happen)
+                pass
+
+    # Sort lexicographically for deterministic output
+    all_files.sort()
+
+    # Write inventory to file
+    with inventory_path.open("w", encoding="utf-8") as f:
+        for rel_path in all_files:
+            f.write(f"{rel_path}\n")
+
+    print(f"[generate_artifact_inventory] Wrote {len(all_files)} artifact paths to: {inventory_path.relative_to(hub)}")
+
+
 def summarize_phase_g_outputs(hub: Path) -> None:
     """
     Parse comparison_manifest.json and per-job metrics CSVs to emit a metrics summary.
@@ -1052,6 +1099,12 @@ def main() -> int:
 
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             print(f"Warning: Failed to parse metrics_summary.json for delta computation: {e}")
+
+    # Generate artifact inventory (deterministic listing of all files in hub)
+    print("\n" + "=" * 80)
+    print("[run_phase_g_dense] Generating artifact inventory...")
+    print("=" * 80 + "\n")
+    generate_artifact_inventory(hub)
 
     print(f"\nArtifacts saved to: {hub}")
     print(f"CLI logs: {cli_log_dir}")
