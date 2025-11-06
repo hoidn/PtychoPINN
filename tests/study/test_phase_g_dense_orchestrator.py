@@ -182,6 +182,33 @@ def test_summarize_phase_g_outputs(tmp_path: Path) -> None:
         writer.writerow({'model': 'PtychoPINN', 'metric': 'mae', 'amplitude': '0.0270', 'phase': '0.0370', 'value': ''})
         writer.writerow({'model': 'Baseline', 'metric': 'mae', 'amplitude': '0.0320', 'phase': '0.0420', 'value': ''})
 
+    # Setup Phase C data with metadata (PHASEC-METADATA-001)
+    phase_c_root = hub / 'data' / 'phase_c'
+    dose_dir = phase_c_root / 'dose_1000'
+    dose_dir.mkdir(parents=True)
+
+    # Import MetadataManager to create compliant NPZ files
+    from ptycho.metadata import MetadataManager
+
+    for split in ['train', 'test']:
+        npz_path = dose_dir / f'patched_{split}.npz'
+        # Create minimal NPZ with metadata containing canonical transformation
+        metadata = {
+            'data_transformations': [
+                {'tool': 'transpose_rename_convert', 'timestamp': '2025-11-06T084736Z'}
+            ]
+        }
+        # Save with metadata (need minimal data arrays)
+        import numpy as np
+        data_dict = {
+            'diffraction': np.zeros((2, 64, 64), dtype=np.float32),
+            'objectGuess': np.zeros((128, 128), dtype=np.complex64),
+            'probeGuess': np.zeros((64, 64), dtype=np.complex64),
+            'x': np.zeros(2, dtype=np.float32),
+            'y': np.zeros(2, dtype=np.float32),
+        }
+        MetadataManager.save_with_metadata(str(npz_path), data_dict, metadata)
+
     # Execute: Call the helper
     summarize_phase_g_outputs(hub)
 
@@ -260,6 +287,27 @@ def test_summarize_phase_g_outputs(tmp_path: Path) -> None:
     assert abs(baseline_mae_agg['mean_amplitude'] - 0.031) < 1e-6
     assert abs(baseline_mae_agg['mean_phase'] - 0.041) < 1e-6
 
+    # Assert: Phase C metadata compliance in JSON (PHASEC-METADATA-001)
+    assert 'phase_c_metadata_compliance' in summary_data, "Missing phase_c_metadata_compliance field in JSON"
+    phase_c_compliance = summary_data['phase_c_metadata_compliance']
+
+    # Should have dose_1000 key
+    assert 'dose_1000' in phase_c_compliance, "Missing dose_1000 in phase_c_metadata_compliance"
+    dose_1000_compliance = phase_c_compliance['dose_1000']
+
+    # Should have train and test splits
+    assert 'train' in dose_1000_compliance, "Missing train split in dose_1000 compliance"
+    assert 'test' in dose_1000_compliance, "Missing test split in dose_1000 compliance"
+
+    # Both splits should be compliant (has_metadata=True, has_canonical_transform=True, compliant=True)
+    for split in ['train', 'test']:
+        split_data = dose_1000_compliance[split]
+        assert split_data['has_metadata'] is True, f"Split {split} should have metadata"
+        assert split_data['has_canonical_transform'] is True, f"Split {split} should have canonical transform"
+        assert split_data['compliant'] is True, f"Split {split} should be compliant"
+        assert 'npz_path' in split_data, f"Split {split} should have npz_path"
+        assert f'patched_{split}.npz' in split_data['npz_path'], f"Split {split} npz_path should contain patched_{split}.npz"
+
     # Assert: Markdown summary exists and contains key metrics
     md_summary_path = analysis / 'metrics_summary.md'
     assert md_summary_path.exists(), f"Missing Markdown summary: {md_summary_path}"
@@ -284,6 +332,15 @@ def test_summarize_phase_g_outputs(tmp_path: Path) -> None:
     assert '**MAE:**' in md_content
     assert '| Mean |' in md_content
     assert '| Best |' in md_content  # Only for MS-SSIM
+
+    # Validate Phase C Metadata Compliance section in Markdown (PHASEC-METADATA-001)
+    assert '## Phase C Metadata Compliance' in md_content, "Missing '## Phase C Metadata Compliance' section in Markdown"
+    assert 'Validation of Phase C NPZ files' in md_content, "Missing validation description in Markdown"
+    assert 'dose_1000' in md_content, "Missing dose_1000 in Markdown compliance table"
+    assert 'train' in md_content and 'test' in md_content, "Missing train/test splits in Markdown"
+    # Check for checkmarks indicating compliance
+    assert '✓' in md_content, "Missing compliance checkmarks (✓) in Markdown"
+    assert 'patched_train.npz' in md_content or 'patched_test.npz' in md_content, "Missing NPZ file paths in Markdown"
 
     # Validate specific aggregate values appear in Markdown (formatted to 3 decimals)
     # PtychoPINN mean MS-SSIM amplitude should be 0.948 (0.9475 rounded to 3 decimals)

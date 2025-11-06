@@ -40,6 +40,8 @@ import sys
 from pathlib import Path
 from typing import List
 
+from ptycho.metadata import MetadataManager
+
 
 def run_command(
     cmd: List[str],
@@ -288,6 +290,8 @@ def summarize_phase_g_outputs(hub: Path) -> None:
     (MS-SSIM, MAE) from per-job comparison_metrics.csv files, and writes both
     JSON and Markdown summaries to {hub}/analysis/.
 
+    Also validates Phase C metadata compliance and persists the result.
+
     Args:
         hub: Root directory containing analysis/ subdirectory with comparison_manifest.json
 
@@ -299,6 +303,61 @@ def summarize_phase_g_outputs(hub: Path) -> None:
     # TYPE-PATH-001: Normalize to Path
     hub = Path(hub).resolve()
     analysis = hub / "analysis"
+
+    # Validate Phase C metadata compliance (PHASEC-METADATA-001)
+    # This checks that all Phase C NPZ files contain _metadata with canonical transformations
+    phase_c_metadata_compliance = {}
+    try:
+        phase_c_root = hub / "data" / "phase_c"
+        if phase_c_root.exists():
+            # Extract dose directories
+            dose_dirs = sorted([d for d in phase_c_root.iterdir() if d.is_dir() and d.name.startswith("dose_")])
+
+            # Validate each dose × split combination
+            for dose_dir in dose_dirs:
+                dose_value = int(dose_dir.name.replace("dose_", ""))
+                dose_key = f"dose_{dose_value}"
+                phase_c_metadata_compliance[dose_key] = {}
+
+                for split in ["train", "test"]:
+                    npz_path = dose_dir / f"patched_{split}.npz"
+                    if npz_path.exists():
+                        try:
+                            data_dict, metadata = MetadataManager.load_with_metadata(str(npz_path))
+                            has_metadata = metadata is not None
+                            has_canonical = False
+                            if has_metadata:
+                                transformations = metadata.get("data_transformations", [])
+                                has_canonical = any(
+                                    t.get("tool") == "transpose_rename_convert"
+                                    for t in transformations
+                                )
+                            phase_c_metadata_compliance[dose_key][split] = {
+                                "npz_path": str(npz_path.relative_to(hub)),
+                                "has_metadata": has_metadata,
+                                "has_canonical_transform": has_canonical,
+                                "compliant": has_metadata and has_canonical,
+                            }
+                        except Exception as e:
+                            phase_c_metadata_compliance[dose_key][split] = {
+                                "npz_path": str(npz_path.relative_to(hub)),
+                                "has_metadata": False,
+                                "has_canonical_transform": False,
+                                "compliant": False,
+                                "error": str(e),
+                            }
+                    else:
+                        phase_c_metadata_compliance[dose_key][split] = {
+                            "npz_path": str(npz_path.relative_to(hub)),
+                            "has_metadata": False,
+                            "has_canonical_transform": False,
+                            "compliant": False,
+                            "error": "File not found",
+                        }
+        else:
+            phase_c_metadata_compliance = {"error": f"Phase C root not found: {phase_c_root}"}
+    except Exception as e:
+        phase_c_metadata_compliance = {"error": f"Failed to validate Phase C metadata: {e}"}
 
     # Validate manifest exists
     manifest_path = analysis / "comparison_manifest.json"
@@ -433,6 +492,9 @@ def summarize_phase_g_outputs(hub: Path) -> None:
     # Add aggregates to summary data
     summary_data['aggregate_metrics'] = aggregate_metrics
 
+    # Add Phase C metadata compliance (PHASEC-METADATA-001)
+    summary_data['phase_c_metadata_compliance'] = phase_c_metadata_compliance
+
     # Write JSON summary
     json_summary_path = analysis / "metrics_summary.json"
     with json_summary_path.open('w') as f:
@@ -525,6 +587,33 @@ def summarize_phase_g_outputs(hub: Path) -> None:
                 f.write("\n")
 
             f.write("---\n\n")
+
+        # Write Phase C Metadata Compliance section (PHASEC-METADATA-001)
+        f.write("## Phase C Metadata Compliance\n\n")
+        f.write("Validation of Phase C NPZ files for _metadata and canonical transformations.\n\n")
+
+        if "error" in phase_c_metadata_compliance:
+            f.write(f"**Error:** {phase_c_metadata_compliance['error']}\n\n")
+        else:
+            # Build compliance table
+            f.write("| Dose | Split | Compliant | Has Metadata | Has Canonical Transform | Path |\n")
+            f.write("|------|-------|-----------|--------------|-------------------------|------|\n")
+
+            for dose_key in sorted(phase_c_metadata_compliance.keys()):
+                dose_data = phase_c_metadata_compliance[dose_key]
+                for split in sorted(dose_data.keys()):
+                    split_data = dose_data[split]
+                    compliant = "✓" if split_data.get("compliant", False) else "✗"
+                    has_meta = "✓" if split_data.get("has_metadata", False) else "✗"
+                    has_canon = "✓" if split_data.get("has_canonical_transform", False) else "✗"
+                    path = split_data.get("npz_path", "")
+                    error_note = ""
+                    if "error" in split_data:
+                        error_note = f" ({split_data['error']})"
+
+                    f.write(f"| {dose_key} | {split} | {compliant} | {has_meta} | {has_canon} | {path}{error_note} |\n")
+
+            f.write("\n")
 
     print(f"[summarize_phase_g_outputs] Wrote Markdown summary: {md_summary_path}")
 
