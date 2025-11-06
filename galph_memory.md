@@ -3046,3 +3046,16 @@
   - Logged new plan + summary in 2025-11-05T125421Z hub, refreshed docs/fix_plan.md with latest attempt, and rewrote input.md with ready-for-implementation Do Now covering completion checks, highlights/digest refresh, summary/doc sync, and pytest evidence.
 - Next actions for Ralph: allow run to finish `[8/8]`, rerun highlights/digest helpers, document MS-SSIM/MAE deltas in summary + fix plan, archive artifact inventory, and rerun the orchestrator pytest selector.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T075501Z: Dense pipeline relaunch monitor
+- dwell: 1 (first planning loop after the 2025-11-05T125421Z ready_for_implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T075501Z/monitor_phase_g_relaunch/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; re-read the 2025-11-05T115706Z hub summary plus fix_plan/implementation.md for Phase G scope.
+  - Confirmed relaunch PID 2478561 active via `ps -p 2478561 -f`; log tail shows Phase C GPU init with cuDNN 91002, `analysis/` unchanged, `data/phase_c` only has `run_manifest.json` so far.
+  - Created new 2025-11-06T075501Z monitor hub for ps/tail snapshots and updated docs/fix_plan.md with the monitoring attempt.
+- Next actions for Ralph: Wait for Phase C→G run to reach `[8/8]`, then execute highlights/digest helpers, capture MS-SSIM/MAE deltas in summary/docs, archive artifact inventory, and rerun the orchestrator pytest before marking complete.
+- <Action State>: [ready_for_implementation]

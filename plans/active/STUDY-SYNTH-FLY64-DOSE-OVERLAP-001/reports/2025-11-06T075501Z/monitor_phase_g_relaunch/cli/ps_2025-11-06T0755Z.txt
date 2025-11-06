@@ -1,0 +1,2 @@
+UID          PID    PPID  C STIME TTY          TIME CMD
+ollie    2478561 2478558  0 Nov05 ?        00:00:00 python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-05T115706Z/phase_g_dense_full_execution_real_run --dose 1000 --view dense --splits train test --clobber
