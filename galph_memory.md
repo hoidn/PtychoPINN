@@ -3129,3 +3129,17 @@
   - Rewrote input.md with Mode TDD Do Now (Implement: run_phase_g_dense.py::main inventory emission, Validate selector, Execute/Verify commands) and updated docs/fix_plan.md (Last Updated → 2025-11-09, new attempt entry referencing 210500Z hub).
 - Next actions for Ralph: add failing test + implement inventory emission, rerun orchestrator regression selector (RED→GREEN), execute dense pipeline with --clobber into 210500Z hub, run verifier for pipeline_verification.json, and capture MS-SSIM/MAE deltas + provenance in summary/docs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-10T093500Z: Dense Phase G verifier guard + evidence rerun
+- dwell: 1 (planning loop; prior entry 2025-11-09T210500Z had dwell 0)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-10T093500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed docs/findings.md entries (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001) plus `docs/index.md` pointers referenced previously.
+  - Re-inspected hubs 2025-11-09T210500Z (analysis empty, only pytest logs) and 2025-11-09T170500Z (Phase C NPZs + partial inventory) to confirm no dense Phase G evidence exists yet.
+  - Provisioned new 2025-11-10T093500Z hub (plan/summary/analysis/cli/collect/green/red) and captured plan.md emphasizing new TDD guard for `artifact_inventory.txt`, verifier extension, rerun of orchestrator selector, full pipeline execution, and documentation updates. Recorded AUTHORITATIVE_CMDS_DOC requirement in How-To Map.
+  - Updated docs/fix_plan.md (`Last Updated` 2025-11-10, added attempt entry) to reflect coverage gap + new instructions.
+- Next actions for Ralph: add pytest module for verifier inventory checks (RED→GREEN), extend `verify_dense_pipeline_artifacts.py` with `validate_artifact_inventory`, rerun orchestrator regression test, execute dense Phase C→G pipeline into new hub, run enhanced verifier, and document MS-SSIM/MAE deltas + provenance.
+- <Action State>: [ready_for_implementation]
