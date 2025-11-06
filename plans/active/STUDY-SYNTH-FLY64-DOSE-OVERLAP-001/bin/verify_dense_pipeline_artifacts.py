@@ -195,6 +195,166 @@ def validate_metrics_digest(digest_path: Path) -> dict[str, Any]:
     return result
 
 
+def validate_metrics_delta_summary(delta_json_path: Path, hub: Path) -> dict[str, Any]:
+    """
+    Validate metrics_delta_summary.json structure and provenance fields.
+
+    Args:
+        delta_json_path: Path to metrics_delta_summary.json
+        hub: Hub directory root for validating source_metrics path
+
+    Returns:
+        dict with validation result
+    """
+    result = {
+        'valid': False,
+        'description': 'Metrics delta summary JSON',
+        'path': str(delta_json_path),
+    }
+
+    if not delta_json_path.exists():
+        result['error'] = 'File not found'
+        return result
+
+    try:
+        with delta_json_path.open('r') as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        result['error'] = f'Invalid JSON: {e}'
+        return result
+    except Exception as e:
+        result['error'] = f'Failed to read file: {e}'
+        return result
+
+    # Validate required top-level fields
+    required_fields = ['generated_at', 'source_metrics', 'deltas']
+    missing_fields = [f for f in required_fields if f not in data]
+    if missing_fields:
+        result['error'] = f'Missing required fields: {", ".join(missing_fields)}'
+        result['missing_fields'] = missing_fields
+        return result
+
+    # Validate generated_at is ISO-8601 UTC timestamp
+    generated_at = data.get('generated_at')
+    if not isinstance(generated_at, str) or not generated_at.endswith('Z'):
+        result['error'] = f'generated_at must be ISO-8601 UTC timestamp ending with Z, got: {generated_at}'
+        return result
+
+    # Validate source_metrics points to existing file within hub
+    source_metrics_rel = data.get('source_metrics')
+    if not isinstance(source_metrics_rel, str):
+        result['error'] = f'source_metrics must be string, got: {type(source_metrics_rel).__name__}'
+        return result
+
+    source_metrics_path = hub / source_metrics_rel
+    if not source_metrics_path.exists():
+        result['error'] = f'source_metrics path does not exist: {source_metrics_path}'
+        result['source_metrics_path'] = str(source_metrics_path)
+        return result
+
+    # Validate deltas structure
+    deltas = data.get('deltas')
+    if not isinstance(deltas, dict):
+        result['error'] = 'deltas field must be a dict'
+        return result
+
+    # Check for required comparison keys
+    required_comparisons = ['vs_Baseline', 'vs_PtyChi']
+    missing_comparisons = [c for c in required_comparisons if c not in deltas]
+    if missing_comparisons:
+        result['error'] = f'deltas missing required comparisons: {", ".join(missing_comparisons)}'
+        result['missing_comparisons'] = missing_comparisons
+        return result
+
+    # Validate each comparison has ms_ssim and mae with amplitude/phase pairs
+    for comp_name in required_comparisons:
+        comp_data = deltas[comp_name]
+        if not isinstance(comp_data, dict):
+            result['error'] = f'deltas.{comp_name} must be a dict'
+            return result
+
+        required_metrics = ['ms_ssim', 'mae']
+        missing_metrics = [m for m in required_metrics if m not in comp_data]
+        if missing_metrics:
+            result['error'] = f'deltas.{comp_name} missing metrics: {", ".join(missing_metrics)}'
+            result['missing_metrics'] = missing_metrics
+            return result
+
+        for metric_name in required_metrics:
+            metric_data = comp_data[metric_name]
+            if not isinstance(metric_data, dict):
+                result['error'] = f'deltas.{comp_name}.{metric_name} must be a dict'
+                return result
+
+            required_components = ['amplitude', 'phase']
+            missing_components = [c for c in required_components if c not in metric_data]
+            if missing_components:
+                result['error'] = f'deltas.{comp_name}.{metric_name} missing components: {", ".join(missing_components)}'
+                result['missing_components'] = missing_components
+                return result
+
+            # Values can be None (if source metrics unavailable) or numeric
+            for component in required_components:
+                val = metric_data[component]
+                if val is not None and not isinstance(val, (int, float)):
+                    result['error'] = f'deltas.{comp_name}.{metric_name}.{component} must be numeric or None, got: {type(val).__name__}'
+                    return result
+
+    result['valid'] = True
+    result['found_fields'] = list(data.keys())
+    result['source_metrics_exists'] = True
+    return result
+
+
+def validate_metrics_delta_highlights(highlights_txt_path: Path) -> dict[str, Any]:
+    """
+    Validate metrics_delta_highlights.txt has exactly 4 lines with expected format.
+
+    Args:
+        highlights_txt_path: Path to metrics_delta_highlights.txt
+
+    Returns:
+        dict with validation result
+    """
+    result = validate_file_exists(highlights_txt_path, 'Metrics delta highlights')
+    if not result['valid']:
+        return result
+
+    try:
+        content = highlights_txt_path.read_text()
+    except Exception as e:
+        result['valid'] = False
+        result['error'] = f'Failed to read file: {e}'
+        return result
+
+    lines = [line.strip() for line in content.strip().splitlines() if line.strip()]
+
+    # Must have exactly 4 lines (MS-SSIM + MAE for Baseline and PtyChi)
+    if len(lines) != 4:
+        result['valid'] = False
+        result['error'] = f'Expected exactly 4 lines, got {len(lines)}'
+        result['line_count'] = len(lines)
+        return result
+
+    # Validate expected prefixes
+    expected_prefixes = [
+        'MS-SSIM Δ (PtychoPINN - Baseline)',
+        'MS-SSIM Δ (PtychoPINN - PtyChi)',
+        'MAE Δ (PtychoPINN - Baseline)',
+        'MAE Δ (PtychoPINN - PtyChi)',
+    ]
+
+    for i, (line, expected_prefix) in enumerate(zip(lines, expected_prefixes)):
+        if not line.startswith(expected_prefix):
+            result['valid'] = False
+            result['error'] = f'Line {i+1} does not start with expected prefix: {expected_prefix}'
+            result['invalid_line'] = line
+            return result
+
+    result['line_count'] = len(lines)
+    return result
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -279,7 +439,19 @@ def main() -> int:
             validate_phase_c_metadata_compliance(metrics_summary_path)
         )
 
-    # 7. CLI logs (phase_g_*.log)
+    # 7. Metrics delta summary JSON
+    delta_json_path = analysis / "metrics_delta_summary.json"
+    validations.append(
+        validate_metrics_delta_summary(delta_json_path, hub)
+    )
+
+    # 8. Metrics delta highlights text
+    delta_highlights_path = analysis / "metrics_delta_highlights.txt"
+    validations.append(
+        validate_metrics_delta_highlights(delta_highlights_path)
+    )
+
+    # 9. CLI logs (phase_g_*.log)
     phase_g_logs = sorted(cli_dir.glob("phase_g_*.log")) if cli_dir.exists() else []
     validations.append({
         'valid': len(phase_g_logs) > 0,
