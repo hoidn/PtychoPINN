@@ -3143,3 +3143,16 @@
   - Updated docs/fix_plan.md (`Last Updated` 2025-11-10, added attempt entry) to reflect coverage gap + new instructions.
 - Next actions for Ralph: add pytest module for verifier inventory checks (RED→GREEN), extend `verify_dense_pipeline_artifacts.py` with `validate_artifact_inventory`, rerun orchestrator regression test, execute dense Phase C→G pipeline into new hub, run enhanced verifier, and document MS-SSIM/MAE deltas + provenance.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-10T113500Z: CLI log validation hand-off
+- dwell: 2 (second consecutive planning loop; issuing ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-10T113500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed docs/findings.md entries (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001) and confirmed via `pgrep -af studies.fly64_dose_overlap.generation` that the 093500Z hub’s Phase C job (PID 2675688) is still running under /home/ollie/Documents/PtychoPINN2.
+  - Identified CLI log coverage gap in verify_dense_pipeline_artifacts.py; staged new 113500Z evidence hub (plan/summary/analysis/cli/collect/green/red) with plan.md/input.md directing Ralph to add CLI log validation tests, implement `validate_cli_logs()`, rerun the dense pipeline with --clobber into the new hub once the existing run finishes, and capture verifier outputs + MS-SSIM/MAE deltas.
+  - Logged planning attempt in docs/fix_plan.md (status ready_for_implementation) and refreshed input.md with TDD Do Now + How-To Map including collect-only/doc sync guard and AUTHORITATIVE_CMDS_DOC export.
+- Next actions for Ralph: land CLI log validation via TDD, rerun dense pipeline into 113500Z hub post-current run, execute updated verifier, and document deltas/ledger updates.
+- <Action State>: [ready_for_implementation]
