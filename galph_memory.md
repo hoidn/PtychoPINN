@@ -3156,3 +3156,16 @@
   - Logged planning attempt in docs/fix_plan.md (status ready_for_implementation) and refreshed input.md with TDD Do Now + How-To Map including collect-only/doc sync guard and AUTHORITATIVE_CMDS_DOC export.
 - Next actions for Ralph: land CLI log validation via TDD, rerun dense pipeline into 113500Z hub post-current run, execute updated verifier, and document deltas/ledger updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-10T133500Z: Dense pipeline execution + per-phase CLI guard hand-off
+- dwell: 0 (reset after delivering ready_for_implementation plan post-implementation loop)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-10T133500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - Ran `timeout 30 git pull --rebase` (up to date) and refreshed docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001); confirmed 113500Z hub still lacks cli/ + analysis outputs while 093500Z holds only Phase C NPZs.
+  - Created new 133500Z hub (plan/summary/analysis/cli/collect/green/red) and authored plan.md directing Ralph to extend `validate_cli_logs()` with per-phase log enforcement, add paired RED/GREEN tests, then execute a fresh dense Phase C→G run + verifier capturing MS-SSIM/MAE deltas.
+  - Updated input.md to Mode TDD with expanded pytest selectors (phase log fixtures) and How-To Map covering RED/green logs, orchestrator run, verifier execution, and doc sync guard; refreshed docs/fix_plan.md Attempts History with the new planning entry.
+- Next actions for Ralph: implement per-phase CLI log checks + tests, run the dense pipeline into 133500Z hub, verify artifacts, and document metrics/ledger updates.
+- <Action State>: [ready_for_implementation]
