@@ -306,12 +306,13 @@ def validate_metrics_delta_summary(delta_json_path: Path, hub: Path) -> dict[str
     return result
 
 
-def validate_metrics_delta_highlights(highlights_txt_path: Path) -> dict[str, Any]:
+def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | None = None) -> dict[str, Any]:
     """
     Validate metrics_delta_highlights.txt has exactly 4 lines with expected format.
 
     Args:
         highlights_txt_path: Path to metrics_delta_highlights.txt
+        hub: Optional hub directory (unused, kept for API compatibility)
 
     Returns:
         dict with validation result
@@ -699,10 +700,10 @@ def main() -> int:
         validate_metrics_delta_summary(delta_json_path, hub)
     )
 
-    # 8. Metrics delta highlights text
+    # 8. Metrics delta highlights text (with JSON cross-validation)
     delta_highlights_path = analysis / "metrics_delta_highlights.txt"
     validations.append(
-        validate_metrics_delta_highlights(delta_highlights_path)
+        validate_metrics_delta_highlights(delta_highlights_path, hub=hub)
     )
 
     # 9. CLI orchestrator logs validation (phase banners + SUCCESS sentinel + per-phase logs)
