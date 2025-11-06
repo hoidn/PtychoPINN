@@ -1,0 +1,337 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest FAILED [100%]
+
+=================================== FAILURES ===================================
+_______________ test_run_phase_g_dense_exec_runs_analyze_digest ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-468/test_run_phase_g_dense_exec_ru0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7dee401c0f90>
+
+    def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """
+        Test that main() in real execution mode invokes analyze_dense_metrics.py after reporting helper
+        and emits MS-SSIM/MAE delta summary to stdout.
+    
+        Acceptance:
+        - Loads main() from orchestrator script via importlib
+        - Stubs prepare_hub, validate_phase_c_metadata, summarize_phase_g_outputs (seeds metrics_summary.json)
+        - Monkeypatches run_command to record invocations and create required files
+        - Runs main() without --collect-only to trigger real execution path
+        - Asserts analyze_dense_metrics.py is invoked after report_phase_g_dense_metrics.py
+        - Validates analyze command includes --metrics, --highlights, --output flags
+        - Validates log_path points to cli/metrics_digest_cli.log
+        - Validates stdout contains delta block with four lines (MS-SSIM vs Baseline/PtyChi, MAE vs Baseline/PtyChi)
+        - Ensures AUTHORITATIVE_CMDS_DOC environment variable is respected
+        - Returns 0 exit code on success
+    
+        Follows TYPE-PATH-001 (Path normalization).
+        """
+        # Import main() and helper functions from orchestrator
+        module = _import_orchestrator_module()
+        main = module.main
+    
+        # Setup: Create tmp hub directory
+        hub = tmp_path / "exec_hub"
+        hub.mkdir(parents=True)
+    
+        # Create expected directory structure for Phase C→G
+        phase_c_root = hub / "data" / "phase_c"
+        phase_c_root.mkdir(parents=True)
+        cli_log_dir = hub / "cli"
+        cli_log_dir.mkdir(parents=True)
+        phase_g_root = hub / "analysis"
+        phase_g_root.mkdir(parents=True)
+    
+        # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+        monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+    
+        # Prepare sys.argv for argparse (NO --collect-only, so real execution)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "run_phase_g_dense.py",
+                "--hub", str(hub),
+                "--dose", "1000",
+                "--view", "dense",
+                "--splits", "train", "test",
+                "--clobber",  # Required to pass prepare_hub check
+            ],
+        )
+    
+        # Stub heavy helpers to no-op (we only care about run_command invocations)
+        def stub_prepare_hub(hub_path, clobber):
+            """No-op stub for prepare_hub."""
+            pass
+    
+        def stub_validate_phase_c_metadata(hub_path):
+            """No-op stub for validate_phase_c_metadata."""
+            pass
+    
+        def stub_summarize_phase_g_outputs(hub_path):
+            """Create metrics_summary.json with test data for delta computation."""
+            analysis = Path(hub_path) / "analysis"
+            analysis.mkdir(parents=True, exist_ok=True)
+    
+            # Create metrics_summary.json with aggregate_metrics for delta computation
+            summary_data = {
+                "n_jobs": 2,
+                "n_success": 2,
+                "n_failed": 0,
+                "jobs": [],
+                "aggregate_metrics": {
+                    "PtychoPINN": {
+                        "ms_ssim": {
+                            "mean_amplitude": 0.950,
+                            "best_amplitude": 0.955,
+                            "mean_phase": 0.920,
+                            "best_phase": 0.925
+                        },
+                        "mae": {
+                            "mean_amplitude": 0.025,
+                            "mean_phase": 0.035
+                        }
+                    },
+                    "Baseline": {
+                        "ms_ssim": {
+                            "mean_amplitude": 0.930,
+                            "best_amplitude": 0.935,
+                            "mean_phase": 0.900,
+                            "best_phase": 0.905
+                        },
+                        "mae": {
+                            "mean_amplitude": 0.030,
+                            "mean_phase": 0.040
+                        }
+                    },
+                    "PtyChi": {
+                        "ms_ssim": {
+                            "mean_amplitude": 0.940,
+                            "best_amplitude": 0.945,
+                            "mean_phase": 0.910,
+                            "best_phase": 0.915
+                        },
+                        "mae": {
+                            "mean_amplitude": 0.027,
+                            "mean_phase": 0.037
+                        }
+                    }
+                }
+            }
+    
+            import json
+            metrics_summary_path = analysis / "metrics_summary.json"
+            with metrics_summary_path.open("w", encoding="utf-8") as f:
+                json.dump(summary_data, f, indent=2)
+    
+        monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
+        monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
+        monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+    
+        # Record run_command invocations
+        run_command_calls = []
+    
+        def stub_run_command(cmd, log_path):
+            """Record cmd and log_path, create required files for orchestrator progression."""
+            run_command_calls.append((cmd, log_path))
+            cmd_str = " ".join(str(c) for c in cmd)
+    
+            # When reporting helper is invoked, create highlights file
+            if "report_phase_g_dense_metrics.py" in cmd_str and "--highlights" in cmd_str:
+                for i, part in enumerate(cmd):
+                    if str(part) == "--highlights" and i + 1 < len(cmd):
+                        highlights_path = Path(cmd[i + 1])
+                        highlights_path.parent.mkdir(parents=True, exist_ok=True)
+                        highlights_path.write_text("MS-SSIM Deltas (PtychoPINN - Baseline):\n  Amplitude (mean): +0.050\n", encoding="utf-8")
+                        break
+    
+            # When analyze digest is invoked, create digest file
+            if "analyze_dense_metrics.py" in cmd_str and "--output" in cmd_str:
+                for i, part in enumerate(cmd):
+                    if str(part) == "--output" and i + 1 < len(cmd):
+                        digest_path = Path(cmd[i + 1])
+                        digest_path.parent.mkdir(parents=True, exist_ok=True)
+                        digest_path.write_text("# Phase G Dense Metrics Digest\n", encoding="utf-8")
+                        break
+    
+        monkeypatch.setattr(module, "run_command", stub_run_command)
+    
+        # Execute: Call main() with stdout capture (should execute Phase C→G pipeline + reporting helper + analyze digest)
+        import io
+        import contextlib
+    
+        stdout_buffer = io.StringIO()
+        with contextlib.redirect_stdout(stdout_buffer):
+            exit_code = main()
+    
+        stdout = stdout_buffer.getvalue()
+    
+        # Assert: Exit code should be 0
+        assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
+    
+        # Assert: run_command should have been called for all phases + reporting helper + analyze digest
+        # Expected: 1 Phase C + 1 Phase D + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest = 10 total
+        assert len(run_command_calls) >= 10, f"Expected at least 10 run_command calls (C/D/E/F/G phases + reporting + analyze), got {len(run_command_calls)}"
+    
+        # Find reporting helper and analyze digest calls
+        reporting_helper_idx = None
+        analyze_digest_idx = None
+    
+        for idx, (cmd, log_path) in enumerate(run_command_calls):
+            cmd_str = " ".join(str(c) for c in cmd)
+            if "report_phase_g_dense_metrics.py" in cmd_str:
+                reporting_helper_idx = idx
+            if "analyze_dense_metrics.py" in cmd_str:
+                analyze_digest_idx = idx
+    
+        # Assert: Both helpers should be invoked
+        assert reporting_helper_idx is not None, "reporting helper (report_phase_g_dense_metrics.py) was not invoked"
+        assert analyze_digest_idx is not None, "analyze digest (analyze_dense_metrics.py) was not invoked"
+    
+        # Assert: analyze_dense_metrics.py should be invoked AFTER report_phase_g_dense_metrics.py
+        assert analyze_digest_idx > reporting_helper_idx, \
+            f"analyze_dense_metrics.py should be invoked after report_phase_g_dense_metrics.py, but got order: reporting={reporting_helper_idx}, analyze={analyze_digest_idx}"
+    
+        # Validate analyze digest command
+        analyze_cmd, analyze_log_path = run_command_calls[analyze_digest_idx]
+        analyze_cmd_str = " ".join(str(c) for c in analyze_cmd)
+    
+        assert "analyze_dense_metrics.py" in analyze_cmd_str, \
+            f"Expected analyze_dense_metrics.py in command, got: {analyze_cmd_str}"
+        assert "--metrics" in analyze_cmd_str, f"Missing --metrics flag in analyze command: {analyze_cmd_str}"
+        assert "metrics_summary.json" in analyze_cmd_str, f"Missing metrics_summary.json in analyze command: {analyze_cmd_str}"
+        assert "--highlights" in analyze_cmd_str, f"Missing --highlights flag in analyze command: {analyze_cmd_str}"
+        assert "aggregate_highlights.txt" in analyze_cmd_str, f"Missing aggregate_highlights.txt in analyze command: {analyze_cmd_str}"
+        assert "--output" in analyze_cmd_str, f"Missing --output flag in analyze command: {analyze_cmd_str}"
+        assert "metrics_digest.md" in analyze_cmd_str, f"Missing metrics_digest.md in analyze command: {analyze_cmd_str}"
+    
+        # Validate log_path points to cli/metrics_digest_cli.log
+        assert "metrics_digest_cli.log" in str(analyze_log_path), \
+            f"Expected analyze digest log path to be cli/metrics_digest_cli.log, got: {analyze_log_path}"
+    
+        # Assert: Success banner should include metrics digest paths (TYPE-PATH-001)
+        assert "Metrics digest (Markdown):" in stdout, \
+            f"Expected success banner to include 'Metrics digest (Markdown):' line, got:\n{stdout}"
+        assert "Metrics digest log:" in stdout, \
+            f"Expected success banner to include 'Metrics digest log:' line, got:\n{stdout}"
+    
+        # Validate digest paths appear in stdout (should show relative paths per TYPE-PATH-001)
+        assert "metrics_digest.md" in stdout, \
+            f"Expected stdout to mention metrics_digest.md path, got:\n{stdout}"
+        assert "metrics_digest_cli.log" in stdout, \
+            f"Expected stdout to mention metrics_digest_cli.log path, got:\n{stdout}"
+    
+        # Assert: stdout should contain delta summary block with four delta lines
+        # Expected deltas (computed from stub data above):
+        # MS-SSIM vs Baseline: mean_amp = 0.950 - 0.930 = +0.020, mean_phase = 0.920 - 0.900 = +0.020
+        # MS-SSIM vs PtyChi: mean_amp = 0.950 - 0.940 = +0.010, mean_phase = 0.920 - 0.910 = +0.010
+        # MAE vs Baseline: mean_amp = 0.025 - 0.030 = -0.005, mean_phase = 0.035 - 0.040 = -0.005
+        # MAE vs PtyChi: mean_amp = 0.025 - 0.027 = -0.002, mean_phase = 0.035 - 0.037 = -0.002
+    
+        assert "MS-SSIM Δ (PtychoPINN - Baseline)" in stdout, \
+            f"Expected stdout to contain MS-SSIM delta line vs Baseline, got:\n{stdout}"
+        assert "+0.020" in stdout, \
+            f"Expected stdout to contain +0.020 delta value (MS-SSIM amplitude vs Baseline), got:\n{stdout}"
+    
+        assert "MS-SSIM Δ (PtychoPINN - PtyChi)" in stdout, \
+            f"Expected stdout to contain MS-SSIM delta line vs PtyChi, got:\n{stdout}"
+        assert "+0.010" in stdout, \
+            f"Expected stdout to contain +0.010 delta value (MS-SSIM amplitude vs PtyChi), got:\n{stdout}"
+    
+        assert "MAE Δ (PtychoPINN - Baseline)" in stdout, \
+            f"Expected stdout to contain MAE delta line vs Baseline, got:\n{stdout}"
+        assert "-0.005" in stdout, \
+            f"Expected stdout to contain -0.005 delta value (MAE amplitude vs Baseline), got:\n{stdout}"
+    
+        assert "MAE Δ (PtychoPINN - PtyChi)" in stdout, \
+            f"Expected stdout to contain MAE delta line vs PtyChi, got:\n{stdout}"
+        assert "-0.002" in stdout, \
+            f"Expected stdout to contain -0.002 delta value (MAE amplitude vs PtyChi), got:\n{stdout}"
+    
+        # Assert: metrics_delta_summary.json should be created in analysis/
+        delta_json_path = phase_g_root / "metrics_delta_summary.json"
+        assert delta_json_path.exists(), \
+            f"Expected metrics_delta_summary.json to exist at {delta_json_path}, but it was not found"
+    
+        # Assert: JSON should contain valid delta structure with numeric values
+        import json
+        with delta_json_path.open("r", encoding="utf-8") as f:
+            delta_data = json.load(f)
+    
+        # Validate top-level structure
+        assert "deltas" in delta_data, "Expected 'deltas' key in metrics_delta_summary.json"
+        deltas = delta_data["deltas"]
+    
+        # Validate Baseline deltas (PtychoPINN - Baseline)
+        assert "vs_Baseline" in deltas, "Expected 'vs_Baseline' key in deltas"
+        baseline_deltas = deltas["vs_Baseline"]
+        assert "ms_ssim" in baseline_deltas, "Expected 'ms_ssim' in vs_Baseline deltas"
+        assert "mae" in baseline_deltas, "Expected 'mae' in vs_Baseline deltas"
+    
+        # Validate MS-SSIM vs Baseline values (numeric floats, not formatted strings)
+        ms_ssim_baseline = baseline_deltas["ms_ssim"]
+        assert "amplitude" in ms_ssim_baseline, "Expected 'amplitude' in ms_ssim vs_Baseline"
+        assert "phase" in ms_ssim_baseline, "Expected 'phase' in ms_ssim vs_Baseline"
+        assert abs(ms_ssim_baseline["amplitude"] - 0.020) < 1e-6, \
+            f"Expected ms_ssim amplitude delta vs Baseline to be ~0.020, got {ms_ssim_baseline['amplitude']}"
+        assert abs(ms_ssim_baseline["phase"] - 0.020) < 1e-6, \
+            f"Expected ms_ssim phase delta vs Baseline to be ~0.020, got {ms_ssim_baseline['phase']}"
+    
+        # Validate MAE vs Baseline values (negative deltas expected)
+        mae_baseline = baseline_deltas["mae"]
+        assert "amplitude" in mae_baseline, "Expected 'amplitude' in mae vs_Baseline"
+        assert "phase" in mae_baseline, "Expected 'phase' in mae vs_Baseline"
+        assert abs(mae_baseline["amplitude"] - (-0.005)) < 1e-6, \
+            f"Expected mae amplitude delta vs Baseline to be ~-0.005, got {mae_baseline['amplitude']}"
+        assert abs(mae_baseline["phase"] - (-0.005)) < 1e-6, \
+            f"Expected mae phase delta vs Baseline to be ~-0.005, got {mae_baseline['phase']}"
+    
+        # Validate PtyChi deltas (PtychoPINN - PtyChi)
+        assert "vs_PtyChi" in deltas, "Expected 'vs_PtyChi' key in deltas"
+        ptychi_deltas = deltas["vs_PtyChi"]
+        assert "ms_ssim" in ptychi_deltas, "Expected 'ms_ssim' in vs_PtyChi deltas"
+        assert "mae" in ptychi_deltas, "Expected 'mae' in vs_PtyChi deltas"
+    
+        # Validate MS-SSIM vs PtyChi values
+        ms_ssim_ptychi = ptychi_deltas["ms_ssim"]
+        assert abs(ms_ssim_ptychi["amplitude"] - 0.010) < 1e-6, \
+            f"Expected ms_ssim amplitude delta vs PtyChi to be ~0.010, got {ms_ssim_ptychi['amplitude']}"
+        assert abs(ms_ssim_ptychi["phase"] - 0.010) < 1e-6, \
+            f"Expected ms_ssim phase delta vs PtyChi to be ~0.010, got {ms_ssim_ptychi['phase']}"
+    
+        # Validate MAE vs PtyChi values (negative deltas expected)
+        mae_ptychi = ptychi_deltas["mae"]
+        assert abs(mae_ptychi["amplitude"] - (-0.002)) < 1e-6, \
+            f"Expected mae amplitude delta vs PtyChi to be ~-0.002, got {mae_ptychi['amplitude']}"
+        assert abs(mae_ptychi["phase"] - (-0.002)) < 1e-6, \
+            f"Expected mae phase delta vs PtyChi to be ~-0.002, got {mae_ptychi['phase']}"
+    
+        # Assert: Success banner should mention metrics_delta_summary.json path
+        assert "metrics_delta_summary.json" in stdout, \
+            f"Expected success banner to mention metrics_delta_summary.json, got:\n{stdout}"
+    
+        # Assert: artifact_inventory.txt should be created in analysis/ directory
+        inventory_path = phase_g_root / "artifact_inventory.txt"
+>       assert inventory_path.exists(), \
+            f"Expected artifact_inventory.txt to exist at {inventory_path}, but it was not found"
+E       AssertionError: Expected artifact_inventory.txt to exist at /tmp/pytest-of-ollie/pytest-468/test_run_phase_g_dense_exec_ru0/exec_hub/analysis/artifact_inventory.txt, but it was not found
+E       assert False
+E        +  where False = exists()
+E        +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-468/test_run_phase_g_dense_exec_ru0/exec_hub/analysis/artifact_inventory.txt').exists
+
+tests/study/test_phase_g_dense_orchestrator.py:1282: AssertionError
+=========================== short test summary info ============================
+FAILED tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest - AssertionError: Expected artifact_inventory.txt to exist at /tmp/pytest-of-ollie/pytest-468/test_run_phase_g_dense_exec_ru0/exec_hub/analysis/artifact_inventory.txt, but it was not found
+assert False
+ +  where False = exists()
+ +    where exists = PosixPath('/tmp/pytest-of-ollie/pytest-468/test_run_phase_g_dense_exec_ru0/exec_hub/analysis/artifact_inventory.txt').exists
+============================== 1 failed in 0.91s ===============================
