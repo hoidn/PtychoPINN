@@ -3115,3 +3115,17 @@
   - Updated docs/fix_plan.md (s=246) and rewrote input.md with Mode Perf Do Now covering verifier extension, dense pipeline run, pytest selectors, verifier/digest executions, and documentation updates; recorded AUTHORITATIVE_CMDS_DOC step in How-To Map.
 - Next actions for Ralph: extend `verify_dense_pipeline_artifacts.py::main` to validate metrics_delta_summary/highlights provenance, run the dense Phase C→G pipeline with --clobber into the new hub, execute mapped pytest selectors, capture verifier/digest evidence with UTC-stamped logs, and refresh summary/docs with MS-SSIM/MAE deltas plus metadata compliance status.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-09T210500Z: Dense Phase G inventory automation hand-off
+- dwell: 0 (reset after issuing ready_for_implementation plan)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-09T210500Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; exported AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md for command parity.
+  - Reviewed docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001) and the 170500Z/190500Z hubs; confirmed only Phase C artifacts exist and no live orchestrator processes remain.
+  - Provisioned new 210500Z hub (plan/summary/cli/analysis/collect/green/red/data) and authored plan.md capturing TDD guard for artifact inventory, pipeline rerun, verifier execution, and documentation updates.
+  - Rewrote input.md with Mode TDD Do Now (Implement: run_phase_g_dense.py::main inventory emission, Validate selector, Execute/Verify commands) and updated docs/fix_plan.md (Last Updated → 2025-11-09, new attempt entry referencing 210500Z hub).
+- Next actions for Ralph: add failing test + implement inventory emission, rerun orchestrator regression selector (RED→GREEN), execute dense pipeline with --clobber into 210500Z hub, run verifier for pipeline_verification.json, and capture MS-SSIM/MAE deltas + provenance in summary/docs.
+- <Action State>: [ready_for_implementation]
