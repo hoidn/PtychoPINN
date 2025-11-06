@@ -222,55 +222,56 @@ def validate_phase_c_metadata(hub: Path) -> None:
         )
 
     # Check both train and test splits
-    # Phase C generation creates dose_<dose>_<split> directories with
-    # fly64_<split>_simulated.npz files (see studies/fly64_dose_overlap/generation.py)
+    # Phase C generation creates dose_* directories with patched_{train,test}.npz files
+    # (modern layout as of PHASEC-METADATA-001)
     splits_to_check = ["train", "test"]
 
-    for split in splits_to_check:
-        # Find the split directory (pattern: dose_*_<split>)
-        split_dirs = list(phase_c_root.glob(f"dose_*_{split}"))
+    # Find all dose directories (pattern: dose_*)
+    dose_dirs = list(phase_c_root.glob("dose_*"))
 
-        if not split_dirs:
-            raise RuntimeError(
-                f"Phase C {split} split directory not found under {phase_c_root}. "
-                f"Expected pattern: dose_*_{split}/"
+    if not dose_dirs:
+        raise RuntimeError(
+            f"No Phase C dose directories found under {phase_c_root}. "
+            "Expected pattern: dose_*/"
+        )
+
+    for dose_dir in dose_dirs:
+        if not dose_dir.is_dir():
+            continue
+
+        for split in splits_to_check:
+            # Modern layout: dose_*/patched_{train,test}.npz
+            npz_path = dose_dir / f"patched_{split}.npz"
+
+            if not npz_path.exists():
+                raise RuntimeError(
+                    f"Phase C {split} NPZ file not found: {npz_path}. "
+                    f"Expected: patched_{split}.npz in {dose_dir}"
+                )
+
+            # Load NPZ and check for metadata
+            data_dict, metadata = MetadataManager.load_with_metadata(str(npz_path))
+
+            if metadata is None:
+                raise RuntimeError(
+                    f"Phase C NPZ file missing required _metadata field: {npz_path}. "
+                    f"This file was likely generated before metadata tracking was enabled. "
+                    f"Please regenerate Phase C outputs with metadata support."
+                )
+
+            # Require canonical transformation history (transpose_rename_convert)
+            # This ensures Phase C outputs have gone through format canonicalization
+            transformations = metadata.get("data_transformations", [])
+            has_canonical_transform = any(
+                t.get("tool") == "transpose_rename_convert"
+                for t in transformations
             )
 
-        # Should only be one per split, but check all if multiple exist
-        for split_dir in split_dirs:
-            # Find NPZ file (pattern: fly64_<split>_simulated.npz)
-            npz_files = list(split_dir.glob(f"fly64_{split}_simulated.npz"))
-
-            if not npz_files:
+            if not has_canonical_transform:
                 raise RuntimeError(
-                    f"Phase C NPZ file not found in {split_dir}. "
-                    f"Expected: fly64_{split}_simulated.npz"
-                )
-
-            for npz_path in npz_files:
-                # Load NPZ and check for metadata
-                data_dict, metadata = MetadataManager.load_with_metadata(str(npz_path))
-
-                if metadata is None:
-                    raise RuntimeError(
-                        f"Phase C NPZ file missing required _metadata field: {npz_path}. "
-                        f"This file was likely generated before metadata tracking was enabled. "
-                        f"Please regenerate Phase C outputs with metadata support."
-                    )
-
-                # Require canonical transformation history (transpose_rename_convert)
-                # This ensures Phase C outputs have gone through format canonicalization
-                transformations = metadata.get("data_transformations", [])
-                has_canonical_transform = any(
-                    t.get("tool") == "transpose_rename_convert"
-                    for t in transformations
-                )
-
-                if not has_canonical_transform:
-                    raise RuntimeError(
-                        f"Phase C NPZ file missing required canonical transformation in _metadata: {npz_path}. "
-                        f"Expected 'transpose_rename_convert' in data_transformations list. "
-                        f"Found transformations: {[t.get('tool') for t in transformations]}. "
+                    f"Phase C NPZ file missing required canonical transformation in _metadata: {npz_path}. "
+                    f"Expected 'transpose_rename_convert' in data_transformations list. "
+                    f"Found transformations: {[t.get('tool') for t in transformations]}. "
                         f"Please ensure Phase C pipeline includes transpose_rename_convert canonicalization."
                     )
 

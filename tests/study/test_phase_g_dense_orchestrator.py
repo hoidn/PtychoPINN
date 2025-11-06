@@ -370,30 +370,30 @@ def test_validate_phase_c_metadata_requires_metadata(tmp_path: Path) -> None:
 
     Acceptance:
     - Normalizes hub path via TYPE-PATH-001
-    - Checks both train/test splits exist under phase_c_root
+    - Checks both train/test splits exist under phase_c_root (modern layout: dose_*/patched_{train,test}.npz)
     - Loads NPZ files via MetadataManager.load_with_metadata
     - Raises RuntimeError mentioning '_metadata' if metadata is None
     - Does not mutate or delete Phase C outputs (read-only)
 
-    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract), PHASEC-METADATA-001.
     """
     # Import the function under test
     validate_phase_c_metadata = _import_validate_phase_c_metadata()
 
-    # Setup: Create fake Phase C outputs without metadata
+    # Setup: Create fake Phase C outputs without metadata (modern patched layout)
     hub = tmp_path / "phase_c_hub"
     phase_c_root = hub / "data" / "phase_c"
     phase_c_root.mkdir(parents=True)
 
-    # Create minimal NPZ files for train and test splits WITHOUT _metadata
+    # Create minimal NPZ files WITHOUT _metadata using modern dose_*/patched_{train,test}.npz layout
     import numpy as np
 
-    for split in ["train", "test"]:
-        split_dir = phase_c_root / f"dose_1000_{split}"
-        split_dir.mkdir(parents=True)
+    dose_dir = phase_c_root / "dose_1000"
+    dose_dir.mkdir(parents=True)
 
-        # Create a minimal NPZ without metadata (violates expected contract)
-        npz_path = split_dir / f"fly64_{split}_simulated.npz"
+    for split in ["train", "test"]:
+        # Modern layout: dose_*/patched_{train,test}.npz
+        npz_path = dose_dir / f"patched_{split}.npz"
         np.savez_compressed(
             npz_path,
             diffraction=np.random.rand(10, 64, 64).astype(np.float32),
@@ -412,31 +412,32 @@ def test_validate_phase_c_metadata_requires_canonical_transform(tmp_path: Path) 
 
     Acceptance:
     - Normalizes hub path via TYPE-PATH-001
-    - Checks both train/test splits exist under phase_c_root
+    - Checks both train/test splits exist under phase_c_root (modern layout: dose_*/patched_{train,test}.npz)
     - Loads NPZ files via MetadataManager.load_with_metadata
     - Checks metadata["data_transformations"] for "transpose_rename_convert" (case-sensitive list membership)
     - Raises RuntimeError mentioning both '_metadata' and 'transpose_rename_convert' if transformation is missing
     - Does not mutate or delete Phase C outputs (read-only)
 
-    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract), PHASEC-METADATA-001.
     """
     # Import the function under test
     validate_phase_c_metadata = _import_validate_phase_c_metadata()
 
-    # Setup: Create fake Phase C outputs with _metadata but missing canonical transformation
+    # Setup: Create fake Phase C outputs with _metadata but missing canonical transformation (modern patched layout)
     hub = tmp_path / "phase_c_hub"
     phase_c_root = hub / "data" / "phase_c"
     phase_c_root.mkdir(parents=True)
 
-    # Create NPZ files for train and test splits WITH _metadata but WITHOUT transpose_rename_convert
+    # Create NPZ files WITH _metadata but WITHOUT transpose_rename_convert using modern layout
     import numpy as np
     from ptycho.metadata import MetadataManager
 
-    for split in ["train", "test"]:
-        split_dir = phase_c_root / f"dose_1000_{split}"
-        split_dir.mkdir(parents=True)
+    dose_dir = phase_c_root / "dose_1000"
+    dose_dir.mkdir(parents=True)
 
-        npz_path = split_dir / f"fly64_{split}_simulated.npz"
+    for split in ["train", "test"]:
+        # Modern layout: dose_*/patched_{train,test}.npz
+        npz_path = dose_dir / f"patched_{split}.npz"
 
         # Create minimal NPZ data
         data_dict = {
@@ -472,31 +473,32 @@ def test_validate_phase_c_metadata_accepts_valid_metadata(tmp_path: Path) -> Non
 
     Acceptance:
     - Normalizes hub path via TYPE-PATH-001
-    - Checks both train/test splits exist under phase_c_root
+    - Checks both train/test splits exist under phase_c_root (modern layout: dose_*/patched_{train,test}.npz)
     - Loads NPZ files via MetadataManager.load_with_metadata
     - Verifies metadata["data_transformations"] contains "transpose_rename_convert" transformation
     - Succeeds without raising when transformation is present
     - Does not mutate or delete Phase C outputs (read-only)
 
-    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract).
+    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract), PHASEC-METADATA-001.
     """
     # Import the function under test
     validate_phase_c_metadata = _import_validate_phase_c_metadata()
 
-    # Setup: Create fake Phase C outputs with complete valid metadata
+    # Setup: Create fake Phase C outputs with complete valid metadata (modern patched layout)
     hub = tmp_path / "phase_c_hub"
     phase_c_root = hub / "data" / "phase_c"
     phase_c_root.mkdir(parents=True)
 
-    # Create NPZ files for train and test splits WITH proper metadata including transpose_rename_convert
+    # Create NPZ files WITH proper metadata including transpose_rename_convert using modern layout
     import numpy as np
     from ptycho.metadata import MetadataManager
 
-    for split in ["train", "test"]:
-        split_dir = phase_c_root / f"dose_1000_{split}"
-        split_dir.mkdir(parents=True)
+    dose_dir = phase_c_root / "dose_1000"
+    dose_dir.mkdir(parents=True)
 
-        npz_path = split_dir / f"fly64_{split}_simulated.npz"
+    for split in ["train", "test"]:
+        # Modern layout: dose_*/patched_{train,test}.npz
+        npz_path = dose_dir / f"patched_{split}.npz"
 
         # Create minimal NPZ data
         data_dict = {
@@ -521,6 +523,68 @@ def test_validate_phase_c_metadata_accepts_valid_metadata(tmp_path: Path) -> Non
 
         # Save with proper metadata
         MetadataManager.save_with_metadata(str(npz_path), data_dict, metadata)
+
+    # Execute: Call the guard (should succeed without raising)
+    validate_phase_c_metadata(hub)
+
+
+def test_validate_phase_c_metadata_handles_patched_layout(tmp_path: Path) -> None:
+    """
+    Test that validate_phase_c_metadata() succeeds with modern Phase C layout (dose_*/patched_{train,test}.npz).
+
+    Acceptance (PHASEC-METADATA-001):
+    - Normalizes hub path via TYPE-PATH-001
+    - Walks dose_* directories (not dose_*_{split} subdirs)
+    - Checks dose_*/patched_train.npz and dose_*/patched_test.npz exist
+    - Loads NPZ files via MetadataManager.load_with_metadata
+    - Verifies metadata["data_transformations"] contains "transpose_rename_convert" transformation
+    - Succeeds without raising when transformation is present
+    - Does not mutate or delete Phase C outputs (read-only)
+
+    Follows TYPE-PATH-001 (Path normalization), DATA-001 (NPZ contract), PHASEC-METADATA-001.
+    """
+    # Import the function under test
+    validate_phase_c_metadata = _import_validate_phase_c_metadata()
+
+    # Setup: Create fake Phase C outputs with modern patched layout
+    hub = tmp_path / "phase_c_hub"
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+
+    # Create dose directories with patched_{train,test}.npz files
+    import numpy as np
+    from ptycho.metadata import MetadataManager
+
+    for dose in [1000, 10000, 100000]:
+        dose_dir = phase_c_root / f"dose_{dose}"
+        dose_dir.mkdir(parents=True)
+
+        for split in ["train", "test"]:
+            npz_path = dose_dir / f"patched_{split}.npz"
+
+            # Create minimal NPZ data
+            data_dict = {
+                'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
+                'objectGuess': np.random.rand(128, 128).astype(np.complex64),
+                'probeGuess': np.random.rand(64, 64).astype(np.complex64),
+            }
+
+            # Create metadata with the required transformation
+            metadata = {
+                "schema_version": "1.0",
+                "data_transformations": []
+            }
+
+            # Use add_transformation_record to properly embed the canonical transformation
+            metadata = MetadataManager.add_transformation_record(
+                metadata,
+                tool_name="transpose_rename_convert",
+                operation="canonicalize_npz_format",
+                parameters={"target_format": "NHW"}
+            )
+
+            # Save with proper metadata
+            MetadataManager.save_with_metadata(str(npz_path), data_dict, metadata)
 
     # Execute: Call the guard (should succeed without raising)
     validate_phase_c_metadata(hub)
