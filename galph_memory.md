@@ -3101,3 +3101,17 @@
   - Reaffirmed findings (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001) and noted AUTHORITATIVE_CMDS_DOC guard in How-To Map.
 - Next actions for Ralph: ship verify_dense_pipeline_artifacts.py, rerun dense Phase C→G pipeline with --clobber into the new hub, archive checker/analyzer outputs, log MS-SSIM/MAE deltas + metadata compliance in summary/docs, and capture mapped pytest selectors.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T095003Z: Dense Phase G delta verifier + run hand-off
+- dwell: 2 (second consecutive planning loop; issuing ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T095003Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reused context from the 2025-11-06T091223Z hub and re-checked docs/findings.md entries (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001) plus `docs/index.md` pointers to STUDY-001 guidance.
+  - Verified the prior hub still only holds Phase C NPZ outputs and the phase_c_generation log; no Phase D–G analysis artifacts exist yet.
+  - Provisioned 2025-11-06T095003Z hub (plan/summary/cli/analysis/collect/green/red) and drafted plan.md emphasizing verifier delta-bundle enforcement, orchestrator rerun, UTC-stamped logs, and artifact inventory.
+  - Updated docs/fix_plan.md (s=246) and rewrote input.md with Mode Perf Do Now covering verifier extension, dense pipeline run, pytest selectors, verifier/digest executions, and documentation updates; recorded AUTHORITATIVE_CMDS_DOC step in How-To Map.
+- Next actions for Ralph: extend `verify_dense_pipeline_artifacts.py::main` to validate metrics_delta_summary/highlights provenance, run the dense Phase C→G pipeline with --clobber into the new hub, execute mapped pytest selectors, capture verifier/digest evidence with UTC-stamped logs, and refresh summary/docs with MS-SSIM/MAE deltas plus metadata compliance status.
+- <Action State>: [ready_for_implementation]
