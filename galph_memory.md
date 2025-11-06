@@ -3059,3 +3059,17 @@
   - Created new 2025-11-06T075501Z monitor hub for ps/tail snapshots and updated docs/fix_plan.md with the monitoring attempt.
 - Next actions for Ralph: Wait for Phase C→G run to reach `[8/8]`, then execute highlights/digest helpers, capture MS-SSIM/MAE deltas in summary/docs, archive artifact inventory, and rerun the orchestrator pytest before marking complete.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T081826Z: Phase C metadata guard blocker
+- dwell: 2 (second consecutive planning loop; handing off ready_for_implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T081826Z/phase_c_metadata_guard_blocker/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; inspected fresh hub state via `/home/ollie/Documents/PtychoPINN2/.../analysis/blocker.log` and tail of `run_phase_g_dense_relaunch_2025-11-06T074519Z.log` showing the Phase C metadata guard failure.
+  - Confirmed actual Phase C outputs under `data/phase_c/dose_{1000,10000,100000}/patched_{train,test}.npz` and recorded evidence in the 081826Z hub (blocker copy, tail, directory listing).
+  - Consulted docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001) and added PHASEC-METADATA-001 for the guard layout gap.
+  - Updated docs/fix_plan.md Attempts History with the metadata blocker and refreshed input.md (Mode: TDD) directing validator rewrite + pipeline rerun + pytest proof.
+- Next actions for Ralph: update `validate_phase_c_metadata` and add the new pytest guard, rerun dense Phase C→G with --clobber to produce highlights/digest evidence, then sync summary/docs and archive pytest logs.
+- <Action State>: [ready_for_implementation]
