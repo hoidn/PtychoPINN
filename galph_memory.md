@@ -3073,3 +3073,17 @@
   - Updated docs/fix_plan.md Attempts History with the metadata blocker and refreshed input.md (Mode: TDD) directing validator rewrite + pipeline rerun + pytest proof.
 - Next actions for Ralph: update `validate_phase_c_metadata` and add the new pytest guard, rerun dense Phase C→G with --clobber to produce highlights/digest evidence, then sync summary/docs and archive pytest logs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-06T084736Z: Dense pipeline metadata summary planning
+- dwell: 0 (reset after guard-fix implementation loop)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T084736Z/phase_g_dense_post_metadata_fix/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; confirmed guard-fix commit 7d8605bb and green pytest evidence for `test_validate_phase_c_metadata_handles_patched_layout`.
+  - Reviewed docs/index.md and attempted to open docs/prompt_sources_map.json (not present); no new authoritative sources identified.
+  - Re-read docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001) and updated docs/fix_plan.md with the 2025-11-06T084736Z planning attempt plus new artifact hub.
+  - Drafted ready-for-implementation Do Now: extend `summarize_phase_g_outputs()` to persist Phase C metadata compliance in summaries, rerun dense `run_phase_g_dense.py --clobber` into the new hub, refresh highlights/digest, and archive MS-SSIM/MAE deltas with pytest logs.
+- Next actions for Ralph: implement metadata compliance summary + pytest assertion, run the dense pipeline to `[8/8]`, capture highlights/metrics evidence under the new hub, and update summary/docs before handing back.
+- <Action State>: [ready_for_implementation]
