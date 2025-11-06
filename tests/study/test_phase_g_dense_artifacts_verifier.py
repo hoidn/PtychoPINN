@@ -242,6 +242,21 @@ Comparison test...
 """
     (cli_dir / "run_phase_g_dense.log").write_text(orchestrator_log_content)
 
+    # Create all required per-phase logs (requirement added in TDD cycle for per-phase log validation)
+    phase_logs = {
+        "phase_c_generation.log": "Phase C generation complete\n",
+        "phase_d_dense.log": "Phase D overlap view generation complete\n",
+        "phase_e_baseline.log": "Phase E baseline training complete\n",
+        "phase_e_dense.log": "Phase E dense training complete\n",
+        "phase_f_train.log": "Phase F train reconstruction complete\n",
+        "phase_f_test.log": "Phase F test reconstruction complete\n",
+        "phase_g_train.log": "Phase G train comparison complete\n",
+        "phase_g_test.log": "Phase G test comparison complete\n",
+    }
+
+    for log_name, content in phase_logs.items():
+        (cli_dir / log_name).write_text(f"# {log_name}\n{content}")
+
     report_path = tmp_path / "report_complete.json"
 
     # Execute: Import and run the verifier
@@ -521,6 +536,21 @@ Running comparison test...
 """
     (cli_dir / "run_phase_g_dense.log").write_text(complete_log_content)
 
+    # Create all required per-phase logs (requirement added in this TDD cycle)
+    phase_logs = {
+        "phase_c_generation.log": "Phase C generation complete\n",
+        "phase_d_dense.log": "Phase D overlap view generation complete\n",
+        "phase_e_baseline.log": "Phase E baseline training complete\n",
+        "phase_e_dense.log": "Phase E dense training complete\n",
+        "phase_f_train.log": "Phase F train reconstruction complete\n",
+        "phase_f_test.log": "Phase F test reconstruction complete\n",
+        "phase_g_train.log": "Phase G train comparison complete\n",
+        "phase_g_test.log": "Phase G test comparison complete\n",
+    }
+
+    for log_name, content in phase_logs.items():
+        (cli_dir / log_name).write_text(f"# {log_name}\n{content}")
+
     report_path = tmp_path / "report_complete_cli.json"
 
     # Execute: Import and run the verifier
@@ -575,3 +605,339 @@ Running comparison test...
         "Expected CLI check to find SUCCESS marker"
     assert not cli_check.get('missing_banners'), \
         f"Expected no missing phase banners, got: {cli_check.get('missing_banners', [])}"
+
+
+def test_verify_dense_pipeline_cli_phase_logs_missing(tmp_path: Path) -> None:
+    """
+    RED test: Verify that per-phase CLI log validation fails when required phase logs are missing.
+
+    Acceptance:
+    - Create a hub with cli/ directory containing orchestrator log but missing individual phase logs
+    - Individual phase logs should include: phase_c_generation.log, phase_d_dense.log, etc.
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with non-zero status
+    - Assert the verification report JSON shows a validation failure for missing phase logs
+    - Assert error message lists the specific missing phase log files
+
+    Follows input.md Do Now step 1 (TDD RED for per-phase logs).
+    """
+    # Setup: Create hub with orchestrator log but NO per-phase logs
+    hub = tmp_path / "hub_missing_phase_logs"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal artifacts so other checks don't all fail
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "deltas": {}
+    }))
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.010\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.005\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.020\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.015"
+    )
+    (analysis / "artifact_inventory.txt").write_text(
+        "analysis/metrics_summary.json\n"
+        "analysis/metrics_summary.md\n"
+        "cli/run_phase_g_dense.log\n"
+    )
+
+    # Create orchestrator log with all phase banners and SUCCESS (this passes basic check)
+    orchestrator_log_content = """[run_phase_g_dense] Starting pipeline...
+================================================================================
+[1/8] Phase C: Dataset Generation
+================================================================================
+Running Phase C...
+================================================================================
+[2/8] Phase D: Overlap View Generation
+================================================================================
+Running Phase D...
+================================================================================
+[3/8] Phase E: Training Baseline (gs1)
+================================================================================
+Running baseline...
+================================================================================
+[4/8] Phase E: Training Dense (gs2)
+================================================================================
+Running dense...
+================================================================================
+[5/8] Phase F: Reconstruction dense/train
+================================================================================
+Reconstruction train...
+================================================================================
+[6/8] Phase F: Reconstruction dense/test
+================================================================================
+Reconstruction test...
+================================================================================
+[7/8] Phase G: Comparison dense/train
+================================================================================
+Comparison train...
+================================================================================
+[8/8] Phase G: Comparison dense/test
+================================================================================
+Comparison test...
+================================================================================
+[run_phase_g_dense] SUCCESS: All phases completed
+================================================================================
+"""
+    (cli_dir / "run_phase_g_dense.log").write_text(orchestrator_log_content)
+
+    # DO NOT create individual phase logs - this is the RED test condition
+
+    report_path = tmp_path / "report_missing_phase_logs.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assert: Verification failed due to missing per-phase logs
+    assert exit_code != 0, f"Expected non-zero exit code with missing phase logs, got {exit_code}"
+
+    # Load report and check for per-phase log validation failure
+    assert report_path.exists(), "Report JSON should be created even on failure"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    assert not report_data['all_valid'], \
+        "Expected all_valid=False with missing per-phase logs"
+    assert report_data['n_invalid'] > 0, "Expected at least one invalid check"
+
+    # Find the CLI log validation result - should fail due to missing phase logs
+    cli_check = None
+    for check in report_data['validations']:
+        desc = check.get('description', '').lower()
+        if 'orchestrator' in desc or ('cli' in desc and 'log' in desc):
+            cli_check = check
+            break
+
+    assert cli_check is not None, \
+        f"Expected validation check for CLI logs. Available checks: {[v.get('description') for v in report_data['validations']]}"
+    assert not cli_check['valid'], \
+        "Expected CLI log check to be invalid with missing per-phase logs"
+
+    # The error should mention missing phase logs
+    error_msg = cli_check.get('error', '').lower()
+    assert 'phase' in error_msg and 'log' in error_msg, \
+        f"Expected error message to mention missing phase logs, got: {cli_check.get('error', 'none')}"
+
+    # Should have a list of missing phase log files
+    assert cli_check.get('missing_phase_logs') is not None, \
+        "Expected missing_phase_logs field in CLI check result"
+    assert len(cli_check.get('missing_phase_logs', [])) > 0, \
+        "Expected at least one missing phase log file"
+
+
+def test_verify_dense_pipeline_cli_phase_logs_complete(tmp_path: Path) -> None:
+    """
+    GREEN test: Verify that per-phase CLI log validation passes when all phase logs are present.
+
+    Acceptance:
+    - Create a hub with cli/ directory containing both orchestrator log AND all individual phase logs
+    - Individual phase logs include: phase_c_generation.log, phase_d_dense.log, phase_e_baseline.log,
+      phase_e_dense.log, phase_f_train.log, phase_f_test.log, phase_g_train.log, phase_g_test.log
+    - Each phase log should contain a completion sentinel (e.g., "Phase X complete" or similar)
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with status 0
+    - Assert the verification report JSON shows CLI log validation passed
+    - Assert no missing phase logs are reported
+
+    Follows input.md Do Now step 1 (TDD GREEN for per-phase logs).
+    """
+    # Setup: Create complete hub with orchestrator log AND all per-phase logs
+    hub = tmp_path / "hub_complete_phase_logs"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal artifacts
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "deltas": {}
+    }))
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.010\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.005\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.020\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.015"
+    )
+    (analysis / "artifact_inventory.txt").write_text(
+        "analysis/metrics_summary.json\n"
+        "analysis/metrics_summary.md\n"
+        "cli/run_phase_g_dense.log\n"
+    )
+
+    # Create orchestrator log with all phase banners and SUCCESS
+    orchestrator_log_content = """[run_phase_g_dense] Starting pipeline...
+================================================================================
+[1/8] Phase C: Dataset Generation
+================================================================================
+Running Phase C...
+================================================================================
+[2/8] Phase D: Overlap View Generation
+================================================================================
+Running Phase D...
+================================================================================
+[3/8] Phase E: Training Baseline (gs1)
+================================================================================
+Running baseline...
+================================================================================
+[4/8] Phase E: Training Dense (gs2)
+================================================================================
+Running dense...
+================================================================================
+[5/8] Phase F: Reconstruction dense/train
+================================================================================
+Reconstruction train...
+================================================================================
+[6/8] Phase F: Reconstruction dense/test
+================================================================================
+Reconstruction test...
+================================================================================
+[7/8] Phase G: Comparison dense/train
+================================================================================
+Comparison train...
+================================================================================
+[8/8] Phase G: Comparison dense/test
+================================================================================
+Comparison test...
+================================================================================
+[run_phase_g_dense] SUCCESS: All phases completed
+================================================================================
+"""
+    (cli_dir / "run_phase_g_dense.log").write_text(orchestrator_log_content)
+
+    # Create all required per-phase logs with completion sentinels
+    phase_logs = {
+        "phase_c_generation.log": "Phase C generation complete\n",
+        "phase_d_dense.log": "Phase D overlap view generation complete\n",
+        "phase_e_baseline.log": "Phase E baseline training complete\n",
+        "phase_e_dense.log": "Phase E dense training complete\n",
+        "phase_f_train.log": "Phase F train reconstruction complete\n",
+        "phase_f_test.log": "Phase F test reconstruction complete\n",
+        "phase_g_train.log": "Phase G train comparison complete\n",
+        "phase_g_test.log": "Phase G test comparison complete\n",
+    }
+
+    for log_name, content in phase_logs.items():
+        (cli_dir / log_name).write_text(f"# {log_name}\n# Starting phase...\n{content}")
+
+    report_path = tmp_path / "report_complete_phase_logs.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assert: Verification succeeded
+    # Load report and check CLI log validation passed
+    assert report_path.exists(), "Report JSON should be created"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    # Find the CLI log validation result
+    cli_check = None
+    for check in report_data['validations']:
+        desc = check.get('description', '').lower()
+        if 'orchestrator' in desc or ('cli' in desc and 'log' in desc):
+            cli_check = check
+            break
+
+    # The CLI check must exist and be valid
+    assert cli_check is not None, \
+        f"Expected validation check for CLI logs. Available checks: {[v.get('description') for v in report_data['validations']]}"
+    assert cli_check['valid'], \
+        f"Expected CLI log check to be valid with complete phase logs, got error: {cli_check.get('error', 'none')}"
+
+    # Verify the check found all required phase logs
+    assert cli_check.get('has_success') is True, \
+        "Expected CLI check to find SUCCESS marker in orchestrator log"
+    assert not cli_check.get('missing_banners'), \
+        f"Expected no missing phase banners, got: {cli_check.get('missing_banners', [])}"
+    assert not cli_check.get('missing_phase_logs'), \
+        f"Expected no missing phase logs, got: {cli_check.get('missing_phase_logs', [])}"
+
+    # Verify all expected phase logs were found
+    found_phase_logs = cli_check.get('found_phase_logs', [])
+    expected_phase_logs = list(phase_logs.keys())
+    for expected_log in expected_phase_logs:
+        assert expected_log in found_phase_logs, \
+            f"Expected phase log {expected_log} to be found, found logs: {found_phase_logs}"

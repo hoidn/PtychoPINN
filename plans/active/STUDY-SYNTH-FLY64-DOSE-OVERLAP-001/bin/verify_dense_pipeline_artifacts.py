@@ -442,6 +442,7 @@ def validate_cli_logs(cli_dir: Path) -> dict[str, Any]:
     - Existence of run_phase_g_dense.log or phase_*_generation.log
     - Phase banners [1/8] through [8/8] in orchestrator log
     - SUCCESS sentinel: "SUCCESS: All phases completed"
+    - Per-phase log files for all 8 phases
 
     Args:
         cli_dir: Path to cli/ directory containing orchestrator logs
@@ -455,6 +456,8 @@ def validate_cli_logs(cli_dir: Path) -> dict[str, Any]:
         - found_logs: list[str] (names of found log files)
         - missing_banners: list[str] (if any phase banners missing)
         - has_success: bool (whether SUCCESS marker found)
+        - found_phase_logs: list[str] (names of found per-phase log files)
+        - missing_phase_logs: list[str] (names of expected but missing per-phase log files)
     """
     result = {
         'valid': True,
@@ -514,6 +517,32 @@ def validate_cli_logs(cli_dir: Path) -> dict[str, Any]:
             result['valid'] = False
             result['error'] = 'Orchestrator log missing SUCCESS sentinel: "SUCCESS: All phases completed"'
             return result
+
+    # Check for required per-phase log files
+    # Expected phase logs based on the 8-phase pipeline:
+    # Phase C: generation, Phase D: dense view, Phase E: baseline + dense training,
+    # Phase F: train + test reconstruction, Phase G: train + test comparison
+    expected_phase_logs = [
+        "phase_c_generation.log",
+        "phase_d_dense.log",
+        "phase_e_baseline.log",
+        "phase_e_dense.log",
+        "phase_f_train.log",
+        "phase_f_test.log",
+        "phase_g_train.log",
+        "phase_g_test.log",
+    ]
+
+    found_phase_log_names = [p.name for p in phase_logs]
+    missing_phase_logs = [log for log in expected_phase_logs if log not in found_phase_log_names]
+
+    result['found_phase_logs'] = found_phase_log_names
+    result['missing_phase_logs'] = missing_phase_logs
+
+    if missing_phase_logs:
+        result['valid'] = False
+        result['error'] = f'Missing required per-phase log files: {", ".join(missing_phase_logs)}'
+        return result
 
     # All checks passed
     result['valid'] = True
