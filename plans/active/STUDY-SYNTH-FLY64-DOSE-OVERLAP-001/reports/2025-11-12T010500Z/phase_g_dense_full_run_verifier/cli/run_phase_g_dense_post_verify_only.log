@@ -1,0 +1,5 @@
+usage: run_phase_g_dense.py [-h] --hub HUB --dose DOSE --view {dense,sparse}
+                            [--splits SPLITS [SPLITS ...]] [--collect-only]
+                            [--clobber] [--skip-post-verify]
+                            [--post-verify-only]
+run_phase_g_dense.py: error: the following arguments are required: --dose, --view
