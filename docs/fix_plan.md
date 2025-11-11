@@ -21,6 +21,8 @@ Use the “Working Plan” and “reports/” under each initiative for day‑to
 - Status: ready_for_implementation — Phase C→G pipeline incomplete (Phase C succeeded; rerun full orchestrator to produce Phase D–G artifacts, then verify highlights/metrics)
 - Owner/Date: Ralph/2025-11-05
 - Working Plan: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md`
+- Reports Hub (Phase E): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/`
+- Reports Hub (Phase G): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T235500Z/phase_g_dense_run_with_ssim_grid/`
 - Test Strategy: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md`
 - Constraints: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/constraint_analysis.md`
 - Guardrail (2025-11-12): Phase E spec/manifest tasks (bundle_path normalization, SHA256 emission, stdout logging) are considered **satisfied**. Any future Attempt on this focus must either (a) archive a real dense gs2 or baseline gs1 training CLI run under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` (reuse the hub) or (b) capture SSIM/MS-SSIM comparison metrics from `comparison.py --dry-run=false`. Documentation-only or prep-only loops are invalid until one of those evidence types is delivered.

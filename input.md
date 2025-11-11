@@ -2,6 +2,9 @@ Summary: Extend the dense highlights checker to enforce the new ssim_grid summar
 Mode: Perf
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
 Branch: feature/torchapi-newprompt
+Plan Document: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md
+Reports Hub (active): plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+Hub Change Justification: n/a (reuse hub)
 Mapped tests: pytest tests/study/test_check_dense_highlights_match.py::test_summary_mismatch_fails -vv; pytest tests/study/test_check_dense_highlights_match.py::test_summary_matches_json -vv
 Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
 

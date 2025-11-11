@@ -203,6 +203,8 @@
     - <strong>Mode</strong>: TDD | Parity | Perf | Docs | none.
     - <strong>Focus</strong>: `<plan item ID> — <title>` from `docs/fix_plan.md`.
     - <strong>Branch</strong>: Expected working branch.
+    - <strong>Plan Document</strong>: Path to the single evolving plan for this focus (must match the “Working Plan” line in `docs/fix_plan.md`).
+    - <strong>Reports Hub</strong>: Path to the reused hub for this focus. If you create a new hub, add `<strong>Hub Change Justification</strong>` explaining the milestone that required it.
     - <strong>Mapped tests</strong>: Specific pytest selectors (from `docs/TESTING_GUIDE.md` / `docs/development/TEST_SUITE_INDEX.md`) or `none — evidence-only`.
     - <strong>Artifacts</strong>: Point to the current reports hub for this focus (e.g., `plans/active/<initiative-id>/reports/2025-11-05T173500Z/phase_g_dense/...`). Reuse the same hub across loops until you record a new milestone; only introduce a new timestamp when you actually created one.
 

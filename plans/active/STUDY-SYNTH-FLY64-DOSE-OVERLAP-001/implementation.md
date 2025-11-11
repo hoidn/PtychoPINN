@@ -1,5 +1,7 @@
 # Initiative: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001
 
+> **Plan maintenance:** This is the single, evolving plan for the dose/overlap study. Update this file in place instead of creating new `plan/plan.md` documents. The active reports hub is `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` for Phase E and `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T235500Z/phase_g_dense_run_with_ssim_grid/` for Phase G execution until a milestone changes—reuse them for logs/summaries unless a new milestone is declared.
+
 ## Problem Statement
 We want to study PtychoPINN performance on synthetic datasets derived from the fly64 reconstructed object/probe across multiple photon doses, while manipulating inter-group overlap between solution regions. We will compare against a maximum-likelihood iterative baseline (pty-chi LSQML) using MS-SSIM (phase emphasis, amplitude reported) and related metrics. The study must prevent spatial leakage between train and test.
 
