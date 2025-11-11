@@ -1,5 +1,15 @@
 # Initiative: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001
 
+Initiative Header
+- ID: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001
+- Title: Synthetic fly64 dose/overlap study
+- Owner/Date: Ralph / 2025-11-05
+- Status: in_progress (High priority)
+- Working Plan: this file
+- Reports Hub (Phase D): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/`
+- Reports Hub (Phase E): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/`
+- Reports Hub (Phase G): `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`
+
 > **Plan maintenance:** This is the single, evolving plan for the dose/overlap study. Update this file in place instead of creating new `plan/plan.md` documents. The active reports hub is `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` for Phase E and `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/` for Phase G execution until a milestone changes—reuse them for logs/summaries unless a new milestone is declared.
 
 <plan_update version="1.0">
@@ -10,6 +20,17 @@
   <proposed_changes>Adopt specs/overlap_metrics.md (Metric1/2/3, disc overlap, probe_diameter_px, s_img/ngroups); deprecate dense/sparse labels; remove geometry/spacing acceptance gates from Phase D plan; require explicit CLI/API inputs and measured-overlap reporting in manifests</proposed_changes>
   <impacts>Clarifies study controls; prevents false failures on “insufficient spacing”; requires test updates and later code changes; Phase G references will target overlap metrics outputs instead of spacing acceptance fields</impacts>
   <ledger_updates>Record spec addition and plan edits; set forthcoming tasks to update tests and CLI/API docs; do not change code in this loop</ledger_updates>
+  <status>approved</status>
+</plan_update>
+
+<plan_update version="1.0">
+  <trigger>Reality check shows Phase D code/tests still enforce dense/sparse spacing gates; need actionable overlap-metrics hand-off before any new Phase G/Gs evidence</trigger>
+  <focus_id>STUDY-SYNTH-FLY64-DOSE-OVERLAP-001</focus_id>
+  <documents_read>docs/index.md, docs/findings.md, specs/overlap_metrics.md, docs/GRIDSIZE_N_GROUPS_GUIDE.md, specs/data_contracts.md, docs/TESTING_GUIDE.md, docs/development/TEST_SUITE_INDEX.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md, plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/constraint_analysis.md, docs/fix_plan.md, galph_memory.md, input.md, studies/fly64_dose_overlap/overlap.py, tests/study/test_dose_overlap_overlap.py</documents_read>
+  <current_plan_path>plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md</current_plan_path>
+  <proposed_changes>Codify overlap-metric Do Now, reference the 2025-11-12T010500Z/phase_d_overlap_metrics hub, add evidence expectations, and clarify CLI/test deliverables before engineering resumes</proposed_changes>
+  <impacts>Phase G work stays blocked until Phase D metrics + tests ship; engineering must touch overlap.py, overlap CLI, and study tests in one loop; new pytest evidence routed to the phase_d_overlap_metrics hub</impacts>
+  <ledger_updates>docs/fix_plan.md Attempts History gains a new entry; hub summaries note the pivot; galph_memory tracks dwell and ready_for_implementation state</ledger_updates>
   <status>approved</status>
 </plan_update>
 
@@ -32,15 +53,36 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 5. Comparison outputs (plots, aligned NPZs, CSVs) with MS-SSIM (phase, amplitude) and summary tables.
 6. Study summary.md aggregating findings per dose/view.
 
+## Exit Criteria
+1. Phase D overlap metrics implemented (API + CLI) per `specs/overlap_metrics.md`; no spacing/packing gates; dense/sparse labels deprecated.
+2. Phase D tests GREEN (disc overlap unit tests; Metric 1/2/3; gs=1 skips Metric 1; integration bundle fields recorded).
+3. Phase E TensorFlow training restored; at least one gs1 and one gs2 real run; manifests record `bundle_path` + SHA256; logs archived in the Phase E hub.
+4. Phase G evidence present: `ssim_grid_summary.md`, `verification_report.json`, `check_dense_highlights.log`, `metrics_summary.json`, `metrics_digest.md`, `artifact_inventory.txt`; hub summaries updated with MS‑SSIM/MAE deltas.
+5. Test registry synchronized: update `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md`; save `--collect-only` logs under the active Reports Hub.
+
 ## Backend Selection (Policy for this Study)
 - PINN training/inference: **TensorFlow only.** This initiative depends on the legacy `ptycho_train` stack because it is the fully tested backend per CLAUDE.md.
 - Iterative baseline (pty-chi): PyTorch under the hood is acceptable for Phase F scripts, but keep it isolated from the PINN pipeline.
 - PyTorch parity belongs to future work. Log the remaining work as TODO items rather than mixing stacks mid-initiative.
 
+## Phases Overview
+- Phase A — Design & Constraints: Study design constants, seeds, split policy.
+- Phase B — Test Infrastructure: Validator + test scaffolding for DATA‑001 and split integrity.
+- Phase C — Dataset Generation: Dose‑swept synthetic datasets; y‑axis split; manifests.
+- Phase D — Overlap Metrics: Overlap‑driven sampling; Metric 1/2/3 reporting (no spacing gates).
+- Phase E — Training (TF): gs1 baseline + gs2 runs; SHA256 manifests.
+- Phase F — Baseline (pty‑chi): LSQML (100 epochs) with artifact capture.
+- Phase G — Comparison & Analysis: SSIM grid; verification; highlights; metrics bundle.
+
 ## Phases
 
 ### Phase A — Design & Constraints (COMPLETE)
 **Status:** Complete — constants encoded in `studies/fly64_dose_overlap/design.py::get_study_design()`
+
+Checklist
+- [x] Dose list fixed (1e3, 1e4, 1e5)
+- [x] Seeds set (sim=42, grouping=123, subsampling=456)
+- [x] y‑axis train/test split policy selected and documented
 
 **Dose sweep:**
 - Dose list: [1e3, 1e4, 1e5] photons per exposure
@@ -78,6 +120,11 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 ### Phase B — Test Infrastructure Design (COMPLETE)
 **Status:** COMPLETE — validator + 11 tests PASSED with RED/GREEN evidence
+
+Checklist
+- [x] Validator enforcing DATA‑001 and split integrity
+- [x] 11 tests GREEN with red/green/collect artifacts
+- [x] Documentation updated with validator scope and findings references
 - Working Plan: `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md`
 - Deliverables:
   - `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes, amplitude requirement, spacing thresholds vs design constants, and y-axis split integrity. ✅
@@ -90,6 +137,12 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 ### Phase C — Dataset Generation (Dose Sweep) (COMPLETE)
 **Status:** Complete — orchestration pipeline with 5 tests PASSED (RED→GREEN evidence captured)
+
+Checklist
+- [x] Orchestration implemented (simulate → canonicalize → patch → split → validate)
+- [x] CLI entry for dose sweep
+- [x] 5 tests GREEN; artifacts recorded
+- [x] Manifest written and paths stable across reruns
 
 **Deliverables:**
 - `studies/fly64_dose_overlap/generation.py` orchestrates: simulate → canonicalize → patch → split → validate for each dose ✅
@@ -122,6 +175,15 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 ### Phase D — Overlap Metrics (SPEC ADOPTED)
 **Status:** Spec adopted; code changes pending — this phase now uses explicit overlap-driven metrics and sampling controls. Dense/sparse labels and spacing acceptance gates are deprecated for this study.
 
+Deprecation Note
+- Dense/Sparse labels and geometry/spacing acceptance gates are deprecated for this study. Use explicit `s_img`/`n_groups` and report measured overlap metrics per `specs/overlap_metrics.md`.
+
+Checklist
+- [ ] Implement API: compute Metric 1 (gs=2), Metric 2, Metric 3; disc overlap with parameterized `probe_diameter_px`.
+- [ ] Add CLI controls: `--gridsize`, `--s_img`, `--n_groups`, `--neighbor-count`, `--probe-diameter-px`.
+- [ ] Update tests: disc overlap unit tests; Metric 1/2/3; gs=1 skips Metric 1; integration bundle fields.
+- [ ] Record per‑split metrics JSON and aggregated bundle under the Phase D hub.
+
 **Planned Components (no code changes in this loop):**
 - Implement `specs/overlap_metrics.md` definitions: Metric 1 (group-based, gs=2 only), Metric 2 (image-based, dedup by exact coords), Metric 3 (group↔group via COMs) using disc overlap with parameterized `probe_diameter_px` (default from FWHM or documented fallback).
 - Controls move to explicit `--s_img` and `--n_groups` (and Python API equivalents). No geometry acceptance gates; runs proceed and record measured overlaps. gs=1 skips Metric 1 and couples `n_groups` to `n_samples` post-subsample.
@@ -129,13 +191,14 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - CLI messages and docs will deprecate dense/sparse labels; orchestration continues to produce per-split metrics JSON and an aggregated bundle.
 
 #### Do Now (Engineering)
-- Implement overlap metrics in `studies/fly64_dose_overlap/overlap.py`: remove geometry/spacing acceptance gates and greedy selection; deprecate dense/sparse labels. Add API to compute Metric 1 (gs=2), Metric 2, and Metric 3 per `specs/overlap_metrics.md` using disc overlap and parameterized `probe_diameter_px`. Preserve existing grouping semantics (duplication allowed) and unified `n_groups` behavior.
-- Add explicit controls (`--gridsize`, `--s_img`, `--n_groups`, `--neighbor-count`, `--probe-diameter-px`) to the Phase D CLI; prefer a Python API and wrap the CLI around it.
-- Update tests in `tests/study/test_dose_overlap_overlap.py` to cover disc overlap, Metric 1/2/3, gs=1 skipping Metric 1, and updated metrics bundle fields. Remove assertions tied to dense/sparse and spacing acceptance.
-- Do not run Phase G orchestrations until Phase D metrics are implemented and tests are GREEN.
+- Implement the overlap metrics pipeline in `studies/fly64_dose_overlap/overlap.py`: remove geometry/spacing acceptance gates plus dense/sparse labels, add deterministic subsampling driven by `s_img` + `rng_seed_subsample`, honor the unified `n_groups` policy (`docs/GRIDSIZE_N_GROUPS_GUIDE.md`), and expose helpers for Metric 1/2/3 per `specs/overlap_metrics.md` (disc overlap math, neighbor_count default 6, configurable `probe_diameter_px`). Metadata/metrics JSON must log the explicit parameters and computed averages (Metric 1 omitted for gs=1).
+- Refresh the Phase D CLI to accept `--gridsize`, `--s-img`, `--n-groups`, `--neighbor-count`, `--probe-diameter-px`, and `--rng-seed-subsample` (plus the existing Phase C/Artifact roots). Retain the Python API and wrap the CLI around it so scripted runs (e.g., future Phase G orchestrations) can call into the same functions.
+- Update `tests/study/test_dose_overlap_overlap.py` (and any helper fixtures) so disc-overlap math, Metric 1/2/3 aggregation, CLI argument plumbing, and the new bundle schema are covered. Remove spacing-threshold assertions and keep the ACCEPTANCE-001 geometry guard only as historical context in docstrings. Provide at least one CLI-focused selector that inspects `metrics_bundle.json`.
+- Evidence for this loop must land under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/`: capture `pytest tests/study/test_dose_overlap_overlap.py -vv | tee \"$HUB\"/green/pytest_phase_d_overlap.log`, drop CLI stdout/err into `cli/phase_d_overlap_metrics.log`, and ensure the new per-split metrics JSON + `metrics_bundle.json` include the Metric 1/2/3 fields and sampling parameters. Blockers go to `$HUB/red/blocked_<timestamp>.md` with command + exit code.
+- Do not re-run Phase G orchestrations until Phase D metrics ship and tests are GREEN.
 
 **Metrics Bundle (to be updated):**
-- Aggregated JSON will contain per-split outputs plus metric fields: `metric_1_group_based_avg` (gs=2), `metric_2_image_based_avg`, `metric_3_group_to_group_avg`, along with parameters listed above. Spacing acceptance fields will be removed.
+- Aggregated JSON must include per-split Metric 1 (gs=2 only), Metric 2, Metric 3 values *and* the recorded parameters (`gridsize`, `s_img`, `n_groups`, `neighbor_count`, `probe_diameter_px`, RNG seeds). Spacing-acceptance fields become informational only; they must not gate execution.
 
 **Key Constraints & References:**
 - Oversampling guardrail remains: neighbor_count≥C (default 6 for metrics; grouping still uses K≥C for gs=2).
@@ -143,6 +206,7 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - DATA-001 compliance ensured via validator; manifests updated to include overlap metrics, not spacing gates.
 
 **Artifact Hubs:**
+- Overlap-metrics implementation + CLI/tests: `reports/2025-11-12T010500Z/phase_d_overlap_metrics/`
 - Spacing filter implementation: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/`
 - Metrics bundle + CLI validation: `reports/2025-11-04T045500Z/phase_d_cli_validation/`
 - Documentation sync: `reports/2025-11-04T051200Z/phase_d_doc_sync/`
@@ -151,6 +215,11 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 ### Phase E — Train PtychoPINN (PAUSED — awaiting TensorFlow rework)
 **Status:** Paused. We must restore the TensorFlow training pipeline before any further runs; PyTorch work is retained below as historical context but no longer authoritative for this initiative.
+
+Checklist
+- [ ] E0 — TensorFlow pipeline restoration (delegate to ptycho_train; CONFIG‑001 ordering; add tests)
+- [ ] E0.5 — Metadata alignment (Phase D parity: `s_img`, `n_groups`, overlap metrics)
+- [ ] E0.6 — Evidence rerun (gs2 dense + gs1 baseline) with SHA256 proofs under Phase E hub
 
 **Immediate Deliverables (blocking before resuming evidence):**
 - **E0 — TensorFlow pipeline restoration:** Update `studies/fly64_dose_overlap/training.py` plus `run_phase_e_job.py` so they delegate to the TensorFlow `ptycho_train` workflows, honoring CONFIG-001 ordering. Ship pytest coverage for the TF path (CLI filters, manifest writing, skip summary) and capture a deterministic CLI command under the existing Phase E hub.
@@ -198,9 +267,22 @@ Document the TensorFlow command once E0 ships; for now this slot remains `TBD (T
 - Training loss guardrail: once a run is visually validated, copy its manifest to `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json` and treat it as the “golden” baseline. Every new run must execute `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_training_loss.py --reference plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json --candidate <current_manifest> --dose <value> --view <value> --gridsize <value>` (with optional `--tolerance` override) and archive the checker output next to the manifest. The guardrail fails if `final_loss` is missing, non-finite, or exceeds the reference loss by more than the configured tolerance.
 
 ### Phase F — pty-chi LSQML Baseline
+
+Checklist
+- [ ] Run LSQML 100 epochs; capture logs/metrics; archive under baseline hub paths; document environment/version
 - Run scripts/reconstruction/ptychi_reconstruct_tike.py with algorithm='LSQML', num_epochs=100 per test set; capture outputs.
 
 ### Phase G — Comparison & Analysis
+
+Deprecation Note
+- Any legacy references to “dense/sparse” and spacing acceptance in this section are historical; the authority for overlap is the measured metrics per `specs/overlap_metrics.md` with explicit `s_img`/`n_groups`.
+
+Checklist
+- [ ] Produce SSIM grid summary/log
+- [ ] Produce verification report/log
+- [ ] Run highlights checker and capture log
+- [ ] Write metrics summary and digest; artifact inventory present
+- [ ] Update hub summaries and docs/fix_plan with MS‑SSIM/MAE deltas
 - Use scripts/compare_models.py three-way comparisons with --ms-ssim-sigma 1.0 and registration; produce plots, CSVs, aligned NPZs; write per-condition summaries.
 - After `summarize_phase_g_outputs` completes, run `plans/active/.../bin/report_phase_g_dense_metrics.py --metrics <hub>/analysis/metrics_summary.json` (optionally with `--ms-ssim-threshold 0.80`). Treat the generated **MS-SSIM Sanity Check** table as the go/no-go gate: any row flagged `LOW (...)` indicates reconstruction quality is suspect and the Attempt must be marked blocked until re-run.
 - `plans/active/.../bin/analyze_dense_metrics.py` now also embeds the same sanity table inside `metrics_digest.md`; archive this digest under the hub’s `analysis/` directory so reviewers can see absolute MS-SSIM values without hunting through CSVs.
@@ -215,6 +297,15 @@ Document the TensorFlow command once E0 ships; for now this slot remains `TBD (T
   <impacts>Only the dense pipeline rerun, immediate `--post-verify-only`, and metrics helper executions remain; engineer must capture MS-SSIM ±0.000 / MAE ±0.000000 deltas with the SSIM grid/verification/highlights/metrics/preview/inventory bundle to reset dwell</impacts>
   <ledger_updates>docs/fix_plan.md Latest Attempt entry, input.md rewrite, hub summaries prepended with matching Turn Summary</ledger_updates>
   <status>approved</status>
+## Open Questions & Follow-ups (Concise)
+- Probe diameter default: derive from probe FWHM when available; otherwise use a documented constant (e.g., 0.6×N). Always record `probe_diameter_px` in metrics JSON.
+- neighbor_count default: 6 (excluding seed); parameterized; record actual value used in every run.
+- gs=1 vs gs=2 sequencing: run gs=1 first (less failure-prone); define a gs=2 smoke (training loss curve sanity) before expanding.
+- Legacy “view” arg (validators/CLI): keep a temporary mapping to explicit `s_img/n_groups`; document deprecation and removal timeline.
+- CLI transition shim: optional mapping of dense/sparse → explicit params during transition; remove once tests and docs fully adopt metrics.
+
+## Appendix — Historical Audits (Deprecated)
+
 </plan_update>
 - [x] Wire post-verify automation (`run_phase_g_dense.py::main`) so every dense run automatically executes SSIM grid → verifier → highlights checker with success banner references (commit 74a97db5).
 - [x] Add pytest coverage for collect-only + execution chain (`tests/study/test_phase_g_dense_orchestrator.py::{test_run_phase_g_dense_collect_only_post_verify_only,test_run_phase_g_dense_post_verify_only_executes_chain}`) and archive GREEN logs under `reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/`.
