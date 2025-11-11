@@ -19,6 +19,8 @@ import json
 import sys
 from pathlib import Path
 
+MS_SSIM_THRESHOLD = 0.80
+
 
 def load_metrics_json(metrics_path: Path) -> dict:
     """Load and validate metrics_summary.json."""
@@ -63,6 +65,40 @@ def load_highlights_txt(highlights_path: Path) -> str:
     return content
 
 
+def format_ms_ssim_health_table(aggregate: dict, threshold: float) -> str:
+    """Create a Markdown table summarizing absolute MS-SSIM health."""
+    lines = []
+    lines.append("## MS-SSIM Sanity Check\n")
+    lines.append(f"_Threshold: mean amplitude/phase ≥ {threshold:.2f}_\n")
+    lines.append("| Model | Mean Amplitude | Mean Phase | Status |")
+    lines.append("|-------|----------------|------------|--------|")
+
+    def classify(mean_amp: float | None, mean_phase: float | None) -> str:
+        if mean_amp is None or mean_phase is None:
+            return "MISSING"
+        issues = []
+        if mean_amp < threshold:
+            issues.append("amp")
+        if mean_phase < threshold:
+            issues.append("phase")
+        return "LOW (" + ",".join(issues) + ")" if issues else "OK"
+
+    for model_name in sorted(aggregate.keys()):
+        metrics = aggregate[model_name]
+        ms_ssim = metrics.get('ms_ssim', {})
+        mean_amp = ms_ssim.get('mean_amplitude')
+        mean_phase = ms_ssim.get('mean_phase')
+
+        amp_str = f"{mean_amp:.3f}" if mean_amp is not None else "N/A"
+        phase_str = f"{mean_phase:.3f}" if mean_phase is not None else "N/A"
+        status = classify(mean_amp, mean_phase)
+
+        lines.append(f"| {model_name} | {amp_str} | {phase_str} | {status} |")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
 def generate_digest(metrics_data: dict, highlights_content: str) -> str:
     """Generate concise Markdown digest from metrics and highlights."""
     lines = []
@@ -87,6 +123,11 @@ def generate_digest(metrics_data: dict, highlights_content: str) -> str:
     lines.append(f"- Total comparison jobs: {n_jobs}")
     lines.append(f"- Successful: {n_success}")
     lines.append(f"- Failed: {n_failed}\n")
+
+    # Absolute MS-SSIM sanity snapshot
+    aggregate = metrics_data.get('aggregate_metrics', {})
+    if aggregate:
+        lines.append(format_ms_ssim_health_table(aggregate, MS_SSIM_THRESHOLD))
 
     # Add highlights section
     lines.append("## Highlights\n")

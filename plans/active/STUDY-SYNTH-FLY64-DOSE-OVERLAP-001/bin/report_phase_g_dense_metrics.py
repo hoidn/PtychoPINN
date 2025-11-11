@@ -20,6 +20,8 @@ import json
 import sys
 from pathlib import Path
 
+DEFAULT_MS_SSIM_THRESHOLD = 0.80
+
 
 def load_metrics(metrics_path: Path) -> dict:
     """Load and validate metrics_summary.json."""
@@ -169,12 +171,64 @@ def format_delta_tables(pinn_metrics: dict, baseline_metrics: dict, ptychi_metri
     return "\n".join(lines)
 
 
-def generate_highlights(pinn_metrics: dict, baseline_metrics: dict, ptychi_metrics: dict) -> str:
+def format_ms_ssim_health_section(aggregate_metrics: dict, threshold: float) -> str:
+    """Create absolute MS-SSIM sanity section."""
+    lines = []
+    lines.append("## MS-SSIM Sanity Check\n")
+    lines.append(f"_Threshold: mean amplitude/phase ≥ {threshold:.2f}_\n")
+    lines.append("| Model | Mean Amplitude | Mean Phase | Status |")
+    lines.append("|-------|----------------|------------|--------|")
+
+    def classify(mean_amp: float | None, mean_phase: float | None) -> str:
+        if mean_amp is None or mean_phase is None:
+            return "MISSING"
+        issues = []
+        if mean_amp < threshold:
+            issues.append("amp")
+        if mean_phase < threshold:
+            issues.append("phase")
+        return "LOW (" + ",".join(issues) + ")" if issues else "OK"
+
+    for model_name in sorted(aggregate_metrics.keys()):
+        metrics = aggregate_metrics[model_name]
+        ms_ssim = metrics.get('ms_ssim', {})
+        mean_amp = ms_ssim.get('mean_amplitude')
+        mean_phase = ms_ssim.get('mean_phase')
+        amp_str = f"{mean_amp:.3f}" if mean_amp is not None else "N/A"
+        phase_str = f"{mean_phase:.3f}" if mean_phase is not None else "N/A"
+        status = classify(mean_amp, mean_phase)
+        lines.append(f"| {model_name} | {amp_str} | {phase_str} | {status} |")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def generate_highlights(
+    pinn_metrics: dict,
+    baseline_metrics: dict,
+    ptychi_metrics: dict,
+    threshold: float,
+) -> str:
     """Generate concise highlights text with top-line deltas."""
     lines = []
     lines.append("Phase G Dense Metrics — Highlights")
     lines.append("=" * 50)
     lines.append("")
+
+    # Absolute MS-SSIM snapshot for sanity
+    if 'ms_ssim' in pinn_metrics:
+        pinn_ms = pinn_metrics['ms_ssim']
+        base_ms = baseline_metrics.get('ms_ssim', {})
+        pty_ms = ptychi_metrics.get('ms_ssim', {})
+
+        def fmt(val: float | None) -> str:
+            return f"{val:.3f}" if val is not None else "N/A"
+
+        lines.append(f"MS-SSIM (mean) threshold: {threshold:.2f}")
+        lines.append(f"  PtychoPINN amplitude/phase: {fmt(pinn_ms.get('mean_amplitude'))} / {fmt(pinn_ms.get('mean_phase'))}")
+        lines.append(f"  Baseline amplitude/phase:  {fmt(base_ms.get('mean_amplitude'))} / {fmt(base_ms.get('mean_phase'))}")
+        lines.append(f"  PtyChi amplitude/phase:    {fmt(pty_ms.get('mean_amplitude'))} / {fmt(pty_ms.get('mean_phase'))}")
+        lines.append("")
 
     # MS-SSIM deltas
     if 'ms_ssim' in pinn_metrics:
@@ -220,7 +274,7 @@ def generate_highlights(pinn_metrics: dict, baseline_metrics: dict, ptychi_metri
     return "\n".join(lines)
 
 
-def generate_report(data: dict) -> str:
+def generate_report(data: dict, ms_ssim_threshold: float) -> str:
     """Generate full Markdown report from metrics_summary.json."""
     aggregate_metrics = data['aggregate_metrics']
 
@@ -235,6 +289,9 @@ def generate_report(data: dict) -> str:
     lines.append(f"**Total Jobs:** {n_jobs}  ")
     lines.append(f"**Successful:** {n_success}  ")
     lines.append(f"**Failed:** {n_failed}  \n")
+
+    # Absolute health section
+    lines.append(format_ms_ssim_health_section(aggregate_metrics, ms_ssim_threshold))
 
     # Aggregate metrics per model (sorted for determinism)
     lines.append("## Aggregate Metrics\n")
@@ -274,6 +331,12 @@ def main() -> None:
         type=Path,
         help="Optional path to write concise highlights text (top-line deltas)",
     )
+    parser.add_argument(
+        "--ms-ssim-threshold",
+        type=float,
+        default=DEFAULT_MS_SSIM_THRESHOLD,
+        help="Threshold used to flag MS-SSIM health (default: 0.80)",
+    )
 
     args = parser.parse_args()
 
@@ -283,7 +346,7 @@ def main() -> None:
     validate_required_models(aggregate_metrics)
 
     # Generate report
-    report = generate_report(data)
+    report = generate_report(data, args.ms_ssim_threshold)
 
     # Emit to stdout
     print(report)
@@ -305,7 +368,12 @@ def main() -> None:
             pinn_metrics = aggregate_metrics['PtychoPINN']
             baseline_metrics = aggregate_metrics['Baseline']
             ptychi_metrics = aggregate_metrics['PtyChi']
-            highlights = generate_highlights(pinn_metrics, baseline_metrics, ptychi_metrics)
+            highlights = generate_highlights(
+                pinn_metrics,
+                baseline_metrics,
+                ptychi_metrics,
+                args.ms_ssim_threshold,
+            )
 
             args.highlights.parent.mkdir(parents=True, exist_ok=True)
             with args.highlights.open('w') as f:

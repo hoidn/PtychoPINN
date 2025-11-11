@@ -105,6 +105,11 @@ def test_report_phase_g_dense_metrics(tmp_path: Path) -> None:
 
     # Validate stdout contains expected sections
     stdout = result.stdout
+    assert "MS-SSIM Sanity Check" in stdout, "Missing MS-SSIM sanity section"
+    assert "_Threshold: mean amplitude/phase ≥ 0.80_" in stdout, "Missing threshold note"
+    assert "| PtychoPINN | 0.987 | 0.945 | OK |" in stdout, "Missing absolute MS-SSIM row for PtychoPINN"
+    assert "| Baseline | 0.923 | 0.889 | OK |" in stdout, "Missing absolute MS-SSIM row for Baseline"
+    assert "| PtyChi | 0.912 | 0.876 | OK |" in stdout, "Missing absolute MS-SSIM row for PtyChi"
     assert "Aggregate Metrics" in stdout, "Missing aggregate metrics section in stdout"
     assert "PtychoPINN" in stdout, "Missing PtychoPINN in stdout"
     assert "Baseline" in stdout, "Missing Baseline in stdout"
@@ -130,9 +135,11 @@ def test_report_phase_g_dense_metrics(tmp_path: Path) -> None:
     assert "Deltas" in md_content or "Delta" in md_content, "Missing delta section in Markdown"
     assert "0.987" in md_content, "Missing metric value in Markdown"
 
-    # Validate highlights file written with top-line deltas
+    # Validate highlights file written with top-line deltas and absolute block
     assert highlights_output.exists(), "Highlights output file not created"
     highlights_content = highlights_output.read_text()
+    assert "MS-SSIM (mean) threshold" in highlights_content, "Highlights missing absolute MS-SSIM snapshot"
+    assert "PtychoPINN amplitude/phase: 0.987 / 0.945" in highlights_content, "Highlights missing absolute values"
     # Should contain MS-SSIM and MAE deltas for both amplitude and phase
     assert "MS-SSIM" in highlights_content, "Missing MS-SSIM in highlights"
     assert "MAE" in highlights_content, "Missing MAE in highlights"
@@ -291,6 +298,8 @@ MAE Phase Delta (PtychoPINN - Baseline): -0.033
     digest_content = output_file.read_text()
     assert "⚠️ FAILURES PRESENT ⚠️" in digest_content, "Digest file should contain failure banner"
     assert "Failed: 1" in digest_content, "Digest should show failure count in summary"
+    assert "MS-SSIM Sanity Check" in digest_content, "Digest should include MS-SSIM sanity table"
+    assert "| Baseline | 0.923 | 0.889 | OK |" in digest_content, "Digest missing MS-SSIM row for Baseline"
 
     # Assert highlights embedded in digest
     assert "MS-SSIM Amplitude Delta" in digest_content, "Digest should embed highlights content"
@@ -395,6 +404,8 @@ MAE Phase Delta (PtychoPINN - Baseline): -0.033
     # Assert stdout contains digest WITHOUT failure warning
     stdout = result.stdout
     assert "⚠️ FAILURES PRESENT ⚠️" not in stdout, "Should not show failure warning in stdout digest when all jobs succeed"
+    assert "MS-SSIM Sanity Check" in stdout, "Success digest should include MS-SSIM sanity section"
+    assert "| Baseline | 0.923 | 0.889 | OK |" in stdout, "Success digest missing MS-SSIM row for Baseline"
 
     # Assert explicit success banner present (required per input.md)
     assert "✓ ALL COMPARISONS SUCCESSFUL ✓" in stdout, "Should show explicit success banner in stdout when all jobs succeed"
@@ -413,6 +424,8 @@ MAE Phase Delta (PtychoPINN - Baseline): -0.033
     # Assert explicit success banner in digest content
     assert "✓ ALL COMPARISONS SUCCESSFUL ✓" in digest_content, "Digest file should contain success banner when all jobs succeed"
     assert "Failed: 0" in digest_content, "Digest should show zero failures in summary"
+    assert "MS-SSIM Sanity Check" in digest_content, "Digest file should include MS-SSIM sanity section"
+    assert "| Baseline | 0.923 | 0.889 | OK |" in digest_content, "Digest file missing MS-SSIM row for Baseline"
 
     # Assert highlights embedded in digest
     assert "MS-SSIM Amplitude Delta" in digest_content, "Digest should embed highlights content"

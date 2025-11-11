@@ -262,6 +262,10 @@ python -m studies.fly64_dose_overlap.training \
 **CLI validation (dry-run only):**
 - `python -m studies.fly64_dose_overlap.comparison --phase-c-root <phase C datasets> --phase-e-root <phase E checkpoints> --phase-f-root <Phase F manifests> --artifact-root .../cli --dose 1000 --view dense --split train --dry-run` — manifest + summary written; execution deferred. Log: `.../cli/phase_g_cli_dry_run.log`.
 
+- **Absolute MS-SSIM sanity check (new):** After a real comparison run, execute  
+  `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/report_phase_g_dense_metrics.py --metrics <hub>/analysis/metrics_summary.json --ms-ssim-threshold 0.80 --output <hub>/analysis/aggregate_report.md --highlights <hub>/analysis/metrics_delta_highlights.txt`.  
+  Archive the stdout/Markdown artifact and ensure the **MS-SSIM Sanity Check** table shows `OK` for every model; any `LOW (...)` status blocks the attempt until the reconstruction is re-run or the threshold rationale is documented. The downstream `analyze_dense_metrics.py` invocation inherits the same threshold and should be cited in How-To Maps alongside its log.
+
 **Coverage status:** G1 (job builder + CLI scaffolding) satisfied. G0.1 inventory complete — see `reports/2025-11-05T162500Z/phase_g_inventory/analysis/inventory.md` for the authoritative dataset/checkpoint/manifests map and sparse acceptance stats. G0.2 test-strategy refresh landed with active selectors, collect-proof evidence, and CLI dry-run references.
 
 **Remaining work for G2/G3:**
@@ -283,4 +287,5 @@ python -m studies.fly64_dose_overlap.training \
 - All contract checks pass for generated datasets
 - Filtering invariants satisfied; logs record spacing stats
 - Comparison CSVs exist with non-empty records for each condition
+- MS-SSIM sanity table reports `OK` for every model (or documented exception) at the configured threshold
 - No unexpected SKIPs, and any expected SKIPs are justified in summary.md
