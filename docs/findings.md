@@ -22,3 +22,30 @@ This ledger captures the most important lessons, conventions, and recurring issu
 | PHASEC-METADATA-001 | 2025-11-06 | phase-c, metadata, validator, orchestration | `run_phase_g_dense.py` still expects Phase C outputs in legacy `dose_*_{train,test}/fly64_<split>_simulated.npz` directories; the refreshed generator now writes `data/phase_c/dose_<dose>/{patched,patched_train,patched_test}.npz` with `_metadata`. The guard falsely blocks dense relaunches until it scans the new layout and ensures `_metadata` on the patched splits. | [Link](plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T081826Z/phase_c_metadata_guard_blocker/cli/blocker_phase_c_metadata.log) | Active |
 | TEST-CLI-001 | 2025-11-10 | tdd, cli-validation, orchestration, regression-guard | Orchestrator-level CLI validation requires explicit test fixtures for RED/GREEN cycles and must enforce complete log bundles (phase banners + SUCCESS sentinel + dose/view-specific filenames). When adding validation to artifact verifiers, create both RED (missing/wrong patterns) and GREEN (complete artifacts) test cases with realistic log content including all required markers. **Filename patterns MUST match orchestrator output**: phase_e_baseline_gs1_dose{dose}.log, phase_e_{view}_gs2_dose{dose}.log, phase_f_{view}_train.log, etc. (not generic phase_e_baseline.log). Helper logs (aggregate_report_cli.log, metrics_digest_cli.log) and completion sentinels ("complete" marker) are also required. Test isolation tip: GREEN tests should validate only the specific check under test, not entire bundle completeness (use focused assertions on check['valid'] field rather than exit_code==0). | [Link](plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py:437-596) | Active |
 | PREVIEW-PHASE-001 | 2025-11-11 | highlights, preview, validator, phase-only | The dense Phase G preview artifact (`analysis/metrics_delta_highlights_preview.txt`) must contain **only** the four phase deltas (MS-SSIM/MAE vs Baseline/PtyChi) with explicit ± signs; any `amplitude` text or extra tokens indicates corruption and must fail validation. Existing verifier logic only checked for the presence of formatted numbers, so previews that regressed back to amplitude-inclusive lines could slip through. Harden `validate_metrics_delta_highlights` (and tests) to enforce phase-only content and surface actionable metadata in reports. | [Link](plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T005802Z/phase_g_dense_full_execution_real_run/plan/plan.md) | Active |
+
+
+## DATA-002 - NPZ Metadata Pickle Requirement
+**Category:** Data I/O  
+**Impact:** Phase C→D→E pipeline execution  
+**Location:** studies/fly64_dose_overlap/{overlap.py:388, training.py:409,416}  
+**Date:** 2025-11-11
+
+### Issue
+Phase C datasets include a `_metadata` field (dtype=object) containing JSON provenance strings. NumPy 1.16+ defaults to `allow_pickle=False` for security, causing `ValueError: Object arrays cannot be loaded when allow_pickle=False` when consuming these NPZ files downstream.
+
+### Solution
+Add `allow_pickle=True` parameter to all `np.load()` calls that read Phase C outputs:
+```python
+with np.load(path, allow_pickle=True) as data:
+    data_dict = {k: data[k] for k in data.keys()}
+```
+
+### Context
+- Phase C generation (studies/fly64_dose_overlap/generation.py) saves metadata as object array
+- Phase D (overlap.py) and Phase E (training.py) validation consume these NPZs  
+- Security: object arrays are trusted since they're generated internally, not user-supplied
+
+### Related
+- DATA-001 (data contract compliance)
+- Commit: 5cd130d3
+
