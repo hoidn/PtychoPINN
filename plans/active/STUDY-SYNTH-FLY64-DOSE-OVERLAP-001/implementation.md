@@ -70,7 +70,7 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - Working Plan: `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md`
 - Deliverables:
   - `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes, amplitude requirement, spacing thresholds vs design constants, and y-axis split integrity. ✅
-  - Validator now asserts each manifest includes `image_subsampling`, `group_multiplier`, and the derived `overlap_fraction`, ensuring downstream code/tests never assume hard-coded view labels. ✅
+  - Validator now asserts each manifest includes `image_subsampling`, requested `n_groups`, and the derived `overlap_fraction`, ensuring downstream code/tests never assume hard-coded view labels. ✅
   - pytest coverage in `tests/study/test_dose_overlap_dataset_contract.py` (11 tests, all PASSED) with logged red/green runs. ✅
   - Updated documentation (`implementation.md`, `test_strategy.md`, `summary.md`) recording validator scope and findings references (CONFIG-001, DATA-001, OVERSAMPLING-001). ✅
 - Artifact Hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/`
@@ -118,7 +118,7 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - Documentation synchronized: Phase D sections updated in this file, `test_strategy.md`, and `plan.md` D4 marked `[x]`; ledger Attempt #10/11 referencing logs & metrics bundle artifacts.
 
 **Metrics Bundle Workflow (Attempt #10):**
-- `generate_overlap_views()` returns `metrics_bundle_path` pointing to aggregated JSON containing `train` and `test` keys, each with `{output_path, spacing_stats_path, image_subsampling, group_multiplier, overlap_fraction}` entries.
+- `generate_overlap_views()` returns `metrics_bundle_path` pointing to aggregated JSON containing `train` and `test` keys, each with `{output_path, spacing_stats_path, image_subsampling, n_groups_requested, overlap_fraction}` entries.
 - CLI main copies bundle from temp output to `<artifact_root>/metrics/<dose>/<view>.json` for archival.
 - Test guard `test_generate_overlap_views_metrics_manifest` asserts bundle contains required keys and paths exist on disk.
 - Execution proof: `reports/2025-11-04T045500Z/phase_d_cli_validation/` (RED→GREEN logs, CLI transcript, copied bundle).
