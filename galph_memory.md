@@ -3334,3 +3334,16 @@
   - Updated plan.md, summary/summary.md (new Turn Summary), docs/fix_plan.md (Latest Attempt 2025-11-12T050500Z, Last Updated s=256), and input.md to re-scope the focus: add a default-on post-verify hook to `run_phase_g_dense.py`, extend `tests/study/test_phase_g_dense_orchestrator.py`, then run the counted dense pipeline with `--clobber` so the hub finally captures Phase C→G artifacts + verifier/highlights evidence.
 - Next actions for Ralph: implement the post-verify flag + automation in `run_phase_g_dense.py`, add the new orchestrator test coverage, run the mapped pytest selectors (collect + exec) with logs under `$HUB`, execute the dense pipeline with post-verify on, capture verifier/highlights logs + MS-SSIM/MAE deltas in summary/docs, and log everything in docs/fix_plan.md + galph_memory.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T070500Z: Post-verify-only mode plan + counted dense rerun directive
+- dwell: 0 (implementation landed between loops; resetting after Ralph’s post-verify automation commit)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; re-read docs/index.md pointers and docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001) before inspecting the hub.
+  - Commit 74a97db5 confirmed `run_phase_g_dense.py` now triggers the verifier/highlights checker with tests, but `{analysis,cli}` stay empty because no dense rerun executed yet.
+  - Updated plan/plan.md, summary/summary.md, summary.md, docs/fix_plan.md (Last Updated s=257 with new attempt entries), and input.md to require a `--post-verify-only` mode plus the counted dense run and verification rerun under the existing hub.
+- Next actions for Ralph: land the new flag/tests, capture RED/GREEN logs for the new selectors, run the dense Phase C→G pipeline with `--clobber`, rerun the orchestrator in `--post-verify-only` mode, and publish MS-SSIM/MAE deltas + preview verdict + doc updates in this hub.
+- <Action State>: [ready_for_implementation]

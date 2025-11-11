@@ -1,54 +1,57 @@
-# Dense Phase G Full Run + Auto Verification (2025-11-12T010500Z)
+# Dense Phase G Post-Verify Automation Follow-up (2025-11-12T010500Z)
 
 ## Reality Check
-- `plans/.../bin/check_dense_highlights_match.py` plus tests/study/test_check_dense_highlights_match.py already landed (commit 3496351) and now parse `analysis/ssim_grid_summary.md`, so the prior Do Now’s “extend the checker” task is satisfied.
-- `verify_dense_pipeline_artifacts.py` and its pytest module were hardened yesterday to require `ssim_grid_cli.log` + `analysis/ssim_grid_summary.md`, with docs/TESTING_GUIDE.md and TEST_SUITE_INDEX.md already reflecting the new helper.
-- Despite the guard work, the active hub `reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/` still lacks `{analysis,cli}` payloads—no counted Phase C→G rerun has been captured since the helper/checker changes.
-- Manual verifier + highlights invocations live outside `run_phase_g_dense.py`, which means `--collect-only` output and CLI logs do not yet show the post-run verification chain; every dense rerun has to remember a long checklist manually, which keeps regressing.
+- Commit `74a97db5` landed the default-on post-verify automation plus pytest coverage for the happy-path hooks (`collect_only` + monkeypatched execution). Evidence lives under `.../green/{pytest_collect_only.log,pytest_post_verify_hooks.log}`.
+- The 2025-11-12 hub still lacks `analysis/` and `cli/` payloads because no dense Phase C→G rerun has completed since the automation shipped. We therefore have zero counted MS-SSIM/MAE deltas, no preview verdict, and no verification report in this hub.
+- Manual verifier invocations remain necessary whenever we touch `verify_dense_pipeline_artifacts.py` or `check_dense_highlights_match.py`. Re-running two standalone scripts by hand is slow/error-prone, so the orchestrator needs a light-weight “post-verify-only” mode to revalidate existing hubs without burning hours on Phase C→F.
 
 ## Objectives (single Ralph loop)
-1. **Post-verify automation** — Extend `plans/.../bin/run_phase_g_dense.py` so successful runs automatically invoke `verify_dense_pipeline_artifacts.py` and `check_dense_highlights_match.py`, teeing logs to `analysis/verify_dense_stdout.log` and `analysis/check_dense_highlights.log`, emitting the JSON report, and surfacing the locations in the success banner. Add a `--skip-post-verify` flag for debugging but default to running the verifiers.
-2. **Orchestrator TDD** — Update `tests/study/test_phase_g_dense_orchestrator.py` to prove the new automation: (a) `--collect-only` output lists the verifier/highlights commands in order, and (b) a new unit test monkeypatches `run_command` to assert the post-verify commands fire with hub-relative paths and log destinations.
-3. **Counted dense run + evidence** — Export `AUTHORITATIVE_CMDS_DOC` and rerun `run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber` (post-verify on) into this hub. Publish the resulting CLI/analysis artifacts, run `pytest --collect-only/-k` evidence for the orchestrator tests, and refresh `summary/summary.md` with MS-SSIM/MAE deltas, preview verdict, and verifier/highlights log paths. Update docs/fix_plan.md + galph_memory.
+1. **Add a `--post-verify-only` mode** — Teach `plans/.../bin/run_phase_g_dense.py` to skip the Phase C→F commands and execute only the SSIM grid helper + verifier + highlights checker (still default-on) when this flag is set. The mode should refuse `--skip-post-verify`, reuse the same log/report paths, and refresh `artifact_inventory.txt` so verification artifacts are listed even when we bypass heavy phases.
+2. **TDD for the new mode** — Extend `tests/study/test_phase_g_dense_orchestrator.py` with:
+   - `test_run_phase_g_dense_collect_only_post_verify_only` that asserts `--collect-only --post-verify-only` emits the trimmed command list (ssim_grid → verify → highlights) and logs.
+   - `test_run_phase_g_dense_post_verify_only_executes_chain` that monkeypatches `run_command` to capture the command order when the flag is enabled, proving it skips Phase C→F but still re-generates the artifact inventory.
+3. **Counted dense run + verification evidence** — With the new mode landed, export `AUTHORITATIVE_CMDS_DOC` and execute `run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber` so Phase C→G outputs, SSIM grid summary, verification report, and highlights logs populate this hub. Afterwards, re-run `run_phase_g_dense.py --hub "$HUB" --post-verify-only` to exercise the new mode on the freshly produced artifacts, then update `summary/summary.md` + docs/fix_plan.md with MS-SSIM/MAE deltas, preview verdict, and CLI/log/test pointers.
 
 ## Execution Sketch
 1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`; `export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier`.
-2. Update `run_phase_g_dense.py`:
-   - Introduce `--skip-post-verify` (default False) and guard for `--collect-only` so the planned command list now shows verifier and checker invocations.
-   - After the existing SSIM grid command succeeds, call `verify_dense_pipeline_artifacts.py --hub ... --report analysis/verification_report.json --dose 1000 --view dense` and `check_dense_highlights_match.py --hub ...`, both routed through `run_command` so logs land at `analysis/verify_dense_stdout.log` and `analysis/check_dense_highlights.log`.
-   - Add hub-relative success banner lines for the new logs + JSON report and ensure `generate_artifact_inventory()` runs after the post-verify commands so the new artifacts are listed.
-3. Extend `tests/study/test_phase_g_dense_orchestrator.py`:
-   - Update `test_run_phase_g_dense_collect_only_generates_commands` expectations to include the two new commands/log names.
-   - Add `test_run_phase_g_dense_post_verify_hooks(monkeypatch,tmp_path)` that injects a sentinel `run_command` to capture command tuples, runs `main()` with `--splits train test --post-verify` into a tmp hub, and asserts the verifier/checker invocations appear after SSIM grid with the intended CLI/log/report paths.
-4. `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -k post_verify -vv | tee "$HUB"/collect/pytest_collect_orchestrator_post_verify.log`.
-5. `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_hooks -vv | tee "$HUB"/green/pytest_phase_g_dense_post_verify.log` (capture RED if it fails before fix).
-6. Execute the dense pipeline: `python plans/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`. Post-verify automation should emit the JSON report + logs under `analysis/`.
-7. If either post-verify command fails, keep the blocker evidence, fix the issue, rerun with `--clobber`, and archive red/green logs accordingly. After a GREEN run, snapshot MS-SSIM/MAE deltas from `metrics_delta_summary.json` and the preview verdict from `analysis/check_dense_highlights.log`.
-8. Update `$HUB/summary/summary.md` with run statistics, MS-SSIM/MAE deltas, preview guard status, CLI/verifier log pointers, pytest selectors, and doc/test references; sync docs/fix_plan.md + galph_memory.
+2. Update `plans/active/.../bin/run_phase_g_dense.py`:
+   - Add `--post-verify-only` argparse flag (default False). In this mode skip `prepare_hub` + Phase C→F command execution, but still announce hub info, regenerate SSIM grid, run the post-verify chain, and call `generate_artifact_inventory`.
+   - Disallow `--post-verify-only` together with `--skip-post-verify` or `--collect-only` mismatches, and ensure `--collect-only --post-verify-only` prints only the SSIM grid + verifier + highlights entries (with hub-relative logs).
+   - When executing the new mode, write a short banner noting the reuse of existing phase outputs so reviewers can tell it was a verification-only sweep.
+3. Tests (`tests/study/test_phase_g_dense_orchestrator.py`):
+   - Extend the collect-only test suite to cover the new flag and assert the command count shrinks to three entries with the expected log/report names.
+   - Add `test_run_phase_g_dense_post_verify_only_executes_chain(monkeypatch, tmp_path)` that seeds fake hub paths, records the command invocations, and asserts the order `[ssim_grid, verify_dense_pipeline_artifacts, check_dense_highlights]` plus an artifact-inventory regeneration call.
+4. Evidence commands (archive logs under `$HUB`):
+   - `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -k post_verify_only -vv | tee "$HUB"/collect/pytest_collect_orchestrator_post_verify_only.log`
+   - `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain -vv | tee "$HUB"/green/pytest_post_verify_only.log`
+   - `python plans/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`
+   - `python plans/.../bin/run_phase_g_dense.py --hub "$HUB" --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log`
+   - `python plans/.../bin/check_dense_highlights_match.py --hub "$HUB" | tee "$HUB"/analysis/check_dense_highlights_manual.log` (only if the automated pass surfaces issues; otherwise rely on orchestrator logs)
+5. Update `$HUB/summary/summary.md` with run duration, MS-SSIM/MAE deltas (±0.000 / ±0.000000), preview verdict, verifier/highlights log locations, new pytest selectors, and the rerun command lines. Sync docs/fix_plan.md + galph_memory.
 
 ## Acceptance Criteria
-- `run_phase_g_dense.py --collect-only` now prints verifier/highlights commands (with log/report paths) after the SSIM grid line.
-- Default runs produce `analysis/verification_report.json`, `analysis/verify_dense_stdout.log`, and `analysis/check_dense_highlights.log` without manual intervention; `--skip-post-verify` disables them for debugging.
-- New pytest coverage exercises the post-verify automation (collect-only expectation + monkeypatched execution) with RED/GREEN evidence in `{collect,red,green}/`.
-- The counted dense run populates `{analysis,cli}` with real Phase C→G outputs, SSIM grid summary, verification report, highlights logs, and `artifact_inventory.txt` listing the new files.
-- `$HUB/summary/summary.md` reports MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview guard outcome, CLI/log references, and pytest selectors; docs/fix_plan.md references this hub.
+- `run_phase_g_dense.py --collect-only --post-verify-only` emits exactly three commands (SSIM grid, verifier, highlights checker) with hub-relative log/report paths and an explicit note that Phase C→F are skipped.
+- Executing `run_phase_g_dense.py --post-verify-only` skips hub preparation, does **not** touch Phase C outputs, but regenerates SSIM grid + verification artifacts and refreshes `analysis/artifact_inventory.txt`.
+- New pytest coverage proves both collect-only output and execution order for the post-verify-only flag (RED/green logs archived under `{collect,green}/` with selectors recorded in summary.md).
+- The counted dense run fills `{analysis,cli}` with Phase C→G payloads plus `verification_report.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, `metrics_delta_summary.json`, `metrics_delta_highlights_preview.txt`, `ssim_grid_summary.md`, and `artifact_inventory.txt`.
+- `$HUB/summary/summary.md` logs MS-SSIM/MAE deltas, highlights preview verdict, CLI/log/test references, and documents the new `--post-verify-only` workflow; docs/fix_plan.md references this run.
 
 ## Evidence & Artifacts
 - Hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`
-- Expected subdirs: `cli/` (phase logs + run_phase_g_dense_stdout.log), `analysis/` (metrics summaries, verification_report.json, ssim_grid_summary.md, check_dense_highlights.log, verify_dense_stdout.log, artifact_inventory.txt), `collect/`, `red/`, `green/`, `plan/`, `summary/`.
+- Subdirs to populate: `cli/` (phase logs + run_phase_g_dense_stdout.log + post_verify_only log), `analysis/` (metrics/preview summaries, verification_report.json, verify_dense/check_highlights logs, artifact_inventory.txt), `collect/`, `red/`, `green/`, `plan/`, `summary/`.
 
 ## Findings Applied
-- **POLICY-001** — PyTorch dependency must remain available for Phase E/F helpers invoked inside the orchestrator.
-- **CONFIG-001** — Preserve `update_legacy_dict` ordering inside generation/training modules by reusing the AUTHORITATIVE_CMDS_DOC export before each subprocess.
-- **DATA-001** — Verifier enforces the canonical NPZ/JSON layout; post-verify automation must not skip it.
-- **TYPE-PATH-001** — All success banners, CLI logs, and inventory entries stay hub-relative.
-- **STUDY-001** — Report MS-SSIM (±0.000) and MAE (±0.000000) deltas per model/view in the summary.
-- **TEST-CLI-001** — Post-verify commands capture RED/GREEN logs under the hub to prove CLI coverage.
-- **PREVIEW-PHASE-001** — Highlights checker + SSIM grid summary continue to enforce phase-only previews.
-- **PHASEC-METADATA-001** — Phase C guard remains active; reruns must not bypass metadata validation.
+- **POLICY-001** — Keep PyTorch available for Phase F recon + verifiers; export `AUTHORITATIVE_CMDS_DOC` before every subprocess.
+- **CONFIG-001** — Preserve legacy bridge ordering in generation/training; new flag must not reorder env setup.
+- **DATA-001** — Verification-only runs still enforce NPZ/JSON layout without regenerating data.
+- **TYPE-PATH-001** — All printed/logged paths stay hub-relative; artifact inventory refreshed after post-verify sweeps.
+- **STUDY-001** — Report MS-SSIM (±0.000) and MAE (±0.000000) deltas in summary.
+- **TEST-CLI-001** — Record RED/GREEN/collect logs for the new flag selectors; ensure CLI filenames match contract.
+- **PREVIEW-PHASE-001** — Post-verify-only mode must still enforce phase-only previews via SSIM grid + highlights checker.
+- **PHASEC-METADATA-001** — Verification-only runs do **not** mutate Phase C data; guard remains intact.
 
 ## Risks & Mitigations
-- **Runtime pressure:** Dense Phase C→G runs can take hours; capture intermediate logs and plan for retries with `--clobber`.
-- **Post-verify flakiness:** If automation masks verifier failures, keep blocker logs and rerun manually with `--skip-post-verify` for debugging.
-- **Storage churn:** A failed run leaves partially populated `data/` trees; ensure `prepare_hub(..., clobber=True)` runs before retrying.
-- **Docs drift:** Update ledger + summary immediately after the run so the automation change and counted evidence stay in sync.
+- **Flag misuse:** Disallow `--post-verify-only` with `--clobber` or `--skip-post-verify` to prevent accidental data deletion or missing guards.
+- **Evidence gaps:** If the dense run fails mid-phase, retain blocker log, document the failure, and rerun with `--clobber` before attempting post-verify-only.
+- **Time pressure:** Dense Phase C→G still takes hours; capture incremental CLI logs so failures are diagnosable.
+- **Doc drift:** Update docs/fix_plan.md + summary.md immediately after the run to keep ledger + artifacts aligned with the new workflow.

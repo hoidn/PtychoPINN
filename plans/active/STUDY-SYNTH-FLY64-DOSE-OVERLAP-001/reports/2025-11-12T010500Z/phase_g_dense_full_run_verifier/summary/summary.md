@@ -1,4 +1,10 @@
 ### Turn Summary
+Reality check: commit 74a97db5 landed the default-on post-verify automation + pytest proofs, yet the 2025-11-12 hub still has empty `{analysis,cli}` folders, so we re-scoped the plan around delivering the counted dense run plus a `--post-verify-only` mode to revalidate hubs without rerunning Phase C→F.
+Updated plan.md, docs/fix_plan.md, input.md, and the hub metadata to target the new workflow (add the flag in `run_phase_g_dense.py`, extend orchestrator tests, run the dense pipeline with `--clobber`, then rerun the orchestrator in post-verify-only mode for verification evidence).
+Next: implement the flag/tests, archive RED/GREEN logs for the new selectors, execute the dense Phase C→G run, rerun `--post-verify-only`, and capture MS-SSIM/MAE deltas + preview verdict + CLI/log references under this hub.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary/summary.md, summary.md)
+
+### Turn Summary
 Reality check shows the highlights checker + verifier updates already merged, so we re-scoped this focus to wiring post-verify automation into `run_phase_g_dense.py` plus executing the counted dense run inside the existing hub.
 Updated plan.md, docs/fix_plan.md, input.md, and galph_memory with a ready-for-implementation Do Now that adds the post-verify flag/tests, runs the pipeline with `--clobber`, and captures verifier/highlights evidence + MS-SSIM/MAE deltas under 2025-11-12T010500Z.
 Next: implement the automation/tests, run the dense pipeline (post-verify on), archive verifier/highlights logs + JSON report, and roll the metrics + ledger/doc updates into this hub.
