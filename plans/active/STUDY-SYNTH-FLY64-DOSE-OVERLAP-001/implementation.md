@@ -128,6 +128,12 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - Manifests/metrics bundle to record: `gridsize`, `s_img`, `n_groups`, `neighbor_count` (default 6), `probe_diameter_px`, RNG seeds, and the three metric averages (omit Metric 1 for gs=1).
 - CLI messages and docs will deprecate dense/sparse labels; orchestration continues to produce per-split metrics JSON and an aggregated bundle.
 
+#### Do Now (Engineering)
+- Implement overlap metrics in `studies/fly64_dose_overlap/overlap.py`: remove geometry/spacing acceptance gates and greedy selection; deprecate dense/sparse labels. Add API to compute Metric 1 (gs=2), Metric 2, and Metric 3 per `specs/overlap_metrics.md` using disc overlap and parameterized `probe_diameter_px`. Preserve existing grouping semantics (duplication allowed) and unified `n_groups` behavior.
+- Add explicit controls (`--gridsize`, `--s_img`, `--n_groups`, `--neighbor-count`, `--probe-diameter-px`) to the Phase D CLI; prefer a Python API and wrap the CLI around it.
+- Update tests in `tests/study/test_dose_overlap_overlap.py` to cover disc overlap, Metric 1/2/3, gs=1 skipping Metric 1, and updated metrics bundle fields. Remove assertions tied to dense/sparse and spacing acceptance.
+- Do not run Phase G orchestrations until Phase D metrics are implemented and tests are GREEN.
+
 **Metrics Bundle (to be updated):**
 - Aggregated JSON will contain per-split outputs plus metric fields: `metric_1_group_based_avg` (gs=2), `metric_2_image_based_avg`, `metric_3_group_to_group_avg`, along with parameters listed above. Spacing acceptance fields will be removed.
 
