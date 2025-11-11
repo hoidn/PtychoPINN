@@ -3471,6 +3471,21 @@
 - <Action State>: [ready_for_implementation]
 - focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=2 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=ready_for_implementation
 
+## 2025-11-11T115413Z: Dense rerun evidence directive refresh (still waiting for counted run)
+- dwell: 2 (third consecutive planning loop on this focus; keeping it ready_for_implementation per guardrail)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` reported up to date; exported AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md for downstream commands before editing artifacts.
+  - Reality check against `git log` (`32954c41`) plus hub inspection confirmed nothing new landed since the last loop—`analysis/` still holds only blocker.log while `cli/` contains the earlier Phase C failure logs—so the dense run never progressed past Phase C in the other clone.
+  - Re-read docs/index.md pointers and relevant findings (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001) to keep guardrails in scope.
+  - Updated plan/plan.md timestamp 2025-11-11T115413Z plus summary.md + summary/summary.md with the renewed ready_for_implementation directive; rewrote docs/fix_plan.md (Last Updated s=263) and input.md so Ralph reruns the mapped pytest guards, executes `run_phase_g_dense.py --clobber` followed by `--post-verify-only` from `/home/ollie/Documents/PtychoPINN`, and publishes MS-SSIM ±0.000 / MAE ±0.000000 + preview/verifier/inventory evidence once artifacts populate `{analysis,cli}`.
+- Next actions for Ralph: follow the updated Do Now—rerun the collect-only + execution selectors, execute both CLI commands into the 2025-11-12 hub with tee’d logs, then record SSIM grid, verification, highlights, metrics, preview verdict, and MS-SSIM/MAE deltas across summary.md, docs/fix_plan.md, and galph_memory when evidence lands.
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=2 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=ready_for_implementation
+
 ## 2025-11-11T114500Z: Dense rerun repo-path guard + evidence directive
 - dwell: 2 (third consecutive planning loop; handing off ready_for_implementation per guardrail)
 - Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)

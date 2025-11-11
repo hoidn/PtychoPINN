@@ -1,9 +1,9 @@
-# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-11T114500Z)
+# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-11T115413Z)
 
 ## Reality Check
-- Latest engineer activity on this focus is Ralph’s `cfd4f307` log-only sync; no production code has changed since the verification/banner guards landed.
-- The hub still holds only `cli/run_phase_g_dense_stdout.log` and `cli/phase_c_generation.log`. There is **still no `analysis/` directory**, so SSIM grid summaries, verification report/log, metrics deltas, preview artifacts, and artifact inventory evidence remain missing.
-- `analysis/blocker.log` shows the last counted attempt died during Phase C generation while running from `/home/ollie/Documents/PtychoPINN2` (`--output-root .../data/phase_c`), so none of the Phase D–G commands ever ran and the ledger guardrail (TEST-CLI-001 + PREVIEW-PHASE-001) is still unsatisfied.
+- Latest sync `32954c41` is another supervisor bookkeeping commit; Ralph hasn’t shipped any dense rerun or verification evidence since the prior blocker logs.
+- The hub still contains only `cli/run_phase_g_dense_stdout.log`, `cli/phase_c_generation.log`, `cli/phase_d_dense.log`, and `analysis/blocker.log`. There is **still no populated `analysis/` directory** (no SSIM grid summaries, verification report/log, metrics deltas, preview artifacts, or artifact inventory evidence), so Phase G exit criteria remain unmet.
+- `analysis/blocker.log` confirms the last counted attempt died during Phase C generation while running from `/home/ollie/Documents/PtychoPINN2` (`--output-root .../data/phase_c`), meaning Phase D–G never started and the ledger guardrail (TEST-CLI-001 + PREVIEW-PHASE-001) is still unsatisfied.
 - Until a dense Phase C→G rerun immediately followed by `--post-verify-only` completes from **this** repo (`/home/ollie/Documents/PtychoPINN`), we cannot demonstrate SSIM grid/verifier/highlights success with hub-relative paths, prove `analysis/artifact_inventory.txt` regeneration, or capture MS-SSIM/MAE + preview evidence.
 
 ## Objectives (single Ralph loop)

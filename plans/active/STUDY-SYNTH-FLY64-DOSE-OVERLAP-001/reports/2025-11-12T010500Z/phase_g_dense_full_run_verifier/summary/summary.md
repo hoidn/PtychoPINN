@@ -1,4 +1,10 @@
 ### Turn Summary
+Reality check after sync 32954c41 confirmed the hub still lacks any `analysis/` payloads (only `cli/run_phase_g_dense_stdout.log`, `cli/phase_c_generation.log`, `cli/phase_d_dense.log`, and `analysis/blocker.log`), so the dense rerun never progressed past Phase C in the other clone.
+Updated plan/plan.md (timestamp 2025-11-11T115413Z), docs/fix_plan.md, and input.md with the same ready_for_implementation directive: rerun the mapped pytest collect/execution guards, execute `run_phase_g_dense.py --clobber` plus `--post-verify-only` from `/home/ollie/Documents/PtychoPINN`, and publish MS-SSIM ±0.000 / MAE ±0.000000 deltas with preview/verification references once artifacts land.
+Next: Ralph must run both pytest selectors, perform the dense run + verification sweep into this hub, and document SSIM grid + verifier/highlights outputs (with inventory + metrics digests) across summary.md, docs/fix_plan.md, and galph_memory before closing the loop.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md, summary/summary.md, docs/fix_plan.md)
+
+### Turn Summary
 Re-checked the 2025-11-12 dense hub: still only CLI logs (no analysis/), and analysis/blocker.log confirms the last run died in Phase C while executing from /home/ollie/Documents/PtychoPINN2, so no SSIM grid/verification artifacts were ever produced.
 Updated plan/plan.md, docs/fix_plan.md, and input.md with the ready-for-implementation Do Now that forces Ralph to work from /home/ollie/Documents/PtychoPINN, rerun the mapped pytest guards, execute run_phase_g_dense.py --clobber plus --post-verify-only, and log the resulting SSIM grid/verification/highlights outputs into this hub.
 Next: Ralph must run the two pytest selectors, perform the counted dense run and immediate verification-only sweep into the hub, then publish MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, and verifier/highlights references across the hub summaries and docs/fix_plan.md once artifacts land.
