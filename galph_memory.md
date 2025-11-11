@@ -3222,3 +3222,16 @@
   - Provisioned hub `2025-11-11T001033Z/phase_g_dense_full_execution_real_run` with plan/summary scaffolding, updated docs/fix_plan.md (`Last Updated` + new attempt entry) and rewrote input.md to focus on (1) tightening highlight metadata tests + verifier output, (2) rerunning `run_phase_g_dense.py --clobber`, and (3) archiving verifier/highlight evidence + doc updates.
 - Next actions for Ralph: follow the new Do Now to drive the highlight metadata tests RED→GREEN, patch `validate_metrics_delta_highlights` for consistent metadata fields, rerun the dense pipeline into the new hub, run the verifier/highlight checker + pytest collect-only, and document MS-SSIM/MAE deltas plus CLI guard status in summary/docs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-11T003351Z: Delta preview helper plan
+- dwell: 2 (second consecutive planning loop after the 2025-11-11T001033Z hand-off; issuing ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T003351Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `rg -n "metrics_delta_highlights_preview"` confirmed the preview artifact is still absent from run_phase_g_dense.py (only docs/tests mention it), so the hardened validator will keep failing even after the helper changes.
+  - Inspected run_phase_g_dense.py:985-1058 and verified all deltas still use `f"{delta:+.3f}"`, contradicting the ±0.000/±0.000000 precision rules encoded in `validate_metrics_delta_highlights` and the RED fixtures (tests/study/test_phase_g_dense_artifacts_verifier.py:2108-2134).
+  - Created new hub `2025-11-11T003351Z` with plan/summary scaffolding, updated docs/fix_plan.md + input.md, and added a Do Now that forces a reusable helper + pytest before rerunning the dense pipeline + verifier (AUTHORITATIVE_CMDS_DOC guard captured).
+- Next actions for Ralph: implement the helper + test, rerun targeted pytest selectors, execute the dense run into the new hub, pass the verifier/highlights checker, and archive summary/docs with MS-SSIM/MAE deltas and CLI evidence.
+- <Action State>: [ready_for_implementation]
