@@ -89,6 +89,9 @@ def main() -> int:
     ap.add_argument("--autocommit-whitelist", type=str,
                     default="input.md,galph_memory.md,docs/fix_plan.md,plans/**/*.md,prompts/**/*.md",
                     help="Comma-separated glob whitelist for supervisor auto-commit (doc/meta only)")
+    ap.add_argument("--autocommit-ignore-globs", type=str,
+                    default=os.getenv("SUPERVISOR_AUTOCOMMIT_IGNORE_GLOBS", "*.bak,*.tmp,*~,*.swp,.DS_Store"),
+                    help="Comma-separated glob patterns that are ignored by doc/meta auto-commit instead of blocking it")
     ap.add_argument("--max-autocommit-bytes", type=int, default=int(os.getenv("MAX_AUTOCOMMIT_BYTES", "1048576")),
                     help="Maximum per-file size (bytes) eligible for auto-commit")
     # Pre-pull auto-commit: try to auto-commit doc/meta before initial pull if pull fails due to local mods
@@ -223,6 +226,7 @@ def main() -> int:
         If forbidden_paths non-empty, caller should abort handoff.
         """
         whitelist = [p.strip() for p in args_ns.autocommit_whitelist.split(',') if p.strip()]
+        ignore_globs = [p.strip() for p in (getattr(args_ns, "autocommit_ignore_globs", "") or "").split(',') if p.strip()]
         max_bytes = args_ns.max_autocommit_bytes
         # Collect dirty paths (modifications and untracked)
         unstaged_mod = _list(["git", "diff", "--name-only", "--diff-filter=M"]) 
@@ -240,7 +244,11 @@ def main() -> int:
             dirty_all = [p for p in dirty_all if not _in_submodule(p)]
         allowed: list[str] = []
         forbidden: list[str] = []
+        ignored: list[str] = []
         for p in dirty_all:
+            if ignore_globs and _matches_any(p, ignore_globs):
+                ignored.append(p)
+                continue
             if _matches_any(p, whitelist):
                 try:
                     if os.path.isfile(p) and os.path.getsize(p) <= max_bytes:
@@ -256,6 +264,9 @@ def main() -> int:
             if log_func:
                 log_func("Auto-commit blocked by forbidden dirty paths: " + ", ".join(forbidden))
             return False, forbidden
+
+        if ignored and log_func:
+            log_func("[autocommit] Ignoring dirty paths via ignore-globs: " + ", ".join(ignored))
 
         committed = False
         if allowed:
