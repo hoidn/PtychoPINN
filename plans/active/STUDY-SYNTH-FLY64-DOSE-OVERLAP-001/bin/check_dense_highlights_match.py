@@ -10,11 +10,14 @@ import argparse
 import json
 from pathlib import Path
 
-EXPECTED_MODELS = ("baseline", "ptychi")
-EXPECTED_FIELDS = ("ms_ssim_phase", "mae_phase")
+# Expected models and metrics match the verifier schema
+EXPECTED_MODELS = ("vs_Baseline", "vs_PtyChi")
+EXPECTED_METRICS = ("ms_ssim", "mae")
 
 
-def format_delta(value: float, precision: int) -> str:
+def format_delta(value: float, metric_type: str) -> str:
+    """Format delta value with metric-specific precision (MS-SSIM: 3, MAE: 6)."""
+    precision = 3 if "ms_ssim" in metric_type.lower() else 6
     sign = "+" if value >= 0 else "-"
     magnitude = abs(value)
     return f"{sign}{magnitude:.{precision}f}"
@@ -39,21 +42,30 @@ def main() -> None:
     highlights_text = highlights_path.read_text().strip()
     preview_text = preview_path.read_text().strip()
 
+    # Extract deltas from JSON (matching run_phase_g_dense.py structure)
+    deltas = summary.get('deltas', {})
+    if not deltas:
+        raise SystemExit("No deltas found in metrics_delta_summary.json")
+
     failures = []
     for model in EXPECTED_MODELS:
-        if model not in summary:
-            failures.append(f"Model '{model}' not present in summary JSON")
+        if model not in deltas:
+            failures.append(f"Model '{model}' not present in summary JSON deltas")
             continue
-        deltas = summary[model]
-        for field in EXPECTED_FIELDS:
-            if field not in deltas:
-                failures.append(f"Field '{field}' missing for model '{model}'")
+        model_deltas = deltas[model]
+        for metric in EXPECTED_METRICS:
+            if metric not in model_deltas:
+                failures.append(f"Metric '{metric}' missing for model '{model}'")
                 continue
-            precision = 3 if "ms_ssim" in field else 6
-            expected = format_delta(deltas[field], precision)
+            # Use phase delta for highlights (per STUDY-001)
+            phase_value = model_deltas[metric].get('phase')
+            if phase_value is None:
+                failures.append(f"Phase value missing for {model}.{metric}")
+                continue
+            expected = format_delta(phase_value, metric)
             for label, block in (("highlights", highlights_text), ("preview", preview_text)):
                 if expected not in block:
-                    failures.append(f"{label} text missing {model}:{field} value {expected}")
+                    failures.append(f"{label} text missing {model}.{metric} phase value {expected}")
 
     if failures:
         raise SystemExit("\n".join(failures))

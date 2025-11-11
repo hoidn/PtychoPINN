@@ -308,36 +308,79 @@ def validate_metrics_delta_summary(delta_json_path: Path, hub: Path) -> dict[str
 
 def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | None = None) -> dict[str, Any]:
     """
-    Validate metrics_delta_highlights.txt has exactly 4 lines with expected format.
+    Validate metrics_delta_highlights.txt has exactly 4 lines with expected format,
+    and enforce presence of preview file and value matching with metrics_delta_summary.json.
 
     Args:
         highlights_txt_path: Path to metrics_delta_highlights.txt
-        hub: Optional hub directory (unused, kept for API compatibility)
+        hub: Hub directory (required for loading metrics_delta_summary.json and preview)
 
     Returns:
-        dict with validation result
+        dict with validation result including:
+        - valid: bool
+        - checked_models: list[str] (models checked: vs_Baseline, vs_PtyChi)
+        - missing_models: list[str] (if any model missing from JSON)
+        - missing_metrics: list[str] (if ms_ssim or mae missing)
+        - missing_preview_values: list[str] (formatted delta strings missing from preview)
+        - mismatched_highlight_values: list[dict] (highlights that don't match JSON with expected/actual)
     """
     result = validate_file_exists(highlights_txt_path, 'Metrics delta highlights')
     if not result['valid']:
         return result
 
+    if hub is None:
+        result['valid'] = False
+        result['error'] = 'Hub directory required for enhanced validation'
+        return result
+
+    # Check for preview file
+    preview_path = highlights_txt_path.parent / "metrics_delta_highlights_preview.txt"
+    if not preview_path.exists():
+        result['valid'] = False
+        result['error'] = 'Preview file not found: metrics_delta_highlights_preview.txt'
+        return result
+
+    # Load metrics_delta_summary.json
+    delta_summary_path = highlights_txt_path.parent / "metrics_delta_summary.json"
+    if not delta_summary_path.exists():
+        result['valid'] = False
+        result['error'] = 'Delta summary JSON not found: metrics_delta_summary.json'
+        return result
+
     try:
-        content = highlights_txt_path.read_text()
+        with delta_summary_path.open('r') as f:
+            delta_summary = json.load(f)
+    except (json.JSONDecodeError, Exception) as e:
+        result['valid'] = False
+        result['error'] = f'Failed to load delta summary JSON: {e}'
+        return result
+
+    # Read highlight and preview files
+    try:
+        highlights_content = highlights_txt_path.read_text()
+        preview_content = preview_path.read_text()
     except Exception as e:
         result['valid'] = False
         result['error'] = f'Failed to read file: {e}'
         return result
 
-    lines = [line.strip() for line in content.strip().splitlines() if line.strip()]
+    highlights_lines = [line.strip() for line in highlights_content.strip().splitlines() if line.strip()]
+    preview_lines = [line.strip() for line in preview_content.strip().splitlines() if line.strip()]
 
     # Must have exactly 4 lines (MS-SSIM + MAE for Baseline and PtyChi)
-    if len(lines) != 4:
+    if len(highlights_lines) != 4:
         result['valid'] = False
-        result['error'] = f'Expected exactly 4 lines, got {len(lines)}'
-        result['line_count'] = len(lines)
+        result['error'] = f'Expected exactly 4 lines in highlights, got {len(highlights_lines)}'
+        result['line_count'] = len(highlights_lines)
         return result
 
-    # Validate expected prefixes
+    if len(preview_lines) != 4:
+        result['valid'] = False
+        result['error'] = f'Expected exactly 4 lines in preview, got {len(preview_lines)}'
+        result['preview_line_count'] = len(preview_lines)
+        return result
+
+    # Validate expected prefixes for highlights
     expected_prefixes = [
         'MS-SSIM Δ (PtychoPINN - Baseline)',
         'MS-SSIM Δ (PtychoPINN - PtyChi)',
@@ -345,14 +388,96 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
         'MAE Δ (PtychoPINN - PtyChi)',
     ]
 
-    for i, (line, expected_prefix) in enumerate(zip(lines, expected_prefixes)):
+    for i, (line, expected_prefix) in enumerate(zip(highlights_lines, expected_prefixes)):
         if not line.startswith(expected_prefix):
             result['valid'] = False
             result['error'] = f'Line {i+1} does not start with expected prefix: {expected_prefix}'
             result['invalid_line'] = line
             return result
 
-    result['line_count'] = len(lines)
+    # Helper to format delta values with proper precision
+    def format_delta(value: float | None, metric_type: str) -> str:
+        """Format delta value with metric-specific precision (MS-SSIM: 3, MAE: 6)."""
+        if value is None:
+            return "None"
+        precision = 3 if "ms_ssim" in metric_type.lower() else 6
+        sign = "+" if value >= 0 else "-"
+        magnitude = abs(value)
+        return f"{sign}{magnitude:.{precision}f}"
+
+    # Extract deltas from JSON and validate structure
+    deltas = delta_summary.get('deltas', {})
+    checked_models = []
+    missing_models = []
+    missing_metrics = []
+    missing_preview_values = []
+    mismatched_highlight_values = []
+
+    expected_models = ['vs_Baseline', 'vs_PtyChi']
+    expected_metrics = ['ms_ssim', 'mae']
+
+    # Build expected formatted values from JSON
+    expected_values = {}  # key: (model, metric) -> formatted_phase_delta
+    for model in expected_models:
+        checked_models.append(model)
+        if model not in deltas:
+            missing_models.append(model)
+            continue
+        for metric in expected_metrics:
+            if metric not in deltas[model]:
+                missing_metrics.append(f"{model}.{metric}")
+                continue
+            # Use phase delta for highlights (per STUDY-001)
+            phase_value = deltas[model][metric].get('phase')
+            if phase_value is not None:
+                formatted = format_delta(phase_value, metric)
+                expected_values[(model, metric)] = formatted
+
+    # Check that all expected values are present in both highlights and preview
+    for (model, metric), formatted_delta in expected_values.items():
+        # Check preview
+        if formatted_delta not in preview_content:
+            missing_preview_values.append(f"{model}.{metric} phase: {formatted_delta}")
+
+        # Check highlights
+        if formatted_delta not in highlights_content:
+            mismatched_highlight_values.append({
+                "model": model,
+                "metric": metric,
+                "expected": formatted_delta,
+                "actual": "not found in highlights"
+            })
+
+    # Report validation result
+    if missing_models or missing_metrics or missing_preview_values or mismatched_highlight_values:
+        result['valid'] = False
+        errors = []
+        if missing_models:
+            errors.append(f"Missing models in delta JSON: {', '.join(missing_models)}")
+        if missing_metrics:
+            errors.append(f"Missing metrics in delta JSON: {', '.join(missing_metrics)}")
+        if missing_preview_values:
+            errors.append(f"Preview mismatch: expected values not found: {', '.join(missing_preview_values)}")
+        if mismatched_highlight_values:
+            mismatch_summary = "; ".join([
+                f"{m['model']}.{m['metric']}: expected {m['expected']}, got {m['actual']}"
+                for m in mismatched_highlight_values
+            ])
+            errors.append(f"Highlight mismatch: {mismatch_summary}")
+        result['error'] = " | ".join(errors)
+        result['checked_models'] = checked_models
+        result['missing_models'] = missing_models
+        result['missing_metrics'] = missing_metrics
+        result['missing_preview_values'] = missing_preview_values
+        result['mismatched_highlight_values'] = mismatched_highlight_values
+        return result
+
+    result['line_count'] = len(highlights_lines)
+    result['checked_models'] = checked_models
+    result['missing_models'] = []
+    result['missing_metrics'] = []
+    result['missing_preview_values'] = []
+    result['mismatched_highlight_values'] = []
     return result
 
 

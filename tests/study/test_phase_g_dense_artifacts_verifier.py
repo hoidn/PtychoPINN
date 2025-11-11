@@ -185,15 +185,24 @@ MS-SSIM improvements observed.
 
     highlights_txt = """MS-SSIM Δ (PtychoPINN - Baseline): +0.050
 MS-SSIM Δ (PtychoPINN - PtyChi): +0.070
-MAE Δ (PtychoPINN - Baseline): -0.050
-MAE Δ (PtychoPINN - PtyChi): -0.070
+MAE Δ (PtychoPINN - Baseline): -0.050000
+MAE Δ (PtychoPINN - PtyChi): -0.070000
 """
     (analysis / "metrics_delta_highlights.txt").write_text(highlights_txt)
+
+    # Create preview file with matching values
+    preview_txt = """MS-SSIM Δ (PtychoPINN - Baseline): +0.050
+MS-SSIM Δ (PtychoPINN - PtyChi): +0.070
+MAE Δ (PtychoPINN - Baseline): -0.050000
+MAE Δ (PtychoPINN - PtyChi): -0.070000
+"""
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(preview_txt)
 
     # Create artifact_inventory.txt with POSIX-relative paths
     inventory_content = """analysis/aggregate_highlights.txt
 analysis/comparison_manifest.json
 analysis/metrics_delta_highlights.txt
+analysis/metrics_delta_highlights_preview.txt
 analysis/metrics_delta_summary.json
 analysis/metrics_digest.md
 analysis/metrics_summary.json
@@ -1368,9 +1377,16 @@ def test_verify_dense_pipeline_highlights_missing_model(tmp_path: Path) -> None:
         "MAE Δ (PtychoPINN - Baseline): -0.020\n"
     )
 
+    # Create preview file (but with only Baseline, missing PtyChi - same as highlights)
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.010\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.020\n"
+    )
+
     (analysis / "artifact_inventory.txt").write_text(
         "analysis/metrics_summary.json\n"
         "analysis/metrics_delta_highlights.txt\n"
+        "analysis/metrics_delta_highlights_preview.txt\n"
     )
 
     # Create minimal CLI log
@@ -1486,9 +1502,18 @@ def test_verify_dense_pipeline_highlights_mismatched_value(tmp_path: Path) -> No
         "MAE Δ (PtychoPINN - PtyChi): -0.015\n"
     )
 
+    # Create preview file (correct format so we can test that highlights itself is wrong)
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.010\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.005\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.020\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.015\n"
+    )
+
     (analysis / "artifact_inventory.txt").write_text(
         "analysis/metrics_summary.json\n"
         "analysis/metrics_delta_highlights.txt\n"
+        "analysis/metrics_delta_highlights_preview.txt\n"
     )
 
     # Create minimal CLI log
@@ -1596,25 +1621,48 @@ def test_verify_dense_pipeline_highlights_complete(tmp_path: Path) -> None:
     (analysis / "metrics_summary.md").write_text("# Metrics Summary")
     (analysis / "aggregate_highlights.txt").write_text("highlights")
     (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+    # Create proper schema matching run_phase_g_dense.py output
     (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "generated_at": "2025-11-10T10:00:00Z",
+        "source_metrics": "analysis/metrics_summary.json",
         "deltas": {
-            "MS-SSIM": {
-                "PtychoPINN_vs_Baseline": {"delta": 0.010, "preview": "+0.010"},
-                "PtychoPINN_vs_PtyChi": {"delta": 0.005, "preview": "+0.005"}
+            "vs_Baseline": {
+                "ms_ssim": {
+                    "amplitude": 0.010,
+                    "phase": 0.010
+                },
+                "mae": {
+                    "amplitude": -0.000020,
+                    "phase": -0.000020
+                }
             },
-            "MAE": {
-                "PtychoPINN_vs_Baseline": {"delta": -0.020, "preview": "-0.020"},
-                "PtychoPINN_vs_PtyChi": {"delta": -0.015, "preview": "-0.015"}
+            "vs_PtyChi": {
+                "ms_ssim": {
+                    "amplitude": 0.005,
+                    "phase": 0.005
+                },
+                "mae": {
+                    "amplitude": -0.000015,
+                    "phase": -0.000015
+                }
             }
         }
     }))
 
-    # Create COMPLETE and CORRECT highlights
+    # Create COMPLETE and CORRECT highlights (using phase values)
     (analysis / "metrics_delta_highlights.txt").write_text(
         "MS-SSIM Δ (PtychoPINN - Baseline): +0.010\n"
         "MS-SSIM Δ (PtychoPINN - PtyChi): +0.005\n"
-        "MAE Δ (PtychoPINN - Baseline): -0.020\n"
-        "MAE Δ (PtychoPINN - PtyChi): -0.015\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.000020\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.000015\n"
+    )
+
+    # Create COMPLETE and CORRECT preview (same values as highlights for this test)
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.010\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.005\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.000020\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.000015\n"
     )
 
     (analysis / "artifact_inventory.txt").write_text(
@@ -1625,6 +1673,7 @@ def test_verify_dense_pipeline_highlights_complete(tmp_path: Path) -> None:
         "analysis/metrics_digest.md\n"
         "analysis/metrics_delta_summary.json\n"
         "analysis/metrics_delta_highlights.txt\n"
+        "analysis/metrics_delta_highlights_preview.txt\n"
         "analysis/artifact_inventory.txt\n"
         "cli/run_phase_g_dense.log\n"
     )
@@ -1684,3 +1733,452 @@ def test_verify_dense_pipeline_highlights_complete(tmp_path: Path) -> None:
     # Verify the check captured line_count=4
     assert highlights_check.get('line_count') == 4, \
         f"Expected line_count=4, got: {highlights_check.get('line_count')}"
+
+
+def test_verify_dense_pipeline_highlights_missing_preview(tmp_path: Path) -> None:
+    """
+    RED test: Verify that highlights validation fails when metrics_delta_highlights_preview.txt
+    is missing even when metrics_delta_highlights.txt exists and is valid.
+
+    Acceptance:
+    - Create a hub with valid metrics_delta_highlights.txt but NO preview file
+    - Create valid metrics_delta_summary.json
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with non-zero status
+    - Assert the verification report JSON shows a validation failure for highlights
+    - Assert error message mentions missing preview file
+
+    Follows input.md Do Now step 1 (TDD RED for missing preview).
+    """
+    # Setup: Create hub with highlights but missing preview
+    hub = tmp_path / "hub_missing_preview"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal artifacts so other checks don't all fail
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+
+    # Create valid metrics_delta_summary.json with proper schema
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "generated_at": "2025-11-10T10:00:00Z",
+        "source_metrics": "analysis/metrics_summary.json",
+        "deltas": {
+            "vs_Baseline": {
+                "ms_ssim": {
+                    "amplitude": 0.010,
+                    "phase": 0.015
+                },
+                "mae": {
+                    "amplitude": -0.000020,
+                    "phase": -0.000025
+                }
+            },
+            "vs_PtyChi": {
+                "ms_ssim": {
+                    "amplitude": 0.005,
+                    "phase": 0.008
+                },
+                "mae": {
+                    "amplitude": -0.000015,
+                    "phase": -0.000018
+                }
+            }
+        }
+    }))
+
+    # Create VALID highlights txt
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.008\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.000018\n"
+    )
+
+    # Do NOT create metrics_delta_highlights_preview.txt (this is the missing file)
+
+    (analysis / "artifact_inventory.txt").write_text(
+        "analysis/metrics_summary.json\n"
+        "analysis/metrics_delta_highlights.txt\n"
+        "analysis/metrics_delta_summary.json\n"
+    )
+
+    # Create minimal CLI log
+    (cli_dir / "run_phase_g_dense.log").write_text(
+        "[run_phase_g_dense] SUCCESS: All phases completed\n"
+    )
+
+    report_path = tmp_path / "report_missing_preview.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assert: Verification failed
+    assert exit_code != 0, "Expected non-zero exit code when preview file is missing"
+
+    # Load report and check for highlights validation failure
+    assert report_path.exists(), "Report JSON should be created even on failure"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    assert not report_data['all_valid'], "Expected all_valid=False when preview missing"
+    assert report_data['n_invalid'] > 0, "Expected at least one invalid check"
+
+    # Find the highlights validation result
+    highlights_check = None
+    for check in report_data['validations']:
+        if 'delta highlight' in check.get('description', '').lower():
+            highlights_check = check
+            break
+
+    assert highlights_check is not None, \
+        f"Expected validation check for highlights. Available checks: {[v.get('description') for v in report_data['validations']]}"
+    assert not highlights_check['valid'], \
+        "Expected highlights check to be invalid when preview file missing"
+    assert 'preview' in highlights_check.get('error', '').lower() or \
+           'not found' in highlights_check.get('error', '').lower(), \
+        f"Expected error about missing preview file, got: {highlights_check.get('error', 'none')}"
+
+
+def test_verify_dense_pipeline_highlights_preview_mismatch(tmp_path: Path) -> None:
+    """
+    RED test: Verify that highlights validation fails when preview file values
+    don't match the deltas in metrics_delta_summary.json.
+
+    Acceptance:
+    - Create a hub with valid JSON and txt files
+    - Preview txt contains values that don't match JSON deltas (wrong precision or value)
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with non-zero status
+    - Assert the verification report JSON shows validation failure
+    - Assert error metadata includes mismatched_preview_values
+
+    Follows input.md Do Now step 1 (TDD RED for preview mismatch).
+    """
+    # Setup: Create hub with mismatched preview values
+    hub = tmp_path / "hub_preview_mismatch"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal artifacts
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+
+    # Create valid metrics_delta_summary.json
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "generated_at": "2025-11-10T10:00:00Z",
+        "source_metrics": "analysis/metrics_summary.json",
+        "deltas": {
+            "vs_Baseline": {
+                "ms_ssim": {
+                    "amplitude": 0.010,
+                    "phase": 0.015
+                },
+                "mae": {
+                    "amplitude": -0.000020,
+                    "phase": -0.000025
+                }
+            },
+            "vs_PtyChi": {
+                "ms_ssim": {
+                    "amplitude": 0.005,
+                    "phase": 0.008
+                },
+                "mae": {
+                    "amplitude": -0.000015,
+                    "phase": -0.000018
+                }
+            }
+        }
+    }))
+
+    # Create highlights txt with correct formatting
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.008\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.000018\n"
+    )
+
+    # Create preview with WRONG values (doesn't match JSON)
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.999\n"  # Should be +0.015
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.008\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.000018\n"
+    )
+
+    (analysis / "artifact_inventory.txt").write_text(
+        "analysis/metrics_summary.json\n"
+        "analysis/metrics_delta_highlights.txt\n"
+        "analysis/metrics_delta_summary.json\n"
+        "analysis/metrics_delta_highlights_preview.txt\n"
+    )
+
+    # Create minimal CLI log
+    (cli_dir / "run_phase_g_dense.log").write_text(
+        "[run_phase_g_dense] SUCCESS: All phases completed\n"
+    )
+
+    report_path = tmp_path / "report_preview_mismatch.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assert: Verification failed
+    assert exit_code != 0, "Expected non-zero exit code when preview values mismatch"
+
+    # Load report and check for validation failure
+    assert report_path.exists(), "Report JSON should be created even on failure"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    assert not report_data['all_valid'], "Expected all_valid=False when preview mismatched"
+    assert report_data['n_invalid'] > 0, "Expected at least one invalid check"
+
+    # Find the highlights validation result
+    highlights_check = None
+    for check in report_data['validations']:
+        if 'delta highlight' in check.get('description', '').lower():
+            highlights_check = check
+            break
+
+    assert highlights_check is not None, \
+        f"Expected validation check for highlights. Available checks: {[v.get('description') for v in report_data['validations']]}"
+    assert not highlights_check['valid'], \
+        "Expected highlights check to be invalid when preview mismatched"
+    assert 'mismatch' in highlights_check.get('error', '').lower() or \
+           'preview' in highlights_check.get('error', '').lower(), \
+        f"Expected error about preview mismatch, got: {highlights_check.get('error', 'none')}"
+
+
+def test_verify_dense_pipeline_highlights_delta_mismatch(tmp_path: Path) -> None:
+    """
+    RED test: Verify that highlights validation fails when highlights txt values
+    don't match the deltas in metrics_delta_summary.json.
+
+    Acceptance:
+    - Create a hub with valid JSON and preview files
+    - Highlights txt contains values that don't match JSON deltas
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with non-zero status
+    - Assert the verification report JSON shows validation failure
+    - Assert error metadata includes mismatched_highlight_values with formatted deltas
+
+    Follows input.md Do Now step 1 (TDD RED for delta mismatch).
+    """
+    # Setup: Create hub with mismatched highlight values
+    hub = tmp_path / "hub_delta_mismatch"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal artifacts
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+
+    # Create valid metrics_delta_summary.json
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "generated_at": "2025-11-10T10:00:00Z",
+        "source_metrics": "analysis/metrics_summary.json",
+        "deltas": {
+            "vs_Baseline": {
+                "ms_ssim": {
+                    "amplitude": 0.010,
+                    "phase": 0.015
+                },
+                "mae": {
+                    "amplitude": -0.000020,
+                    "phase": -0.000025
+                }
+            },
+            "vs_PtyChi": {
+                "ms_ssim": {
+                    "amplitude": 0.005,
+                    "phase": 0.008
+                },
+                "mae": {
+                    "amplitude": -0.000015,
+                    "phase": -0.000018
+                }
+            }
+        }
+    }))
+
+    # Create highlights txt with WRONG value (doesn't match JSON phase value)
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.999\n"  # Should be +0.015
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.008\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.000018\n"
+    )
+
+    # Create preview with correct values (matches JSON)
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.008\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.000018\n"
+    )
+
+    (analysis / "artifact_inventory.txt").write_text(
+        "analysis/metrics_summary.json\n"
+        "analysis/metrics_delta_highlights.txt\n"
+        "analysis/metrics_delta_summary.json\n"
+        "analysis/metrics_delta_highlights_preview.txt\n"
+    )
+
+    # Create minimal CLI log
+    (cli_dir / "run_phase_g_dense.log").write_text(
+        "[run_phase_g_dense] SUCCESS: All phases completed\n"
+    )
+
+    report_path = tmp_path / "report_delta_mismatch.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assert: Verification failed
+    assert exit_code != 0, "Expected non-zero exit code when highlight values mismatch JSON"
+
+    # Load report and check for validation failure
+    assert report_path.exists(), "Report JSON should be created even on failure"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    assert not report_data['all_valid'], "Expected all_valid=False when highlights mismatched"
+    assert report_data['n_invalid'] > 0, "Expected at least one invalid check"
+
+    # Find the highlights validation result
+    highlights_check = None
+    for check in report_data['validations']:
+        if 'delta highlight' in check.get('description', '').lower():
+            highlights_check = check
+            break
+
+    assert highlights_check is not None, \
+        f"Expected validation check for highlights. Available checks: {[v.get('description') for v in report_data['validations']]}"
+    assert not highlights_check['valid'], \
+        "Expected highlights check to be invalid when highlight values mismatched"
+    assert 'mismatch' in highlights_check.get('error', '').lower() or \
+           'highlight' in highlights_check.get('error', '').lower(), \
+        f"Expected error about highlight mismatch, got: {highlights_check.get('error', 'none')}"
