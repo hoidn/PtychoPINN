@@ -1,0 +1,207 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 15 items
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_phase_g_dense_artifacts_verifier.py>
+        Tests for Phase G dense pipeline artifact inventory validation.
+        
+        Covers the TDD cycle for validate_artifact_inventory() in verify_dense_pipeline_artifacts.py
+        <Function test_verify_dense_pipeline_artifact_inventory_blocks_missing_entries>
+          Test that verify_dense_pipeline_artifacts.py fails when artifact_inventory.txt is missing
+          or incomplete.
+          
+          Acceptance:
+          - Create a hub with analysis/ directory but NO artifact_inventory.txt
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows a validation failure for artifact inventory
+          - Assert error message mentions "artifact_inventory.txt not found" or similar
+          
+          Follows TYPE-PATH-001 (Path normalization).
+        <Function test_verify_dense_pipeline_artifact_inventory_passes_with_complete_bundle>
+          Test that verify_dense_pipeline_artifacts.py succeeds when artifact_inventory.txt
+          is present and properly formatted.
+          
+          Acceptance:
+          - Create a complete hub with all required artifacts including artifact_inventory.txt
+          - artifact_inventory.txt must contain POSIX-relative paths (no absolute paths, no backslashes)
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with status 0
+          - Assert the verification report JSON shows all_valid=True
+          - Assert the artifact_inventory validation check passes
+          
+          Follows TYPE-PATH-001 (Path normalization).
+        <Function test_verify_dense_pipeline_cli_logs_missing>
+          RED test: Verify that CLI log validation fails when required logs are missing.
+          
+          Acceptance:
+          - Create a hub with cli/ directory but missing phase logs
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows a validation failure for CLI logs
+          - Assert error message mentions missing phase banners or SUCCESS sentinel
+          
+          Follows input.md Do Now step 1 (TDD RED).
+        <Function test_verify_dense_pipeline_cli_logs_complete>
+          GREEN test: Verify that CLI log validation passes when all required logs are present.
+          
+          Acceptance:
+          - Create a hub with cli/ directory containing complete logs with all phase banners
+          - Ensure logs include [1/8]...[8/8] banners and "SUCCESS: All phases completed"
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with status 0
+          - Assert the verification report JSON shows CLI log validation passed
+          
+          Follows input.md Do Now step 1 (TDD GREEN).
+        <Function test_verify_dense_pipeline_cli_phase_logs_missing>
+          RED test: Verify that per-phase CLI log validation fails when required phase logs are missing.
+          
+          Acceptance:
+          - Create a hub with cli/ directory containing orchestrator log but missing individual phase logs
+          - Individual phase logs should include: phase_c_generation.log, phase_d_dense.log, etc.
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows a validation failure for missing phase logs
+          - Assert error message lists the specific missing phase log files
+          
+          Follows input.md Do Now step 1 (TDD RED for per-phase logs).
+        <Function test_verify_dense_pipeline_cli_phase_logs_wrong_pattern>
+          RED test: Verify that per-phase CLI log validation fails when phase logs use wrong filename patterns.
+          
+          Acceptance:
+          - Create a hub with cli/ directory containing orchestrator log and phase logs
+          - Phase logs use OLD generic names (phase_e_baseline.log) instead of dose/view-specific names
+            (phase_e_baseline_gs1_dose1000.log) that run_phase_g_dense.py actually generates
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows a validation failure for CLI logs
+          - Assert error message indicates missing phase logs with correct patterns
+          
+          Follows input.md Do Now step 1 (TDD RED for filename pattern enforcement).
+        <Function test_verify_dense_pipeline_cli_phase_logs_incomplete>
+          RED test: Verify that per-phase CLI log validation fails when phase logs lack completion sentinels.
+          
+          Acceptance:
+          - Create a hub with cli/ directory containing orchestrator log and correctly-named phase logs
+          - Phase logs use correct dose/view-specific names (e.g., phase_e_baseline_gs1_dose1000.log)
+          - But some phase logs are INCOMPLETE: missing completion sentinel at end
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows a validation failure for CLI logs
+          - Assert error message indicates incomplete phase logs missing completion markers
+          
+          Follows input.md Do Now step 1 (TDD RED for completion sentinel enforcement).
+        <Function test_verify_dense_pipeline_cli_phase_logs_complete>
+          GREEN test: Verify that per-phase CLI log validation passes when all phase logs are present.
+          
+          Acceptance:
+          - Create a hub with cli/ directory containing both orchestrator log AND all individual phase logs
+          - Individual phase logs include: phase_c_generation.log, phase_d_dense.log, phase_e_baseline.log,
+            phase_e_dense.log, phase_f_train.log, phase_f_test.log, phase_g_train.log, phase_g_test.log
+          - Each phase log should contain a completion sentinel (e.g., "Phase X complete" or similar)
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with status 0
+          - Assert the verification report JSON shows CLI log validation passed
+          - Assert no missing phase logs are reported
+          
+          Follows input.md Do Now step 1 (TDD GREEN for per-phase logs).
+        <Function test_verify_dense_pipeline_highlights_missing_model>
+          RED test: Verify that highlights validation fails when metrics_delta_highlights.txt
+          is missing a required model comparison (e.g., only has Baseline, missing PtyChi).
+          
+          Acceptance:
+          - Create a hub with metrics_delta_highlights.txt containing only 2 lines (Baseline only)
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows a validation failure for highlights
+          - Assert error message mentions missing model comparison lines
+          
+          Follows input.md Do Now step 1 (TDD RED for missing model).
+        <Function test_verify_dense_pipeline_highlights_mismatched_value>
+          RED test: Verify that highlights validation fails when metrics_delta_highlights.txt
+          has incorrect format (e.g., wrong metric prefix or malformed delta value).
+          
+          Acceptance:
+          - Create a hub with metrics_delta_highlights.txt containing lines with wrong prefixes
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows a validation failure for highlights
+          - Assert error message mentions incorrect prefix or format
+          
+          Follows input.md Do Now step 1 (TDD RED for mismatched value).
+        <Function test_verify_dense_pipeline_highlights_complete>
+          GREEN test: Verify that highlights validation passes when metrics_delta_highlights.txt
+          has all 4 required lines with correct format.
+          
+          Acceptance:
+          - Create a hub with complete and correct metrics_delta_highlights.txt (4 lines)
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with zero status (assuming other validations also pass)
+          - Assert the verification report JSON shows highlights validation as valid
+          - Assert the check captures line_count=4
+          
+          Follows input.md Do Now step 1 (TDD GREEN for complete highlights).
+        <Function test_verify_dense_pipeline_highlights_missing_preview>
+          RED test: Verify that highlights validation fails when metrics_delta_highlights_preview.txt
+          is missing even when metrics_delta_highlights.txt exists and is valid.
+          
+          Acceptance:
+          - Create a hub with valid metrics_delta_highlights.txt but NO preview file
+          - Create valid metrics_delta_summary.json
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows a validation failure for highlights
+          - Assert error message mentions missing preview file
+          
+          Follows input.md Do Now step 1 (TDD RED for missing preview).
+        <Function test_verify_dense_pipeline_highlights_preview_contains_amplitude>
+          RED test: Verify that validation fails when preview file contains "amplitude" keyword
+          (violating phase-only formatting requirement).
+          
+          Acceptance:
+          - Create a hub with valid metrics_delta_summary.json
+          - Create a preview file that contains "amplitude" in one or more lines
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows validation failure
+          - Assert error metadata includes preview_phase_only=False and preview_format_errors
+          - Assert error message mentions amplitude contamination
+          
+          Follows input.md Do Now step 2 (TDD RED for amplitude contamination).
+        <Function test_verify_dense_pipeline_highlights_preview_mismatch>
+          RED test: Verify that highlights validation fails when preview file values
+          don't match the deltas in metrics_delta_summary.json.
+          
+          Acceptance:
+          - Create a hub with valid JSON and txt files
+          - Preview txt contains values that don't match JSON deltas (wrong precision or value)
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows validation failure
+          - Assert error metadata includes mismatched_preview_values
+          
+          Follows input.md Do Now step 1 (TDD RED for preview mismatch).
+        <Function test_verify_dense_pipeline_highlights_delta_mismatch>
+          RED test: Verify that highlights validation fails when highlights txt values
+          don't match the deltas in metrics_delta_summary.json.
+          
+          Acceptance:
+          - Create a hub with valid JSON and preview files
+          - Highlights txt contains values that don't match JSON deltas
+          - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+          - Assert the script exits with non-zero status
+          - Assert the verification report JSON shows validation failure
+          - Assert error metadata includes mismatched_highlight_values with formatted deltas
+          
+          Follows input.md Do Now step 1 (TDD RED for delta mismatch).
+
+========================= 15 tests collected in 0.85s ==========================
