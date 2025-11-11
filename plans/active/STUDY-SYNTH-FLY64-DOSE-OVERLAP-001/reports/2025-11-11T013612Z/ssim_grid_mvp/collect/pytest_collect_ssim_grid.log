@@ -1,0 +1,33 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.8.0+cu128
+rootdir: /home/ollie/Documents/PtychoPINN2
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collecting ... collected 1 item
+
+<Dir PtychoPINN2>
+  <Package tests>
+    <Package study>
+      <Module test_ssim_grid.py>
+        Tests for ssim_grid.py helper — Phase G MS-SSIM/MAE delta table generation.
+        
+        Acceptance:
+        - RED test: preview guard must reject when metrics_delta_highlights_preview.txt contains "amplitude"
+        - GREEN test: helper succeeds with phase-only preview and emits ssim_grid_summary.md with ±0.000/±0.000000 tables
+        - Test must execute via subprocess to prove CLI contract (not just imports)
+        <Function test_smoke_ssim_grid>
+          TDD smoke test for ssim_grid.py helper.
+          
+          RED: Fails when preview contains "amplitude" (preview guard rejection)
+          GREEN: Passes when preview is phase-only and table is emitted with correct precision
+          
+          Validates:
+          - Helper reads metrics_delta_summary.json correctly
+          - Preview guard rejects amplitude contamination
+          - Output markdown contains MS-SSIM ±0.000 and MAE ±0.000000 formatted deltas
+          - Helper emits POSIX-relative paths in metadata
+
+========================== 1 test collected in 0.85s ===========================
