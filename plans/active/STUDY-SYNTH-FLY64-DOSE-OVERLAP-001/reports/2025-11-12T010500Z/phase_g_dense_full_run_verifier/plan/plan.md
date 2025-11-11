@@ -1,6 +1,7 @@
-# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-11T122959Z)
+# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-11T125203Z)
 
 ## Reality Check
+- As of 2025-11-11T12:52Z no new commits or artifacts have landed since the prior loop; `{analysis,cli}` still mirror the workspace-mismatch attempt from `/home/ollie/Documents/PtychoPINN2` and contain only `blocker.log`, `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`.
 - `timeout 30 git pull --rebase` failed with “You have unstaged changes” because the hub already tracks freshly modified CLI + pytest logs (`cli/phase_c_generation.log`, `cli/run_phase_g_dense_stdout.log`, `collect/pytest_collect_post_verify_only.log`, `green/pytest_post_verify_only.log`, and the deleted `data/phase_c/run_manifest.json`), so we cannot rebase until new evidence lands; noted for Ralph so he does not clobber or revert these files.
 - Re-inspected the active hub: `analysis/` still contains only `blocker.log`, while `cli/` is limited to `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`. There are still **zero** SSIM grid summaries, verification logs, metrics deltas, preview artifacts, artifact inventory files, or highlights/previews from a counted rerun.
 - `analysis/blocker.log` and `cli/phase_d_dense.log` both confirm the last attempt executed from the wrong clone (`/home/ollie/Documents/PtychoPINN2`) and died before Phase D with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, so none of the dense overlap/training/comparison phases successfully ran under this repo.

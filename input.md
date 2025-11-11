@@ -1,4 +1,4 @@
-Summary: Reconfirm the dense Phase G rerun + `--post-verify-only` sweep after git pull was blocked by unstaged hub logs and the reports hub still has only blocker evidence from the `/home/ollie/Documents/PtychoPINN2` attempt.
+Summary: Ready-for-implementation rerun of the dense Phase G pipeline + `--post-verify-only` sweep after `git pull --rebase` was still blocked by the existing hub logs and `{analysis,cli}` only contain blocker evidence from the `/home/ollie/Documents/PtychoPINN2` attempt.
 Mode: Perf
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
 Branch: feature/torchapi-newprompt

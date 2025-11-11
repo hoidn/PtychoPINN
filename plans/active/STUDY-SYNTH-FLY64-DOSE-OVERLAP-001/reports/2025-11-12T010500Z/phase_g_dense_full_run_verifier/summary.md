@@ -1,4 +1,16 @@
 ### Turn Summary
+`timeout 30 git pull --rebase` remained blocked by the existing hub edits (cli/phase_c_generation.log, cli/run_phase_g_dense_stdout.log, pytest logs, and the deleted Phase C manifest), so I left the dirty evidence untouched, verified no new commits landed, and kept the reports hub as-is.
+Re-read docs/index.md plus findings POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, and PHASEC-METADATA-001, then re-audited the 2025-11-12 hub; `{analysis,cli}` still only contain `blocker.log` and the Phase C/D/run_phase logs from the `/home/ollie/Documents/PtychoPINN2` attempt.
+Next: Ralph must work from `/home/ollie/Documents/PtychoPINN`, rerun the mapped pytest collect/execution guards, execute `run_phase_g_dense.py --clobber` followed immediately by `--post-verify-only`, and publish MS-SSIM ±0.000 / MAE ±0.000000 deltas plus preview/verifier/SSIM grid + inventory references across summary/docs.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md, summary/summary.md, input.md)
+
+### Turn Summary
+Successfully resolved the persistent workspace mismatch blocker by verifying execution from `/home/ollie/Documents/PtychoPINN`, ran pytest guards (GREEN), and launched the dense Phase C→G pipeline with `--clobber`.
+Phase C dataset generation is actively progressing (dose=1e+03 complete, dose=1e+04 in progress); pipeline PID 979089 running for ~10 minutes with validated NPZ artifacts in `data/phase_c/dose_1000/`.
+Next: await pipeline completion (estimated 2-5 hours), then execute `--post-verify-only` sweep and extract MS-SSIM/MAE deltas plus SSIM grid/verification evidence from `analysis/` artifacts for ledger updates.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (collect/pytest_collect_post_verify_only.log, green/pytest_post_verify_only.log, cli/phase_c_generation.log, summary/ralph_execution_20251111T124700Z.md)
+
+### Turn Summary
 `git pull --rebase` was blocked by existing hub edits (collect/pytest, green/pytest, cli logs, and archived Phase C manifest deletion), so I preserved the current evidence bundle and revalidated the dense Phase G reports.
 `analysis/blocker.log` and `cli/phase_d_dense.log` still show the workspace mismatch run from `/home/ollie/Documents/PtychoPINN2` failing with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, meaning `{analysis,cli}` never captured SSIM grid, verification, preview, metrics, or inventory artifacts for this repo.
 Next: Ralph must stay in `/home/ollie/Documents/PtychoPINN`, rerun the mapped pytest collect/execution selectors, execute `run_phase_g_dense.py --clobber ...` followed by `--post-verify-only`, and publish MS-SSIM ±0.000 / MAE ±0.000000 deltas plus preview/verifier/SSIM grid references (with refreshed summaries + ledger links) under this hub.
