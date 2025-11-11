@@ -1,10 +1,10 @@
-# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-12T233500Z)
+# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-11T114500Z)
 
 ## Reality Check
-- Latest code commit touching this focus is Ralph’s `535dad55`, which only refreshed the CLI + pytest logs (collect + exec) for the post-verify-only guard; no production rerun happened afterward.
-- The active hub still contains only `cli/run_phase_g_dense_stdout.log` and `cli/phase_c_generation.log`. There is **no `analysis/` directory at all**, so SSIM grid summaries, verification report/log, metrics deltas, inventory, and preview artifacts are still missing.
-- Because no dense Phase C→G rerun executed after the guards landed, we have no MS-SSIM/MAE deltas, preview verdict, or verification/highlights payloads to satisfy the ledger guardrail (TEST-CLI-001 + PREVIEW-PHASE-001).
-- Without a counted rerun immediately followed by `--post-verify-only`, we cannot prove (a) SSIM grid/verifier/highlights commands succeed with hub-relative paths, (b) `analysis/artifact_inventory.txt` regenerates after post-verify automation, or (c) the preview remains phase-only once real metrics are produced.
+- Latest engineer activity on this focus is Ralph’s `cfd4f307` log-only sync; no production code has changed since the verification/banner guards landed.
+- The hub still holds only `cli/run_phase_g_dense_stdout.log` and `cli/phase_c_generation.log`. There is **still no `analysis/` directory**, so SSIM grid summaries, verification report/log, metrics deltas, preview artifacts, and artifact inventory evidence remain missing.
+- `analysis/blocker.log` shows the last counted attempt died during Phase C generation while running from `/home/ollie/Documents/PtychoPINN2` (`--output-root .../data/phase_c`), so none of the Phase D–G commands ever ran and the ledger guardrail (TEST-CLI-001 + PREVIEW-PHASE-001) is still unsatisfied.
+- Until a dense Phase C→G rerun immediately followed by `--post-verify-only` completes from **this** repo (`/home/ollie/Documents/PtychoPINN`), we cannot demonstrate SSIM grid/verifier/highlights success with hub-relative paths, prove `analysis/artifact_inventory.txt` regeneration, or capture MS-SSIM/MAE + preview evidence.
 
 ## Objectives (single Ralph loop)
 1. **Regression check for the guard** — Re-run the collect-only + execution selectors for `test_run_phase_g_dense_post_verify_only_executes_chain` so the new assertions stay GREEN before launching expensive CLI work (TEST-CLI-001).
@@ -13,7 +13,7 @@
 4. **Publish metrics + ledger updates** — Record MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict (phase-only), SSIM grid table reference, CLI/test selectors, and verification/highlights links inside `summary/summary.md`, summary.md, docs/fix_plan.md, and galph_memory.
 
 ## Execution Sketch
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` and `export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier`.
+1. Confirm you are in `/home/ollie/Documents/PtychoPINN` (`pwd -P`) so `$HUB` resolves inside this repo, then `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` and `export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier`; `mkdir -p "$HUB"/{analysis,cli,collect,green,red,summary}` before running anything else.
 2. `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -k post_verify_only_executes_chain -vv | tee "$HUB"/collect/pytest_collect_post_verify_only.log` (move failures to `$HUB`/red/ before rerun).
 3. `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain -vv | tee "$HUB"/green/pytest_post_verify_only.log`.
 4. `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`

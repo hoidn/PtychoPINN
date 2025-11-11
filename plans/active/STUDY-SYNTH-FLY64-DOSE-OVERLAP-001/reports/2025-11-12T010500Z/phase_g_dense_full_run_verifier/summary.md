@@ -1,4 +1,10 @@
 ### Turn Summary
+Re-checked the 2025-11-12 dense hub: still only CLI logs (no analysis/), and analysis/blocker.log confirms the last run died in Phase C while executing from /home/ollie/Documents/PtychoPINN2, so no SSIM grid/verification artifacts were ever produced.
+Updated plan/plan.md, docs/fix_plan.md, and input.md with the ready-for-implementation Do Now that forces Ralph to work from /home/ollie/Documents/PtychoPINN, rerun the mapped pytest guards, execute run_phase_g_dense.py --clobber plus --post-verify-only, and log the resulting SSIM grid/verification/highlights outputs into this hub.
+Next: Ralph must run the two pytest selectors, perform the counted dense run and immediate verification-only sweep into the hub, then publish MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, and verifier/highlights references across the hub summaries and docs/fix_plan.md once artifacts land.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md, summary/summary.md, cli/run_phase_g_dense_stdout.log)
+
+### Turn Summary
 Revalidated the Phase G focus after commit 535dad55 and confirmed the 2025-11-12 hub still has only CLI logs—no `analysis/` contents exist yet—so MS-SSIM/MAE deltas, preview verdict, SSIM grid data, and verification/highlights evidence remain missing.
 Refreshed plan/plan.md, docs/fix_plan.md, and the ready-for-implementation Do Now so Ralph reruns the guard pytest selectors, executes `run_phase_g_dense.py --clobber ... --splits train test`, then immediately runs `run_phase_g_dense.py --post-verify-only` to repopulate `{analysis,cli}` and regenerate artifact_inventory/verification assets with hub-relative logs.
 Next: Ralph follows the How-To Map, archives collect/green logs plus both CLI stdout files in the hub, and records MS-SSIM ±0.000 / MAE ±0.000000 together with the preview verdict, SSIM grid reference, and verification/highlights links across summary.md, docs/fix_plan.md, and galph_memory.
