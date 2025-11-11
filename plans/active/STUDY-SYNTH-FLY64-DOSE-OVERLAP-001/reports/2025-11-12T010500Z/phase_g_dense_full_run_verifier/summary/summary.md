@@ -1,3 +1,9 @@
+### Turn Summary
+Reality check confirmed the helper/verifier/docs already landed, so we re-scoped this focus to a highlights checker upgrade plus a counted dense Phase C→G run in the existing hub.
+Updated plan.md, docs/fix_plan.md, and input.md with the new checker/tests + run/verifier commands while keeping artifacts rooted at 2025-11-12T010500Z.
+Next: implement the checker/tests, run `run_phase_g_dense.py --clobber`, and capture verifier/checker + MS-SSIM/MAE evidence under this hub.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary/summary.md)
+
 # Phase G Verifier Hardening — SSIM Grid Helper Integration
 
 **Date:** 2025-11-12

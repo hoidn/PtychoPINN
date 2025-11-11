@@ -1,46 +1,43 @@
 # Dense Phase G Full Run + Verifier Hardening (2025-11-12T010500Z)
 
 ## Reality Check
-- `run_phase_g_dense.py` already invokes `ssim_grid.py` (commit 979cd2b3) and tests under `reports/2025-11-11T235500Z/.../green/` prove the helper wiring, but that hub still has empty `analysis/` and `cli/` directories—no counted Phase C→G execution exists post-preview guard.
-- `plans/active/.../bin/verify_dense_pipeline_artifacts.py` never checks for `analysis/ssim_grid_summary.md` or `cli/ssim_grid_cli.log`, so PREVIEW-PHASE-001 regressions can slip in even if the orchestrator succeeds.
-- `tests/study/test_phase_g_dense_artifacts_verifier.py` lacks coverage for the new helper/log, and docs (`docs/TESTING_GUIDE.md` §Phase G Delta Metrics Persistence + `docs/development/TEST_SUITE_INDEX.md` Phase G row) still describe the pre-helper workflow.
-- Guardrails in `docs/fix_plan.md:17-33` still claim the helper isn't integrated; need to update ledger + galph memory to mirror reality and point Ralph at a real run.
+- `run_phase_g_dense.py` already invokes `ssim_grid.py` (commit 979cd2b3) and the helper + verifier/tests/docs landed on feature/torchapi-newprompt last loop. No further wiring is needed before a real run.
+- Evidence gap: the 2025-11-11T235500Z and 2025-11-12T010500Z hubs still have empty `{analysis,cli}` folders. We still do not have a counted dense Phase C→G execution after the preview guard + helper shipped.
+- Checker gap: `plans/.../bin/check_dense_highlights_match.py` only cross-checks JSON ↔ highlights/preview. It never inspects the new `analysis/ssim_grid_summary.md`, so a drift between the helper table and JSON would go unnoticed.
+- docs/fix_plan.md still lists the helper verification tasks as pending; need to update ledger + galph memory to reflect the new checker requirement + run focus.
 
 ## Objectives (single Ralph loop)
-1. **Verifier & tests** — Extend `verify_dense_pipeline_artifacts.py` so `validate_cli_logs()` and the artifact inventory check require `cli/ssim_grid_cli.log` + `analysis/ssim_grid_summary.md` and surface preview metadata in the JSON report. Add RED/GREEN pytest coverage in `tests/study/test_phase_g_dense_artifacts_verifier.py` to lock the new guard (missing summary/log vs happy path).
-2. **Counted dense run** — Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, point `HUB` at `plans/active/.../reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`, and execute `python plans/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber`. Archive all stdout under `cli/` and ensure `analysis/ssim_grid_summary.md` + preview files exist.
-3. **Verification & digests** — Run `verify_dense_pipeline_artifacts.py` and `check_dense_highlights_match.py`, keeping JSON/markdown outputs in `analysis/`. Rerun `ssim_grid.py --hub "$HUB"` manually if the orchestrator stops early.
-4. **Doc/test registry sync** — Update `docs/TESTING_GUIDE.md` Phase G section + `docs/development/TEST_SUITE_INDEX.md` (Phase G row) to describe the helper, preview-only guard, and the new pytest selectors. Capture diffs + MS-SSIM/MAE table + verifier verdict in `summary/summary.md` alongside pointers to `cli/` logs.
+1. **Highlights checker upgrade** — Extend `plans/.../bin/check_dense_highlights_match.py` so it parses the SSIM grid summary Markdown table, confirms the preview metadata (`phase-only: ✓`) is present, and asserts the MS-SSIM ±0.000 / MAE ±0.000000 values match `metrics_delta_summary.json` and the preview/highlights text. Add pytest coverage (new module) with RED (summary drift) and GREEN fixtures.
+2. **Counted dense run** — Export `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`, set `HUB=plans/active/.../reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`, and execute `python plans/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber`. Tee stdout to `cli/run_phase_g_dense_stdout.log` and ensure `analysis/` + `cli/` populate with real artifacts (metrics, previews, digest, ssim_grid summary/log).
+3. **Verification & digests** — Run `verify_dense_pipeline_artifacts.py` plus the upgraded highlights checker (now SSIM-grid aware), keeping JSON + logs under `analysis/`. Re-run `ssim_grid.py` manually if needed.
+4. **Evidence roll-up** — Update `$HUB/summary/summary.md` with MS-SSIM/MAE deltas, preview guard verdict, SSIM grid snippet, pytest evidence, and doc references. Update docs/fix_plan.md + galph_memory with this attempt.
 
 ## Execution Sketch
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` and `export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier`.
-2. Modify `plans/active/.../bin/verify_dense_pipeline_artifacts.py`:
-   - Teach `validate_cli_logs()` to demand `ssim_grid_cli.log` (helper log list) and record it in metadata.
-   - Add a new `validate_ssim_grid_summary()` that checks `analysis/ssim_grid_summary.md` exists, is non-empty, and that preview guard metadata came from the verifier. Wire it into `main()` validations list right after the delta highlight checks.
-3. Grow `tests/study/test_phase_g_dense_artifacts_verifier.py` with:
-   - RED test: missing `ssim_grid_cli.log` or summary triggers verifier failure with actionable error fields.
-   - GREEN test: complete hub (include helper log + markdown) passes and report JSON notes the helper artifacts.
-   Capture logs under `$HUB/collect` / `$HUB/red` / `$HUB/green`.
-4. `pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_cli_logs_require_ssim_grid_log -vv` (expect RED→GREEN cycle) and `pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_requires_ssim_grid_summary -vv`.
-5. `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -k ssim_grid -vv | tee "$HUB"/collect/pytest_collect_verifier.log` (Mapped Tests Guardrail).
-6. Run the dense pipeline command (step 2) with `--clobber`; tee stdout to `cli/run_phase_g_dense_stdout.log`. Ensure orchestrator prints success banner referencing ssim_grid summary/log.
+1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`; `export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier`.
+2. Update `plans/.../bin/check_dense_highlights_match.py` to:
+   - Read `analysis/ssim_grid_summary.md`, parse the Markdown table, and capture MS-SSIM/MAE deltas + preview metadata.
+   - Compare parsed values to `metrics_delta_summary.json` (phase deltas) and the preview/highlights text; raise if mismatched or if preview metadata lacks `phase-only: ✓`.
+   - Print a concise summary of aligned values + preview verdict to stdout (relative paths only per TYPE-PATH-001).
+3. Add `tests/study/test_check_dense_highlights_match.py` with:
+   - RED fixture: tamper with the summary table so it drifts from JSON (expect SystemExit with actionable error).
+   - GREEN fixture: consistent JSON/highlights/preview/summary (expect pass). Capture logs under `$HUB/red/` and `$HUB/green/`; `pytest --collect-only ...` evidence goes under `$HUB/collect/`.
+4. `pytest --collect-only tests/study/test_check_dense_highlights_match.py -vv | tee "$HUB"/collect/pytest_collect_highlights.log`.
+5. `pytest tests/study/test_check_dense_highlights_match.py -vv`; save first failing run (if any) under `$HUB/red/pytest_highlights_checker.log` and the passing run under `$HUB/green/pytest_highlights_checker.log`.
+6. Execute dense pipeline: `python plans/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`.
 7. `python plans/.../bin/verify_dense_pipeline_artifacts.py --hub "$HUB" --report "$HUB"/analysis/verification_report.json --dose 1000 --view dense | tee "$HUB"/analysis/verify_dense_stdout.log`.
-8. `python plans/.../bin/check_dense_highlights_match.py --hub "$HUB" | tee "$HUB"/analysis/check_dense_highlights.log`.
-9. If needed, `python plans/.../bin/ssim_grid.py --hub "$HUB" --output "$HUB"/analysis/ssim_grid_summary.md` to regenerate summary; document whether rerun was necessary.
-10. Update docs/TESTING_GUIDE.md + docs/development/TEST_SUITE_INDEX.md to reflect helper + preview guard + precision rules. Save diffs under `summary/`.
-11. Write `$HUB/summary/summary.md` capturing MS-SSIM/MAE deltas, verifier outcome, preview guard status, doc/test updates, and CLI log links (TYPE-PATH-001 relative paths).
+8. `python plans/.../bin/check_dense_highlights_match.py --hub "$HUB" | tee "$HUB"/analysis/check_dense_highlights.log`; if it fails because summary missing/out-of-sync, re-run `python plans/.../bin/ssim_grid.py --hub "$HUB"` and re-check.
+9. Update `$HUB/summary/summary.md` with MS-SSIM/MAE deltas, preview guard outcome, pytest selectors, and CLI log pointers; refresh docs/fix_plan.md + galph memory.
 
 ## Acceptance Criteria
-- New verifier logic fails fast if `ssim_grid_cli.log` or `analysis/ssim_grid_summary.md` missing; report JSON exposes `missing_helper_logs` / `missing_summary` metadata.
-- Added pytest RED/GREEN logs recorded under `{red,green}/` for both new selectors and collect-only evidence stored under `collect/`.
-- Dense `run_phase_g_dense.py --clobber` populates `$HUB/analysis` with the complete artifact bundle (metrics summary, deltas, preview, digest, ssim_grid summary) and `$HUB/cli` with orchestrator + helper logs.
-- `verify_dense_pipeline_artifacts.py` + `check_dense_highlights_match.py` succeed, with report JSON + stdout archived.
-- docs/TESTING_GUIDE.md + docs/development/TEST_SUITE_INDEX.md mention ssim_grid helper, preview-only guard, MAE ±0.000000 precision, and mapped pytest selectors.
-- docs/fix_plan.md + galph_memory updated with this loop’s attempt + artifact hub.
+- Upgraded `check_dense_highlights_match.py` exits non-zero when `ssim_grid_summary.md` is missing, lacks preview metadata, or disagrees with JSON/preview values; stdout reports parsed deltas + preview verdict.
+- New pytest module exercises RED/GREEN flows and produces collect-only proof under `$HUB/collect/`.
+- Dense `run_phase_g_dense.py --clobber` populates `$HUB/analysis` with metrics summary, deltas, previews, digest, SSIM grid summary, verification report, checker log, and `$HUB/cli` with orchestrator/helper logs (including `ssim_grid_cli.log`).
+- `verify_dense_pipeline_artifacts.py` and the enhanced highlights checker succeed on the counted hub, with logs saved in `$HUB/analysis/`.
+- `$HUB/summary/summary.md` documents MS-SSIM/MAE deltas, preview guard outcome, checker findings, and log/test references; docs/fix_plan.md + galph memory capture this Attempt.
 
 ## Evidence & Artifacts
 - Hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`
-- Expect populated subdirs: `plan/`, `summary/`, `analysis/` (verification_report.json, metrics*, ssim_grid_summary.md, doc diffs), `cli/` (orchestrator + helper logs), `collect/`, `red/`, `green/`.
+- Expect populated subdirs: `plan/`, `summary/`, `analysis/` (metrics*, ssim_grid_summary.md, verification_report.json, check_dense_highlights.log), `cli/` (run_phase_g_dense_stdout.log, per-phase logs, helper logs), `collect/`, `red/`, `green/`.
 
 ## Findings Applied
 - POLICY-001 — PyTorch dependency must be available for Phase E/F steps invoked by the orchestrator.

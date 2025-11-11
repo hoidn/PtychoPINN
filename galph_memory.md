@@ -3306,3 +3306,17 @@
   - Minted new hub `2025-11-12T010500Z/phase_g_dense_full_run_verifier` with plan/summary/cli/analysis/collect/green/red scaffolding and wrote plan.md/input.md instructing Ralph to (a) harden the verifier/tests for the helper, (b) run one dense pipeline with --clobber into this hub, (c) capture verifier/highlights evidence, and (d) sync docs/test index with the preview-only helper workflow.
 - Next actions for Ralph: implement the verifier/test guard, run the dense pipeline + ssim_grid helper into the new hub, execute verifier/highlights checkers, and ship doc/test updates with MS-SSIM/MAE evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T030500Z: Dense highlights checker upgrade + counted run setup
+- dwell: 2 (second consecutive planning loop after the 2025-11-11T235500Z implementation hand-off; issuing ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` blocked because docs/INITIATIVE_WORKFLOW_GUIDE.md, docs/fix_plan.md, and prompts/supervisor.md already have local edits; recorded and proceeded without disrupting the user’s changes.
+  - Re-read docs/findings.md entries (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001) plus docs/index.md pointers to TESTING_GUIDE + TEST_SUITE_INDEX before inspecting the hub.
+  - Reality check showed the ssim_grid helper + verifier/tests/docs have already landed; the remaining gaps are (a) no counted dense Phase C→G run after the guard and (b) the highlights checker still ignoring analysis/ssim_grid_summary.md.
+  - Updated reports/2025-11-12T010500Z/plan/plan.md, docs/fix_plan.md (Last Updated s=255), input.md, and summary/summary.md to direct Ralph toward upgrading `check_dense_highlights_match.py`, adding a new pytest module, and executing the dense run/verification inside the existing hub; AUTHORITATIVE_CMDS_DOC export captured in How-To Map.
+- Next actions for Ralph: implement the SSIM-grid-aware highlights checker + tests, run `pytest --collect-only ...` and the new selectors with logs in {collect,red,green}/, execute `run_phase_g_dense.py --clobber` for dose 1000 dense view into this hub, then run `verify_dense_pipeline_artifacts.py` + the upgraded checker and document MS-SSIM/MAE deltas + doc/test updates.
+- <Action State>: [ready_for_implementation]
