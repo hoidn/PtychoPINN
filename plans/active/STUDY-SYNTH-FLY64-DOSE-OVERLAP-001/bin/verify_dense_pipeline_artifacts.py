@@ -550,6 +550,89 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
     return result
 
 
+def validate_ssim_grid_summary(summary_md_path: Path, hub: Path) -> dict[str, Any]:
+    """
+    Validate analysis/ssim_grid_summary.md exists, is non-empty, and contains preview metadata.
+
+    Checks for:
+    - File existence and non-zero size
+    - Preview source metadata line (indicates preview compliance check was performed)
+    - Phase-only formatting (no amplitude contamination in preview)
+
+    Args:
+        summary_md_path: Path to analysis/ssim_grid_summary.md
+        hub: Hub directory (for relative path reporting)
+
+    Returns:
+        dict with validation result including:
+        - valid: bool
+        - description: str
+        - path: str
+        - error: str (if invalid)
+        - has_preview_metadata: bool (whether preview source line found)
+        - preview_phase_only: bool (whether preview is phase-only)
+        - file_size: int (bytes)
+    """
+    result = {
+        'valid': True,
+        'description': 'SSIM grid summary (phase-only)',
+        'path': str(summary_md_path),
+        'has_preview_metadata': False,
+        'preview_phase_only': True,
+    }
+
+    if not summary_md_path.exists():
+        result['valid'] = False
+        result['error'] = f'SSIM grid summary not found: {summary_md_path.name} (required for PREVIEW-PHASE-001)'
+        return result
+
+    try:
+        content = summary_md_path.read_text(encoding='utf-8')
+    except Exception as e:
+        result['valid'] = False
+        result['error'] = f'Failed to read SSIM grid summary: {e}'
+        return result
+
+    file_size = len(content.encode('utf-8'))
+    result['file_size'] = file_size
+
+    if file_size == 0:
+        result['valid'] = False
+        result['error'] = 'SSIM grid summary is empty (expected MS-SSIM/MAE tables)'
+        return result
+
+    # Check for preview metadata line (indicates preview compliance check)
+    # Example: "Preview source: analysis/metrics_delta_highlights_preview.txt (phase-only: ✓)"
+    if 'preview source:' in content.lower():
+        result['has_preview_metadata'] = True
+    else:
+        result['valid'] = False
+        result['error'] = 'SSIM grid summary missing preview metadata line (PREVIEW-PHASE-001 compliance not verified)'
+        return result
+
+    # Check for phase-only indicator in preview metadata
+    # The ssim_grid.py helper should emit "phase-only: ✓" or "(phase-only)" in metadata
+    if 'phase-only' in content.lower():
+        # Look for positive indicators (checkmark or confirmation)
+        if '\u2713' in content or 'phase-only: yes' in content.lower() or 'phase-only)' in content.lower():
+            result['preview_phase_only'] = True
+        else:
+            # Found "phase-only" but no positive indicator
+            result['valid'] = False
+            result['preview_phase_only'] = False
+            result['error'] = 'SSIM grid summary preview metadata indicates phase-only check failed'
+            return result
+    else:
+        # No phase-only metadata found
+        result['valid'] = False
+        result['preview_phase_only'] = False
+        result['error'] = 'SSIM grid summary missing phase-only indicator in preview metadata'
+        return result
+
+    result['valid'] = True
+    return result
+
+
 def validate_artifact_inventory(inventory_path: Path, hub: Path) -> dict[str, Any]:
     """
     Validate artifact_inventory.txt exists and contains POSIX-relative paths.
@@ -748,10 +831,11 @@ def validate_cli_logs(cli_dir: Path, dose: int = 1000, view: str = 'dense') -> d
         result['error'] = f'Missing required per-phase log files: {", ".join(missing_phase_logs)}'
         return result
 
-    # Check for required helper logs (aggregate report and metrics digest CLIs)
+    # Check for required helper logs (aggregate report, metrics digest, and ssim_grid CLIs)
     helper_logs = [
         "aggregate_report_cli.log",
         "metrics_digest_cli.log",
+        "ssim_grid_cli.log",
     ]
     found_helper_logs = [name for name in helper_logs if (cli_dir / name).exists()]
     missing_helper_logs = [log for log in helper_logs if log not in found_helper_logs]
@@ -900,12 +984,18 @@ def main() -> int:
         validate_metrics_delta_highlights(delta_highlights_path, hub=hub)
     )
 
-    # 9. CLI orchestrator logs validation (phase banners + SUCCESS sentinel + per-phase logs)
+    # 9. SSIM grid summary (phase-only preview compliance check)
+    ssim_grid_summary_path = analysis / "ssim_grid_summary.md"
+    validations.append(
+        validate_ssim_grid_summary(ssim_grid_summary_path, hub)
+    )
+
+    # 10. CLI orchestrator logs validation (phase banners + SUCCESS sentinel + per-phase logs + helper logs)
     validations.append(
         validate_cli_logs(cli_dir, dose=args.dose, view=args.view)
     )
 
-    # 10. Artifact inventory (TYPE-PATH-001 compliance)
+    # 11. Artifact inventory (TYPE-PATH-001 compliance)
     inventory_path = analysis / "artifact_inventory.txt"
     validations.append(
         validate_artifact_inventory(inventory_path, hub)

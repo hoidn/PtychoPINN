@@ -270,6 +270,8 @@ Comparison test...
     # Create required helper logs (aggregate_report_cli.log and metrics_digest_cli.log)
     (cli_dir / "aggregate_report_cli.log").write_text("Aggregate report generation complete\n")
     (cli_dir / "metrics_digest_cli.log").write_text("Metrics digest generation complete\n")
+    (cli_dir / "ssim_grid_cli.log").write_text("ssim grid log")
+    (analysis / "ssim_grid_summary.md").write_text("# SSIM Grid Summary\nPreview source: analysis/metrics_delta_highlights_preview.txt (phase-only: ✓)\n")
 
     report_path = tmp_path / "report_complete.json"
 
@@ -573,6 +575,8 @@ Running comparison test...
     # Create required helper logs (aggregate_report_cli.log and metrics_digest_cli.log)
     (cli_dir / "aggregate_report_cli.log").write_text("Aggregate report generation complete\n")
     (cli_dir / "metrics_digest_cli.log").write_text("Metrics digest generation complete\n")
+    (cli_dir / "ssim_grid_cli.log").write_text("ssim grid log")
+    (analysis / "ssim_grid_summary.md").write_text("# SSIM Grid Summary\nPreview source: analysis/metrics_delta_highlights_preview.txt (phase-only: ✓)\n")
 
     report_path = tmp_path / "report_complete_cli.json"
 
@@ -1082,6 +1086,8 @@ Comparison test...
     # Also create helper logs (aggregate_report_cli.log and metrics_digest_cli.log)
     (cli_dir / "aggregate_report_cli.log").write_text("Aggregate report complete\n")
     (cli_dir / "metrics_digest_cli.log").write_text("Metrics digest complete\n")
+    (cli_dir / "ssim_grid_cli.log").write_text("ssim grid log")
+    (analysis / "ssim_grid_summary.md").write_text("# SSIM Grid Summary\nPreview source: analysis/metrics_delta_highlights_preview.txt (phase-only: ✓)\n")
 
     report_path = tmp_path / "report_incomplete.json"
 
@@ -1261,6 +1267,8 @@ Comparison test...
     # Create required helper logs (aggregate_report_cli.log and metrics_digest_cli.log)
     (cli_dir / "aggregate_report_cli.log").write_text("Aggregate report generation complete\n")
     (cli_dir / "metrics_digest_cli.log").write_text("Metrics digest generation complete\n")
+    (cli_dir / "ssim_grid_cli.log").write_text("ssim grid log")
+    (analysis / "ssim_grid_summary.md").write_text("# SSIM Grid Summary\nPreview source: analysis/metrics_delta_highlights_preview.txt (phase-only: ✓)\n")
 
     report_path = tmp_path / "report_complete_phase_logs.json"
 
@@ -2435,3 +2443,324 @@ def test_verify_dense_pipeline_highlights_delta_mismatch(tmp_path: Path) -> None
 
     assert 'missing_preview_values' in highlights_check, \
         "Expected 'missing_preview_values' in highlights_check metadata"
+
+
+def test_verify_dense_pipeline_cli_logs_require_ssim_grid_log(tmp_path: Path) -> None:
+    """
+    RED test: Verify that CLI log validation fails when ssim_grid_cli.log is missing.
+
+    Acceptance:
+    - Create a hub with cli/ directory and all phase logs EXCEPT ssim_grid_cli.log
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with non-zero status
+    - Assert the verification report JSON shows a validation failure for CLI logs
+    - Assert error message mentions missing ssim_grid_cli.log in helper logs
+
+    Follows input.md Do Now step 2 (TDD RED→GREEN for ssim_grid_cli.log requirement).
+    """
+    # Setup: Create hub with cli/ containing phase logs and other helper logs but NOT ssim_grid_cli.log
+    hub = tmp_path / "incomplete_cli_hub_ssim_grid"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal analysis artifacts so other checks don't all fail
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest\nMS-SSIM sanity check table here")
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "generated_at": "2025-11-10T10:00:00Z",
+        "source_metrics": "analysis/metrics_summary.json",
+        "deltas": {
+            "vs_Baseline": {"ms_ssim": {"phase": 0.015}, "mae": {"phase": 0.000025}},
+            "vs_PtyChi": {"ms_ssim": {"phase": 0.010}, "mae": {"phase": 0.000020}},
+        }
+    }))
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.010\n"
+        "MAE Δ (PtychoPINN - Baseline): +0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): +0.000020\n"
+    )
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.010\n"
+        "MAE Δ (PtychoPINN - Baseline): +0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): +0.000020\n"
+    )
+    (analysis / "ssim_grid_summary.md").write_text(
+        "# SSIM Grid Summary\nPreview source: analysis/metrics_delta_highlights_preview.txt (phase-only: ✓)\n"
+    )
+    (analysis / "artifact_inventory.txt").write_text("analysis/metrics_summary.json\n")
+
+    # Create orchestrator log with phase banners and SUCCESS sentinel
+    orchestrator_log = cli_dir / "run_phase_g_dense.log"
+    orchestrator_log.write_text(
+        "[1/8] Phase C: Dataset Generation\ncomplete\n"
+        "[2/8] Phase D: Overlap Views\ncomplete\n"
+        "[3/8] Phase E: Training Baseline\ncomplete\n"
+        "[4/8] Phase E: Training Dense\ncomplete\n"
+        "[5/8] Phase F: Reconstruction\ncomplete\n"
+        "[6/8] Phase G: Comparison Train\ncomplete\n"
+        "[7/8] Phase G: Comparison Test\ncomplete\n"
+        "[8/8] Phase G: Analysis\ncomplete\n"
+        "SUCCESS: All phases completed\n"
+    )
+
+    # Create all expected phase logs with dose=1000, view='dense'
+    dose = 1000
+    view = 'dense'
+    phase_logs = [
+        "phase_c_generation.log",
+        f"phase_d_{view}.log",
+        f"phase_e_baseline_gs1_dose{dose}.log",
+        f"phase_e_{view}_gs2_dose{dose}.log",
+        f"phase_f_{view}_train.log",
+        f"phase_f_{view}_test.log",
+        f"phase_g_{view}_train.log",
+        f"phase_g_{view}_test.log",
+    ]
+    for log_name in phase_logs:
+        (cli_dir / log_name).write_text(f"{log_name} content\ncomplete\n")
+
+    # Create OTHER helper logs (but NOT ssim_grid_cli.log)
+    (cli_dir / "aggregate_report_cli.log").write_text("aggregate report log")
+    (cli_dir / "metrics_digest_cli.log").write_text("metrics digest log")
+    # Intentionally omit ssim_grid_cli.log to trigger failure
+
+    report_path = tmp_path / "report_missing_ssim_grid.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+        "--dose", str(dose),
+        "--view", view,
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assert: Verification failed
+    assert exit_code != 0, "Expected non-zero exit code when ssim_grid_cli.log is missing"
+
+    # Load report and check for CLI log validation failure
+    assert report_path.exists(), "Report JSON should be created even on failure"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    assert not report_data['all_valid'], "Expected all_valid=False when ssim_grid_cli.log missing"
+    assert report_data['n_invalid'] > 0, "Expected at least one invalid check"
+
+    # Find the CLI logs validation result
+    cli_logs_check = None
+    for check in report_data['validations']:
+        if 'cli orchestrator logs' in check.get('description', '').lower():
+            cli_logs_check = check
+            break
+
+    assert cli_logs_check is not None, \
+        "Expected validation check for CLI orchestrator logs"
+    assert not cli_logs_check['valid'], \
+        f"Expected CLI logs check to be invalid, got: {cli_logs_check}"
+
+    # Assert error mentions missing helper log specifically
+    error_msg = cli_logs_check.get('error', '')
+    assert 'ssim_grid_cli.log' in error_msg, \
+        f"Expected error message to mention ssim_grid_cli.log, got: {error_msg}"
+    assert 'helper log' in error_msg.lower(), \
+        f"Expected error message to mention 'helper log', got: {error_msg}"
+
+    # Assert structured metadata includes missing_helper_logs
+    assert 'missing_helper_logs' in cli_logs_check, \
+        "Expected 'missing_helper_logs' in CLI logs check metadata"
+    assert 'ssim_grid_cli.log' in cli_logs_check['missing_helper_logs'], \
+        f"Expected ssim_grid_cli.log in missing_helper_logs, got: {cli_logs_check.get('missing_helper_logs')}"
+
+
+def test_verify_dense_pipeline_requires_ssim_grid_summary(tmp_path: Path) -> None:
+    """
+    RED test: Verify that validation fails when analysis/ssim_grid_summary.md is missing.
+
+    Acceptance:
+    - Create a hub with analysis/ directory but NO ssim_grid_summary.md
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with non-zero status
+    - Assert the verification report JSON shows a validation failure for ssim_grid summary
+    - Assert error message mentions missing ssim_grid_summary.md and PREVIEW-PHASE-001
+
+    Follows input.md Do Now step 2 (TDD RED→GREEN for ssim_grid_summary.md requirement).
+    """
+    # Setup: Create hub with analysis/ containing all artifacts EXCEPT ssim_grid_summary.md
+    hub = tmp_path / "incomplete_hub_ssim_summary"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create all other analysis artifacts
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest\nMS-SSIM sanity check table here")
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "generated_at": "2025-11-10T10:00:00Z",
+        "source_metrics": "analysis/metrics_summary.json",
+        "deltas": {
+            "vs_Baseline": {"ms_ssim": {"phase": 0.015}, "mae": {"phase": 0.000025}},
+            "vs_PtyChi": {"ms_ssim": {"phase": 0.010}, "mae": {"phase": 0.000020}},
+        }
+    }))
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.010\n"
+        "MAE Δ (PtychoPINN - Baseline): +0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): +0.000020\n"
+    )
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline): +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.010\n"
+        "MAE Δ (PtychoPINN - Baseline): +0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): +0.000020\n"
+    )
+    # Intentionally omit ssim_grid_summary.md to trigger failure
+    (analysis / "artifact_inventory.txt").write_text("analysis/metrics_summary.json\n")
+
+    # Create complete CLI logs
+    dose = 1000
+    view = 'dense'
+    orchestrator_log = cli_dir / "run_phase_g_dense.log"
+    orchestrator_log.write_text(
+        "[1/8] Phase C: Dataset Generation\ncomplete\n"
+        "[2/8] Phase D: Overlap Views\ncomplete\n"
+        "[3/8] Phase E: Training Baseline\ncomplete\n"
+        "[4/8] Phase E: Training Dense\ncomplete\n"
+        "[5/8] Phase F: Reconstruction\ncomplete\n"
+        "[6/8] Phase G: Comparison Train\ncomplete\n"
+        "[7/8] Phase G: Comparison Test\ncomplete\n"
+        "[8/8] Phase G: Analysis\ncomplete\n"
+        "SUCCESS: All phases completed\n"
+    )
+
+    phase_logs = [
+        "phase_c_generation.log",
+        f"phase_d_{view}.log",
+        f"phase_e_baseline_gs1_dose{dose}.log",
+        f"phase_e_{view}_gs2_dose{dose}.log",
+        f"phase_f_{view}_train.log",
+        f"phase_f_{view}_test.log",
+        f"phase_g_{view}_train.log",
+        f"phase_g_{view}_test.log",
+    ]
+    for log_name in phase_logs:
+        (cli_dir / log_name).write_text(f"{log_name} content\ncomplete\n")
+
+    # Create all helper logs including ssim_grid_cli.log
+    (cli_dir / "aggregate_report_cli.log").write_text("aggregate report log")
+    (cli_dir / "metrics_digest_cli.log").write_text("metrics digest log")
+    (cli_dir / "ssim_grid_cli.log").write_text("ssim grid log")
+
+    report_path = tmp_path / "report_missing_ssim_summary.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+        "--dose", str(dose),
+        "--view", view,
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assert: Verification failed
+    assert exit_code != 0, "Expected non-zero exit code when ssim_grid_summary.md is missing"
+
+    # Load report and check for ssim_grid_summary validation failure
+    assert report_path.exists(), "Report JSON should be created even on failure"
+
+    with report_path.open('r') as f:
+        report_data = json.load(f)
+
+    assert not report_data['all_valid'], "Expected all_valid=False when ssim_grid_summary.md missing"
+    assert report_data['n_invalid'] > 0, "Expected at least one invalid check"
+
+    # Find the SSIM grid summary validation result
+    ssim_grid_check = None
+    for check in report_data['validations']:
+        if 'ssim grid summary' in check.get('description', '').lower():
+            ssim_grid_check = check
+            break
+
+    assert ssim_grid_check is not None, \
+        "Expected validation check for SSIM grid summary"
+    assert not ssim_grid_check['valid'], \
+        f"Expected SSIM grid summary check to be invalid, got: {ssim_grid_check}"
+
+    # Assert error mentions missing ssim_grid_summary.md and PREVIEW-PHASE-001
+    error_msg = ssim_grid_check.get('error', '')
+    assert 'ssim_grid_summary.md' in error_msg.lower(), \
+        f"Expected error message to mention ssim_grid_summary.md, got: {error_msg}"
+    assert 'preview-phase-001' in error_msg.lower() or 'preview' in error_msg.lower(), \
+        f"Expected error message to reference PREVIEW-PHASE-001 or preview, got: {error_msg}"
