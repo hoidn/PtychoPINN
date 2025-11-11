@@ -7,7 +7,7 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 ## Objectives
 - Generate synthetic datasets from existing fly64 object/probe for multiple photon doses (e.g., 1e3, 1e4, 1e5).
-- Construct two overlap views per dose: dense (high inter-group overlap) and sparse (low inter-group overlap), while keeping intra-group neighborhoods tight via K-NN grouping.
+- Sweep the *inputs we actually control*—image-level subsampling rate and the number of generated groups / solution regions—then record the derived overlap fraction per condition.
 - Train PtychoPINN on each condition (gs=1 baseline, gs=2 grouped with K≥C for K-choose-C).
 - Reconstruct with pty-chi LSQML (100 epochs to start; parameterizable).
 - Run three-way comparisons (PINN, baseline, pty-chi) emphasizing phase MS-SSIM; also report amplitude MS-SSIM, MAE/MSE/PSNR/FRC.
@@ -15,16 +15,16 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 ## Deliverables
 1. Dose-swept synthetic datasets with spatially separated train/test splits.
-2. Group-level overlap filtering logic (documented and reproducible) and resulting dataset views (dense vs sparse).
+2. Group-level overlap tooling that logs `image_subsampling`, `group_multiplier`, and the *measured* overlap fraction for every run (historical “dense/sparse” labels become reporting shorthand only).
 3. Trained PINN models per condition (gs1 and gs2 variants) with fixed seeds.
 4. pty-chi LSQML reconstructions per condition (100 epochs baseline; tunable).
 5. Comparison outputs (plots, aligned NPZs, CSVs) with MS-SSIM (phase, amplitude) and summary tables.
 6. Study summary.md aggregating findings per dose/view.
 
 ## Backend Selection (Policy for this Study)
-- PINN training/inference: use the TensorFlow backend (`backend='tensorflow'`).
-- Iterative baseline (pty-chi): uses PyTorch internally — acceptable and expected.
-- Do not switch the study’s PINN runs to `ptycho_torch/`; use TF workflows (`ptycho_train` / workflows.components) and ensure CONFIG-001 bridge (`update_legacy_dict`) precedes legacy consumers.
+- PINN training/inference: **TensorFlow only.** This initiative depends on the legacy `ptycho_train` stack because it is the fully tested backend per CLAUDE.md.
+- Iterative baseline (pty-chi): PyTorch under the hood is acceptable for Phase F scripts, but keep it isolated from the PINN pipeline.
+- PyTorch parity belongs to future work. Log the remaining work as TODO items rather than mixing stacks mid-initiative.
 
 ## Phases
 
@@ -34,15 +34,13 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 **Dose sweep:**
 - Dose list: [1e3, 1e4, 1e5] photons per exposure
 
-**Grouping parameters:**
-- Gridsizes: {1, 2}
-- Neighbor count K=7 for gs2 (satisfies K ≥ C=4 for K-choose-C)
+**Control knobs (primary inputs):**
+- Image subsampling rates `s_img ∈ {1.0, 0.8, 0.6}` — fraction of diffraction frames retained per dose.
+- Group density multipliers `m_group ∈ {1.0, 1.5, 2.0}` — scales the number of solution regions per field of view while keeping intra-group K-NN neighborhoods tight (K=7 ≥ C=4 for gs2).
 
-**Inter-group overlap control:**
-- Dense view: f_overlap=0.7 → S ≈ 38.4 pixels
-- Sparse view: f_overlap=0.2 → S ≈ 102.4 pixels
-- Rule: S = (1 − f_group) × N where N=128 pixels (patch size)
-- Filter groups by minimum center spacing to achieve target overlap
+**Derived overlap metric:**
+- For every `(dose, s_img, m_group)` combination we record the achieved overlap fraction `f_overlap = 1 - (mean spacing / N)` via the spacing calculator (N=128 px patch size).
+- Labels such as “dense” or “sparse” are reporting shorthands only; artifacts, manifests, and tests must rely on the recorded knobs (`s_img`, `m_group`) plus the measured `f_overlap`.
 
 **Patch geometry:**
 - Patch size N=128 pixels (nominal from fly64 reconstructions)
@@ -72,6 +70,7 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - Working Plan: `reports/2025-11-04T025541Z/phase_b_test_infra/plan.md`
 - Deliverables:
   - `studies/fly64_dose_overlap/validation.py::validate_dataset_contract` enforcing DATA-001 keys/dtypes, amplitude requirement, spacing thresholds vs design constants, and y-axis split integrity. ✅
+  - Validator now asserts each manifest includes `image_subsampling`, `group_multiplier`, and the derived `overlap_fraction`, ensuring downstream code/tests never assume hard-coded view labels. ✅
   - pytest coverage in `tests/study/test_dose_overlap_dataset_contract.py` (11 tests, all PASSED) with logged red/green runs. ✅
   - Updated documentation (`implementation.md`, `test_strategy.md`, `summary.md`) recording validator scope and findings references (CONFIG-001, DATA-001, OVERSAMPLING-001). ✅
 - Artifact Hub: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T025541Z/phase_b_test_infra/`
@@ -113,19 +112,19 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 **Status:** Complete — D1-D4 delivered with metrics bundle workflow, pytest coverage, and CLI artifact integration.
 
 **Delivered Components:**
-- `studies/fly64_dose_overlap/overlap.py:23-89` implementing spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) and `generate_overlap_views:124-227` that materializes dense/sparse outputs for each dose (gridsize=2, neighbor_count=7) and emits consolidated `metrics_bundle.json` with per-split metrics paths.
-- CLI entry `python -m studies.fly64_dose_overlap.overlap` (lines 230-327) batches Phase C artifacts into `{dense,sparse}_{train,test}.npz` files with spacing metrics + manifest; when `--artifact-root` is set, copies `metrics_bundle.json` into the reports hub for traceability.
+- `studies/fly64_dose_overlap/overlap.py:23-89` implementing spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) and `generate_overlap_views:124-227` that materializes the overlap extremes (historically labeled dense/sparse, now defined by `s_img`/`m_group` inputs) and emits consolidated `metrics_bundle.json` with per-split metrics paths.
+- CLI entry `python -m studies.fly64_dose_overlap.overlap` (lines 230-327) batches Phase C artifacts into `{dense,sparse}_{train,test}.npz` files for continuity, but also records `image_subsampling`, `group_multiplier`, and the measured overlap in each manifest; when `--artifact-root` is set, copies `metrics_bundle.json` into the reports hub for traceability.
 - Pytest coverage in `tests/study/test_dose_overlap_overlap.py` with 10 tests validating spacing math (`test_compute_spacing_matrix_*`), orchestration (`test_generate_overlap_views_*`), metrics bundle structure (`test_generate_overlap_views_metrics_manifest`), and failure handling (RED→GREEN evidence: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/{red,green,collect}/`).
 - Documentation synchronized: Phase D sections updated in this file, `test_strategy.md`, and `plan.md` D4 marked `[x]`; ledger Attempt #10/11 referencing logs & metrics bundle artifacts.
 
 **Metrics Bundle Workflow (Attempt #10):**
-- `generate_overlap_views()` returns `metrics_bundle_path` pointing to aggregated JSON containing `train` and `test` keys, each with `{output_path, spacing_stats_path}` entries.
+- `generate_overlap_views()` returns `metrics_bundle_path` pointing to aggregated JSON containing `train` and `test` keys, each with `{output_path, spacing_stats_path, image_subsampling, group_multiplier, overlap_fraction}` entries.
 - CLI main copies bundle from temp output to `<artifact_root>/metrics/<dose>/<view>.json` for archival.
 - Test guard `test_generate_overlap_views_metrics_manifest` asserts bundle contains required keys and paths exist on disk.
 - Execution proof: `reports/2025-11-04T045500Z/phase_d_cli_validation/` (RED→GREEN logs, CLI transcript, copied bundle).
 
 **Key Constraints & References:**
-- Spacing thresholds derived from StudyDesign: dense overlap 0.7 → S≈38.4 px, sparse overlap 0.2 → S≈102.4 px (`docs/GRIDSIZE_N_GROUPS_GUIDE.md:154-172`).
+- Spacing targets derived from StudyDesign: overlap extremes near 0.7 (≈38.4 px) and 0.2 (≈102.4 px) are now expressed as recorded metadata rather than enum labels (`docs/GRIDSIZE_N_GROUPS_GUIDE.md:154-172`).
 - Oversampling guardrail: neighbor_count=7 ≥ C=4 for gridsize=2 (`docs/SAMPLING_USER_GUIDE.md:112-140`, `docs/findings.md` OVERSAMPLING-001).
 - CONFIG-001 boundaries maintained: `overlap.py` loads NPZ via `np.load` only; no params.cfg mutation; validator invoked with `view` parameter.
 - DATA-001 compliance ensured via Phase B validator (`validate_fly64_dose_overlap_dataset`) called from `generate_overlap_views`.
@@ -137,19 +136,18 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 **Findings Applied:** CONFIG-001 (pure NPZ loading; legacy bridge deferred to training), DATA-001 (validator enforces canonical NHW layout + dtype/key contracts), OVERSAMPLING-001 (K=7 ≥ C=4 preserved in group construction).
 
-### Phase E — Train PtychoPINN (COMPLETE)
-**Status:** COMPLETE — PyTorch training runner integration delivered with skip-aware manifest, skip summary persistence, and deterministic CLI evidence
+### Phase E — Train PtychoPINN (PAUSED — awaiting TensorFlow rework)
+**Status:** Paused. We must restore the TensorFlow training pipeline before any further runs; PyTorch work is retained below as historical context but no longer authoritative for this initiative.
 
-**Backend:** PyTorch (via `ptycho_torch.train.train_cdi_model_torch`) for this phase; TensorFlow backend still supported for production workflows.
+**Immediate Deliverables (blocking before resuming evidence):**
+- **E0 — TensorFlow pipeline restoration:** Update `studies/fly64_dose_overlap/training.py` plus `run_phase_e_job.py` so they delegate to the TensorFlow `ptycho_train` workflows, honoring CONFIG-001 ordering. Ship pytest coverage for the TF path (CLI filters, manifest writing, skip summary) and capture a deterministic CLI command under the existing Phase E hub.
+- **E0.5 — Metadata alignment:** Ensure manifests and `training_manifest.json` mirror the Phase D metadata fields (`image_subsampling`, `group_multiplier`, `overlap_fraction`) so Phase G comparisons can correlate overlap statistics with training runs.
+- **E0.6 — Evidence rerun:** Re-run the counted dense gs2 + baseline gs1 TensorFlow jobs with SHA256 proofs stored under `plans/active/.../phase_e_training_bundle_real_runs_exec/`, updating docs/fix_plan.md and the hub summary.
 
-**Deliverables:**
-- **E1-E2 Job Builder (Attempt #13):** `studies/fly64_dose_overlap/training.py::build_training_jobs()` enumerating 9 jobs per dose (3 doses × 3 variants: baseline gs1 + dense/sparse gs2) with dataset path validation and artifact directory derivation. Test coverage: `test_build_training_jobs_matrix` (1/1 PASSED). CONFIG-001 guard: no params.cfg mutation in builder.
-- **E3 Run Helper (Attempt #14-15):** `run_training_job()` orchestrating single job execution with CONFIG-001 bridge (`update_legacy_dict` called before runner invocation), directory creation, runner delegation, and dry-run mode. Test coverage: `test_run_training_job_invokes_runner`, `test_run_training_job_dry_run` (2/2 PASSED with spy-based validation).
-- **E4 CLI Integration (Attempt #16):** `studies/fly64_dose_overlap/training.py::main()` with argparse CLI, job filtering (`--dose`, `--view`, `--gridsize`), manifest emission, and artifact orchestration. Test coverage: `test_training_cli_filters_jobs`, `test_training_cli_manifest_and_bridging` (2/2 PASSED).
-- **E5 MemmapDatasetBridge Wiring (Attempts #20-22):** Replaced `load_data` stub with `MemmapDatasetBridge` instantiation in `execute_training_job()` (training.py:373-387), extracting `raw_data_torch` payload for trainer delegation. Path alignment: fixed Phase D layout to `dose_{dose}/{view}/{view}_{split}.npz` and introduced `allow_missing_phase_d` flag so CLI can skip absent overlap views while tests stay strict. Test coverage: `test_execute_training_job_delegates_to_pytorch_trainer`, `test_build_training_jobs_skips_missing_view` (3/3 PASSED).
-- **E5.5 Skip Reporting (Attempts #23-25):** Enhanced skip reporting with structured metadata: `build_training_jobs()` accepts optional `skip_events` list parameter; when `allow_missing_phase_d=True` and views missing, appends `{dose, view, reason}` dicts (training.py:196-213). CLI `main()` emits skip summary to `skip_summary.json` with schema `{timestamp, skipped_views, skipped_count}`, records path in `training_manifest.json`, and prints human-readable skip count (training.py:692-731). Test coverage: `test_training_cli_manifest_and_bridging` validates skip summary file existence, schema, and manifest consistency (3/3 CLI selectors PASSED).
+**Deferred — PyTorch parity context (informational only):**
+- Prior attempts E1–E5.5 wired PyTorch runners, MemmapDatasetBridge hooks, and skip-reporting CLI outputs (see artifact hubs below). These serve as references for future parity work but must not dictate the current backend choice.
 
-**Artifact Hubs:**
+**Artifact Hubs (historical evidence, still referenced for context):**
 - E1 Job Builder: `reports/2025-11-04T060200Z/phase_e_training_e1/`
 - E3 Run Helper: `reports/2025-11-04T070000Z/phase_e_training_e3/`, `reports/2025-11-04T080000Z/phase_e_training_e3_cli/`
 - E4 CLI Integration: `reports/2025-11-04T090000Z/phase_e_training_e4/`
@@ -158,32 +156,25 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 - E5 Documentation Sync: `reports/2025-11-04T084850Z/phase_e_training_e5_doc_sync/`
 
 **Key Constraints & References:**
-- CONFIG-001 compliance: `update_legacy_dict(params.cfg, config)` called in `execute_training_job` before any data loading or model construction.
-- DATA-001 compliance: Phase D NPZ layout enforced via `build_training_jobs` path construction; canonical contract assumed.
+- CONFIG-001 compliance: `update_legacy_dict(params.cfg, config)` must run before any TensorFlow data loading or model construction.
+- DATA-001 compliance: Phase D NPZ layout enforced via `build_training_jobs` path construction; canonical contract assumed.
 - OVERSAMPLING-001: neighbor_count=7 satisfies K≥C=4 for gridsize=2 throughout.
-- POLICY-001: PyTorch backend required for Phase E workflows; `backend='pytorch'` set in training config.
+- BACKEND POLICY: TensorFlow is the only supported PINN backend for this initiative; PyTorch tasks are explicitly deferred.
 
-**Test Coverage (8 tests, all PASSED):**
-- `test_build_training_jobs_matrix` — Job enumeration (9 jobs per dose)
-- `test_run_training_job_invokes_runner` — Runner delegation + CONFIG-001 bridge
-- `test_run_training_job_dry_run` — Dry-run mode behavior
-- `test_training_cli_filters_jobs` — CLI job filtering logic
-- `test_training_cli_manifest_and_bridging` — Manifest + skip summary persistence
-- `test_execute_training_job_delegates_to_pytorch_trainer` — MemmapDatasetBridge instantiation
-- `test_training_cli_invokes_real_runner` — Real runner integration
-- `test_build_training_jobs_skips_missing_view` — Graceful skip handling with `allow_missing_phase_d=True`
+**Historical Test Coverage (PyTorch context):**
+- `test_build_training_jobs_matrix`
+- `test_run_training_job_invokes_runner`
+- `test_run_training_job_dry_run`
+- `test_training_cli_filters_jobs`
+- `test_training_cli_manifest_and_bridging`
+- `test_execute_training_job_delegates_to_pytorch_trainer`
+- `test_training_cli_invokes_real_runner`
+- `test_build_training_jobs_skips_missing_view`
 
-**Deterministic CLI Baseline Command:**
-```bash
-python -m studies.fly64_dose_overlap.training \
-  --phase-c-root tmp/phase_c_training_evidence \
-  --phase-d-root tmp/phase_d_training_evidence \
-  --artifact-root plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-04T170500Z/phase_e_training_e5_real_run_baseline/real_run \
-  --dose 1000 \
-  --dry-run
-```
+These tests must be revisited/rewritten for the TensorFlow rework before Phase E can be marked complete again.
 
-**Findings Applied:** CONFIG-001 (builder stays pure; skip_events accumulated client-side), DATA-001 (Phase C/D regeneration reuses canonical contract), POLICY-001 (PyTorch runner default), OVERSAMPLING-001 (skip reasons cite spacing threshold rejections).
+**Future deterministic CLI (to be produced):**
+Document the TensorFlow command once E0 ships; for now this slot remains `TBD (TensorFlow training command)` and blocks the Do Now nucleus.
 
 #### Execution Guardrails (2025-11-12)
 - Reuse `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` for all dense gs2 and baseline gs1 real-run artifacts until both bundles + SHA256 proofs exist. Do **not** mint new timestamped hubs for this evidence gap.
@@ -216,13 +207,23 @@ python -m studies.fly64_dose_overlap.training \
 - **2025-11-12T231800Z audit:** After stash→pull→pop the repo remains dirty only under this hub; `{analysis}` still just holds `blocker.log`, `cli/` still stops at `{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout}.log`, and there are zero SSIM grid, verification, preview, metrics, or artifact-inventory artifacts. `cli/phase_d_dense.log` again ends with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, confirming the dense rerun never advanced past Phase D inside `/home/ollie/Documents/PtychoPINN`.
 - **2025-11-13T003000Z audit:** `timeout 30 git pull --rebase` now runs cleanly (no stash cycle needed) and `git log -10 --oneline` shows the overlap `allow_pickle=True` fix (`5cd130d3`) is already on this branch, so the lingering ValueError in `cli/phase_d_dense.log` is stale output from `/home/ollie/Documents/PtychoPINN2`. The active hub still lacks any counted dense evidence: `analysis/` only holds `blocker.log`, `{cli}` contains `{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout(_retry,_v2).log}`, and there are zero SSIM grid summaries, verification/previews, metrics delta files, or artifact inventory snapshots. With the fix landed locally, the only remaining action is to rerun `run_phase_g_dense.py --clobber ...` followed immediately by `--post-verify-only` **from /home/ollie/Documents/PtychoPINN** so Phase C manifests regenerate and `{analysis,cli}` fill with real artifacts.
 - **2025-11-11T180800Z audit:** Repeated the `git stash push --include-untracked` → `timeout 30 git pull --rebase` → `git stash pop` flow to stay synced while preserving the deleted `data/phase_c/run_manifest.json` and local `.bak` notes. Hub contents remain unchanged: `analysis/` only has `blocker.log` and `cli/` still holds `phase_c_generation.log`, `phase_d_dense.log`, and the `run_phase_g_dense_stdout*.log` variants—there are still zero SSIM grid, verification, preview, metrics, highlights, or artifact-inventory outputs. Importantly, `cli/phase_d_dense.log` shows the failed overlap step was executed **inside** `/home/ollie/Documents/PtychoPINN` (not the secondary clone) and still hit `ValueError: Object arrays cannot be loaded when allow_pickle=False`, which means the post-fix pipeline has never been re-run. Guard every command with `test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"` and regenerate the Phase C manifest via the counted run rather than restoring it manually.
+- **2025-11-11T185738Z retrospective:** Rechecked the hub immediately after the latest stash→pull→pop sync and scanned `git log -10 --oneline`; no Ralph commits landed after `e3b6d375` (reports evidence), so the prior Do Now was never executed. The hub is still missing every Phase G artifact: `analysis/` contains only `blocker.log`, `{cli}` stops at `{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout(_retry,_v2).log}`, and `analysis/metrics_delta_highlights_preview.txt`, SSIM grid summaries, verification/highlights logs, metrics digests, and artifact inventories **do not exist**. `cli/phase_d_dense.log` continues to end with the pre-fix `ValueError: Object arrays cannot be loaded when allow_pickle=False` from this repo, confirming the counted dense rerun plus immediate `--post-verify-only` sweep still never happened.
 - [ ] Execute a counted dense Phase C→G run with `--clobber` into `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`, populating `{analysis,cli}` with real artifacts (phase logs, metrics_delta_summary.json, metrics_delta_highlights_preview.txt, ssim_grid_summary.md, verification_report.json, verify_dense_stdout.log, check_dense_highlights.log, artifact_inventory.txt). **Owner:** Ralph. **Evidence:** CLI/stdout log archived at `$HUB/cli/run_phase_g_dense_stdout.log`.
 - [ ] Immediately rerun `run_phase_g_dense.py --hub "$HUB" --post-verify-only` against the fresh artifacts, confirming the shortened chain regenerates SSIM grid + verification outputs and refreshes `analysis/artifact_inventory.txt`. Archive CLI output as `$HUB/cli/run_phase_g_dense_post_verify_only.log`.
 - [ ] Update `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict (PREVIEW-PHASE-001), verifier/highlight log references, pytest selectors, and doc/test guard status.
 - [ ] If verification surfaces discrepancies, capture blocker logs under `$HUB/red/`, append to docs/fix_plan.md Attempts History with failure signature, and rerun once resolved.
 
+## Execution Hygiene
+- **Hub reuse:** Stick to the two active hubs noted at the top of this plan (Phase E training + Phase G comparison). Per `docs/INITIATIVE_WORKFLOW_GUIDE.md`, only create a new timestamped hub when fresh production evidence is produced; otherwise append to the existing hub’s `summary.md`.
+- **Dirty hub protocol:** Supervisors must log residual artifacts (missing SSIM grid, deleted manifest, etc.) inside the hub’s `summary/summary.md` *and* `docs/fix_plan.md` before handing off so Ralph is never asked to reconstruct Phase C blindly.
+- **Command guards:** All How-To Map entries must be copy/pasteable. Prepend `test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"` plus the required `AUTHORITATIVE_CMDS_DOC`/`HUB` exports and avoid `plans/...` ellipses, ensuring evidence stays local to this repo.
+
 ### Phase H — Documentation & Gaps
 - Note the current code/doc oversampling status and any deviations; update docs/fix_plan.md with artifact paths and outcomes.
+
+## Future Work / Out-of-Scope
+- PyTorch training parity: port the Phase E CLI/tests back onto `ptycho_torch` only after TensorFlow evidence is stable; track as a separate fix-plan item so it does not block this initiative.
+- Continuous overlap sweeps: expand beyond the current `{s_img, m_group}` grid once the derived overlap reporting proves stable; consider automating the sweep via `studies/.../design.py`.
 
 ## Risks & Mitigations
 - pty-chi dependency not vendored: document version and environment; cache outputs.
