@@ -1,3 +1,9 @@
+### Turn Summary
+Reframed the Phase G Do Now so Ralph first fixes the run_phase_g_dense success-banner paths to hub-relative strings and extends the orchestrator test, then reruns the dense pipeline with fresh evidence.
+Updated docs/fix_plan.md, implementation.md, and the hub plan to spotlight the relative-path guard plus counted dense run + post-verify-only rerun, and rewrote input.md with the exact commands/log targets.
+Next: land the relative-path change + tests, capture collect/green logs, execute the dense `--clobber` + `--post-verify-only` commands, and publish MS-SSIM/MAE + preview evidence under the active hub.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary/summary.md)
+
 # Phase G Dense Full Run Verifier Summary
 
 **Timestamp**: 2025-11-12T010500Z

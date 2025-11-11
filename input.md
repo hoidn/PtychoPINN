@@ -1,4 +1,4 @@
-Summary: Run the counted dense Phase C→G pipeline (dose 1000, view dense) into the 2025-11-12 hub, prove the new `--post-verify-only` workflow on real artifacts, and publish MS-SSIM/MAE deltas + artifact inventory evidence.
+Summary: Normalize the Phase G success-banner paths to hub-relative strings, then run the dense Phase C→G pipeline (plus --post-verify-only) into the 2025-11-12 hub and publish MS-SSIM/MAE + preview evidence.
 Mode: Perf
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
 Branch: feature/torchapi-newprompt
@@ -10,58 +10,54 @@ Mapped tests:
 Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
 
 Do Now (hard validity contract)
-- Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::main — after `generate_artifact_inventory(hub)` completes in both the full pipeline path and the `--post-verify-only` path, emit the hub-relative `analysis/artifact_inventory.txt` location in the success banner and fail fast if the file is missing (TYPE-PATH-001, TEST-CLI-001, DATA-001).
-- Implement: tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain — capture stdout (capsys) and assert the new success-banner line mentions `analysis/artifact_inventory.txt`, keeping the existing command-order + inventory-call assertions for regression coverage.
-- Execute: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log to generate fresh Phase C→G artifacts plus SSIM grid/verification/highlights outputs.
-- Execute: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log so the shortened chain regenerates SSIM grid + verification artifacts and refreshes `analysis/artifact_inventory.txt`.
-- Validate: pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -k post_verify_only -vv | tee "$HUB"/collect/pytest_collect_orchestrator_post_verify_only.log (RED logs → `$HUB`/red/ on failure, rerun after fixes).
-- Validate: pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain -vv | tee "$HUB"/green/pytest_post_verify_only.log (archive any failure under `$HUB`/red/ and rerun after fixes).
-- Document: Update `$HUB/summary/summary.md`, `$HUB/summary.md`, docs/fix_plan.md, and galph_memory with runtimes, MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, SSIM grid table path, verification/highlights logs, pytest selectors, and CLI command references (PREVIEW-PHASE-001, TEST-CLI-001).
+- Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::main — convert every success-banner artifact reference (CLI logs, analysis outputs, aggregate report, highlights, metrics digest/log, metrics delta JSON/TXT/preview, SSIM grid summary/log, verification report/log, highlights log) to `Path(...).relative_to(hub)` in both the full pipeline and `--post-verify-only` flows; keep artifact inventory validation intact (TYPE-PATH-001, DATA-001).
+- Implement: tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain — extend stdout assertions so the success banner must contain `CLI logs: cli` and `Analysis outputs: analysis` (hub-relative), in addition to the existing artifact-inventory check and command-order coverage (TEST-CLI-001).
+- Validate: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -k post_verify_only -vv | tee "$HUB"/collect/pytest_collect_orchestrator_post_verify_only.log (RED logs → `$HUB`/red/ on failure, rerun after fixes).
+- Validate: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain -vv | tee "$HUB"/green/pytest_post_verify_only.log (archive failures under `$HUB`/red/ with failure text before rerun).
+- Execute: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log, ensuring `{analysis,cli}` gain the full Phase C→G artifact bundle (SSIM grid summary/log, verification_report.json, verify_dense_stdout.log, check_dense_highlights.log, metrics_delta_summary.json, metrics_delta_highlights_preview.txt, artifact_inventory.txt).
+- Execute: AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log so the shortened chain regenerates SSIM grid + verification artifacts, refreshes `analysis/artifact_inventory.txt`, and prints hub-relative success-banner paths.
+- Document: Update `$HUB/summary/summary.md`, `$HUB/summary.md`, docs/fix_plan.md, and galph_memory with runtimes, MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict (phase-only), SSIM grid table reference, verification/highlights log paths, hub-relative success-banner status, CLI/test selectors, and rerun commands (PREVIEW-PHASE-001, TEST-CLI-001).
 
 How-To Map
-1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md; export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier` (keep exports active for every CLI call; POLICY-001).
-2. Update `plans/active/.../bin/run_phase_g_dense.py`:
-   - In the main pipeline completion banner (after `generate_artifact_inventory`), add `artifact_inventory_path = Path(phase_g_root) / "artifact_inventory.txt"`; if it does not exist raise `RuntimeError` with actionable text, else print `Artifact inventory: {artifact_inventory_path.relative_to(hub)}`.
-   - In the `--post-verify-only` success banner, add the same guard/print so verification-only sweeps prove the inventory refresh (TYPE-PATH-001, DATA-001).
-3. Extend `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain` to accept `capsys`, run `main()` once, call `captured = capsys.readouterr()`, and assert `'analysis/artifact_inventory.txt' in captured.out`. Keep the existing run_command-order assertions + `generate_artifact_inventory` call count (TEST-CLI-001).
-4. `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -k post_verify_only -vv | tee "$HUB"/collect/pytest_collect_orchestrator_post_verify_only.log` (log failure under `$HUB`/red/ before re-running; ensure selector collects >0 tests).
-5. `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain -vv | tee "$HUB"/green/pytest_post_verify_only.log` (expect 1 test run; include rerun logs in `$HUB`/green/).
-6. `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`
-   - Monitor CLI to ensure each phase log (`phase_c_generation.log`, `phase_d_dense.log`, `phase_e_{baseline,dense}_gs*.log`, `phase_f_dense_train.log`, `phase_g_dense_compare.log`, helpers, SSIM grid, verify, highlights) lands under `$HUB/cli/`.
-   - After completion, verify `$HUB/analysis/metrics_delta_summary.json`, `metrics_delta_highlights_preview.txt`, `ssim_grid_summary.md`, `verification_report.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, and `artifact_inventory.txt` all exist.
-7. `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log` (confirm banner prints the artifact inventory path and the log references for SSIM grid + verification).
-8. If previews fail, run `python plans/active/.../bin/check_dense_highlights_match.py --hub "$HUB" --debug | tee "$HUB"/analysis/check_dense_highlights_manual.log` before re-running the orchestrator; keep blocker logs under `$HUB`/red/.
-9. Update `$HUB/summary/summary.md` + `$HUB/summary.md` with runtime, MS-SSIM/MAE deltas (±0.000/±0.000000), preview verdict, SSIM grid table link, verification/highlights log refs, pytest selectors + log paths, and CLI commands; then refresh docs/fix_plan.md Attempts History + galph_memory with the evidence pointers.
+1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md; export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier` (POLICY-001; keep both exports for every subsequent command).
+2. In `plans/active/.../bin/run_phase_g_dense.py::main`, wrap every success-banner path with `.relative_to(hub)` (full run section: CLI logs, Analysis outputs, Aggregate report, Highlights, Metrics digest/log, delta JSON/TXT/preview, SSIM grid summary/log, verification report/log, highlights log; `--post-verify-only` section: CLI logs, Analysis outputs, SSIM grid summary/log, verification report/log, highlights log). Leave `Artifacts saved to: {hub}` and runtime prints untouched.
+3. Update `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain` to keep capsys capture but add assertions that stdout contains `CLI logs: cli` and `Analysis outputs: analysis` (hub-relative). Preserve existing command-order, inventory-call, and artifact-inventory string checks.
+4. `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -k post_verify_only -vv | tee "$HUB"/collect/pytest_collect_orchestrator_post_verify_only.log` (move failing logs to `$HUB`/red/ if needed, rerun after fixes).
+5. `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain -vv | tee "$HUB"/green/pytest_post_verify_only.log` (record reruns with suffix `-rerunN.log`).
+6. `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`; watch for SUCCESS sentinels per phase, then confirm `{analysis,cli}` contain SSIM grid summary/log, verification_report.json, verify_dense_stdout.log, check_dense_highlights.log, metrics_delta_summary.json, metrics_delta_highlights_preview.txt, artifact_inventory.txt.
+7. `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --post-verify-only |& tee "$HUB"/cli/run_phase_g_dense_post_verify_only.log`; verify that hub-relative banner lines print and that SSIM grid + verification artifacts have refreshed timestamps.
+8. On preview/highlights discrepancies run `python plans/active/.../bin/check_dense_highlights_match.py --hub "$HUB" --debug | tee "$HUB"/analysis/check_dense_highlights_manual.log`, archive blockers under `$HUB`/red/, and only rerun after addressing root cause.
+9. Update `$HUB/summary/summary.md` + `$HUB/summary.md` with runtimes, MS-SSIM/MAE ± deltas, preview verdict, SSIM grid table link, verification/highlights log paths, collect/green log references, CLI command strings, and mention that hub-relative banners + post-verify-only rerun succeeded; mirror the same info in docs/fix_plan.md Attempts History and galph_memory.
 
 Pitfalls To Avoid
-- Do not start `--post-verify-only` before the counted `--clobber` run completes; the flag expects fresh Phase C→G artifacts and will just rerun validators.
-- Never combine `--post-verify-only` with `--clobber` or `--skip-post-verify`; the guard exits 1 (TEST-CLI-001).
-- Keep `AUTHORITATIVE_CMDS_DOC` exported for every subprocess so verifiers inherit the correct command reference (POLICY-001).
-- Always tee CLI/test output into `$HUB` subdirs; missing logs invalidate evidence requirements.
-- If any phase fails, stop immediately, archive the failing log under `$HUB`/red/, and document the failure signature in docs/fix_plan.md before rerunning.
-- Preview text must contain only phase deltas with explicit ± signs; amplitude tokens signal PREVIEW-PHASE-001 violations.
-- Do not delete hub contents manually—use `--clobber` so `prepare_hub` archives stale Phase C outputs safely (DATA-001).
-- Ensure MS-SSIM/MAE deltas (±0.000 / ±0.000000) are copied verbatim into summary.md; rounding differently breaks study comparability (STUDY-001).
+- Do not leave any absolute `/home/...` paths in success banners; every artifact reference must be hub-relative (TYPE-PATH-001).
+- Do not start `--post-verify-only` until the full `--clobber` run succeeds; the shortened mode assumes Phase C→F artifacts exist.
+- Never combine `--post-verify-only` with `--clobber` or `--skip-post-verify`; mutual exclusion guards exit non-zero.
+- Keep `AUTHORITATIVE_CMDS_DOC` exported for every subprocess so verifiers inherit the command reference (POLICY-001).
+- Tee every CLI/test command into `$HUB` (`cli/`, `collect/`, `green/`, `red/`); missing logs invalidate evidence (TEST-CLI-001).
+- Use `--clobber` instead of manual deletion so `prepare_hub` handles stale artifacts safely (DATA-001).
+- Treat preview regressions (amplitude tokens or missing ±) as blockers; rerun checker and capture diagnostics (PREVIEW-PHASE-001).
+- If a phase fails, stop immediately, drop the failing log in `$HUB`/red/, and record the failure in docs/fix_plan.md before retrying.
 
 If Blocked
-- Capture the failing CLI/test output under `$HUB`/red/ with a short blocker note, update docs/fix_plan.md Attempts History + galph_memory with the failure signature (phase + log path), and leave the hub intact for debugging.
-- If the dense pipeline aborts mid-phase, do not rerun blindly—inspect the blocking log, record the exception in docs/fix_plan.md, and only retry once the root cause is known.
+- Archive failing CLI/test output under `$HUB`/red/ with a short blocker note (phase name, log path, exception text), update docs/fix_plan.md Attempts History + galph_memory with the failure signature, and leave the hub intact for debugging before reruns.
+- If the dense pipeline aborts repeatedly, capture `cli/run_phase_g_dense_stdout.log` tail plus the specific phase log causing the abort, mark the attempt blocked in docs/fix_plan.md, and stop after the second failed rerun pending supervisor guidance.
 
 Findings Applied (Mandatory)
-- POLICY-001 — PyTorch dependency for Phase F + verification; export AUTHORITATIVE_CMDS_DOC before every command.
-- CONFIG-001 — Preserve `update_legacy_dict` ordering inside the orchestrator; do not reorder Phase C setup while editing success banners.
-- DATA-001 — Artifact inventory + verifier outputs prove dataset contract compliance; treat missing files as blockers.
-- TYPE-PATH-001 — Success banners/logs must use hub-relative paths for every artifact reference.
-- STUDY-001 — Report MS-SSIM/MAE deltas with ± precision inside summary.md and docs/fix_plan.md.
-- TEST-CLI-001 — Maintain RED/GREEN/collect logs for orchestrator tests + CLI commands with correct filenames/dose suffixes.
-- PREVIEW-PHASE-001 — Highlights preview must stay phase-only; rerun checker if amplitude text appears.
-- PHASEC-METADATA-001 — Dense rerun cannot tamper with Phase C metadata; rely on existing guard inside `run_phase_g_dense.py`.
+- POLICY-001 — PyTorch remains required for Phase F + verification; keep AUTHORITATIVE_CMDS_DOC exported for every command.
+- CONFIG-001 — Do not reorder `update_legacy_dict` or other legacy bridges while editing the orchestrator; dense run relies on the existing sequence.
+- DATA-001 — Artifact inventory + verifier outputs must exist; fail fast if files are missing and capture logs before reruns.
+- TYPE-PATH-001 — Success banners/logs must use hub-relative paths, motivating the code/test change in this Do Now.
+- STUDY-001 — Report MS-SSIM ±0.000 / MAE ±0.000000 in summary.md and docs/fix_plan.md for study comparability.
+- TEST-CLI-001 — Maintain RED/GREEN/collect pytest logs plus CLI log bundles with dose/view-aware filenames and SUCCESS sentinels.
+- PREVIEW-PHASE-001 — Highlights preview must stay phase-only; rerun checker if amplitude strings leak in.
+- PHASEC-METADATA-001 — Leave the Phase C metadata guard intact; treat any failure from `validate_phase_c_metadata` as a hard block.
 
 Pointers
-- docs/fix_plan.md:18 — Current focus metadata, guardrails, and Do Now summary for STUDY-SYNTH-FLY64-DOSE-OVERLAP-001.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:199 — Phase G context + active checklist outlining the dense rerun + verification sweep deliverables.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/plan/plan.md:1 — Detailed execution sketch for the counted dense run and post-verify-only workflow.
+- docs/fix_plan.md:18 — Active focus entry, guardrail, and Latest Attempt summary for this initiative.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:199 — Phase G checklist detailing the relative-path task and evidence runs.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/plan/plan.md:1 — Execution sketch + objectives for the dense run + verification sweep.
 
 Next Up (optional)
-1. Once dense evidence is archived, repeat the workflow for the sparse view (dose 1000) so both overlap conditions have fresh Phase C→G runs.
-2. Extend `verify_dense_pipeline_artifacts.py` to emit a short JSON verdict summary for CI ingestion (follows after post-verify-only evidence).
+1. After dense evidence lands, repeat the same workflow for the sparse view (dose 1000) so both overlap conditions have Phase C→G artifacts.
+2. Extend the verifier to emit a summarized JSON verdict for CI ingestion once the dense evidence + hub-relative guard passes.

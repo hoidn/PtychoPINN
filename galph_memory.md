@@ -3357,6 +3357,20 @@
 - Notes:
   - `timeout 30 git pull --rebase` already up to date; re-read docs/index.md + docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001) before inspecting the hub (still only plan/summary content, no `{analysis,cli}` artifacts).
   - Updated `plans/.../reports/.../plan/plan.md`, `implementation.md` (Phase G checklist), `summary.md`, `summary/summary.md`, and docs/fix_plan.md with the new objective: run the counted dense Phase C→G pipeline with `--clobber`, rerun `--post-verify-only`, ensure `analysis/artifact_inventory.txt` is regenerated, and publish MS-SSIM ±0.000 / MAE ±0.000000 deltas + preview verdict.
-  - Rewrote input.md with ready_for_implementation Do Now covering the artifact-inventory success-banner tweak, updated pytest selector expectations, dense run CLI commands, rerun guard, and documentation deliverables; reaffirmed reuse of the 2025-11-12 hub as the active evidence location.
+- Rewrote input.md with ready_for_implementation Do Now covering the artifact-inventory success-banner tweak, updated pytest selector expectations, dense run CLI commands, rerun guard, and documentation deliverables; reaffirmed reuse of the 2025-11-12 hub as the active evidence location.
 - Next actions for Ralph: print the artifact inventory path in run_phase_g_dense success banners (full + post-verify-only), update the orchestrator pytest to assert the banner content, rerun the dense Phase C→G pipeline with --clobber into the 2025-11-12 hub, rerun --post-verify-only to refresh verification artifacts, archive CLI/test logs, and publish MS-SSIM/MAE deltas + preview verdict in summary/docs/fix_plan.
+- <Action State>: [ready_for_implementation]
+
+## 2025-11-12T113500Z: Hub-relative success banner + dense rerun directive
+- dwell: 2 (second consecutive planning loop since the post-verify-only automation landed; keeping focus ready_for_implementation)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; confirmed docs/prompt_sources_map.json remains absent.
+  - Reviewed docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001) plus docs/index.md pointers; verified hub `cli/` only contains `run_phase_g_dense_stdout.log` + `phase_c_generation.log` from `/home/ollie/Documents/PtychoPINN2`, meaning the counted dense run aborted after Phase C and `{analysis,cli}` lack SSIM grid / verification artifacts.
+  - Audited `run_phase_g_dense.py` success banners and found remaining absolute `/home/...` paths for CLI/analysis/aggregate report outputs; updated implementation plan checklist + hub plan to require hub-relative strings before rerunning, and wrote the same requirement into docs/fix_plan.md Attempt 2025-11-12T113500Z (Last Updated s=258).
+  - Rewrote input.md with Mode Perf Do Now covering (a) code/test edits for hub-relative banners, (b) collect/green pytest selectors, (c) counted dense `--clobber` run, (d) `--post-verify-only` rerun, and (e) MS-SSIM/MAE + preview documentation; appended Turn Summary block to hub summary + summary/summary.md.
+- Next actions for Ralph: implement the hub-relative banner change + test update, capture collect/green logs, run the dense `--clobber` + `--post-verify-only` commands into the active hub, and publish MS-SSIM/MAE + preview evidence with ledger updates.
 - <Action State>: [ready_for_implementation]
