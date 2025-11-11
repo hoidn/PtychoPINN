@@ -1,4 +1,11 @@
 ### Turn Summary
+Stashed the existing hub evidence (deleted `data/phase_c/run_manifest.json` plus CLI/pytest logs) to satisfy `timeout 30 git pull --rebase`, restored it untouched, and confirmed upstream has no new commits.
+Revalidated the 2025-11-12 dense hub: `analysis/` still only contains `blocker.log` from the `/home/ollie/Documents/PtychoPINN2` run while `cli/` holds just `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`, so there are still no SSIM grid, verification, preview, metrics, or artifact-inventory outputs.
+Updated the initiative plan, hub plan, docs/fix_plan.md, and input.md to keep the focus ready_for_implementation with the same pytest guard + counted `run_phase_g_dense.py --clobber` / `--post-verify-only` runs plus MS-SSIM/MAE + preview/verifier reporting (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001).
+Next: Ralph must run both pytest selectors, execute the counted dense run followed by `--post-verify-only`, and publish MS-SSIM/MAE deltas + preview/verifier/SSIM grid + inventory evidence into this hub and ledger.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md, summary/summary.md, input.md)
+
+### Turn Summary
 `timeout 30 git pull --rebase` remained blocked by the existing hub edits (cli/phase_c_generation.log, cli/run_phase_g_dense_stdout.log, pytest logs, and the deleted Phase C manifest), so I left the dirty evidence untouched, verified no new commits landed, and kept the reports hub as-is.
 Re-read docs/index.md plus findings POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, and PHASEC-METADATA-001, then re-audited the 2025-11-12 hub; `{analysis,cli}` still only contain `blocker.log` and the Phase C/D/run_phase logs from the `/home/ollie/Documents/PtychoPINN2` attempt.
 Next: Ralph must work from `/home/ollie/Documents/PtychoPINN`, rerun the mapped pytest collect/execution guards, execute `run_phase_g_dense.py --clobber` followed immediately by `--post-verify-only`, and publish MS-SSIM ±0.000 / MAE ±0.000000 deltas plus preview/verifier/SSIM grid + inventory references across summary/docs.
