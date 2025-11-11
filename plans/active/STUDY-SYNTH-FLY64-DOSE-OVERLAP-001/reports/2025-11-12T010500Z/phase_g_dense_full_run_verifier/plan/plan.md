@@ -1,20 +1,20 @@
-# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-12T153500Z)
+# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-12T183500Z)
 
 ## Reality Check
-- Commit `a65bda9c` already extended `test_run_phase_g_dense_exec_prints_highlights_preview` with the hub-relative assertions and removed the duplicate “Metrics digest” line inside `run_phase_g_dense.py::main`, so the counted path now matches TYPE-PATH-001/TDD expectations.
-- `test_run_phase_g_dense_exec_runs_analyze_digest` still only checks that the “Metrics digest” and “Metrics digest log” strings appear somewhere in stdout; it does **not** fail if the Markdown line is emitted twice, so a future regression could silently reintroduce duplicates.
+- Commit `4cff9e38` already extended `test_run_phase_g_dense_exec_runs_analyze_digest` so it fails when `"Metrics digest: "` appears twice, locking the Markdown banner line before we rerun the pipeline.
+- The same test still never asserts that `"Metrics digest log: "` stays unique, so the CLI log reference could duplicate silently if future banner edits reintroduce the issue (TYPE-PATH-001).
 - The active hub still only has `cli/run_phase_g_dense_stdout.log` and `cli/phase_c_generation.log`; `{analysis,verification,metrics}` remain empty because no dense Phase C→G rerun executed after the success-banner guard landed, so MS-SSIM/MAE/preview verdicts are still unverified.
 - Until we rerun the counted pipeline plus `--post-verify-only`, we lack SSIM grid summaries, verification/highlights logs, metrics deltas, and artifact inventory proof (PREVIEW-PHASE-001, TEST-CLI-001).
 
 ## Objectives (single Ralph loop)
-1. **Banner regression guard** — Update `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest` so it asserts **exactly one** `Metrics digest:` line is emitted (e.g., via `stdout.count("Metrics digest: ") == 1`) while still checking for `Metrics digest log:`. This locks the deduplicated banner behavior before we rerun the pipeline (TYPE-PATH-001, TEST-CLI-001).
+1. **Digest log regression guard** — Update `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest` so it asserts **exactly one** `Metrics digest log:` line is emitted (e.g., via `stdout.count("Metrics digest log: ") == 1`) while preserving the existing Markdown guard. This locks the CLI log reference before we rerun the pipeline (TYPE-PATH-001, TEST-CLI-001).
 2. **Counted dense run (Phase C→G)** — Run `plans/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber` so Phase C→G artifacts, SSIM grid summary/log, verification report/log, highlights logs, metrics delta files, and artifact inventory populate `{analysis,cli}` with fresh timestamps.
 3. **Verification-only sweep** — Immediately rerun `run_phase_g_dense.py --hub "$HUB" --post-verify-only` against the refreshed artifacts to prove the shortened chain regenerates SSIM grid + verification outputs and rewrites `analysis/artifact_inventory.txt`. Capture CLI logs for both runs.
 4. **Publish metrics + ledger updates** — Record MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict (phase-only), SSIM grid table reference, CLI/test selectors, and verification/highlights links inside `summary/summary.md`, summary.md, docs/fix_plan.md, and galph_memory.
 
 ## Execution Sketch
 1. `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` and `export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier`.
-2. Extend `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest` so it asserts `stdout.count("Metrics digest: ") == 1` (or equivalent) and still checks for `Metrics digest log:` plus the MS-SSIM/MAE delta block.
+2. Extend `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest` so it asserts `stdout.count("Metrics digest log: ") == 1` (or equivalent) while keeping the existing `Metrics digest:` + delta block checks.
 3. `pytest --collect-only tests/study/test_phase_g_dense_orchestrator.py -k exec_runs_analyze_digest -vv | tee "$HUB"/collect/pytest_collect_exec_digest.log` (move failures to `$HUB`/red/ before rerun).
 4. `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv | tee "$HUB"/green/pytest_exec_digest.log`.
 5. `python plans/active/.../bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense_stdout.log`
@@ -27,7 +27,7 @@
 10. Refresh docs/fix_plan.md Attempts History and galph_memory with the execution evidence (metrics, logs, preview verdict, verifier output hashes).
 
 ## Acceptance Criteria
-- `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest` fails if stdout contains more than one `Metrics digest:` line and passes locally (collect + execution logs archived under `$HUB`).
+- `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest` fails if stdout contains more than one `Metrics digest:` **or** `Metrics digest log:` line and passes locally (collect + execution logs archived under `$HUB`).
 - `{analysis,cli}` exist and contain Phase C→G logs plus `verification_report.json`, `verify_dense_stdout.log`, `check_dense_highlights.log`, `ssim_grid_summary.md`, `metrics_delta_summary.json`, `metrics_delta_highlights_preview.txt`, and `artifact_inventory.txt`.
 - `run_phase_g_dense.py --post-verify-only` succeeds without touching Phase C data, regenerates SSIM grid + verification artifacts, and updates the artifact inventory + success banner.
 - CLI logs for both runs sit under `$HUB` (`cli/run_phase_g_dense_stdout.log`, `cli/run_phase_g_dense_post_verify_only.log`, phase-specific logs) with SUCCESS sentinels.

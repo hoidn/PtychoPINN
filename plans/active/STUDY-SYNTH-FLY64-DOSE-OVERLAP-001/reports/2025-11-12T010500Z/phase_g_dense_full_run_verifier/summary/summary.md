@@ -1,4 +1,10 @@
 ### Turn Summary
+Rebaselined Phase G plan after the digest-banner fix landed, adding the `Metrics digest log:` uniqueness guard plus refreshed objectives for the counted dense rerun and verification-only sweep.
+Docs/fix_plan.md, implementation.md, and plan/plan.md now capture the guard + rerun workflow so Ralph can deliver SSIM grid, verifier, highlights, metrics, and artifact inventory evidence into this hub.
+Next: update the digest test with the log-line count assertion, capture collect/exec pytest logs, run `run_phase_g_dense.py --clobber` followed by `--post-verify-only`, and document MS-SSIM/MAE deltas + preview/verifier status across the hub summaries and ledger.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md, summary/summary.md)
+
+### Turn Summary
 Reality check confirmed the hub-relative banner + highlights test are merged but the digest execution test still allows duplicate lines and the Phase G hub remains empty beyond `cli/`, so we reissued the focus with a banner-regression test plus the counted dense rerun.
 Ralph now needs to add the `stdout.count("Metrics digest: ") == 1` assertion, capture collect/green logs, then run the dense `--clobber` + `--post-verify-only` commands so `{analysis,verification,metrics}` populate with SSIM grid, verification, highlights, metrics, and artifact inventory evidence.
 Next: land the digest guard test, stream both CLI commands into this hub, and document MS-SSIM/MAE ±0.000 + preview/verifier status across summary.md, docs/fix_plan.md, and galph_memory.

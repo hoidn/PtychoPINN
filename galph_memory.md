@@ -3402,3 +3402,16 @@
   - Replaced input.md with a ready_for_implementation Do Now covering the digest test edit, collect/exec pytest commands, dense `--clobber` + `--post-verify-only` runs, evidence logging, and summary/docs updates; appended matching Turn Summary blocks to `summary.md` and `summary/summary.md`.
 - Next actions for Ralph: enforce the single “Metrics digest” stdout line via the digest test, capture collect/green logs, run the dense Phase C→G pipeline with `--clobber`, rerun `--post-verify-only`, and document MS-SSIM/MAE ±0.000 + preview/verifier evidence across the hub summaries, docs/fix_plan.md, and galph_memory.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T183500Z: Digest log guard plan + dense rerun directive
+- dwell: 1 (first planning loop since the 2025-11-12T153500Z ready_for_implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; re-read docs/index.md pointers plus docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001) before editing the plan. Exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` for downstream commands.
+  - Reality check confirmed commit `4cff9e38` already locks the `"Metrics digest: "` banner, but `"Metrics digest log:"` can still duplicate silently and the 2025-11-12 hub only holds `cli/` logs (no `{analysis,verification,metrics}` artifacts) because no counted Phase C→G rerun executed after the guard.
+  - Updated implementation.md checklist, plan/plan.md, docs/fix_plan.md (s=260), and hub summaries with the new digest-log guard plus the dense `--clobber` + `--post-verify-only` rerun objectives; rewrote input.md so Ralph lands the guard, captures collect/exec logs, runs both CLI commands into the hub, and documents MS-SSIM ±0.000 / MAE ±0.000000 deltas + preview/verifier status.
+- Next actions for Ralph: implement the `Metrics digest log:` count assertion, record the mapped pytest collect/exec logs, run `run_phase_g_dense.py --clobber` followed by `--post-verify-only` into this hub (collecting SSIM grid, verification, highlights, metrics, inventory artifacts), and update summary.md + docs/fix_plan.md + galph_memory with the recorded MS-SSIM/MAE deltas + preview verdict + verifier/highlights evidence.
+- <Action State>: [ready_for_implementation]
