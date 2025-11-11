@@ -14,6 +14,7 @@ This ledger captures the most important lessons, conventions, and recurring issu
 | DATA-001 | 2025-10-16 | data-contract, npz, io | All NPZ datasets must follow the canonical specification (keys, dtypes, normalization); deviations caused silent inference failures. | [Link](specs/data_contracts.md) | Active |
 | NORMALIZATION-001 | 2025-10-16 | scaling, physics, preprocessing | Three independent normalization systems (physics, statistical, display) must never be mixed; applying scaling in the wrong stage created double-scaling bugs. | [Link](docs/DEVELOPER_GUIDE.md#35-normalization-architecture-three-distinct-systems) | Active |
 | STUDY-001 | 2025-10-16 | fly64, baseline, generalization | On fly64 experiments the baseline model outperformed PtychoPINN by ~6–10 dB, contradicting expectations and motivating architecture review. | [Link](docs/FLY64_GENERALIZATION_STUDY_ANALYSIS.md#key-findings) | Active |
+| ACCEPTANCE-001 | 2025-11-11 | phase-d, geometry, spacing, dense-view | Dense fly64 overlap runs cannot meet the legacy 10 % minimum acceptance—bounding-box math caps the dense view at ≈0.96 % (42/5088) for the 38.4 px threshold—so `generate_overlap_views` must compute a geometry-aware acceptance floor (area ÷ packing discs) and log `geometry_acceptance_bound` + `effective_min_acceptance` in the metrics bundle before proceeding. | [Link](plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/summary.md) | Active |
 | OVERSAMPLING-001 | 2025-10-16 | oversampling, gridsize, combinatorics | Oversampling only works when `gridsize > 1` and `K > C`; otherwise requested groups can never exceed raw images. | [Link](docs/debugging/TROUBLESHOOTING.md#oversampling-not-working) | Active |
 | MIGRATION-001 | 2025-10-16 | params-removal, refactor, strategy | 66+ files still depend on `params.cfg`; migration plan is to eliminate new uses, document remaining ones, then remove the dependency. | [Link](docs/debugging/QUICK_REFERENCE_PARAMS.md#the-66-file-problem) | Active |
 | PROCEDURE-001 | 2025-10-16 | review, defensive-coding | Flag hidden `params` reads and undocumented dependencies during code review; insist on explicit parameters or documented prerequisites. | [Link](docs/debugging/QUICK_REFERENCE_PARAMS.md#red-flags-in-code-review-🚩) | Active |
@@ -48,4 +49,3 @@ with np.load(path, allow_pickle=True) as data:
 ### Related
 - DATA-001 (data contract compliance)
 - Commit: 5cd130d3
-

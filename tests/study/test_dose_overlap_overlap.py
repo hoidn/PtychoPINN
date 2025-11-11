@@ -29,6 +29,7 @@ from studies.fly64_dose_overlap.overlap import (
     compute_spacing_metrics,
     generate_overlap_views,
     greedy_min_spacing_selection,
+    compute_geometry_aware_acceptance_floor,
 )
 from studies.fly64_dose_overlap.validation import validate_dataset_contract
 
@@ -516,4 +517,148 @@ def test_generate_overlap_views_sparse_downsamples(tmp_path: Path, study_design:
     actual_min_spacing = min_spacings[min_spacings != np.inf].min() if len(min_spacings) > 0 else 0.0
     assert actual_min_spacing >= sparse_threshold, (
         f"Filtered data should meet sparse threshold: {actual_min_spacing:.2f} >= {sparse_threshold:.2f}"
+    )
+
+
+def test_generate_overlap_views_dense_acceptance_floor(tmp_path: Path, study_design: StudyDesign):
+    """
+    Test that dense overlap generation succeeds using geometry-aware acceptance floor
+    when the hard-coded 10% threshold is geometrically impossible.
+
+    This test validates the fix for the Phase G dense blocker where:
+    - Split area: 56,399 px²
+    - Threshold: 38.4 px (dense view)
+    - Theoretical max acceptance: ~0.75% (38.25 slots / 5088 positions)
+    - Hard-coded MIN_ACCEPTANCE_RATE = 10% is impossible
+    - Geometry-aware floor should allow ~0.4% acceptance (50% of theoretical)
+
+    Scenario:
+    - Create coordinates with small bounding box relative to spacing threshold
+    - Theoretical max acceptance < 10% (old hard-coded floor)
+    - Geometry-aware floor should allow the dataset to pass
+
+    RED expectation: Without geometry-aware floor, raises ValueError("Insufficient positions...")
+    GREEN expectation: After implementation, succeeds with geometry_aware_floor logged in metrics
+
+    References:
+    - input.md:2 — Add geometry-aware acceptance floor requirement
+    - fix_plan.md:43 — Phase G dense blocker (0.8% actual vs 10% impossible floor)
+    - overlap.py:325-395 — compute_geometry_aware_acceptance_floor implementation
+
+    Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor -vv
+    """
+    # Create synthetic coordinates mimicking the Phase G dense blocker scenario
+    # We want: theoretical_max_acceptance < 0.1 but > 0.0
+    # Dense threshold = 38.4 px
+    # Let's create a 250x250 px bounding box (62,500 px²)
+    # threshold² = 1474.56 px²
+    # Theoretical max slots = 62,500 / 1474.56 ≈ 42.4
+    # Use 5000 positions → theoretical_max_acceptance ≈ 0.0085 (0.85%)
+    # Conservative floor (50%) ≈ 0.004 (0.4%)
+
+    dense_threshold = study_design.spacing_thresholds['dense']  # 38.4 px
+
+    # Create a dense grid within 250x250 bounding box
+    # Use 5 px spacing to get ~50x50 = 2500 positions
+    x_grid = np.arange(0, 250, 5.0)
+    y_grid = np.arange(0, 250, 5.0)
+    x_coords, y_coords = np.meshgrid(x_grid, y_grid)
+    coords = np.stack([x_coords.ravel(), y_coords.ravel()], axis=1).astype(np.float32)
+    n = len(coords)  # Should be 2500 positions
+
+    # Verify geometry-aware floor is correctly computed
+    geometry_floor = compute_geometry_aware_acceptance_floor(coords, dense_threshold, conservative_factor=0.5)
+    print(f"\nTest setup:")
+    print(f"  Bounding box: 250x250 = 62,500 px²")
+    print(f"  Threshold: {dense_threshold} px")
+    print(f"  threshold²: {dense_threshold**2:.2f} px²")
+    print(f"  Theoretical max slots: {62500 / (dense_threshold**2):.2f}")
+    print(f"  Total positions: {n}")
+    print(f"  Theoretical max acceptance: {(62500 / (dense_threshold**2)) / n:.4f}")
+    print(f"  Geometry-aware floor (50%): {geometry_floor:.4f}")
+    print(f"  Hard-coded 10% floor: 0.1000")
+
+    # Assert geometry-aware floor < 10% (validates that old hard-coded floor would fail)
+    assert geometry_floor < 0.1, (
+        f"Geometry-aware floor {geometry_floor:.4f} should be < 0.1 to demonstrate old blocker"
+    )
+    # Assert geometry-aware floor > 0 (should be achievable)
+    assert geometry_floor > 0.0, "Geometry-aware floor should be positive"
+
+    # Fabricate DATA-001 compliant dataset
+    dataset = {
+        'diffraction': np.random.randn(n, 64, 64).astype(np.float32),
+        'objectGuess': np.random.randn(128, 128).astype(np.complex64),
+        'probeGuess': np.random.randn(64, 64).astype(np.complex64),
+        'xcoords': coords[:, 0],
+        'ycoords': coords[:, 1],
+    }
+
+    train_path = tmp_path / "train_dense_low_acceptance.npz"
+    test_path = tmp_path / "test_dense_low_acceptance.npz"
+    np.savez_compressed(train_path, **dataset)
+    np.savez_compressed(test_path, **dataset)
+
+    output_dir = tmp_path / "dense_view_geometry_aware"
+
+    # Execute: should succeed via geometry-aware floor
+    results = generate_overlap_views(
+        train_path=train_path,
+        test_path=test_path,
+        output_dir=output_dir,
+        view='dense',
+        design=study_design,
+    )
+
+    # GREEN assertions
+    # 1. Outputs exist
+    assert results['train_output'].exists()
+    assert results['test_output'].exists()
+
+    # 2. Metrics contain geometry-aware fields
+    assert results['train_metrics'].geometry_aware_floor is not None
+    assert results['train_metrics'].effective_min_acceptance is not None
+    assert results['test_metrics'].geometry_aware_floor is not None
+    assert results['test_metrics'].effective_min_acceptance is not None
+
+    # 3. Geometry-aware floor is less than old 10% hard-coded floor
+    assert results['train_metrics'].geometry_aware_floor < 0.1
+    assert results['test_metrics'].geometry_aware_floor < 0.1
+
+    # 4. Effective minimum acceptance is reasonable (>= geometry floor, floored at 1%)
+    assert results['train_metrics'].effective_min_acceptance >= 0.01
+    assert results['train_metrics'].effective_min_acceptance >= results['train_metrics'].geometry_aware_floor
+
+    # 5. Acceptance >0 (greedy selector found valid subset or direct passed)
+    assert results['train_metrics'].n_accepted > 0, "Should find valid subset"
+    assert results['test_metrics'].n_accepted > 0
+
+    # 6. Filtered dataset has fewer or equal positions than input
+    with np.load(results['train_output']) as data:
+        filtered_train = {k: data[k] for k in data.keys()}
+    assert len(filtered_train['xcoords']) <= n
+
+    # 7. Metadata includes geometry-aware fields
+    metadata_str = filtered_train.get('_metadata')
+    assert metadata_str is not None, "Metadata should be present"
+    metadata = json.loads(metadata_str.item() if isinstance(metadata_str, np.ndarray) else metadata_str)
+    assert 'geometry_aware_floor' in metadata
+    assert 'effective_min_acceptance' in metadata
+    assert metadata['geometry_aware_floor'] < 0.1
+
+    # 8. Validate DATA-001 compliance
+    validate_dataset_contract(
+        data=filtered_train,
+        view='dense',
+        gridsize=1,
+        neighbor_count=study_design.neighbor_count,
+        design=study_design,
+    )
+
+    # 9. Verify spacing constraint is met in filtered data
+    filtered_coords = np.stack([filtered_train['xcoords'], filtered_train['ycoords']], axis=1)
+    _, min_spacings = compute_spacing_matrix(filtered_coords)
+    actual_min_spacing = min_spacings[min_spacings != np.inf].min() if len(min_spacings) > 0 else 0.0
+    assert actual_min_spacing >= dense_threshold, (
+        f"Filtered data should meet dense threshold: {actual_min_spacing:.2f} >= {dense_threshold:.2f}"
     )

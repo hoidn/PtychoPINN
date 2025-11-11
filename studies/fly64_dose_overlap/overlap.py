@@ -47,6 +47,8 @@ class SpacingMetrics:
         n_accepted: Number of positions meeting threshold
         n_rejected: Number of positions below threshold
         acceptance_rate: Fraction of positions accepted
+        geometry_aware_floor: Theoretical max acceptance based on bounding box (optional)
+        effective_min_acceptance: Effective minimum acceptance rate used (optional)
     """
     min_spacing: float
     max_spacing: float
@@ -57,10 +59,12 @@ class SpacingMetrics:
     n_accepted: int
     n_rejected: int
     acceptance_rate: float
+    geometry_aware_floor: float | None = None
+    effective_min_acceptance: float | None = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dict."""
-        return {
+        result = {
             'min_spacing': float(self.min_spacing),
             'max_spacing': float(self.max_spacing),
             'mean_spacing': float(self.mean_spacing),
@@ -71,6 +75,11 @@ class SpacingMetrics:
             'n_rejected': int(self.n_rejected),
             'acceptance_rate': float(self.acceptance_rate),
         }
+        if self.geometry_aware_floor is not None:
+            result['geometry_aware_floor'] = float(self.geometry_aware_floor)
+        if self.effective_min_acceptance is not None:
+            result['effective_min_acceptance'] = float(self.effective_min_acceptance)
+        return result
 
 
 def compute_spacing_matrix(
@@ -322,6 +331,79 @@ def compute_spacing_metrics(
     )
 
 
+def compute_geometry_aware_acceptance_floor(
+    coords: np.ndarray,
+    threshold: float,
+    conservative_factor: float = 0.5,
+) -> float:
+    """
+    Compute geometry-aware minimum acceptance rate based on bounding box area.
+
+    For dense views where the spacing threshold is large relative to the scan
+    region, the hard-coded 10% MIN_ACCEPTANCE_RATE may be geometrically impossible.
+    This function computes the theoretical maximum acceptance rate based on the
+    split's bounding box area and returns a conservative fraction of that bound.
+
+    Algorithm:
+    1. Compute bounding box (xmin, xmax, ymin, ymax) from coordinates
+    2. Calculate split area = (xmax - xmin) * (ymax - ymin)
+    3. Each position requires approximately threshold² area to satisfy spacing
+    4. Theoretical max slots = split_area / threshold²
+    5. Theoretical max acceptance = max_slots / n_positions
+    6. Return conservative_factor * theoretical_max_acceptance
+
+    Args:
+        coords: Scan coordinates, shape (N, 2) for N positions (x, y)
+        threshold: Minimum required spacing (pixels)
+        conservative_factor: Safety factor applied to theoretical bound (default: 0.5)
+
+    Returns:
+        Geometry-aware minimum acceptance rate (fraction, not percentage)
+
+    References:
+        - input.md:2 — geometry-aware acceptance floor requirement
+        - fix_plan.md:43 — Phase G dense blocker (0.8% vs impossible 10% floor)
+        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 (spacing formula)
+
+    Example:
+        >>> coords = np.array([[0, 0], [100, 0], [0, 100], [100, 100]])
+        >>> floor = compute_geometry_aware_acceptance_floor(coords, threshold=50.0)
+        >>> # Bounding box: 100x100 = 10,000 px²
+        >>> # threshold²: 2500 px²
+        >>> # Theoretical max slots: 10,000 / 2500 = 4
+        >>> # Theoretical acceptance: 4 / 4 = 1.0
+        >>> # Conservative floor: 0.5 * 1.0 = 0.5
+        >>> assert 0.4 < floor < 0.6
+    """
+    if len(coords) == 0:
+        return 0.0
+
+    if len(coords) == 1:
+        # Single position: always 100% acceptance
+        return 1.0
+
+    # Compute bounding box
+    x_min, x_max = coords[:, 0].min(), coords[:, 0].max()
+    y_min, y_max = coords[:, 1].min(), coords[:, 1].max()
+
+    # Compute split area
+    split_area = (x_max - x_min) * (y_max - y_min)
+
+    # Each position requires approximately threshold² area
+    area_per_position = threshold ** 2
+
+    # Theoretical maximum number of positions that can fit
+    theoretical_max_slots = split_area / area_per_position if area_per_position > 0 else 0.0
+
+    # Theoretical maximum acceptance rate
+    n_positions = len(coords)
+    theoretical_max_acceptance = theoretical_max_slots / n_positions if n_positions > 0 else 0.0
+
+    # Return conservative fraction of theoretical bound
+    # Clamp to [0, 1] to handle edge cases
+    return max(0.0, min(1.0, conservative_factor * theoretical_max_acceptance))
+
+
 def generate_overlap_views(
     train_path: Path,
     test_path: Path,
@@ -406,12 +488,18 @@ def generate_overlap_views(
         print(f"    Acceptance: {metrics.n_accepted}/{metrics.n_positions} ({metrics.acceptance_rate:.1%})")
 
         # Guard: require minimum acceptance rate to avoid degenerate datasets
-        MIN_ACCEPTANCE_RATE = 0.1  # At least 10% of positions must pass
+        # Compute geometry-aware floor based on split bounding box
+        geometry_floor = compute_geometry_aware_acceptance_floor(coords, threshold, conservative_factor=0.5)
+        min_acceptance_rate = max(0.01, geometry_floor)  # Floor at 1% to prevent zero-position datasets
+
+        print(f"  Geometry-aware acceptance floor: {geometry_floor:.4f} ({geometry_floor*100:.2f}%)")
+        print(f"  Effective minimum acceptance: {min_acceptance_rate:.4f} ({min_acceptance_rate*100:.2f}%)")
+
         selection_strategy = 'direct'  # Track whether greedy fallback was used
 
-        if metrics.acceptance_rate < MIN_ACCEPTANCE_RATE:
+        if metrics.acceptance_rate < min_acceptance_rate:
             # Attempt greedy spacing-aware downsampling
-            print(f"  ⚠ Initial acceptance rate {metrics.acceptance_rate:.1%} < {MIN_ACCEPTANCE_RATE:.1%}")
+            print(f"  ⚠ Initial acceptance rate {metrics.acceptance_rate:.1%} < {min_acceptance_rate:.1%}")
             print(f"  Attempting greedy spacing selection with threshold={threshold:.2f} px...")
 
             greedy_mask = greedy_min_spacing_selection(coords, threshold)
@@ -420,7 +508,7 @@ def generate_overlap_views(
             print(f"  Greedy selection result:")
             print(f"    Accepted: {greedy_metrics.n_accepted}/{greedy_metrics.n_positions} ({greedy_metrics.acceptance_rate:.1%})")
 
-            if greedy_metrics.acceptance_rate >= MIN_ACCEPTANCE_RATE:
+            if greedy_metrics.acceptance_rate >= min_acceptance_rate:
                 # Greedy selection succeeded
                 print(f"    ✓ Greedy selection meets minimum threshold")
                 mask = greedy_mask
@@ -433,10 +521,14 @@ def generate_overlap_views(
                     f"even after greedy downsampling. "
                     f"Direct acceptance: {metrics.acceptance_rate:.1%}, "
                     f"Greedy acceptance: {greedy_metrics.acceptance_rate:.1%}, "
-                    f"both < minimum {MIN_ACCEPTANCE_RATE:.1%}. "
+                    f"both < minimum {min_acceptance_rate:.1%} (geometry-aware floor: {geometry_floor:.1%}). "
                     f"Min spacing: {metrics.min_spacing:.2f} px < threshold: {threshold:.2f} px. "
                     f"Consider regenerating Phase C with wider scan spacing or relaxing overlap fraction."
                 )
+
+        # Attach geometry-aware metadata to metrics object
+        metrics.geometry_aware_floor = geometry_floor
+        metrics.effective_min_acceptance = min_acceptance_rate
 
         # Filter dataset
         print(f"  Filtering to accepted positions...")
@@ -445,12 +537,14 @@ def generate_overlap_views(
         # Add metadata
         filtered_data['_metadata'] = json.dumps({
             'overlap_view': view,
-            'spacing_threshold': threshold,
+            'spacing_threshold': float(threshold),
             'source_file': str(split_path),
-            'n_accepted': metrics.n_accepted,
-            'n_rejected': metrics.n_rejected,
-            'acceptance_rate': metrics.acceptance_rate,
+            'n_accepted': int(metrics.n_accepted),
+            'n_rejected': int(metrics.n_rejected),
+            'acceptance_rate': float(metrics.acceptance_rate),
             'selection_strategy': selection_strategy,
+            'geometry_aware_floor': float(geometry_floor),
+            'effective_min_acceptance': float(min_acceptance_rate),
         })
 
         # Validate filtered dataset
