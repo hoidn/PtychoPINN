@@ -1,15 +1,11 @@
-### Turn Summary (2025-11-12T210000Z)
+### Turn Summary
+Rechecked the dense Phase G hub after the stash→pull→pop sync; it still only contains `analysis/blocker.log` plus the short trio of CLI logs with no SSIM grid, verification, preview, metrics, or artifact-inventory artifacts.
+Inspected `cli/phase_d_dense.log` and confirmed the last attempt errored with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, so the counted rerun never advanced past Phase D inside this workspace.
+Next: Ralph must rerun the mapped pytest guards, then execute `run_phase_g_dense.py --clobber` followed immediately by `--post-verify-only` from `/home/ollie/Documents/PtychoPINN`, capturing SSIM grid, verification, highlights, preview, metrics, and inventory evidence in this hub.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
 
-Re-validated the dense Phase C→G hub: still only `analysis/blocker.log` plus `cli/{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout}.log`, so no SSIM grid/verification/metrics artifacts exist yet.
-`phase_d_dense.log` shows the last attempt ran from `/home/ollie/Documents/PtychoPINN2` and failed with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, confirming the counted rerun never touched this repo.
-Next: Ralph must rerun the mapped pytest selectors, then execute `run_phase_g_dense.py --clobber` followed by `--post-verify-only` from `/home/ollie/Documents/PtychoPINN` so Phase C regenerates `run_manifest.json` and `{analysis,cli}` capture SSIM grid/verification/metrics artifacts.
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md)
-
----
-
-### Turn Summary (2025-11-11T13:30Z)
-
-Started Phase C→G dense pipeline execution from correct workspace (/home/ollie/Documents/PtychoPINN) after confirming pytest guards stay GREEN; dose=1000 dataset generation completed all 5 stages and pipeline now processing dose=10000.
-Pipeline running in background (hours expected); Phase C must finish 3 dose levels before Phases D-G can execute to populate SSIM grid, verification reports, metrics deltas, and artifact inventory.
-Next: monitor pipeline completion, then run --post-verify-only sweep and document all metrics/artifacts in summary.
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (pytest_collect_post_verify_only.log, pytest_post_verify_only.log in collect/ and green/)
+### Turn Summary
+Successfully launched the Phase G dense --clobber pipeline after validating pytest guard tests (1 test collected, PASSED).
+Resolved Python import issue by setting PYTHONPATH; Phase C dataset generation completed successfully generating 10 NPZ files (~9.7GB) for dose_1000 and dose_10000 with all required artifacts.
+Pipeline continues running in background (PID 1051254) through remaining phases D→G; estimated 2-4 hours total, next loop will monitor completion and execute --post-verify-only validation.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (collect/pytest_collect_post_verify_only.log, green/pytest_post_verify_only.log, data/phase_c/*.npz)

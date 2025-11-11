@@ -3607,3 +3607,19 @@
 - Next actions for Ralph: from `/home/ollie/Documents/PtychoPINN`, rerun the mapped pytest collect/exec selectors, execute `run_phase_g_dense.py --clobber ... --dose 1000 --view dense --splits train test`, immediately run `--post-verify-only`, and publish the SSIM grid/verification/preview/metrics/artifact-inventory evidence plus ledger updates.
 - <Action State>: [ready_for_implementation]
 - focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=0 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=execute counted run + post-verify sweep
+
+## 2025-11-12T231800Z: Dense rerun directive reaffirmed after hub audit
+- dwell: 1 (first consecutive planning loop since the last ready_for_implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - Ran `git stash push --include-untracked` → `timeout 30 git pull --rebase` → `git stash pop` so upstream stayed clean while preserving the hub-only dirty files (Phase C manifest deletion + CLI logs). Exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` per startup rule.
+  - Re-read docs/index.md plus docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001) before inspecting the active plan (`implementation.md`) and hub plan.
+  - Reality check: `{analysis}` still only has `blocker.log`, `{cli}` still stops at `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`, and `cli/phase_d_dense.log` again ends with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, confirming the dense rerun never advanced past Phase D inside `/home/ollie/Documents/PtychoPINN`.
+  - Updated `implementation.md` (new audit bullet), refreshed the hub plan timestamp and both summaries with today’s findings, and rewrote `input.md` with explicit pwd guard, pytest selectors, counted `--clobber` command, immediate `--post-verify-only`, artifact checklist, and reporting instructions.
+  - Logged the new Attempt in docs/fix_plan.md (Last Updated i=287) so the ledger reflects the unchanged evidence and reiterates the findings and deliverables.
+- Next actions for Ralph: verify `pwd -P` equals `/home/ollie/Documents/PtychoPINN`, rerun the mapped pytest guards, execute `run_phase_g_dense.py --clobber ...` followed immediately by `--post-verify-only`, ensure SSIM grid/verification/highlights/preview/metrics/artifact-inventory artifacts land under this hub, and update summary.md + docs/fix_plan.md + galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas plus preview verdict.
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=1 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=execute counted run + post-verify sweep

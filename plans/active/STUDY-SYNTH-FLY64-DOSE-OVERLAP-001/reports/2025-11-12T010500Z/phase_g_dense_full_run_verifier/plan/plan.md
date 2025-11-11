@@ -1,4 +1,4 @@
-# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-12T210000Z)
+# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-12T231800Z)
 
 ## Reality Check
 - Retrospective (per cadence): `git log -10 --oneline` shows no new Ralph commits after `b5e3c8f8`; the last Do Now’s CLI/test commands were never executed in this repo, so we are still missing the dense rerun evidence.
@@ -6,6 +6,7 @@
 - `cli/phase_d_dense.log` confirms the previous run executed from `/home/ollie/Documents/PtychoPINN2` and failed with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, so re-checking `pwd -P` before every command remains mandatory.
 - `data/phase_c/run_manifest.json` is still deleted (tracked by git); regenerate it via the counted run rather than restoring it manually so evidence lines up with the new outputs.
 - `prepare_hub` already archived stale Phase C data under `archive/phase_c_20251111T122258Z/`, leaving only the patched NPZs awaiting regeneration. Until we execute `run_phase_g_dense.py --clobber ...` followed immediately by `--post-verify-only` from **/home/ollie/Documents/PtychoPINN**, `{analysis,cli}` cannot prove SSIM grid/verifier/highlights success, `analysis/artifact_inventory.txt` regeneration, or MS-SSIM/MAE + preview evidence. Keep `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` exported for every command chain.
+- 2025-11-12T231800Z delta: After stash→pull→pop the repo stayed dirty only within this hub; `{analysis}` still just holds `blocker.log`, `cli/` still stops at `{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout}.log`, and `cli/phase_d_dense.log` again recorded `ValueError: Object arrays cannot be loaded when allow_pickle=False`, so no SSIM grid, verification, preview, metrics, or inventory artifacts exist yet.
 
 ## Objectives (single Ralph loop)
 1. **Regression check for the guard** — Re-run the collect-only + execution selectors for `test_run_phase_g_dense_post_verify_only_executes_chain` so the new assertions stay GREEN before launching expensive CLI work (TEST-CLI-001).

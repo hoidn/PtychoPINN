@@ -1,3 +1,11 @@
+### Turn Summary
+Rechecked the dense Phase G hub after the stash→pull→pop sync; it still only contains `analysis/blocker.log` plus the short trio of CLI logs with no SSIM grid, verification, preview, metrics, or artifact-inventory artifacts.
+Inspected `cli/phase_d_dense.log` and confirmed the last attempt errored with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, so the counted rerun never advanced past Phase D inside this workspace.
+Next: Ralph must rerun the mapped pytest guards, then execute `run_phase_g_dense.py --clobber` followed immediately by `--post-verify-only` from `/home/ollie/Documents/PtychoPINN`, capturing SSIM grid, verification, highlights, preview, metrics, and inventory evidence in this hub.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+
+---
+
 ### Turn Summary (2025-11-12T210000Z)
 
 Re-validated the dense Phase C→G hub: still only `analysis/blocker.log` plus `cli/{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout}.log`, so no SSIM grid/verification/metrics artifacts exist yet.
