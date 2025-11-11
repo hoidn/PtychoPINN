@@ -38,4 +38,4 @@ collecting ... collected 18 items / 16 deselected / 2 selected
           
           Follows DATA-001 (artifact inventory regeneration), TEST-CLI-001 (command capture).
 
-================ 2/18 tests collected (16 deselected) in 0.89s =================
+================ 2/18 tests collected (16 deselected) in 0.84s =================
