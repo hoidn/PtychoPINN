@@ -1,4 +1,10 @@
 ### Turn Summary
+Re-scoped Phase G now that commit 7dcb2297 already made the success banner hub-relative; only the dense evidence run and proof artifacts are outstanding.
+Directed Ralph to add hub-relative stdout assertions for the full execution test, drop the duplicate metrics-digest banner line, then run the dense `--clobber` + `--post-verify-only` commands so `{analysis,cli}` capture SSIM grid, verifier, and highlights evidence.
+Next: land the guard/test tweak, record collect/green logs, execute both CLI commands into this hub, and publish MS-SSIM/MAE deltas + preview verdict + verifier links inside summary/docs/fix_plan.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary/summary.md, summary.md)
+
+### Turn Summary
 Reframed the Phase G Do Now so Ralph first fixes the run_phase_g_dense success-banner paths to hub-relative strings and extends the orchestrator test, then reruns the dense pipeline with fresh evidence.
 Updated docs/fix_plan.md, implementation.md, and the hub plan to spotlight the relative-path guard plus counted dense run + post-verify-only rerun, and rewrote input.md with the exact commands/log targets.
 Next: land the relative-path change + tests, capture collect/green logs, execute the dense `--clobber` + `--post-verify-only` commands, and publish MS-SSIM/MAE + preview evidence under the active hub.

@@ -3374,3 +3374,17 @@
   - Rewrote input.md with Mode Perf Do Now covering (a) code/test edits for hub-relative banners, (b) collect/green pytest selectors, (c) counted dense `--clobber` run, (d) `--post-verify-only` rerun, and (e) MS-SSIM/MAE + preview documentation; appended Turn Summary block to hub summary + summary/summary.md.
 - Next actions for Ralph: implement the hub-relative banner change + test update, capture collect/green logs, run the dense `--clobber` + `--post-verify-only` commands into the active hub, and publish MS-SSIM/MAE + preview evidence with ledger updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T133500Z: Dense rerun hand-off after hub-relative fix
+- dwell: 0 (reset after Ralph’s `7dcb2297` implementation landed between loops)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` for downstream commands.
+  - Reality check showed commit `7dcb2297` already normalized the success-banner paths and updated the post-verify-only pytest guard, but the hub still only has `cli/run_phase_g_dense_stdout.log` + `cli/phase_c_generation.log` with no `{analysis,verification,metrics}` payloads.
+  - Updated implementation.md checklist (Phase G) to mark the prior task complete and add new items for the full-run stdout assertions + metrics-digest cleanup; rewrote `plan/plan.md` with the new objectives/commands and inserted the latest Attempt entry into docs/fix_plan.md.
+  - Replaced input.md with a ready_for_implementation Do Now covering (a) extending `test_run_phase_g_dense_exec_prints_highlights_preview`, (b) deduping the banner prints, (c) running the dense `--clobber` command, (d) rerunning `--post-verify-only`, and (e) documenting MS-SSIM/MAE deltas + preview verdict across the hub summaries, docs/fix_plan.md, and galph_memory; appended a Turn Summary to `summary/summary.md` and `summary.md`.
+- Next actions for Ralph: ship the test + banner tweak, capture collect/green pytest logs, execute the dense `--clobber` run plus the immediate `--post-verify-only` sweep into this hub (archiving SSIM grid/verifier/highlights outputs), then record MS-SSIM/MAE ±0.000 deltas + preview verdict with documentation updates.
+- <Action State>: [ready_for_implementation]
