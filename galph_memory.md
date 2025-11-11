@@ -3291,3 +3291,18 @@
   - Planned integration of `ssim_grid.py` into `run_phase_g_dense.py`, targeted pytest selectors, and a full dense rerun followed by verifier/doc updates to close the evidence gap noted in the 213000Z retrospective.
 - Next actions for Ralph: integrate ssim_grid invocation/logging into the orchestrator, update the collect-only + exec pytest to assert the new command order, run both selectors (collect-only + exec), execute the dense pipeline with --clobber into the 235500Z hub, run verify_dense/check_highlights, and refresh docs/TESTING_GUIDE.md + TEST_SUITE_INDEX.md with the helper + precision details.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T010500Z: Dense run + verifier/doc sync hand-off
+- dwell: 1 (first planning loop after the 2025-11-11T235500Z helper integration run)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; exported AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md for downstream commands.
+  - Reviewed docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001) plus docs/index.md pointers; confirmed docs/TESTING_GUIDE.md:331 and TEST_SUITE_INDEX.md:62 still describe the pre-ssim_grid workflow.
+  - Inspected hub `reports/2025-11-11T235500Z/phase_g_dense_run_with_ssim_grid/` — only plan/summary + green pytest logs exist; `analysis/` and `cli/` remain empty, so no counted Phase C→G run after the helper landed.
+  - Audited `verify_dense_pipeline_artifacts.py:632-980` and `tests/study/test_phase_g_dense_artifacts_verifier.py:328-520`; neither require `ssim_grid_cli.log` nor `analysis/ssim_grid_summary.md`, leaving PREVIEW-PHASE-001 unguarded.
+  - Minted new hub `2025-11-12T010500Z/phase_g_dense_full_run_verifier` with plan/summary/cli/analysis/collect/green/red scaffolding and wrote plan.md/input.md instructing Ralph to (a) harden the verifier/tests for the helper, (b) run one dense pipeline with --clobber into this hub, (c) capture verifier/highlights evidence, and (d) sync docs/test index with the preview-only helper workflow.
+- Next actions for Ralph: implement the verifier/test guard, run the dense pipeline + ssim_grid helper into the new hub, execute verifier/highlights checkers, and ship doc/test updates with MS-SSIM/MAE evidence.
+- <Action State>: [ready_for_implementation]
