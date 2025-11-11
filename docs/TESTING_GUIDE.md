@@ -347,6 +347,14 @@ The orchestrator automatically persists computed MS-SSIM/MAE deltas to two compl
    - Referenced in orchestrator success banner for traceability
    - Useful for quick delta validation without parsing JSON
 
+3. **Preview text artifact** (`analysis/metrics_delta_highlights_preview.txt`):
+   - Phase-only subset of highlights for quick sanity-checks (4 lines total)
+   - Format: `MS-SSIM Δ (PtychoPINN - Baseline): +0.020` (single value, no "amplitude" keyword)
+   - MUST NOT contain "amplitude" keyword (enforced by PREVIEW-PHASE-001 guard)
+   - Same signed 3-decimal formatting (±0.000) and ordering as full highlights
+   - Used by orchestrator to emit preview banner to stdout without file operations
+   - Validated by `verify_dense_pipeline_artifacts.py` with `preview_phase_only` check
+
 **Provenance metadata fields (JSON only):**
 - `generated_at`: ISO8601 UTC timestamp (YYYY-MM-DDTHH:MM:SSZ) when deltas were computed
 - `source_metrics`: Relative POSIX path from hub to source metrics_summary.json (TYPE-PATH-001 compliance)
