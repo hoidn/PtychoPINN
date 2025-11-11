@@ -1,0 +1,4 @@
+Phase MS-SSIM vs Baseline: -0.003
+Phase MS-SSIM vs PtyChi: -0.001
+Phase MAE vs Baseline: +0.000235
+Phase MAE vs PtyChi: +0.000346

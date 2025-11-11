@@ -1,0 +1,26 @@
+{
+  "generated_at": "2025-11-11T01:36:12Z",
+  "source_metrics": "analysis/metrics_summary.json",
+  "deltas": {
+    "vs_Baseline": {
+      "ms_ssim": {
+        "amplitude": 0.012345,
+        "phase": -0.003456
+      },
+      "mae": {
+        "amplitude": 0.000123456,
+        "phase": 0.000234567
+      }
+    },
+    "vs_PtyChi": {
+      "ms_ssim": {
+        "amplitude": 0.009876,
+        "phase": -0.001234
+      },
+      "mae": {
+        "amplitude": 0.000987654,
+        "phase": 0.000345678
+      }
+    }
+  }
+}
