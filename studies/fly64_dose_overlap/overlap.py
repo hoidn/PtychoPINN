@@ -384,8 +384,8 @@ def generate_overlap_views(
     for split_name, split_path in [('train', train_path), ('test', test_path)]:
         print(f"[{split_name.upper()}] Processing {split_path.name}...")
 
-        # Load dataset
-        with np.load(split_path) as data:
+        # Load dataset (allow_pickle=True for _metadata field)
+        with np.load(split_path, allow_pickle=True) as data:
             data_dict = {k: data[k] for k in data.keys()}
 
         # Extract coordinates

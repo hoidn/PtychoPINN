@@ -406,14 +406,14 @@ def _execute_training_job_tensorflow(*, config, job, log_path):
     view_for_validation = job.view if job.view in {'dense', 'sparse'} else None
 
     try:
-        with np.load(train_path) as train_npz:
+        with np.load(train_path, allow_pickle=True) as train_npz:
             validate_dataset_contract(
                 dict(train_npz),
                 view=view_for_validation,
                 gridsize=job.gridsize,
                 neighbor_count=config.neighbor_count,
             )
-        with np.load(test_path) as test_npz:
+        with np.load(test_path, allow_pickle=True) as test_npz:
             validate_dataset_contract(
                 dict(test_npz),
                 view=view_for_validation,
