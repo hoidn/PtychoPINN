@@ -87,3 +87,9 @@ Added uniqueness guard for 'Metrics digest log:' banner line in test_run_phase_g
 Implemented the assertion at lines 1488-1492 following the same pattern as the existing "Metrics digest:" guard, ensuring both banner lines remain unique in CLI stdout.
 Full test suite passed (453 passed, 1 pre-existing unrelated failure); committed and pushed changes to feature/torchapi-newprompt.
 Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (pytest_collect_exec_digest.log, pytest_exec_digest.log)
+
+### Turn Summary (2025-11-11 Workspace Blocker — Ralph invoked from wrong directory)
+Halted immediately upon detecting wrong working directory: pwd shows `/home/ollie/Documents/PtychoPINN2` but input.md line 22 enforces `test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"`.
+input.md Pitfalls section (line 31) explicitly warns this causes `ValueError: Object arrays cannot be loaded when allow_pickle=False`; cannot execute any pytest or CLI commands without violating the workspace guard.
+Next: Supervisor must re-invoke Ralph from `/home/ollie/Documents/PtychoPINN` or update input.md to work from PtychoPINN2 (adjusting all path references).
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (red/blocker_workspace_directory.log)
