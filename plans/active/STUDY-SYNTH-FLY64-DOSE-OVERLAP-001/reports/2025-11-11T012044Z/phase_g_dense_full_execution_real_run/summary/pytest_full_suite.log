@@ -162,4 +162,6 @@ tests/test_log_config.py::TestLogConfig::test_string_path_support PASSED [ 32%]
 tests/test_log_config.py::TestLogConfig::test_verbose_mode_enables_debug_console PASSED [ 33%]
 tests/test_misc.py::test_memoize_simulated_data SKIPPED (Deprecated:...) [ 33%]
 tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_configuration_mismatch_warnings PASSED [ 33%]
-tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_end_to_end_workflow_consistency 
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_end_to_end_workflow_consistency PASSED [ 33%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_backward_compatibility PASSED [ 33%]
+tests/test_nphotons_metadata_integration.py::TestNphotonsMetadataIntegration::test_metadata_persistence_single_nphotons 
