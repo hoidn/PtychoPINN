@@ -4,14 +4,14 @@
 # ==============================================================================
 
 
-ERROR generating view=dense for dose=1000.0: Insufficient positions meet spacing threshold for dense view in train split even after greedy downsampling. Direct acceptance: 0.0%, Greedy acceptance: 0.8%, both < minimum 10.0%. Min spacing: 0.06 px < threshold: 38.40 px. Consider regenerating Phase C with wider scan spacing or relaxing overlap fraction.
+ERROR generating view=dense for dose=1000.0: Insufficient positions meet spacing threshold for dense view in train split even after greedy downsampling. Direct acceptance: 0.0%, Greedy acceptance: 0.8%, both < minimum 1.0% (geometry acceptance bound: 1.0%). Min spacing: 0.06 px < threshold: 38.40 px. Consider regenerating Phase C with wider scan spacing or relaxing overlap fraction.
 Traceback (most recent call last):
-  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/overlap.py", line 594, in main
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/overlap.py", line 689, in main
     results = generate_overlap_views(
               ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/overlap.py", line 431, in generate_overlap_views
+  File "/home/ollie/Documents/PtychoPINN/studies/fly64_dose_overlap/overlap.py", line 520, in generate_overlap_views
     raise ValueError(
-ValueError: Insufficient positions meet spacing threshold for dense view in train split even after greedy downsampling. Direct acceptance: 0.0%, Greedy acceptance: 0.8%, both < minimum 10.0%. Min spacing: 0.06 px < threshold: 38.40 px. Consider regenerating Phase C with wider scan spacing or relaxing overlap fraction.
+ValueError: Insufficient positions meet spacing threshold for dense view in train split even after greedy downsampling. Direct acceptance: 0.0%, Greedy acceptance: 0.8%, both < minimum 1.0% (geometry acceptance bound: 1.0%). Min spacing: 0.06 px < threshold: 38.40 px. Consider regenerating Phase C with wider scan spacing or relaxing overlap fraction.
 ================================================================================
 Phase D: Dense/Sparse Overlap View Generation
 ================================================================================
@@ -35,7 +35,9 @@ Threshold: 38.40 px (f_overlap=0.7)
     Mean: 134.49 px
     Median: 125.41 px
     Acceptance: 0/5088 (0.0%)
-  ⚠ Initial acceptance rate 0.0% < 10.0%
+  Geometry acceptance bound: 0.0096 (0.96%)
+  Effective minimum acceptance: 0.0096 (0.96%)
+  ⚠ Initial acceptance rate 0.0% < 1.0%
   Attempting greedy spacing selection with threshold=38.40 px...
   Greedy selection result:
     Accepted: 42/5088 (0.8%)

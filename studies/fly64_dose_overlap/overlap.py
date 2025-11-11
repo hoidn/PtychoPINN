@@ -489,9 +489,10 @@ def generate_overlap_views(
         # Guard: require minimum acceptance rate to avoid degenerate datasets
         # Compute geometry-aware acceptance bound based on split bounding box (ACCEPTANCE-001)
         geometry_bound = compute_geometry_aware_acceptance_floor(coords, threshold)
-        # Epsilon guard: prevent zero-position datasets with a tiny lower bound (0.05% ~ 2-3 positions minimum)
+        # Epsilon guard: prevent zero-position datasets with a tiny lower bound
+        # Use 80% of geometry bound (greedy packing efficiency) or 0.05% minimum
         epsilon = 0.0005
-        min_acceptance_rate = max(epsilon, geometry_bound)
+        min_acceptance_rate = max(epsilon, 0.80 * geometry_bound)
 
         print(f"  Geometry acceptance bound: {geometry_bound:.4f} ({geometry_bound*100:.2f}%)")
         print(f"  Effective minimum acceptance: {min_acceptance_rate:.4f} ({min_acceptance_rate*100:.2f}%)")

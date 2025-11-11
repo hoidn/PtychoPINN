@@ -3,33 +3,33 @@
 # Log: /home/ollie/Documents/PtychoPINN/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_c_generation.log
 # ==============================================================================
 
-2025-11-11 13:23:43.413815: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-11-11 14:43:02.650060: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1762896223.425376 1267218 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1762896223.429014 1267218 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1762896223.439229 1267218 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1762896223.439239 1267218 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1762896223.439242 1267218 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1762896223.439243 1267218 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-11-11 13:23:43.441962: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+E0000 00:00:1762900982.661622 1319964 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1762900982.665307 1319964 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1762900982.675543 1319964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762900982.675555 1319964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762900982.675556 1319964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1762900982.675558 1319964 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-11-11 14:43:02.678548: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-I0000 00:00:1762896226.742271 1267218 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
-I0000 00:00:1762896226.743648 1267218 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+I0000 00:00:1762900986.134540 1319964 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1762900986.135795 1319964 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22259 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1762896227.287337 1267218 service.cc:152] XLA service 0x168fa090 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
-I0000 00:00:1762896227.287358 1267218 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
-2025-11-11 13:23:47.312853: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
-I0000 00:00:1762896227.330425 1267218 cuda_dnn.cc:529] Loaded cuDNN version 91002
-I0000 00:00:1762896227.493008 1267218 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
-2025-11-11 13:24:28.193293: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
-2025-11-11 13:24:30.240214: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
+I0000 00:00:1762900986.700363 1319964 service.cc:152] XLA service 0x47225c30 initialized for platform CUDA (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1762900986.700384 1319964 service.cc:160]   StreamExecutor device (0): NVIDIA GeForce RTX 3090, Compute Capability 8.6
+2025-11-11 14:43:06.726909: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+I0000 00:00:1762900986.746959 1319964 cuda_dnn.cc:529] Loaded cuDNN version 91002
+I0000 00:00:1762900986.912132 1319964 device_compiler.h:188] Compiled cluster using XLA!  This line is logged at most once for the lifetime of the process.
+2025-11-11 14:43:47.904166: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
+2025-11-11 14:43:49.910631: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
 WARNING:tensorflow:From /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/tensorflow_probability/python/distributions/distribution.py:342: calling _Independent.__init__ (from tensorflow_probability.python.distributions.independent) with reinterpreted_batch_ndims=None is deprecated and will be removed after 2022-03-01.
 Instructions for updating:
 Please pass an integer value for `reinterpreted_batch_ndims`. The current behavior corresponds to `reinterpreted_batch_ndims=tf.size(distribution.batch_shape_tensor()) - 1`.
-2025-11-11 13:24:31.256679: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
-2025-11-11 13:24:50.290298: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
-2025-11-11 13:24:52.536958: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 675282944 exceeds 10% of free system memory.
-2025-11-11 13:24:53.455574: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 675282944 exceeds 10% of free system memory.
+2025-11-11 14:43:50.945801: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1350565888 exceeds 10% of free system memory.
+2025-11-11 14:44:10.107607: I tensorflow/core/framework/local_rendezvous.cc:407] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence
+2025-11-11 14:44:12.063692: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 675282944 exceeds 10% of free system memory.
+2025-11-11 14:44:12.973926: W external/local_xla/xla/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 675282944 exceeds 10% of free system memory.
 INFO: Filtering to single dose: 1000.0
 ================================================================================
 Phase C: fly64 Dose Sweep Dataset Generation
