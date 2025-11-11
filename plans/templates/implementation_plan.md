@@ -42,8 +42,8 @@
 - [ ] A2: <task>
 - [ ] A3: <task>
 
-### Do Now (Engineering)
-- <single next actionable step + validating pytest selector>
+### Pending Tasks (Engineering)
+- <next actionable steps grouped here; selectors live in input.md>
 
 ### Notes & Risks
 - <risk or nuance>
@@ -53,8 +53,8 @@
 - [ ] B1: <task>
 - [ ] B2: <task>
 
-### Do Now (Engineering)
-- <single next actionable step + selector>
+### Pending Tasks (Engineering)
+- <next actionable steps grouped here; selectors live in input.md>
 
 ### Notes & Risks
 - <risk>
@@ -64,8 +64,8 @@
 - [ ] C1: <task>
 - [ ] C2: <task>
 
-### Do Now (Engineering)
-- <single next actionable step + selector>
+### Pending Tasks (Engineering)
+- <next actionable steps grouped here; selectors live in input.md>
 
 ### Notes & Risks
 - <risk>
@@ -96,4 +96,3 @@ Paste a small XML block immediately above a major plan edit to preserve audit hi
   <status>draft|approved|blocked</status>
 </plan_update>
 ```
-

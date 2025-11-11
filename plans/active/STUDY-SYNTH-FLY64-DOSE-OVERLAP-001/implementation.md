@@ -190,12 +190,12 @@ Checklist
 - Manifests/metrics bundle to record: `gridsize`, `s_img`, `n_groups`, `neighbor_count` (default 6), `probe_diameter_px`, RNG seeds, and the three metric averages (omit Metric 1 for gs=1).
 - CLI messages and docs will deprecate dense/sparse labels; orchestration continues to produce per-split metrics JSON and an aggregated bundle.
 
-#### Do Now (Engineering)
+#### Pending Tasks (Engineering)
 - Implement the overlap metrics pipeline in `studies/fly64_dose_overlap/overlap.py`: remove geometry/spacing acceptance gates plus dense/sparse labels, add deterministic subsampling driven by `s_img` + `rng_seed_subsample`, honor the unified `n_groups` policy (`docs/GRIDSIZE_N_GROUPS_GUIDE.md`), and expose helpers for Metric 1/2/3 per `specs/overlap_metrics.md` (disc overlap math, neighbor_count default 6, configurable `probe_diameter_px`). Metadata/metrics JSON must log the explicit parameters and computed averages (Metric 1 omitted for gs=1).
 - Refresh the Phase D CLI to accept `--gridsize`, `--s-img`, `--n-groups`, `--neighbor-count`, `--probe-diameter-px`, and `--rng-seed-subsample` (plus the existing Phase C/Artifact roots). Retain the Python API and wrap the CLI around it so scripted runs (e.g., future Phase G orchestrations) can call into the same functions.
 - Update `tests/study/test_dose_overlap_overlap.py` (and any helper fixtures) so disc-overlap math, Metric 1/2/3 aggregation, CLI argument plumbing, and the new bundle schema are covered. Remove spacing-threshold assertions and keep the ACCEPTANCE-001 geometry guard only as historical context in docstrings. Provide at least one CLI-focused selector that inspects `metrics_bundle.json`.
 - Evidence for this loop must land under `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_d_overlap_metrics/`: capture `pytest tests/study/test_dose_overlap_overlap.py -vv | tee \"$HUB\"/green/pytest_phase_d_overlap.log`, drop CLI stdout/err into `cli/phase_d_overlap_metrics.log`, and ensure the new per-split metrics JSON + `metrics_bundle.json` include the Metric 1/2/3 fields and sampling parameters. Blockers go to `$HUB/red/blocked_<timestamp>.md` with command + exit code.
-- Do not re-run Phase G orchestrations until Phase D metrics ship and tests are GREEN.
+  - Defer Phase G orchestrations until Phase D metrics ship and tests are GREEN.
 
 **Metrics Bundle (to be updated):**
 - Aggregated JSON must include per-split Metric 1 (gs=2 only), Metric 2, Metric 3 values *and* the recorded parameters (`gridsize`, `s_img`, `n_groups`, `neighbor_count`, `probe_diameter_px`, RNG seeds). Spacing-acceptance fields become informational only; they must not gate execution.
