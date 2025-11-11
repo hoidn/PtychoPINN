@@ -3623,3 +3623,18 @@
 - Next actions for Ralph: verify `pwd -P` equals `/home/ollie/Documents/PtychoPINN`, rerun the mapped pytest guards, execute `run_phase_g_dense.py --clobber ...` followed immediately by `--post-verify-only`, ensure SSIM grid/verification/highlights/preview/metrics/artifact-inventory artifacts land under this hub, and update summary.md + docs/fix_plan.md + galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas plus preview verdict.
 - <Action State>: [ready_for_implementation]
 - focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=1 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=execute counted run + post-verify sweep
+
+## 2025-11-13T003000Z: Dense rerun directive after allow_pickle fix landing
+- dwell: 2 (second consecutive planning loop since the last implementation evidence; keeping focus ready_for_implementation per guardrail)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` now runs cleanly without stash juggling (`git status -sb` is clean); `git log -10 --oneline` shows the latest functional change is Ralph’s `5cd130d3` allow_pickle fix, so the lingering `ValueError: Object arrays cannot be loaded when allow_pickle=False` in `cli/phase_d_dense.log` is stale evidence from `/home/ollie/Documents/PtychoPINN2`.
+  - Hub audit: `analysis/` still only has `blocker.log` and `{cli}` is limited to `{phase_c_generation,phase_d_dense,run_phase_g_dense_stdout(_retry,_v2).log}`, meaning SSIM grid, verification, preview, metrics, highlights, and artifact-inventory artifacts have never been generated inside this workspace.
+  - Updated `plans/active/.../implementation.md` (new 2025-11-13T003000Z audit), the hub plan header + reality check bullets, docs/fix_plan.md Attempt log, `summary.md`, `summary/summary.md`, and rewrote `input.md` to restate the counted `run_phase_g_dense.py --clobber` + immediate `--post-verify-only` Do Now with pytest guardrails, MS-SSIM/MAE ±0.000 reporting, preview verdict, and verifier/highlights evidence expectations.
+  - Findings referenced: POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001.
+- Next actions for Ralph: from `/home/ollie/Documents/PtychoPINN` rerun the mapped pytest selectors, execute `run_phase_g_dense.py --clobber --dose 1000 --view dense --splits train test` followed immediately by `--post-verify-only`, and publish SSIM grid/verification/preview/metrics/artifact-inventory artifacts plus MS-SSIM ±0.000 / MAE ±0.000000 deltas and preview verdict into the hub/docs.
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=2 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=execute counted run + post-verify sweep
