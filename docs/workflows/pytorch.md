@@ -368,7 +368,8 @@ python -m ptycho_torch.train \
 - `cli/` stdout with `bundle_path` + `bundle_sha256`
 - `data/` copy of the emitted `wts.h5.zip`
 - Updated manifest showing the real artifact paths
-Only after those outputs land may you iterate on additional CLI/test polish or advance the comparison harness. This guardrail prevents repeated plan-only loops and keeps the SSIM/ms-SSIM study focused on shipping metrics.
+- Loss guardrail: After copying the manifest into the hub, run `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_training_loss.py --reference plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json --candidate <current_manifest> --dose <value> --view <value> --gridsize <value>` and archive the log beside the manifest. Update the reference manifest whenever a newer, visually verified run becomes the baseline.
+Only after those outputs land (bundles + passing loss check) may you iterate on additional CLI/test polish or advance the comparison harness. This guardrail prevents repeated plan-only loops and keeps the SSIM/ms-SSIM study focused on shipping metrics.
 
 **Helper-Based Configuration Flow (Phase D.B3, 2025-10-20):**
 The training CLI delegates to shared helper functions in `ptycho_torch/cli/shared.py`:

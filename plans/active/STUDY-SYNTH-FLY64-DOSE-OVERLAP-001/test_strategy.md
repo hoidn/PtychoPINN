@@ -209,6 +209,12 @@ python -m studies.fly64_dose_overlap.training \
 - `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:138-184` — Expanded Phase E section from placeholder to full deliverables summary (E1-E5.5) with artifact hubs, test coverage, and CLI command.
 - This file (test_strategy.md) — Replaced "Future Phases (Pending)" with Phase E5 COMPLETE section documenting selectors, coverage, execution proof, and findings alignment.
 
+#### Phase E — Training Loss Guardrail (2025-11-12)
+- Maintain a blessed manifest at `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json`. Populate it by copying the manifest from the first dense gs2 or baseline gs1 run that passes visual inspection; refresh it whenever a newer run becomes the quality baseline.
+- Every real run must execute `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_training_loss.py --reference plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json --candidate <current_manifest> --dose <value> --view <value> --gridsize <value> [--tolerance 0.25]`.
+- Archive the checker stdout/stderr under the same reports hub (e.g., `analysis/check_training_loss.log`) and cite it in summary.md. Treat any non-zero exit, missing `final_loss`, non-finite value, or tolerance breach as a BLOCKED state for the loop.
+- How-To Map requirement: list the checker invocation as a mapped “selector” alongside pytest commands so Galph/Ralph can reference the artifact path and tolerance used.
+
 ### Phase F — PtyChi LSQML Baseline (COMPLETE)
 **Test module:** `tests/study/test_dose_overlap_reconstruction.py`
 **Selectors (Active):**

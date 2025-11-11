@@ -189,6 +189,7 @@ python -m studies.fly64_dose_overlap.training \
 - Each new Attempt touching Phase E/G must deliver at least one of:
   * A successful dense gs2 or baseline gs1 training CLI run (stdout must include `bundle_path` + `bundle_sha256`) with artifacts stored under the hub above.
   * A `python -m studies.fly64_dose_overlap.comparison --dry-run=false ...` execution whose manifest captures SSIM/MS-SSIM metrics plus `n_success/n_failed`.
+- Training loss guardrail: once a run is visually validated, copy its manifest to `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json` and treat it as the “golden” baseline. Every new run must execute `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_training_loss.py --reference plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/reference/training_manifest.json --candidate <current_manifest> --dose <value> --view <value> --gridsize <value>` (with optional `--tolerance` override) and archive the checker output next to the manifest. The guardrail fails if `final_loss` is missing, non-finite, or exceeds the reference loss by more than the configured tolerance.
 
 ### Phase F — pty-chi LSQML Baseline
 - Run scripts/reconstruction/ptychi_reconstruct_tike.py with algorithm='LSQML', num_epochs=100 per test set; capture outputs.
