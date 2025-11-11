@@ -1390,7 +1390,6 @@ def main() -> int:
     print(f"Aggregate report: {aggregate_report_md.relative_to(hub)}")
     print(f"Highlights: {aggregate_highlights_txt.relative_to(hub)}")
     print(f"Metrics digest: {metrics_digest_md.relative_to(hub)}")
-    print(f"Metrics digest (Markdown): {metrics_digest_md.relative_to(hub)}")
     print(f"Metrics digest log: {analyze_digest_log.relative_to(hub)}")
 
     # Add delta JSON, highlights, and preview to success banner (TYPE-PATH-001)

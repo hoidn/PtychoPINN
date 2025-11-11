@@ -1216,6 +1216,14 @@ def test_run_phase_g_dense_exec_prints_highlights_preview(tmp_path: Path, monkey
     assert "MAE Deltas (PtychoPINN - Baseline):" in stdout, \
         f"Expected highlights preview to contain MAE delta header, got:\n{stdout}"
 
+    # Assert: stdout should contain hub-relative path references (TYPE-PATH-001, TEST-CLI-001)
+    assert "CLI logs: cli" in stdout, \
+        f"Expected stdout to contain 'CLI logs: cli' (hub-relative path), got:\n{stdout}"
+    assert "Analysis outputs: analysis" in stdout, \
+        f"Expected stdout to contain 'Analysis outputs: analysis' (hub-relative path), got:\n{stdout}"
+    assert "analysis/artifact_inventory.txt" in stdout, \
+        f"Expected stdout to contain 'analysis/artifact_inventory.txt' reference, got:\n{stdout}"
+
 
 def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """
@@ -1466,8 +1474,8 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         f"Expected analyze digest log path to be cli/metrics_digest_cli.log, got: {analyze_log_path}"
 
     # Assert: Success banner should include metrics digest paths (TYPE-PATH-001)
-    assert "Metrics digest (Markdown):" in stdout, \
-        f"Expected success banner to include 'Metrics digest (Markdown):' line, got:\n{stdout}"
+    assert "Metrics digest:" in stdout, \
+        f"Expected success banner to include 'Metrics digest:' line, got:\n{stdout}"
     assert "Metrics digest log:" in stdout, \
         f"Expected success banner to include 'Metrics digest log:' line, got:\n{stdout}"
 
