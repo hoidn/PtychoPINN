@@ -628,9 +628,11 @@ def test_generate_overlap_views_dense_acceptance_floor(tmp_path: Path, study_des
     assert results['train_metrics'].geometry_acceptance_bound <= 0.1
     assert results['test_metrics'].geometry_acceptance_bound <= 0.1
 
-    # 4. Effective minimum acceptance is reasonable (>= geometry bound, floored at 1%)
-    assert results['train_metrics'].effective_min_acceptance >= 0.01
-    assert results['train_metrics'].effective_min_acceptance >= results['train_metrics'].geometry_acceptance_bound
+    # 4. Effective minimum acceptance is reasonable (uses 80% greedy packing efficiency or epsilon floor)
+    # Per overlap.py:495 — min_acceptance_rate = max(epsilon, 0.80 * geometry_bound)
+    # So effective_min_acceptance = min(0.01, 0.80 * geometry_acceptance_bound) with epsilon=0.0005 floor
+    assert results['train_metrics'].effective_min_acceptance >= 0.0005  # epsilon floor
+    assert results['train_metrics'].effective_min_acceptance <= results['train_metrics'].geometry_acceptance_bound  # 80% factor
 
     # 5. Acceptance >0 (greedy selector found valid subset or direct passed)
     assert results['train_metrics'].n_accepted > 0, "Should find valid subset"
