@@ -1,17 +1,65 @@
-### Turn Summary
-Re-scoped the Phase G focus now that `--post-verify-only` merged: Ralph must run the counted dense Phase C→G pipeline into the 2025-11-12 hub and capture SSIM grid/verifier/highlights payloads plus a verification-only rerun via the new flag.
-Documented the required evidence (analysis/cli contents, artifact inventory refresh, MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, CLI/test logs) across implementation.md, plan.md, docs/fix_plan.md, and refreshed the hub summary metadata.
-Next: execute the dense run with `--clobber`, rerun `--post-verify-only`, archive CLI/test logs, and update summary/docs/fix_plan with metrics + verification outputs.
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary/summary.md, summary.md)
+# Phase G Dense Full Run Verifier Summary
 
-### Turn Summary
-Reality check: commit 74a97db5 landed the default-on post-verify automation + pytest proofs, yet the 2025-11-12 hub still has empty `{analysis,cli}` folders, so we re-scoped the plan around delivering the counted dense run plus a `--post-verify-only` mode to revalidate hubs without rerunning Phase C→F.
-Updated plan.md, docs/fix_plan.md, input.md, and the hub metadata to target the new workflow (add the flag in `run_phase_g_dense.py`, extend orchestrator tests, run the dense pipeline with `--clobber`, then rerun the orchestrator in post-verify-only mode for verification evidence).
-Next: implement the flag/tests, archive RED/GREEN logs for the new selectors, execute the dense Phase C→G run, rerun `--post-verify-only`, and capture MS-SSIM/MAE deltas + preview verdict + CLI/log references under this hub.
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary/summary.md, summary.md)
+**Timestamp**: 2025-11-12T010500Z
+**Focus**: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
 
-### Turn Summary
-Wired post-verify automation into run_phase_g_dense.py with default-on --skip-post-verify flag, invoking verify_dense_pipeline_artifacts.py and check_dense_highlights_match.py after ssim_grid.
-Extended orchestrator tests (collect-only + post-verify hooks) with monkeypatched run_command assertions; both targeted tests GREEN validating CLI strings, invocation order, and hub-relative log paths.
-Next: run counted dense Phase C→G pipeline to validate end-to-end automation and capture verification/highlights artifacts in the 2025-11-12 hub.
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/ (pytest_collect_only.log, pytest_post_verify_hooks.log)
+## Implementation Summary
+
+Added artifact_inventory.txt validation and emission to success banners in both full pipeline and --post-verify-only modes.
+
+### Changes Made
+
+1. **run_phase_g_dense.py** (lines 1367-1377, 1151-1166):
+   - Added validation after `generate_artifact_inventory()` in main pipeline path
+   - Added validation after `generate_artifact_inventory()` in --post-verify-only path
+   - Both paths now fail fast with RuntimeError if artifact_inventory.txt is missing
+   - Both paths emit hub-relative path `analysis/artifact_inventory.txt` in success banner
+
+2. **test_phase_g_dense_orchestrator.py**:
+   - Extended `test_run_phase_g_dense_post_verify_only_executes_chain` to capture stdout (capsys) and assert `'analysis/artifact_inventory.txt'` appears in banner
+   - Fixed `test_run_phase_g_dense_post_verify_hooks` stub_generate_artifact_inventory to create file, preventing validation RuntimeError
+
+### Test Results
+
+**Targeted Test** (test_run_phase_g_dense_post_verify_only_executes_chain):
+- Status: PASSED
+- Runtime: 0.91s
+- Selector: `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_post_verify_only_executes_chain -vv`
+
+**Collection Test** (--collect-only -k post_verify_only):
+- Collected: 2/18 tests (16 deselected)
+- Log: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/collect/pytest_collect_orchestrator_post_verify_only.log`
+
+**Comprehensive Suite** (`pytest -v tests/`):
+- Status: 453 passed, 17 skipped, 1 failed (pre-existing `test_interop_h5_reader`)
+- Runtime: 253.14s (0:04:13)
+- All new tests pass; no regressions introduced
+
+### Acceptance Criteria Met
+
+- ✓ TYPE-PATH-001: Hub-relative paths (`analysis/artifact_inventory.txt`) used in all success banner emissions
+- ✓ DATA-001: Artifact inventory validation enforced; missing file triggers RuntimeError with actionable message
+- ✓ TEST-CLI-001: Test captures stdout and asserts banner content matches requirements
+
+### Files Modified
+
+- `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py`
+- `tests/study/test_phase_g_dense_orchestrator.py`
+
+### Commit
+
+**Hash**: 24f2a1af
+**Message**: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001: Add artifact_inventory.txt validation and emission to success banners
+**Branch**: feature/torchapi-newprompt
+**Pushed**: Yes
+
+### Artifacts
+
+- Pytest logs: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/pytest_post_verify_only.log`
+- Collection log: `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/collect/pytest_collect_orchestrator_post_verify_only.log`
+
+### Next Steps
+
+1. Complete full Phase C→G dense run (dose 1000) when ready for integration evidence
+2. Execute --post-verify-only workflow on fresh artifacts to validate end-to-end
+3. Extend to sparse view (dose 1000) for complete overlap study coverage
