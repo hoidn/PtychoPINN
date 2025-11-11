@@ -1008,6 +1008,16 @@ def main() -> int:
     ]
     analyze_digest_log = cli_log_dir / "metrics_digest_cli.log"
 
+    # SSIM Grid: Generate phase-only MS-SSIM/MAE delta table
+    # (executed after delta summary generation, validates preview compliance)
+    ssim_grid_script = Path(__file__).parent / "ssim_grid.py"
+    ssim_grid_summary_md = phase_g_root / "ssim_grid_summary.md"
+    ssim_grid_cmd = [
+        "python", str(ssim_grid_script),
+        "--hub", str(hub),
+    ]
+    ssim_grid_log = cli_log_dir / "ssim_grid_cli.log"
+
     # Collect-only mode: print commands and exit
     if args.collect_only:
         print("[run_phase_g_dense] Collect-only mode: planned commands:")
@@ -1024,6 +1034,10 @@ def main() -> int:
         print(f"\n{len(commands) + 2}. Analysis: Generate metrics digest")
         print(f"   Command: {' '.join(str(c) for c in analyze_digest_cmd)}")
         print(f"   Log: {analyze_digest_log}")
+        # Print ssim_grid command
+        print(f"\n{len(commands) + 3}. Analysis: Generate SSIM grid summary (phase-only)")
+        print(f"   Command: {' '.join(str(c) for c in ssim_grid_cmd)}")
+        print(f"   Log: {ssim_grid_log}")
         return 0
 
     # Prepare hub: detect and handle stale outputs
@@ -1179,6 +1193,12 @@ def main() -> int:
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             print(f"Warning: Failed to parse metrics_summary.json for delta computation: {e}")
 
+    # Generate SSIM grid summary (phase-only preview validation)
+    print("\n" + "=" * 80)
+    print("[run_phase_g_dense] Generating SSIM grid summary (phase-only)...")
+    print("=" * 80 + "\n")
+    run_command(ssim_grid_cmd, ssim_grid_log)
+
     # Generate artifact inventory (deterministic listing of all files in hub)
     print("\n" + "=" * 80)
     print("[run_phase_g_dense] Generating artifact inventory...")
@@ -1206,6 +1226,15 @@ def main() -> int:
     metrics_delta_preview_path = Path(phase_g_root) / "metrics_delta_highlights_preview.txt"
     if metrics_delta_preview_path.exists():
         print(f"Delta highlights preview (phase-only, TXT): {metrics_delta_preview_path.relative_to(hub)}")
+
+    # Add ssim_grid summary to success banner (TYPE-PATH-001)
+    ssim_grid_summary_path = Path(phase_g_root) / "ssim_grid_summary.md"
+    if ssim_grid_summary_path.exists():
+        print(f"SSIM Grid Summary (phase-only): {ssim_grid_summary_path.relative_to(hub)}")
+
+    ssim_grid_log_path = Path(cli_log_dir) / "ssim_grid_cli.log"
+    if ssim_grid_log_path.exists():
+        print(f"SSIM Grid log: {ssim_grid_log_path.relative_to(hub)}")
 
     return 0
 

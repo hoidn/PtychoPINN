@@ -99,6 +99,10 @@ def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monke
     assert "analyze_dense_metrics.py" in stdout, "Missing analyze_dense_metrics.py command in --collect-only output"
     assert "metrics_digest.md" in stdout, "Missing metrics_digest.md output path in analyze command"
 
+    # Check for ssim_grid command
+    assert "ssim_grid.py" in stdout, "Missing ssim_grid.py command in --collect-only output"
+    assert "ssim_grid_cli.log" in stdout, "Missing ssim_grid_cli.log output path in ssim_grid command"
+
     # Assert: No Phase C outputs created (dry-run mode)
     phase_c_root = hub / "data" / "phase_c"
     if phase_c_root.exists():
@@ -821,16 +825,26 @@ def test_run_phase_g_dense_exec_invokes_reporting_helper(tmp_path: Path, monkeyp
     # Assert: Exit code should be 0
     assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
 
-    # Assert: run_command should have been called multiple times (Phase C/D/E/F/G + reporting helper + analyze digest)
-    # Expected: 1 Phase C + 1 Phase D + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest = 10 total
-    assert len(run_command_calls) >= 10, f"Expected at least 10 run_command calls (C/D/E/F/G phases + reporting + analyze), got {len(run_command_calls)}"
+    # Assert: run_command should have been called multiple times (Phase C/D/E/F/G + reporting helper + analyze digest + ssim_grid)
+    # Expected: 1 Phase C + 1 Phase D + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest + 1 ssim_grid = 11 total
+    assert len(run_command_calls) >= 11, f"Expected at least 11 run_command calls (C/D/E/F/G phases + reporting + analyze + ssim_grid), got {len(run_command_calls)}"
 
-    # Assert: Second-to-last call should be the reporting helper (before analyze digest)
-    reporting_helper_cmd, reporting_helper_log_path = run_command_calls[-2]
+    # Find the reporting helper command (no longer predictable by position due to ssim_grid)
+    reporting_helper_idx = None
+    for idx, (cmd, log_path) in enumerate(run_command_calls):
+        cmd_str = " ".join(str(c) for c in cmd)
+        if "report_phase_g_dense_metrics.py" in cmd_str:
+            reporting_helper_idx = idx
+            break
+
+    # Validate reporting helper was invoked
+    assert reporting_helper_idx is not None, "reporting helper (report_phase_g_dense_metrics.py) was not invoked"
+
+    reporting_helper_cmd, reporting_helper_log_path = run_command_calls[reporting_helper_idx]
 
     # Validate command targets report_phase_g_dense_metrics.py
     assert any("report_phase_g_dense_metrics.py" in str(part) for part in reporting_helper_cmd), \
-        f"Second-to-last run_command call should target report_phase_g_dense_metrics.py, got: {reporting_helper_cmd}"
+        f"Expected reporting helper command to target report_phase_g_dense_metrics.py, got: {reporting_helper_cmd}"
 
     # Validate command includes required flags
     cmd_str = " ".join(str(c) for c in reporting_helper_cmd)
@@ -1129,7 +1143,7 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         """Record cmd and log_path, create required files for orchestrator progression."""
         run_command_calls.append((cmd, log_path))
         cmd_str = " ".join(str(c) for c in cmd)
-        
+
         # When reporting helper is invoked, create highlights file
         if "report_phase_g_dense_metrics.py" in cmd_str and "--highlights" in cmd_str:
             for i, part in enumerate(cmd):
@@ -1138,7 +1152,7 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
                     highlights_path.parent.mkdir(parents=True, exist_ok=True)
                     highlights_path.write_text("MS-SSIM Deltas (PtychoPINN - Baseline):\n  Amplitude (mean): +0.050\n", encoding="utf-8")
                     break
-        
+
         # When analyze digest is invoked, create digest file
         if "analyze_dense_metrics.py" in cmd_str and "--output" in cmd_str:
             for i, part in enumerate(cmd):
@@ -1146,6 +1160,17 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
                     digest_path = Path(cmd[i + 1])
                     digest_path.parent.mkdir(parents=True, exist_ok=True)
                     digest_path.write_text("# Phase G Dense Metrics Digest\n", encoding="utf-8")
+                    break
+
+        # When ssim_grid is invoked, create summary file
+        if "ssim_grid.py" in cmd_str and "--hub" in cmd_str:
+            # ssim_grid.py creates analysis/ssim_grid_summary.md
+            for i, part in enumerate(cmd):
+                if str(part) == "--hub" and i + 1 < len(cmd):
+                    hub_path = Path(cmd[i + 1])
+                    ssim_grid_summary_path = hub_path / "analysis" / "ssim_grid_summary.md"
+                    ssim_grid_summary_path.parent.mkdir(parents=True, exist_ok=True)
+                    ssim_grid_summary_path.write_text("# SSIM Grid Summary (Phase-Only)\n", encoding="utf-8")
                     break
 
     monkeypatch.setattr(module, "run_command", stub_run_command)
@@ -1163,28 +1188,36 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     # Assert: Exit code should be 0
     assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
 
-    # Assert: run_command should have been called for all phases + reporting helper + analyze digest
-    # Expected: 1 Phase C + 1 Phase D + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest = 10 total
-    assert len(run_command_calls) >= 10, f"Expected at least 10 run_command calls (C/D/E/F/G phases + reporting + analyze), got {len(run_command_calls)}"
+    # Assert: run_command should have been called for all phases + reporting helper + analyze digest + ssim_grid
+    # Expected: 1 Phase C + 1 Phase D + 2 Phase E (baseline gs1 + dense gs2) + 2 Phase F (train/test) + 2 Phase G (train/test) + 1 reporting helper + 1 analyze digest + 1 ssim_grid = 11 total
+    assert len(run_command_calls) >= 11, f"Expected at least 11 run_command calls (C/D/E/F/G phases + reporting + analyze + ssim_grid), got {len(run_command_calls)}"
 
-    # Find reporting helper and analyze digest calls
+    # Find reporting helper, analyze digest, and ssim_grid calls
     reporting_helper_idx = None
     analyze_digest_idx = None
-    
+    ssim_grid_idx = None
+
     for idx, (cmd, log_path) in enumerate(run_command_calls):
         cmd_str = " ".join(str(c) for c in cmd)
         if "report_phase_g_dense_metrics.py" in cmd_str:
             reporting_helper_idx = idx
         if "analyze_dense_metrics.py" in cmd_str:
             analyze_digest_idx = idx
+        if "ssim_grid.py" in cmd_str:
+            ssim_grid_idx = idx
 
-    # Assert: Both helpers should be invoked
+    # Assert: All three helpers should be invoked
     assert reporting_helper_idx is not None, "reporting helper (report_phase_g_dense_metrics.py) was not invoked"
     assert analyze_digest_idx is not None, "analyze digest (analyze_dense_metrics.py) was not invoked"
+    assert ssim_grid_idx is not None, "ssim_grid (ssim_grid.py) was not invoked"
 
     # Assert: analyze_dense_metrics.py should be invoked AFTER report_phase_g_dense_metrics.py
     assert analyze_digest_idx > reporting_helper_idx, \
         f"analyze_dense_metrics.py should be invoked after report_phase_g_dense_metrics.py, but got order: reporting={reporting_helper_idx}, analyze={analyze_digest_idx}"
+
+    # Assert: ssim_grid.py should be invoked AFTER analyze_dense_metrics.py
+    assert ssim_grid_idx > analyze_digest_idx, \
+        f"ssim_grid.py should be invoked after analyze_dense_metrics.py, but got order: analyze={analyze_digest_idx}, ssim_grid={ssim_grid_idx}"
 
     # Validate analyze digest command
     analyze_cmd, analyze_log_path = run_command_calls[analyze_digest_idx]
@@ -1383,6 +1416,27 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     # Assert: Success banner should mention metrics_delta_highlights.txt path (TYPE-PATH-001)
     assert "metrics_delta_highlights.txt" in stdout, \
         f"Expected success banner to mention metrics_delta_highlights.txt, got:\n{stdout}"
+
+    # Validate ssim_grid command
+    ssim_grid_cmd, ssim_grid_log_path = run_command_calls[ssim_grid_idx]
+    ssim_grid_cmd_str = " ".join(str(c) for c in ssim_grid_cmd)
+
+    assert "ssim_grid.py" in ssim_grid_cmd_str, \
+        f"Expected ssim_grid.py in command, got: {ssim_grid_cmd_str}"
+    assert "--hub" in ssim_grid_cmd_str, f"Missing --hub flag in ssim_grid command: {ssim_grid_cmd_str}"
+
+    # Validate log_path points to cli/ssim_grid_cli.log
+    assert "ssim_grid_cli.log" in str(ssim_grid_log_path), \
+        f"Expected ssim_grid log path to be cli/ssim_grid_cli.log, got: {ssim_grid_log_path}"
+
+    # Assert: ssim_grid_summary.md should be created in analysis/
+    ssim_grid_summary_path = phase_g_root / "ssim_grid_summary.md"
+    assert ssim_grid_summary_path.exists(), \
+        f"Expected ssim_grid_summary.md to exist at {ssim_grid_summary_path}, but it was not found"
+
+    # Assert: Success banner should mention ssim_grid_summary.md path (TYPE-PATH-001)
+    assert "ssim_grid_summary.md" in stdout, \
+        f"Expected success banner to mention ssim_grid_summary.md, got:\n{stdout}"
 
 
 def test_persist_delta_highlights_creates_preview(tmp_path: Path) -> None:
