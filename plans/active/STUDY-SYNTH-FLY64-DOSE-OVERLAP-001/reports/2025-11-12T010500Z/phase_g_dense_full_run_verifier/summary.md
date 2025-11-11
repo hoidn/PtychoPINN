@@ -1,4 +1,16 @@
 ### Turn Summary
+`git pull --rebase` was blocked by existing hub edits (collect/pytest, green/pytest, cli logs, and archived Phase C manifest deletion), so I preserved the current evidence bundle and revalidated the dense Phase G reports.
+`analysis/blocker.log` and `cli/phase_d_dense.log` still show the workspace mismatch run from `/home/ollie/Documents/PtychoPINN2` failing with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, meaning `{analysis,cli}` never captured SSIM grid, verification, preview, metrics, or inventory artifacts for this repo.
+Next: Ralph must stay in `/home/ollie/Documents/PtychoPINN`, rerun the mapped pytest collect/execution selectors, execute `run_phase_g_dense.py --clobber ...` followed by `--post-verify-only`, and publish MS-SSIM ±0.000 / MAE ±0.000000 deltas plus preview/verifier/SSIM grid references (with refreshed summaries + ledger links) under this hub.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md, summary/summary.md)
+
+### Turn Summary (2025-11-11T122500Z)
+Executed pytest guard (test_run_phase_g_dense_post_verify_only_executes_chain) which passed (GREEN), then launched the dense Phase C→G pipeline with `--clobber` from the correct workspace `/home/ollie/Documents/PtychoPINN`.
+Phase C (dataset generation for dose=1000, view=dense, splits=train/test) completed successfully, producing validated train/test NPZs and run_manifest.json; pipeline is now progressing through remaining phases D→E→F→G plus verification in background.
+Next: await pipeline completion, then execute `--post-verify-only` sweep and extract MS-SSIM/MAE deltas plus verification/SSIM grid evidence from `analysis/` artifacts.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (collect/pytest_collect_post_verify_only.log, green/pytest_post_verify_only.log, cli/phase_c_generation.log, cli/run_phase_g_dense_stdout.log)
+
+### Turn Summary
 Re-audited the 2025-11-12 dense hub and confirmed `{analysis}` still only holds blocker.log while `cli/` has just phase_c/phase_d/run_phase_g logs, so no SSIM grid, verification, preview, or metrics artifacts exist yet.
 Updated plan/plan.md, docs/fix_plan.md, and input.md to reiterate the ready_for_implementation Do Now that requires running from `/home/ollie/Documents/PtychoPINN`, exporting AUTHORITATIVE_CMDS_DOC, and executing the counted dense run plus the immediate `--post-verify-only` sweep with full artifact logging.
 Next: Ralph must rerun the mapped collect/execution pytest selectors, execute both orchestrator commands with tee'd logs, and publish MS-SSIM ±0.000 / MAE ±0.000000 + preview/verifier/SSIM grid evidence under this hub and in the ledger before closing the loop.

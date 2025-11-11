@@ -3531,3 +3531,17 @@
 - Next actions for Ralph: Follow the updated How-To map (pwd guard → export AUTHORITATIVE_CMDS_DOC + HUB → pytest collect/execution logs → dense Phase C→G run with `--clobber` → immediate `--post-verify-only` sweep), then publish MS-SSIM/MAE deltas, preview verdict, SSIM grid + verifier/highlights evidence, and ledger updates.
 - <Action State>: [ready_for_implementation]
 - focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=0 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=ready_for_implementation
+
+## 2025-11-11T122959Z: Dense rerun revalidation after dirty hub prevented git pull
+- dwell: 1 (first planning loop since the previous ready_for_implementation entry; still no implementation evidence)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` failed with “You have unstaged changes” because the hub already has modified CLI + pytest logs plus the deleted `data/phase_c/run_manifest.json`; documented instead of stashing per guardrails.
+  - Re-audited the hub: `analysis/` still only has `blocker.log` and `cli/` only contains `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`; blocker logs show the last run executed from `/home/ollie/Documents/PtychoPINN2` and died with `ValueError: Object arrays cannot be loaded when allow_pickle=False`, so no SSIM grid/verification/preview/inventory artifacts exist here yet.
+  - Updated `plan/plan.md` (timestamp 2025-11-11T122959Z), `summary.md`, `summary/summary.md`, docs/fix_plan.md, and `input.md` with the ready_for_implementation Do Now that forces Ralph to operate from `/home/ollie/Documents/PtychoPINN`, rerun the mapped pytest selectors, execute `run_phase_g_dense.py --clobber` followed by `--post-verify-only`, and publish MS-SSIM ±0.000 / MAE ±0.000000 + preview/verifier/SSIM grid/inventory evidence with refreshed summaries + ledger notes.
+- Next actions for Ralph: obey the updated How-To Map (pwd guard → export AUTHORITATIVE_CMDS_DOC + HUB → pytest collect/execution logs → dense Phase C→G rerun with `--clobber` → immediate `--post-verify-only`), then archive SSIM grid/verification/highlights artifacts, MS-SSIM/MAE deltas, preview verdict, artifact inventory references, and doc updates inside the hub, docs/fix_plan.md, and galph_memory.
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=1 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=ready_for_implementation

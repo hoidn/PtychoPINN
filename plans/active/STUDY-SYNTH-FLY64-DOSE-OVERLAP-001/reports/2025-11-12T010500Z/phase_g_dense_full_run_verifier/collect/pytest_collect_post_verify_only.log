@@ -3,12 +3,12 @@ platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/mini
 cachedir: .pytest_cache
 PyTorch: available
 PyTorch version: 2.8.0+cu128
-rootdir: /home/ollie/Documents/PtychoPINN2
+rootdir: /home/ollie/Documents/PtychoPINN
 configfile: pyproject.toml
 plugins: anyio-4.9.0
 collecting ... collected 18 items / 17 deselected / 1 selected
 
-<Dir PtychoPINN2>
+<Dir PtychoPINN>
   <Package tests>
     <Package study>
       <Module test_phase_g_dense_orchestrator.py>
@@ -27,4 +27,4 @@ collecting ... collected 18 items / 17 deselected / 1 selected
           
           Follows DATA-001 (artifact inventory regeneration), TEST-CLI-001 (command capture).
 
-================ 1/18 tests collected (17 deselected) in 0.87s =================
+================ 1/18 tests collected (17 deselected) in 0.85s =================
