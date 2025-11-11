@@ -21,7 +21,7 @@ def _abort_rebase(log_print) -> None:
         pass
 
 
-def safe_pull(log_print) -> bool:
+def safe_pull(log_print, remote: Optional[str] = None, branch: Optional[str] = None) -> bool:
     """
     Attempt to update the current branch with a rebase pull.
 
@@ -33,7 +33,65 @@ def safe_pull(log_print) -> bool:
     if _rebase_in_progress():
         _abort_rebase(log_print)
     try:
-        cp = _run(["git", "pull", "--rebase"], timeout=30)
+        # Prefer explicit fetch+rebase when target specified to bypass
+        # branch.<name>.merge multi-branch configs that break `git pull --rebase`.
+        if remote and branch:
+            # Ensure no rebase is in progress
+            if _rebase_in_progress():
+                _abort_rebase(log_print)
+            # Fetch latest for the specific branch
+            fcp = _run(["git", "fetch", remote, branch], timeout=60)
+            if fcp.stdout:
+                log_print(fcp.stdout.rstrip())
+            if fcp.stderr:
+                log_print(fcp.stderr.rstrip())
+            # Attempt a rebase onto the fetched remote branch with autostash
+            rcp = _run(["git", "-c", "rebase.autoStash=true", "rebase", f"{remote}/{branch}"], timeout=120)
+            if rcp.stdout:
+                log_print(rcp.stdout.rstrip())
+            if rcp.stderr:
+                log_print(rcp.stderr.rstrip())
+            # Detect untracked-file collisions or similar hard blockers
+            err = (rcp.stderr or "").lower()
+            if (
+                "untracked working tree files would be overwritten" in err
+                or "would be overwritten by merge" in err
+                or "would be overwritten by checkout" in err
+            ):
+                log_print(
+                    "ERROR: Rebase blocked by untracked-file collisions. "
+                    "Move/remove conflicting files and retry."
+                )
+                return False
+            if rcp.returncode == 0:
+                return True
+            # If rebase failed due to local modifications that weren't autostashed, try manual one-shot autostash
+            if (
+                "you have unstaged changes" in err
+                or "please commit or stash them" in err
+                or "your local changes to the following files would be overwritten" in err
+            ):
+                try:
+                    log_print("[git_bus] Rebase blocked; attempting manual autostash…")
+                    _run(["git", "stash", "push", "-u", "-m", "orchestrator-safe_pull-autostash"], timeout=30)
+                    rcp2 = _run(["git", "rebase", f"{remote}/{branch}"], timeout=120)
+                    if rcp2.stdout:
+                        log_print(rcp2.stdout.rstrip())
+                    if rcp2.stderr:
+                        log_print(rcp2.stderr.rstrip())
+                    pop = _run(["git", "stash", "pop"], timeout=30)
+                    if pop.stdout:
+                        log_print(pop.stdout.rstrip())
+                    if pop.stderr:
+                        log_print(pop.stderr.rstrip())
+                    return rcp2.returncode == 0
+                except Exception as e2:
+                    log_print(f"[git_bus] Manual autostash rebase failed: {e2}")
+            # Final fallthrough for explicit remote/branch path
+            return False
+        # Legacy path: rely on upstream config
+        cmd = ["git", "pull", "--rebase"]
+        cp = _run(cmd, timeout=30)
         if cp.stdout:
             log_print(cp.stdout.rstrip())
         if cp.stderr:
@@ -59,7 +117,10 @@ def safe_pull(log_print) -> bool:
             try:
                 log_print("[git_bus] Detected local modifications blocking rebase; attempting autostash…")
                 _run(["git", "stash", "push", "-u", "-m", "orchestrator-safe_pull-autostash"], timeout=30)
-                cp2 = _run(["git", "pull", "--rebase"], timeout=60)
+                cmd2 = ["git", "pull", "--rebase"]
+                if remote and branch:
+                    cmd2 += [remote, branch]
+                cp2 = _run(cmd2, timeout=60)
                 if cp2.stdout:
                     log_print(cp2.stdout.rstrip())
                 if cp2.stderr:
@@ -81,23 +142,37 @@ def safe_pull(log_print) -> bool:
 
     # Recovery path
     _abort_rebase(log_print)
-    cp2 = _run(["git", "pull", "--no-rebase"])
-    if cp2.stdout:
-        log_print(cp2.stdout.rstrip())
-    if cp2.stderr:
-        log_print(cp2.stderr.rstrip())
-    err2 = (cp2.stderr or "").lower()
-    if (
-        "untracked working tree files would be overwritten" in err2
-        or "would be overwritten by merge" in err2
-        or "would be overwritten by checkout" in err2
-    ):
-        log_print(
-            "ERROR: Pull blocked by untracked-file collisions. "
-            "Move/remove conflicting files and retry."
-        )
-        return False
-    return cp2.returncode == 0
+    if remote and branch:
+        # Fetch and attempt fast-forward merge
+        fcp = _run(["git", "fetch", remote, branch])
+        if fcp.stdout:
+            log_print(fcp.stdout.rstrip())
+        if fcp.stderr:
+            log_print(fcp.stderr.rstrip())
+        mcp = _run(["git", "merge", "--ff-only", f"{remote}/{branch}"])
+        if mcp.stdout:
+            log_print(mcp.stdout.rstrip())
+        if mcp.stderr:
+            log_print(mcp.stderr.rstrip())
+        return mcp.returncode == 0
+    else:
+        cp2 = _run(["git", "pull", "--no-rebase"])
+        if cp2.stdout:
+            log_print(cp2.stdout.rstrip())
+        if cp2.stderr:
+            log_print(cp2.stderr.rstrip())
+        err2 = (cp2.stderr or "").lower()
+        if (
+            "untracked working tree files would be overwritten" in err2
+            or "would be overwritten by merge" in err2
+            or "would be overwritten by checkout" in err2
+        ):
+            log_print(
+                "ERROR: Pull blocked by untracked-file collisions. "
+                "Move/remove conflicting files and retry."
+            )
+            return False
+        return cp2.returncode == 0
 
 
 def add(paths: Iterable[str]) -> None:

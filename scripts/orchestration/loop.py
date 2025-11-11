@@ -119,7 +119,12 @@ def main() -> int:
         def cap(m: str) -> None:
             logger(m)
             buf.append(m)
-        ok = safe_pull(cap)
+        # When a specific branch is known, pass it to avoid ambiguous pull configuration
+        try:
+            bt = branch_target  # may be set later; closure resolves at call time
+        except NameError:
+            bt = None
+        ok = safe_pull(cap, "origin", bt) if bt else safe_pull(cap)
         if not ok:
             err_line = None
             for line in reversed(buf):

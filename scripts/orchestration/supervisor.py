@@ -347,12 +347,17 @@ def main() -> int:
             if log_func:
                 log_func(msg)
             buf.append(msg)
-        ok = safe_pull(_cap)
+        # Prefer explicit branch target to avoid ambiguous pull configs
+        try:
+            bt = branch_target  # resolved later; closure evaluated at call
+        except NameError:
+            bt = None
+        ok = safe_pull(_cap, "origin", bt) if bt else safe_pull(_cap)
         if not ok:
             # Retry once after scrubbing submodules (pointer drift robustness)
             _submodule_scrub(log_func)
             buf.clear()
-            ok = safe_pull(_cap)
+            ok = safe_pull(_cap, "origin", bt) if bt else safe_pull(_cap)
             err_line = None
             for line in reversed(buf):
                 low = line.lower()
@@ -385,25 +390,6 @@ def main() -> int:
         branch_target = current_branch()
 
     state_rel_posix = PurePath(os.path.relpath(args.state_file, start=".")).as_posix()
-    dirty_ignore_paths = {state_rel_posix}
-
-    def _has_dirty_worktree(ignore_paths: set[str]) -> bool:
-        """Return True if working tree has dirty paths outside ignore list."""
-        try:
-            from subprocess import run, PIPE as _PIPE
-            cp = run(["git", "status", "--porcelain"], stdout=_PIPE, stderr=_PIPE, text=True)
-            if cp.returncode != 0:
-                return False
-            for line in (cp.stdout or "").splitlines():
-                if len(line) < 4:
-                    continue
-                path = line[3:]
-                if path in ignore_paths:
-                    continue
-                return True
-            return False
-        except Exception:
-            return False
 
     def _dirty_fetch_state(log_func, ctx: str) -> bool:
         """
@@ -522,12 +508,8 @@ def main() -> int:
         last_hb = start
         prev_state = None
         while True:
-            if _has_dirty_worktree(dirty_ignore_paths):
-                if not _dirty_fetch_state(logp, "polling-dirty"):
-                    return 1
-            else:
-                if not _pull_with_error(logp, "polling"):
-                    return 1
+            if not _dirty_fetch_state(logp, "polling-fetch"):
+                return 1
             st = OrchestrationState.read(str(args.state_file))
             cur_state = (st.expected_actor, st.status, st.iteration)
             if args.verbose and cur_state != prev_state:
@@ -546,6 +528,10 @@ def main() -> int:
                 logp(msg)
                 last_hb = time.time()
             time.sleep(args.poll_interval)
+
+        # Once it's our turn, ensure working tree is fully synchronized before editing
+        if not _pull_with_error(logp, "pre-run-sync"):
+            return 1
 
         # Mark running
         st = OrchestrationState.read(str(args.state_file))
@@ -649,12 +635,8 @@ def main() -> int:
         last_hb2 = start2
         prev_state2 = None
         while True:
-            if _has_dirty_worktree(dirty_ignore_paths):
-                if not _dirty_fetch_state(logp, "wait-dirty"):
-                    return 1
-            else:
-                if not _pull_with_error(logp, "wait-for-ralph"):
-                    return 1
+            if not _dirty_fetch_state(logp, "wait-for-ralph-fetch"):
+                return 1
             st2 = OrchestrationState.read(str(args.state_file))
             cur_state2 = (st2.expected_actor, st2.status, st2.iteration)
             if args.verbose and cur_state2 != prev_state2:
