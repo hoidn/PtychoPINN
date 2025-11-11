@@ -262,18 +262,42 @@ def main():
         default=Path('data/studies/fly64_dose_overlap'),
         help='Root directory for generated datasets (default: data/studies/fly64_dose_overlap)',
     )
+    parser.add_argument(
+        '--dose',
+        type=float,
+        help='Generate dataset for a single dose value (e.g., 1000, 10000, 100000). Overrides --doses.',
+    )
+    parser.add_argument(
+        '--doses',
+        nargs='+',
+        type=float,
+        help='Generate datasets for specific dose values (e.g., --doses 1000 10000). Filters StudyDesign.dose_list.',
+    )
     args = parser.parse_args()
 
     # Load study design
     design = get_study_design()
     design_dict = design.to_dict()
 
+    # Filter dose list based on CLI arguments
+    if args.dose is not None:
+        # Single dose mode (--dose takes precedence)
+        dose_list = [args.dose]
+        print(f"INFO: Filtering to single dose: {args.dose}")
+    elif args.doses is not None:
+        # Multi-dose mode (--doses)
+        dose_list = args.doses
+        print(f"INFO: Filtering to selected doses: {dose_list}")
+    else:
+        # Default: use all doses from StudyDesign
+        dose_list = design.dose_list
+
     print("=" * 80)
     print("Phase C: fly64 Dose Sweep Dataset Generation")
     print("=" * 80)
     print(f"Base dataset: {args.base_npz}")
     print(f"Output root:  {args.output_root}")
-    print(f"Dose levels:  {design.dose_list}")
+    print(f"Dose levels:  {dose_list}")
     print("=" * 80)
     print()
 
@@ -284,7 +308,7 @@ def main():
 
     # Generate datasets for each dose
     manifest = {}
-    for dose in design.dose_list:
+    for dose in dose_list:
         try:
             paths = generate_dataset_for_dose(
                 dose=dose,

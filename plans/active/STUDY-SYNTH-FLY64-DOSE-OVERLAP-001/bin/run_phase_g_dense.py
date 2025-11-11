@@ -945,6 +945,7 @@ def main() -> int:
         PYTHON_BIN, "-m", "studies.fly64_dose_overlap.generation",
         "--base-npz", str(base_npz),
         "--output-root", str(phase_c_root),
+        "--dose", str(dose),
     ]
     commands.append(("Phase C: Dataset Generation", phase_c_cmd, cli_log_dir / "phase_c_generation.log"))
 
