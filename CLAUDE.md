@@ -1,199 +1,49 @@
 # CLAUDE.md
 
-This file provides the core instructions for the Claude AI agent working on the PtychoPINN repository. It defines the rules, workflows, and authoritative sources of truth for all development tasks.
+This document is the **constitution** for the Claude AI agents working on the PtychoPINN repository. It defines identity, non-negotiable directives, and the canonical sources of truth. Operational details, workflows, and reporting formats live in `prompts/main.md` (Ralph/engineer) and `prompts/supervisor.md` (Galph/supervisor).
 
 ---
 
-## 1. ⚙️ Core Agentic Workflow
+## 1. ⚙️ Identity & Workflow Guardrails
 
-**Your primary directive is to operate within the Supervisor/Engineer agentic loop.**
-
-1.  **Supervisor (`supervisor.sh`)**: This agent plans and reviews. It reads the `docs/fix_plan.md` ledger and generates a single, focused task in `input.md`.
-2.  **Engineer (`loop.sh`)**: This agent (you) executes the task defined in `input.md`. Your work must be guided by the prompts in the `prompts/` directory.
-3.  **The Ledger (`docs/fix_plan.md`)**: This is the master task list. You MUST update this file at the end of every loop to document your attempt, linking to generated artifacts, even if the attempt failed. Follow the template in `prompts/update_fix_plan.md`.
-4.  **"One Thing Per Loop"**: You will attempt to complete exactly one high-priority item from the `fix_plan.md` in each loop.
+- **Two-agent loop:** Operate within the Supervisor/Engineer loop managed by `prompts/supervisor.md` (planning) and `prompts/main.md` (implementation). Those prompts own required reading, stall-autonomy, dwell, and output formatting rules.
+- **Ledger discipline:** `docs/fix_plan.md` is the master task ledger. Every loop must read the current focus, execute exactly one `Do Now`, and append an Attempts History entry with artifact links before exiting.
+- **Plans & artifacts:** Each loop produces a timestamped reports directory under `plans/active/<initiative>/reports/<ISO8601Z>/` (as mandated in the prompts). All reproducible evidence lives there.
+- **Authority stack:** If instructions conflict, prefer SPECs (`specs/`), then project documentation, then prompt files. Internal model memories must defer to the repository.
 
 ---
 
-## 2. ⚠️ Core Project Directives
+## 2. ⚖️ Fundamental Directives
 
-<directive level="critical" purpose="Consult the knowledge base first">
-  Before starting any analysis or debugging, you **MUST** first search the consolidated findings ledger:
-  <doc-ref type="findings">docs/findings.md</doc-ref>.
-  If the issue is documented there, follow the known patterns instead of re-investigating from scratch.
-</directive>
-
-<directive level="critical" purpose="Follow formal specifications">
-  The project's normative requirements are defined in the `specs/` directory. These are the **single source of truth** for all behavior.
-  - For data formats: <doc-ref type="contract">specs/data_contracts.md</doc-ref>
-  - For API contracts: <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref>
-</directive>
-
-<directive level="critical" purpose="Follow the debugging methodology">
-  For all new defects, you **MUST** execute the standard procedure documented in
-  <doc-ref type="debugging">docs/debugging/debugging.md</doc-ref>. Record each step in the active task notes within <doc-ref type="plan">docs/fix_plan.md</doc-ref>.
-</directive>
-
-<directive level="guidance" purpose="Reuse context efficiently">
-  At the start of a loop, review <doc-ref type="plan">docs/fix_plan.md</doc-ref>, the most recent plan artifacts, and the focused task in `input.md`. If those sources have not changed since your last loop, you may rely on your cached understanding instead of re-reading the full document stack. Record that decision in your attempt notes.
-</directive>
-
-<directive level="critical" purpose="Enforce Test-Driven Development">
-  For any task involving new feature implementation or bug fixing, you **MUST** follow a Test-Driven Development (TDD) methodology as defined in the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>.
-</directive>
-
-<directive level="important" purpose="Avoid modifying stable core logic">
-  The core ptychography physics simulation and the TensorFlow model architecture are considered stable. **Do not modify the core logic in `<code-ref type="module">ptycho/model.py</code-ref>`, `<code-ref type="module">ptycho/diffsim.py</code-ref>`, or `<code-ref type="module">ptycho/tf_helper.py</code-ref>` unless explicitly directed by a plan.**
-</directive>
-
-<directive level="guidance" purpose="Store generated artifacts correctly">
-  All generated reports, logs, and artifacts from a development loop **MUST** be saved to a timestamped subdirectory within `plans/active/<initiative-name>/reports/`. Do **not** leave artifacts (e.g., `*.log`, JSON dumps) at the repository root. Rule of thumb: if a file helps explain work from a loop, put it under that loop’s `plans/active/<initiative>/reports/<timestamp>/`; if it’s temporary scratch data, keep it under `tmp/` and delete before committing. The artifact path **MUST** be recorded in <doc-ref type="plan">docs/fix_plan.md</doc-ref> for traceability.
-</directive>
-
-<directive level="critical" purpose="Acknowledge the PyTorch Backend Initiative">
-  A primary goal of this project is the development of a PyTorch backend. Tasks related to `ptycho_torch/` and the integration plan at `plans/ptychodus_pytorch_integration_plan.md` are of high priority.
-</directive>
-
-<directive level="critical" purpose="Enforce PyTorch Requirement">
-  PyTorch is a required dependency for this project as of Phase F (INTEGRATE-PYTORCH-001). All code in `ptycho_torch/` and `tests/torch/` assumes PyTorch is installed. The package specifies `torch>=2.2` in `setup.py` install_requires. Tests in `tests/torch/` are automatically skipped in TensorFlow-only CI environments via directory-based pytest collection rules in `tests/conftest.py`, but will fail with actionable ImportError messages if PyTorch is missing in local development. Migration rationale and evidence documented in `plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md` and Phase F implementation logs (`docs/fix_plan.md` INTEGRATE-PYTORCH-001 history). This policy is captured in <doc-ref type="findings">docs/findings.md#policy-001</doc-ref>.
-</directive>
-
-<directive level="important" purpose="PyTorch Backend Selection">
-  When using the PyTorch backend through Ptychodus integration, configure the backend field in `TrainingConfig` or `InferenceConfig` with the literal `'pytorch'` (default is `'tensorflow'` for backward compatibility). **CRITICAL:** PyTorch workflows require the same CONFIG-001 initialization as TensorFlow—you MUST call `update_legacy_dict(params.cfg, config)` before any data loading or model construction to ensure legacy modules observe synchronized parameters. Backend selection routing and fail-fast behavior are specified in <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.8. For complete configuration steps, see <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref> §12. Runtime parity evidence is documented at `plans/active/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
-</directive>
-
-<directive level="critical" purpose="Design test infrastructure before implementation">
-  Before Phase B (implementation) of any initiative involving tests, you **MUST**
-  complete a test infrastructure design review documented in
-  `plans/active/<initiative>/test_strategy.md`.
-
-  Required coverage:
-  - Framework selection and compatibility (pytest vs unittest, parametrization)
-  - CI/CD constraints and optional dependency handling
-  - Test tier definitions (unit/integration/smoke)
-  - Execution proof requirements (PASSED vs SKIPPED criteria)
-  - Mock/stub strategy for unavailable dependencies
-
-  Use the template at `plans/templates/test_strategy_template.md`.
-
-  Reference this design in Phase B planning and validate before writing first test.
-</directive>
-
-<directive level="critical" purpose="Require test execution proof">
-  A task involving tests is **NOT** complete unless tests show PASSED status
-  (not SKIPPED) with execution proof in artifacts.
-
-  Required evidence:
-  - pytest execution log at `plans/active/<initiative>/reports/<timestamp>/pytest.log`
-  - Test summary in `summary.md` with pass/fail/skip counts
-  - Explicit justification for any SKIPPED tests (hardware, long-running, etc.)
-  - Proof tests executed assertions (not just imports)
-
-  Acceptable SKIP reasons:
-  - Hardware unavailable (GPU tests on CPU-only CI) - mark @pytest.mark.gpu
-  - External service unavailable (integration tests) - document in summary
-  - Long-running tests (>5 min benchmarks) - mark @pytest.mark.slow
-
-  UNACCEPTABLE:
-  - Missing optional dependency (use torch-optional pattern instead)
-  - Framework incompatibility (design error, must fix)
-  - "Tests don't work in CI" (fix CI or test design, not acceptable)
-</directive>
+1. **Documentation is authoritative.** Start from `docs/index.md`. Never rely on unstated assumptions if a spec or guide disagrees with cached knowledge.
+2. **Consult the knowledge base first.** Read `docs/findings.md` before debugging or implementing fixes. Follow any applicable Finding IDs verbatim (e.g., POLICY-001 for PyTorch requirements).
+3. **Honor specifications and data contracts.** `specs/data_contracts.md` and `specs/ptychodus_api_spec.md` define external behavior; implementation must not diverge without an approved plan.
+4. **Follow the standard debugging workflow.** Execute the steps in `docs/debugging/debugging.md` for every new defect, documenting progress in `docs/fix_plan.md`.
+5. **Preserve artifact hygiene.** Every log, plot, or report that explains a loop belongs in the initiative’s `plans/active/.../reports/<timestamp>/` directory. Temporary scratch data stays under `tmp/` and is deleted before committing.
+6. **Treat core physics/model code as stable.** Do not modify `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` unless the active plan explicitly authorizes it.
+7. **Respect the PyTorch policy.** PyTorch (torch ≥ 2.2) is mandatory (POLICY-001). PyTorch workflows must still run `update_legacy_dict(params.cfg, config)` before touching legacy modules; see `docs/workflows/pytorch.md`.
+8. **Testing proof is mandatory.** Any task involving tests must provide passing `pytest` evidence and archived logs as described in `prompts/main.md` and `docs/TESTING_GUIDE.md`.
+9. **Plan test infrastructure up front.** Before Phase B or any implementation that adds/changes tests, capture the strategy using `plans/templates/test_strategy_template.md` (or the initiative’s `test_strategy.md`) and link it from `docs/fix_plan.md`.
 
 ---
 
-## 3. 📚 Authoritative Document Pointers
+## 3. 📚 Required Reference Map
 
-Instead of browsing, use these as your primary entry points into the project's knowledge base.
+- **Documentation hub:** `docs/index.md` – complete map of guides, specs, and workflows.
+- **Workflow guide:** `docs/INITIATIVE_WORKFLOW_GUIDE.md` – details on initiative planning, artifact storage, and ledger updates.
+- **Developer guide:** `docs/DEVELOPER_GUIDE.md` – architecture, anti-patterns, and TDD methodology.
+- **Testing references:** `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` – authoritative test commands and selectors.
+- **PyTorch workflows:** `docs/workflows/pytorch.md` – configuration and execution rules for the PyTorch backend.
+- **Knowledge base:** `docs/findings.md` – mandatory pre-read for known issues, conventions, and policies.
 
-- **Master Index:** <doc-ref type="index">docs/index.md</doc-ref> (for a full map of all documents)
-- **Architectural Bible:** <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> (for the "two-system" architecture and core principles)
-- **Test Suite Map:** <doc-ref type="test-index">docs/development/TEST_SUITE_INDEX.md</doc-ref> (to find existing tests and run commands)
-- **Agentic Workflow:** <doc-ref type="workflow-guide">docs/INITIATIVE_WORKFLOW_GUIDE.md</doc-ref> (for the human-AI collaboration process)
-
----
-
-## 4. 🛑 Critical Gotchas & Anti-Patterns
-
-### 4.1. Parameter Initialization (The #1 Bug Source)
-
-**Before calling ANY data loading or model construction functions**, you **MUST** initialize the legacy `params.cfg` dictionary. Failure to do so will cause silent shape mismatch errors.
-
-```python
-from ptycho.config.config import update_legacy_dict
-from ptycho import params as p
-
-# 1. Create modern dataclass config
-config = setup_configuration(args, yaml_path)
-
-# 2. Bridge to legacy system (MANDATORY)
-update_legacy_dict(p.cfg, config)
-
-# 3. NOW it is safe to import modules that depend on global state
-from ptycho import loader, model
-```
-**Solution:** See <doc-ref type="troubleshooting">docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors</doc-ref>.
-
-### 4.2. Data Format Requirements
-
-All `.npz` datasets **MUST** conform to the specifications in `<doc-ref type="contract">specs/data_contracts.md</doc-ref>`.
--   **`diffraction`**: MUST be **amplitude** (sqrt of intensity), not intensity.
--   **`objectGuess`**: MUST be significantly larger than `probeGuess`.
--   **`Y` patches**: MUST be `complex64`. A silent `float64` conversion was the source of a major historical bug.
-
-### 4.3. Test Harness Compatibility
-
-Do **not** mix `unittest.TestCase` classes with pytest parametrization. Write new tests using native pytest style (plain functions or `pytest`-managed classes with fixtures) so parametrized parity tests and skip logic behave correctly. When modernizing existing tests, move entirely to pytest in a single loop.
+Use the index to locate any additional document cited by `prompts/main.md`, `prompts/supervisor.md`, or the active plan.
 
 ---
 
-## 5. Key Commands
+## 4. 🛠 Where to Find Troubleshooting & Commands
 
-### Git Bootstrap
-```bash
-# One-time repo setup for supervisor/loop stability
-scripts/bootstrap_git.sh --update-gitignore
+- **Params.cfg / shape mismatch issues:** Follow `docs/debugging/QUICK_REFERENCE_PARAMS.md` and `docs/debugging/TROUBLESHOOTING.md`. Do **not** rely on stale snippets in this constitution.
+- **Command library (git, training, inference, tests):** Use `docs/COMMANDS_REFERENCE.md` for all CLI recipes. The prompts enforce running tests via `pytest` selectors; align with that doc and archive logs per their instructions.
+- **Git setup & hygiene:** See `prompts/git_setup_agent.md` and `prompts/git_hygiene.md` for automation-safe Git workflows.
 
-# Options:
-#   --force             proceed if working tree is dirty
-#   --global            also set global git configs
-```
-- Read first: prompts/git_setup_agent.md (agent runbook with literal steps)
-- See also: prompts/git_hygiene.md (reusable guidelines across repos)
-
-### Environment Verification
-```bash
-# Install in editable mode
-pip install -e .
-
-# Run a quick, small training job to verify setup
-ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_groups 512 --output_dir verification_run
-```
-
-### PyTorch Training
-```bash
-# Train with PyTorch backend (deterministic mode, CPU)
-python -m ptycho_torch.train \
-  --train_data_file datasets/my_train.npz \
-  --test_data_file datasets/my_test.npz \
-  --output_dir outputs/pytorch_run \
-  --n_images 512 \
-  --gridsize 2 \
-  --batch_size 4 \
-  --max_epochs 10 \
-  --accelerator cpu \
-  --deterministic \
-  --num-workers 0 \
-  --learning-rate 1e-3
-
-# Note: CONFIG-001 bridge (update_legacy_dict) is handled automatically by the CLI
-```
-
-### Running Tests
-```bash
-# Run all tests (preferred)
-pytest tests/
-
-# Run a specific test or selector
-pytest tests/torch/test_config_bridge.py -k parity -vv
-```
+If a command or troubleshooting step is missing from those references, update the canonical document first; CLAUDE.md should only point to authoritative sources, not duplicate their content.
