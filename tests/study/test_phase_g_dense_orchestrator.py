@@ -103,11 +103,237 @@ def test_run_phase_g_dense_collect_only_generates_commands(tmp_path: Path, monke
     assert "ssim_grid.py" in stdout, "Missing ssim_grid.py command in --collect-only output"
     assert "ssim_grid_cli.log" in stdout, "Missing ssim_grid_cli.log output path in ssim_grid command"
 
+    # Check for post-verify commands (default: enabled)
+    assert "verify_dense_pipeline_artifacts.py" in stdout, "Missing verify_dense_pipeline_artifacts.py command in --collect-only output"
+    assert "verification_report.json" in stdout, "Missing verification_report.json output path in verify command"
+    assert "verify_dense_stdout.log" in stdout, "Missing verify_dense_stdout.log output path in verify command"
+    assert "check_dense_highlights_match.py" in stdout, "Missing check_dense_highlights_match.py command in --collect-only output"
+    assert "check_dense_highlights.log" in stdout, "Missing check_dense_highlights.log output path in check command"
+
     # Assert: No Phase C outputs created (dry-run mode)
     phase_c_root = hub / "data" / "phase_c"
     if phase_c_root.exists():
         phase_c_files = list(phase_c_root.rglob("*.npz"))
         assert len(phase_c_files) == 0, f"--collect-only mode should not create Phase C outputs, found: {phase_c_files}"
+
+
+def test_run_phase_g_dense_post_verify_hooks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Test that main() invokes post-verify commands (verify_dense_pipeline_artifacts.py + check_dense_highlights_match.py) with correct paths.
+
+    Acceptance:
+    - Loads main() from orchestrator script via importlib
+    - Stubs prepare_hub, validate_phase_c_metadata, summarize_phase_g_outputs (no-op for speed)
+    - Monkeypatches run_command to record invocations
+    - Runs main() without --skip-post-verify (default: post-verify enabled)
+    - Asserts post-verify commands are invoked AFTER ssim_grid
+    - Validates verify command includes --hub, --report, --dose, --view flags
+    - Validates check command includes --hub flag
+    - Validates log paths point to analysis/verify_dense_stdout.log and analysis/check_dense_highlights.log
+    - Ensures AUTHORITATIVE_CMDS_DOC environment variable is respected
+    - Returns 0 exit code on success
+
+    Follows TYPE-PATH-001 (Path normalization), DATA-001, TEST-CLI-001.
+    """
+    # Import main() and helper functions from orchestrator
+    module = _import_orchestrator_module()
+    main = module.main
+
+    # Setup: Create tmp hub directory
+    hub = tmp_path / "post_verify_hub"
+    hub.mkdir(parents=True)
+
+    # Create expected directory structure for Phase C→G
+    phase_c_root = hub / "data" / "phase_c"
+    phase_c_root.mkdir(parents=True)
+    cli_log_dir = hub / "cli"
+    cli_log_dir.mkdir(parents=True)
+    phase_g_root = hub / "analysis"
+    phase_g_root.mkdir(parents=True)
+
+    # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+    monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+
+    # Prepare sys.argv for argparse (NO --skip-post-verify, so post-verify enabled)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_phase_g_dense.py",
+            "--hub", str(hub),
+            "--dose", "1000",
+            "--view", "dense",
+            "--splits", "train", "test",
+            "--clobber",  # Required to pass prepare_hub check
+        ],
+    )
+
+    # Stub heavy helpers to no-op (we only care about run_command invocations)
+    def stub_prepare_hub(hub_path, clobber):
+        """No-op stub for prepare_hub."""
+        pass
+
+    def stub_validate_phase_c_metadata(hub_path):
+        """No-op stub for validate_phase_c_metadata."""
+        pass
+
+    def stub_summarize_phase_g_outputs(hub_path):
+        """Create metrics_summary.json with test data for delta computation."""
+        analysis = Path(hub_path) / "analysis"
+        analysis.mkdir(parents=True, exist_ok=True)
+
+        # Create metrics_summary.json with aggregate_metrics for delta computation
+        summary_data = {
+            "n_jobs": 2,
+            "n_success": 2,
+            "n_failed": 0,
+            "jobs": [],
+            "aggregate_metrics": {
+                "PtychoPINN": {
+                    "ms_ssim": {"mean_amplitude": 0.950, "mean_phase": 0.920},
+                    "mae": {"mean_amplitude": 0.025, "mean_phase": 0.035}
+                },
+                "Baseline": {
+                    "ms_ssim": {"mean_amplitude": 0.930, "mean_phase": 0.900},
+                    "mae": {"mean_amplitude": 0.030, "mean_phase": 0.040}
+                },
+                "PtyChi": {
+                    "ms_ssim": {"mean_amplitude": 0.940, "mean_phase": 0.910},
+                    "mae": {"mean_amplitude": 0.027, "mean_phase": 0.037}
+                }
+            }
+        }
+
+        import json
+        metrics_summary_path = analysis / "metrics_summary.json"
+        with metrics_summary_path.open("w", encoding="utf-8") as f:
+            json.dump(summary_data, f, indent=2)
+
+    def stub_generate_artifact_inventory(hub_path):
+        """No-op stub for generate_artifact_inventory."""
+        pass
+
+    monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
+    monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
+    monkeypatch.setattr(module, "summarize_phase_g_outputs", stub_summarize_phase_g_outputs)
+    monkeypatch.setattr(module, "generate_artifact_inventory", stub_generate_artifact_inventory)
+
+    # Record run_command invocations
+    run_command_calls = []
+
+    def stub_run_command(cmd, log_path):
+        """Record cmd and log_path, create required files for orchestrator progression."""
+        run_command_calls.append((cmd, log_path))
+        cmd_str = " ".join(str(c) for c in cmd)
+
+        # When reporting helper is invoked, create highlights file
+        if "report_phase_g_dense_metrics.py" in cmd_str and "--highlights" in cmd_str:
+            for i, part in enumerate(cmd):
+                if str(part) == "--highlights" and i + 1 < len(cmd):
+                    highlights_path = Path(cmd[i + 1])
+                    highlights_path.parent.mkdir(parents=True, exist_ok=True)
+                    highlights_path.write_text("MS-SSIM Deltas\n", encoding="utf-8")
+                    break
+
+        # When analyze digest is invoked, create digest file
+        if "analyze_dense_metrics.py" in cmd_str and "--output" in cmd_str:
+            for i, part in enumerate(cmd):
+                if str(part) == "--output" and i + 1 < len(cmd):
+                    digest_path = Path(cmd[i + 1])
+                    digest_path.parent.mkdir(parents=True, exist_ok=True)
+                    digest_path.write_text("# Digest\n", encoding="utf-8")
+                    break
+
+        # When ssim_grid is invoked, create summary file
+        if "ssim_grid.py" in cmd_str and "--hub" in cmd_str:
+            for i, part in enumerate(cmd):
+                if str(part) == "--hub" and i + 1 < len(cmd):
+                    hub_path = Path(cmd[i + 1])
+                    ssim_grid_summary_path = hub_path / "analysis" / "ssim_grid_summary.md"
+                    ssim_grid_summary_path.parent.mkdir(parents=True, exist_ok=True)
+                    ssim_grid_summary_path.write_text("# SSIM Grid\n", encoding="utf-8")
+                    break
+
+        # When verify_dense_pipeline_artifacts is invoked, create report file
+        if "verify_dense_pipeline_artifacts.py" in cmd_str and "--report" in cmd_str:
+            for i, part in enumerate(cmd):
+                if str(part) == "--report" and i + 1 < len(cmd):
+                    report_path = Path(cmd[i + 1])
+                    report_path.parent.mkdir(parents=True, exist_ok=True)
+                    report_path.write_text('{"valid": true}\n', encoding="utf-8")
+                    break
+
+        # When check_dense_highlights_match is invoked, no file creation needed (just stdout)
+        # (check_dense_highlights_match.py outputs to stdout, which is captured by run_command log_path)
+
+    monkeypatch.setattr(module, "run_command", stub_run_command)
+
+    # Execute: Call main() (should execute Phase C→G pipeline + reporting helper + analyze digest + ssim_grid + post-verify)
+    exit_code = main()
+
+    # Assert: Exit code should be 0
+    assert exit_code == 0, f"Expected exit code 0 from real execution mode, got {exit_code}"
+
+    # Assert: run_command should have been called for all phases + reporting helper + analyze digest + ssim_grid + post-verify (2 commands)
+    # Expected: 1 Phase C + 1 Phase D + 2 Phase E + 2 Phase F + 2 Phase G + 1 reporting + 1 analyze + 1 ssim_grid + 2 post-verify = 13 total
+    assert len(run_command_calls) >= 13, f"Expected at least 13 run_command calls (C/D/E/F/G phases + reporting + analyze + ssim_grid + post-verify), got {len(run_command_calls)}"
+
+    # Find ssim_grid, verify, and check command indices
+    ssim_grid_idx = None
+    verify_idx = None
+    check_idx = None
+
+    for idx, (cmd, log_path) in enumerate(run_command_calls):
+        cmd_str = " ".join(str(c) for c in cmd)
+        if "ssim_grid.py" in cmd_str:
+            ssim_grid_idx = idx
+        if "verify_dense_pipeline_artifacts.py" in cmd_str:
+            verify_idx = idx
+        if "check_dense_highlights_match.py" in cmd_str:
+            check_idx = idx
+
+    # Assert: All three commands should be invoked
+    assert ssim_grid_idx is not None, "ssim_grid.py was not invoked"
+    assert verify_idx is not None, "verify_dense_pipeline_artifacts.py was not invoked"
+    assert check_idx is not None, "check_dense_highlights_match.py was not invoked"
+
+    # Assert: post-verify commands should be invoked AFTER ssim_grid
+    assert verify_idx > ssim_grid_idx, \
+        f"verify_dense_pipeline_artifacts.py should be invoked after ssim_grid.py, but got order: ssim_grid={ssim_grid_idx}, verify={verify_idx}"
+    assert check_idx > ssim_grid_idx, \
+        f"check_dense_highlights_match.py should be invoked after ssim_grid.py, but got order: ssim_grid={ssim_grid_idx}, check={check_idx}"
+    assert check_idx > verify_idx, \
+        f"check_dense_highlights_match.py should be invoked after verify_dense_pipeline_artifacts.py, but got order: verify={verify_idx}, check={check_idx}"
+
+    # Validate verify command
+    verify_cmd, verify_log_path = run_command_calls[verify_idx]
+    verify_cmd_str = " ".join(str(c) for c in verify_cmd)
+
+    assert "verify_dense_pipeline_artifacts.py" in verify_cmd_str, \
+        f"Expected verify_dense_pipeline_artifacts.py in command, got: {verify_cmd_str}"
+    assert "--hub" in verify_cmd_str, f"Missing --hub flag in verify command: {verify_cmd_str}"
+    assert "--report" in verify_cmd_str, f"Missing --report flag in verify command: {verify_cmd_str}"
+    assert "verification_report.json" in verify_cmd_str, f"Missing verification_report.json in verify command: {verify_cmd_str}"
+    assert "--dose" in verify_cmd_str, f"Missing --dose flag in verify command: {verify_cmd_str}"
+    assert "1000" in verify_cmd_str, f"Missing dose value 1000 in verify command: {verify_cmd_str}"
+    assert "--view" in verify_cmd_str, f"Missing --view flag in verify command: {verify_cmd_str}"
+    assert "dense" in verify_cmd_str, f"Missing view value 'dense' in verify command: {verify_cmd_str}"
+
+    # Validate verify log_path points to analysis/verify_dense_stdout.log
+    assert "verify_dense_stdout.log" in str(verify_log_path), \
+        f"Expected verify log path to be analysis/verify_dense_stdout.log, got: {verify_log_path}"
+
+    # Validate check command
+    check_cmd, check_log_path = run_command_calls[check_idx]
+    check_cmd_str = " ".join(str(c) for c in check_cmd)
+
+    assert "check_dense_highlights_match.py" in check_cmd_str, \
+        f"Expected check_dense_highlights_match.py in command, got: {check_cmd_str}"
+    assert "--hub" in check_cmd_str, f"Missing --hub flag in check command: {check_cmd_str}"
+
+    # Validate check log_path points to analysis/check_dense_highlights.log
+    assert "check_dense_highlights.log" in str(check_log_path), \
+        f"Expected check log path to be analysis/check_dense_highlights.log, got: {check_log_path}"
 
 
 def test_summarize_phase_g_outputs(tmp_path: Path) -> None:

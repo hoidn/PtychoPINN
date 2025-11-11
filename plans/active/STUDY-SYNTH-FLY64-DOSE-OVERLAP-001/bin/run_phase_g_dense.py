@@ -876,6 +876,11 @@ def main() -> int:
         action="store_true",
         help="Remove/archive stale Phase C outputs before starting pipeline (default: error on stale outputs)",
     )
+    parser.add_argument(
+        "--skip-post-verify",
+        action="store_true",
+        help="Skip post-verify automation (verifier + highlights checker) for debugging",
+    )
 
     args = parser.parse_args()
 
@@ -1018,6 +1023,26 @@ def main() -> int:
     ]
     ssim_grid_log = cli_log_dir / "ssim_grid_cli.log"
 
+    # Post-Verify Automation: Verify pipeline artifacts and check highlights match
+    # (executed after ssim_grid generates the grid summary and preview metadata)
+    verify_script = Path(__file__).parent / "verify_dense_pipeline_artifacts.py"
+    verify_report_json = phase_g_root / "verification_report.json"
+    verify_cmd = [
+        "python", str(verify_script),
+        "--hub", str(hub),
+        "--report", str(verify_report_json),
+        "--dose", str(dose),
+        "--view", view,
+    ]
+    verify_log = phase_g_root / "verify_dense_stdout.log"
+
+    check_script = Path(__file__).parent / "check_dense_highlights_match.py"
+    check_cmd = [
+        "python", str(check_script),
+        "--hub", str(hub),
+    ]
+    check_log = phase_g_root / "check_dense_highlights.log"
+
     # Collect-only mode: print commands and exit
     if args.collect_only:
         print("[run_phase_g_dense] Collect-only mode: planned commands:")
@@ -1038,6 +1063,16 @@ def main() -> int:
         print(f"\n{len(commands) + 3}. Analysis: Generate SSIM grid summary (phase-only)")
         print(f"   Command: {' '.join(str(c) for c in ssim_grid_cmd)}")
         print(f"   Log: {ssim_grid_log}")
+        # Print post-verify commands (conditional on --skip-post-verify)
+        if not args.skip_post_verify:
+            print(f"\n{len(commands) + 4}. Post-Verify: Verify pipeline artifacts")
+            print(f"   Command: {' '.join(str(c) for c in verify_cmd)}")
+            print(f"   Log: {verify_log}")
+            print(f"\n{len(commands) + 5}. Post-Verify: Check highlights match")
+            print(f"   Command: {' '.join(str(c) for c in check_cmd)}")
+            print(f"   Log: {check_log}")
+        else:
+            print(f"\n[run_phase_g_dense] Post-verify automation skipped (--skip-post-verify)")
         return 0
 
     # Prepare hub: detect and handle stale outputs
@@ -1199,7 +1234,25 @@ def main() -> int:
     print("=" * 80 + "\n")
     run_command(ssim_grid_cmd, ssim_grid_log)
 
-    # Generate artifact inventory (deterministic listing of all files in hub)
+    # Post-Verify Automation: Verify pipeline artifacts and check highlights match
+    if not args.skip_post_verify:
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Running post-verify automation...")
+        print("=" * 80 + "\n")
+
+        # Step 1: Verify pipeline artifacts
+        print("[run_phase_g_dense] Verifying pipeline artifacts...")
+        run_command(verify_cmd, verify_log)
+
+        # Step 2: Check highlights match
+        print("[run_phase_g_dense] Checking highlights match...")
+        run_command(check_cmd, check_log)
+
+        print("\n[run_phase_g_dense] Post-verify automation completed successfully")
+    else:
+        print("\n[run_phase_g_dense] Post-verify automation skipped (--skip-post-verify)")
+
+    # Re-generate artifact inventory after post-verify automation
     print("\n" + "=" * 80)
     print("[run_phase_g_dense] Generating artifact inventory...")
     print("=" * 80 + "\n")
@@ -1235,6 +1288,20 @@ def main() -> int:
     ssim_grid_log_path = Path(cli_log_dir) / "ssim_grid_cli.log"
     if ssim_grid_log_path.exists():
         print(f"SSIM Grid log: {ssim_grid_log_path.relative_to(hub)}")
+
+    # Add post-verify artifacts to success banner (TYPE-PATH-001)
+    if not args.skip_post_verify:
+        verify_report_path = Path(phase_g_root) / "verification_report.json"
+        if verify_report_path.exists():
+            print(f"Verification report: {verify_report_path.relative_to(hub)}")
+
+        verify_log_path = Path(phase_g_root) / "verify_dense_stdout.log"
+        if verify_log_path.exists():
+            print(f"Verification log: {verify_log_path.relative_to(hub)}")
+
+        check_log_path = Path(phase_g_root) / "check_dense_highlights.log"
+        if check_log_path.exists():
+            print(f"Highlights check log: {check_log_path.relative_to(hub)}")
 
     return 0
 
