@@ -1,4 +1,10 @@
 ### Turn Summary
+Extended test_run_phase_g_dense_exec_runs_analyze_digest with SSIM grid + verification banner guards; stub_run_command now creates all CLI logs.
+Delivered 30 new assertions validating SSIM grid summary/log lines and verification report/log/highlights lines in success banner stdout.
+Next: run dense pipeline --clobber into this hub, then --post-verify-only sweep to capture SSIM grid + verification artifacts for evidence.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (pytest logs in collect/green/)
+
+### Turn Summary
 Digest-log guard already merged (32b20a94), so I re-scoped Phase G to add verification/SSIM grid success-banner assertions before the counted dense rerun.
 Plan/implementation/fix_plan/input now call for that test edit plus the --clobber and --post-verify-only pipeline executions into the 2025-11-12 hub with full SSIM grid, verification, highlights, metrics, and inventory artifacts.
 Next: extend test_run_phase_g_dense_exec_runs_analyze_digest accordingly, capture collect/green logs, run both CLI modes, and publish MS-SSIM/MAE + preview/verifier evidence across summary/docs/ledger.
