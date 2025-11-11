@@ -1,4 +1,11 @@
 ### Turn Summary
+Stashed the deleted Phase C manifest plus CLI/pytest logs to satisfy `git pull --rebase`, pulled (no upstream delta), and restored the stash so the hub stays dirty yet synced.
+Revalidated the dense Phase G hub: `analysis/` still only has `blocker.log` and `cli/` still only contains `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`, so there remain no SSIM grid, verification, preview, metrics, highlights, or artifact-inventory artifacts from a counted run.
+Updated the initiative plan, hub plan, docs/fix_plan.md, and input.md to keep the focus ready_for_implementation with the explicit `/home/ollie/Documents/PtychoPINN` guard plus the counted `run_phase_g_dense.py --clobber` + `--post-verify-only` commands and mapped pytest selectors writing evidence into this hub.
+Next: Ralph must rerun both pytest selectors from `/home/ollie/Documents/PtychoPINN`, execute the dense run followed immediately by `--post-verify-only`, and publish MS-SSIM/MAE deltas + preview/verifier/SSIM grid + inventory references across the hub summaries, docs/fix_plan.md, and galph_memory.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary.md, summary/summary.md, input.md)
+
+### Turn Summary
 Stashed the existing hub evidence (deleted `data/phase_c/run_manifest.json` plus CLI/pytest logs) to satisfy `timeout 30 git pull --rebase`, restored it untouched, and confirmed upstream has no new commits.
 Revalidated the 2025-11-12 dense hub: `analysis/` still only contains `blocker.log` from the `/home/ollie/Documents/PtychoPINN2` run while `cli/` holds just `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`, so there are still no SSIM grid, verification, preview, metrics, or artifact-inventory outputs.
 Updated the initiative plan, hub plan, docs/fix_plan.md, and input.md to keep the focus ready_for_implementation with the same pytest guard + counted `run_phase_g_dense.py --clobber` / `--post-verify-only` runs plus MS-SSIM/MAE + preview/verifier reporting (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001).
