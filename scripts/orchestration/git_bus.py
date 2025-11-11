@@ -3,6 +3,9 @@ from __future__ import annotations
 import subprocess
 import os
 from typing import Iterable, Optional
+import shutil
+from datetime import datetime
+from pathlib import Path
 
 
 def _run(cmd: Iterable[str], timeout: Optional[int] = None, check: bool = False) -> subprocess.CompletedProcess:
@@ -14,11 +17,52 @@ def _rebase_in_progress() -> bool:
 
 
 def _abort_rebase(log_print) -> None:
+    """Attempt to abort any in-progress rebase and hard-clean stale state.
+
+    In practice, Git can leave .git/rebase-merge or .git/rebase-apply
+    directories behind if a prior process crashed. When that happens,
+    a subsequent `git pull --rebase` or `git rebase` will fail with
+    "rebase-merge directory exists". We first try a normal abort, and
+    if the state persists we move the stale directories out to a
+    timestamped backup under tmp/git-rebase-backups/ so the operation
+    can proceed while preserving forensics.
+    """
     try:
         _run(["git", "rebase", "--abort"])
         log_print("Aborted in-progress rebase.")
     except Exception:
+        # Ignore and proceed to hard cleanup if needed
         pass
+
+    # If rebase state still present, forcibly relocate it out of .git
+    if _rebase_in_progress():
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        backup_root = Path("tmp") / "git-rebase-backups" / ts
+        try:
+            backup_root.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            # If we can't create backup directory, fall back to direct removal
+            backup_root = None
+
+        for dname in ("rebase-merge", "rebase-apply"):
+            src = Path(".git") / dname
+            if src.exists():
+                try:
+                    if backup_root is not None:
+                        dst = backup_root / dname
+                        shutil.move(str(src), str(dst))
+                        log_print(f"[git_bus] Moved stale {src} to {dst}.")
+                    else:
+                        shutil.rmtree(src)
+                        log_print(f"[git_bus] Removed stale {src} (no backup).")
+                except Exception as e:
+                    # As a last resort, try to unlink tree contents
+                    try:
+                        shutil.rmtree(src, ignore_errors=True)
+                        log_print(f"[git_bus] Force-removed stale {src} after error: {e}.")
+                    except Exception:
+                        # Leave a breadcrumb but continue; subsequent operations will report failure
+                        log_print(f"[git_bus] WARNING: Could not clear stale {src}: {e}")
 
 
 def safe_pull(log_print, remote: Optional[str] = None, branch: Optional[str] = None) -> bool:
@@ -214,8 +258,8 @@ def push_with_rebase(branch: str, log_print, remote: str = "origin") -> bool:
         return True
     if cp.stderr:
         log_print(cp.stderr.rstrip())
-    # Attempt to reconcile and retry
-    safe_pull(log_print)
+    # Attempt to reconcile and retry (explicit remote/branch to avoid config pitfalls)
+    safe_pull(log_print, remote, branch)
     cp2 = _run(["git", "push", remote, f"HEAD:{branch}"])
     if cp2.stdout:
         log_print(cp2.stdout.rstrip())
