@@ -1,4 +1,10 @@
 ### Turn Summary
+Re-audited the 2025-11-12 dense hub and confirmed `{analysis}` still only holds blocker.log while `cli/` has just phase_c/phase_d/run_phase_g logs, so no SSIM grid, verification, preview, or metrics artifacts exist yet.
+Updated plan/plan.md, docs/fix_plan.md, and input.md to reiterate the ready_for_implementation Do Now that requires running from `/home/ollie/Documents/PtychoPINN`, exporting AUTHORITATIVE_CMDS_DOC, and executing the counted dense run plus the immediate `--post-verify-only` sweep with full artifact logging.
+Next: Ralph must rerun the mapped collect/execution pytest selectors, execute both orchestrator commands with tee'd logs, and publish MS-SSIM ±0.000 / MAE ±0.000000 + preview/verifier/SSIM grid evidence under this hub and in the ledger before closing the loop.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+
+### Turn Summary
 Revalidated the Phase G hub after commit 962bffba and confirmed `analysis/` still holds only blocker.log while `cli/` has just `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`, so no SSIM grid, verification, metrics, or preview artifacts exist yet.
 Documented the lingering workspace mismatch via `summary/blocker_2025-11-11T115954Z.md` and noted that Ralph has not rerun the dense Phase C→G pipeline from `/home/ollie/Documents/PtychoPINN`, meaning `{analysis,cli}` never captured the counted rerun or the post-verify-only sweep.
 Next: Ralph must run the mapped pytest collect/execution guard, execute `run_phase_g_dense.py --clobber` followed by `--post-verify-only` from `/home/ollie/Documents/PtychoPINN`, and publish MS-SSIM/MAE deltas plus preview/verifier/SSIM grid evidence and inventory updates across this hub, docs/fix_plan.md, and galph_memory.
