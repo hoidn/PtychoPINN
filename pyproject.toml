@@ -61,7 +61,9 @@ markers = [
     "torch: marks tests as requiring PyTorch (deselect with '-m \"not torch\"')",
     "optional: marks tests as requiring optional dependencies",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "mvp: marks tests covering MVP (minimum viable product) field requirements"
+    "mvp: marks tests covering MVP (minimum viable product) field requirements",
+    "study: marks tests for study infrastructure (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001)",
+    "mini: marks tests as minimal/fast unit tests"
 ]
 # Configure test collection to handle import errors gracefully
 addopts = [
