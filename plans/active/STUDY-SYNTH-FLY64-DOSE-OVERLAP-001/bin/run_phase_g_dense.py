@@ -1164,8 +1164,8 @@ def main() -> int:
         # Print artifact paths
         print(f"\nArtifacts saved to: {hub}")
         print(f"Artifact inventory: {artifact_inventory_path.relative_to(hub)}")
-        print(f"CLI logs: {cli_log_dir}")
-        print(f"Analysis outputs: {phase_g_root}")
+        print(f"CLI logs: {cli_log_dir.relative_to(hub)}")
+        print(f"Analysis outputs: {phase_g_root.relative_to(hub)}")
 
         # Add SSIM grid summary to success banner
         ssim_grid_summary_path = Path(phase_g_root) / "ssim_grid_summary.md"
@@ -1385,13 +1385,13 @@ def main() -> int:
 
     print(f"\nArtifacts saved to: {hub}")
     print(f"Artifact inventory: {artifact_inventory_path.relative_to(hub)}")
-    print(f"CLI logs: {cli_log_dir}")
-    print(f"Analysis outputs: {phase_g_root}")
-    print(f"Aggregate report: {aggregate_report_md}")
-    print(f"Highlights: {aggregate_highlights_txt}")
-    print(f"Metrics digest: {metrics_digest_md}")
-    print(f"Metrics digest (Markdown): {metrics_digest_md}")
-    print(f"Metrics digest log: {analyze_digest_log}")
+    print(f"CLI logs: {cli_log_dir.relative_to(hub)}")
+    print(f"Analysis outputs: {phase_g_root.relative_to(hub)}")
+    print(f"Aggregate report: {aggregate_report_md.relative_to(hub)}")
+    print(f"Highlights: {aggregate_highlights_txt.relative_to(hub)}")
+    print(f"Metrics digest: {metrics_digest_md.relative_to(hub)}")
+    print(f"Metrics digest (Markdown): {metrics_digest_md.relative_to(hub)}")
+    print(f"Metrics digest log: {analyze_digest_log.relative_to(hub)}")
 
     # Add delta JSON, highlights, and preview to success banner (TYPE-PATH-001)
     delta_json_path = Path(phase_g_root) / "metrics_delta_summary.json"

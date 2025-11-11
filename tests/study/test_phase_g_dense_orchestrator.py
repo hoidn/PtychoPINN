@@ -1966,3 +1966,9 @@ def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monke
     # Assert: stdout contains artifact_inventory.txt path (TYPE-PATH-001, DATA-001)
     assert "analysis/artifact_inventory.txt" in stdout, \
         f"Expected success banner to contain 'analysis/artifact_inventory.txt', but stdout was:\n{stdout}"
+
+    # Assert: stdout contains hub-relative CLI logs and Analysis outputs paths (TYPE-PATH-001)
+    assert "CLI logs: cli" in stdout, \
+        f"Expected success banner to contain 'CLI logs: cli' (hub-relative), but stdout was:\n{stdout}"
+    assert "Analysis outputs: analysis" in stdout, \
+        f"Expected success banner to contain 'Analysis outputs: analysis' (hub-relative), but stdout was:\n{stdout}"
