@@ -72,6 +72,36 @@ Until the codebase is fully refactored, all modern scripts must follow this orde
 
 ---
 
+### 2.3. Interpreter & Subprocess Policy (PYTHON-ENV-001)
+
+Rule: never rely on PATH-resolved "python/python3" in code, scripts, or documentation. Always invoke the active interpreter.
+
+Why: PATH drift (different shells, conda/venv activation, CI images) can spawn a different Python than the one running your code, causing import failures (e.g., ModuleNotFoundError for local packages) and subtle environment mismatches.
+
+Canonical patterns:
+- In Python code spawning Python subprocesses:
+  ```python
+  import os, sys, subprocess
+  PYTHON_BIN = os.environ.get("PYTHON_BIN", sys.executable)
+  subprocess.run([PYTHON_BIN, "-m", "pkg.module", "--flag", "value"], check=True)
+  ```
+- In shell scripts and docs examples:
+  ```bash
+  PY="$(python - <<'PY'
+  import sys; print(sys.executable)
+  PY
+  )"
+  "$PY" -m pkg.module --flag value
+  ```
+
+Scope: applies to all new/modified code, orchestration helpers, and command examples. Keep it environment-agnostic (no hardcoded conda env names). Allow overrides by honoring `PYTHON_BIN` where appropriate.
+
+Exceptions: legacy archives under `archive/` and tests expressly validating legacy behavior may retain historical commands. Prefer adding allowlists in tooling over duplicating exceptions here.
+
+Enforcement: add a repo lint/CI check to fail on new bare `python`/`python3` invocations in subprocess code or doc command blocks (excluding allowlisted paths). Reference this section (PYTHON-ENV-001) in any failure messages.
+
+---
+
 ## 3. The Data Pipeline: Contracts and Bookkeeping
 
 A data pipeline's file formats and loading logic constitute a public API. Its behavior must be explicit and robust.
@@ -663,4 +693,3 @@ def build_model(X_train, Y_I_train, Y_phi_train):
     ...
     decoded1 = Conv2D(c, (3, 3), padding='same')(x1) # <-- BUG!
 ```
-

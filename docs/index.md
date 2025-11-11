@@ -61,7 +61,7 @@ This index provides a comprehensive overview of all available documentation with
 ### Core Documentation
 
 #### [Developer Guide](DEVELOPER_GUIDE.md) ⚠️ ESSENTIAL
-**Description:** Comprehensive architectural guide covering the "two-system" architecture (legacy grid-based vs. modern coordinate-based), critical anti-patterns, data pipeline contracts, TDD methodology, and configuration management best practices.  
+**Description:** Comprehensive architectural guide covering the "two-system" architecture (legacy grid-based vs. modern coordinate-based), critical anti-patterns, data pipeline contracts, TDD methodology, and configuration management best practices. Includes PYTHON-ENV-001 (Interpreter & Subprocess Policy) as the single source of truth for interpreter selection.  
 **Keywords:** architecture, TDD, anti-patterns, configuration, data-pipeline  
 **Use this when:** Starting any development work, debugging shape mismatches, understanding the codebase architecture, or implementing new features using TDD methodology.
 

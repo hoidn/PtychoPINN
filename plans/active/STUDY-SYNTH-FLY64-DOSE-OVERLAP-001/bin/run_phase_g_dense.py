@@ -42,6 +42,11 @@ from typing import List
 
 from ptycho.metadata import MetadataManager
 
+# Interpreter selection (PYTHON-ENV-001):
+# Use the active interpreter for all Python subprocess commands.
+# Allow override via PYTHON_BIN for advanced scenarios.
+PYTHON_BIN = os.environ.get("PYTHON_BIN", sys.executable)
+
 
 def run_command(
     cmd: List[str],
@@ -937,7 +942,7 @@ def main() -> int:
 
     # Phase C: Dataset Generation
     phase_c_cmd = [
-        "python", "-m", "studies.fly64_dose_overlap.generation",
+        PYTHON_BIN, "-m", "studies.fly64_dose_overlap.generation",
         "--base-npz", str(base_npz),
         "--output-root", str(phase_c_root),
     ]
@@ -945,7 +950,7 @@ def main() -> int:
 
     # Phase D: Overlap View Generation
     phase_d_cmd = [
-        "python", "-m", "studies.fly64_dose_overlap.overlap",
+        PYTHON_BIN, "-m", "studies.fly64_dose_overlap.overlap",
         "--phase-c-root", str(phase_c_root),
         "--output-root", str(phase_d_root),
         "--doses", str(dose),
@@ -957,7 +962,7 @@ def main() -> int:
     # Phase E: Training (baseline gs1 + view gs2)
     # Baseline (gs1)
     phase_e_baseline_cmd = [
-        "python", "-m", "studies.fly64_dose_overlap.training",
+        PYTHON_BIN, "-m", "studies.fly64_dose_overlap.training",
         "--phase-c-root", str(phase_c_root),
         "--phase-d-root", str(phase_d_root),
         "--artifact-root", str(phase_e_root),
@@ -970,7 +975,7 @@ def main() -> int:
 
     # Dense/sparse (gs2)
     phase_e_view_cmd = [
-        "python", "-m", "studies.fly64_dose_overlap.training",
+        PYTHON_BIN, "-m", "studies.fly64_dose_overlap.training",
         "--phase-c-root", str(phase_c_root),
         "--phase-d-root", str(phase_d_root),
         "--artifact-root", str(phase_e_root),
@@ -984,7 +989,7 @@ def main() -> int:
     # Phase F: Reconstruction (one job per split)
     for split in splits:
         phase_f_cmd = [
-            "python", "-m", "studies.fly64_dose_overlap.reconstruction",
+            PYTHON_BIN, "-m", "studies.fly64_dose_overlap.reconstruction",
             "--phase-c-root", str(phase_c_root),
             "--phase-d-root", str(phase_d_root),
             "--artifact-root", str(phase_f_root),
@@ -998,7 +1003,7 @@ def main() -> int:
     # Phase G: Comparison (one job per split)
     for split in splits:
         phase_g_cmd = [
-            "python", "-m", "studies.fly64_dose_overlap.comparison",
+            PYTHON_BIN, "-m", "studies.fly64_dose_overlap.comparison",
             "--phase-c-root", str(phase_c_root),
             "--phase-e-root", str(phase_e_root),
             "--phase-f-root", str(phase_f_root),
@@ -1016,7 +1021,7 @@ def main() -> int:
     aggregate_highlights_txt = phase_g_root / "aggregate_highlights.txt"
     report_helper_script = Path(__file__).parent / "report_phase_g_dense_metrics.py"
     report_helper_cmd = [
-        "python", str(report_helper_script),
+        PYTHON_BIN, str(report_helper_script),
         "--metrics", str(metrics_summary_json),
         "--output", str(aggregate_report_md),
         "--highlights", str(aggregate_highlights_txt),
@@ -1028,7 +1033,7 @@ def main() -> int:
     metrics_digest_md = phase_g_root / "metrics_digest.md"
     analyze_digest_script = Path(__file__).parent / "analyze_dense_metrics.py"
     analyze_digest_cmd = [
-        "python", str(analyze_digest_script),
+        PYTHON_BIN, str(analyze_digest_script),
         "--metrics", str(metrics_summary_json),
         "--highlights", str(aggregate_highlights_txt),
         "--output", str(metrics_digest_md),
@@ -1040,7 +1045,7 @@ def main() -> int:
     ssim_grid_script = Path(__file__).parent / "ssim_grid.py"
     ssim_grid_summary_md = phase_g_root / "ssim_grid_summary.md"
     ssim_grid_cmd = [
-        "python", str(ssim_grid_script),
+        PYTHON_BIN, str(ssim_grid_script),
         "--hub", str(hub),
     ]
     ssim_grid_log = cli_log_dir / "ssim_grid_cli.log"
@@ -1050,7 +1055,7 @@ def main() -> int:
     verify_script = Path(__file__).parent / "verify_dense_pipeline_artifacts.py"
     verify_report_json = phase_g_root / "verification_report.json"
     verify_cmd = [
-        "python", str(verify_script),
+        PYTHON_BIN, str(verify_script),
         "--hub", str(hub),
         "--report", str(verify_report_json),
         "--dose", str(dose),
@@ -1060,7 +1065,7 @@ def main() -> int:
 
     check_script = Path(__file__).parent / "check_dense_highlights_match.py"
     check_cmd = [
-        "python", str(check_script),
+        PYTHON_BIN, str(check_script),
         "--hub", str(hub),
     ]
     check_log = phase_g_root / "check_dense_highlights.log"

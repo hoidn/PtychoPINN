@@ -25,6 +25,7 @@ This document is the **constitution** for the Claude AI agents working on the Pt
 8. **Testing proof is mandatory.** Any task involving tests must provide passing `pytest` evidence and archived logs as described in `prompts/main.md` and `docs/TESTING_GUIDE.md`.
 9. **Plan test infrastructure up front.** Before Phase B or any implementation that adds/changes tests, capture the strategy using `plans/templates/test_strategy_template.md` (or the initiative’s `test_strategy.md`) and link it from `docs/fix_plan.md`.
 10. **Dwell persistence and enforcement.** Planning/doc‑only loops do not reset dwell. Dwell only resets after implementation evidence (production/test code commits) or new hub `analysis/` deliverables. On a third consecutive planning/doc loop for the same focus, either hand off a runnable production task to engineering or mark the item `blocked` and switch focus; do not continue planning.
+11. **Interpreter policy.** Obey PYTHON-ENV-001 in `docs/DEVELOPER_GUIDE.md` (use the active interpreter via `sys.executable`/`PYTHON_BIN`; do not rely on PATH `python`).
 
 ---
 

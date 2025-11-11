@@ -3,7 +3,24 @@ set -euo pipefail
 
 # Prefer Python implementation; keep legacy below for fallback
 if [[ "${ORCHESTRATION_PYTHON:-1}" == "1" ]]; then
-  PYTHON_BIN=${PYTHON_BIN:-python3}
+  # Resolve the interpreter to the active environment unless overridden
+  if [[ -z "${PYTHON_BIN:-}" ]]; then
+    if command -v python >/dev/null 2>&1; then
+      PYTHON_BIN="$(python - <<'PY'
+import sys
+print(sys.executable)
+PY
+)"
+    elif command -v python3 >/dev/null 2>&1; then
+      PYTHON_BIN="$(python3 - <<'PY'
+import sys
+print(sys.executable)
+PY
+)"
+    else
+      PYTHON_BIN=python3
+    fi
+  fi
   exec "$PYTHON_BIN" -m scripts.orchestration.supervisor "$@"
 fi
 

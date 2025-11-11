@@ -189,8 +189,16 @@ def test_execute_comparison_jobs_invokes_compare_models(fake_phase_artifacts, tm
     call = subprocess_calls[0]
     cmd = call['cmd']
 
-    # Check that we're invoking python -m or python scripts/compare_models.py
-    assert 'python' in cmd[0].lower() or cmd[0] == 'python3', f"Expected python invocation, got {cmd[0]}"
+    # Check that we're invoking a Python interpreter (sys.executable or a python* binary)
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _cmd0 = str(cmd[0])
+        assert _Path(_cmd0).name.startswith("python") or _Path(_cmd0) == _Path(_sys.executable), (
+            f"Expected python interpreter, got {_cmd0}"
+        )
+    finally:
+        pass
     assert any('compare_models' in str(arg) for arg in cmd), f"Expected compare_models.py in command: {cmd}"
 
     # Verify key CLI arguments are present

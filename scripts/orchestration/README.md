@@ -11,6 +11,20 @@ This README documents the cross‑machine orchestration for the supervisor (galp
   - Sync via Git: strict turn‑taking using `sync/state.json` committed and pushed between machines.
 - Wrappers call Python by default; set `ORCHESTRATION_PYTHON=0` to force legacy bash logic.
 
+### Interpreter selection (important)
+
+- Always run orchestration modules with the same interpreter as your active environment.
+- Resolve the interpreter once and reuse it in commands:
+  ```bash
+  PY="$(python - <<'PY'
+  import sys; print(sys.executable)
+  PY
+  )"
+  "$PY" -m scripts.orchestration.supervisor --sync-via-git --branch feature/spec-based-2
+  "$PY" -m scripts.orchestration.tail_interleave_logs feature-spec-based-2 -n 3
+  ```
+  Set `PYTHON_BIN` to override in advanced cases; orchestrators respect it for subprocesses.
+
 ## State File
 - Path: `sync/state.json` (tracked and pushed so both machines see updates)
 - Fields:
@@ -75,9 +89,9 @@ This README documents the cross‑machine orchestration for the supervisor (galp
 Use the helper script to interleave the last N galph/ralph logs (or markdown summaries) for a branch prefix. Entries are matched on iteration number and wrapped in an XML-like tag with CDATA. The tool annotates each log with the post-state commit that stamped the handoff and can optionally snapshot selected directories from that commit:
 
 ```bash
-python -m scripts.orchestration.tail_interleave_logs feature-spec-based-2 -n 3
+"$PY" -m scripts.orchestration.tail_interleave_logs feature-spec-based-2 -n 3
 # Summaries instead of raw logs:
-python -m scripts.orchestration.tail_interleave_logs feature-spec-based-2 -n 3 --source summaries
+"$PY" -m scripts.orchestration.tail_interleave_logs feature-spec-based-2 -n 3 --source summaries
 ```
 
 Output structure:
@@ -120,16 +134,16 @@ Use the stamper to flip sync/state.json to the next actor and publish it without
 
 ```bash
 # Supervisor hands off to Ralph (success)
-python -m scripts.orchestration.stamp_handoff galph ok --branch feature/spec-based-2
+"$PY" -m scripts.orchestration.stamp_handoff galph ok --branch feature/spec-based-2
 
 # Supervisor marks failure (no handoff)
-python -m scripts.orchestration.stamp_handoff galph fail --branch feature/spec-based-2
+"$PY" -m scripts.orchestration.stamp_handoff galph fail --branch feature/spec-based-2
 
 # Ralph hands off to Supervisor (success; increments iteration)
-python -m scripts.orchestration.stamp_handoff ralph ok --branch feature/spec-based-2
+"$PY" -m scripts.orchestration.stamp_handoff ralph ok --branch feature-spec-based-2
 
 # Ralph marks failure (no increment)
-python -m scripts.orchestration.stamp_handoff ralph fail --branch feature/spec-based-2
+"$PY" -m scripts.orchestration.stamp_handoff ralph fail --branch feature-spec-based-2
 ```
 
 Flags:
