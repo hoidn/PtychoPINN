@@ -3276,3 +3276,18 @@
   - Updated docs/fix_plan.md Attempts History to log this plan plus artifact path, anchoring PREVIEW-PHASE-001 + stall-autonomy context.
 - Next actions for Ralph: implement the helper + pytest per input.md, capture red/green logs under the hub, then summarize preview guard status and MS-SSIM/MAE precision.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-11T235500Z: Dense run + ssim_grid integration plan
+- dwell: 0 (helper/test implementation landed under 2025-11-11T013612Z with RED/GREEN logs, so resetting)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T235500Z/phase_g_dense_run_with_ssim_grid/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; AUTHORITATIVE_CMDS_DOC exported for downstream runs.
+  - Reviewed docs/index.md and docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001); confirmed docs/prompt_sources_map.json still absent.
+  - Audited hubs: `2025-11-11T013612Z/ssim_grid_mvp` now contains sample markdown + pytest logs, while `2025-11-11T012044Z/phase_g_dense_full_execution_real_run` remains empty → no counted Phase D–G run yet.
+  - Staged new hub `2025-11-11T235500Z/phase_g_dense_run_with_ssim_grid` with plan/summary scaffolding, rewrote input.md, and updated docs/fix_plan.md to capture the completed helper loop plus this new Do Now.
+  - Planned integration of `ssim_grid.py` into `run_phase_g_dense.py`, targeted pytest selectors, and a full dense rerun followed by verifier/doc updates to close the evidence gap noted in the 213000Z retrospective.
+- Next actions for Ralph: integrate ssim_grid invocation/logging into the orchestrator, update the collect-only + exec pytest to assert the new command order, run both selectors (collect-only + exec), execute the dense pipeline with --clobber into the 235500Z hub, run verify_dense/check_highlights, and refresh docs/TESTING_GUIDE.md + TEST_SUITE_INDEX.md with the helper + precision details.
+- <Action State>: [ready_for_implementation]
