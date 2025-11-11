@@ -1,4 +1,10 @@
 ### Turn Summary
+Extended test_run_phase_g_dense_post_verify_only_executes_chain to assert SSIM Grid summary/log, verification report/log, and highlights check log paths in success banner.
+Implemented stub artifact creation for ssim_grid.py, verify_dense_pipeline_artifacts.py, and check_dense_highlights_match.py commands to satisfy .exists() checks.
+Targeted test passed; full suite shows 453 passed, 1 pre-existing fail (ptychodus import), 17 skipped; implementation.md Phase G checklist item line 213 now GREEN.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (green/pytest_post_verify_only.log, green/pytest_full_suite.log)
+
+### Turn Summary
 Confirmed commit 6a51d47a landed the SSIM grid + verification banner guard for the full run, so I re-scoped the focus to add the missing post-verify-only guard before demanding the counted dense rerun.
 Updated implementation.md checklist, plan/plan.md, docs/fix_plan.md, and input.md so Ralph extends the `test_run_phase_g_dense_post_verify_only_executes_chain` pytest to cover SSIM grid + verification lines, then runs `run_phase_g_dense.py` (`--clobber` and `--post-verify-only`) into the 2025-11-12 hub with complete analysis/verifier artifacts.
 Next: ship the new pytest coverage, capture collect/green logs, execute the dense pipeline plus post-verify sweep, and publish MS-SSIM/MAE + preview/verifier evidence across the hub summaries and ledger.
