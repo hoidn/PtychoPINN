@@ -3388,3 +3388,17 @@
   - Replaced input.md with a ready_for_implementation Do Now covering (a) extending `test_run_phase_g_dense_exec_prints_highlights_preview`, (b) deduping the banner prints, (c) running the dense `--clobber` command, (d) rerunning `--post-verify-only`, and (e) documenting MS-SSIM/MAE deltas + preview verdict across the hub summaries, docs/fix_plan.md, and galph_memory; appended a Turn Summary to `summary/summary.md` and `summary.md`.
 - Next actions for Ralph: ship the test + banner tweak, capture collect/green pytest logs, execute the dense `--clobber` run plus the immediate `--post-verify-only` sweep into this hub (archiving SSIM grid/verifier/highlights outputs), then record MS-SSIM/MAE ±0.000 deltas + preview verdict with documentation updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T153500Z: Digest banner guard + dense rerun directive
+- dwell: 0 (reset after Ralph’s `a65bda9c` digest/preview assertions landed)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - Repo already up to date; confirmed `docs/prompt_sources_map.json` still absent and re-exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md`.
+  - Verified commit `a65bda9c` delivered the hub-relative stdout assertions + banner dedup, but `tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest` still allows duplicate “Metrics digest” lines and the active hub lacks `{analysis,verification,metrics}` evidence (only `cli/run_phase_g_dense_stdout.log` + `phase_c_generation.log` exist).
+  - Updated implementation.md Phase G checklist with a new unchecked item for the digest guard test, refreshed `plan/plan.md` (timestamp 2025-11-12T153500Z) to emphasize the guard + rerun workflow, and rewrote docs/fix_plan.md (`Last Updated` s=259) with the latest Attempt summary.
+  - Replaced input.md with a ready_for_implementation Do Now covering the digest test edit, collect/exec pytest commands, dense `--clobber` + `--post-verify-only` runs, evidence logging, and summary/docs updates; appended matching Turn Summary blocks to `summary.md` and `summary/summary.md`.
+- Next actions for Ralph: enforce the single “Metrics digest” stdout line via the digest test, capture collect/green logs, run the dense Phase C→G pipeline with `--clobber`, rerun `--post-verify-only`, and document MS-SSIM/MAE ±0.000 + preview/verifier evidence across the hub summaries, docs/fix_plan.md, and galph_memory.
+- <Action State>: [ready_for_implementation]

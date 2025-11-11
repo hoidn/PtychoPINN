@@ -1,4 +1,10 @@
 ### Turn Summary
+Confirmed the hub-relative banner + highlights test landed but digest guard still allows duplicate lines and the active hub remains missing `{analysis,verification,metrics}`, so we re-scoped Phase G around a single digest regression test plus the counted dense rerun.
+Directed Ralph to add the `stdout.count("Metrics digest: ") == 1` assertion, run the dense `--clobber` + `--post-verify-only` commands, and publish MS-SSIM/MAE ±0.000 + preview/verifier evidence into this hub, docs/fix_plan.md, and galph_memory.
+Next: land the digest guard test, capture collect/green logs, execute both CLI commands, and document SSIM grid, highlights, and metrics artifacts across the hub summaries + ledger.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary/summary.md)
+
+### Turn Summary
 Extended test_run_phase_g_dense_exec_prints_highlights_preview to assert hub-relative path outputs (CLI logs, Analysis outputs, artifact_inventory.txt), removed duplicate Metrics digest line from run_phase_g_dense.py success banner, and updated test_run_phase_g_dense_exec_runs_analyze_digest to match the simplified banner.
 All 18 orchestrator tests pass; full test suite shows 453 passed with no new regressions.
 Next: execute the counted dense --clobber run to populate {analysis,cli} with real Phase C→G artifacts, then run --post-verify-only to refresh SSIM grid + verifier outputs.
