@@ -138,17 +138,19 @@ If you're getting unexpected dataset sizes:
 5. ✅ Check if dataset has enough patterns for requested groups
 6. ✅ Look for deprecation warnings about n_images usage
 
-## Inter‑Group Overlap Control
+## Inter‑Group Overlap Control (Updated)
 
-Grouping guarantees tight intra‑group neighborhoods (C = gridsize² from each seed’s K‑NN). To control inter‑group overlap, filter groups by the distance between their centers:
+Grouping guarantees tight intra‑group neighborhoods (C = gridsize² from each seed’s K‑NN). For this study, inter‑group behavior is controlled explicitly by sampling parameters and measured via overlap metrics, not by spacing gates:
 
-- Compute each group’s center from `coords_offsets` (shape `(nsamples, 1, 2, 1)`).
-- Enforce a minimum spacing `S` between group centers to achieve a target inter‑group overlap fraction `f_group`.
-- Rule of thumb: `S ≈ (1 − f_group) × N` where `N` is patch size.
+- Control: use image subsampling fraction (`s_img`) and number of groups (`n_groups`).
+- Measure: compute 2D disc‑overlap metrics as defined in `specs/overlap_metrics.md` (Metric 2 and Metric 3); for `gridsize=2`, Metric 1 (group‑based) is also defined.
+- Behavior: no geometry/packing acceptance gates; the pipeline proceeds and records the measured overlaps.
+
+Dense/sparse labels are deprecated for this study; prefer explicit `s_img`/`n_groups` and report the measured overlaps per the spec.
 
 Tips:
-- Use independent subsampling (`n_subsample`) to bound memory, then request more `n_groups` (oversampling) to fill sparse layouts for `gridsize>1` with `neighbor_count≥C`.
-- Log acceptance rates and spacing histograms to validate filtering.
+- Use independent subsampling to bound memory, then request `n_groups` according to desired throughput; oversampling (duplicated membership across groups) remains allowed for `gridsize>1` as in current grouping.
+- Log the three overlap metrics (where applicable) to validate sampling settings.
 
 ## Related Documentation
 
@@ -158,6 +160,6 @@ Tips:
 
 ## Summary
 
-**Remember**: The new `n_groups` parameter always means "number of groups" regardless of gridsize value. This eliminates the confusion that existed with the deprecated `n_images` parameter. For new code, always use `n_groups` and pass `--gridsize` explicitly to avoid configuration precedence issues.
+**Remember**: `n_groups` always means "number of groups" regardless of gridsize. For this study, use explicit `s_img` and `n_groups` to control sampling and report measured overlaps as defined in `specs/overlap_metrics.md`. Avoid legacy dense/sparse labels and spacing‑based gates.
 
-**Migration**: Replace `n_images` with `n_groups` in all new configurations and scripts.
+**Migration**: Replace `n_images` with `n_groups` and adopt the overlap metrics. Add `s_img` and `n_groups` explicitly in commands/config for clarity.

@@ -21,3 +21,8 @@
 - Comparison CSVs + plots produced; phase MS-SSIM reported.
 - All evidence paths recorded in docs/fix_plan.md attempts.
 
+## Phase D Policy Update (Spec-Forward)
+- Control sampling explicitly via `s_img` and `n_groups`; do not use spacing/packing acceptance gates.
+- Report measured overlaps using `specs/overlap_metrics.md` Metric 1/2/3; for `gridsize=1`, skip Metric 1.
+- Default `neighbor_count=6` (excluding seed) is acceptable; parameterize in tests/CLI.
+- Dense/sparse labels are deprecated for this study; manifests must carry explicit parameters and measured metrics.

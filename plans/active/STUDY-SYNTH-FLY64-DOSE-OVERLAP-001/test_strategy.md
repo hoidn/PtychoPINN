@@ -61,25 +61,21 @@ Validates:
   - Logs: RED and GREEN runs stored under `reports/2025-11-04T025541Z/phase_b_test_infra/{red,green}/pytest.log`; collect-only log under `collect/pytest_collect.log`.
 - Documentation: Updated `summary.md`, `implementation.md`, and this strategy with validator coverage; recorded findings adherence (CONFIG-001, DATA-001, OVERSAMPLING-001). ✅
 
-### Phase D — Group-Level Overlap Views (COMPLETE)
-**Test module:** `tests/study/test_dose_overlap_overlap.py` ✅
-**Selectors (Active):**
-- `pytest tests/study/test_dose_overlap_overlap.py -k spacing_filter -vv` (RED→GREEN: 2 tests, spacing math validation)
-- `pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_metrics_manifest -vv` (metrics bundle guard)
-- `pytest tests/study/test_dose_overlap_overlap.py --collect-only -vv` (10 tests total)
-**Coverage Delivered:**
-- Spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) validated against dense (0.7 → S≈38.4 px) and sparse (0.2 → S≈102.4 px) thresholds using synthetic coordinates (`test_compute_spacing_matrix_dense`, `test_compute_spacing_matrix_sparse`).
-- `generate_overlap_views` orchestration verified via monkeypatched loaders ensuring correct NPZ outputs, validator invocation with `view` parameter, and spacing metrics JSON emission (`test_generate_overlap_views_paths`, `test_generate_overlap_views_calls_validator_with_view`).
-- Metrics bundle structure validated: `test_generate_overlap_views_metrics_manifest` asserts bundle contains `train`/`test` keys with `output_path` and `spacing_stats_path` entries; paths exist on disk.
-- Failure path exercised when Phase C data missing (`test_generate_overlap_views_missing_phase_c_data` expects FileNotFoundError).
-- RED→GREEN evidence: Attempt #7 spacing filter tests (2 PASSED), Attempt #10 metrics manifest test (1 PASSED RED phase, 1 PASSED GREEN phase after bundle implementation).
-**Execution Proof:**
-- Spacing filter RED/GREEN: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/{red,green}/pytest.log` (2 tests)
-- Metrics bundle RED/GREEN: `reports/2025-11-04T045500Z/phase_d_cli_validation/{red,green}/pytest_metrics_bundle.log` (1 test)
-- Regression suite: `reports/2025-11-04T045500Z/phase_d_cli_validation/green/pytest_spacing.log` (2 tests)
-- Collection proof: `reports/2025-11-04T045500Z/phase_d_cli_validation/collect/pytest_collect.log` (10 collected)
-- CLI execution: `reports/2025-11-04T045500Z/phase_d_cli_validation/cli/phase_d_overlap.log` (metrics bundle copied to artifact hub)
-**Findings Alignment:** CONFIG-001 (pure functions; no params.cfg mutation in overlap.py), DATA-001 (validator ensures NPZ contract per specs/data_contracts.md), OVERSAMPLING-001 (neighbor_count=7 ≥ C=4 for gridsize=2 enforced in group construction and validated in tests).
+### Phase D — Overlap Metrics (SPEC ADOPTED; tests to update)
+**Test module:** `tests/study/test_dose_overlap_overlap.py`
+**Selectors (Planned):**
+- Unit: disc-overlap function analytic cases (d=0 → 1.0; d=R; d≥D → 0.0).
+- Unit: Metric 1 (gs=2 only) central-to-neighbors average per sample; global mean; skipped for gs=1.
+- Unit: Metric 2 (global) with exact coord dedup; KNN average; global mean.
+- Unit: Metric 3 (group↔group) COM computation; neighbor detection via `d < probe_diameter_px`; global mean.
+- Integration: explicit `--gridsize`, `--s_img`, `--n_groups`, `--neighbor-count`, `--probe-diameter-px` produce per-split metrics JSON + aggregated bundle. No spacing/packing gates; non-degenerate runs do not abort on “insufficient spacing”.
+**Bundle fields (Planned):**
+- `gridsize`, `s_img`, `n_groups`, `neighbor_count` (default 6), `probe_diameter_px`, RNG seeds.
+- `metric_1_group_based_avg` (gs=2 only), `metric_2_image_based_avg`, `metric_3_group_to_group_avg`.
+**Notes:**
+- Dense/sparse labels are deprecated for this study; tests must stop asserting spacing-acceptance fields.
+**Execution Proof (to be collected post-implementation):**
+- New RED/GREEN logs for metric unit tests and integration bundle generation under a dedicated `reports/.../phase_d_overlap_metrics/` hub.
 
 ### Phase E — Train PtychoPINN (In Progress)
 **Test module:** `tests/study/test_dose_overlap_training.py` ✅

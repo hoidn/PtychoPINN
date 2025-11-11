@@ -239,6 +239,11 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** data-contracts, HDF5, product, metadata, probe, object  
 **Use this when:** Writing/reading product files or converting datasets to the Ptychodus product format.
 
+#### [Overlap Metrics Spec](../specs/overlap_metrics.md)
+**Description:** Overlap-driven sampling and reporting for Phase D. Defines three 2D disc-overlap metrics (group-based, image-based, and group↔group COM-based), explicit controls via `s_img` and `n_groups`, and removes spacing/packing acceptance gates.  
+**Keywords:** overlap, metrics, s_img, n_groups, probe-diameter, gridsize  
+**Use this when:** Implementing or validating Phase D overlap behavior and reporting measured overlaps instead of geometry gating.
+
 ### Configuration & Workflows
 
 #### `ptycho/config/` - Configuration System
