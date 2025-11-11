@@ -15,7 +15,7 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 ## Deliverables
 1. Dose-swept synthetic datasets with spatially separated train/test splits.
-2. Group-level overlap tooling that logs `image_subsampling`, `group_multiplier`, and the *measured* overlap fraction for every run (historical “dense/sparse” labels become reporting shorthand only).
+2. Group-level overlap tooling that logs `image_subsampling`, `n_groups_requested`, and the *measured* overlap fraction for every run (historical “dense/sparse” labels become reporting shorthand only).
 3. Trained PINN models per condition (gs1 and gs2 variants) with fixed seeds.
 4. pty-chi LSQML reconstructions per condition (100 epochs baseline; tunable).
 5. Comparison outputs (plots, aligned NPZs, CSVs) with MS-SSIM (phase, amplitude) and summary tables.
@@ -36,11 +36,11 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 **Control knobs (primary inputs):**
 - Image subsampling rates `s_img ∈ {1.0, 0.8, 0.6}` — fraction of diffraction frames retained per dose.
-- Group density multipliers `m_group ∈ {1.0, 1.5, 2.0}` — scales the number of solution regions per field of view while keeping intra-group K-NN neighborhoods tight (K=7 ≥ C=4 for gs2).
+- Requested group counts `n_groups ∈ {512, 768, 1024}` (per `docs/GRIDSIZE_N_GROUPS_GUIDE.md`) — scales the number of solution regions per field of view while keeping intra-group K-NN neighborhoods tight (K=7 ≥ C=4 for gs2).
 
 **Derived overlap metric:**
-- For every `(dose, s_img, m_group)` combination we record the achieved overlap fraction `f_overlap = 1 - (mean spacing / N)` via the spacing calculator (N=128 px patch size).
-- Labels such as “dense” or “sparse” are reporting shorthands only; artifacts, manifests, and tests must rely on the recorded knobs (`s_img`, `m_group`) plus the measured `f_overlap`.
+- For every `(dose, s_img, n_groups)` combination we record the achieved overlap fraction `f_overlap = 1 - (mean spacing / N)` via the spacing calculator (N=128 px patch size).
+- Labels such as “dense” or “sparse” are reporting shorthands only; artifacts, manifests, and tests must rely on the recorded knobs (`s_img`, `n_groups`) plus the measured `f_overlap`.
 
 **Patch geometry:**
 - Patch size N=128 pixels (nominal from fly64 reconstructions)
@@ -112,8 +112,8 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 **Status:** Complete — D1-D4 delivered with metrics bundle workflow, pytest coverage, and CLI artifact integration.
 
 **Delivered Components:**
-- `studies/fly64_dose_overlap/overlap.py:23-89` implementing spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) and `generate_overlap_views:124-227` that materializes the overlap extremes (historically labeled dense/sparse, now defined by `s_img`/`m_group` inputs) and emits consolidated `metrics_bundle.json` with per-split metrics paths.
-- CLI entry `python -m studies.fly64_dose_overlap.overlap` (lines 230-327) batches Phase C artifacts into `{dense,sparse}_{train,test}.npz` files for continuity, but also records `image_subsampling`, `group_multiplier`, and the measured overlap in each manifest; when `--artifact-root` is set, copies `metrics_bundle.json` into the reports hub for traceability.
+- `studies/fly64_dose_overlap/overlap.py:23-89` implementing spacing utilities (`compute_spacing_matrix`, `build_acceptance_mask`) and `generate_overlap_views:124-227` that materializes the overlap extremes (historically labeled dense/sparse, now defined by `s_img`/`n_groups` inputs) and emits consolidated `metrics_bundle.json` with per-split metrics paths.
+- CLI entry `python -m studies.fly64_dose_overlap.overlap` (lines 230-327) batches Phase C artifacts into `{dense,sparse}_{train,test}.npz` files for continuity, but also records `image_subsampling`, `n_groups_requested`, and the measured overlap in each manifest; when `--artifact-root` is set, copies `metrics_bundle.json` into the reports hub for traceability.
 - Pytest coverage in `tests/study/test_dose_overlap_overlap.py` with 10 tests validating spacing math (`test_compute_spacing_matrix_*`), orchestration (`test_generate_overlap_views_*`), metrics bundle structure (`test_generate_overlap_views_metrics_manifest`), and failure handling (RED→GREEN evidence: `reports/2025-11-04T034242Z/phase_d_overlap_filtering/{red,green,collect}/`).
 - Documentation synchronized: Phase D sections updated in this file, `test_strategy.md`, and `plan.md` D4 marked `[x]`; ledger Attempt #10/11 referencing logs & metrics bundle artifacts.
 
@@ -141,7 +141,7 @@ We want to study PtychoPINN performance on synthetic datasets derived from the f
 
 **Immediate Deliverables (blocking before resuming evidence):**
 - **E0 — TensorFlow pipeline restoration:** Update `studies/fly64_dose_overlap/training.py` plus `run_phase_e_job.py` so they delegate to the TensorFlow `ptycho_train` workflows, honoring CONFIG-001 ordering. Ship pytest coverage for the TF path (CLI filters, manifest writing, skip summary) and capture a deterministic CLI command under the existing Phase E hub.
-- **E0.5 — Metadata alignment:** Ensure manifests and `training_manifest.json` mirror the Phase D metadata fields (`image_subsampling`, `group_multiplier`, `overlap_fraction`) so Phase G comparisons can correlate overlap statistics with training runs.
+- **E0.5 — Metadata alignment:** Ensure manifests and `training_manifest.json` mirror the Phase D metadata fields (`image_subsampling`, `n_groups_requested`, `overlap_fraction`) so Phase G comparisons can correlate overlap statistics with training runs.
 - **E0.6 — Evidence rerun:** Re-run the counted dense gs2 + baseline gs1 TensorFlow jobs with SHA256 proofs stored under `plans/active/.../phase_e_training_bundle_real_runs_exec/`, updating docs/fix_plan.md and the hub summary.
 
 **Deferred — PyTorch parity context (informational only):**
