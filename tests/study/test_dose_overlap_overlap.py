@@ -522,39 +522,41 @@ def test_generate_overlap_views_sparse_downsamples(tmp_path: Path, study_design:
 
 def test_generate_overlap_views_dense_acceptance_floor(tmp_path: Path, study_design: StudyDesign):
     """
-    Test that dense overlap generation succeeds using geometry-aware acceptance floor
+    Test that dense overlap generation succeeds using geometry-aware acceptance bound
     when the hard-coded 10% threshold is geometrically impossible.
 
     This test validates the fix for the Phase G dense blocker where:
     - Split area: 56,399 px²
     - Threshold: 38.4 px (dense view)
-    - Theoretical max acceptance: ~0.75% (38.25 slots / 5088 positions)
-    - Hard-coded MIN_ACCEPTANCE_RATE = 10% is impossible
-    - Geometry-aware floor should allow ~0.4% acceptance (50% of theoretical)
+    - Circle packing area per position: π × (threshold/2)² ≈ 1,158.7 px²
+    - Theoretical max acceptance: area / (π × (threshold/2)²) / n_positions
+    - Geometry acceptance bound clamped to ≤ 10%
+    - Effective min acceptance floored at 1% with epsilon guard
 
     Scenario:
     - Create coordinates with small bounding box relative to spacing threshold
-    - Theoretical max acceptance < 10% (old hard-coded floor)
-    - Geometry-aware floor should allow the dataset to pass
+    - Theoretical max acceptance computed via circle packing formula
+    - Geometry acceptance bound should allow the dataset to pass
 
-    RED expectation: Without geometry-aware floor, raises ValueError("Insufficient positions...")
-    GREEN expectation: After implementation, succeeds with geometry_aware_floor logged in metrics
+    RED expectation: Without geometry-aware bound, raises ValueError("Insufficient positions...")
+    GREEN expectation: After implementation, succeeds with geometry_acceptance_bound logged in metrics
 
     References:
-    - input.md:2 — Add geometry-aware acceptance floor requirement
-    - fix_plan.md:43 — Phase G dense blocker (0.8% actual vs 10% impossible floor)
-    - overlap.py:325-395 — compute_geometry_aware_acceptance_floor implementation
+    - input.md:2 — Add geometry-aware acceptance bound requirement
+    - fix_plan.md:43 — Phase G dense blocker (ACCEPTANCE-001)
+    - docs/findings.md:17 (ACCEPTANCE-001) — bounding-box acceptance bound formula
+    - overlap.py:334-403 — compute_geometry_aware_acceptance_floor implementation
 
     Selector: pytest tests/study/test_dose_overlap_overlap.py::test_generate_overlap_views_dense_acceptance_floor -vv
     """
     # Create synthetic coordinates mimicking the Phase G dense blocker scenario
-    # We want: theoretical_max_acceptance < 0.1 but > 0.0
+    # We want: theoretical_max_acceptance > 0.0 (achievable via greedy selection)
     # Dense threshold = 38.4 px
     # Let's create a 250x250 px bounding box (62,500 px²)
-    # threshold² = 1474.56 px²
-    # Theoretical max slots = 62,500 / 1474.56 ≈ 42.4
-    # Use 5000 positions → theoretical_max_acceptance ≈ 0.0085 (0.85%)
-    # Conservative floor (50%) ≈ 0.004 (0.4%)
+    # Circle packing area per position: π × (threshold/2)² = π × 19.2² ≈ 1,158.7 px²
+    # Theoretical max slots = 62,500 / 1,158.7 ≈ 53.9
+    # Use 2500 positions → theoretical_max_acceptance ≈ 0.0216 (2.16%)
+    # Geometry acceptance bound clamped to ≤ 10% → 0.0216 (unclamped in this case)
 
     dense_threshold = study_design.spacing_thresholds['dense']  # 38.4 px
 
@@ -566,24 +568,25 @@ def test_generate_overlap_views_dense_acceptance_floor(tmp_path: Path, study_des
     coords = np.stack([x_coords.ravel(), y_coords.ravel()], axis=1).astype(np.float32)
     n = len(coords)  # Should be 2500 positions
 
-    # Verify geometry-aware floor is correctly computed
-    geometry_floor = compute_geometry_aware_acceptance_floor(coords, dense_threshold, conservative_factor=0.5)
+    # Verify geometry acceptance bound is correctly computed
+    geometry_bound = compute_geometry_aware_acceptance_floor(coords, dense_threshold)
+    circle_area = np.pi * (dense_threshold / 2.0) ** 2
     print(f"\nTest setup:")
     print(f"  Bounding box: 250x250 = 62,500 px²")
     print(f"  Threshold: {dense_threshold} px")
-    print(f"  threshold²: {dense_threshold**2:.2f} px²")
-    print(f"  Theoretical max slots: {62500 / (dense_threshold**2):.2f}")
+    print(f"  Circle area per position: π × (threshold/2)² = {circle_area:.2f} px²")
+    print(f"  Theoretical max slots: {62500 / circle_area:.2f}")
     print(f"  Total positions: {n}")
-    print(f"  Theoretical max acceptance: {(62500 / (dense_threshold**2)) / n:.4f}")
-    print(f"  Geometry-aware floor (50%): {geometry_floor:.4f}")
-    print(f"  Hard-coded 10% floor: 0.1000")
+    print(f"  Theoretical max acceptance: {(62500 / circle_area) / n:.4f}")
+    print(f"  Geometry acceptance bound (clamped ≤10%): {geometry_bound:.4f}")
+    print(f"  Old hard-coded 10% floor: 0.1000")
 
-    # Assert geometry-aware floor < 10% (validates that old hard-coded floor would fail)
-    assert geometry_floor < 0.1, (
-        f"Geometry-aware floor {geometry_floor:.4f} should be < 0.1 to demonstrate old blocker"
+    # Assert geometry acceptance bound ≤ 10% (validates clamping behavior)
+    assert geometry_bound <= 0.1, (
+        f"Geometry acceptance bound {geometry_bound:.4f} should be ≤ 0.1 per ACCEPTANCE-001"
     )
-    # Assert geometry-aware floor > 0 (should be achievable)
-    assert geometry_floor > 0.0, "Geometry-aware floor should be positive"
+    # Assert geometry acceptance bound > 0 (should be achievable)
+    assert geometry_bound > 0.0, "Geometry acceptance bound should be positive"
 
     # Fabricate DATA-001 compliant dataset
     dataset = {
@@ -615,19 +618,19 @@ def test_generate_overlap_views_dense_acceptance_floor(tmp_path: Path, study_des
     assert results['train_output'].exists()
     assert results['test_output'].exists()
 
-    # 2. Metrics contain geometry-aware fields
-    assert results['train_metrics'].geometry_aware_floor is not None
+    # 2. Metrics contain geometry-aware fields (ACCEPTANCE-001)
+    assert results['train_metrics'].geometry_acceptance_bound is not None
     assert results['train_metrics'].effective_min_acceptance is not None
-    assert results['test_metrics'].geometry_aware_floor is not None
+    assert results['test_metrics'].geometry_acceptance_bound is not None
     assert results['test_metrics'].effective_min_acceptance is not None
 
-    # 3. Geometry-aware floor is less than old 10% hard-coded floor
-    assert results['train_metrics'].geometry_aware_floor < 0.1
-    assert results['test_metrics'].geometry_aware_floor < 0.1
+    # 3. Geometry acceptance bound is clamped to ≤ 10% (ACCEPTANCE-001)
+    assert results['train_metrics'].geometry_acceptance_bound <= 0.1
+    assert results['test_metrics'].geometry_acceptance_bound <= 0.1
 
-    # 4. Effective minimum acceptance is reasonable (>= geometry floor, floored at 1%)
+    # 4. Effective minimum acceptance is reasonable (>= geometry bound, floored at 1%)
     assert results['train_metrics'].effective_min_acceptance >= 0.01
-    assert results['train_metrics'].effective_min_acceptance >= results['train_metrics'].geometry_aware_floor
+    assert results['train_metrics'].effective_min_acceptance >= results['train_metrics'].geometry_acceptance_bound
 
     # 5. Acceptance >0 (greedy selector found valid subset or direct passed)
     assert results['train_metrics'].n_accepted > 0, "Should find valid subset"
@@ -638,13 +641,13 @@ def test_generate_overlap_views_dense_acceptance_floor(tmp_path: Path, study_des
         filtered_train = {k: data[k] for k in data.keys()}
     assert len(filtered_train['xcoords']) <= n
 
-    # 7. Metadata includes geometry-aware fields
+    # 7. Metadata includes geometry-aware fields (ACCEPTANCE-001)
     metadata_str = filtered_train.get('_metadata')
     assert metadata_str is not None, "Metadata should be present"
     metadata = json.loads(metadata_str.item() if isinstance(metadata_str, np.ndarray) else metadata_str)
-    assert 'geometry_aware_floor' in metadata
+    assert 'geometry_acceptance_bound' in metadata
     assert 'effective_min_acceptance' in metadata
-    assert metadata['geometry_aware_floor'] < 0.1
+    assert metadata['geometry_acceptance_bound'] <= 0.1
 
     # 8. Validate DATA-001 compliance
     validate_dataset_contract(

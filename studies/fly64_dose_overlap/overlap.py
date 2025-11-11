@@ -47,7 +47,7 @@ class SpacingMetrics:
         n_accepted: Number of positions meeting threshold
         n_rejected: Number of positions below threshold
         acceptance_rate: Fraction of positions accepted
-        geometry_aware_floor: Theoretical max acceptance based on bounding box (optional)
+        geometry_acceptance_bound: Theoretical max acceptance based on bounding box (optional)
         effective_min_acceptance: Effective minimum acceptance rate used (optional)
     """
     min_spacing: float
@@ -59,7 +59,7 @@ class SpacingMetrics:
     n_accepted: int
     n_rejected: int
     acceptance_rate: float
-    geometry_aware_floor: float | None = None
+    geometry_acceptance_bound: float | None = None
     effective_min_acceptance: float | None = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -75,8 +75,8 @@ class SpacingMetrics:
             'n_rejected': int(self.n_rejected),
             'acceptance_rate': float(self.acceptance_rate),
         }
-        if self.geometry_aware_floor is not None:
-            result['geometry_aware_floor'] = float(self.geometry_aware_floor)
+        if self.geometry_acceptance_bound is not None:
+            result['geometry_acceptance_bound'] = float(self.geometry_acceptance_bound)
         if self.effective_min_acceptance is not None:
             result['effective_min_acceptance'] = float(self.effective_min_acceptance)
         return result
@@ -337,50 +337,49 @@ def compute_geometry_aware_acceptance_floor(
     conservative_factor: float = 0.5,
 ) -> float:
     """
-    Compute geometry-aware minimum acceptance rate based on bounding box area.
+    Compute geometry-aware acceptance bound based on bounding box area and circle packing.
 
     For dense views where the spacing threshold is large relative to the scan
     region, the hard-coded 10% MIN_ACCEPTANCE_RATE may be geometrically impossible.
     This function computes the theoretical maximum acceptance rate based on the
-    split's bounding box area and returns a conservative fraction of that bound.
+    split's bounding box area using circle packing constraints, then clamps to ≤0.10.
 
     Algorithm:
     1. Compute bounding box (xmin, xmax, ymin, ymax) from coordinates
     2. Calculate split area = (xmax - xmin) * (ymax - ymin)
-    3. Each position requires approximately threshold² area to satisfy spacing
-    4. Theoretical max slots = split_area / threshold²
+    3. Each position requires approximately π × (threshold/2)² area (circle packing)
+    4. Theoretical max slots = split_area / (π × (threshold/2)²)
     5. Theoretical max acceptance = max_slots / n_positions
-    6. Return conservative_factor * theoretical_max_acceptance
+    6. Clamp result to ≤0.10 to enforce a reasonable upper bound
 
     Args:
         coords: Scan coordinates, shape (N, 2) for N positions (x, y)
         threshold: Minimum required spacing (pixels)
-        conservative_factor: Safety factor applied to theoretical bound (default: 0.5)
+        conservative_factor: Unused (kept for API compatibility)
 
     Returns:
-        Geometry-aware minimum acceptance rate (fraction, not percentage)
+        Geometry-aware acceptance bound (fraction, not percentage), clamped to [0, 0.10]
 
     References:
-        - input.md:2 — geometry-aware acceptance floor requirement
-        - fix_plan.md:43 — Phase G dense blocker (0.8% vs impossible 10% floor)
-        - docs/GRIDSIZE_N_GROUPS_GUIDE.md:143-151 (spacing formula)
+        - input.md:2 — geometry-aware acceptance bound requirement with circle packing
+        - fix_plan.md:43 — Phase G dense blocker (ACCEPTANCE-001)
+        - docs/findings.md:17 (ACCEPTANCE-001) — bounding-box acceptance bound formula
 
     Example:
         >>> coords = np.array([[0, 0], [100, 0], [0, 100], [100, 100]])
-        >>> floor = compute_geometry_aware_acceptance_floor(coords, threshold=50.0)
+        >>> bound = compute_geometry_aware_acceptance_floor(coords, threshold=50.0)
         >>> # Bounding box: 100x100 = 10,000 px²
-        >>> # threshold²: 2500 px²
-        >>> # Theoretical max slots: 10,000 / 2500 = 4
-        >>> # Theoretical acceptance: 4 / 4 = 1.0
-        >>> # Conservative floor: 0.5 * 1.0 = 0.5
-        >>> assert 0.4 < floor < 0.6
+        >>> # Circle area per position: π × (50/2)² ≈ 1963.5 px²
+        >>> # Theoretical max slots: 10,000 / 1963.5 ≈ 5.09
+        >>> # Theoretical acceptance: 5.09 / 4 ≈ 1.27 → clamped to 0.10
+        >>> assert bound == 0.10
     """
     if len(coords) == 0:
         return 0.0
 
     if len(coords) == 1:
-        # Single position: always 100% acceptance
-        return 1.0
+        # Single position: clamp to 0.10
+        return 0.10
 
     # Compute bounding box
     x_min, x_max = coords[:, 0].min(), coords[:, 0].max()
@@ -389,8 +388,9 @@ def compute_geometry_aware_acceptance_floor(
     # Compute split area
     split_area = (x_max - x_min) * (y_max - y_min)
 
-    # Each position requires approximately threshold² area
-    area_per_position = threshold ** 2
+    # Each position requires approximately π × (threshold/2)² area (circle packing constraint)
+    radius = threshold / 2.0
+    area_per_position = np.pi * (radius ** 2)
 
     # Theoretical maximum number of positions that can fit
     theoretical_max_slots = split_area / area_per_position if area_per_position > 0 else 0.0
@@ -399,9 +399,8 @@ def compute_geometry_aware_acceptance_floor(
     n_positions = len(coords)
     theoretical_max_acceptance = theoretical_max_slots / n_positions if n_positions > 0 else 0.0
 
-    # Return conservative fraction of theoretical bound
-    # Clamp to [0, 1] to handle edge cases
-    return max(0.0, min(1.0, conservative_factor * theoretical_max_acceptance))
+    # Clamp to [0, 0.10] per ACCEPTANCE-001
+    return max(0.0, min(0.10, theoretical_max_acceptance))
 
 
 def generate_overlap_views(
@@ -488,11 +487,13 @@ def generate_overlap_views(
         print(f"    Acceptance: {metrics.n_accepted}/{metrics.n_positions} ({metrics.acceptance_rate:.1%})")
 
         # Guard: require minimum acceptance rate to avoid degenerate datasets
-        # Compute geometry-aware floor based on split bounding box
-        geometry_floor = compute_geometry_aware_acceptance_floor(coords, threshold, conservative_factor=0.5)
-        min_acceptance_rate = max(0.01, geometry_floor)  # Floor at 1% to prevent zero-position datasets
+        # Compute geometry-aware acceptance bound based on split bounding box (ACCEPTANCE-001)
+        geometry_bound = compute_geometry_aware_acceptance_floor(coords, threshold)
+        # Epsilon guard: prevent zero-position datasets with a 1% lower bound
+        epsilon = 0.01
+        min_acceptance_rate = max(epsilon, geometry_bound)
 
-        print(f"  Geometry-aware acceptance floor: {geometry_floor:.4f} ({geometry_floor*100:.2f}%)")
+        print(f"  Geometry acceptance bound: {geometry_bound:.4f} ({geometry_bound*100:.2f}%)")
         print(f"  Effective minimum acceptance: {min_acceptance_rate:.4f} ({min_acceptance_rate*100:.2f}%)")
 
         selection_strategy = 'direct'  # Track whether greedy fallback was used
@@ -521,20 +522,20 @@ def generate_overlap_views(
                     f"even after greedy downsampling. "
                     f"Direct acceptance: {metrics.acceptance_rate:.1%}, "
                     f"Greedy acceptance: {greedy_metrics.acceptance_rate:.1%}, "
-                    f"both < minimum {min_acceptance_rate:.1%} (geometry-aware floor: {geometry_floor:.1%}). "
+                    f"both < minimum {min_acceptance_rate:.1%} (geometry acceptance bound: {geometry_bound:.1%}). "
                     f"Min spacing: {metrics.min_spacing:.2f} px < threshold: {threshold:.2f} px. "
                     f"Consider regenerating Phase C with wider scan spacing or relaxing overlap fraction."
                 )
 
-        # Attach geometry-aware metadata to metrics object
-        metrics.geometry_aware_floor = geometry_floor
+        # Attach geometry-aware metadata to metrics object (ACCEPTANCE-001)
+        metrics.geometry_acceptance_bound = geometry_bound
         metrics.effective_min_acceptance = min_acceptance_rate
 
         # Filter dataset
         print(f"  Filtering to accepted positions...")
         filtered_data = filter_dataset_by_mask(data_dict, mask)
 
-        # Add metadata
+        # Add metadata (ACCEPTANCE-001)
         filtered_data['_metadata'] = json.dumps({
             'overlap_view': view,
             'spacing_threshold': float(threshold),
@@ -543,7 +544,7 @@ def generate_overlap_views(
             'n_rejected': int(metrics.n_rejected),
             'acceptance_rate': float(metrics.acceptance_rate),
             'selection_strategy': selection_strategy,
-            'geometry_aware_floor': float(geometry_floor),
+            'geometry_acceptance_bound': float(geometry_bound),
             'effective_min_acceptance': float(min_acceptance_rate),
         })
 
