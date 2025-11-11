@@ -1,4 +1,10 @@
 ### Turn Summary
+Detected workspace mismatch blocker identical to 2025-11-11T115954Z: Ralph invoked from wrong directory `/home/ollie/Documents/PtychoPINN2` instead of required `/home/ollie/Documents/PtychoPINN`.
+Pre-execution pwd check confirmed blocker; cannot proceed with Phase C→G pipeline as hub paths would resolve incorrectly and Phase D–G would abort (documented in prior analysis/blocker.log).
+Supervisor must re-invoke Ralph from `/home/ollie/Documents/PtychoPINN` working directory before retrying the dense Phase C→G rerun plus post-verify-only sweep.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (red/blocker_2025-11-11T120800Z.md)
+
+### Turn Summary
 Revalidated the Phase G hub after commit 962bffba and confirmed `analysis/` still holds only blocker.log while `cli/` has just `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`, so no SSIM grid, verification, metrics, or preview artifacts exist yet.
 Documented the lingering workspace mismatch via `summary/blocker_2025-11-11T115954Z.md` and noted that Ralph has not rerun the dense Phase C→G pipeline from `/home/ollie/Documents/PtychoPINN`, meaning `{analysis,cli}` never captured the counted rerun or the post-verify-only sweep.
 Next: Ralph must run the mapped pytest collect/execution guard, execute `run_phase_g_dense.py --clobber` followed by `--post-verify-only` from `/home/ollie/Documents/PtychoPINN`, and publish MS-SSIM/MAE deltas plus preview/verifier/SSIM grid evidence and inventory updates across this hub, docs/fix_plan.md, and galph_memory.
