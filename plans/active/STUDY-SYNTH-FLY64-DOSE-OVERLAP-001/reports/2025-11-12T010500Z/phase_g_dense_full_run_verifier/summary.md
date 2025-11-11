@@ -1,4 +1,10 @@
 ### Turn Summary
+Successfully verified workspace, executed pytest guards (1 collected, 1 PASSED for `post_verify_only_executes_chain`), and launched the dense Phase C→G pipeline with correct environment and Python path.
+Pipeline Phase C started successfully (TensorFlow/CUDA initialized, GPU detected), but the full C→G execution requires 2-6 hours and remains incomplete within this loop's duration.
+Next: Monitor `run_phase_g_dense.py` for completion (exit code 0), then execute `--post-verify-only` sweep and validate SSIM grid/verification/metrics artifacts.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (pytest_collect_post_verify_only.log, pytest_post_verify_only.log, run_phase_g_dense_stdout_v2.log, phase_c_generation.log)
+
+### Turn Summary
 Audited the Phase G dense hub after a clean pull; even with the allow_pickle fix (`5cd130d3`) on branch, `analysis/` still only has `blocker.log` and `{cli}` is limited to the stale Phase C/D/stdout logs, so no SSIM grid, verification, preview, metrics, or artifact-inventory artifacts exist yet.
 Updated the Phase G checklist, hub plan, docs/fix_plan.md, and input.md to capture the clean-state reality check and restate the counted `run_phase_g_dense.py --clobber` + immediate `--post-verify-only` deliverables with pytest guardrails and artifact requirements.
 Next: Ralph must rerun the mapped pytest selectors, execute the dense run + `--post-verify-only` sweep from `/home/ollie/Documents/PtychoPINN`, and publish MS-SSIM/MAE deltas plus preview/verifier/SSIM grid evidence into this hub and ledger docs.
