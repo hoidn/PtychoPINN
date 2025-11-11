@@ -384,6 +384,58 @@ def main() -> int:
     else:
         branch_target = current_branch()
 
+    state_rel_posix = PurePath(os.path.relpath(args.state_file, start=".")).as_posix()
+    dirty_ignore_paths = {state_rel_posix}
+
+    def _has_dirty_worktree(ignore_paths: set[str]) -> bool:
+        """Return True if working tree has dirty paths outside ignore list."""
+        try:
+            from subprocess import run, PIPE as _PIPE
+            cp = run(["git", "status", "--porcelain"], stdout=_PIPE, stderr=_PIPE, text=True)
+            if cp.returncode != 0:
+                return False
+            for line in (cp.stdout or "").splitlines():
+                if len(line) < 4:
+                    continue
+                path = line[3:]
+                if path in ignore_paths:
+                    continue
+                return True
+            return False
+        except Exception:
+            return False
+
+    def _dirty_fetch_state(log_func, ctx: str) -> bool:
+        """
+        Update the local state file by fetching + git show when the working tree is dirty.
+        Avoids pull/rebase cycles that would otherwise require stashing user edits.
+        """
+        if not branch_target:
+            print(f"[sync] ERROR ({ctx}): no branch target for dirty fetch.")
+            return False
+        try:
+            from subprocess import run, PIPE as _PIPE
+            fetch = run(["git", "fetch", "origin", branch_target], stdout=_PIPE, stderr=_PIPE, text=True)
+            if log_func and (fetch.stdout or fetch.stderr):
+                log_func((fetch.stdout or "") + (fetch.stderr or ""))
+            if fetch.returncode != 0:
+                print(f"[sync] ERROR ({ctx}): git fetch failed; see iter log.")
+                return False
+            show = run(["git", "show", f"origin/{branch_target}:{state_rel_posix}"], stdout=_PIPE, stderr=_PIPE, text=True)
+            if show.returncode != 0:
+                if log_func and (show.stdout or show.stderr):
+                    log_func((show.stdout or "") + (show.stderr or ""))
+                print(f"[sync] ERROR ({ctx}): unable to read remote state file.")
+                return False
+            args.state_file.write_text(show.stdout, encoding="utf-8")
+            if log_func:
+                log_func(f"[sync] dirty-fetch updated state via origin/{branch_target}:{state_rel_posix}")
+            return True
+        except Exception as exc:
+            if log_func:
+                log_func(f"[sync] dirty-fetch failed ({ctx}): {exc}")
+            return False
+
     if not args.sync_via_git:
         # Legacy async mode: run N iterations back-to-back
         for _ in range(args.sync_loops):
@@ -470,8 +522,12 @@ def main() -> int:
         last_hb = start
         prev_state = None
         while True:
-            if not _pull_with_error(logp, "polling"):
-                return 1
+            if _has_dirty_worktree(dirty_ignore_paths):
+                if not _dirty_fetch_state(logp, "polling-dirty"):
+                    return 1
+            else:
+                if not _pull_with_error(logp, "polling"):
+                    return 1
             st = OrchestrationState.read(str(args.state_file))
             cur_state = (st.expected_actor, st.status, st.iteration)
             if args.verbose and cur_state != prev_state:
@@ -593,8 +649,12 @@ def main() -> int:
         last_hb2 = start2
         prev_state2 = None
         while True:
-            if not _pull_with_error(logp, "wait-for-ralph"):
-                return 1
+            if _has_dirty_worktree(dirty_ignore_paths):
+                if not _dirty_fetch_state(logp, "wait-dirty"):
+                    return 1
+            else:
+                if not _pull_with_error(logp, "wait-for-ralph"):
+                    return 1
             st2 = OrchestrationState.read(str(args.state_file))
             cur_state2 = (st2.expected_actor, st2.status, st2.iteration)
             if args.verbose and cur_state2 != prev_state2:
