@@ -3209,3 +3209,16 @@
   - Rewrote input.md with Mode TDD Do Now (tests, pipeline rerun, verifier/checker execution, doc updates) and updated docs/fix_plan.md Attempts History accordingly; AUTHORITATIVE_CMDS_DOC guard captured in How-To Map.
 - Next actions for Ralph: land the enhanced highlight validator + tests, sync the CLI checker, execute the dense pipeline into the 193500Z hub, and archive verifier/highlight evidence + ledger updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-11T001033Z: Highlight metadata guard reality check + dense run prep
+- dwell: 1 (first planning loop after the 2025-11-10T193500Z ready_for_implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T001033Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` was already up to date; revisited docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, OVERSAMPLING-001, STUDY-001, PHASEC-METADATA-001, TEST-CLI-001) plus docs/index.md pointers before inspecting the fresh hub.
+  - Reality check showed `validate_metrics_delta_highlights` already loads JSON + preview (plans/.../verify_dense_pipeline_artifacts.py:309-460) and pytest already has missing preview/mismatch cases, so the 193500Z Do Now was stale. Tests never assert on the structured metadata though, and the previous hub still lacks Phase D–G artifacts.
+  - Provisioned hub `2025-11-11T001033Z/phase_g_dense_full_execution_real_run` with plan/summary scaffolding, updated docs/fix_plan.md (`Last Updated` + new attempt entry) and rewrote input.md to focus on (1) tightening highlight metadata tests + verifier output, (2) rerunning `run_phase_g_dense.py --clobber`, and (3) archiving verifier/highlight evidence + doc updates.
+- Next actions for Ralph: follow the new Do Now to drive the highlight metadata tests RED→GREEN, patch `validate_metrics_delta_highlights` for consistent metadata fields, rerun the dense pipeline into the new hub, run the verifier/highlight checker + pytest collect-only, and document MS-SSIM/MAE deltas plus CLI guard status in summary/docs.
+- <Action State>: [ready_for_implementation]
