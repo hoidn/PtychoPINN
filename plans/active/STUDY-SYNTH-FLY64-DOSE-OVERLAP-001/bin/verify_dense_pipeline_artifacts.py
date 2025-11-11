@@ -311,6 +311,9 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
     Validate metrics_delta_highlights.txt has exactly 4 lines with expected format,
     and enforce presence of preview file and value matching with metrics_delta_summary.json.
 
+    Enforces preview-phase-only formatting: preview lines must not contain "amplitude"
+    and must follow the single-value format "<prefix>: <delta>" without extra tokens.
+
     Args:
         highlights_txt_path: Path to metrics_delta_highlights.txt
         hub: Hub directory (required for loading metrics_delta_summary.json and preview)
@@ -323,6 +326,8 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
         - missing_metrics: list[str] (if ms_ssim or mae missing)
         - missing_preview_values: list[str] (formatted delta strings missing from preview)
         - mismatched_highlight_values: list[dict] (highlights that don't match JSON with expected/actual)
+        - preview_phase_only: bool (True if preview has no amplitude contamination)
+        - preview_format_errors: list[str] (violations of phase-only formatting)
     """
     result = validate_file_exists(highlights_txt_path, 'Metrics delta highlights')
 
@@ -333,6 +338,8 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
     result['missing_metrics'] = []
     result['missing_preview_values'] = []
     result['mismatched_highlight_values'] = []
+    result['preview_phase_only'] = True  # Will be set False if contamination detected
+    result['preview_format_errors'] = []  # Violations of phase-only formatting
 
     if not result['valid']:
         return result
@@ -387,6 +394,42 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
         result['valid'] = False
         result['error'] = f'Expected exactly 4 lines in preview, got {len(preview_lines)}'
         result['preview_line_count'] = len(preview_lines)
+        return result
+
+    # Validate preview is phase-only (no "amplitude" keyword, proper phase-only format)
+    # Preview lines must match pattern: "<prefix>: <delta>" (e.g., "MS-SSIM Δ (PtychoPINN - Baseline): +0.015")
+    # They must NOT contain "amplitude" or extra tokens beyond the single delta value
+    preview_format_errors = []
+    for i, line in enumerate(preview_lines, start=1):
+        # Check for amplitude contamination
+        if "amplitude" in line.lower():
+            preview_format_errors.append(f"Line {i} contains 'amplitude' (phase-only required): {line}")
+
+        # Check for proper phase-only format: expect exactly one colon followed by whitespace and delta
+        # Pattern: "<prefix>: <delta>" (no additional "amplitude ... phase ..." structure)
+        colon_count = line.count(':')
+        if colon_count != 1:
+            preview_format_errors.append(
+                f"Line {i} has {colon_count} colons (expected exactly 1 for phase-only format): {line}"
+            )
+        elif ':' in line:
+            # Split on colon and check the value part
+            parts = line.split(':', 1)
+            if len(parts) == 2:
+                value_part = parts[1].strip()
+                # Should be a single delta value (e.g., "+0.015" or "-0.000025")
+                # Check for extra whitespace-separated tokens (indicates amplitude+phase format)
+                tokens = value_part.split()
+                if len(tokens) != 1:
+                    preview_format_errors.append(
+                        f"Line {i} has {len(tokens)} tokens after colon (expected 1 phase value): {line}"
+                    )
+
+    if preview_format_errors:
+        result['valid'] = False
+        result['preview_phase_only'] = False
+        result['preview_format_errors'] = preview_format_errors
+        result['error'] = f"Preview file contains {len(preview_format_errors)} format violations (must be phase-only): {'; '.join(preview_format_errors[:3])}"
         return result
 
     # Validate expected prefixes for highlights
@@ -502,6 +545,8 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
     result['missing_metrics'] = []
     result['missing_preview_values'] = []
     result['mismatched_highlight_values'] = []
+    result['preview_phase_only'] = True
+    result['preview_format_errors'] = []
     return result
 
 

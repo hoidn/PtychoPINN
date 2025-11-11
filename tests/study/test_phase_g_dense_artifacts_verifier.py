@@ -1750,6 +1750,17 @@ def test_verify_dense_pipeline_highlights_complete(tmp_path: Path) -> None:
     assert highlights_check['mismatched_highlight_values'] == [], \
         f"Expected empty mismatched_highlight_values for valid highlights, got: {highlights_check.get('mismatched_highlight_values')}"
 
+    # Verify new preview-phase-only metadata fields (GREEN case)
+    assert 'preview_phase_only' in highlights_check, \
+        "Expected 'preview_phase_only' in highlights_check metadata"
+    assert highlights_check['preview_phase_only'] is True, \
+        f"Expected preview_phase_only=True for valid phase-only preview, got: {highlights_check.get('preview_phase_only')}"
+
+    assert 'preview_format_errors' in highlights_check, \
+        "Expected 'preview_format_errors' in highlights_check metadata"
+    assert highlights_check['preview_format_errors'] == [], \
+        f"Expected empty preview_format_errors for valid preview, got: {highlights_check.get('preview_format_errors')}"
+
 
 def test_verify_dense_pipeline_highlights_missing_preview(tmp_path: Path) -> None:
     """
@@ -1905,6 +1916,175 @@ def test_verify_dense_pipeline_highlights_missing_preview(tmp_path: Path) -> Non
     # The error occurs before checking individual values, so these fields may not be populated
     # However, if the validator design changes to still populate them, we document expected behavior:
     # missing_preview_values would contain all 4 phase delta strings since preview is absent
+
+
+def test_verify_dense_pipeline_highlights_preview_contains_amplitude(tmp_path: Path) -> None:
+    """
+    RED test: Verify that validation fails when preview file contains "amplitude" keyword
+    (violating phase-only formatting requirement).
+
+    Acceptance:
+    - Create a hub with valid metrics_delta_summary.json
+    - Create a preview file that contains "amplitude" in one or more lines
+    - Invoke verify_dense_pipeline_artifacts.py --hub <hub> --report <report>
+    - Assert the script exits with non-zero status
+    - Assert the verification report JSON shows validation failure
+    - Assert error metadata includes preview_phase_only=False and preview_format_errors
+    - Assert error message mentions amplitude contamination
+
+    Follows input.md Do Now step 2 (TDD RED for amplitude contamination).
+    """
+    # Setup: Create hub with amplitude-contaminated preview
+    hub = tmp_path / "hub_amplitude_preview"
+    analysis = hub / "analysis"
+    cli_dir = hub / "cli"
+    analysis.mkdir(parents=True)
+    cli_dir.mkdir(parents=True)
+
+    # Create minimal artifacts so other checks don't all fail
+    (analysis / "metrics_summary.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "aggregate_metrics": {},
+        "phase_c_metadata_compliance": {}
+    }))
+    (analysis / "comparison_manifest.json").write_text(json.dumps({
+        "n_jobs": 6,
+        "n_success": 6,
+        "n_failed": 0,
+        "jobs": []
+    }))
+    (analysis / "metrics_summary.md").write_text("# Metrics Summary")
+    (analysis / "aggregate_highlights.txt").write_text("highlights")
+    (analysis / "metrics_digest.md").write_text("# Metrics Digest")
+
+    # Create valid metrics_delta_summary.json with proper schema
+    (analysis / "metrics_delta_summary.json").write_text(json.dumps({
+        "generated_at": "2025-11-11T00:58:02Z",
+        "source_metrics": "analysis/metrics_summary.json",
+        "deltas": {
+            "vs_Baseline": {
+                "ms_ssim": {
+                    "amplitude": 0.010,
+                    "phase": 0.015
+                },
+                "mae": {
+                    "amplitude": -0.000020,
+                    "phase": -0.000025
+                }
+            },
+            "vs_PtyChi": {
+                "ms_ssim": {
+                    "amplitude": 0.005,
+                    "phase": 0.008
+                },
+                "mae": {
+                    "amplitude": -0.000015,
+                    "phase": -0.000018
+                }
+            }
+        }
+    }))
+
+    # Create VALID highlights txt (full format with amplitude and phase)
+    (analysis / "metrics_delta_highlights.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude +0.010  phase +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi)    : amplitude +0.005  phase +0.008\n"
+        "MAE Δ (PtychoPINN - Baseline)      : amplitude -0.000020  phase -0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi)        : amplitude -0.000015  phase -0.000018\n"
+    )
+
+    # Create INVALID preview txt with amplitude contamination (should be phase-only)
+    # Inject the full format (with "amplitude" keyword) instead of phase-only format
+    (analysis / "metrics_delta_highlights_preview.txt").write_text(
+        "MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude +0.010  phase +0.015\n"
+        "MS-SSIM Δ (PtychoPINN - PtyChi): +0.008\n"
+        "MAE Δ (PtychoPINN - Baseline): -0.000025\n"
+        "MAE Δ (PtychoPINN - PtyChi): -0.000018\n"
+    )
+
+    (analysis / "artifact_inventory.txt").write_text(
+        "analysis/metrics_summary.json\n"
+        "analysis/metrics_delta_highlights.txt\n"
+        "analysis/metrics_delta_highlights_preview.txt\n"
+        "analysis/metrics_delta_summary.json\n"
+    )
+
+    # Create minimal CLI log
+    (cli_dir / "run_phase_g_dense.log").write_text(
+        "[run_phase_g_dense] SUCCESS: All phases completed\n"
+    )
+
+    report_path = tmp_path / "report_amplitude_preview.json"
+
+    # Execute: Import and run the verifier
+    import sys
+    import importlib.util
+
+    verifier_script = Path(__file__).parent.parent.parent / "plans" / "active" / \
+                      "STUDY-SYNTH-FLY64-DOSE-OVERLAP-001" / "bin" / "verify_dense_pipeline_artifacts.py"
+
+    spec = importlib.util.spec_from_file_location("verifier", verifier_script)
+    verifier = importlib.util.module_from_spec(spec)
+    sys.modules["verifier"] = verifier
+
+    # Monkeypatch sys.argv
+    original_argv = sys.argv
+    sys.argv = [
+        str(verifier_script),
+        "--hub", str(hub),
+        "--report", str(report_path),
+    ]
+
+    try:
+        spec.loader.exec_module(verifier)
+        exit_code = verifier.main()
+    except SystemExit as e:
+        exit_code = e.code
+    finally:
+        sys.argv = original_argv
+
+    # Assertions
+    assert exit_code != 0, \
+        "Verifier should exit with non-zero status when preview contains amplitude"
+
+    assert report_path.exists(), \
+        f"Verification report not created at {report_path}"
+
+    with report_path.open("r", encoding="utf-8") as f:
+        report = json.load(f)
+
+    # Find the highlights validation result in the validations list
+    highlights_check = None
+    for check in report.get('validations', []):
+        if 'delta highlight' in check.get('description', '').lower():
+            highlights_check = check
+            break
+
+    assert highlights_check is not None, \
+        f"Report must include highlights validation. Available checks: {[v.get('description') for v in report.get('validations', [])]}"
+
+    assert highlights_check.get("valid") is False, \
+        "Highlights validation should fail when preview contains amplitude"
+
+    # Check new metadata fields
+    assert "preview_phase_only" in highlights_check, \
+        "Expected 'preview_phase_only' in highlights_check metadata"
+    assert highlights_check["preview_phase_only"] is False, \
+        "Expected preview_phase_only=False due to amplitude contamination"
+
+    assert "preview_format_errors" in highlights_check, \
+        "Expected 'preview_format_errors' in highlights_check metadata"
+    assert isinstance(highlights_check["preview_format_errors"], list), \
+        "Expected preview_format_errors to be a list"
+    assert len(highlights_check["preview_format_errors"]) > 0, \
+        "Expected at least one preview format error for amplitude contamination"
+
+    # Check that error message mentions amplitude
+    error_msg = highlights_check.get("error", "")
+    assert "amplitude" in error_msg.lower(), \
+        f"Expected error message to mention 'amplitude', got: {error_msg}"
 
 
 def test_verify_dense_pipeline_highlights_preview_mismatch(tmp_path: Path) -> None:
