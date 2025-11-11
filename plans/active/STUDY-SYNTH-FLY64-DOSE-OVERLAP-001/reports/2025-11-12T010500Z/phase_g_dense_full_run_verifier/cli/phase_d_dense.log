@@ -1,0 +1,43 @@
+# Command: python -m studies.fly64_dose_overlap.overlap --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c --output-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d --doses 1000 --views dense --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis
+# CWD: /home/ollie/Documents/PtychoPINN2
+# Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_d_dense.log
+# ==============================================================================
+
+
+ERROR generating view=dense for dose=1000.0: Object arrays cannot be loaded when allow_pickle=False
+Traceback (most recent call last):
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/overlap.py", line 594, in main
+    results = generate_overlap_views(
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/overlap.py", line 389, in generate_overlap_views
+    data_dict = {k: data[k] for k in data.keys()}
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/Documents/PtychoPINN2/studies/fly64_dose_overlap/overlap.py", line 389, in <dictcomp>
+    data_dict = {k: data[k] for k in data.keys()}
+                    ~~~~^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/numpy/lib/_npyio_impl.py", line 258, in __getitem__
+    return format.read_array(bytes,
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/numpy/lib/format.py", line 822, in read_array
+    raise ValueError("Object arrays cannot be loaded when "
+ValueError: Object arrays cannot be loaded when allow_pickle=False
+================================================================================
+Phase D: Dense/Sparse Overlap View Generation
+================================================================================
+Phase C root: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c
+Output root:  /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d
+Doses:        [1000.0]
+Views:        ['dense']
+================================================================================
+
+
+============================================================
+Generating dense overlap view
+Threshold: 38.40 px (f_overlap=0.7)
+============================================================
+
+[TRAIN] Processing patched_train.npz...
+
+[run_phase_g_dense] ERROR: Command failed with return code 1
+Command: python -m studies.fly64_dose_overlap.overlap --phase-c-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_c --output-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/data/phase_d --doses 1000 --views dense --artifact-root /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/analysis
+Log: /home/ollie/Documents/PtychoPINN2/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/cli/phase_d_dense.log
