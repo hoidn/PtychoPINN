@@ -881,8 +881,30 @@ def main() -> int:
         action="store_true",
         help="Skip post-verify automation (verifier + highlights checker) for debugging",
     )
+    parser.add_argument(
+        "--post-verify-only",
+        action="store_true",
+        help="Skip Phase C→F execution, reuse existing hub outputs, run only SSIM grid + verifier + highlights checker",
+    )
 
     args = parser.parse_args()
+
+    # Guard: --post-verify-only is mutually exclusive with --clobber and --skip-post-verify
+    if args.post_verify_only:
+        if args.clobber:
+            print(
+                "[run_phase_g_dense] ERROR: --post-verify-only cannot be used with --clobber "
+                "(verification-only runs must not delete existing outputs)",
+                file=sys.stderr,
+            )
+            return 1
+        if args.skip_post_verify:
+            print(
+                "[run_phase_g_dense] ERROR: --post-verify-only cannot be used with --skip-post-verify "
+                "(verification-only runs must execute post-verify automation)",
+                file=sys.stderr,
+            )
+            return 1
 
     # TYPE-PATH-001: Normalize to Path objects
     hub = Path(args.hub).resolve()
@@ -1046,33 +1068,117 @@ def main() -> int:
     # Collect-only mode: print commands and exit
     if args.collect_only:
         print("[run_phase_g_dense] Collect-only mode: planned commands:")
-        # Print Phase C-G commands
-        for i, (desc, cmd, log_path) in enumerate(commands, 1):
-            print(f"\n{i}. {desc}")
-            print(f"   Command: {' '.join(str(c) for c in cmd)}")
-            print(f"   Log: {log_path}")
-        # Print reporting helper command
-        print(f"\n{len(commands) + 1}. Reporting: Aggregate metrics report")
-        print(f"   Command: {' '.join(str(c) for c in report_helper_cmd)}")
-        print(f"   Log: {report_helper_log}")
-        # Print analyze digest command
-        print(f"\n{len(commands) + 2}. Analysis: Generate metrics digest")
-        print(f"   Command: {' '.join(str(c) for c in analyze_digest_cmd)}")
-        print(f"   Log: {analyze_digest_log}")
-        # Print ssim_grid command
-        print(f"\n{len(commands) + 3}. Analysis: Generate SSIM grid summary (phase-only)")
-        print(f"   Command: {' '.join(str(c) for c in ssim_grid_cmd)}")
-        print(f"   Log: {ssim_grid_log}")
-        # Print post-verify commands (conditional on --skip-post-verify)
-        if not args.skip_post_verify:
-            print(f"\n{len(commands) + 4}. Post-Verify: Verify pipeline artifacts")
+        # --post-verify-only: print only SSIM grid + verification commands
+        if args.post_verify_only:
+            print("\n[run_phase_g_dense] Post-verify-only mode: skipping Phase C→F")
+            print(f"\n1. Analysis: Generate SSIM grid summary (phase-only)")
+            print(f"   Command: {' '.join(str(c) for c in ssim_grid_cmd)}")
+            print(f"   Log: {ssim_grid_log.relative_to(hub)}")
+            print(f"\n2. Post-Verify: Verify pipeline artifacts")
             print(f"   Command: {' '.join(str(c) for c in verify_cmd)}")
-            print(f"   Log: {verify_log}")
-            print(f"\n{len(commands) + 5}. Post-Verify: Check highlights match")
+            print(f"   Log: {verify_log.relative_to(hub)}")
+            print(f"\n3. Post-Verify: Check highlights match")
             print(f"   Command: {' '.join(str(c) for c in check_cmd)}")
-            print(f"   Log: {check_log}")
+            print(f"   Log: {check_log.relative_to(hub)}")
         else:
-            print(f"\n[run_phase_g_dense] Post-verify automation skipped (--skip-post-verify)")
+            # Print Phase C-G commands
+            for i, (desc, cmd, log_path) in enumerate(commands, 1):
+                print(f"\n{i}. {desc}")
+                print(f"   Command: {' '.join(str(c) for c in cmd)}")
+                print(f"   Log: {log_path}")
+            # Print reporting helper command
+            print(f"\n{len(commands) + 1}. Reporting: Aggregate metrics report")
+            print(f"   Command: {' '.join(str(c) for c in report_helper_cmd)}")
+            print(f"   Log: {report_helper_log}")
+            # Print analyze digest command
+            print(f"\n{len(commands) + 2}. Analysis: Generate metrics digest")
+            print(f"   Command: {' '.join(str(c) for c in analyze_digest_cmd)}")
+            print(f"   Log: {analyze_digest_log}")
+            # Print ssim_grid command
+            print(f"\n{len(commands) + 3}. Analysis: Generate SSIM grid summary (phase-only)")
+            print(f"   Command: {' '.join(str(c) for c in ssim_grid_cmd)}")
+            print(f"   Log: {ssim_grid_log}")
+            # Print post-verify commands (conditional on --skip-post-verify)
+            if not args.skip_post_verify:
+                print(f"\n{len(commands) + 4}. Post-Verify: Verify pipeline artifacts")
+                print(f"   Command: {' '.join(str(c) for c in verify_cmd)}")
+                print(f"   Log: {verify_log}")
+                print(f"\n{len(commands) + 5}. Post-Verify: Check highlights match")
+                print(f"   Command: {' '.join(str(c) for c in check_cmd)}")
+                print(f"   Log: {check_log}")
+            else:
+                print(f"\n[run_phase_g_dense] Post-verify automation skipped (--skip-post-verify)")
+        return 0
+
+    # --post-verify-only mode: skip prepare_hub and Phase C→F, run only verification commands
+    if args.post_verify_only:
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Post-verify-only mode enabled")
+        print("=" * 80)
+        print("\nSkipping Phase C→F execution (reusing existing hub outputs)")
+        print(f"Hub: {hub}")
+        print(f"Dose: {dose}, View: {view}\n")
+
+        # Ensure hub directories exist
+        cli_log_dir.mkdir(parents=True, exist_ok=True)
+        phase_g_root.mkdir(parents=True, exist_ok=True)
+
+        # Run SSIM grid generation
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Generating SSIM grid summary (phase-only)...")
+        print("=" * 80 + "\n")
+        run_command(ssim_grid_cmd, ssim_grid_log)
+
+        # Run post-verify automation (verify + check)
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Running post-verify automation...")
+        print("=" * 80 + "\n")
+
+        print("[run_phase_g_dense] Verifying pipeline artifacts...")
+        run_command(verify_cmd, verify_log)
+
+        print("[run_phase_g_dense] Checking highlights match...")
+        run_command(check_cmd, check_log)
+
+        print("\n[run_phase_g_dense] Post-verify automation completed successfully")
+
+        # Re-generate artifact inventory
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] Generating artifact inventory...")
+        print("=" * 80 + "\n")
+        generate_artifact_inventory(hub)
+
+        print("\n" + "=" * 80)
+        print("[run_phase_g_dense] SUCCESS: Post-verify-only mode completed")
+        print("=" * 80)
+
+        # Print artifact paths
+        print(f"\nArtifacts saved to: {hub}")
+        print(f"CLI logs: {cli_log_dir}")
+        print(f"Analysis outputs: {phase_g_root}")
+
+        # Add SSIM grid summary to success banner
+        ssim_grid_summary_path = Path(phase_g_root) / "ssim_grid_summary.md"
+        if ssim_grid_summary_path.exists():
+            print(f"SSIM Grid Summary (phase-only): {ssim_grid_summary_path.relative_to(hub)}")
+
+        ssim_grid_log_path = Path(cli_log_dir) / "ssim_grid_cli.log"
+        if ssim_grid_log_path.exists():
+            print(f"SSIM Grid log: {ssim_grid_log_path.relative_to(hub)}")
+
+        # Add post-verify artifacts to success banner
+        verify_report_path = Path(phase_g_root) / "verification_report.json"
+        if verify_report_path.exists():
+            print(f"Verification report: {verify_report_path.relative_to(hub)}")
+
+        verify_log_path = Path(phase_g_root) / "verify_dense_stdout.log"
+        if verify_log_path.exists():
+            print(f"Verification log: {verify_log_path.relative_to(hub)}")
+
+        check_log_path = Path(phase_g_root) / "check_dense_highlights.log"
+        if check_log_path.exists():
+            print(f"Highlights check log: {check_log_path.relative_to(hub)}")
+
         return 0
 
     # Prepare hub: detect and handle stale outputs

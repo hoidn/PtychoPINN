@@ -1789,3 +1789,164 @@ def test_persist_delta_highlights_creates_preview(tmp_path: Path) -> None:
     ptychi_deltas = delta_summary["deltas"]["vs_PtyChi"]
     assert ptychi_deltas["mae"]["phase"] == pytest.approx(-0.000018, abs=1e-9), \
         f"Expected PtyChi MAE phase delta == -0.000018, got: {ptychi_deltas['mae']['phase']}"
+
+
+def test_run_phase_g_dense_collect_only_post_verify_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    """
+    Test that main() with --collect-only --post-verify-only prints only verification commands (SSIM grid + verify + check).
+
+    Acceptance:
+    - Loads main() from orchestrator script via importlib
+    - Runs with --collect-only --post-verify-only into a tmp hub directory
+    - Asserts stdout contains only SSIM grid, verify, and check commands with hub-relative log paths
+    - Verifies Phase C→F commands are NOT printed
+    - Returns 0 exit code on success
+
+    Follows TYPE-PATH-001 (hub-relative paths), TEST-CLI-001 (collect-only mode validation).
+    """
+    # Import main() from orchestrator
+    module = _import_orchestrator_module()
+    main = module.main
+
+    # Setup: Create tmp hub directory
+    hub = tmp_path / "post_verify_only_collect_hub"
+    hub.mkdir(parents=True)
+
+    # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+    monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+
+    # Prepare sys.argv for argparse
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_phase_g_dense.py",
+            "--hub", str(hub),
+            "--dose", "1000",
+            "--view", "dense",
+            "--splits", "train", "test",
+            "--collect-only",
+            "--post-verify-only",
+        ],
+    )
+
+    # Execute: Call main() (should print commands and return 0)
+    exit_code = main()
+
+    # Assert: Exit code should be 0
+    assert exit_code == 0, f"Expected exit code 0 from --collect-only --post-verify-only mode, got {exit_code}"
+
+    # Assert: Capture stdout and verify expected command substrings
+    captured = capsys.readouterr()
+    stdout = captured.out
+
+    # Check for post-verify-only mode banner
+    assert "Post-verify-only mode: skipping Phase C→F" in stdout, "Missing post-verify-only mode banner"
+
+    # Check for verification commands
+    assert "ssim_grid.py" in stdout, "Missing ssim_grid.py command in --post-verify-only output"
+    assert "verify_dense_pipeline_artifacts.py" in stdout, "Missing verify_dense_pipeline_artifacts.py command in --post-verify-only output"
+    assert "check_dense_highlights_match.py" in stdout, "Missing check_dense_highlights_match.py command in --post-verify-only output"
+
+    # Check for hub-relative log paths (TYPE-PATH-001)
+    assert "cli/ssim_grid_cli.log" in stdout or "ssim_grid_cli.log" in stdout, "Missing hub-relative ssim_grid_cli.log path"
+    assert "analysis/verify_dense_stdout.log" in stdout or "verify_dense_stdout.log" in stdout, "Missing hub-relative verify_dense_stdout.log path"
+    assert "analysis/check_dense_highlights.log" in stdout or "check_dense_highlights.log" in stdout, "Missing hub-relative check_dense_highlights.log path"
+
+    # Assert: Phase C→F commands should NOT be present
+    assert "Phase C: Dataset Generation" not in stdout, "Phase C command should not be printed in --post-verify-only mode"
+    assert "studies.fly64_dose_overlap.generation" not in stdout, "Generation module should not be present in --post-verify-only output"
+    assert "Phase D: Overlap View Generation" not in stdout, "Phase D command should not be printed in --post-verify-only mode"
+    assert "studies.fly64_dose_overlap.training" not in stdout, "Training module should not be present in --post-verify-only output"
+    assert "studies.fly64_dose_overlap.reconstruction" not in stdout, "Reconstruction module should not be present in --post-verify-only output"
+    assert "studies.fly64_dose_overlap.comparison" not in stdout, "Comparison module should not be present in --post-verify-only output"
+
+
+def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Test that main() with --post-verify-only executes verification commands in correct order (SSIM grid → verify → check).
+
+    Acceptance:
+    - Loads main() from orchestrator script via importlib
+    - Monkeypatches run_command to capture invocations and generate_artifact_inventory to record call
+    - Runs with --post-verify-only into a tmp hub directory
+    - Asserts run_command was called exactly 3 times with correct command order: [ssim_grid, verify, check]
+    - Asserts generate_artifact_inventory was called exactly once
+    - Returns 0 exit code on success
+
+    Follows DATA-001 (artifact inventory regeneration), TEST-CLI-001 (command capture).
+    """
+    # Import main() from orchestrator
+    module = _import_orchestrator_module()
+    main = module.main
+
+    # Setup: Create tmp hub directory with required structure
+    hub = tmp_path / "post_verify_only_exec_hub"
+    hub.mkdir(parents=True)
+    cli_log_dir = hub / "cli"
+    cli_log_dir.mkdir(parents=True)
+    phase_g_root = hub / "analysis"
+    phase_g_root.mkdir(parents=True)
+
+    # Set AUTHORITATIVE_CMDS_DOC to satisfy orchestrator env check
+    monkeypatch.setenv("AUTHORITATIVE_CMDS_DOC", "./docs/TESTING_GUIDE.md")
+
+    # Prepare sys.argv for argparse
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_phase_g_dense.py",
+            "--hub", str(hub),
+            "--dose", "1000",
+            "--view", "dense",
+            "--splits", "train", "test",
+            "--post-verify-only",
+        ],
+    )
+
+    # Record run_command invocations
+    run_command_calls = []
+
+    def stub_run_command(cmd, log_path, env=None, cwd=None):
+        """Record cmd and log_path without executing."""
+        run_command_calls.append((cmd, log_path))
+        # Create log file to satisfy orchestrator progression
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text(f"Stub log for: {' '.join(str(c) for c in cmd)}\n", encoding="utf-8")
+
+    # Record generate_artifact_inventory invocations
+    inventory_calls = []
+
+    def stub_generate_artifact_inventory(hub_path):
+        """Record hub_path without executing."""
+        inventory_calls.append(hub_path)
+
+    monkeypatch.setattr(module, "run_command", stub_run_command)
+    monkeypatch.setattr(module, "generate_artifact_inventory", stub_generate_artifact_inventory)
+
+    # Execute: Call main() (should execute verification commands and return 0)
+    exit_code = main()
+
+    # Assert: Exit code should be 0
+    assert exit_code == 0, f"Expected exit code 0 from --post-verify-only mode, got {exit_code}"
+
+    # Assert: run_command was called exactly 3 times
+    assert len(run_command_calls) == 3, f"Expected 3 run_command calls, got {len(run_command_calls)}"
+
+    # Assert: Command order is correct: SSIM grid → verify → check
+    cmd_0, log_0 = run_command_calls[0]
+    cmd_1, log_1 = run_command_calls[1]
+    cmd_2, log_2 = run_command_calls[2]
+
+    cmd_0_str = " ".join(str(c) for c in cmd_0)
+    cmd_1_str = " ".join(str(c) for c in cmd_1)
+    cmd_2_str = " ".join(str(c) for c in cmd_2)
+
+    assert "ssim_grid.py" in cmd_0_str, f"Expected ssim_grid.py in first command, got: {cmd_0_str}"
+    assert "verify_dense_pipeline_artifacts.py" in cmd_1_str, f"Expected verify_dense_pipeline_artifacts.py in second command, got: {cmd_1_str}"
+    assert "check_dense_highlights_match.py" in cmd_2_str, f"Expected check_dense_highlights_match.py in third command, got: {cmd_2_str}"
+
+    # Assert: generate_artifact_inventory was called exactly once
+    assert len(inventory_calls) == 1, f"Expected 1 generate_artifact_inventory call, got {len(inventory_calls)}"
+    assert inventory_calls[0] == hub, f"Expected hub={hub}, got: {inventory_calls[0]}"
