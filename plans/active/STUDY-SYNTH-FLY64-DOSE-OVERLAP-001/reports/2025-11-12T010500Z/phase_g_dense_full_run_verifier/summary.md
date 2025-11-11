@@ -95,6 +95,12 @@ Implemented the assertion at lines 1488-1492 following the same pattern as the e
 Full test suite passed (453 passed, 1 pre-existing unrelated failure); committed and pushed changes to feature/torchapi-newprompt.
 Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (pytest_collect_exec_digest.log, pytest_exec_digest.log)
 
+### Turn Summary
+Detected workspace mismatch blocker at pre-execution: Ralph running from PtychoPINN2 but task requires PtychoPINN per input.md line 32 and How-To Map.
+Cannot proceed with pytest collection or Phase G dense run; all paths would resolve incorrectly and Phase D-G would abort as in prior attempts.
+Next: Supervisor must re-invoke Ralph from /home/ollie/Documents/PtychoPINN before retrying the Do Now.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (blocker_workspace_mismatch.md)
+
 ### Turn Summary (2025-11-11 Workspace Blocker — Ralph invoked from wrong directory)
 Halted immediately upon detecting wrong working directory: pwd shows `/home/ollie/Documents/PtychoPINN2` but input.md line 22 enforces `test "$(pwd -P)" = "/home/ollie/Documents/PtychoPINN"`.
 input.md Pitfalls section (line 31) explicitly warns this causes `ValueError: Object arrays cannot be loaded when allow_pickle=False`; cannot execute any pytest or CLI commands without violating the workspace guard.
