@@ -28,8 +28,8 @@
   </required_reading>
 
   <ground_rules>
-    - **One focus per loop.** Execute only the item selected in `input.md`. If prerequisites are missing, stop, document the block in fix‑plan Attempts History, and return.
-    - **Do‑Now must include code.** Unless `Mode: Docs`, make at least one code change that advances exit criteria. If the Do Now lacks an `Implement:` step, apply **stall‑autonomy** (see Implementation Flow §0).
+    - **One focus per loop.** Execute only the item selected in `input.md`. If prerequisites are missing, <em>still ship a micro nucleus</em> on the allowed surfaces (see Implementation Flow §0), then document the block in fix‑plan Attempts History.
+    - **Do‑Now must include code.** Unless `Mode: Docs`, make at least one code change that advances exit criteria. If the Do Now lacks an `Implement:` step or is a free‑form brief, treat the brief itself as authoritative and apply **stall‑autonomy** (see Implementation Flow §0) to extract and ship the smallest viable implementation nucleus.
     - **Spec precedence.** Prefer SPEC over ARCH on external behavior; file an ARCH update when they disagree.
     - **Search first.** Before coding, search the repo to avoid duplicating partial implementations.
     - **Refactoring discipline (atomic).** If moving/renaming modules/classes/functions:
@@ -60,8 +60,10 @@
 
   <implementation_flow>
     0. **Guard / Implementation nucleus (mandatory unless Mode: Docs)**
-       If `Mode != Docs` and the Do Now lacks `Implement:`, apply stall‑autonomy:
-       - Add a single `Implement:` bullet naming the **smallest** viable code change (`<file>::<function>` or narrow branch) and a **validating pytest node**.
+       If `Mode != Docs` and the Do Now lacks `Implement:` or is provided as a narrative brief, apply stall‑autonomy:
+       - Extract the **smallest** viable code change from the brief that advances the acceptance criterion and choose a **validating pytest node**.
+       - <strong>Allowed nucleus surfaces (in order):</strong> initiative `bin/` scripts under `plans/active/<initiative>/bin/**`, `tests/**` (targeted guard or minimal test), `scripts/tools/**`. Touch production modules only with explicit supervisor authorization.
+       - If prerequisites (e.g., git hygiene, long‑running artifacts) block the main task, still land a micro nucleus on the allowed surfaces (e.g., add a workspace guard, selector, or CLI check) and run its targeted test.
        - Execute this nucleus first. If time runs short, ship the nucleus rather than expanding scope.
 
     -1. **Evidence Parameter Validation (pre‑execution)**

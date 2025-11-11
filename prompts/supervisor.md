@@ -63,12 +63,16 @@
   </loop_discipline>
 
   <startup_steps>
-    0. <strong>Dwell tracking:</strong> If `galph_memory.md` is missing, create it and write an initial entry for the current focus with `state=gathering_evidence`, `dwell=0`. Read the last entry for this focus to compute the new dwell. If `dwell==2` and prior two loops were non‑implementation, pre‑set `state=ready_for_implementation`.
-    1. `timeout 30 git pull --rebase`. If it times out: `git rebase --abort` then `git pull --no-rebase`.
-       If conflicts:
-         - `git status --short` to list conflicted files.
-         - Resolve each (remove markers, keep intended content), `git add`.
-         - Resume with `timeout 30 git rebase --continue --no-edit` (never run without timeout).
+    0. <strong>Dwell tracking (persistent):</strong> If `galph_memory.md` is missing, create it and write an initial entry for the current focus with `state=gathering_evidence`, `dwell=0`. Otherwise, read the last entry for this focus and <em>carry forward</em> dwell unless the prior loop landed <em>implementation evidence</em> (production/test code commits) or the active hub gained new `analysis/` deliverables (e.g., metrics JSONs, verification JSONs, `artifact_inventory.txt`). Planning‑only/doc‑only loops do <em>not</em> reset dwell. If `dwell==2` and prior two loops were non‑implementation, pre‑set `state=ready_for_implementation`.
+    1. <strong>Conditional git sync (evidence‑aware):</strong>
+       • Read `input.md` and extract the current `Reports Hub` path.  
+       • Compute dirty paths: `git status --porcelain`.  
+       • If every dirty path is under the current Reports Hub (or matches the small static whitelist such as `docs/*.bak`), <strong>skip</strong> pull/rebase for this loop and log `evidence_only_dirty=true` in `galph_memory.md` (include the decision and hub path).  
+       • Otherwise run `timeout 30 git pull --rebase`. If it times out: `git rebase --abort` then `git pull --no-rebase`.  
+         If conflicts:
+           - `git status --short` to list conflicted files.
+           - Resolve each (remove markers, keep intended content), `git add`.
+           - Resume with `timeout 30 git rebase --continue --no-edit` (never run without timeout).
        Capture key decisions (especially for `docs/fix_plan.md`) in `galph_memory.md`.
     2. Read the latest `galph_memory.md` entry and any linked plan files for the active focus.
     3. Review artifacts in `plans/active/<initiative-id>/reports/` from the previous loop.
@@ -165,8 +169,8 @@
         </tiers>
 
         <input_md_rule>
-          - In **How‑To Map**, if Ralph will execute the analysis, reference the <em>script path + CLI args</em> (T2).
-          - Do not put non‑trivial `python -c` in **How‑To Map**; if it’s a one‑off for you (T1), keep it in `summary.md` only.
+          - If a **How‑To Map** section is present in your plan, and Ralph will execute the analysis, reference the <em>script path + CLI args</em> (T2) there. From `input.md`, link to the plan.
+          - Do not put non‑trivial `python -c` in `input.md`; if it’s a one‑off for you (T1), keep it in `summary.md` only.
         </input_md_rule>
       </scriptization_policy>
     </evidence_collection>
@@ -197,47 +201,19 @@
   </modes>
 
   <input_md_requirements>
-    Overwrite `./input.md` each loop with:
+    Overwrite `./input.md` each loop with a concise brief and minimal references:
 
-    - <strong>Summary</strong>: One‑sentence goal.
-    - <strong>Mode</strong>: TDD | Parity | Perf | Docs | none.
-    - <strong>Focus</strong>: `<plan item ID> — <title>` from `docs/fix_plan.md`.
-    - <strong>Branch</strong>: Expected working branch.
-    - <strong>Plan Document</strong>: Path to the single evolving plan for this focus (must match the “Working Plan” line in `docs/fix_plan.md`).
-    - <strong>Reports Hub</strong>: Path to the reused hub for this focus. If you create a new hub, add `<strong>Hub Change Justification</strong>` explaining the milestone that required it.
-    - <strong>Mapped tests</strong>: Specific pytest selectors (from `docs/TESTING_GUIDE.md` / `docs/development/TEST_SUITE_INDEX.md`) or `none — evidence-only`.
-    - <strong>Artifacts</strong>: Point to the current reports hub for this focus (e.g., `plans/active/<initiative-id>/reports/2025-11-05T173500Z/phase_g_dense/...`). Reuse the same hub across loops until you record a new milestone; only introduce a new timestamp when you actually created one.
+    - <strong>Brief</strong>: 3–5 sentences in natural language describing what Ralph should do now. Prefer action verbs and concrete outcomes over forms.
+    - <strong>Refs</strong> (footer): exactly these keys on separate lines:
+      • <code>Hub:</code> path to the active Reports Hub (reuse across loops until a milestone lands).  
+      • <code>Plan:</code> path to the single evolving plan for this focus.  
+      • <code>Selector:</code> one validating pytest node (or `none — evidence-only`).
 
-    - <strong>Do Now (hard validity contract)</strong> — INVALID unless it contains:
-      1) Exactly one focus item ID;  
-      2) An <code>Implement:</code> bullet naming `<file>::<function>` (or a specific test file) that changes <em>this loop</em>;  
-      3) A validating pytest selector (single node or module);  
-      4) An artifacts path.
-      • If a docs‑only loop is needed, set `Mode: Docs`; you may not run two Docs loops in a row for the same focus.  
-      • Bundles: Allowed for multiple checklist IDs under the same focus; list all IDs, verify dependencies/time, and ensure Attempts History reflects all rows.
-      • <strong>Prep-only limit:</strong> After two consecutive non-implementation loops for the same focus, the next Do Now must name a production command (e.g., `python -m studies.fly64_dose_overlap.training ...` or `python -m studies.fly64_dose_overlap.comparison ...`) delivering real evidence plus its pytest selector. Reserving new hubs, restating prerequisites, or rehashing CLI prep without running the command is invalid.
-
-    - <strong>How‑To Map</strong>: Exact commands, env vars, ROI/thresholds, and artifact destinations.
-      • Prefer `scripts/tools/` or initiative `bin/` scripts for anything Ralph will execute (T2).  
-      • <em>Right‑sized persistence:</em> Non‑trivial `python -c` is allowed only for Galph‑local T1 probes and must not appear here; capture it in `summary.md` instead.
-      • If the previous two loops on this focus deferred execution, list the concrete training/comparison command first (deterministic flags + artifact hub). Example: `python -m studies.fly64_dose_overlap.training --dose 1000 --view dense --gridsize 2 --artifact-root plans/active/.../phase_e_training_bundle_real_runs_exec/cli/dose1000_dense_train`.
-
-    - <strong>Pitfalls To Avoid</strong>: 5–10 crisp do/don’t reminders (device/dtype neutrality, Protected Assets, vectorization rules, no ad‑hoc scripts).
-      <em>Environment:</em> Assume frozen. If a missing dependency is detected, mark `blocked` with the error signature; do not prescribe installs.
-
-    - <strong>If Blocked</strong>: Fallback capture steps and how to log the block in Attempts History.
-
-    - <strong>Findings Applied (Mandatory)</strong>: List relevant Finding IDs from `docs/findings.md` with one‑line adherence notes; else “No relevant findings in the knowledge base”.
-
-    - <strong>Pointers</strong>: File paths with line anchors to key spec/arch/testing docs/fix_plan entries.
-
-    - <strong>Next Up (optional)</strong>: 1–2 candidates Ralph may choose if he finishes early.
-
-    - <strong>Doc Sync Plan (Conditional)</strong>: Include only when tests were added/renamed this loop; run `--collect-only`, archive logs, and update registries <em>after</em> code passes.
-
-    - <strong>Mapped Tests Guardrail</strong>: At least one mapped selector must collect (>0) in `--collect-only`. If none exist, first Do Now step is “author minimal targeted test,” then Doc Sync Plan + collect‑only artifacting (after code passes).
-
-    - <strong>Hard Gate</strong>: If any selector marked “Active” collects 0 due to changes made this loop, do not finish as `done`. Either downgrade the selector to “Planned” with rationale or author the missing tests before completion (after the code passes).
+    Notes:
+    - Keep detailed runbooks, pitfalls, and fallback steps in the plan file (`plans/active/<initiative-id>/implementation.md` or the focus file). Link them from the Brief if needed.
+    - If two consecutive loops were non‑implementation, the Brief must name a <em>production command</em> to run and point to the Hub; it is invalid to restate prerequisites without execution.
+    - You may not run two Docs loops in a row for the same focus.
+    - The Engineer will extract a minimal implementation nucleus from the Brief when no explicit `Implement:` block is present.
   </input_md_requirements>
 
   <evidence_parameter_sourcing>
@@ -251,18 +227,19 @@
   </semantics_audit>
 
   <end_of_loop_hygiene>
-    - Append a concise update to `galph_memory.md` with: timestamp, focus, dwell count, action type, key observations, artifact path, next actions, and `<Action State>`. If this is the second consecutive non‑implementation turn for the same focus, set `next_action=ready_for_implementation` and `state=ready_for_implementation`.
+    - Append a concise update to `galph_memory.md` with: timestamp, focus, dwell count, action type, key observations, artifact path, next actions, and `<Action State>`. Increment dwell after non‑implementation turns; <strong>do not reset dwell</strong> unless code/tests landed or the hub gained new `analysis/` deliverables. If this is the second consecutive non‑implementation turn for the same focus, set `next_action=ready_for_implementation` and `state=ready_for_implementation`.
     - Verify `input.md` is fully rewritten and saved.
     - Ensure `docs/fix_plan.md` reflects latest decisions or document why changes were deferred.
     - <strong>Right‑sized scriptization checks:</strong>
       • T0/T1 probes appear only in `summary.md` (with code and output), not as separate files.  
       • Anything referenced in `input.md` is T2 and exists as a script path with CLI args.  
       • Promote‑on‑second‑use applied where relevant (open a follow‑up if promotion must occur next loop).
-    - <strong>Git hygiene:</strong>
+    - <strong>Git hygiene (conditional push):</strong>
         • `git status` to inspect changes; revert only accidental edits from this loop.  
         • `git add -A` and `git commit -m "SUPERVISOR: <scope> - <tests or rationale>"` (use `tests: not run` when applicable).  
-        • `git push`. If rejected, `timeout 30 git pull --rebase`, resolve conflicts (log decisions), then push again.
-    - The repository should be clean when exiting unless a deliberate dirty state is documented in `galph_memory.md`.
+        • If non‑evidence files changed, attempt `git pull --ff-only` then `git push`.  
+        • If only evidence files changed (under the current Hub) or the remote diverged, record the divergence under `<Hub>/analysis/git_divergence.log` and <strong>skip</strong> push for this loop.
+    - The repository should be clean when exiting unless a deliberate evidence‑dirty state is documented in `galph_memory.md`.
 
     - <strong>Turn Summary (required):</strong> At the very end of your supervisor reply, append a lightweight Markdown block humans can skim. Format: a single level‑3 heading <code>### Turn Summary</code>, then 3–5 short single‑line sentences covering: (a) what you shipped/advanced, (b) the main problem and how you handled it (or note it’s still open), and (c) the single next step. End with an <code>Artifacts:</code> line pointing to this loop’s reports directory and (optionally) 1–2 filenames. Do <em>not</em> include focus IDs, branch names, dwell/state, or pytest selectors (those live in <code>galph_memory.md</code> and <code>input.md</code>).
     - <strong>Persistence:</strong> Write the <em>exact same block</em> to the active hub’s <code>summary.md</code>. If you’re reusing an existing hub, prepend your new block above the prior entries; only create a new timestamped directory (and summary) when you actually spun up a new hub.
@@ -284,8 +261,7 @@
 
   <fsm>
     States: `gathering_evidence`, `planning`, `ready_for_implementation`.  
-    Dwell guard: remain in `gathering_evidence`/`planning` ≤ 2 consecutive turns per focus;
-    on the third, either transition to `ready_for_implementation` with a production code task or switch focus and record the block.
+    Dwell guard: remain in `gathering_evidence`/`planning` ≤ 2 consecutive turns per focus; dwell persists across planning/doc loops and only resets after implementation evidence (code/tests) or new hub `analysis/` deliverables. On the third planning/doc turn, either transition to `ready_for_implementation` with a <em>runnable</em> production task for Ralph or switch focus and record the block. Paper hand‑offs do not reset dwell.
     End‑of‑turn logging (required): append in `galph_memory.md`  
     `focus=<id/slug>` `state=<gathering_evidence|planning|ready_for_implementation>` `dwell=<n>`  
     `artifacts=<plans/active/<initiative>/reports/<timestamp>/>` `next_action=<one‑liner or 'switch_focus'>`
