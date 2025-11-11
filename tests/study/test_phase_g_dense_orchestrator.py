@@ -1485,6 +1485,12 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         f"Expected 'Metrics digest: ' to appear exactly once in stdout (TYPE-PATH-001), but found {digest_banner_count} occurrences. " \
         f"This guards against duplicate banner regressions. Got:\n{stdout}"
 
+    # Assert: "Metrics digest log:" banner line appears exactly once (TYPE-PATH-001 regression guard)
+    digest_log_banner_count = stdout.count("Metrics digest log: ")
+    assert digest_log_banner_count == 1, \
+        f"Expected 'Metrics digest log: ' to appear exactly once in stdout (TYPE-PATH-001), but found {digest_log_banner_count} occurrences. " \
+        f"This guards against duplicate banner regressions. Got:\n{stdout}"
+
     # Validate digest paths appear in stdout (should show relative paths per TYPE-PATH-001)
     assert "metrics_digest.md" in stdout, \
         f"Expected stdout to mention metrics_digest.md path, got:\n{stdout}"
