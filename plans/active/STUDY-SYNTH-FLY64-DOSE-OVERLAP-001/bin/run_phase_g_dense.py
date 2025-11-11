@@ -1218,9 +1218,25 @@ def main() -> int:
         print(f"{'=' * 80}\n")
         run_command(cmd, log_path)
 
-        # After Phase C completes, validate metadata
+        # After Phase C completes, clean up unwanted dose directories and validate metadata
         # (Skip this guard when --collect-only to keep dry runs fast)
         if not args.collect_only and "Phase C:" in desc:
+            # Clean up unwanted dose directories (generation module creates all doses)
+            # TYPE-PATH-001: Normalize to Path
+            import shutil
+            phase_c_root_path = Path(phase_c_root).resolve()
+            requested_dose_dir = phase_c_root_path / f"dose_{int(dose)}"
+
+            print("\n" + "=" * 80)
+            print(f"[run_phase_g_dense] Cleaning up unwanted dose directories (keeping dose_{int(dose)} only)...")
+            print("=" * 80 + "\n")
+
+            if phase_c_root_path.exists():
+                for dose_dir in phase_c_root_path.iterdir():
+                    if dose_dir.is_dir() and dose_dir.name.startswith("dose_") and dose_dir != requested_dose_dir:
+                        print(f"[run_phase_g_dense] Removing unwanted dose directory: {dose_dir.name}")
+                        shutil.rmtree(dose_dir)
+
             print("\n" + "=" * 80)
             print("[run_phase_g_dense] Validating Phase C metadata...")
             print("=" * 80 + "\n")
