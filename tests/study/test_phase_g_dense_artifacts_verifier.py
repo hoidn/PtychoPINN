@@ -1734,6 +1734,22 @@ def test_verify_dense_pipeline_highlights_complete(tmp_path: Path) -> None:
     assert highlights_check.get('line_count') == 4, \
         f"Expected line_count=4, got: {highlights_check.get('line_count')}"
 
+    # Verify structured metadata for GREEN case: all lists should be empty
+    assert 'checked_models' in highlights_check, \
+        "Expected 'checked_models' in highlights_check metadata"
+    assert highlights_check['checked_models'] == ['vs_Baseline', 'vs_PtyChi'], \
+        f"Expected checked_models=['vs_Baseline', 'vs_PtyChi'], got: {highlights_check.get('checked_models')}"
+
+    assert 'missing_preview_values' in highlights_check, \
+        "Expected 'missing_preview_values' in highlights_check metadata"
+    assert highlights_check['missing_preview_values'] == [], \
+        f"Expected empty missing_preview_values for valid highlights, got: {highlights_check.get('missing_preview_values')}"
+
+    assert 'mismatched_highlight_values' in highlights_check, \
+        "Expected 'mismatched_highlight_values' in highlights_check metadata"
+    assert highlights_check['mismatched_highlight_values'] == [], \
+        f"Expected empty mismatched_highlight_values for valid highlights, got: {highlights_check.get('mismatched_highlight_values')}"
+
 
 def test_verify_dense_pipeline_highlights_missing_preview(tmp_path: Path) -> None:
     """
@@ -1878,6 +1894,17 @@ def test_verify_dense_pipeline_highlights_missing_preview(tmp_path: Path) -> Non
     assert 'preview' in highlights_check.get('error', '').lower() or \
            'not found' in highlights_check.get('error', '').lower(), \
         f"Expected error about missing preview file, got: {highlights_check.get('error', 'none')}"
+
+    # Verify structured metadata returned by validator
+    assert 'checked_models' in highlights_check, \
+        "Expected 'checked_models' in highlights_check metadata"
+    assert highlights_check['checked_models'] == ['vs_Baseline', 'vs_PtyChi'], \
+        f"Expected checked_models=['vs_Baseline', 'vs_PtyChi'], got: {highlights_check.get('checked_models')}"
+
+    # For missing preview test: preview file doesn't exist, so validator cannot proceed with validation
+    # The error occurs before checking individual values, so these fields may not be populated
+    # However, if the validator design changes to still populate them, we document expected behavior:
+    # missing_preview_values would contain all 4 phase delta strings since preview is absent
 
 
 def test_verify_dense_pipeline_highlights_preview_mismatch(tmp_path: Path) -> None:
@@ -2031,6 +2058,25 @@ def test_verify_dense_pipeline_highlights_preview_mismatch(tmp_path: Path) -> No
            'preview' in highlights_check.get('error', '').lower(), \
         f"Expected error about preview mismatch, got: {highlights_check.get('error', 'none')}"
 
+    # Verify structured metadata returned by validator
+    assert 'checked_models' in highlights_check, \
+        "Expected 'checked_models' in highlights_check metadata"
+    assert highlights_check['checked_models'] == ['vs_Baseline', 'vs_PtyChi'], \
+        f"Expected checked_models=['vs_Baseline', 'vs_PtyChi'], got: {highlights_check.get('checked_models')}"
+
+    assert 'missing_preview_values' in highlights_check, \
+        "Expected 'missing_preview_values' in highlights_check metadata"
+    # Preview has +0.999 instead of +0.015 for vs_Baseline ms_ssim
+    # So the expected value +0.015 is missing from preview content
+    assert len(highlights_check['missing_preview_values']) > 0, \
+        f"Expected non-empty missing_preview_values when preview has wrong value, got: {highlights_check.get('missing_preview_values')}"
+    assert any('vs_Baseline.ms_ssim' in val and '+0.015' in val
+               for val in highlights_check['missing_preview_values']), \
+        f"Expected vs_Baseline.ms_ssim phase: +0.015 in missing values, got: {highlights_check.get('missing_preview_values')}"
+
+    assert 'mismatched_highlight_values' in highlights_check, \
+        "Expected 'mismatched_highlight_values' in highlights_check metadata"
+
 
 def test_verify_dense_pipeline_highlights_delta_mismatch(tmp_path: Path) -> None:
     """
@@ -2182,3 +2228,30 @@ def test_verify_dense_pipeline_highlights_delta_mismatch(tmp_path: Path) -> None
     assert 'mismatch' in highlights_check.get('error', '').lower() or \
            'highlight' in highlights_check.get('error', '').lower(), \
         f"Expected error about highlight mismatch, got: {highlights_check.get('error', 'none')}"
+
+    # Verify structured metadata returned by validator
+    assert 'checked_models' in highlights_check, \
+        "Expected 'checked_models' in highlights_check metadata"
+    assert highlights_check['checked_models'] == ['vs_Baseline', 'vs_PtyChi'], \
+        f"Expected checked_models=['vs_Baseline', 'vs_PtyChi'], got: {highlights_check.get('checked_models')}"
+
+    assert 'mismatched_highlight_values' in highlights_check, \
+        "Expected 'mismatched_highlight_values' in highlights_check metadata"
+    # Highlights txt has +0.999 instead of +0.015 for vs_Baseline ms_ssim
+    assert len(highlights_check['mismatched_highlight_values']) > 0, \
+        f"Expected non-empty mismatched_highlight_values when highlights have wrong value, got: {highlights_check.get('mismatched_highlight_values')}"
+
+    # Should have mismatch entry for vs_Baseline ms_ssim with expected=+0.015
+    baseline_ssim_mismatch = None
+    for mismatch in highlights_check['mismatched_highlight_values']:
+        if mismatch.get('model') == 'vs_Baseline' and mismatch.get('metric') == 'ms_ssim':
+            baseline_ssim_mismatch = mismatch
+            break
+
+    assert baseline_ssim_mismatch is not None, \
+        f"Expected mismatch entry for vs_Baseline.ms_ssim, got mismatches: {highlights_check.get('mismatched_highlight_values')}"
+    assert baseline_ssim_mismatch['expected'] == '+0.015', \
+        f"Expected mismatch with expected='+0.015', got: {baseline_ssim_mismatch}"
+
+    assert 'missing_preview_values' in highlights_check, \
+        "Expected 'missing_preview_values' in highlights_check metadata"

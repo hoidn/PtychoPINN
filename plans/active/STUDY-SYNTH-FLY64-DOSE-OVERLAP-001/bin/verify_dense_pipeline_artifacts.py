@@ -325,6 +325,15 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
         - mismatched_highlight_values: list[dict] (highlights that don't match JSON with expected/actual)
     """
     result = validate_file_exists(highlights_txt_path, 'Metrics delta highlights')
+
+    # Pre-populate structured metadata fields for consistent API
+    # These will be updated during validation or remain as defaults on early return
+    result['checked_models'] = ['vs_Baseline', 'vs_PtyChi']
+    result['missing_models'] = []
+    result['missing_metrics'] = []
+    result['missing_preview_values'] = []
+    result['mismatched_highlight_values'] = []
+
     if not result['valid']:
         return result
 
@@ -397,7 +406,22 @@ def validate_metrics_delta_highlights(highlights_txt_path: Path, hub: Path | Non
 
     # Helper to format delta values with proper precision
     def format_delta(value: float | None, metric_type: str) -> str:
-        """Format delta value with metric-specific precision (MS-SSIM: 3, MAE: 6)."""
+        """
+        Format delta value with metric-specific precision and explicit sign.
+
+        Precision rules (per STUDY-001 reporting convention):
+        - MS-SSIM deltas: ±0.000 (3 decimal places)
+        - MAE deltas: ±0.000000 (6 decimal places)
+
+        Sign convention:
+        - Always explicit: '+' for positive/zero, '-' for negative
+        - Zero formatted as +0.000 or +0.000000 (not omitted)
+
+        Examples:
+        - ms_ssim, 0.015 → "+0.015"
+        - mae, -0.000025 → "-0.000025"
+        - ms_ssim, 0.0 → "+0.000"
+        """
         if value is None:
             return "None"
         precision = 3 if "ms_ssim" in metric_type.lower() else 6
