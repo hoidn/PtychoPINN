@@ -1,4 +1,10 @@
 ### Turn Summary
+Re-synced via stash→pull→pop (preserving the deleted Phase C manifest) and re-audited the dense Phase G hub—`analysis` still only has `blocker.log` and `cli/phase_d_dense.log` shows the allow_pickle ValueError from this repo, so no SSIM grid/verification/preview artifacts exist.
+Updated implementation.md, the hub plan, docs/fix_plan.md, input.md, and both summaries with the renewed ready_for_implementation hand-off plus pytest + CLI instructions targeting the counted `--clobber` run followed by `--post-verify-only`.
+Next: Ralph must rerun the mapped pytest guard, execute `run_phase_g_dense.py --clobber` then `--post-verify-only`, and publish MS-SSIM/MAE deltas plus SSIM grid/verification/highlights/preview evidence into the 2025-11-12 hub.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+
+### Turn Summary
 Audited the Phase G dense hub after a clean pull; even with the allow_pickle fix (`5cd130d3`) on branch, `analysis/` still only has `blocker.log` and `{cli}` is limited to the stale Phase C/D/stdout logs, so no SSIM grid, verification, preview, metrics, or artifact-inventory artifacts exist yet.
 Updated the Phase G checklist, hub plan, docs/fix_plan.md, and input.md to capture the clean-state reality check and restate the counted `run_phase_g_dense.py --clobber` + immediate `--post-verify-only` deliverables with pytest guardrails and artifact requirements.
 Next: Ralph must rerun the mapped pytest selectors, execute the dense run + `--post-verify-only` sweep from `/home/ollie/Documents/PtychoPINN`, and publish MS-SSIM/MAE deltas plus preview/verifier/SSIM grid evidence into this hub and ledger docs.
