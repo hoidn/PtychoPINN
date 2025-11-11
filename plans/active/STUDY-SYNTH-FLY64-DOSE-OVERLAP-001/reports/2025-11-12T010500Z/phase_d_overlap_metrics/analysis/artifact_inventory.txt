@@ -1,0 +1,36 @@
+Phase D Overlap Metrics Implementation - Artifact Inventory
+Generated: 2025-11-11 (Ralph implementation loop)
+
+GREEN Test Evidence:
+  green/pytest_phase_d_overlap.log                  18 passed in 1.63s
+
+Test Suite Coverage:
+  - Unit: disc overlap functions (perfect/half/no overlap, area symmetry/monotonicity)
+  - Unit: Metric 1 (group-based, gs=2, synthetic tight/sparse clusters)
+  - Unit: Metric 2 (image-based, deduplication, single-image edge case)
+  - Unit: Metric 3 (group↔group COM, overlapping/non-overlapping)
+  - Integration: compute_overlap_metrics (gs=1/gs=2, degenerate inputs, invalid gridsize)
+  - Integration: generate_overlap_views (basic execution, bundle validation)
+
+Primary Selector (per input.md):
+  tests/study/test_dose_overlap_overlap.py::test_overlap_metrics_bundle
+  - Validates Metric 1/2/3 in metrics_bundle.json
+  - Confirms sampling parameters (gridsize, s_img, n_groups, K, D, RNG seed)
+  - Verifies train/test splits present with bounds checks
+
+Implementation Highlights:
+  - Disc overlap math: 2D analytical formulas for area and normalized fraction
+  - Metric 1: per-sample mean overlap to K group neighbors (gs=2 only)
+  - Metric 2: global image-based with exact (x, y) deduplication
+  - Metric 3: group↔group COM-based with threshold d < probe_diameter_px
+  - Removed: MIN_ACCEPTANCE_RATE, greedy spacing fallback, dense/sparse labels
+  - CLI: --gridsize, --s-img, --n-groups, --neighbor-count, --probe-diameter-px, --rng-seed-subsample
+
+Code Changes:
+  studies/fly64_dose_overlap/overlap.py              Complete overhaul (959-1048 line delta)
+  tests/study/test_dose_overlap_overlap.py           Rewrote for Metric 1/2/3 coverage (500 lines)
+
+Next Steps:
+  - Execute CLI with real Phase C data (dose_1000)
+  - Archive CLI stdout/err, metrics JSONs to this hub
+  - Validate Metric 1/2/3 averages and schema compliance
