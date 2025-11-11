@@ -201,6 +201,14 @@ python -m studies.fly64_dose_overlap.training \
 - After `summarize_phase_g_outputs` completes, run `plans/active/.../bin/report_phase_g_dense_metrics.py --metrics <hub>/analysis/metrics_summary.json` (optionally with `--ms-ssim-threshold 0.80`). Treat the generated **MS-SSIM Sanity Check** table as the go/no-go gate: any row flagged `LOW (...)` indicates reconstruction quality is suspect and the Attempt must be marked blocked until re-run.
 - `plans/active/.../bin/analyze_dense_metrics.py` now also embeds the same sanity table inside `metrics_digest.md`; archive this digest under the hub’s `analysis/` directory so reviewers can see absolute MS-SSIM values without hunting through CSVs.
 
+#### Phase G — Active Checklist (2025-11-12)
+- [x] Wire post-verify automation (`run_phase_g_dense.py::main`) so every dense run automatically executes SSIM grid → verifier → highlights checker with success banner references (commit 74a97db5).
+- [x] Add pytest coverage for collect-only + execution chain (`tests/study/test_phase_g_dense_orchestrator.py::{test_run_phase_g_dense_collect_only_post_verify_only,test_run_phase_g_dense_post_verify_only_executes_chain}`) and archive GREEN logs under `reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/green/`.
+- [ ] Execute a counted dense Phase C→G run with `--clobber` into `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/`, populating `{analysis,cli}` with real artifacts (phase logs, metrics_delta_summary.json, metrics_delta_highlights_preview.txt, ssim_grid_summary.md, verification_report.json, verify_dense_stdout.log, check_dense_highlights.log, artifact_inventory.txt). **Owner:** Ralph. **Evidence:** CLI/stdout log archived at `$HUB/cli/run_phase_g_dense_stdout.log`.
+- [ ] Immediately rerun `run_phase_g_dense.py --hub "$HUB" --post-verify-only` against the fresh artifacts, confirming the shortened chain regenerates SSIM grid + verification outputs and refreshes `analysis/artifact_inventory.txt`. Archive CLI output as `$HUB/cli/run_phase_g_dense_post_verify_only.log`.
+- [ ] Update `$HUB/summary/summary.md`, docs/fix_plan.md, and galph_memory with MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict (PREVIEW-PHASE-001), verifier/highlight log references, pytest selectors, and doc/test guard status.
+- [ ] If verification surfaces discrepancies, capture blocker logs under `$HUB/red/`, append to docs/fix_plan.md Attempts History with failure signature, and rerun once resolved.
+
 ### Phase H — Documentation & Gaps
 - Note the current code/doc oversampling status and any deviations; update docs/fix_plan.md with artifact paths and outcomes.
 

@@ -3347,3 +3347,16 @@
   - Updated plan/plan.md, summary/summary.md, summary.md, docs/fix_plan.md (Last Updated s=257 with new attempt entries), and input.md to require a `--post-verify-only` mode plus the counted dense run and verification rerun under the existing hub.
 - Next actions for Ralph: land the new flag/tests, capture RED/GREEN logs for the new selectors, run the dense Phase C→G pipeline with `--clobber`, rerun the orchestrator in `--post-verify-only` mode, and publish MS-SSIM/MAE deltas + preview verdict + doc updates in this hub.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T093500Z: Dense rerun + verification-only sweep hand-off
+- dwell: 1 (first planning loop since the post-verify-only implementation landed)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; re-read docs/index.md + docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001) before inspecting the hub (still only plan/summary content, no `{analysis,cli}` artifacts).
+  - Updated `plans/.../reports/.../plan/plan.md`, `implementation.md` (Phase G checklist), `summary.md`, `summary/summary.md`, and docs/fix_plan.md with the new objective: run the counted dense Phase C→G pipeline with `--clobber`, rerun `--post-verify-only`, ensure `analysis/artifact_inventory.txt` is regenerated, and publish MS-SSIM ±0.000 / MAE ±0.000000 deltas + preview verdict.
+  - Rewrote input.md with ready_for_implementation Do Now covering the artifact-inventory success-banner tweak, updated pytest selector expectations, dense run CLI commands, rerun guard, and documentation deliverables; reaffirmed reuse of the 2025-11-12 hub as the active evidence location.
+- Next actions for Ralph: print the artifact inventory path in run_phase_g_dense success banners (full + post-verify-only), update the orchestrator pytest to assert the banner content, rerun the dense Phase C→G pipeline with --clobber into the 2025-11-12 hub, rerun --post-verify-only to refresh verification artifacts, archive CLI/test logs, and publish MS-SSIM/MAE deltas + preview verdict in summary/docs/fix_plan.
+- <Action State>: [ready_for_implementation]
