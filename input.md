@@ -1,74 +1,67 @@
-Summary: Document the preview guard updates, then rerun the dense Phase C→G pipeline with verifier/highlight evidence stored under the new 2025-11-11T012044Z hub.
+Summary: Build the reusable ssim_grid helper plus a smoke pytest so we can gate dense Phase G runs on fast preview-phase validation evidence.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
 Branch: feature/torchapi-newprompt
-Mapped tests: pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude -vv; pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv; pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv; pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T012044Z/phase_g_dense_full_execution_real_run/
+Mapped tests: pytest tests/study/test_ssim_grid.py::test_smoke_ssim_grid -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T013612Z/ssim_grid_mvp/
 
 Do Now (hard validity contract)
-- Implement: docs/TESTING_GUIDE.md::Phase G Delta Metrics Persistence — describe the JSON/highlights/preview trio (MS-SSIM ±0.000, MAE ±0.000000, preview is four phase-only lines under analysis/metrics_delta_highlights_preview.txt) and reference PREVIEW-PHASE-001 + TYPE-PATH-001 so the spec matches commit 783c32aa.
-- Implement: docs/development/TEST_SUITE_INDEX.md::Phase G entry — add the new preview guard selector (`pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude -vv`), summarize its RED fixture (amplitude contamination) + GREEN expectations, and point to the hub evidence path.
-- Validate: run `pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude -vv`, `pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv`, `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv`, and `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv`, archiving stdout/stderr to `$HUB`/{green,collect} for PREVIEW-PHASE-001 evidence.
-- Execute: `export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` then `export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T012044Z/phase_g_dense_full_execution_real_run`; ensure `$HUB`/{analysis,cli,collect,green,red,summary} exist and run `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense.log`, leaving every per-phase CLI log + helper log under `$HUB`/cli/.
-- Verify: `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py --hub "$HUB" --report "$HUB"/analysis/pipeline_verification.json |& tee "$HUB"/analysis/verifier_cli.log`, `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_dense_highlights_match.py --hub "$HUB" |& tee "$HUB"/analysis/highlights_check.log`, and rerun `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights_post_run.log` so the guardrail selector collects after the dense run as well.
-- Document: capture MS-SSIM/MAE deltas (phase emphasis), preview guard status, verifier/highlights results, CLI log inventory, and doc updates inside `$HUB`/summary/summary.md; update docs/fix_plan.md + docs/findings.md (close PREVIEW-PHASE-001 once preview evidence is archived) and append the Turn Summary + artifact links.
+- Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/ssim_grid.py::main — new Tier-2 CLI that loads `<hub>/analysis/metrics_delta_summary.json`, enforces preview-phase-only content from `metrics_delta_highlights_preview.txt`, and writes `<hub>/analysis/ssim_grid_summary.md` with MS-SSIM ±0.000 and MAE ±0.000000 tables for vs_Baseline / vs_PtyChi.
+- Implement: tests/study/test_ssim_grid.py::test_smoke_ssim_grid — tmp_path-based RED/GREEN coverage that first fails when preview text includes "amplitude" and then passes once the helper emits the markdown table and phase-only guard metadata.
+- Validate: pytest tests/study/test_ssim_grid.py::test_smoke_ssim_grid -vv (capture RED log to `$HUB`/red/pytest_ssim_grid_smoke.log before implementation, then GREEN log to `$HUB`/green/pytest_ssim_grid_smoke.log) so PREVIEW-PHASE-001 has executable proof.
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T013612Z/ssim_grid_mvp/ (store summary.md plus pytest logs under red/ and green/).
 
 How-To Map
-1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-2. export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T012044Z/phase_g_dense_full_execution_real_run
-3. mkdir -p "$HUB"/{analysis,cli,collect,green,red,summary}
-4. pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude -vv | tee "$HUB"/green/pytest_preview_guard_green.log
-5. pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv | tee "$HUB"/green/pytest_highlights_complete.log
-6. pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv | tee "$HUB"/green/pytest_orchestrator_digest.log
-7. pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights.log
-8. python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense.log
-9. python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py --hub "$HUB" --report "$HUB"/analysis/pipeline_verification.json |& tee "$HUB"/analysis/verifier_cli.log
-10. python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_dense_highlights_match.py --hub "$HUB" |& tee "$HUB"/analysis/highlights_check.log
-11. pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights_post_run.log
-12. Update docs/TESTING_GUIDE.md (Phase G section) + docs/development/TEST_SUITE_INDEX.md (Phase G entry) with the preview rules + selector details; record deltas with `git diff -- docs/TESTING_GUIDE.md docs/development/TEST_SUITE_INDEX.md` for summary.md references.
-13. Summarize MS-SSIM/MAE deltas, CLI/verifier/highlight evidence, doc updates, and findings status inside "$HUB"/summary/summary.md; refresh docs/fix_plan.md + docs/findings.md; append the Turn Summary block.
+1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md; export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T013612Z/ssim_grid_mvp
+2. mkdir -p "$HUB"/{analysis,collect,green,red,summary} and keep all helper outputs under these dirs (no repo-root log files).
+3. Create the helper scaffold at plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/ssim_grid.py using the Tier-2 template (argparse + docstring) and implement `main()` to: parse `--hub/--output`, read `<hub>/analysis/metrics_delta_summary.json`, render a markdown table (phase/amplitude, signed precision), and reject previews containing `amplitude` while surfacing offending lines.
+4. Author tests/study/test_ssim_grid.py with pytest tmp_path fixtures: synthesize `metrics_delta_summary.json` + `metrics_delta_highlights_preview.txt`, run the helper via `subprocess.run([sys.executable, path_to_script, "--hub", hub])`, assert RED failure when preview includes `amplitude`, then write a phase-only preview and assert the script succeeds and the output markdown contains ± formatted numbers.
+5. Run pytest tests/study/test_ssim_grid.py::test_smoke_ssim_grid -vv || true and tee stdout/stderr into "$HUB"/red/pytest_ssim_grid_smoke.log to capture the expected RED failure (preview amplitude guard) before implementation passes.
+6. Finish implementing the helper until the test passes, then rerun pytest tests/study/test_ssim_grid.py::test_smoke_ssim_grid -vv | tee "$HUB"/green/pytest_ssim_grid_smoke.log and confirm exit code 0.
+7. Run pytest --collect-only tests/study/test_ssim_grid.py -vv | tee "$HUB"/collect/pytest_collect_ssim_grid.log to prove the selector collects (>0) after the helper lands.
+8. Copy a sample `analysis/ssim_grid_summary.md` (generated by the test hub) into "$HUB"/analysis/ for reference and summarize outcomes (preview guard status, precision formatting) inside "$HUB"/summary/summary.md along with references to PREVIEW-PHASE-001 / TYPE-PATH-001.
 
 Pitfalls To Avoid
-- Do not run the dense pipeline without exporting AUTHORITATIVE_CMDS_DOC first (CONFIG-001 guard rail).
-- Keep `$HUB` paths POSIX-relative in all JSON/summary files to satisfy TYPE-PATH-001.
-- Treat Phase C NPZ outputs as read-only; rerun generators rather than editing data (DATA-001).
-- Ensure every CLI log filename keeps its dose/view suffix (TEST-CLI-001) before copying into `$HUB`/cli/.
-- Capture every pytest/log command output to the hub; PREVIEW-PHASE-001 requires reproducible evidence.
-- Monitor `run_phase_g_dense.py` for `[n/8]` stalls; if a phase fails, stop immediately and archive the failing log instead of rerunning blindly.
-- Highlight preview + JSON deltas must retain ±0.000 / ±0.000000 precision; verify before updating docs to avoid spec drift.
-- When updating docs, cite the initiative ID so readers can trace PREVIEW-PHASE-001 history.
-- Do not delete the prior 2025-11-11T005802Z hub; it’s a planning artifact referenced in earlier attempts.
-- Avoid touching core physics/TensorFlow modules (ptycho/model.py, diffsim.py, tf_helper.py); focus stays on docs/tests/pipeline orchestration.
+- Do not touch core modules under ptycho/* — new helper lives in plans/active bin only.
+- Keep preview guard logic device/dtype agnostic; treat files as UTF-8 text and avoid numpy imports.
+- Maintain TYPE-PATH-001: when writing JSON/markdown metadata, use POSIX-style relative paths (analysis/...); no absolute paths in artifacts.
+- Ensure MS-SSIM remains ±0.000 while MAE is ±0.000000; do not regress formatting documented in docs/TESTING_GUIDE.md.
+- Capture both RED and GREEN pytest logs; a missing RED log makes PREVIEW-PHASE-001 unverifiable.
+- Use subprocess.run with `check=False` in the test to assert on exit codes manually; do not rely on global state.
+- Avoid creating new evidence hubs until this one contains a counted run; stall-autonomy guard is in effect.
+- No environment changes (pip install, etc.); if imports fail, record the signature and stop.
 
 If Blocked
-- If the dense pipeline aborts (e.g., Phase F reconstruction failure), capture `$HUB`/cli/run_phase_g_dense.log plus the specific phase log, summarize the failure in `$HUB`/summary/summary.md`, and update docs/fix_plan.md with the blocker signature; stop further steps.
-- If pytest selectors fail unexpectedly, keep the failing log under `$HUB`/red/ with the traceback, reference PREVIEW-PHASE-001 in summary.md, and mark the attempt blocked in docs/fix_plan.md before requesting guidance.
-- If doc updates cannot reconcile with actual behavior, document the mismatch in `$HUB`/summary/summary.md`, leave comments in the docs referencing TODO + PREVIEW-PHASE-001, and halt before the dense run.
+- If helper spec is unclear, halt implementation, record the ambiguity plus repro steps in `$HUB`/summary/summary.md, and update docs/fix_plan.md Attempts History as blocked.
+- If pytest cannot locate the new selector, capture the `pytest --collect-only` output under `$HUB`/collect/` and stop; do not proceed to implementation until the test harness is recognized.
+- If preview precision expectations conflict with docs/TESTING_GUIDE.md, note the discrepancy in docs/findings.md draft section and page Ralph for clarification before modifying specs.
 
 Findings Applied (Mandatory)
-- POLICY-001 — Dense pipeline touches PtyChi LSQML (PyTorch backend); keep torch>=2.2 available during the run.
-- CONFIG-001 — Export AUTHORITATIVE_CMDS_DOC so legacy params.cfg consumers stay synchronized before Phase C/D/E helpers execute.
-- DATA-001 — Treat Phase C NPZ datasets as canonical inputs; use validators rather than manual edits.
-- TYPE-PATH-001 — Keep all recorded paths POSIX-relative (e.g., analysis/metrics_delta_highlights_preview.txt) inside JSON/summary payloads.
-- STUDY-001 — Report MS-SSIM/MAE deltas with explicit ± signs and emphasize phase metrics in the summary.
-- TEST-CLI-001 — Record the real CLI filenames (dose/view suffixes + helper logs) so the verifier/tests enforce complete bundles.
-- PREVIEW-PHASE-001 — Preview artifacts must remain phase-only; archive validator metadata + pytest logs proving the guard blocks amplitude contamination.
+- POLICY-001 — PyTorch dependency already satisfied; no optional downgrades permitted.
+- CONFIG-001 — Always export AUTHORITATIVE_CMDS_DOC before touching helpers that depend on params.cfg bridge logic.
+- DATA-001 — Test fixtures must honor official NPZ/JSON schema (keys/dtypes) even for tmp hubs.
+- TYPE-PATH-001 — Ensure helper emits POSIX-relative paths in reports/markdown tables.
+- STUDY-001 — Report MS-SSIM/MAE deltas with explicit ± signs and phase emphasis in the new summary table.
+- TEST-CLI-001 — Capture real CLI/test logs per selector (red/green) under the hub so CLI validation remains reproducible.
+- PREVIEW-PHASE-001 — Preview guard must fail whenever `amplitude` shows up; new helper/test enforce the policy.
 
 Pointers
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py:309 — preview guard implementation (`preview_phase_only` + metadata checks).
-- tests/study/test_phase_g_dense_artifacts_verifier.py:1921 — `test_verify_dense_pipeline_highlights_preview_contains_amplitude` RED fixture ensuring amplitude contamination fails.
-- docs/TESTING_GUIDE.md:330 — Phase G delta persistence section that still documents ±0.000 formatting for all deltas and lacks preview guidance.
-- docs/development/TEST_SUITE_INDEX.md:62 — Phase G orchestrator entry to expand with the preview guard selector.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:1150 — Orchestrator main path that produces highlights/preview artifacts for dense evidence.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_dense_highlights_match.py:12 — Helper that cross-checks highlights vs preview output files.
+- docs/fix_plan.md:27 — Latest retrospective + SSIM grid MVP context.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T213000Z/retrospective/analysis.md — stall/autonomy findings for this focus.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py:309 — existing preview guard logic to align with.
+- tests/study/test_phase_g_dense_artifacts_verifier.py:1921 — sample RED preview test references for parity of messaging.
+- docs/TESTING_GUIDE.md:333 — current (stale) delta precision language to update once helper tables land.
 
 Next Up (optional)
-1. After dense evidence lands, replicate the preview guard flow for the sparse-overlap pipeline to close the study.
-2. Extend `check_dense_highlights_match.py` to emit a CSV diff for faster regression comparisons.
+1. After helper/test pass, rerun `bin/run_phase_g_dense.py` once and use the new ssim_grid summary to publish MS-SSIM/MAE deltas.
+2. Refresh docs/TESTING_GUIDE.md and docs/development/TEST_SUITE_INDEX.md to document the preview guard + helper workflow.
 
-Doc Sync Plan
-- Update `docs/TESTING_GUIDE.md` (§Phase G Delta Metrics Persistence) and `docs/development/TEST_SUITE_INDEX.md` (Phase G entry) after the code/tests stay green; cite PREVIEW-PHASE-001 and include the new selector.
-- Run `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv` again after code/doc updates (log stored at `$HUB`/collect/pytest_collect_highlights_post_run.log) and reference the log in summary.md plus docs/TESTING_GUIDE.md §2/test registry if names change.
+Doc Sync Plan (Conditional)
+- After the helper/test pass, update docs/TESTING_GUIDE.md §2 (Phase G Delta Metrics Persistence) and docs/development/TEST_SUITE_INDEX.md (Phase G section) to reference `ssim_grid.py` and the new test selector; capture diffs plus a short note inside `$HUB`/summary/summary.md.
+- Run pytest --collect-only tests/study/test_ssim_grid.py -vv (already in How-To Map) and store the log in `$HUB`/collect/pytest_collect_ssim_grid.log as evidence that the new selector registers.
 
 Mapped Tests Guardrail
-- `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv` must collect (>0) before and after the dense run; if collection breaks, stop immediately, fix the selector (or document the block), and do not mark the loop complete until collection succeeds.
+- Active selector `pytest tests/study/test_ssim_grid.py::test_smoke_ssim_grid -vv` must collect exactly one test; confirm via the collect-only step above before concluding the loop.
+
+Hard Gate
+- Do not mark this loop complete until the GREEN pytest log demonstrates the preview guard passing and `analysis/ssim_grid_summary.md` is archived in `$HUB`.

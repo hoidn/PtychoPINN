@@ -3263,3 +3263,16 @@
   - Updated docs/fix_plan.md (added 2025-11-11T011710Z implementation attempt + new 012044Z planning attempt) and rewrote plan.md/input.md to focus on doc sync + dense pipeline rerun + verifier/highlights evidence.
 - Next actions for Ralph: update docs, archive RED/GREEN logs for the preview guard, execute run_phase_g_dense.py under the new hub with AUTHORITATIVE_CMDS_DOC exported, run verifier/highlights parity, and capture MS-SSIM/MAE deltas + summary/docs updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-11T013612Z: SSIM grid smoke-driver hand-off
+- dwell: 2 (second consecutive planning loop after the 2025-11-11T012044Z hand-off; issuing ready_for_implementation Do Now per stall guardrail)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T013612Z/ssim_grid_mvp/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001) and the 2025-11-11T213000Z retrospective to confirm the next increment must be a reusable helper + pytest guard.
+  - Created new hub `.../013612Z/ssim_grid_mvp/` with {plan,summary,green,red,collect} scaffolding, drafted plan.md for the Tier-2 helper + smoke test, and rewrote input.md with a ready_for_implementation Do Now (Implement helper/test, capture RED/GREEN pytest logs, keep AUTHORITATIVE_CMDS_DOC exported).
+  - Updated docs/fix_plan.md Attempts History to log this plan plus artifact path, anchoring PREVIEW-PHASE-001 + stall-autonomy context.
+- Next actions for Ralph: implement the helper + pytest per input.md, capture red/green logs under the hub, then summarize preview guard status and MS-SSIM/MAE precision.
+- <Action State>: [ready_for_implementation]
