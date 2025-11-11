@@ -1381,6 +1381,10 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         run_command_calls.append((cmd, log_path))
         cmd_str = " ".join(str(c) for c in cmd)
 
+        # Create log file for every invocation (TEST-CLI-001)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text(f"Stub log for: {cmd_str}\n", encoding="utf-8")
+
         # When reporting helper is invoked, create highlights file
         if "report_phase_g_dense_metrics.py" in cmd_str and "--highlights" in cmd_str:
             for i, part in enumerate(cmd):
@@ -1399,7 +1403,7 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
                     digest_path.write_text("# Phase G Dense Metrics Digest\n", encoding="utf-8")
                     break
 
-        # When ssim_grid is invoked, create summary file
+        # When ssim_grid is invoked, create summary file and log
         if "ssim_grid.py" in cmd_str and "--hub" in cmd_str:
             # ssim_grid.py creates analysis/ssim_grid_summary.md
             for i, part in enumerate(cmd):
@@ -1408,6 +1412,35 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
                     ssim_grid_summary_path = hub_path / "analysis" / "ssim_grid_summary.md"
                     ssim_grid_summary_path.parent.mkdir(parents=True, exist_ok=True)
                     ssim_grid_summary_path.write_text("# SSIM Grid Summary (Phase-Only)\n", encoding="utf-8")
+                    # Create ssim_grid CLI log
+                    ssim_grid_log_path = hub_path / "cli" / "ssim_grid_cli.log"
+                    ssim_grid_log_path.parent.mkdir(parents=True, exist_ok=True)
+                    ssim_grid_log_path.write_text("SSIM grid generation complete\n", encoding="utf-8")
+                    break
+
+        # When verify_dense_pipeline_artifacts is invoked, create report and log files
+        if "verify_dense_pipeline_artifacts.py" in cmd_str and "--report" in cmd_str:
+            for i, part in enumerate(cmd):
+                if str(part) == "--report" and i + 1 < len(cmd):
+                    report_path = Path(cmd[i + 1])
+                    report_path.parent.mkdir(parents=True, exist_ok=True)
+                    report_path.write_text('{"valid": true}\n', encoding="utf-8")
+                    # Create verification log in analysis/
+                    hub_path = report_path.parent.parent  # analysis -> hub
+                    verify_log_path = hub_path / "analysis" / "verify_dense_stdout.log"
+                    verify_log_path.parent.mkdir(parents=True, exist_ok=True)
+                    verify_log_path.write_text("Verification complete\n", encoding="utf-8")
+                    break
+
+        # When check_dense_highlights_match is invoked, create log file
+        if "check_dense_highlights_match.py" in cmd_str:
+            # Extract hub path from command to create log in analysis/
+            for i, part in enumerate(cmd):
+                if str(part) == "--hub" and i + 1 < len(cmd):
+                    hub_path = Path(cmd[i + 1])
+                    check_log_path = hub_path / "analysis" / "check_dense_highlights.log"
+                    check_log_path.parent.mkdir(parents=True, exist_ok=True)
+                    check_log_path.write_text("Highlights check complete\n", encoding="utf-8")
                     break
 
     monkeypatch.setattr(module, "run_command", stub_run_command)
@@ -1496,6 +1529,30 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
         f"Expected stdout to mention metrics_digest.md path, got:\n{stdout}"
     assert "metrics_digest_cli.log" in stdout, \
         f"Expected stdout to mention metrics_digest_cli.log path, got:\n{stdout}"
+
+    # Assert: SSIM Grid banner lines must be present (TEST-CLI-001)
+    assert "SSIM Grid Summary (phase-only):" in stdout, \
+        f"Expected success banner to include 'SSIM Grid Summary (phase-only):' line, got:\n{stdout}"
+    assert "ssim_grid_summary.md" in stdout, \
+        f"Expected stdout to mention ssim_grid_summary.md path, got:\n{stdout}"
+    assert "SSIM Grid log:" in stdout, \
+        f"Expected success banner to include 'SSIM Grid log:' line, got:\n{stdout}"
+    assert "ssim_grid_cli.log" in stdout, \
+        f"Expected stdout to mention ssim_grid_cli.log path, got:\n{stdout}"
+
+    # Assert: Verification banner lines must be present (TEST-CLI-001)
+    assert "Verification report:" in stdout, \
+        f"Expected success banner to include 'Verification report:' line, got:\n{stdout}"
+    assert "verification_report.json" in stdout, \
+        f"Expected stdout to mention verification_report.json path, got:\n{stdout}"
+    assert "Verification log:" in stdout, \
+        f"Expected success banner to include 'Verification log:' line, got:\n{stdout}"
+    assert "verify_dense_stdout.log" in stdout, \
+        f"Expected stdout to mention verify_dense_stdout.log path, got:\n{stdout}"
+    assert "Highlights check log:" in stdout, \
+        f"Expected success banner to include 'Highlights check log:' line, got:\n{stdout}"
+    assert "check_dense_highlights.log" in stdout, \
+        f"Expected stdout to mention check_dense_highlights.log path, got:\n{stdout}"
 
     # Assert: stdout should contain delta summary block with four delta lines
     # Expected deltas (computed from stub data above):
