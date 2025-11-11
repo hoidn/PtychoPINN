@@ -55,7 +55,7 @@ If a command or troubleshooting step is missing from those references, update th
 All plan edits (new focus documents, major checklist reshuffles, or hub reassignments) must be preceded by an XML note so future loops can reconstruct the intent. The supervisor records this block inside the relevant plan file *and* references it in `docs/fix_plan.md` Attempts History.
 
 ### Required Steps
-1. Re-read the active plan, `docs/fix_plan.md`, and any referenced specs to ground the change.
+1. Re-read `docs/index.md`, then open every referenced document that applies to the pending change (plan file, specs, workflow guides, etc.) so `documents_read` matches reality.
 2. Draft the XML payload below, filling every field. Multiple source docs go in a comma-separated list.
 3. Paste the payload immediately above the edited section in the plan file (or at the top if the whole plan is being rewritten), then cite the same payload in the matching `docs/fix_plan.md` attempt entry.
 4. After committing, leave the XML in place—it becomes the audit trail for that revision.
@@ -68,13 +68,12 @@ All plan edits (new focus documents, major checklist reshuffles, or hub reassign
   <current_plan_path>plans/active/.../implementation.md</current_plan_path>
   <proposed_changes>bullet summary of concrete edits (checklist moves, new deliverables, hub swaps)</proposed_changes>
   <impacts>risks, required test reruns, or new artifacts that must be produced</impacts>
-  <reports_hub>plans/active/.../reports/<ISO8601Z>/</reports_hub>
   <ledger_updates>what to add to docs/fix_plan.md Attempts History and any status flips</ledger_updates>
   <status>draft|approved|blocked</status>
 </plan_update>
 ```
 
 ### Simulation Checklist
-- **Before editing:** ensure `documents_read` matches the files you actually opened.
-- **After editing:** confirm the XML, plan diff, and ledger entry all cite the same reports hub and focus ID.
+- **Before editing:** ensure `documents_read` mirrors every file you opened after consulting `docs/index.md`.
+- **After editing:** confirm the XML, plan diff, and ledger entry all cite the same focus ID and plan path.
 - **If blocked:** set `<status>blocked</status>` and describe the blocker under `<impacts>`; the next loop repeats the XML with updated context.
