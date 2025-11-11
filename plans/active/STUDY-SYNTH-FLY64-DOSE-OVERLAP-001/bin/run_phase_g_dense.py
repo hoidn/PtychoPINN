@@ -1148,12 +1148,22 @@ def main() -> int:
         print("=" * 80 + "\n")
         generate_artifact_inventory(hub)
 
+        # Validate artifact inventory file exists and announce its location (TYPE-PATH-001, DATA-001)
+        artifact_inventory_path = Path(phase_g_root) / "artifact_inventory.txt"
+        if not artifact_inventory_path.exists():
+            raise RuntimeError(
+                f"Artifact inventory file not found: {artifact_inventory_path}\n"
+                f"generate_artifact_inventory() should have created this file.\n"
+                f"This indicates a critical failure in artifact tracking."
+            )
+
         print("\n" + "=" * 80)
         print("[run_phase_g_dense] SUCCESS: Post-verify-only mode completed")
         print("=" * 80)
 
         # Print artifact paths
         print(f"\nArtifacts saved to: {hub}")
+        print(f"Artifact inventory: {artifact_inventory_path.relative_to(hub)}")
         print(f"CLI logs: {cli_log_dir}")
         print(f"Analysis outputs: {phase_g_root}")
 
@@ -1364,7 +1374,17 @@ def main() -> int:
     print("=" * 80 + "\n")
     generate_artifact_inventory(hub)
 
+    # Validate artifact inventory file exists and announce its location (TYPE-PATH-001, DATA-001)
+    artifact_inventory_path = Path(phase_g_root) / "artifact_inventory.txt"
+    if not artifact_inventory_path.exists():
+        raise RuntimeError(
+            f"Artifact inventory file not found: {artifact_inventory_path}\n"
+            f"generate_artifact_inventory() should have created this file.\n"
+            f"This indicates a critical failure in artifact tracking."
+        )
+
     print(f"\nArtifacts saved to: {hub}")
+    print(f"Artifact inventory: {artifact_inventory_path.relative_to(hub)}")
     print(f"CLI logs: {cli_log_dir}")
     print(f"Analysis outputs: {phase_g_root}")
     print(f"Aggregate report: {aggregate_report_md}")

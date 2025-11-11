@@ -210,8 +210,11 @@ def test_run_phase_g_dense_post_verify_hooks(tmp_path: Path, monkeypatch: pytest
             json.dump(summary_data, f, indent=2)
 
     def stub_generate_artifact_inventory(hub_path):
-        """No-op stub for generate_artifact_inventory."""
-        pass
+        """Create artifact_inventory.txt to satisfy orchestrator validation."""
+        analysis = Path(hub_path) / "analysis"
+        analysis.mkdir(parents=True, exist_ok=True)
+        inventory_path = analysis / "artifact_inventory.txt"
+        inventory_path.write_text("# Stub artifact inventory\n", encoding="utf-8")
 
     monkeypatch.setattr(module, "prepare_hub", stub_prepare_hub)
     monkeypatch.setattr(module, "validate_phase_c_metadata", stub_validate_phase_c_metadata)
@@ -1862,7 +1865,7 @@ def test_run_phase_g_dense_collect_only_post_verify_only(tmp_path: Path, monkeyp
     assert "studies.fly64_dose_overlap.comparison" not in stdout, "Comparison module should not be present in --post-verify-only output"
 
 
-def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     """
     Test that main() with --post-verify-only executes verification commands in correct order (SSIM grid → verify → check).
 
@@ -1872,6 +1875,7 @@ def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monke
     - Runs with --post-verify-only into a tmp hub directory
     - Asserts run_command was called exactly 3 times with correct command order: [ssim_grid, verify, check]
     - Asserts generate_artifact_inventory was called exactly once
+    - Asserts stdout contains 'analysis/artifact_inventory.txt' path
     - Returns 0 exit code on success
 
     Follows DATA-001 (artifact inventory regeneration), TEST-CLI-001 (command capture).
@@ -1919,14 +1923,22 @@ def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monke
     inventory_calls = []
 
     def stub_generate_artifact_inventory(hub_path):
-        """Record hub_path without executing."""
+        """Record hub_path and create artifact_inventory.txt file."""
         inventory_calls.append(hub_path)
+        # Create artifact_inventory.txt to satisfy orchestrator validation
+        inventory_path = Path(hub_path) / "analysis" / "artifact_inventory.txt"
+        inventory_path.parent.mkdir(parents=True, exist_ok=True)
+        inventory_path.write_text("# Stub artifact inventory\n", encoding="utf-8")
 
     monkeypatch.setattr(module, "run_command", stub_run_command)
     monkeypatch.setattr(module, "generate_artifact_inventory", stub_generate_artifact_inventory)
 
     # Execute: Call main() (should execute verification commands and return 0)
     exit_code = main()
+
+    # Capture stdout
+    captured = capsys.readouterr()
+    stdout = captured.out
 
     # Assert: Exit code should be 0
     assert exit_code == 0, f"Expected exit code 0 from --post-verify-only mode, got {exit_code}"
@@ -1950,3 +1962,7 @@ def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monke
     # Assert: generate_artifact_inventory was called exactly once
     assert len(inventory_calls) == 1, f"Expected 1 generate_artifact_inventory call, got {len(inventory_calls)}"
     assert inventory_calls[0] == hub, f"Expected hub={hub}, got: {inventory_calls[0]}"
+
+    # Assert: stdout contains artifact_inventory.txt path (TYPE-PATH-001, DATA-001)
+    assert "analysis/artifact_inventory.txt" in stdout, \
+        f"Expected success banner to contain 'analysis/artifact_inventory.txt', but stdout was:\n{stdout}"
