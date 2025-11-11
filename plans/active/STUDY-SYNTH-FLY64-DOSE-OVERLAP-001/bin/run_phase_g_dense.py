@@ -665,6 +665,177 @@ def summarize_phase_g_outputs(hub: Path) -> None:
     print(f"[summarize_phase_g_outputs] Wrote Markdown summary: {md_summary_path}")
 
 
+def persist_delta_highlights(
+    aggregate_metrics: dict,
+    output_dir: Path,
+    hub: Path
+) -> dict:
+    """
+    Compute and persist metric deltas (PtychoPINN vs Baseline/PtyChi) with correct precision.
+
+    Creates two output files:
+    1. metrics_delta_highlights.txt - Full highlights with amplitude+phase (4 lines)
+    2. metrics_delta_highlights_preview.txt - Phase-only preview (4 lines)
+    3. metrics_delta_summary.json - Structured numeric deltas
+
+    Precision requirements:
+    - MS-SSIM: ±0.000 (3 decimals)
+    - MAE: ±0.000000 (6 decimals)
+
+    Args:
+        aggregate_metrics: Dict with PtychoPINN/Baseline/PtyChi metrics
+        output_dir: Directory to write output files (TYPE-PATH-001: must be POSIX-relative to hub)
+        hub: Hub root path for computing relative paths
+
+    Returns:
+        delta_summary: Dict with structure matching metrics_delta_summary.json spec
+            {
+                "generated_at": "2025-11-11T00:33:51Z",
+                "source_metrics": "analysis/metrics_summary.json",
+                "deltas": {
+                    "vs_Baseline": {
+                        "ms_ssim": {"amplitude": float, "phase": float},
+                        "mae": {"amplitude": float, "phase": float}
+                    },
+                    "vs_PtyChi": {...}
+                }
+            }
+
+    Follows TYPE-PATH-001 (POSIX paths), STUDY-001 (phase emphasis), TEST-CLI-001 (preview parity).
+    """
+    from datetime import datetime, timezone
+
+    # Extract model metrics
+    pinn = aggregate_metrics.get("PtychoPINN", {})
+    baseline = aggregate_metrics.get("Baseline", {})
+    ptychi = aggregate_metrics.get("PtyChi", {})
+
+    pinn_ms = pinn.get("ms_ssim", {})
+    base_ms = baseline.get("ms_ssim", {})
+    pty_ms = ptychi.get("ms_ssim", {})
+
+    pinn_mae = pinn.get("mae", {})
+    base_mae = baseline.get("mae", {})
+    pty_mae = ptychi.get("mae", {})
+
+    # Helper to compute formatted delta with metric-specific precision
+    def compute_delta_ms_ssim(pinn_val, other_val):
+        """MS-SSIM delta with ±0.000 precision (3 decimals)."""
+        if pinn_val is None or other_val is None:
+            return "N/A"
+        delta = pinn_val - other_val
+        return f"{delta:+.3f}"
+
+    def compute_delta_mae(pinn_val, other_val):
+        """MAE delta with ±0.000000 precision (6 decimals)."""
+        if pinn_val is None or other_val is None:
+            return "N/A"
+        delta = pinn_val - other_val
+        return f"{delta:+.6f}"
+
+    # Helper to get raw numeric delta (None if either value is missing)
+    def compute_numeric_delta(pinn_val, other_val):
+        if pinn_val is None or other_val is None:
+            return None
+        return pinn_val - other_val
+
+    # Compute MS-SSIM deltas (higher is better → positive delta is good for PtychoPINN)
+    delta_ms_base_amp = compute_delta_ms_ssim(pinn_ms.get("mean_amplitude"), base_ms.get("mean_amplitude"))
+    delta_ms_base_phase = compute_delta_ms_ssim(pinn_ms.get("mean_phase"), base_ms.get("mean_phase"))
+    delta_ms_pty_amp = compute_delta_ms_ssim(pinn_ms.get("mean_amplitude"), pty_ms.get("mean_amplitude"))
+    delta_ms_pty_phase = compute_delta_ms_ssim(pinn_ms.get("mean_phase"), pty_ms.get("mean_phase"))
+
+    # Compute MAE deltas (lower is better → negative delta is good for PtychoPINN)
+    delta_mae_base_amp = compute_delta_mae(pinn_mae.get("mean_amplitude"), base_mae.get("mean_amplitude"))
+    delta_mae_base_phase = compute_delta_mae(pinn_mae.get("mean_phase"), base_mae.get("mean_phase"))
+    delta_mae_pty_amp = compute_delta_mae(pinn_mae.get("mean_amplitude"), pty_mae.get("mean_amplitude"))
+    delta_mae_pty_phase = compute_delta_mae(pinn_mae.get("mean_phase"), pty_mae.get("mean_phase"))
+
+    # Build full highlights lines (amplitude + phase, 4 lines)
+    highlights_lines = [
+        f"MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude {delta_ms_base_amp}  phase {delta_ms_base_phase}",
+        f"MS-SSIM Δ (PtychoPINN - PtyChi)    : amplitude {delta_ms_pty_amp}  phase {delta_ms_pty_phase}",
+        f"MAE Δ (PtychoPINN - Baseline)      : amplitude {delta_mae_base_amp}  phase {delta_mae_base_phase}",
+        f"MAE Δ (PtychoPINN - PtyChi)        : amplitude {delta_mae_pty_amp}  phase {delta_mae_pty_phase}",
+    ]
+
+    # Build preview lines (phase-only, 4 lines)
+    preview_lines = [
+        f"MS-SSIM Δ (PtychoPINN - Baseline): {delta_ms_base_phase}",
+        f"MS-SSIM Δ (PtychoPINN - PtyChi): {delta_ms_pty_phase}",
+        f"MAE Δ (PtychoPINN - Baseline): {delta_mae_base_phase}",
+        f"MAE Δ (PtychoPINN - PtyChi): {delta_mae_pty_phase}",
+    ]
+
+    # Write highlights.txt (TYPE-PATH-001)
+    highlights_txt_path = Path(output_dir) / "metrics_delta_highlights.txt"
+    with highlights_txt_path.open("w", encoding="utf-8") as f:
+        f.write("\n".join(highlights_lines) + "\n")
+
+    # Write preview.txt (TYPE-PATH-001)
+    preview_txt_path = Path(output_dir) / "metrics_delta_highlights_preview.txt"
+    with preview_txt_path.open("w", encoding="utf-8") as f:
+        f.write("\n".join(preview_lines) + "\n")
+
+    # Build JSON structure with raw numeric deltas plus provenance metadata
+    utc_now = datetime.now(timezone.utc)
+    generated_at = utc_now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Compute relative path from hub to metrics_summary.json (TYPE-PATH-001: relative POSIX serialization)
+    metrics_summary_path = Path(output_dir) / "metrics_summary.json"
+    source_metrics_rel = metrics_summary_path.relative_to(hub).as_posix()
+
+    delta_summary = {
+        "generated_at": generated_at,
+        "source_metrics": source_metrics_rel,
+        "deltas": {
+            "vs_Baseline": {
+                "ms_ssim": {
+                    "amplitude": compute_numeric_delta(
+                        pinn_ms.get("mean_amplitude"), base_ms.get("mean_amplitude")
+                    ),
+                    "phase": compute_numeric_delta(
+                        pinn_ms.get("mean_phase"), base_ms.get("mean_phase")
+                    )
+                },
+                "mae": {
+                    "amplitude": compute_numeric_delta(
+                        pinn_mae.get("mean_amplitude"), base_mae.get("mean_amplitude")
+                    ),
+                    "phase": compute_numeric_delta(
+                        pinn_mae.get("mean_phase"), base_mae.get("mean_phase")
+                    )
+                }
+            },
+            "vs_PtyChi": {
+                "ms_ssim": {
+                    "amplitude": compute_numeric_delta(
+                        pinn_ms.get("mean_amplitude"), pty_ms.get("mean_amplitude")
+                    ),
+                    "phase": compute_numeric_delta(
+                        pinn_ms.get("mean_phase"), pty_ms.get("mean_phase")
+                    )
+                },
+                "mae": {
+                    "amplitude": compute_numeric_delta(
+                        pinn_mae.get("mean_amplitude"), pty_mae.get("mean_amplitude")
+                    ),
+                    "phase": compute_numeric_delta(
+                        pinn_mae.get("mean_phase"), pty_mae.get("mean_phase")
+                    )
+                }
+            }
+        }
+    }
+
+    # Write JSON with indentation for readability (TYPE-PATH-001)
+    delta_json_path = Path(output_dir) / "metrics_delta_summary.json"
+    with delta_json_path.open("w", encoding="utf-8") as f:
+        json.dump(delta_summary, f, indent=2)
+
+    return delta_summary
+
+
 def main() -> int:
     """CLI entry point for Phase C→G dense execution orchestrator."""
     parser = argparse.ArgumentParser(
@@ -963,7 +1134,7 @@ def main() -> int:
     print("[run_phase_g_dense] Key Metrics Deltas (PtychoPINN vs Baselines)")
     print("=" * 80 + "\n")
 
-    # Load metrics_summary.json to compute deltas
+    # Load metrics_summary.json to compute deltas using the helper
     metrics_summary_path = Path(phase_g_root) / "metrics_summary.json"
     if not metrics_summary_path.exists():
         print(f"Warning: metrics_summary.json not found at {metrics_summary_path}, skipping delta summary")
@@ -975,126 +1146,34 @@ def main() -> int:
 
             # Extract aggregate_metrics for delta computation
             agg = summary_data.get("aggregate_metrics", {})
-            pinn = agg.get("PtychoPINN", {})
-            baseline = agg.get("Baseline", {})
-            ptychi = agg.get("PtyChi", {})
 
-            # Helper to compute delta with 3-decimal formatting and sign
-            def compute_delta(pinn_val, other_val):
-                if pinn_val is None or other_val is None:
-                    return "N/A"
-                delta = pinn_val - other_val
-                return f"{delta:+.3f}"
+            # Call helper to persist delta highlights + preview + JSON (returns delta_summary)
+            delta_summary = persist_delta_highlights(
+                aggregate_metrics=agg,
+                output_dir=Path(phase_g_root),
+                hub=hub
+            )
 
-            # MS-SSIM deltas (higher is better → positive delta is good for PtychoPINN)
-            pinn_ms = pinn.get("ms_ssim", {})
-            base_ms = baseline.get("ms_ssim", {})
-            pty_ms = ptychi.get("ms_ssim", {})
+            # Read back the highlights file to print to stdout
+            highlights_txt_path = Path(phase_g_root) / "metrics_delta_highlights.txt"
+            with highlights_txt_path.open("r", encoding="utf-8") as f:
+                highlights_content = f.read()
 
-            delta_ms_base_amp = compute_delta(pinn_ms.get("mean_amplitude"), base_ms.get("mean_amplitude"))
-            delta_ms_base_phase = compute_delta(pinn_ms.get("mean_phase"), base_ms.get("mean_phase"))
-            delta_ms_pty_amp = compute_delta(pinn_ms.get("mean_amplitude"), pty_ms.get("mean_amplitude"))
-            delta_ms_pty_phase = compute_delta(pinn_ms.get("mean_phase"), pty_ms.get("mean_phase"))
-
-            # MAE deltas (lower is better → negative delta is good for PtychoPINN)
-            pinn_mae = pinn.get("mae", {})
-            base_mae = baseline.get("mae", {})
-            pty_mae = ptychi.get("mae", {})
-
-            delta_mae_base_amp = compute_delta(pinn_mae.get("mean_amplitude"), base_mae.get("mean_amplitude"))
-            delta_mae_base_phase = compute_delta(pinn_mae.get("mean_phase"), base_mae.get("mean_phase"))
-            delta_mae_pty_amp = compute_delta(pinn_mae.get("mean_amplitude"), pty_mae.get("mean_amplitude"))
-            delta_mae_pty_phase = compute_delta(pinn_mae.get("mean_phase"), pty_mae.get("mean_phase"))
-
-            # Print delta block (4 lines: MS-SSIM vs Baseline/PtyChi, MAE vs Baseline/PtyChi)
-            print(f"MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude {delta_ms_base_amp}  phase {delta_ms_base_phase}")
-            print(f"MS-SSIM Δ (PtychoPINN - PtyChi)    : amplitude {delta_ms_pty_amp}  phase {delta_ms_pty_phase}")
-            print(f"MAE Δ (PtychoPINN - Baseline)      : amplitude {delta_mae_base_amp}  phase {delta_mae_base_phase}")
-            print(f"MAE Δ (PtychoPINN - PtyChi)        : amplitude {delta_mae_pty_amp}  phase {delta_mae_pty_phase}")
+            # Print delta block to stdout (4 lines read from file)
+            print(highlights_content, end="")
             print("\nNote: For MS-SSIM, positive Δ indicates PtychoPINN is better (higher similarity).")
             print("      For MAE, negative Δ indicates PtychoPINN is better (lower error).")
             print("=" * 80 + "\n")
 
-            # Persist delta highlights to text file (TYPE-PATH-001)
-            highlights_txt_path = Path(phase_g_root) / "metrics_delta_highlights.txt"
-            highlights_lines = [
-                f"MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude {delta_ms_base_amp}  phase {delta_ms_base_phase}",
-                f"MS-SSIM Δ (PtychoPINN - PtyChi)    : amplitude {delta_ms_pty_amp}  phase {delta_ms_pty_phase}",
-                f"MAE Δ (PtychoPINN - Baseline)      : amplitude {delta_mae_base_amp}  phase {delta_mae_base_phase}",
-                f"MAE Δ (PtychoPINN - PtyChi)        : amplitude {delta_mae_pty_amp}  phase {delta_mae_pty_phase}",
-            ]
-            with highlights_txt_path.open("w", encoding="utf-8") as f:
-                f.write("\n".join(highlights_lines) + "\n")
-
             print(f"Delta highlights saved to: {highlights_txt_path.relative_to(hub)}")
 
-            # Persist delta metrics to JSON (TYPE-PATH-001)
+            # Announce preview file (TYPE-PATH-001)
+            preview_txt_path = Path(phase_g_root) / "metrics_delta_highlights_preview.txt"
+            if preview_txt_path.exists():
+                print(f"Delta highlights preview (phase-only) saved to: {preview_txt_path.relative_to(hub)}")
+
+            # Announce JSON file (TYPE-PATH-001)
             delta_json_path = Path(phase_g_root) / "metrics_delta_summary.json"
-
-            # Helper to get raw numeric delta (None if either value is missing)
-            def compute_numeric_delta(pinn_val, other_val):
-                if pinn_val is None or other_val is None:
-                    return None
-                return pinn_val - other_val
-
-            # Build JSON structure with raw numeric deltas (not formatted strings) plus provenance metadata
-            from datetime import datetime, timezone
-
-            # Generate UTC timestamp for provenance (TYPE-PATH-001: deterministic timezone)
-            utc_now = datetime.now(timezone.utc)
-            generated_at = utc_now.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-            # Compute relative path from hub to metrics_summary.json (TYPE-PATH-001: relative POSIX serialization)
-            metrics_summary_path = Path(phase_g_root) / "metrics_summary.json"
-            source_metrics_rel = metrics_summary_path.relative_to(hub).as_posix()
-
-            delta_summary = {
-                "generated_at": generated_at,
-                "source_metrics": source_metrics_rel,
-                "deltas": {
-                    "vs_Baseline": {
-                        "ms_ssim": {
-                            "amplitude": compute_numeric_delta(
-                                pinn_ms.get("mean_amplitude"), base_ms.get("mean_amplitude")
-                            ),
-                            "phase": compute_numeric_delta(
-                                pinn_ms.get("mean_phase"), base_ms.get("mean_phase")
-                            )
-                        },
-                        "mae": {
-                            "amplitude": compute_numeric_delta(
-                                pinn_mae.get("mean_amplitude"), base_mae.get("mean_amplitude")
-                            ),
-                            "phase": compute_numeric_delta(
-                                pinn_mae.get("mean_phase"), base_mae.get("mean_phase")
-                            )
-                        }
-                    },
-                    "vs_PtyChi": {
-                        "ms_ssim": {
-                            "amplitude": compute_numeric_delta(
-                                pinn_ms.get("mean_amplitude"), pty_ms.get("mean_amplitude")
-                            ),
-                            "phase": compute_numeric_delta(
-                                pinn_ms.get("mean_phase"), pty_ms.get("mean_phase")
-                            )
-                        },
-                        "mae": {
-                            "amplitude": compute_numeric_delta(
-                                pinn_mae.get("mean_amplitude"), pty_mae.get("mean_amplitude")
-                            ),
-                            "phase": compute_numeric_delta(
-                                pinn_mae.get("mean_phase"), pty_mae.get("mean_phase")
-                            )
-                        }
-                    }
-                }
-            }
-
-            # Write JSON with indentation for readability
-            with delta_json_path.open("w", encoding="utf-8") as f:
-                json.dump(delta_summary, f, indent=2)
-
             print(f"Delta metrics saved to: {delta_json_path.relative_to(hub)}")
 
         except (json.JSONDecodeError, KeyError, TypeError) as e:
@@ -1115,7 +1194,7 @@ def main() -> int:
     print(f"Metrics digest (Markdown): {metrics_digest_md}")
     print(f"Metrics digest log: {analyze_digest_log}")
 
-    # Add delta JSON and highlights to success banner (TYPE-PATH-001)
+    # Add delta JSON, highlights, and preview to success banner (TYPE-PATH-001)
     delta_json_path = Path(phase_g_root) / "metrics_delta_summary.json"
     if delta_json_path.exists():
         print(f"Delta metrics (JSON): {delta_json_path.relative_to(hub)}")
@@ -1123,6 +1202,10 @@ def main() -> int:
     metrics_delta_highlights_path = Path(phase_g_root) / "metrics_delta_highlights.txt"
     if metrics_delta_highlights_path.exists():
         print(f"Delta highlights (TXT): {metrics_delta_highlights_path.relative_to(hub)}")
+
+    metrics_delta_preview_path = Path(phase_g_root) / "metrics_delta_highlights_preview.txt"
+    if metrics_delta_preview_path.exists():
+        print(f"Delta highlights preview (phase-only, TXT): {metrics_delta_preview_path.relative_to(hub)}")
 
     return 0
 

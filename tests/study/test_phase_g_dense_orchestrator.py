@@ -1383,3 +1383,129 @@ def test_run_phase_g_dense_exec_runs_analyze_digest(tmp_path: Path, monkeypatch:
     # Assert: Success banner should mention metrics_delta_highlights.txt path (TYPE-PATH-001)
     assert "metrics_delta_highlights.txt" in stdout, \
         f"Expected success banner to mention metrics_delta_highlights.txt, got:\n{stdout}"
+
+
+def test_persist_delta_highlights_creates_preview(tmp_path: Path) -> None:
+    """
+    Test that persist_delta_highlights() creates both highlights.txt and preview.txt with correct precision.
+
+    Acceptance:
+    - Feeds synthetic aggregate metrics (PtychoPINN/Baseline/PtyChi) through the helper
+    - Asserts highlight lines contain signed values with correct precision:
+      * MS-SSIM: ±0.000 (3 decimals)
+      * MAE: ±0.000000 (6 decimals)
+    - Verifies preview file exists with four phase-only lines
+    - Checks returned numeric deltas (e.g., Baseline.mae.phase == -0.000025)
+    - Does NOT perform file I/O outside tmp_path (helper receives output_dir argument)
+
+    Follows input.md Do Now step 2 (TDD RED→GREEN for preview helper).
+    """
+    # Import the helper (it doesn't exist yet, so this will fail)
+    module = _import_orchestrator_module()
+    persist_delta_highlights = module.persist_delta_highlights
+
+    # Setup: Create synthetic aggregate metrics matching metrics_summary.json structure
+    aggregate_metrics = {
+        "PtychoPINN": {
+            "ms_ssim": {
+                "mean_amplitude": 0.950,
+                "mean_phase": 0.920
+            },
+            "mae": {
+                "mean_amplitude": 0.025000,
+                "mean_phase": 0.035000
+            }
+        },
+        "Baseline": {
+            "ms_ssim": {
+                "mean_amplitude": 0.940,
+                "mean_phase": 0.905
+            },
+            "mae": {
+                "mean_amplitude": 0.030000,
+                "mean_phase": 0.035025
+            }
+        },
+        "PtyChi": {
+            "ms_ssim": {
+                "mean_amplitude": 0.945,
+                "mean_phase": 0.912
+            },
+            "mae": {
+                "mean_amplitude": 0.027500,
+                "mean_phase": 0.035018
+            }
+        }
+    }
+
+    output_dir = tmp_path / "analysis"
+    output_dir.mkdir(parents=True)
+
+    # Execute: Call the helper (should write both txt files and return delta_summary dict)
+    delta_summary = persist_delta_highlights(
+        aggregate_metrics=aggregate_metrics,
+        output_dir=output_dir,
+        hub=tmp_path
+    )
+
+    # Assert: Verify highlights.txt exists with 4 lines (both amplitude and phase for each baseline)
+    highlights_txt_path = output_dir / "metrics_delta_highlights.txt"
+    assert highlights_txt_path.exists(), f"Expected highlights.txt at {highlights_txt_path}"
+    highlights_content = highlights_txt_path.read_text(encoding="utf-8")
+    highlights_lines = [line for line in highlights_content.strip().split("\n") if line]
+    assert len(highlights_lines) == 4, f"Expected 4 highlight lines, got {len(highlights_lines)}: {highlights_lines}"
+
+    # Assert: Check MS-SSIM precision (±0.000, 3 decimals)
+    # PtychoPINN - Baseline: ms_ssim.phase = 0.920 - 0.905 = 0.015 → +0.015
+    assert "MS-SSIM Δ (PtychoPINN - Baseline)  : amplitude +0.010  phase +0.015" in highlights_content, \
+        f"Expected MS-SSIM vs Baseline with ±0.000 precision, got:\n{highlights_content}"
+
+    # Assert: Check MAE precision (±0.000000, 6 decimals)
+    # PtychoPINN - Baseline: mae.phase = 0.035000 - 0.035025 = -0.000025 → -0.000025
+    assert "MAE Δ (PtychoPINN - Baseline)      : amplitude -0.005000  phase -0.000025" in highlights_content, \
+        f"Expected MAE vs Baseline with ±0.000000 precision, got:\n{highlights_content}"
+
+    # Assert: Check PtyChi deltas
+    # MS-SSIM: 0.920 - 0.912 = 0.008 → +0.008
+    assert "MS-SSIM Δ (PtychoPINN - PtyChi)    : amplitude +0.005  phase +0.008" in highlights_content, \
+        f"Expected MS-SSIM vs PtyChi with ±0.000 precision, got:\n{highlights_content}"
+
+    # MAE: 0.035000 - 0.035018 = -0.000018 → -0.000018
+    assert "MAE Δ (PtychoPINN - PtyChi)        : amplitude -0.002500  phase -0.000018" in highlights_content, \
+        f"Expected MAE vs PtyChi with ±0.000000 precision, got:\n{highlights_content}"
+
+    # Assert: Verify preview.txt exists with 4 phase-only lines
+    preview_txt_path = output_dir / "metrics_delta_highlights_preview.txt"
+    assert preview_txt_path.exists(), f"Expected preview.txt at {preview_txt_path}"
+    preview_content = preview_txt_path.read_text(encoding="utf-8")
+    preview_lines = [line for line in preview_content.strip().split("\n") if line]
+    assert len(preview_lines) == 4, f"Expected 4 preview lines (phase-only), got {len(preview_lines)}: {preview_lines}"
+
+    # Assert: Preview should contain phase deltas only (not amplitude)
+    assert "MS-SSIM Δ (PtychoPINN - Baseline): +0.015" in preview_content, \
+        f"Expected preview MS-SSIM vs Baseline phase: +0.015, got:\n{preview_content}"
+    assert "MS-SSIM Δ (PtychoPINN - PtyChi): +0.008" in preview_content, \
+        f"Expected preview MS-SSIM vs PtyChi phase: +0.008, got:\n{preview_content}"
+    assert "MAE Δ (PtychoPINN - Baseline): -0.000025" in preview_content, \
+        f"Expected preview MAE vs Baseline phase: -0.000025, got:\n{preview_content}"
+    assert "MAE Δ (PtychoPINN - PtyChi): -0.000018" in preview_content, \
+        f"Expected preview MAE vs PtyChi phase: -0.000018, got:\n{preview_content}"
+
+    # Assert: Preview should NOT contain "amplitude" keyword
+    assert "amplitude" not in preview_content.lower(), \
+        f"Expected preview to be phase-only (no 'amplitude'), got:\n{preview_content}"
+
+    # Assert: Verify JSON structure returned
+    assert delta_summary is not None, "Expected delta_summary dict to be returned"
+    assert "deltas" in delta_summary, f"Expected 'deltas' key in delta_summary, got: {delta_summary.keys()}"
+    assert "vs_Baseline" in delta_summary["deltas"], f"Expected 'vs_Baseline' in deltas, got: {delta_summary['deltas'].keys()}"
+    assert "vs_PtyChi" in delta_summary["deltas"], f"Expected 'vs_PtyChi' in deltas, got: {delta_summary['deltas'].keys()}"
+
+    # Assert: Check returned numeric deltas (raw floats, not formatted strings)
+    baseline_deltas = delta_summary["deltas"]["vs_Baseline"]
+    assert baseline_deltas["mae"]["phase"] == pytest.approx(-0.000025, abs=1e-9), \
+        f"Expected Baseline MAE phase delta == -0.000025, got: {baseline_deltas['mae']['phase']}"
+
+    ptychi_deltas = delta_summary["deltas"]["vs_PtyChi"]
+    assert ptychi_deltas["mae"]["phase"] == pytest.approx(-0.000018, abs=1e-9), \
+        f"Expected PtyChi MAE phase delta == -0.000018, got: {ptychi_deltas['mae']['phase']}"
