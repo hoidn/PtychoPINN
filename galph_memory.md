@@ -3248,3 +3248,18 @@
   - Provisioned new hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T005802Z/phase_g_dense_full_execution_real_run/` with {analysis,cli,collect,green,red,summary} plus plan scaffolding, updated docs/fix_plan.md and input.md, and authored a ready-for-implementation Do Now covering: validator preview-phase guard + new RED test, doc sync (TESTING_GUIDE + TEST_SUITE_INDEX), dense pipeline run with --clobber into the new hub, verifier/highlights checker, pytest collect-only evidence, and summary/doc updates with MS-SSIM/MAE deltas + CLI guard status.
 - Next actions for Ralph: ship the preview-phase-only validator/test + doc sync, execute the dense run under the new hub, run verifier + highlights checker + pytest selectors, and document MS-SSIM/MAE deltas plus guard results in summary/docs.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-11T012044Z: Preview guard follow-through plan
+- dwell: 1 (first planning loop after the 2025-11-11T005802Z ready_for_implementation hand-off)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T012044Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date.
+  - Reviewed commit 783c32aa and verified `validate_metrics_delta_highlights` now enforces phase-only previews; `tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude` exists at line ~1921.
+  - Confirmed docs/TESTING_GUIDE.md (§Phase G Delta Metrics Persistence) and docs/development/TEST_SUITE_INDEX.md still describe the old highlights-only format; no preview references yet.
+  - Inspected hub `reports/2025-11-11T005802Z/phase_g_dense_full_execution_real_run/` and found `{analysis,cli,green,red}` empty (no dense run evidence). Provisioned new hub 2025-11-11T012044Z with {analysis,cli,collect,green,red,summary,plan} and logged guard review in analysis/preview_guard_review.md.
+  - Updated docs/fix_plan.md (added 2025-11-11T011710Z implementation attempt + new 012044Z planning attempt) and rewrote plan.md/input.md to focus on doc sync + dense pipeline rerun + verifier/highlights evidence.
+- Next actions for Ralph: update docs, archive RED/GREEN logs for the preview guard, execute run_phase_g_dense.py under the new hub with AUTHORITATIVE_CMDS_DOC exported, run verifier/highlights parity, and capture MS-SSIM/MAE deltas + summary/docs updates.
+- <Action State>: [ready_for_implementation]
