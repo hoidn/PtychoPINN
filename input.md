@@ -1,69 +1,70 @@
-Summary: Add the missing delta-preview helper (correct precision + new pytest) and rerun the dense Phase G pipeline to capture verifier evidence under the 2025-11-11T003351Z hub.
+Summary: Harden the dense highlights verifier for phase-only previews, sync the docs, then rerun the dense Phase C→G pipeline under the 2025-11-11T005802Z hub with full verifier evidence.
 Mode: TDD
 Focus: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
 Branch: feature/torchapi-newprompt
-Mapped tests: pytest tests/study/test_phase_g_dense_orchestrator.py::test_persist_delta_highlights_creates_preview -vv; pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv; pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv; pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv
-Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T003351Z/phase_g_dense_full_execution_real_run/
+Mapped tests: pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude -vv; pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv; pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv; pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T005802Z/phase_g_dense_full_execution_real_run/
 
 Do Now (hard validity contract)
-- Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py::persist_delta_highlights — factor the inline delta formatter (lines 985-1058) into a helper that formats MS-SSIM with ±0.000 and MAE with ±0.000000, writes both `metrics_delta_highlights.txt` and the missing `metrics_delta_highlights_preview.txt`, and returns the structured `delta_summary` dict so `main()` can serialize JSON + stdout banners from the same data.
-- Implement: tests/study/test_phase_g_dense_orchestrator.py::test_persist_delta_highlights_creates_preview — add a RED→GREEN test that feeds synthetic aggregate metrics (PtychoPINN/Baseline/PtyChi) through the new helper, asserts the highlight lines contain signed values with correct precision, verifies the preview file exists with four phase-only lines, and checks the returned numeric deltas (e.g., Baseline.mae.phase == -0.000025).
-- Validate: run `pytest tests/study/test_phase_g_dense_orchestrator.py::test_persist_delta_highlights_creates_preview -vv`, `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv`, `pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv`, and `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv`, archiving logs under `$HUB`/{green,collect}.
-- Execute: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md and HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T003351Z/phase_g_dense_full_execution_real_run; mkdir -p "$HUB"/{analysis,cli,collect,green,red,summary}; python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense.log (require `[1/8]`→`[8/8]` and SUCCESS banner).
-- Verify: python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py --hub "$HUB" --report "$HUB"/analysis/pipeline_verification.json |& tee "$HUB"/analysis/verifier_cli.log; python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_dense_highlights_match.py --hub "$HUB" |& tee "$HUB"/analysis/highlights_check.log; pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights.log.
-- Document: summarize MS-SSIM/MAE deltas (phase emphasis), highlight preview/validator status, CLI log coverage, and artifact_inventory counts in "$HUB"/summary/summary.md; update docs/fix_plan.md Attempts History + galph Turn Summary with artifact links and note any new durable lessons.
+- Implement: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py::validate_metrics_delta_highlights — enforce preview-phase-only formatting (reject any preview line containing "amplitude" or missing the phase-only prefix), record violations in new metadata (`preview_phase_only`, `preview_format_errors`), and keep TYPE-PATH-001 compliant error payloads.
+- Implement: tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude — add a RED→GREEN test that injects amplitude text into the preview file and asserts the validator fails with the new metadata fields; update the GREEN coverage (`...highlights_complete`) to expect empty `preview_format_errors`.
+- Validate: run `pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude -vv`, `pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv`, `pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv`, and `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv`, archiving logs under `$HUB`/{red,green,collect}.
+- Execute: export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md and HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T005802Z/phase_g_dense_full_execution_real_run; ensure `$HUB`/{analysis,cli,collect,green,red,summary} exist; run `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense.log` and wait for `[8/8]` SUCCESS.
+- Verify: `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py --hub "$HUB" --report "$HUB"/analysis/pipeline_verification.json |& tee "$HUB"/analysis/verifier_cli.log`, `python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_dense_highlights_match.py --hub "$HUB" |& tee "$HUB"/analysis/highlights_check.log`, and `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights_post_run.log` for evidence.
+- Document: update `$HUB`/summary/summary.md with MS-SSIM/MAE (phase emphasis) deltas, CLI/verifier status, highlight preview guard results, and artifact inventory counts; refresh docs/TESTING_GUIDE.md and docs/development/TEST_SUITE_INDEX.md for the preview artifact + new selector, then update docs/fix_plan.md and galph Turn Summary with links + lessons.
 
 How-To Map
 1. export AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md
-2. export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T003351Z/phase_g_dense_full_execution_real_run
+2. export HUB=$PWD/plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T005802Z/phase_g_dense_full_execution_real_run
 3. mkdir -p "$HUB"/{analysis,cli,collect,green,red,summary}
-4. pytest tests/study/test_phase_g_dense_orchestrator.py::test_persist_delta_highlights_creates_preview -vv | tee "$HUB"/red/pytest_delta_preview_helper_red.log || true
-5. Implement the helper + test changes (keep helper pure so tests can import it).
-6. pytest tests/study/test_phase_g_dense_orchestrator.py::test_persist_delta_highlights_creates_preview -vv | tee "$HUB"/green/pytest_delta_preview_helper_green.log
-7. pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv | tee "$HUB"/green/pytest_orchestrator_exec.log
-8. pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv | tee "$HUB"/green/pytest_highlights_complete.log
-9. pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights.log
+4. pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude -vv | tee "$HUB"/red/pytest_preview_guard_red.log || true
+5. Edit plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py and tests/study/test_phase_g_dense_artifacts_verifier.py per Do Now (preview-phase guard + new RED fixture) and capture doc updates after tests pass.
+6. pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_preview_contains_amplitude -vv | tee "$HUB"/green/pytest_preview_guard_green.log
+7. pytest tests/study/test_phase_g_dense_artifacts_verifier.py::test_verify_dense_pipeline_highlights_complete -vv | tee "$HUB"/green/pytest_highlights_complete.log
+8. pytest tests/study/test_phase_g_dense_orchestrator.py::test_run_phase_g_dense_exec_runs_analyze_digest -vv | tee "$HUB"/green/pytest_orchestrator_digest.log
+9. pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights_pre_run.log
 10. python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py --hub "$HUB" --dose 1000 --view dense --splits train test --clobber |& tee "$HUB"/cli/run_phase_g_dense.log
 11. python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py --hub "$HUB" --report "$HUB"/analysis/pipeline_verification.json |& tee "$HUB"/analysis/verifier_cli.log
 12. python plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/check_dense_highlights_match.py --hub "$HUB" |& tee "$HUB"/analysis/highlights_check.log
-13. pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights_after_run.log
-14. Update "$HUB"/summary/summary.md plus docs/fix_plan.md and galph_memory.md; attach Turn Summary + artifact inventory snapshot.
+13. pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv | tee "$HUB"/collect/pytest_collect_highlights_post_run.log
+14. Update docs/TESTING_GUIDE.md (Phase G delta section) and docs/development/TEST_SUITE_INDEX.md (Phase G entry) to describe the preview artifact + new selector; capture diffs referencing the new guard.
+15. Summarize MS-SSIM/MAE deltas, guard status, CLI evidence, and artifact inventory counts in "$HUB"/summary/summary.md; update docs/fix_plan.md + galph Turn Summary with artifact links.
 
 Pitfalls To Avoid
-- Do not bypass `AUTHORITATIVE_CMDS_DOC`; CONFIG-001 requires the bridge before any legacy import.
-- Keep hub-relative POSIX paths when writing inventory/previews (TYPE-PATH-001 guard + verifier rely on them).
-- Preview lines must include the formatted phase deltas; leaving them out will fail `missing_preview_values`.
-- Apply metric-specific precision: MS-SSIM → ±0.000, MAE → ±0.000000 (both amplitude + phase) or the validator + checker will remain RED.
-- Avoid reusing the old 2025-11-11T001033Z hub; all new artifacts belong under 2025-11-11T003351Z.
-- Watch long-running pipeline logs for early blockers; if `[8/8]` never appears, stop and capture blocker evidence instead of rerunning blindly.
-- No package installs or env tweaks (Environment Freeze); resolve issues inside repo only.
-- Keep new helper purely functional so unit tests stay fast; no file I/O in the test beyond the helper output directory.
+- Do not allow preview lines to include "amplitude" or extra tokens (verification must fail loudly on mixed content).
+- Keep AUTHORITATIVE_CMDS_DOC exported before running orchestrator/verifier to satisfy CONFIG-001.
+- Maintain POSIX-relative paths in inventory and metadata (TYPE-PATH-001); avoid `Path.resolve()` when serializing JSON entries.
+- When editing tests, re-run the RED fixture before claiming GREEN evidence (TDD guard).
+- The dense pipeline is long-running; monitor `[n/8]` progress and capture blockers immediately instead of rerunning blindly.
+- Never edit Phase C NPZ outputs or generated CLI logs; rely on validators and re-runs for correctness.
+- CLI log filenames must retain the dose/view suffixes spelled out in TEST-CLI-001; do not collapse them into generic names.
+- Keep doc updates aligned with actual behavior (MAE precision ±0.000000, preview artifact now required) to avoid spec drift.
 
 If Blocked
-- If the new helper test still fails after implementation (e.g., precision mismatch), capture the pytest output under `$HUB/red/` and update docs/fix_plan.md with the failure signature before stopping.
-- If the dense pipeline aborts mid-phase, archive `$HUB/cli/run_phase_g_dense.log` plus the offending phase log, summarize blocker details in `$HUB/summary/summary.md`, and mark the focus blocked in docs/fix_plan.md so the supervisor can triage.
+- If the new preview-phase guard keeps failing, archive the failing pytest log under `$HUB`/red/ with the assertion message, capture the offending preview snippet, and update docs/fix_plan.md Attempts History plus summary.md with the failure signature before pausing the loop.
+- If the dense pipeline aborts mid-phase, stop immediately, save `$HUB`/cli/run_phase_g_dense.log` plus the specific phase log, and log the blocker (phase name, exit code) inside `$HUB`/summary/summary.md and docs/fix_plan.md; enter blocked status only after recording evidence.
 
 Findings Applied (Mandatory)
-- POLICY-001 — PyTorch backend remains mandatory for PtyChi comparisons; no skipping torch deps.
-- CONFIG-001 — Run orchestrator + helper scripts with AUTHORITATIVE_CMDS_DOC exported so legacy modules see synchronized params.
-- DATA-001 — Trust generated Phase C NPZs; do not hand-edit diffraction/object data when debugging highlights.
-- TYPE-PATH-001 — All hub artifacts must stay POSIX-relative (inventory + verifier expect this).
-- STUDY-001 — Report MS-SSIM/MAE deltas (phase emphasis) with explicit signs when summarizing results.
-- TEST-CLI-001 — Preview + highlights must align in content/precision so CLI validation fails fast on regressions.
+- POLICY-001 — PtyChi reconstruction inside run_phase_g_dense.py still depends on torch>=2.2; keep the environment torch-enabled.
+- CONFIG-001 — Export AUTHORITATIVE_CMDS_DOC so legacy consumers observe synchronized params before data/model work.
+- DATA-001 — Phase C datasets remain authoritative; diagnose via validators instead of editing NPZ contents.
+- TYPE-PATH-001 — Inventory, JSON metadata, and preview/highlights paths must remain POSIX-relative for downstream tooling.
+- STUDY-001 — Report MS-SSIM/MAE deltas with explicit signs and phase emphasis inside summary.md + doc updates.
+- TEST-CLI-001 — CLI log + preview/highlights guards must enforce real filename patterns and sentinel strings so regressions fail fast.
 
 Pointers
-- docs/findings.md:16 — STUDY-001 reporting rules for MS-SSIM/MAE deltas.
-- docs/findings.md:23 — TEST-CLI-001 preview/log enforcement details.
-- docs/TESTING_GUIDE.md:320 — Phase G delta artifact expectations + orchestrator usage.
-- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:985 — current inline highlight formatter to be refactored.
-- tests/study/test_phase_g_dense_artifacts_verifier.py:2108 — preview/precision expectations that the helper must satisfy.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py:309 — current `validate_metrics_delta_highlights` gap (no preview-phase-only enforcement).
+- tests/study/test_phase_g_dense_artifacts_verifier.py:1756 — existing RED test for missing preview file (extend nearby to cover amplitude contamination).
+- docs/TESTING_GUIDE.md:331 — Phase G delta persistence spec needs precision + preview updates.
+- docs/development/TEST_SUITE_INDEX.md:62 — Phase G orchestrator test registry entry to expand with the new selector.
+- plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_g_dense.py:1151 — call site where `persist_delta_highlights` returns `delta_summary` referenced by verifier.
 
 Next Up (optional)
-1. After dense run evidence lands, schedule the sparse-view pipeline for parity.
-2. Extend highlights checker to emit CSV so future regressions can diff numeric deltas automatically.
+1. After dense evidence lands, queue the sparse-view pipeline run plus verifier coverage using the same preview guard.
+2. Extend `check_dense_highlights_match.py` to emit a CSV/JSON summary for highlights vs preview parity to aid regression diffing.
 
 Doc Sync Plan (Conditional)
-- After the new pytest lands, append the helper/test entry to docs/development/TEST_SUITE_INDEX.md (Phase G section) and mention the preview artifact workflow in docs/TESTING_GUIDE.md if wording changes; run `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv` (already mapped) and archive the log under `$HUB`/collect/ for traceability before updating docs.
+- Once the preview guard + tests pass, run `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv` (logs already mapped) and update `docs/TESTING_GUIDE.md` §"Phase G Delta Metrics Persistence" plus `docs/development/TEST_SUITE_INDEX.md` to describe the preview artifact + new selector. Archive the collect-only log under `$HUB`/collect/ and reference the doc diffs in summary.md.
 
 Mapped Tests Guardrail
-- Keep `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv` GREEN; if collection fails after code changes, stop and fix (or document the block) before claiming the loop complete.
+- `pytest --collect-only tests/study/test_phase_g_dense_artifacts_verifier.py -vv` must collect (>0 tests). If collection breaks after changes, stop and fix (or document the block) before marking the loop complete; no downgrade without justification.

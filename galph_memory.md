@@ -3235,3 +3235,16 @@
   - Created new hub `2025-11-11T003351Z` with plan/summary scaffolding, updated docs/fix_plan.md + input.md, and added a Do Now that forces a reusable helper + pytest before rerunning the dense pipeline + verifier (AUTHORITATIVE_CMDS_DOC guard captured).
 - Next actions for Ralph: implement the helper + test, rerun targeted pytest selectors, execute the dense run into the new hub, pass the verifier/highlights checker, and archive summary/docs with MS-SSIM/MAE deltas and CLI evidence.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-11T005802Z: Preview-phase guard plan + dense rerun hand-off
+- dwell: 0 (helper/test implementation landed after the 2025-11-11T003351Z plan; resetting with a fresh ready_for_implementation Do Now)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: TDD
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T005802Z/phase_g_dense_full_execution_real_run/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; reviewed docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001) plus the 2025-11-11T003351Z plan and helper commit d6029656 to confirm preview.txt now ships with phase-only lines and MAE ±0.000000 precision.
+  - Audited `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/verify_dense_pipeline_artifacts.py::validate_metrics_delta_highlights` (lines 309-481) and found it still passes preview files that include `amplitude`, so the phase-only requirement lacks enforcement; also noted docs/TESTING_GUIDE.md still claims “Signed 3-decimal formatting for all deltas” and never documents the preview artifact.
+  - Provisioned new hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-11T005802Z/phase_g_dense_full_execution_real_run/` with {analysis,cli,collect,green,red,summary} plus plan scaffolding, updated docs/fix_plan.md and input.md, and authored a ready-for-implementation Do Now covering: validator preview-phase guard + new RED test, doc sync (TESTING_GUIDE + TEST_SUITE_INDEX), dense pipeline run with --clobber into the new hub, verifier/highlights checker, pytest collect-only evidence, and summary/doc updates with MS-SSIM/MAE deltas + CLI guard status.
+- Next actions for Ralph: ship the preview-phase-only validator/test + doc sync, execute the dense run under the new hub, run verifier + highlights checker + pytest selectors, and document MS-SSIM/MAE deltas plus guard results in summary/docs.
+- <Action State>: [ready_for_implementation]
