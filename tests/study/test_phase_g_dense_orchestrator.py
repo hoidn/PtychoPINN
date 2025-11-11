@@ -1996,6 +1996,23 @@ def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monke
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text(f"Stub log for: {' '.join(str(c) for c in cmd)}\n", encoding="utf-8")
 
+        # Create expected output files based on command type
+        cmd_str = " ".join(str(c) for c in cmd)
+        if "ssim_grid.py" in cmd_str:
+            # Create SSIM grid summary
+            ssim_summary = phase_g_root / "ssim_grid_summary.md"
+            ssim_summary.write_text("# SSIM Grid Summary\nStub SSIM grid content\n", encoding="utf-8")
+        elif "verify_dense_pipeline_artifacts.py" in cmd_str:
+            # Create verification report and log
+            verify_report = phase_g_root / "verification_report.json"
+            verify_report.write_text('{"status": "stub"}', encoding="utf-8")
+            verify_log = phase_g_root / "verify_dense_stdout.log"
+            verify_log.write_text("Stub verification log\n", encoding="utf-8")
+        elif "check_dense_highlights_match.py" in cmd_str:
+            # Create highlights check log
+            check_log = phase_g_root / "check_dense_highlights.log"
+            check_log.write_text("Stub highlights check log\n", encoding="utf-8")
+
     # Record generate_artifact_inventory invocations
     inventory_calls = []
 
@@ -2049,3 +2066,19 @@ def test_run_phase_g_dense_post_verify_only_executes_chain(tmp_path: Path, monke
         f"Expected success banner to contain 'CLI logs: cli' (hub-relative), but stdout was:\n{stdout}"
     assert "Analysis outputs: analysis" in stdout, \
         f"Expected success banner to contain 'Analysis outputs: analysis' (hub-relative), but stdout was:\n{stdout}"
+
+    # Assert: stdout contains SSIM Grid summary and log paths (TYPE-PATH-001, TEST-CLI-001)
+    assert "SSIM Grid Summary (phase-only): analysis/ssim_grid_summary.md" in stdout, \
+        f"Expected success banner to contain SSIM Grid Summary path, but stdout was:\n{stdout}"
+    assert "SSIM Grid log: cli/ssim_grid_cli.log" in stdout, \
+        f"Expected success banner to contain SSIM Grid log path, but stdout was:\n{stdout}"
+
+    # Assert: stdout contains verification report and log paths (TYPE-PATH-001, TEST-CLI-001)
+    assert "Verification report: analysis/verification_report.json" in stdout, \
+        f"Expected success banner to contain Verification report path, but stdout was:\n{stdout}"
+    assert "Verification log: analysis/verify_dense_stdout.log" in stdout, \
+        f"Expected success banner to contain Verification log path, but stdout was:\n{stdout}"
+
+    # Assert: stdout contains highlights check log path (TYPE-PATH-001, TEST-CLI-001)
+    assert "Highlights check log: analysis/check_dense_highlights.log" in stdout, \
+        f"Expected success banner to contain Highlights check log path, but stdout was:\n{stdout}"
