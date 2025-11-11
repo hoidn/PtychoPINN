@@ -1,4 +1,10 @@
 ### Turn Summary
+Reality check shows the highlights checker + verifier updates already merged, so we re-scoped this focus to wiring post-verify automation into `run_phase_g_dense.py` plus executing the counted dense run inside the existing hub.
+Updated plan.md, docs/fix_plan.md, input.md, and galph_memory with a ready-for-implementation Do Now that adds the post-verify flag/tests, runs the pipeline with `--clobber`, and captures verifier/highlights evidence + MS-SSIM/MAE deltas under 2025-11-12T010500Z.
+Next: implement the automation/tests, run the dense pipeline (post-verify on), archive verifier/highlights logs + JSON report, and roll the metrics + ledger/doc updates into this hub.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (plan/plan.md, summary/summary.md)
+
+### Turn Summary
 Reality check confirmed the helper/verifier/docs already landed, so we re-scoped this focus to a highlights checker upgrade plus a counted dense Phase C→G run in the existing hub.
 Updated plan.md, docs/fix_plan.md, and input.md with the new checker/tests + run/verifier commands while keeping artifacts rooted at 2025-11-12T010500Z.
 Next: implement the checker/tests, run `run_phase_g_dense.py --clobber`, and capture verifier/checker + MS-SSIM/MAE evidence under this hub.

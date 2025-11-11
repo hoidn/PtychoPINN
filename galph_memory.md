@@ -3320,3 +3320,17 @@
   - Updated reports/2025-11-12T010500Z/plan/plan.md, docs/fix_plan.md (Last Updated s=255), input.md, and summary/summary.md to direct Ralph toward upgrading `check_dense_highlights_match.py`, adding a new pytest module, and executing the dense run/verification inside the existing hub; AUTHORITATIVE_CMDS_DOC export captured in How-To Map.
 - Next actions for Ralph: implement the SSIM-grid-aware highlights checker + tests, run `pytest --collect-only ...` and the new selectors with logs in {collect,red,green}/, execute `run_phase_g_dense.py --clobber` for dose 1000 dense view into this hub, then run `verify_dense_pipeline_artifacts.py` + the upgraded checker and document MS-SSIM/MAE deltas + doc/test updates.
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T050500Z: Post-verify automation plan + counted dense run hand-off
+- dwell: 2 (third consecutive planning loop; issuing another ready_for_implementation Do Now per dwell guard)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; exported AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md for downstream commands.
+  - Re-read docs/findings.md (POLICY-001, CONFIG-001, DATA-001, TYPE-PATH-001, STUDY-001, TEST-CLI-001, PREVIEW-PHASE-001, PHASEC-METADATA-001), docs/index.md, and confirmed docs/prompt_sources_map.json is still absent.
+  - Verified via `git log`/artifact sweep that `check_dense_highlights_match.py` + tests already implement the SSIM grid summary guard and that `verify_dense_pipeline_artifacts.py`/docs now require the helper, yet the 2025-11-12 hub still lacks `{analysis,cli}` payloads because no dense run executed after those commits.
+  - Updated plan.md, summary/summary.md (new Turn Summary), docs/fix_plan.md (Latest Attempt 2025-11-12T050500Z, Last Updated s=256), and input.md to re-scope the focus: add a default-on post-verify hook to `run_phase_g_dense.py`, extend `tests/study/test_phase_g_dense_orchestrator.py`, then run the counted dense pipeline with `--clobber` so the hub finally captures Phase C→G artifacts + verifier/highlights evidence.
+- Next actions for Ralph: implement the post-verify flag + automation in `run_phase_g_dense.py`, add the new orchestrator test coverage, run the mapped pytest selectors (collect + exec) with logs under `$HUB`, execute the dense pipeline with post-verify on, capture verifier/highlights logs + MS-SSIM/MAE deltas in summary/docs, and log everything in docs/fix_plan.md + galph_memory.
+- <Action State>: [ready_for_implementation]
