@@ -1,6 +1,9 @@
-# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-11T115413Z)
+# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-11T120554Z)
 
 ## Reality Check
+- `git log -5 --oneline` shows `962bffba` (Galph sync) as the latest commit; no engineer-side change has landed since the workspace-mismatch blocker (`c1f907bc`), so no new CLI/test evidence exists.
+- The active hub inspection confirms `analysis/` still contains only `blocker.log`, while `cli/` holds `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`; there are no SSIM grid summaries, verification logs, metrics deltas, preview artifacts, or artifact inventory files from a counted rerun.
+- `summary/blocker_2025-11-11T115954Z.md` (untracked) reiterates that the previous attempt ran from `/home/ollie/Documents/PtychoPINN2`; until Ralph works from `/home/ollie/Documents/PtychoPINN` the orchestrator will continue writing to the wrong tree and Phase D–G will never execute.
 - Latest sync `32954c41` is another supervisor bookkeeping commit; Ralph hasn’t shipped any dense rerun or verification evidence since the prior blocker logs.
 - The hub still contains only `cli/run_phase_g_dense_stdout.log`, `cli/phase_c_generation.log`, `cli/phase_d_dense.log`, and `analysis/blocker.log`. There is **still no populated `analysis/` directory** (no SSIM grid summaries, verification report/log, metrics deltas, preview artifacts, or artifact inventory evidence), so Phase G exit criteria remain unmet.
 - `analysis/blocker.log` confirms the last counted attempt died during Phase C generation while running from `/home/ollie/Documents/PtychoPINN2` (`--output-root .../data/phase_c`), meaning Phase D–G never started and the ledger guardrail (TEST-CLI-001 + PREVIEW-PHASE-001) is still unsatisfied.

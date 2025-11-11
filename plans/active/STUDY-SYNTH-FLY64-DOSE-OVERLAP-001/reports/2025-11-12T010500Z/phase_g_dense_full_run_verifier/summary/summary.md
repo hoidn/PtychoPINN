@@ -1,4 +1,10 @@
 ### Turn Summary
+Revalidated the Phase G hub after commit 962bffba and confirmed `analysis/` still holds only blocker.log while `cli/` has just `phase_c_generation.log`, `phase_d_dense.log`, and `run_phase_g_dense_stdout.log`, so no SSIM grid, verification, metrics, or preview artifacts exist yet.
+Documented the lingering workspace mismatch via `summary/blocker_2025-11-11T115954Z.md` and noted that Ralph has not rerun the dense Phase C→G pipeline from `/home/ollie/Documents/PtychoPINN`, meaning `{analysis,cli}` never captured the counted rerun or the post-verify-only sweep.
+Next: Ralph must run the mapped pytest collect/execution guard, execute `run_phase_g_dense.py --clobber` followed by `--post-verify-only` from `/home/ollie/Documents/PtychoPINN`, and publish MS-SSIM/MAE deltas plus preview/verifier/SSIM grid evidence and inventory updates across this hub, docs/fix_plan.md, and galph_memory.
+Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ (analysis/blocker.log, summary/blocker_2025-11-11T115954Z.md)
+
+### Turn Summary
 Reality check after sync 32954c41 confirmed the hub still lacks any `analysis/` payloads (only `cli/run_phase_g_dense_stdout.log`, `cli/phase_c_generation.log`, `cli/phase_d_dense.log`, and `analysis/blocker.log`), so the dense rerun never progressed past Phase C in the other clone.
 Updated plan/plan.md (timestamp 2025-11-11T115413Z), docs/fix_plan.md, and input.md with the same ready_for_implementation directive: rerun the mapped pytest collect/execution guards, execute `run_phase_g_dense.py --clobber` plus `--post-verify-only` from `/home/ollie/Documents/PtychoPINN`, and publish MS-SSIM ±0.000 / MAE ±0.000000 deltas with preview/verification references once artifacts land.
 Next: Ralph must run both pytest selectors, perform the dense run + verification sweep into this hub, and document SSIM grid + verifier/highlights outputs (with inventory + metrics digests) across summary.md, docs/fix_plan.md, and galph_memory before closing the loop.
