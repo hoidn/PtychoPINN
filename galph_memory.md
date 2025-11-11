@@ -3456,3 +3456,17 @@
   - Added a new Attempt entry to docs/fix_plan.md and rewrote input.md so Ralph reruns the mapped collect/execution selectors, executes `run_phase_g_dense.py --clobber` followed by `--post-verify-only`, and publishes MS-SSIM ±0.000 / MAE ±0.000000 deltas + preview/verifier evidence under the hub and ledger.
 - Next actions for Ralph: follow the new Do Now (rerun the targeted pytest selectors, run both CLI commands with tee’d logs, ensure `analysis/*` is populated, then update summary.md/docs/fix_plan.md/galph_memory with MS-SSIM/MAE deltas, preview verdict, SSIM grid + verification/highlights references).
 - <Action State>: [ready_for_implementation]
+
+## 2025-11-12T233500Z: Dense rerun evidence directive refresh
+- dwell: 2 (second consecutive planning loop since no counted rerun has landed; handing back ready_for_implementation per dwell guardrail)
+- Focus issue: STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 — Phase G comparison & analysis (dense real evidence + automated report)
+- Action type: Planning
+- Mode: Perf
+- Artifacts: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/
+- Notes:
+  - `timeout 30 git pull --rebase` already up to date; re-exported `AUTHORITATIVE_CMDS_DOC=./docs/TESTING_GUIDE.md` before editing artifacts.
+  - Reality check against commit 535dad55 confirmed Ralph only refreshed post-verify-only pytest + CLI logs; the 2025-11-12 hub still lacks an `analysis/` directory (no SSIM grid, verification, highlights, metrics, or inventory evidence), so the ledger guardrail remains unmet.
+  - Updated `plan/plan.md` (timestamp 2025-11-12T233500Z), hub summaries, docs/fix_plan.md, and input.md with the same ready-for-implementation Do Now: rerun mapped pytest collect/exec selectors, execute `run_phase_g_dense.py --clobber` followed by `--post-verify-only`, then publish MS-SSIM ±0.000 / MAE ±0.000000 deltas, preview verdict, SSIM grid + verification references, and artifact inventory evidence across the hub summaries + ledger.
+- Next actions for Ralph: Follow the refreshed How-To Map (collect-only guard → exec pytest → counted dense run → post-verify-only sweep), archive logs under the hub, and update summary.md/docs/fix_plan/galph_memory with MS-SSIM/MAE deltas plus preview/verifier evidence once `{analysis,cli}` are populated.
+- <Action State>: [ready_for_implementation]
+- focus=STUDY-SYNTH-FLY64-DOSE-OVERLAP-001 state=ready_for_implementation dwell=2 artifacts=plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-12T010500Z/phase_g_dense_full_run_verifier/ next_action=ready_for_implementation

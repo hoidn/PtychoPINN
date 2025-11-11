@@ -1,9 +1,10 @@
-# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-12T223500Z)
+# Dense Phase G Evidence Run + Post-Verify Sweep (2025-11-12T233500Z)
 
 ## Reality Check
-- Commit `ba93f39a` extended `test_run_phase_g_dense_post_verify_only_executes_chain` with SSIM grid + verification banner guards, so both orchestrator paths now enforce the required success-banner lines; GREEN logs live under `.../green/pytest_post_verify_only.log`.
-- The active hub still only has `cli/run_phase_g_dense_stdout.log` and `cli/phase_c_generation.log`; `{analysis,verification,metrics}` remain empty because no dense Phase C→G rerun executed after the latest guards landed, so MS-SSIM/MAE/preview verdicts are still unverified.
-- Without a counted rerun followed by `--post-verify-only` we cannot prove SSIM grid/verifier/highlights artifacts exist, the preview stays phase-only (PREVIEW-PHASE-001), or that artifact inventory regeneration works with the new guard rails.
+- Latest code commit touching this focus is Ralph’s `535dad55`, which only refreshed the CLI + pytest logs (collect + exec) for the post-verify-only guard; no production rerun happened afterward.
+- The active hub still contains only `cli/run_phase_g_dense_stdout.log` and `cli/phase_c_generation.log`. There is **no `analysis/` directory at all**, so SSIM grid summaries, verification report/log, metrics deltas, inventory, and preview artifacts are still missing.
+- Because no dense Phase C→G rerun executed after the guards landed, we have no MS-SSIM/MAE deltas, preview verdict, or verification/highlights payloads to satisfy the ledger guardrail (TEST-CLI-001 + PREVIEW-PHASE-001).
+- Without a counted rerun immediately followed by `--post-verify-only`, we cannot prove (a) SSIM grid/verifier/highlights commands succeed with hub-relative paths, (b) `analysis/artifact_inventory.txt` regenerates after post-verify automation, or (c) the preview remains phase-only once real metrics are produced.
 
 ## Objectives (single Ralph loop)
 1. **Regression check for the guard** — Re-run the collect-only + execution selectors for `test_run_phase_g_dense_post_verify_only_executes_chain` so the new assertions stay GREEN before launching expensive CLI work (TEST-CLI-001).
