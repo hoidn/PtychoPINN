@@ -204,10 +204,12 @@
       4) An artifacts path.
       • If a docs‑only loop is needed, set `Mode: Docs`; you may not run two Docs loops in a row for the same focus.  
       • Bundles: Allowed for multiple checklist IDs under the same focus; list all IDs, verify dependencies/time, and ensure Attempts History reflects all rows.
+      • <strong>Prep-only limit:</strong> After two consecutive non-implementation loops for the same focus, the next Do Now must name a production command (e.g., `python -m studies.fly64_dose_overlap.training ...` or `python -m studies.fly64_dose_overlap.comparison ...`) delivering real evidence plus its pytest selector. Reserving new hubs, restating prerequisites, or rehashing CLI prep without running the command is invalid.
 
     - <strong>How‑To Map</strong>: Exact commands, env vars, ROI/thresholds, and artifact destinations.
       • Prefer `scripts/tools/` or initiative `bin/` scripts for anything Ralph will execute (T2).  
       • <em>Right‑sized persistence:</em> Non‑trivial `python -c` is allowed only for Galph‑local T1 probes and must not appear here; capture it in `summary.md` instead.
+      • If the previous two loops on this focus deferred execution, list the concrete training/comparison command first (deterministic flags + artifact hub). Example: `python -m studies.fly64_dose_overlap.training --dose 1000 --view dense --gridsize 2 --artifact-root plans/active/.../phase_e_training_bundle_real_runs_exec/cli/dose1000_dense_train`.
 
     - <strong>Pitfalls To Avoid</strong>: 5–10 crisp do/don’t reminders (device/dtype neutrality, Protected Assets, vectorization rules, no ad‑hoc scripts).
       <em>Environment:</em> Assume frozen. If a missing dependency is detected, mark `blocked` with the error signature; do not prescribe installs.

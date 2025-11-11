@@ -183,6 +183,13 @@ python -m studies.fly64_dose_overlap.training \
 
 **Findings Applied:** CONFIG-001 (builder stays pure; skip_events accumulated client-side), DATA-001 (Phase C/D regeneration reuses canonical contract), POLICY-001 (PyTorch runner default), OVERSAMPLING-001 (skip reasons cite spacing threshold rejections).
 
+#### Execution Guardrails (2025-11-12)
+- Reuse `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` for all dense gs2 and baseline gs1 real-run artifacts until both bundles + SHA256 proofs exist. Do **not** mint new timestamped hubs for this evidence gap.
+- Before proposing new manifest/test tweaks, promote the Phase C/D regeneration + training CLI steps into `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/bin/run_phase_e_job.py` (T2 script) and reference it from future How-To Maps. Prep-only loops are not permitted once the script exists.
+- Each new Attempt touching Phase E/G must deliver at least one of:
+  * A successful dense gs2 or baseline gs1 training CLI run (stdout must include `bundle_path` + `bundle_sha256`) with artifacts stored under the hub above.
+  * A `python -m studies.fly64_dose_overlap.comparison --dry-run=false ...` execution whose manifest captures SSIM/MS-SSIM metrics plus `n_success/n_failed`.
+
 ### Phase F — pty-chi LSQML Baseline
 - Run scripts/reconstruction/ptychi_reconstruct_tike.py with algorithm='LSQML', num_epochs=100 per test set; capture outputs.
 

@@ -364,6 +364,12 @@ python -m ptycho_torch.train \
   --quiet
 ```
 
+**Dose/Overlap Study Fast Path (2025-11-12):** For initiative `STUDY-SYNTH-FLY64-DOSE-OVERLAP-001`, the training CLI must now produce real bundles before any further manifest/test tweaks. Reuse the shared artifact hub `plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/reports/2025-11-06T110500Z/phase_e_training_bundle_real_runs_exec/` and invoke either `plans/active/.../bin/run_phase_e_job.py --dose 1000 --view dense --gridsize 2` or the explicit CLI command above (TensorFlow backend optional) to capture:
+- `cli/` stdout with `bundle_path` + `bundle_sha256`
+- `data/` copy of the emitted `wts.h5.zip`
+- Updated manifest showing the real artifact paths
+Only after those outputs land may you iterate on additional CLI/test polish or advance the comparison harness. This guardrail prevents repeated plan-only loops and keeps the SSIM/ms-SSIM study focused on shipping metrics.
+
 **Helper-Based Configuration Flow (Phase D.B3, 2025-10-20):**
 The training CLI delegates to shared helper functions in `ptycho_torch/cli/shared.py`:
 - `resolve_accelerator()`: Handles `--device` → `--accelerator` backward compatibility with deprecation warnings
